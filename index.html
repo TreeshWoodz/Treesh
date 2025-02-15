@@ -3287,10 +3287,45 @@ music .playlist .tracks .song.list_view .coverart img,
   margin: auto;
 }
 
+#now_playing:before {
+    content:"";
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    z-index:1000;
+    background:rgba(0,0,0,0.8);
+    opacity:0;
+    z-index:-100;
+    transition:opacity 0.3s ease-in-out, z-index 0s 0.3s;
+}
+
+#now_playing.tip:before {
+    z-index:10;
+    opacity:1;
+    transition-delay:0s;
+}
+
 #now_playing.go {
   opacity: 1;
   z-index: 23;
   transition: opacity 0.3s ease-in-out 0s, z-index 0s 0s !important;
+}
+
+#now_playing #lyrics .nolyrics {
+    position:absolute;
+    top:35%;
+    left:0;
+    right:0;
+    display:block;
+    text-align:center;
+    font-size:1.2em;
+    font-weight:600;
+    color:rgba(255, 255, 255, 1) !important;
+    opacity:0.6 !important;
+    z-index:20;
+    transform:translate3d(0, -50%, 0);
 }
 
 #now_playing #flick-now_playing {
@@ -13367,6 +13402,8 @@ var birthYear;
 var birthMonthName;
 var wholeBday;
 
+let isClickable = true;
+
 const $musicBtn = $(".mm-menu .music_player-btn");
 const $music = $("#music");
 const $musicContent = $("#music .content");
@@ -13709,6 +13746,8 @@ function openNotification() {
   $notificationCloseBtnSpan.text($notificationCloseBtnText);
   $notificationMoreOptions.html($notificationButtons);
   var ifDeactivateTime;
+  
+  isClickable = false;
 
   if (!setNotificationOptions) {
     $notificationOptions.hide();
@@ -13740,6 +13779,8 @@ function openNotification() {
 }
 
 function closeNotification() {
+    isClickable = true;
+    
   $notification.removeClass("go").height(0);
   setNotificationOptions = true;
 
@@ -14269,7 +14310,11 @@ function loadSite() {
       $notificationBodyText =
         "<h1>Welcome to Treesh!</h1><p>Discover new up-and-coming artists passionate in the art of <b>Music</b>. Watch them as they grow and become the next big <b>Icons</b>!</p>";
         setNotificationOptions = true;
+        if ( localStorage.getItem("dateCreated") ) {
     $notificationCloseBtnText = "Next";
+        } else {
+            $notificationCloseBtnText = "Duly noted";
+        }
       openNotification();
       }
       
@@ -14837,8 +14882,33 @@ $("#fun .avaitar").each(function() {
       $deleteDataBtn.text("Yes, Delete").removeClass("fade");
     }
     
+    if ( $this.text() === "Next" && $notificationStatus === "nowPlaying" ) {
+        $notificationStatus = "music";
+            $notificationIconBody = '<i class="fa-regular fa-music"></i>';
+      $notificationBodyText =
+        "<h1>Swipe the Nav Bar</h1><p>While playing music, you can <b>Swipe Left</b> or <b>Right</b> on the <b>Nav Bar</b> to personalize your listening experience!</p>";
+        setNotificationOptions = true;
+    $notificationCloseBtnText = "Gotcha!";
+      openNotification();
+      
+      setTimeout(function() {
+          $menuFlick.flickity("next");
+          $("#now_playing").addClass("tip");
+      $(".mm-menu").removeClass("tip");
+          
+          setTimeout(function() {
+             $menuFlick.flickity("next");
+             
+             setTimeout(function() {
+                 $menuFlick.flickity("selectCell", 0);
+             }, 600);
+          }, 600);
+      }, 600);
+    }
+    
     if ( $this.text() === "Gotcha!" ) {
     localStorage.setItem("learnedNowPlaying", true);
+    $("#now_playing").removeClass("tip");
     }
   });
 
@@ -16429,13 +16499,26 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
         
         setTimeout(function() {
             if ( $("#now_playing").hasClass("go") && !localStorage.getItem("learnedNowPlaying") ) {
-                $notificationStatus = "music";
+                $notificationStatus = "nowPlaying";
             $notificationIconBody = '<i class="fa-regular fa-music"></i>';
       $notificationBodyText =
-        "<h1>Swiiipe to the Left!</h1><p>You've picked a track. Now learn more about it! <i>Swipe LEFT</i> or <i>RIGHT</i> to view lyrics or more information about the song.</p>";
+        "<h1>Swiiipe to the Left!</h1><p>You've picked a track. Now learn more about it! <b>Swipe LEFT</b> or <b>RIGHT</b> to view lyrics or more information about the song.</p>";
         setNotificationOptions = true;
-    $notificationCloseBtnText = "Gotcha!";
+    $notificationCloseBtnText = "Next";
       openNotification();
+      
+      setTimeout(function() {
+          $nowPlayingFlick.flickity("next");
+          (".mm-menu").addClass("tip");
+          
+          setTimeout(function() {
+             $nowPlayingFlick.flickity("next");
+             
+             setTimeout(function() {
+                 $nowPlayingFlick.flickity("selectCell", 0);
+             }, 600);
+          }, 600);
+      }, 600);
         }
         }, 3000);
       });
@@ -16526,7 +16609,7 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
           } else {
             $musicLyricsContainer.empty().hide();
 
-            $("#now_playing #lyrics .heading h1").text("No lyrics, yet!");
+            $("#now_playing #lyrics").append('<div class="nolyrics">No lyrics, yet!</div>');
             $("#now_playing").removeClass("go_lyrics").addClass("no_lyrics");
           }
         }
@@ -17335,6 +17418,7 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
   });
 
   $funSettingsBtn.click(function () {
+      closeNotification();
     $fun.addClass("go-settings");
 
     setTimeout(function () {
@@ -18082,8 +18166,7 @@ if (localStorage.getItem("backdrop") === "false") {
   // GLOBAL FUNCTIONS -------------------------------------
 
   // MENU BAR
-
-  let isClickable = true;
+  
   $navBarItem.click(function (e) {
     e.preventDefault();
     let $this = $(this);
