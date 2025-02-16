@@ -2,7 +2,7 @@
 <head>
   <!-----
 Design: TREESH
-Version: 1.2.06
+Version: 1.2.09
 Release: 02.14.2025
 
 Updated: 02.16.2025
@@ -1227,7 +1227,7 @@ button.active .text {
 
 #icons .member ul h1 {
   position: relative;
-  font-size: 80%;
+  font-size: 70%;
   line-height: 120%;
   z-index: 2;
   font-family: var(--savionce-font);
@@ -3462,6 +3462,10 @@ music .playlist .tracks .song.list_view .coverart img,
   transition: transform 1s cubic-bezier(0.5, 0, 0, 1) 0.2s;
 }
 
+#now_playing.go #record_player.nodelaytransition {
+    transition-delay:0s;
+}
+
 #now_playing #record_player:after {
   content: "";
   height: 100%;
@@ -3470,6 +3474,11 @@ music .playlist .tracks .song.list_view .coverart img,
   top: 0;
   left: 0;
   z-index: 2;
+}
+
+#now_playing #record_player.stopspin2 {
+  transition: transform 1s cubic-bezier(0.5, 0, 0, 1) !important;
+    transform: translate3d(0%, 100%, 0) !important;
 }
 
 #now_playing .record_player {
@@ -16662,10 +16671,11 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
 
       $musicInfoLabel.text(labelText);
 
-      if (nowPlayingScreen === true) {
+      if (nowPlayingScreen === true && $("#music").hasClass("go") ) {
         $music.addClass("go-now_playing");
         setTimeout(function () {
           $("#now_playing").addClass("go");
+          $musicRecordPlayer.addClass("nodelaytransition");
         }, 300);
       }
 
@@ -16720,6 +16730,7 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
           $("#now_playing .song_data, #now_playing #lyrics").removeClass(
             "fade"
           );
+          $musicRecordPlayer.removeClass("stopspin2");
           $musicRecordPlayerVinyl.removeClass("stopspin");
         }, recordTime);
 
@@ -17038,12 +17049,15 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
     menuModalClose();
     const $audioAni = $travelBtn.find(".audio_ani");
     clearTimeout(recordPlayerTimeout);
+    
+    $musicRecordPlayer.removeClass("nodelaytransition");
 
     $("#music").toggleClass("go-now_playing");
     $("#now_playing").toggleClass("go");
 
     if (!$music.hasClass("go")) {
       if ($("#now_playing").hasClass("go")) {
+          $musicRecordPlayer.removeClass("stopspin2");
         $musicRecordPlayerVinyl.removeClass("stopspin");
         $(".mm-menu .open_music_controls-btn")
           .removeClass("go")
@@ -17081,6 +17095,7 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
     const $vinyl = $musicRecordPlayerVinyl;
     $vinyl.addClass("stopspin");
     if (!isPlaying) {
+        $musicRecordPlayer.removeClass("stopspin2");
       $vinyl.removeClass("stopspin");
     }
   }
@@ -18900,6 +18915,14 @@ setTimeout(function() {
     }
 
     if (theSong.currentTime <= 10 && !$("#repeat").hasClass("color")) {
+        if ( $("#now_playing").hasClass("go") ) {
+            $("#now_playing.go .song_data").addClass("fade");
+            
+            setTimeout(function() {
+                $("#now_playing.go .song_data").removeClass("fade");
+            }, 600);
+        }
+        
       if ($dataPreviousSong.text() === "None") {
         $dataPreviousSong.empty();
       }
@@ -18959,6 +18982,15 @@ setTimeout(function() {
     }
 
     if (!$("#repeat").hasClass("color")) {
+        
+        if ( $("#now_playing").hasClass("go") ) {
+            $("#now_playing.go .song_data").addClass("fade");
+            
+            setTimeout(function() {
+                $("#now_playing.go .song_data").removeClass("fade");
+            }, 600);
+        }
+        
       if ($dataPreviousSong.find("[data-song]").length === 0) {
         $selectNextSong = randomSong;
         $dataPreviousSong.empty().text("None");
@@ -18987,6 +19019,7 @@ setTimeout(function() {
     theSong.play();
     $playPause.addClass("playing").removeClass("paused");
     $musicBarInfo.addClass("go");
+    $musicRecordPlayer.removeClass("stopspin2");
     $musicRecordPlayerVinyl.removeClass("stopspin");
 
     if (!$music.hasClass("go")) {
@@ -19103,9 +19136,11 @@ $flickSite.css("height", $windowHeight);
     playing ? pauseSong() : playSong();
   });
   $prevBtn.click(function () {
+    $musicRecordPlayer.addClass("stopspin2");
     prevSong();
   });
   $nextBtn.click(function () {
+    $musicRecordPlayer.addClass("stopspin2");
     nextSong();
   });
   $repeatBtn.click(function () {
