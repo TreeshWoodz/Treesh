@@ -2,7 +2,7 @@
 <head>
   <!-----
 Design: TREESH
-Version: 1.7.7
+Version: 1.7.9.1
 Release: 02.14.2025
 
 Updated: 03.04.2025
@@ -10540,38 +10540,121 @@ section {
     z-index:-100 !important;
 }
 
+#widgets .open_widgets_options-btn {
+    position:absolute;
+    bottom:210px;
+    right:15px;
+    color:white;
+    font-size:0.8em;
+    background:transparent;
+    outline:none;
+    border:none;
+    padding:0px;
+    cursor:pointer;
+    z-index:11;
+}
+
 #widgets .widgets_options {
-    width:100%;
-    max-width:900px;
-    margin:auto;
-    height:20px;
-    position:relative;
-    white-space:nowrap;
-    top:-15px;
-    text-align:right;
+    height:auto;
+    position:absolute;
+    bottom:230px;
+    right:0px;
+    right:15px;
+    text-align:right !important;
     line-height:0px;
     overflow:hidden;
     display:none;
+    width:150px;
+    padding:20px 15px;
+    border-radius:30px;
+    border-bottom-right-radius:0px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 100%);
+    opacity:0;
+    z-index:-100;
+    transform:translate3d(0, 10px, 0);
+    transition:transform 0.15s ease-in, opacity 0.15s ease-in, z-index 0s 0.15s;
+}
+
+#widgets .widgets_options.opened {
+    transition-delay:0s;
+    z-index:10;
+    opacity:1;
+    transform:translate3d(0, 0px, 0);
+}
+
+#widgets .widgets_options:before {
+    content:"";
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    border-radius:30px;
+    background:rgba(0, 0, 0, 0.8);
 }
 
 #widgets .widgets_options button {
     background:transparent;
     border:none;
     color:white;
-    display:inline-block;
+    display:block;
     vertical-align:middle;
+    text-align:right;
     font-weight:600;
     font-family:var(--main-font);
     outline:none;
     text-shadow:0 0 10px rgba(0,0,0,0.2);
-    cursor:pointer;
     position:relative;
     font-size:0.4em;
-    margin-left:15px;
+    width:auto;
+    cursor:default;
+    border-bottom:1px solid rgba(255, 255, 255, 0.2);
+    margin-bottom:15px;
+    padding-bottom:15px;
+    transition:opacity 0.15s ease-in;
+}
+
+#widgets .widgets_options.opened button {
+    cursor:pointer;
+}
+
+#widgets .widgets_options button:first-child {
+    margin-top:0px !important;
+}
+
+#widgets .widgets_options button:last-child {
+    margin-bottom:0px !important;
+    padding-bottom:0px !important;
+    border-bottom:none !important;
+}
+
+#widgets .widgets_options button i {
+    position:relative;
+    text-align:center;
+    display:inline-block;
+    vertical-align:middle;
+    margin-right:5px;
+    background:var(--pink);
+    width:20px;
+    height:20px;
+    font-size:120%;
+    line-height:20px;
+    border-radius:30px;
+}
+
+#widgets .widgets_options button span {
+    position:relative;
+    display:inline-block;
+    vertical-align:middle;
 }
 
 #widgets .widgets_options button:first-child {
     margin-left:0px;
+}
+
+#widgets .widgets_options button.inactive {
+    opacity:0.5 !important;
 }
 
 #flickSite.go-widgets #widgets {
@@ -10782,6 +10865,18 @@ section {
     border-radius:30px;
 }
 
+#fun #widgets .widget.jiggle {
+    animation: jiggle 0.2s infinite ease-in-out;
+}
+
+@keyframes jiggle {
+  0% { transform: rotate(0); }
+  25% { transform: rotate(1deg); }
+  50% { transform: rotate(0); }
+  75% { transform: rotate(-1deg); }
+  100% { transform: rotate(0); }
+}
+
 #fun #widgets .widget .special-btns {
     position:absolute;
     top:-15px;
@@ -10800,7 +10895,7 @@ section {
     text-align:center;
     display:inline-block;
     vertical-align:middle;
-    color:var(--pink);
+    color:white;
     position:relative;
     box-shadow:0 0 10px rgba(0, 0, 0, 0.2);
     line-height:30px;
@@ -11999,9 +12094,12 @@ section {
             
             <div id="widgets">
             <div class="widgets_options">
-            <button type="button" class="resize_widgets-btn">Resize Widgets</button>
-                <button type="button" class="hide_widgets-btn">Hide Widgets</button>
+            <button type="button" class="resize_widgets-btn"><i class="fa-solid fa-expand"></i> <span>Resize Widgets</span></button>
+            <button type="button" class="reposition_widgets-btn"><i class="fa-solid fa-up-down-left-right"></i> <span>Reposition Widgets</span></button>
+                <button type="button" class="hide_widgets-btn"><i class="fa-solid fa-eye"></i> <span>Hide Widgets</span></button>
             </div>
+            
+            <button type="button" class="open_widgets_options-btn"><i class="fa-solid fa-gear"></i></button>
                 
                 <div class="music_widget draggable widget enlarge">
                     <div class="thumbnail music_widget-section">
@@ -14948,27 +15046,42 @@ initparticles();
                                  }
                              });
                              
-                             
+          
+          
+          $("#fun #widgets").find(".draggable").each(function () {
+    let $this = $(this);
+    let id = $this.attr("id");
+    let savedPos = localStorage.getItem(id);
 
-$("#fun #widgets").find(".draggable").each(function () {
-            let $this = $(this);
-            let id = $this.attr("id");
-            let savedPos = localStorage.getItem(id);
+    if (savedPos) {
+        let pos = JSON.parse(savedPos);
+        $this.css({ top: pos.top, left: pos.left });
+    }
 
-            if (savedPos) {
-                let pos = JSON.parse(savedPos);
-                $this.css({ top: pos.top, left: pos.left });
-            }
+    $this.draggable({
+        containment: "#widgets",
+        stop: function (event, ui) {
+            let position = { top: ui.position.top, left: ui.position.left };
+            localStorage.setItem(id, JSON.stringify(position));
+        }
+    });
 
-            $this.draggable({
-                containment: "#widgets",
-                stop: function (event, ui) {
-                    let position = { top: ui.position.top, left: ui.position.left };
-                    localStorage.setItem(id, JSON.stringify(position));
-                }
-            });
-            
-            $this.find('p').each(function () {
+
+function toggleDraggable() {
+        if ($("#widgets .widgets_options .reposition_widgets-btn").hasClass("active")) {
+            $this.draggable("enable");
+        } else {
+            $this.draggable("disable");
+        }
+}
+
+toggleDraggable();
+
+    let observer = new MutationObserver(toggleDraggable);
+    observer.observe(document.querySelector("#widgets .widgets_options .reposition_widgets-btn"), { attributes: true, attributeFilter: ["class"] });
+    
+    
+    $this.find('p').each(function () {
                 let $p = $(this);
                 let textWidth = $p[0].scrollWidth;
                 let containerWidth = $p.parent().width();
@@ -14977,20 +15090,67 @@ $("#fun #widgets").find(".draggable").each(function () {
                     $p.addClass("marquee");
                 }
             });
-        });
-        
-        $("#fun #widgets .draggable").on("mouseenter touchstart", function () {
-    $flickSite.flickity("unbindDrag");
-}).on("mouseleave touchend", function () {
-    $flickSite.flickity("bindDrag");
 });
 
 
+        
+        $("#fun #widgets .draggable").on("mouseenter touchstart", function () {
+            if ( $("#widgets .widgets_options .reposition_widgets-btn").hasClass("active") ) {
+    $flickSite.flickity("unbindDrag");
+    $("#widgets .widgets_options").css("opacity", "0.3");
+            }
+}).on("mouseleave touchend", function () {
+    if ( !$("#widgets .widgets_options .reposition_widgets-btn").hasClass("active") ) {
+    $flickSite.flickity("bindDrag");
+    } else {
+        $("#widgets .widgets_options").css("opacity", "1");
+    }
+});
+
+
+$("#widgets .open_widgets_options-btn").click(function() {
+                    if ( !$(this).hasClass("opened") ) {
+                        $(this).add("#widgets .widgets_options").addClass("opened");
+                        $(this).find("i").removeClass("fa-gear").addClass("fa-xmark");
+                    } else {
+                        $("#widgets .widgets_options").find("button.active").click();
+                        $(this).add("#widgets .widgets_options").removeClass("opened");
+                        $(this).find("i").removeClass("fa-xmark").addClass("fa-gear");
+                        $("#widgets .widgets_options button").removeClass("inactive");
+                    }
+                });
+                
+$("#widgets .widgets_options .reposition_widgets-btn").click(function() {
+                    if ( $("#widgets .widgets_options").hasClass("opened") ) {
+                        if ( !$(this).hasClass("active") ) {
+                            $("#widgets .widget").addClass("jiggle");
+                            $(this).addClass("active");
+                        $(this).find("span").text("Cancel Reposition");
+                        } else {
+                            $("#widgets .widget").removeClass("jiggle");
+                            $(this).removeClass("active");
+                            $(this).find("span").text("Reposition Widgets");
+                        }
+                    }
+                });
+                
+                $("#widgets .widgets_options button").click(function() {
+                   if ( !$(this).hasClass("inactive") ) {
+                       $(this).siblings().not(".hide_widgets-btn").toggleClass("inactive");
+                   }
+                });
+
+
  $("#widgets .widgets_options .hide_widgets-btn").click(function() {
-                    $(this).text(function(_, text) {
+     if ( $("#widgets .widgets_options").hasClass("opened") ) {
+         $("#widgets .widgets_options").find("button.active").click();
+         $("#widgets .widgets_options button").removeClass("inactive");
+                    $(this).find("span").text(function(_, text) {
         return text === "Hide Widgets" ? "Show Widgets" : "Hide Widgets";
     });
                    $("#widgets .widget").toggleClass("go"); 
+                   $(this).siblings().toggle();
+     }
                 });
 
 
@@ -15028,10 +15188,18 @@ $("#widgets .music_widget").click(function() {
 });
 
 $("#fun #widgets .resize_widgets-btn").click(function() {
+    if ( $("#widgets .widgets_options").hasClass("opened") ) {
+        
+        if ( !$(this).hasClass("active") ) {
+            $(this).addClass("active");
+        } else {
+            $(this).removeClass("active");
+        }
+        
     if (!$("#fun #widgets").hasClass("resize-active")) {
         $("#fun #widgets .widget").append('<div class="special-btns"><button type="button" class="resize-btn"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>');
         $("#fun #widgets").addClass("resize-active");
-        $(this).text("Cancel Resize");
+        $(this).find("span").text("Cancel Resize");
         
         $("#fun #widgets .widget").each(function() {
             if ($(this).hasClass("enlarge")) {
@@ -15045,7 +15213,8 @@ $("#fun #widgets .resize_widgets-btn").click(function() {
     } else {
         $("#fun #widgets .widget .special-btns").remove();
         $("#fun #widgets").removeClass("resize-active");
-        $(this).text("Resize Widgets");
+        $(this).find("span").text("Resize Widgets");
+    }
     }
 });
                    
@@ -16307,6 +16476,10 @@ $flickSite.on("change.flickity", function (event, index) {
   
   menuModalClose();
   
+  if ( $("#widgets .widgets_options").hasClass("opened") ) {
+      $("#widgets .open_widgets_options-btn").click();
+  }
+  
   if ( $("#fun #widgets .resize_widgets-btn").text() === "Cancel Resize" ) {
       $("#fun #widgets .resize_widgets-btn").click();
   }
@@ -16325,6 +16498,7 @@ $flickSite.on("change.flickity", function (event, index) {
               .addClass("go");
               
               $(".pfp_backdrop.image-upload").removeClass("go-modal");
+              $("#flickSite").removeClass("go-modal");
   } else {
       
       if ( $("#flickSite").hasClass("go-settings") ) {
@@ -20202,10 +20376,10 @@ setTimeout(function() {
             $notificationStatus = "fun";
           // If Fun is Open and Settings Open
 
-          if ($("#flickSite").hasClass("go") && !$("#flickSite").hasClass("go-settings")) {
+          if ($("#fun").hasClass("is-selected") && !$("#flickSite").hasClass("go-settings")) {
             $(".page_title span").text($this.attr("data-title"));
           } else if (
-            $("#flickSite").hasClass("go") &&
+            $("#fun").hasClass("is-selected") &&
             $("#flickSite").hasClass("go-settings")
           ) {
             $(".page_title span").text(
