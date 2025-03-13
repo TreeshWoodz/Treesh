@@ -2,7 +2,7 @@
 <head>
   <!-----
 Design: TREESH
-Version: 1.7.9.999
+Version: 1.8
 Release: 02.14.2025
 
 Updated: last 03.11.2025 now 03.12.2025
@@ -10735,7 +10735,6 @@ section {
     text-align:right !important;
     line-height:0px;
     overflow:hidden;
-    display:none;
     width:150px;
     padding:20px 15px;
     border-radius:30px;
@@ -11488,9 +11487,7 @@ section {
           <div class="contain">
             <button type="button" class="music_widget-btn"><span><i class="fa-solid fa-music"></i></span> <span>Show Music Widget</span></button>
             
-            <!--
-            <button type="button" class="lyrics_widget-btn"><span><i class="fa-solid fa-music"></i></span> <span>Show Lyrics Widget</span></button>
-            --->
+            <button type="button" class="lyrics_widget-btn"><span><i class="fa-solid fa-pen-nib"></i></span> <span>Show Lyrics Widget</span></button>
           </div>
         </div>
 
@@ -12543,7 +12540,7 @@ document.querySelector('#scrubber').addEventListener('input', e => {
                     </div>
                 </div>
                 
-                <!---
+               
                 <div class="lyrics_widget draggable widget">
                 <div class="colorize"></div>
                         <div class="widget_section lyrics_section">
@@ -12557,7 +12554,6 @@ document.querySelector('#scrubber').addEventListener('input', e => {
                   <p class="music_track">Welcome to the Woodz</p>
                         </div>
                 </div>
-                --->
                 
             </div>
 
@@ -17183,6 +17179,7 @@ function loadSite() {
       
     }, 1000);
   }, 4200);
+
 }
 
 if (localStorage.getItem("dateCreated")) {
@@ -20059,11 +20056,9 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
     if ( $(this).find("span:last").text() === "Show Music Widget" ) {
         $("#fun .music_widget").removeClass("go");
         localStorage.setItem("show music widget", "false");
-        $("#widgets .widgets_options").hide();
     } else {
         $("#fun .music_widget").addClass("go");
         localStorage.setItem("show music widget", "true");
-        $("#widgets .widgets_options").show();
     }
   });
   
@@ -20078,6 +20073,13 @@ window.history.replaceState(null, 'Now Playing - TREESH Music', ("/music/track/"
     } else {
         $("#fun .lyrics_widget").addClass("go");
         localStorage.setItem("show lyrics widget", "true");
+        
+        $notificationIconBody = '<i class="fa fa-music"></i>';
+      $notificationBodyText =
+        "<h1>BETA feature found!</h1><p>The <b>Lyrics Widget</b> is currently a new feature being actively worked on. It is a <b>BETA feature</b> meaning some problems may arrise when this feature is active.</p>";
+        setNotificationOptions = true;
+    $notificationCloseBtnText = "I'ma check it out";
+      openNotification();
     }
   });
 
@@ -22023,21 +22025,35 @@ $("#fun .fun_music .fun_music-content [data-song]").each(function() {
 
 <script>
 $(document).ready(function() {
-    $("#now_playing .lyrics").on("dblclick", "p.current:not(.liked)", function() {
+   var lastTap = 0;
+
+$("#now_playing .lyrics").on("dblclick", "p.current:not(.liked)", function() {
+    handleLyricFavorite($(this));
+});
+
+$("#now_playing .lyrics").on("touchend", "p.current:not(.liked)", function(event) {
+    var currentTime = new Date().getTime();
+    var tapLength = currentTime - lastTap;
+    if (tapLength < 300 && tapLength > 0) {
+        handleLyricFavorite($(this));
+    }
+    lastTap = currentTime;
+});
+
+function handleLyricFavorite($this) {
     // Get necessary data from the DOM
     var NPTrack = $("#now_playing .song_data h1").text();
     var NPArtist = $("#now_playing .song_data h2").text();
     var NPBG = $("#now_playing #record_player .record_player").attr("src");
-    var $this = $(this);
     var $lyricsSection = $("#widgets .lyrics_widget .lyrics_section");
 
     // Add liked class and notification setup
     $this.addClass("liked");
-        $notificationIconBody = '<i class="fa fa-music"></i>';
-        $notificationBodyText = "You've favorited a lyric line from <b>'" + $("#now_playing .song_data h1").text() + "'</b> by <b>" + $("#now_playing .song_data h2").text() + "</b>!";
-      setNotificationOptions = false;
-      notificationTimer = 6000;
-      openNotification();
+    $notificationIconBody = '<i class="fa fa-music"></i>';
+    $notificationBodyText = "You've favorited a lyric line from <b>'" + NPTrack + "'</b> by <b>" + NPArtist + "</b>!";
+    setNotificationOptions = false;
+    notificationTimer = 6000;
+    openNotification();
 
     // Update widget background and info
     $("#widgets .lyrics_widget").css("background-image", "url(" + NPBG + ")");
@@ -22073,7 +22089,8 @@ $(document).ready(function() {
 
     // Reload Flickity cells
     $lyricsWidgetFlick.flickity('reloadCells');
-});
+}
+
 
 });
 </script>
