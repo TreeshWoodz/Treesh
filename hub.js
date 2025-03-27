@@ -63,6 +63,32 @@ $(document).ready(function() {
     });
 });
 
+
+	$("#fun .about_you .about_you-item:not(.your_zodiac)").click(function() {
+  if ($(this).hasClass("your_join_date")) {
+    $notificationIconBody = '<i class="fa-solid fa-star"></i>';
+    $notificationBodyText = "<h1>Thank you, " + nickname + "!</h1> <p>We appreciate you for joining and supporting our <b>Icons</b>!</p> <p>You've visited <b>"+ visits +"</b> times and your longest time listening to music is <b>"+ storedTime +" minutes</b>!</p>";
+  }
+  else if ($(this).hasClass("your_birthday")) {
+    $notificationIconBody = '<i class="fa-solid fa-cake-candles"></i>';
+    $notificationBodyText = "<h1>Only " + daysLeft + " days to go!</h1> <p>Sure, your age adds up but you're only getting younger, <b>" + nickname + "</b>! Let's party soon!</p>";
+  }
+  
+  setNotificationOptions = true;
+  $notificationCloseBtnText = "Close";
+  $notificationStatus = "you";
+  
+  if ( $(".mm-menu .notification").hasClass("go") ) {
+      closeNotification();
+      
+      setTimeout(function() {
+          openNotification();
+      }, 600);
+  } else {
+      openNotification();
+  }
+    });
+
     
     
     $("#fun .fun_music .options button.options-btn").click(function() {
