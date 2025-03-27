@@ -1273,10 +1273,6 @@ $("#fun .avaitar").each(function() {
     return false;
   });
 
-	$("#music .tracks .grid").load("content/songs.html ul", function() {
-    $grid.isotope('reloadItems').isotope('layout');
-});
-
   // Check if user's visited before
 
   // Check if favorite color is in local storage and set CSS variable
