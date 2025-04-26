@@ -3,10 +3,10 @@
 <head>
   <!-----
 Design: TREESH
-Version: 2.4.1
+Version: 2.4.4d
 Release: 02.14.2025
 
-Updated: last 04.24.2025 now 04.25.2025
+Updated: last 04.25.2025 now 04.25.2025
 
 COPYRIGHT TREESH WOODZ 2025 All Rights Reserved.
 
@@ -13082,15 +13082,6 @@ section {
             </form>
           </div>
         </div>
-        
-
-        <div id="scrub" class="modal">
-          <div class="contain">
-            <span class="scrubTime">0</span>
-            <input type="range" id="scrubber" value="0" step="1" max="0" />
-            <span class="scrubDuration">0</span>
-          </div>
-        </div>
 
         <div id="music_filters" class="modal buttons" for="music">
           <div class="contain">
@@ -13105,13 +13096,14 @@ section {
             <div data-show="nowplaying">
             <button type="button" class="favorite_song-btn" data-action="favorite song"><span><i class="fa-solid fa-heart"></i></span> <span>Favorite Song</span></button>
              <button type="button" class="lyrics_song-btn" data-action="song lyrics"><span><i class="fa-solid fa-pen-nib"></i></span> <span>Lyrics</span></button>
-             <button type="button" class="song_home-btn" data-action="main screen"><span><i class="fa-solid fa-music"></i></span> <span>Main Screen</span></button>
+             <button type="button" class="song_home-btn" style="display:none;" data-action="main screen"><span><i class="fa-solid fa-music"></i></span> <span>Main Screen</span></button>
              <button type="button" class="lyricSync-btn" style="display:none;" data-action="sync lyrics"><span><i class="fa-solid fa-puzzle-piece"></i></span> <span>LyricSync <small style="font-size:80%; text-transform:uppercase;">BETA</small></span></button>
              <button type="button" class="about_song-btn" data-action="about song"><span><i class="fa-solid fa-circle-info"></i></span> <span>About</span></button>
              <!----
               <button type="button" class="share_song-btn" data-action="share song"><span><i class="fa-solid fa-share-nodes"></i></span> <span>Share</span></button>
              <button type="button" class="delete_song-btn" data-action="delete song"><span><i class="fa-solid fa-trash-can"></i></span> <span>Delete</span></button>
              ---->
+             <button type="button" class="music_scrubber-btn" data-action="open scrubber"><span><i class="fa-solid fa-hourglass"></i></span> <span>Open Scrubber</span></button>
             </div>
             
             <div data-show="icon">
@@ -13122,6 +13114,7 @@ section {
             </div>
           </div>
         </div>
+        <!--- END MUSIC FILTERS ---->
         
         <div class="menu_info-section">
         
@@ -13234,6 +13227,15 @@ section {
           </div>
         </div>
         <!--- END MENU INFO --->
+        
+        <div id="scrub" class="modal">
+          <div class="contain">
+            <span class="scrubTime">0</span>
+            <input type="range" id="scrubber" value="0" step="1" max="0" />
+            <span class="scrubDuration">0</span>
+          </div>
+        </div>
+        <!--- END MUSIC SCRUBBER --->
         
         <div id="mm-nickname" class="menu_info-sub_section">
          <span class="nickname">Friend</span>
@@ -18382,6 +18384,10 @@ $flickSite.on("change.flickity", function (event, index) {
   
   menuModalClose();
   
+  if ( $("#now_playing").hasClass("go") ) {
+  $("#now_playing").removeClass("go");
+  }
+  
   if ( $("#widgets .widgets_options").hasClass("opened") ) {
       $("#widgets .open_widgets_options-btn").click();
   }
@@ -18404,6 +18410,10 @@ $flickSite.on("change.flickity", function (event, index) {
   }
   
   if ( $("#fun").hasClass("is-selected") ) {
+      if ( $(".mm-menu #music_filters").hasClass("go") ) {
+      $("#music_filters").css("height", "0px").removeClass("go");
+      }
+      
       $("#welcomeInfo")
               .css("height", $("#welcomeInfo").children().outerHeight() + "px")
               .addClass("go");
@@ -19527,11 +19537,11 @@ $window.scroll(function(e) {
       }
       
       if ( $this.hasClass("liked") ) {
-          $("#about_artist .favorite-btn").addClass("clicked").find("p").text("Favorited");
+          $("#about_artist .favorite-btn, #music_filter .favorite_icon-btn").addClass("clicked").find("p").text("Favorited");
           $(".mm-menu #music_filters .favorite_icon-btn").addClass("clicked");
           $(".mm-menu #music_filters .favorite_icon-btn span:last").html('Favorited <p class="artist_picked">'+ theName +'</p>');
       } else {
-          $("#about_artist .favorite-btn").removeClass("clicked").find("p").text("Favorite");
+          $("#about_artist .favorite-btn, #music_filter .favorite_icon-btn").removeClass("clicked").find("p").text("Favorite");
           $(".mm-menu #music_filters .favorite_icon-btn").removeClass("clicked");
           $(".mm-menu #music_filters .favorite_icon-btn span:last").html('Favorite <p class="artist_picked">'+ theName +'</p>');
       }
@@ -20050,10 +20060,6 @@ $window.scroll(function(e) {
 	$nowPlayingFlick.on("change.flickity", function () {
     $(".slide.is-selected").siblings().scrollTop();
     
-    if ( $(this).find("#lyrics").hasClass("is-selected") ) {
-    $("#now_playing #lyrics .nolyrics").css("opacity", "1");
-    }
-    
     if ( !$("#now_playing #now_playing-main").hasClass('is-selected') ) {
         $("#now_playing").addClass("blur_bg");
         $(".mm-menu #music_filters div[data-show='nowplaying']").find(".song_home-btn").show();
@@ -20062,6 +20068,8 @@ $window.scroll(function(e) {
     }
     
     if ( $("#now_playing #lyrics").hasClass("is-selected") ) {
+    $("#now_playing #lyrics .nolyrics").css("opacity", "1");
+    
         if ( $("#now_playing #lyrics .lyrics p[data-minutes]").length ) {
             $(".mm-menu #music_filters [data-show='nowplaying'] .lyricSync-btn").show().prependTo(".mm-menu [data-show='nowplaying']");
         } else {
@@ -20071,6 +20079,7 @@ $window.scroll(function(e) {
         $(".mm-menu #music_filters div[data-show='nowplaying']").find(".lyrics_song-btn").hide();
     } else {
         $(".mm-menu #music_filters div[data-show='nowplaying']").find(".lyrics_song-btn").show();
+        $(".mm-menu #music_filters [data-show='nowplaying'] .lyricSync-btn").hide();
     }
     
     if ( $("#now_playing #about_song").hasClass("is-selected") ) {
@@ -20230,11 +20239,15 @@ $window.scroll(function(e) {
                       }
                   });
                   
-                  $(document).on("click", ".donate-btn", function() {
+                  /*
+                  $(document).on("click", ".mm-menu .donate-btn, #about_artist ", function() {
                       var cashApp = $("#music .artists .artist.clicked").attr("data-cashapp");
+                      
   window.open("https://cash.app/" + cashApp, "_blank");
+  return false;
                   });
-
+                  */
+ 
   $musicArtistsItems
     .on("mousedown touchstart", function () {
       favoriteArtist($(this));
@@ -20571,10 +20584,10 @@ history.pushState(null, null, '?artist=' + mainArtist.replace(/\s+/g, '-') + "&s
       
       if ( $this.find(".fave-hrt").length ) {
           $("#about_song #toggle-heart").prop('checked', true);
-          $("#now_playing #about_song #toggle-heart").parent().find("p").text("Favorited");
+          $("#now_playing #about_song #toggle-heart").parent().find("p").text("Favorited Song");
       } else {
           $("#about_song #toggle-heart").prop('checked', false);
-          $("#now_playing #about_song #toggle-heart").parent().find("p").text("Favorite");
+          $("#now_playing #about_song #toggle-heart").parent().find("p").text("Favorite Song");
       }
 
       $(".mm-menu .section[for='music']").show();
@@ -20991,19 +21004,25 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
     .on("mouseup touchend", function () {
       clearTimeout(pressTimer);
     });
+    
+    $(".mm-menu #music_filters .music_scrubber-btn").click(function() {
+        scrubberFunc();
+    });
 
   function scrubberFunc() {
-    var pressTimerTime = 1000;
 
     pressTimer = setTimeout(function () {
       if ($musicScrub.hasClass("go")) {
         $musicScrub.css("height", "0px").removeClass("go");
+        $(".mm-menu #music_filters .music_scrubber-btn").removeClass("clicked");
       } else {
         $musicScrub
           .height($musicScrub.find(".contain").innerHeight())
           .addClass("go");
+          
+          $(".mm-menu #music_filters .music_scrubber-btn").addClass("clicked");
       }
-    }, pressTimerTime);
+    }, 100);
   }
 
   $musicScrubber.on("input", function () {
@@ -21011,10 +21030,6 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
     clearTimeout(pressTimer);
   });
   
-  document.querySelector('#scrubber').addEventListener('input', e => {
-    const _t = e.target;
-    document.querySelector('body').style.setProperty('--val', `${+_t.value}`);
-});
 
   // MUSIC MODULE - SCROLLING --------------
 
@@ -22813,6 +22828,10 @@ $(".mm-menu .page_title, .site_page #page_options .page_options-btn").click(func
       if ( $(this).hasClass("about_song-btn") ) {
           $nowPlayingFlick.flickity("selectCell", 2);
       }
+
+	if ( $(this).hasClass("song_home-btn") ) {
+          $nowPlayingFlick.flickity("selectCell", 0);
+      }
       
       if ( $(this).hasClass("lyricSync-btn") ) {
           if ( !$(this).hasClass("clicked") ) {
@@ -22875,7 +22894,7 @@ $(".mm-menu .page_title, .site_page #page_options .page_options-btn").click(func
           $(".mm-menu #music_filters div[data-show='nowplaying']").show();
           
           if ( $("#now_playing #now_playing-main").hasClass('is-selected') ) {
-          $(".mm-menu .page_title .title span").text("Current Track");
+          $(".mm-menu .page_title .title span").text("Main Screen");
     }
     
           if ( $("#now_playing #lyrics").hasClass("is-selected") ) {
@@ -22885,10 +22904,22 @@ $(".mm-menu .page_title, .site_page #page_options .page_options-btn").click(func
     if ( $("#now_playing #about_song").hasClass("is-selected") ) {
         $(".mm-menu .page_title .title span").html("About <b>\"" + $("#now_playing .song_data h1").text() + "\"</b>");
     }
+    
+    if ( $("#now_playing").attr("data-lyricSync") === "true" ) {
+            $(".mm-menu #music_filters [data-show='nowplaying'] .lyricSync-btn").addClass("clicked");
+        } else {
+            $(".mm-menu #music_filters [data-show='nowplaying'] .lyricSync-btn").removeClass("clicked");
+        }
+        
+        if ($("#music .grid .song.play").hasClass("liked")) {
+          $(".mm-menu #music_filters .favorite_song-btn").addClass("clicked");
+          } else {
+              $(".mm-menu #music_filters .favorite_song-btn").removeClass("clicked");
+          }
         }
         
         if ( $("#about_artist").hasClass("go") ) {
-             $(".mm-menu #music_filters div[data-show]").hide();
+             $(".mm-menu #music_filters div[data-show], .mm-menu #music_filters [data-for]").hide();
           $(".mm-menu #music_filters div[data-show='icon']").show();
           $(".mm-menu .page_title .title span").html("Icon <b>" + $("#about_artist .about_artist-contain h1").text() + "</b>");
         }
@@ -22906,18 +22937,22 @@ $(".mm-menu .page_title, .site_page #page_options .page_options-btn").click(func
           $(".open_music_controls-btn").removeClass("opened");
           $(".mm-menu .search-music").css("height", "0px").removeClass("go");
           $("#music_filters").css("height", "0px").removeClass("go");
-          $("#music_filters button").removeClass("clicked");
           
-          if ($(".mm-menu .lyrics-btn").hasClass("clicked")) {
-              
-            $(".mm-menu .lyrics-btn").click();
-            
+          if ( $(".mm-menu .search-btn").hasClass("clicked") ) {
+              $(".mm-menu .search-btn").removeClass("clicked");
           }
           
         } else {
             
             $("#flickSite .site_page .page_options-btn").addClass("active");
           $(".open_music_controls-btn").addClass("opened");
+          
+          if ($musicScrub.hasClass("go")) {
+          $(".mm-menu #music_filters .music_scrubber-btn").addClass("clicked");
+          } else {
+          $(".mm-menu #music_filters .music_scrubber-btn").removeClass("clicked");
+          }
+          
           $("#music_filters").css("height", $("#music_filters").children().outerHeight() + "px").addClass("go");
             
         }
