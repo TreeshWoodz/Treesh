@@ -3,7 +3,7 @@
 <head>
   <!-----
 Design: TREESH
-Version: 2.4.4f
+Version: 2.4.4l
 Release: 02.14.2025
 
 Updated: last 04.25.2025 now 04.25.2025
@@ -1238,7 +1238,7 @@ button.active .text {
   height: 80px;
   position: fixed;
   top: 15px !important;
-  z-index: 30;
+  z-index:10002 !important;
   left: 0;
   right: 0;
   white-space:nowrap;
@@ -2026,7 +2026,7 @@ select {
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.15);
   max-height: 76vh;
-  z-index: 28;
+  z-index:10002 !important;
   overflow: hidden;
   left: 0;
   right: 0;
@@ -4065,7 +4065,6 @@ z-index:5;
     #now_playing {
         padding-top:0px;
 }
-
 }
 
 #now_playing:before {
@@ -4077,10 +4076,14 @@ z-index:5;
     height:100%;
     z-index:1000;
     background:var(--pink);
-    opacity:1;
     z-index:-100;
+    opacity:0;
     filter:brightness(60%);
     transition:opacity 0.3s ease-in-out, z-index 0s 0.3s;
+}
+
+#now_playing.go:before {
+    opacity:1;
 }
 
 #now_playing.tip:before {
@@ -4091,7 +4094,7 @@ z-index:5;
 
 #now_playing.go {
   opacity: 1;
-  z-index: 9;
+  z-index:10001 !important;
   transition: opacity 0.3s ease-in-out 0s, z-index 0s 0s !important;
 }
 
@@ -4115,7 +4118,7 @@ z-index:5;
   background-position:center !important;
   opacity: 0;
   z-index: 1;
-  transition: opacity 0.6s ease-in-out;
+  transition: opacity 0.3s ease-in-out;
 }
 
 #now_playing.go .bg {
@@ -4251,20 +4254,15 @@ z-index:5;
   height: auto;
   left: 50%;
   display: block;
-  opacity: 0;
   margin: auto;
-  transform: rotateZ(0deg) translate3d(-50%, 0%, 0);
+  transform:translate3d(-50%, 0%, 0) rotateZ(0deg);
   transform-origin: 0% 50%;
-  animation-play-state: paused;
-  animation: record 3s linear 0s infinite forwards;
-  animation-play-state: paused;
   transition: border-color 0.3s ease-in;
 }
 
 #now_playing.go .record_player {
-  opacity: 1;
   box-shadow: 0 0 30px var(--pink);
-  transform: rotateZ(0deg) translate3d(-50%, 0%, 0);
+  transform: translate3d(-50%, 0%, 0) rotateZ(0deg);
 }
 
 #now_playing.go .record_player.stopspin {
@@ -5883,6 +5881,7 @@ input[type=range]:focus {
   height: 100%;
   position: relative;
   overflow: auto;
+  transition:opacity 0.3s ease-in;
 }
 
 .flickity-viewport {
@@ -7097,10 +7096,6 @@ text-align: center;
   margin-top: 15px;
 }
 
-[data-nickname] {
-  color: var(--pink);
-}
-
 #fun [data-song],
 #fun [data-artist] {
   cursor: pointer;
@@ -7492,30 +7487,11 @@ input[type="file"] {
   height: auto;
   text-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
   padding: 60px 0px 10px 0px;
-  opacity: 0;
   margin: auto;
   margin-top:-200px;
   display: block;
   z-index: 3;
   transition: opacity 0.6s ease-in-out;
-}
-
-#fun .current:before {
-  content: "";
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0) 0%,
-    var(--pink) 100%
-  );
-  width: 100%;
-  height: 400px;
-  top: -400px;
-  opacity: 0.8;
-  left: 0;
-  position: absolute;
-  
-  filter:brightness(50%);
-  -webkit-filter:brightness(50%);
 }
 
 #fun .current:after {
@@ -7527,7 +7503,11 @@ input[type="file"] {
   top: 0;
   opacity: 0.8;
   left: 0;
-  background:var(--pink);
+   background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0%,
+    var(--pink) 20%
+  );
   filter:brightness(50%);
   -webkit-filter:brightness(50%);
 }
@@ -7544,14 +7524,7 @@ input[type="file"] {
   position: relative;
   display: block;
   z-index:2;
-}
-
-#fun .current .flick:after {
-  content: "";
-  clear: both;
-  display: table;
-  height: 320px;
-  width: 100%;
+  opacity:0;
 }
 
 @media screen and (min-width:900px) {
@@ -18480,6 +18453,8 @@ function openNotification() {
   }
   
   $(".mm-menu .notification .section.body").scrollTop(0);
+  
+  navBarResize();
 }
 
 function closeNotification() {
@@ -18975,7 +18950,7 @@ $flickSite.on("change.flickity", function (event, index) {
   } else {
       
       if ( $("#flickSite").hasClass("go-settings") ) {
-      $cancelSettingsBtn.click();
+      cancelSettings();
       }
       
       $("#welcomeInfo")
@@ -20519,7 +20494,6 @@ $window.scroll(function(e) {
     if ($("#now_playing").hasClass("go")) {
       $travelBtn.find(".audio_ani").removeClass("go");
       $travelBtn.find("i").removeClass("fadeOut");
-      $musicRecordPlayerVinyl.removeClass("stopspin");
     }
 
     if (localStorage.getItem("favArtist")) {
@@ -20608,8 +20582,6 @@ $window.scroll(function(e) {
   // MUSIC WHAT'S NEW
 
 	$nowPlayingFlick.on("change.flickity", function () {
-    $(".slide.is-selected").siblings().scrollTop();
-    
     if ( !$("#now_playing #now_playing-main").hasClass('is-selected') ) {
         $("#now_playing").addClass("blur_bg");
         $(".mm-menu #music_filters div[data-show='nowplaying']").find(".song_home-btn").show();
@@ -20640,6 +20612,16 @@ $window.scroll(function(e) {
     
     initiatePageOptions();
   });
+  
+  $nowPlayingFlick.on('settle.flickity', function() {
+  if ( !$("#now_playing #about_song").hasClass("is-selected") ) {
+        $("#now_playing #about_song .contain").scrollTop(0);
+    }
+    
+    if ( !$("#now_playing #lyrics").hasClass("is-selected") ) {
+        $("#now_playing #lyrics .lyrics").scrollTop(0);
+    }
+});
 
   $musicWhatsNewFlick.on("change.flickity", function (event, index) {
     var $this = $(this);
@@ -21268,8 +21250,6 @@ for (let i = 1; i < parts.length; i++) {
 
       $nowPlayingSongDataTitle.html(songName);
       $nowPlayingSongDataArtist.text(songArtist);
-  
-      $musicRecordPlayerVinyl.addClass("stopspin");
 
       setTimeout(function () {
         $musicRecordPlayerVinyl.attr("src", thumbnail);
@@ -21310,8 +21290,6 @@ for (let i = 1; i < parts.length; i++) {
           $("#now_playing .song_data, #now_playing #lyrics").removeClass(
             "fade"
           );
-          $musicRecordPlayer.removeClass("stopspin2");
-          $musicRecordPlayerVinyl.removeClass("stopspin");
         }, recordTime);
 
         playRandomSong();
@@ -21429,6 +21407,14 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
         }
 
         $musicScrubber.val(currentTime);
+        
+        if ( $("#now_playing").hasClass("go") && $("#now_playing #now_playing-main").hasClass("is-selected") ) {
+            $musicRecordPlayerVinyl.css({"transform": "translate3d(-50%, 0%, 0) rotateZ(" + currentTime * 10 + "deg)",
+        "transform-origin": "50% 50%",
+        "transition": "transform 0.3s ease-in"
+    });
+        }
+        
         $("#scrub .scrubTime").text(formattedTime);
         $("#scrub .scrubDuration").text(formattedDuration);
       });
@@ -21572,7 +21558,9 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
           
           $(".mm-menu #music_filters .music_scrubber-btn").addClass("clicked");
       }
-    }, 100);
+      
+      navBarResize();
+    }, 300);
   }
 
   $musicScrubber.on("input", function () {
@@ -21690,65 +21678,71 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
   //MUSIC MODULE PLAYLISTS
 
   // MUSIC MODULE - NAVIGATION - TRAVEL BUTTON
-  var recordPlayerTimeout;
+  
   $travelBtn.click(function () {
-    menuModalClose();
-    const $audioAni = $travelBtn.find(".audio_ani");
-    clearTimeout(recordPlayerTimeout);
-    
-    $musicRecordPlayer.removeClass("nodelaytransition");
-    
-    if ( $(this).find(".audio_ani").hasClass("go") ) {
-        $("#flickSite").addClass("go-modal");
-        $nowPlayingFlick.flickity("selectCell", 0);
-        $("#music").addClass("go-now_playing");
-        $("#now_playing").addClass("go");
-          $musicRecordPlayer.removeClass("stopspin2");
-        $musicRecordPlayerVinyl.removeClass("stopspin");
-    } else {
-        if ( $("#fun").hasClass("is-selected") ) {
-            $("#flickSite").removeClass("go-modal");
-            $("#welcomeInfo")
-              .css("height", $("#welcomeInfo").children().outerHeight() + "px")
-              .addClass("go");
-        }
-        
-        $travelBtn.find("i").removeClass().addClass($(".mm-menu .mm-item.clicked").find("i").attr("class"));
-        $("#now_playing").removeClass("go");
-        
-        if ( $("#music").hasClass("is-selected") ) {
-            $("#music").removeClass("go-now_playing");
-        }
-        
-        recordPlayerTimeout = setTimeout(function () {
-          $musicRecordPlayerVinyl.addClass("stopspin");
-        }, 1000);
-    }
-
-    $travelBtn.find("i").toggleClass("fadeOut");
-    $travelBtn.find(".audio_ani").toggleClass("go");
-
-    resetLyricsScroll();
-    
-    initiatePageOptions();
+   travelBtn();
   });
-
-  function toggleVinylSpin(isPlaying) {
-    const $vinyl = $musicRecordPlayerVinyl;
-    $vinyl.addClass("stopspin");
-    if (!isPlaying) {
-        $musicRecordPlayer.removeClass("stopspin2");
-      $vinyl.removeClass("stopspin");
-    }
+  
+  function travelBtn() {
+      if ( $(window).width() <= 900 ) {
+          
+      if ( $("#fun").hasClass("is-selected") ||
+      $("#icons").hasClass("is-selected") ) {
+          
+          menuModalClose();
+          
+          if ( $("#fun").hasClass("is-selected") ) {
+              $("#flickSite").removeClass("go-modal");
+          }
+          
+      }
+      
+      if ( !$("#now_playing").hasClass("go") ) {
+          $("#flickSite").addClass("go-modal");
+          $("#now_playing").addClass("go");
+          
+          if ( $("#flickSite").hasClass("go-settings") ) {
+              cancelSettings();
+          }
+          
+          $travelBtn.find("i").removeClass().addClass($(".mm-menu .mm-item.clicked").find("i").attr("class"));
+          $travelBtn.find(".audio_ani").removeClass("go");
+    
+      } else {
+        
+          $musicRecordPlayer.removeClass("stopspin2");
+          $("#now_playing").removeClass("go");
+          
+          $travelBtn.find("i").addClass("fadeOut");
+    $travelBtn.find(".audio_ani").addClass("go");
+         
+        setTimeout(function() {
+            $nowPlayingFlick.flickity("selectCell", 0);
+        }, 600);
+        
+        
+      }
+      
+      }
+      
+      initiatePageOptions();
   }
-
-  function resetLyricsScroll() {
-    if ($musicLyricsLyrics.scrollTop() > 0) {
-      setTimeout(function () {
-        $musicLyricsLyrics.scrollTop(0);
-      }, 600);
+  
+  // Watch for class changes
+const observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(mutation) {
+    if (mutation.attributeName === "class") {
+      if ($(mutation.target).hasClass("go")) {
+       $("#welcomeInfo").css("height", "0px").removeClass("go");
+      }
     }
-  }
+  })
+})
+
+// Target the div you wanna watch
+observer.observe($("#now_playing")[0], {
+  attributes: true
+})
 
   // FUN MODULE --------------------
 
@@ -22265,8 +22259,8 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
   });
   */
   
-    if (scrollTop >= 10) {
-      $("#fun .current").css("opacity", 1);
+    if (scrollTop >= 100) {
+      $("#fun .current .flick").css("opacity", 1);
       $("#fun #widgets").addClass("move");
       $("#fun .chevron_container").fadeOut(1000);
       clearTimeout(chevronTime);
@@ -22274,7 +22268,7 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
         "Hub"
       );
     } else {
-      $("#fun .current").css("opacity", 0);
+      $("#fun .current .flick").css("opacity", 0);
       $("#fun #widgets").removeClass("move");
       chevronTime = setTimeout(function() {
           $("#fun .chevron_container").fadeIn(1000);
@@ -22338,7 +22332,11 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
   });
 
   $cancelSettingsBtn.click(function () {
-    $("#home_settings").removeClass("go");
+    cancelSettings();
+  });
+  
+  function cancelSettings() {
+      $("#home_settings").removeClass("go");
     setTimeout(function () {
       $("#home_settings").remove();
     }, 300);
@@ -22360,7 +22358,7 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
     $(".mm-menu .sub_sub_mmodal").scrollTop(0).scrollLeft(0);
     closeNotification();
     $("#delete_data-btn").text("Delete Profile");
-  });
+  }
 
   $document.on("click", "#home_settings", function () {
     var $this = $(this);
@@ -23154,7 +23152,7 @@ setTimeout(function() {
           $welcomeInfo.flickity("selectCell", 0);
 
           if ($("#flickSite").hasClass("go-settings")) {
-            $cancelSettingsBtn.click();
+            cancelSettings();
           }
 
 /*
@@ -23947,7 +23945,6 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
     $playPause.addClass("playing").removeClass("paused");
     $musicBarInfo.addClass("go");
     $musicRecordPlayer.removeClass("stopspin2");
-    $musicRecordPlayerVinyl.removeClass("stopspin");
     
     $("#fun #widgets").find(".audio_ani").addClass("go");
     
@@ -23965,7 +23962,6 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
     $playPauseBtn.removeClass("fa-pause").addClass("fa-play");
     theSong.pause();
     $musicBarInfo.removeClass("go");
-    $musicRecordPlayerVinyl.addClass("stopspin");
     
     $("#fun #widgets .music_widget").removeClass("playing");
     $("#fun #widgets").find(".audio_ani").removeClass("go");
@@ -24065,6 +24061,11 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
     }, 1000);
   }
   windowResize();
+  
+  function navBarResize() {
+      $("#fun .flick").css("padding-bottom", $(".mm-menu").height() * 2);
+  }
+  navBarResize();
 
   $playPause.click(function () {
     playing ? pauseSong() : playSong();
