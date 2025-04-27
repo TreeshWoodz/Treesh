@@ -2521,7 +2521,7 @@ select {
 #sidebar input {
   width: 100%;
   height: auto;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.3);
   font-size: 1em;
   outline: none;
   padding: 10px 15px 10px 15px;
@@ -4125,6 +4125,10 @@ z-index:5;
   opacity: 0.1;
 }
 
+#now_playing.loading .bg {
+    opacity:0 !important;
+}
+
 #now_playing .bg:before {
   content: "";
   position: absolute;
@@ -5347,7 +5351,6 @@ background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 25
 }
 
 #scrubber {
-  height: 3px;
   width:100%;
   cursor: pointer;
   position:relative;
@@ -5357,6 +5360,7 @@ background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 25
 #scrub {
   color: white;
   padding-bottom: 0px;
+  margin-top:-10px;
 }
 
 #scrub .contain {
@@ -5430,8 +5434,8 @@ input[type=range]::-webkit-slider-thumb {
   margin-top: -0.75em;
   box-sizing: border-box;
   border: none;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   box-shadow: 0 0 10px var(--pink);
   background: radial-gradient(circle at 25% 32%, white, var(--pink));
@@ -5440,8 +5444,8 @@ input[type=range]::-webkit-slider-thumb {
 input[type=range]::-moz-range-thumb {
   box-sizing: border-box;
   border: none;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   box-shadow: 0 0 10px var(--pink);
   background: radial-gradient(circle at 25% 32%, white, var(--pink));
@@ -10120,7 +10124,8 @@ font-size: 1.2rem;
     display:inline;
 }
 
-.mm-menu #music_filters button.clicked {
+.mm-menu #music_filters button.clicked,
+.mm-menu #music_filters button:active {
   background: rgba(255, 255, 255, 0.9) !important;
   border: 1px solid white !important;
   color: black !important;
@@ -10130,7 +10135,8 @@ font-size: 1.2rem;
   color: white !important;
 }
 
-.mm-menu #music_filters button.clicked:before {
+.mm-menu #music_filters button.clicked:before,
+.mm-menu #music_filters button:active:before {
   content: "";
   position: absolute;
   top: 0;
@@ -13060,11 +13066,10 @@ section {
              <button type="button" class="song_home-btn" style="display:none;" data-action="main screen"><span><i class="fa-solid fa-music"></i></span> <span>Main Screen</span></button>
              <button type="button" class="lyricSync-btn" style="display:none;" data-action="sync lyrics"><span><i class="fa-solid fa-puzzle-piece"></i></span> <span>LyricSync <small style="font-size:80%; text-transform:uppercase;">BETA</small></span></button>
              <button type="button" class="about_song-btn" data-action="about song"><span><i class="fa-solid fa-circle-info"></i></span> <span>About</span></button>
+             <button type="button" class="share_song-btn" data-action="share song"><span><i class="fa-solid fa-copy"></i></span> <span>Share Link</span></button>
              <!----
-              <button type="button" class="share_song-btn" data-action="share song"><span><i class="fa-solid fa-share-nodes"></i></span> <span>Share</span></button>
              <button type="button" class="delete_song-btn" data-action="delete song"><span><i class="fa-solid fa-trash-can"></i></span> <span>Delete</span></button>
              ---->
-             <button type="button" class="music_scrubber-btn" data-action="open scrubber"><span><i class="fa-solid fa-hourglass"></i></span> <span>Open Scrubber</span></button>
             </div>
             
             <div data-show="icon">
@@ -18411,7 +18416,7 @@ function menuModalOpen($this) {
 
 function menuModalClose() {
   $(".selected-menu").removeClass("selected-menu");
-  $($menu).not(".mm-menu #music_filters").css("height", "0px").removeClass("go");
+  $($menu).not(".mm-menu #music_filters").not(".mm-menu #scrub").css("height", "0px").removeClass("go");
 }
 
 function openNotification() {
@@ -20563,17 +20568,14 @@ $window.scroll(function(e) {
   loadMusicPlayer();
   
   $menuFlick.on("change.flickity", function () {
-    if (
-      ($(".mm-menu .music_bar").hasClass("is-selected") &&
-        $musicScrub.hasClass("go")) ||
-      ($(
-        "#fun .site_settings [data-setting='show scrubber'] .btn-toggle"
-      ).hasClass("active") &&
-        $(".mm-menu .music_bar").hasClass("is-selected"))
-    ) {
-      $musicScrub.height($musicScrub.find(".contain").innerHeight());
+    if ( $(".mm-menu .music_bar").hasClass("is-selected") ) {
+        setTimeout(function() {
+        $musicScrub
+          .height($musicScrub.find(".contain").innerHeight())
+          .addClass("go");
+        }, 300);
     } else {
-      $musicScrub.css("height", "0px");
+        $musicScrub.css("height", "0px").removeClass("go");
     }
   });
 
@@ -20999,7 +21001,6 @@ $notificationStatus = "nowPlaying";
       mainArtist = $this.attr("data-artist");
 
       $("#now_playing").attr("data-track", $track);
-      $("#now_playing .bg").css("background", "url(" + thumbnail + ")");
 
       var trackBio = $this.attr("data-bio");
       var artist = $this.attr("data-artist");
@@ -21019,6 +21020,8 @@ $notificationStatus = "nowPlaying";
       }
     
     $("#fun #widgets").find(".audio_ani").removeClass("go");
+    
+    $("#now_playing").addClass("loading");
 
       hideOrShow("[data-song-bio]", trackBio);
       hideOrShow("[data-song-artist]", artist);
@@ -21171,7 +21174,6 @@ history.pushState(null, null, '?artist=' + mainArtist.replace(/\s+/g, '-') + "&s
       }
 
       $musicLyricsLyrics.scrollTop(0);
-      $nowPlayingSongData.css("max-height", $("#now_playing").height() / 2.2);
       clearTimeout(musicInfoGo);
       clearTimeout(removeLabelTime);
       $musicBarInfo.removeClass("go-upNext").removeClass("go-label");
@@ -21253,12 +21255,18 @@ for (let i = 1; i < parts.length; i++) {
 
       setTimeout(function () {
         $musicRecordPlayerVinyl.attr("src", thumbnail);
+        $("#now_playing .bg").css("background", "url(" + thumbnail + ")");
       }, recordTime);
 
       theSong.play();
       playing = true;
 
       $musicScrubber.val(0).attr("max", "0");
+      
+      $musicRecordPlayerVinyl.css({"transform": "translate3d(-50%, 0%, 0) rotateZ(0deg)",
+        "transform-origin": "50% 50%",
+        "transition": "none"
+    });
 
       theSong.addEventListener("loadeddata", function () {
         $playPauseBtn.removeClass("fa-play").addClass("fa-pause");
@@ -21312,12 +21320,23 @@ for (let i = 1; i < parts.length; i++) {
         }
         }, 3000);
         
-        if ( !$("#music").hasClass("go") && !$("#now_playing").hasClass("go") ) {
+        if ( !$("#now_playing").hasClass("go") ) {
     $travelBtn.find(".audio_ani").addClass("go");
       $travelBtn.find("i").addClass("fadeOut");
         } else {
     $travelBtn.find(".audio_ani").removeClass("go");
       $travelBtn.find("i").removeClass("fadeOut");
+      
+      setTimeout(function() {
+          
+      $musicRecordPlayerVinyl.each(function() {
+  if (this.complete) {
+    $(this).trigger('load');
+    $musicRecordPlayer.removeClass("stopspin2");
+    $("#now_playing").removeClass("loading");
+  }
+});
+      }, 600);
         }
       });
       
@@ -21409,7 +21428,7 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
         $musicScrubber.val(currentTime);
         
         if ( $("#now_playing").hasClass("go") && $("#now_playing #now_playing-main").hasClass("is-selected") ) {
-            $musicRecordPlayerVinyl.css({"transform": "translate3d(-50%, 0%, 0) rotateZ(" + currentTime * 10 + "deg)",
+            $musicRecordPlayerVinyl.css({"transform": "translate3d(-50%, 0%, 0) rotateZ(" + currentTime * 20 + "deg)",
         "transform-origin": "50% 50%",
         "transition": "transform 0.3s ease-in"
     });
@@ -21532,16 +21551,8 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
   function favoriteSong($this) {
     selectedItemMenu = $this;
   }
-
-  $musicBar
-    .on("mousedown touchstart dblclick", function () {
-      scrubberFunc();
-    })
-    .on("mouseup touchend", function () {
-      clearTimeout(pressTimer);
-    });
-    
-    $(".mm-menu #music_filters .music_scrubber-btn").click(function() {
+  
+    $(".mm-menu .music_scrubber-btn").click(function() {
         scrubberFunc();
     });
 
@@ -21550,13 +21561,13 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
     pressTimer = setTimeout(function () {
       if ($musicScrub.hasClass("go")) {
         $musicScrub.css("height", "0px").removeClass("go");
-        $(".mm-menu #music_filters .music_scrubber-btn").removeClass("clicked");
+        $(".mm-menu .music_scrubber-btn").removeClass("clicked");
       } else {
         $musicScrub
           .height($musicScrub.find(".contain").innerHeight())
           .addClass("go");
           
-          $(".mm-menu #music_filters .music_scrubber-btn").addClass("clicked");
+          $(".mm-menu .music_scrubber-btn").addClass("clicked");
       }
       
       navBarResize();
@@ -22753,22 +22764,6 @@ observer.observe($("#now_playing")[0], {
 
     if (
       $(
-        "#fun .site_settings [data-setting='show scrubber'] .btn-toggle"
-      ).hasClass("active")
-    ) {
-      if ($(".mm-menu .music_bar").hasClass("is-selected")) {
-        $musicScrub
-          .height($musicScrub.find(".contain").innerHeight())
-          .addClass("go");
-      } else {
-        $(".mm-menu #scrub").css("height", "0px").addClass("go");
-      }
-    } else {
-      $(".mm-menu #scrub").css("height", "0px").removeClass("go");
-    }
-
-    if (
-      $(
         "#fun .site_settings [data-setting='show menu names'] .btn-toggle"
       ).hasClass("active")
     ) {
@@ -23384,6 +23379,18 @@ $(".mm-menu .page_title, .site_page #page_options .page_options-btn").click(func
           $nowPlayingFlick.flickity("selectCell", 0);
       }
       
+      if ( $(this).hasClass("share_song-btn") ) {
+          const url = window.location.href;
+  navigator.clipboard.writeText(url);
+  
+  $notificationIconBody = '<i class="fa fa-music"></i>';
+    $notificationBodyText =
+      "The link has been copied and ready to share!";
+    setNotificationOptions = false;
+    notificationTimer = 6000;
+    openNotification();
+      }
+      
       if ( $(this).hasClass("lyricSync-btn") ) {
           if ( !$(this).hasClass("clicked") ) {
               $(this).addClass("clicked");
@@ -23445,7 +23452,7 @@ $(".mm-menu .page_title, .site_page #page_options .page_options-btn").click(func
           $(".mm-menu #music_filters div[data-show='nowplaying']").show();
           
           if ( $("#now_playing #now_playing-main").hasClass('is-selected') ) {
-          $(".mm-menu .page_title .title span").text("Main Screen");
+          $(".mm-menu .page_title .title span").text("Now Playing");
     }
     
           if ( $("#now_playing #lyrics").hasClass("is-selected") ) {
@@ -23497,12 +23504,6 @@ $(".mm-menu .page_title, .site_page #page_options .page_options-btn").click(func
             
             $("#flickSite .site_page .page_options-btn").addClass("active");
           $(".open_music_controls-btn").addClass("opened");
-          
-          if ($musicScrub.hasClass("go")) {
-          $(".mm-menu #music_filters .music_scrubber-btn").addClass("clicked");
-          } else {
-          $(".mm-menu #music_filters .music_scrubber-btn").removeClass("clicked");
-          }
           
           $("#music_filters").css("height", $("#music_filters").children().outerHeight() + "px").addClass("go");
             
@@ -23949,11 +23950,6 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
     $("#fun #widgets").find(".audio_ani").addClass("go");
     
     $("#fun #widgets .music_widget").addClass("playing");
-
-    if (!$music.hasClass("go")) {
-      $travelBtn.find(".audio_ani").addClass("go");
-      $travelBtn.find("i").addClass("fadeOut");
-    }
   }
 
   function pauseSong() {
@@ -23965,11 +23961,6 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
     
     $("#fun #widgets .music_widget").removeClass("playing");
     $("#fun #widgets").find(".audio_ani").removeClass("go");
-
-    if (!$music.hasClass("go")) {
-      $travelBtn.find(".audio_ani").removeClass("go");
-      $travelBtn.find("i").removeClass("fadeOut");
-    }
   }
 
   function musicInfo() {
