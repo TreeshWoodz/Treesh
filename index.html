@@ -2521,7 +2521,7 @@ select {
 #sidebar input {
   width: 100%;
   height: auto;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.15);
   font-size: 1em;
   outline: none;
   padding: 10px 15px 10px 15px;
@@ -2550,7 +2550,9 @@ select {
 #sidebar input[type=range] {
     padding:0px !important;
     height:6px;
-    
+    background:transparent !important;
+    box-shadow:none !important;
+    border:none !important;
 }
 
 .mm-menu form input:focus,
@@ -5195,8 +5197,8 @@ z-index:5;
 }
 */
 
-.prevbtn:hover,
-.nextbtn:hover {
+.prevbtn:active,
+.nextbtn:active {
   color: var(--pink);
 }
 
@@ -5377,6 +5379,41 @@ background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 25
   position: relative;
 }
 
+#scrub .range_fill {
+    width:0px;
+    height:100%;
+    position:absolute;
+    top:50%;
+    left:0;
+    background:var(--pink);
+    box-shadow:0 0 10px var(--pink);
+    background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0%,
+    var(--pink) 100%
+  );
+    border-radius:30px;
+    transform:translate3d(0, -50%, 0);
+    z-index:-1;
+}
+
+#scrub .range_fill:after {
+    content:"";
+    box-sizing: border-box;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  position:absolute;
+  right:0;
+  top:50%;
+  transform:translate3d(0, -50%, 0);
+  box-shadow: 0 0 10px var(--pink);
+  background: radial-gradient(circle at 25% 32%, white, var(--pink));
+  cursor: resize-ew;
+  z-index:1000;
+}
+
 #scrub span {
   display: block;
   height: auto;
@@ -5395,10 +5432,10 @@ background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 25
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background-color: var(--pink) !important;
   border-radius: 50%;
   scrollbar-color: var(--pink);
   border: none;
+  position:relative;
   cursor: pointer;
 }
 
@@ -5434,14 +5471,13 @@ input[type=range]::-moz-range-track {
   border-radius: 1em;
 }
 input[type=range]::-webkit-slider-thumb {
-  margin-top: -0.75em;
   box-sizing: border-box;
   border: none;
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  box-shadow: 0 0 10px var(--pink);
-  background: radial-gradient(circle at 25% 32%, white, var(--pink));
+  box-shadow: none;
+  background: transparent;
   cursor: resize-ew;
 }
 input[type=range]::-moz-range-thumb {
@@ -5450,13 +5486,30 @@ input[type=range]::-moz-range-thumb {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  box-shadow: 0 0 10px var(--pink);
-  background: radial-gradient(circle at 25% 32%, white, var(--pink));
+  box-shadow: none;
+  background: transparent;
   cursor: resize-ew;
 }
+
+.mm-menu .backdrop_position-settings input[type=range] {
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.15) !important;
+    background: rgba(0, 0, 0, 0.15) !important;
+    border:1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.mm-menu .backdrop_position-settings input[type=range]::-webkit-slider-thumb {
+  box-shadow: 0 0 10px var(--pink);
+  background: radial-gradient(circle at 25% 32%, white, var(--pink));
+}
+
+.mm-menu .backdrop_position-settings input[type=range]::-moz-range-thumb {
+  box-shadow: 0 0 10px var(--pink);
+  background: radial-gradient(circle at 25% 32%, white, var(--pink));
+}
+
 input[type=range]:focus {
   outline: solid 0 transparent;
-  background: rgba(51, 51, 51, 0.2);
+  background: rgba(255, 255, 255, 0.6) !important;
 }
 @keyframes fade {
   0% {
@@ -13200,7 +13253,8 @@ section {
         <div id="scrub" class="modal">
           <div class="contain">
             <span class="scrubTime">0</span>
-            <input type="range" id="scrubber" value="0" step="1" max="0" />
+            <input type="range" id="scrubber" value="0" step="0.01" max="0" />
+            <div class="range_fill"></div>
             <span class="scrubDuration">0</span>
           </div>
         </div>
@@ -19068,32 +19122,24 @@ function loadSite() {
       .css("opacity", 1)
       .css("transform", "scale(1)");
   }, 4000);
-  
-  if ( $(window).width() >= 900 && !$("#now_playing").hasClass("go") && !$("#about_artist").hasClass("go") ) {
-      $("#welcomeInfo")
-              .css("height", $("#welcomeInfo").children().outerHeight() + "px")
-              .addClass("go");
-  }
 
   setTimeout(function () {
       $("#flickSite").removeClass("unload");
     $navBar.add("#wave").removeClass("deactivate");
 
     if ($("#fun").hasClass("is-selected")) {
+        if ( !$("#now_playing, #about_artist").hasClass("go") ) {
       setTimeout(function () {
           $(openThisModal)
     .css("height", $(openThisModal).children().outerHeight() + "px")
     .addClass("go");
 
       }, 600);
+        }
     } else {
       $(".page_title span").text(
         $(".site_page.is-selected").attr("data-title")
       );
-
-      if ($("#music").hasClass("is-selected")) {
-        openThisModal = ".mm-menu #music_filters";
-      }
 
       $(".mm-menu .home_nav")
         .find("[for='" + $(".site_page.is-selected").attr("for") + "']")
@@ -21132,10 +21178,6 @@ history.pushState(null, null, '?artist=' + mainArtist.replace(/\s+/g, '-') + "&s
       $menuFlick.data("flickity").options.draggable = true;
       $menuFlick.data("flickity").updateDraggable();
 
-      if ($musicLyricsBtn.hasClass("clicked")) {
-        $musicLyricsBtn.click();
-      }
-
       function hideOrShow(selector, data) {
         var element = $(selector);
         if (data === undefined || data === "") {
@@ -21145,7 +21187,11 @@ history.pushState(null, null, '?artist=' + mainArtist.replace(/\s+/g, '-') + "&s
         }
       }
 
+if ( !$("#now_playing").hasClass("go") ) {
       $nowPlayingFlick.flickity("selectCell", 0);
+}
+
+$("#scrub .scrubDuration").text("0:00");
 
       if (!$dataLastPlayedSong.find('[data-song="' + $track + '"]').length) {
         if (!$dataLastPlayedSong.find("ol").length) {
@@ -21272,6 +21318,11 @@ for (let i = 1; i < parts.length; i++) {
     
     theSong.addEventListener("loadstart", function() {
         $(".mm-menu .music_bar .playpause").addClass("loading");
+        $("#scrub .scrubDuration").text("0:00");
+        
+        if ( $("#now_playing #now_playing-main").hasClass('is-selected') && $("#now_playing").hasClass("go") ) {
+          $(".mm-menu .page_title .title span").text("Now Loading...");
+    }
     });
 
       theSong.addEventListener("loadeddata", function () {
@@ -21333,6 +21384,14 @@ for (let i = 1; i < parts.length; i++) {
     $travelBtn.find(".audio_ani").removeClass("go");
       $travelBtn.find("i").removeClass("fadeOut");
       
+      if ( $("#now_playing #now_playing-main").hasClass('is-selected') ) {
+          if ( $repeatBtn.hasClass("color") ) {
+          $(".mm-menu .page_title .title span").text("Now Replaying");
+    } else {
+        $(".mm-menu .page_title .title span").text("Now Playing");
+    }
+    }
+      
       setTimeout(function() {
           
       $musicRecordPlayerVinyl.each(function() {
@@ -21354,6 +21413,11 @@ for (let i = 1; i < parts.length; i++) {
         setNotificationOptions = true;
             $notificationCloseBtnText = "Try again";
       openNotification();
+      $("#scrub .scrubDuration").text("0:00");
+      
+      if ( $("#now_playing #now_playing-main").hasClass('is-selected') && $("#now_playing").hasClass("go") ) {
+          $(".mm-menu .page_title .title span").text("Loading Error");
+    }
 });
       
 
@@ -21371,6 +21435,8 @@ for (let i = 1; i < parts.length; i++) {
             musicInfo();
           }, 100);
         }
+        
+        $("#scrub .scrubDuration").text("0:00");
       });
 
       theSong.addEventListener("timeupdate", function () {
@@ -21394,6 +21460,14 @@ const msStr = String(milliseconds).padStart(2, '0');
 
 const formatted = minStr + ':' + secStr + '.' + msStr;
 const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
+
+if ( $("#now_playing #now_playing-main").hasClass('is-selected') && $("#now_playing").hasClass("go") ) {
+          if ( $repeatBtn.hasClass("color") ) {
+          $(".mm-menu .page_title .title span").text("Now Replaying");
+    } else {
+        $(".mm-menu .page_title .title span").text("Now Playing");
+    }
+    }
 
         $("#lyrics .all_lyrics .lyric[data-go-lyrics='animate'].go p").each(
           function () {
@@ -21432,6 +21506,10 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
         }
 
         $musicScrubber.val(currentTime);
+        
+        let percentTime = currentTime / audioDuration;
+        percentTime = percentTime * $(".mm-menu #scrub .range_fill").prev("input").width() + 15;
+        $(".mm-menu #scrub .range_fill").css("width", percentTime + "px");
         
         if ( $("#now_playing").hasClass("go") && $("#now_playing #now_playing-main").hasClass("is-selected") ) {
             $musicRecordPlayerVinyl.css({"transform": "translate3d(-50%, 0%, 0) rotateZ(" + currentTime * 20 + "deg)",
@@ -23291,6 +23369,10 @@ if ( $("#fun").hasClass("is-selected") ) {
     });
     
     
+    $(".mm-menu #scrub .range_fill").each(function() {
+                $(this).height($(this).prev("input").height()).css("left", $(this).prev("input").offset().left - 15);
+            }); 
+    
     
 // PAGE OPTIONS MENU //
 
@@ -23843,6 +23925,10 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
     } else {
       nowPlayingScreen = false;
     }
+    
+    if ($("#now_playing").hasClass("go")) {
+        $musicRecordPlayer.removeClass("stopspin2");
+    }
 
     if (theSong.currentTime <= 10 && !$("#repeat").hasClass("color")) {
         if ( $("#now_playing").hasClass("go") ) {
@@ -23940,6 +24026,10 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
       $selectNextSong.click();
     } else {
       theSong.currentTime = 0;
+      
+      if ($("#now_playing").hasClass("go")) {
+        $musicRecordPlayer.removeClass("stopspin2");
+    }
     }
   }
 
@@ -23956,6 +24046,10 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
     $("#fun #widgets").find(".audio_ani").addClass("go");
     
     $("#fun #widgets .music_widget").addClass("playing");
+    
+    if ( $("#now_playing #now_playing-main").hasClass('is-selected') && $("#now_playing").hasClass("go") ) {
+          $(".mm-menu .page_title .title span").text("Now Playing");
+    }
   }
 
   function pauseSong() {
@@ -23967,6 +24061,12 @@ $("#fun .fun_music .fun_music-content [data-favorite-artist].active .delete").ea
     
     $("#fun #widgets .music_widget").removeClass("playing");
     $("#fun #widgets").find(".audio_ani").removeClass("go");
+    
+    if ( $("#now_playing #now_playing-main").hasClass('is-selected') && $("#now_playing").hasClass("go") ) {
+        setTimeout(function() {
+          $(".mm-menu .page_title .title span").text("Track Paused");
+        }, 400);
+    }
   }
 
   function musicInfo() {
