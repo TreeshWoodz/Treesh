@@ -866,7 +866,8 @@ button.active .text {
   transition: opacity 0.6s ease-in;
 }
 
-#flickSite.go-modal {
+#flickSite.go-modal,
+#flickSite.go-now_playing {
     overflow:hidden !important;
 }
 
@@ -3061,13 +3062,10 @@ select {
   display:block;
   color: white;
   width: 100%;
+  overflow:hidden;
   height: auto;
   margin:auto;
   transition:opacity 0.3s ease-in;
-}
-
-#music .content.overflow {
-  overflow: hidden !important;
 }
 
 #music.expand .content {
@@ -3498,7 +3496,7 @@ padding-bottom:0px !important;
 #music .playlist .tracks.list_view .grid .song section:first-child,
 #about_artist .trackss.list_view .song section:first-child {
   margin: 0px;
-  overflow: initial !important;
+  overflow:hidden !important;
   text-overflow: ellipsis;
 }
 
@@ -4202,11 +4200,20 @@ z-index:5;
 
 #now_playing .song_data svg {
     position:absolute;
-  bottom:0;
+  bottom:10px;
   left:0;
   right:0;
   margin:auto;
     display:block;
+    opacity:0;
+    transform:translate3d(0, 40px, 0);
+    transition:transform 0.3s ease-in, opacity 0.3s ease-in;
+}
+
+#now_playing.go .is-selected .song_data svg {
+    opacity:1;
+    transform:translate3d(0, 0px, 0);
+    transition-delay:0.6s;
 }
 
 #now_playing .artist_name_font {
@@ -4414,6 +4421,7 @@ z-index:5;
   position: relative;
   display:block;
   display: flex;
+  overflow:auto !important;
   align-items: center;
   height:100%;
   width:100%;
@@ -4461,11 +4469,11 @@ z-index:5;
   text-transform:uppercase;
   width:100% !important;
   opacity: 0;
+  display:block;
+  position:relative;
   transform: translate3d(0, -20px, 0);
   transition: opacity 0.3s ease-in-out,
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s ease-in-out !important;
-    -webkit-animation: curve 3s ease-in infinite !important;
-          animation: curve 3s ease-in infinite !important;
 }
 
 #now_playing #about_song h2 {
@@ -4508,7 +4516,7 @@ z-index:5;
 }
 
 #now_playing #now_playing-main .song_data h1 {
-    top:-100px;
+    top:-60px;
     position:Relative;
     display:block;
 }
@@ -4534,9 +4542,9 @@ z-index:5;
 #now_playing #lyrics .lyrics,
 #now_playing #about_song .contain {
   width: 100%;
-  overflow: auto;
+  overflow: auto !important;
   height: 100%;
-  overflow-x: hidden;
+  overflow-x: hidden !important;
   position: relative;
   display: block;
   padding: 0px 20px;
@@ -4548,7 +4556,7 @@ z-index:5;
 #now_playing #lyrics .lyrics {
   color: white;
   font-size:1.6rem;
-	padding-top: var(--waveHeight) + 100px;
+	padding-top: calc(var(--waveHeight) + 100px) !important;
 }
 
 @media screen and (min-width: 900px) {
@@ -4627,8 +4635,9 @@ z-index:5;
     color: rgba(0, 0, 0, 0);
 }
 
-#now_playing #lyrics .lyrics p:first-child {
+#now_playing #lyrics .lyrics p:nth-of-type(1) {
   margin-top: 0px;
+  color: rgba(255, 255, 255, 1) !important;
   opacity:1 !important;
 }
 
@@ -13120,6 +13129,23 @@ height: 60px;
         display:block;
         font-family:var(--main-font);
     }
+    
+    @keyframes spin-track {
+  0% {
+    transform: translateX(-100px); 
+  }
+  
+  /* Ending position: Move the group far to the right */
+  100% {
+    transform: translateX(100px); 
+  }
+}
+
+.animated-text {
+  animation: spin-track 6s linear infinite !important;
+  -webkit-animation: spin-track 6s linear infinite !important;
+  will-change: transform;
+}
 </style>
     </head>
 
@@ -15464,14 +15490,12 @@ height: 60px;
                 <h1>Please wait</h1>
                 
                 <svg width="100vw" height="auto" viewBox="0 0 100 50">
-  <defs>
+  <g id="path-group"> 
     <path id="curve" d="M 5,40 Q 50,5 95,40" fill="transparent"/>
-  </defs>
-  
+  </g>
   <text>
-    <textPath font-size="6" href="#curve" text-anchor="middle" class="artist_name_font">
-    <animate attributeName="startOffset" from="-50%" to="150%" dur="6s" repeatCount="indefinite" />
-      We finna spin the track
+    <textPath font-size="3" href="#curve" class="artist_name_font">
+      We finna spin the track + We finna spin the track
     </textPath>
   </text>
 </svg>
@@ -20804,6 +20828,7 @@ $window.scroll(function(e) {
 
     if ($matchingArtist.length) {
       $travelBtn.click();
+      $("#flickSite").addClass("go-modal").removeClass("go-now_playing");
 
       setTimeout(function () {
         $matchingArtist.click();
@@ -20827,7 +20852,7 @@ $window.scroll(function(e) {
             
             setTimeout(function() {
                 $("#about_artist").removeClass("go-about").removeClass("go");
-                $("#flickSite").removeClass("go-modal");
+                $("#flickSite").removeClass("go-modal").removeClass("go-now_playing");
             }, 600);
         }
 
@@ -21878,6 +21903,10 @@ if ( $("#now_playing").hasClass("go") ) {
         $nowPlayingFlick.flickity("selectCell", 0);
     initiatePageOptions();
     }, 300);
+    
+    $("#flickSite").removeClass("go-now_playing");
+} else {
+    $("#flickSite").addClass("go-now_playing");
 }
 
       if (!$dataLastPlayedSong.find('[data-song="' + $track + '"]').length) {
@@ -21985,7 +22014,7 @@ for (let i = 1; i < parts.length; i++) {
       let recordTime = 600;
 
       $nowPlayingSongDataTitle.html(songName);
-      $nowPlayingSongDataArtist.html('<animate attributeName="startOffset" from="-50%" to="150%" dur="6s" repeatCount="indefinite" />' + songArtist + " ✧ " + songArtist + " ✧ " + songArtist);
+      $nowPlayingSongDataArtist.html(songArtist + " ✧ " + songArtist + " ✧ " + songArtist + " ✧ " + songArtist + " ✧ " + songArtist + " ✧ " + songArtist);
 
       setTimeout(function () {
         $musicRecordPlayerVinyl.add("#now_playing .record__blur").attr("src", thumbnail);
@@ -22513,7 +22542,7 @@ if ( $("#now_playing #now_playing-main").hasClass('is-selected') && $("#now_play
           menuModalClose();
           
           if ( $("#fun").hasClass("is-selected") ) {
-              $("#flickSite").removeClass("go-modal");
+              $("#flickSite").removeClass("go-modal").removeClass("go-now_playing");
           }
           
       }
@@ -24827,43 +24856,8 @@ var nextTrackTimeout;
       $this.addClass("clicked").siblings().removeClass("clicked");
       $(":root")[0].style.setProperty("--pink", rgbToHex(color));
       localStorage.setItem("favColor", rgbToHex(color));
-    } else {
-      var clickCount = $this.data("clickCount") || 0;
-      $this.data("clickCount", ++clickCount);
-
-      if (clickCount === 3 && $this.hasClass("clicked")) {
-        afterThreeClicks($this);
-        $this.data("clickCount", 0);
-      }
     }
   });
-
-  function afterThreeClicks(element) {
-    var siblings = element.siblings();
-
-    element.removeClass("clicked").css({
-      transform: "scale(0) !important",
-      opacity: "0",
-      transitionDelay: "0s !important"
-    });
-
-    setTimeout(function () {
-      var nextSibling = element.next();
-      if (!nextSibling.length) {
-        nextSibling = element.prev();
-      }
-      if (nextSibling.length) {
-        nextSibling.click();
-      }
-
-      element.remove();
-
-      localStorage.setItem(
-        "newColor",
-        $(".mm-menu .colors .colors_container").html()
-      );
-    }, 600);
-  }
 
   function rgbToHex(rgb) {
     var hex = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
