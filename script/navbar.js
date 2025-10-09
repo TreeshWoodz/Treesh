@@ -70,11 +70,10 @@ function confirmNickname(value) {
     nickname = value;
      localStorage.setItem("nickname", value);
   $dataNickname.add("#wave .nickname").text(value);
-  $funNickname.attr("placeholder", value).val("");
 }
 
 
-$("#wave .nickname_handle, #fun [data-nickname]").click(function() {
+$("#wave .nickname_handle, .mm-menu .profile_name").click(function() {
      if ( $(".mm-menu .change_input").hasClass("go") ) {
          $(".mm-menu .change_input").outerHeight(0).removeClass("go");
      } else {
