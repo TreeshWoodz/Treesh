@@ -21,12 +21,9 @@ $(document).ready(function() {
     $(".fun_music-controls").on("click", "button", function() {
     let $this = $(this),
         containerID = $this.attr("data-for"),
-        $funMusic = $(".mm-menu .my_activity"),
-        $options = $funMusic.find(".options"),
-        $content = $funMusic.find(".fun_music-content");
+        $funMusic = $(".mm-menu .my_activity");
 
     if (["Favorite Artists", "Favorite Songs", "Deleted Songs"].includes(containerID)) {
-        $options.show();
 
         if (containerID === "Favorite Songs") {
             $("[data-favorite-song] [data-song]").each(function() {
@@ -38,13 +35,7 @@ $(document).ready(function() {
                 if (img.attr("src") !== newCover) img.attr("src", newCover);
             });
         }
-    } else {
-        $options.hide();
-    }
-
-    if ($options.hasClass("opened")) {
-        $options.find("button.options-btn").click();
-    }
+    } 
 
     let $cancelBtn = $funMusic.find(".cancel-btn");
     if ($cancelBtn.length) {
@@ -89,22 +80,9 @@ $(document).ready(function() {
   }
     });
 
-    
-    
-    $(".mm-menu .my_activity .options button.options-btn").click(function() {
-                                  $(".mm-menu .my_activity .options").toggleClass("opened");
-                                  
-                                  if ( $(".mm-menu .my_activity .options").hasClass("opened") ) {
-                                      $(this).html('<i class="fa-solid fa-minus"></i>');
-                                  } else {
-                                      $(this).html('<i class="fa-solid fa-ellipsis"></i>');
-                                      $(".mm-menu .my_activity .options .cancel-btn").click();
-                                  }
-                              });
                               
                               
                              $(".mm-menu .my_activity .options button.remove-btn").click(function() {
-                                 if ( $(".mm-menu .my_activity .options").hasClass("opened")) {
                                  if ( $(this).attr("data-type") === "select" ) {
                                      $(this).html('<i class="fa-solid fa-eraser"></i> <span>Remove</span>').attr("data-type", "remove").css("opacity", "0.6");
                                  $(".mm-menu .my_activity .fun_music-content .active ol").addClass("select");
@@ -134,7 +112,6 @@ $(document).ready(function() {
                                              $(".mm-menu .my_activity .options button.remove-btn").css("opacity", "0.6");
                                          }
                                      }, 400);
-                                 }
                                  }
                              });
                              
@@ -227,20 +204,6 @@ toggleDraggable();
         $("#widgets .widgets_options").css("opacity", "1");
     }
 });
-
-$("#widgets .open_widgets_options-btn").click(function() {
-                    if ( !$(this).hasClass("opened") ) {
-                        $(this).add("#widgets .widgets_options").addClass("opened");
-			    $("#widgets .widgets_options").css("opacity", "1");
-                        $(this).find("i").removeClass("fa-pen-to-square").addClass("fa-xmark");
-                    } else {
-                        $("#widgets .widgets_options").find("button.active").click();
-                        $(this).add("#widgets .widgets_options").removeClass("opened");
-			    $("#widgets .widgets_options").css("opacity", "0");
-                        $(this).find("i").removeClass("fa-xmark").addClass("fa-pen-to-square");
-                        $("#widgets .widgets_options button").removeClass("inactive");
-                    }
-                });
                 
 $("#widgets .widgets_options .reposition_widgets-btn").click(function() {
                     if ( $("#widgets .widgets_options").hasClass("opened") && !$(this).hasClass("inactive") ) {
