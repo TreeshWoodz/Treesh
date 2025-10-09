@@ -69,8 +69,25 @@ $(document).ready(function() {
 function confirmNickname(value) {
     nickname = value;
      localStorage.setItem("nickname", value);
-  $dataNickname.add("#wave .nickname").text(value);
+  $dataNickname.add("#wave .nickname").add(".mm-menu #mm-nickname .nickname").add(".mm-menu .profile .profile_name").add("#fun #your_hub .nickname").text(value);
 }
+
+        $(".mm-menu .confirm_input-btn").click(function() {
+                nickname = $(".mm-menu .change_input form input").val();
+     localStorage.setItem("nickname", nickname);
+  $dataNickname.add("#wave .nickname").add(".mm-menu #mm-nickname .nickname").add(".mm-menu .profile .profile_name").add("#fun #your_hub .nickname").text(nickname);
+
+                $confirmationTextSpan.html("Howdy, <b>" + nickname + "</b>!").parent().addClass("go");
+            $(".mm-menu .change_input form input").val("");
+            
+            setTimeout(function() {
+                $confirmationText.removeClass("go");
+                
+                setTimeout(function() {
+                    $(".mm-menu .change_input .close_input-btn").click();
+                }, 600);
+            }, 2000);
+        });
 
 
 $("#wave .nickname_handle, .mm-menu .profile_name").click(function() {
