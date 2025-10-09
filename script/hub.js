@@ -53,7 +53,7 @@ $(document).ready(function() {
     }
 
     $this.addClass("active").siblings().removeClass("active");
-    $funMusic.find(".title .active, .fun_music-content .active").removeClass("active");
+    $funMusic.find(".fun_music-content .active").removeClass("active");
     $funMusic.find("[data-for='" + containerID + "']").addClass("active");
 
     $content.find(".active").each(function() {
