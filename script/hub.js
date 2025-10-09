@@ -56,6 +56,9 @@ $(document).ready(function() {
 
 
 	$(".about_you .about_you-item:not(.your_zodiac)").click(function() {
+
+		$(".mm-menu .profile").removeClass("go").css("height", "0px");
+		
   if ($(this).hasClass("your_join_date")) {
     $notificationIconBody = '<i class="fa-solid fa-star"></i>';
     $notificationBodyText = "<h1>Thank you, " + nickname + "!</h1> <p>We appreciate you for joining and supporting our <b>Icons</b>!</p> <p>You've visited <b>"+ visits +"</b> times and your longest time listening to music is <b>"+ storedTime +" minutes</b>!</p>";
