@@ -119,7 +119,7 @@ $(document).ready(function() {
                                  var $this = $(this);
                                  $(".mm-menu .my_activity .fun_music-content .active ol").removeClass("select");
                                  
-                                  $(".mm-menu .my_activity .options button.remove-btn").attr("data-type", "select").html('<i class="fa-regular fa-hand-pointer"></i> <span>Select</span>').css("opacity", "1");
+                                  $(".mm-menu .my_activity .options button.remove-btn").attr("data-type", "select").html('<i class="fa-regular fa-hand-pointer"></i> <span>Options</span>').css("opacity", "1");
                                  $this.remove();
                                  
                                  setTimeout(function() {
