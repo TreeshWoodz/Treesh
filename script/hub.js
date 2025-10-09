@@ -16,12 +16,12 @@ $(document).ready(function() {
       );
     });
     
-    $("#fun .fun_music-controls button:first").addClass("active");
+    $(".fun_music-controls button:first").addClass("active");
 
-    $("#fun .fun_music-controls").on("click", "button", function() {
+    $(".fun_music-controls").on("click", "button", function() {
     let $this = $(this),
         containerID = $this.attr("data-for"),
-        $funMusic = $("#fun .fun_music"),
+        $funMusic = $(".mm-menu .my_activity"),
         $options = $funMusic.find(".options"),
         $content = $funMusic.find(".fun_music-content");
 
@@ -64,7 +64,7 @@ $(document).ready(function() {
 });
 
 
-	$("#fun .about_you .about_you-item:not(.your_zodiac)").click(function() {
+	$(".about_you .about_you-item:not(.your_zodiac)").click(function() {
   if ($(this).hasClass("your_join_date")) {
     $notificationIconBody = '<i class="fa-solid fa-star"></i>';
     $notificationBodyText = "<h1>Thank you, " + nickname + "!</h1> <p>We appreciate you for joining and supporting our <b>Icons</b>!</p> <p>You've visited <b>"+ visits +"</b> times and your longest time listening to music is <b>"+ storedTime +" minutes</b>!</p>";
@@ -91,36 +91,36 @@ $(document).ready(function() {
 
     
     
-    $("#fun .fun_music .options button.options-btn").click(function() {
-                                  $("#fun .fun_music .options").toggleClass("opened");
+    $(".mm-menu .my_activity .options button.options-btn").click(function() {
+                                  $(".mm-menu .my_activity .options").toggleClass("opened");
                                   
-                                  if ( $("#fun .fun_music .options").hasClass("opened") ) {
+                                  if ( $(".mm-menu .my_activity .options").hasClass("opened") ) {
                                       $(this).html('<i class="fa-solid fa-minus"></i>');
                                   } else {
                                       $(this).html('<i class="fa-solid fa-ellipsis"></i>');
-                                      $("#fun .fun_music .options .cancel-btn").click();
+                                      $(".mm-menu .my_activity .options .cancel-btn").click();
                                   }
                               });
                               
                               
-                             $("#fun .fun_music .options button.remove-btn").click(function() {
-                                 if ( $("#fun .fun_music .options").hasClass("opened")) {
+                             $(".mm-menu .my_activity .options button.remove-btn").click(function() {
+                                 if ( $(".mm-menu .my_activity .options").hasClass("opened")) {
                                  if ( $(this).attr("data-type") === "select" ) {
                                      $(this).html('<i class="fa-solid fa-eraser"></i> <span>Remove</span>').attr("data-type", "remove").css("opacity", "0.6");
-                                 $("#fun .fun_music .fun_music-content .active ol").addClass("select");
+                                 $(".mm-menu .my_activity .fun_music-content .active ol").addClass("select");
                                  
-                                 if ( !$("#fun .fun_music .options .cancel-btn").length ) {
-                                 $('<button type="button" class="cancel-btn"><i class="fa-solid fa-xmark"></i> <span>Cancel</span></button>').appendTo("#fun .fun_music .options .container");
+                                 if ( !$(".mm-menu .my_activity .options .cancel-btn").length ) {
+                                 $('<button type="button" class="cancel-btn"><i class="fa-solid fa-xmark"></i> <span>Cancel</span></button>').appendTo(".mm-menu .my_activity .options .container");
                                  
                                  }
                                  } else {
-                                     $("#fun .fun_music .fun_music-content .active ol:not(.select)").addClass("delete");
+                                     $(".mm-menu .my_activity .fun_music-content .active ol:not(.select)").addClass("delete");
                                      setTimeout(function() {
-                                         $("#fun .fun_music .fun_music-content .active ol:not(.select)").remove();
+                                         $(".mm-menu .my_activity .fun_music-content .active ol:not(.select)").remove();
                                          
-                                         $("#fun .fun_music .fun_music-content").find(".active").each(function() {
+                                         $(".mm-menu .my_activity .fun_music-content").find(".active").each(function() {
                                          if (!$(this).find("ol").length) {
-                                             $("#fun .fun_music .cancel-btn").click();
+                                             $(".mm-menu .my_activity .cancel-btn").click();
           $(this).html("<span class='nothing_here'>Nothing here!</span>");
         }
                                          });
@@ -130,41 +130,41 @@ $(document).ready(function() {
         localStorage.setItem("favSong", $dataFavoriteSong.html());
         
         
-        if ( !$("#fun .fun_music .fun_music-content .active ol:not(.select)").length ) {
-                                             $("#fun .fun_music .options button.remove-btn").css("opacity", "0.6");
+        if ( !$(".mm-menu .my_activity .fun_music-content .active ol:not(.select)").length ) {
+                                             $(".mm-menu .my_activity .options button.remove-btn").css("opacity", "0.6");
                                          }
                                      }, 400);
                                  }
                                  }
                              });
                              
-                             $("#fun .fun_music .options").on("click", "button.cancel-btn", function() {
+                             $(".mm-menu .my_activity .options").on("click", "button.cancel-btn", function() {
                                  var $this = $(this);
-                                 $("#fun .fun_music .fun_music-content .active ol").removeClass("select");
+                                 $(".mm-menu .my_activity .fun_music-content .active ol").removeClass("select");
                                  
-                                  $("#fun .fun_music .options button.remove-btn").attr("data-type", "select").html('<i class="fa-regular fa-hand-pointer"></i> <span>Select</span>').css("opacity", "1");
+                                  $(".mm-menu .my_activity .options button.remove-btn").attr("data-type", "select").html('<i class="fa-regular fa-hand-pointer"></i> <span>Select</span>').css("opacity", "1");
                                  $this.remove();
                                  
                                  setTimeout(function() {
-                                      $("#fun .fun_music .options button.remove-btn").css("opacity", "1");
+                                      $(".mm-menu .my_activity .options button.remove-btn").css("opacity", "1");
                                  }, 300);
                              });
                              
-                             $("#fun .fun_music .fun_music-content").on("click", ".active ol.select", function() {
+                             $(".mm-menu .my_activity .fun_music-content").on("click", ".active ol.select", function() {
                                 
-                                if ( $("#fun .fun_music .fun_music-content .active ol.select").length >= 0 ) {
-                                    $("#fun .fun_music .options button.remove-btn").css("opacity", "1");
+                                if ( $(".mm-menu .my_activity .fun_music-content .active ol.select").length >= 0 ) {
+                                    $(".mm-menu .my_activity .options button.remove-btn").css("opacity", "1");
                                 }
                              });
                              
-                             $("#fun .fun_music .fun_music-content").on("click", ".active ol", function() {
-                                 if ( $("#fun .fun_music .options .cancel-btn").length ) {
+                             $(".mm-menu .my_activity .fun_music-content").on("click", ".active ol", function() {
+                                 if ( $(".mm-menu .my_activity .options .cancel-btn").length ) {
                                      $(this).toggleClass("select");
                                      
-                                     if ( $("#fun .fun_music .fun_music-content .active ol:not(.select)").length ) {
-                                    $("#fun .fun_music .options button.remove-btn").css("opacity", "1");
+                                     if ( $(".mm-menu .my_activity .fun_music-content .active ol:not(.select)").length ) {
+                                    $(".mm-menu .my_activity .options button.remove-btn").css("opacity", "1");
                                 } else {
-                                    $("#fun .fun_music .options button.remove-btn").css("opacity", "0.6");
+                                    $(".mm-menu .my_activity .options button.remove-btn").css("opacity", "0.6");
                                 }
                                  }
                              });
