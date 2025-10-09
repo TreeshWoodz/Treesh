@@ -72,7 +72,8 @@ $(document).ready(function() {
   $notificationCloseBtnText = "Close";
   $notificationStatus = "you";
   
-  if ( $(".mm-menu .notification").hasClass("go") ) {
+  setTimeout(function() {
+	  if ( $(".mm-menu .notification").hasClass("go") ) {
       closeNotification();
       
       setTimeout(function() {
@@ -81,6 +82,7 @@ $(document).ready(function() {
   } else {
       openNotification();
   }
+  }, 600);
     });
 
                               
