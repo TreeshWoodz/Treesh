@@ -1,4 +1,136 @@
 $(document).ready(function() {
+var fortunes = [
+    "A pleasant surprise is waiting for you.",
+    "You will find success in unexpected places.",
+    "Your hard work will pay off soon.",
+    "Adventure is on the horizon.",
+    "Good things come to those who wait.",
+    "A new opportunity will arise.",
+    "Stay positive, and good things will happen.",
+    "You have the power to make a difference.",
+    "A special someone is about to enter your life.",
+    "Financial prosperity is in your future.",
+    "Believe in yourself, and you will succeed.",
+    "Your creativity will lead to great achievements.",
+    "New friendships will bring joy to your life.",
+    "A journey of a thousand miles begins with a single step.",
+    "You are stronger than you think.",
+    "A hidden talent will soon be revealed.",
+    "The best is yet to come.",
+    "Embrace change; it will lead to growth.",
+    "You will be surrounded by love and happiness.",
+    "Luck is on your side.",
+    "Dream big, and you will achieve greatness.",
+    "A positive attitude will open many doors.",
+    "Cherish the people who are close to your heart.",
+    "Your determination will overcome any obstacle.",
+    "A secret admirer has their eye on you.",
+    "Unexpected opportunities will lead to success.",
+    "Trust your instincts; they will not steer you wrong.",
+    "Happiness is a journey, not a destination.",
+    "Your kindness will be rewarded tenfold.",
+    "The future is bright with promise.",
+    "Keep your eyes open; a big surprise is coming.",
+    "Life is full of beautiful moments waiting to be discovered.",
+    "Success is the sum of small efforts repeated day in and day out.",
+    "The key to happiness is gratitude.",
+    "You are the architect of your own destiny.",
+    "Your greatest strength is your positive attitude.",
+    "The universe is conspiring in your favor.",
+    "Good things come to those who believe in themselves.",
+    "Your potential is limitless; never stop striving for greatness.",
+    "Adventure and excitement await you around every corner.",
+    "A change in perspective can lead to profound insights.",
+    "Today is a gift; that's why it's called the present.",
+    "Your kindness will inspire others to be better.",
+    "The path to success is paved with determination and persistence.",
+    "Your optimism is a magnet for good fortune.",
+    "The best is yet to come; keep moving forward with hope.",
+    "A true friend is about to enter your life.",
+    "Wisdom is the greatest treasure; seek it always.",
+    "Your generosity will be repaid in unexpected ways.",
+    "The power to change your life is within you.",
+    "Your dreams hold the key to your future.",
+    "Love and laughter will fill your days.",
+    "A stroke of luck is heading your way soon.",
+    "Believe in yourself, and others will too.",
+    "Your positive energy is contagious; share it with the world.",
+    "The journey may be long, but the destination is worth it.",
+    "A wave of inspiration will lead to great accomplishments.",
+    "Your heart's desires are within reach; reach for them.",
+    "The sun always shines after the storm.",
+    "A wise decision will bring you closer to your goals.",
+    "Your intuition will guide you to success.",
+    "An exciting opportunity will knock on your door.",
+    "Trust in the process, and all will be well.",
+    "Your potential for happiness is limitless.",
+    "Embrace the unknown; it holds the keys to your future.",
+    "You are a beacon of light in the lives of others.",
+    "A moment of reflection will reveal your true path.",
+    "Your dreams will lead you to places you've never imagined.",
+    "Luck favors the bold; take a leap of faith.",
+    "The world is full of beauty; take time to appreciate it.",
+    "Your hard work will be recognized and rewarded.",
+    "A new chapter in your life is about to begin.",
+    "A kind gesture will have a ripple effect of positivity.",
+    "Your perseverance will lead to triumph.",
+    "Believe in the magic of new beginnings.",
+    "Your inner strength will carry you through any challenge.",
+    "In every end, there is a new beginning.",
+    "The universe is aligning to bring you good fortune.",
+    "Your kindness will be remembered by those you touch.",
+    "You will achieve your goals through determination.",
+    "Your smile will brighten someone's day.",
+    "A thrilling adventure awaits you in the near future.",
+    "Luck is simply preparation meeting opportunity.",
+    "Your dreams will take you to extraordinary places.",
+    "The best way to predict the future is to create it.",
+    "Your positive actions will lead to positive outcomes.",
+    "A great idea will bring you success and recognition.",
+    "Happiness is found in the simplest of moments.",
+    "You have the power to make a difference in the world.",
+    "Your life will be a story worth telling.",
+    "Believe in yourself, and others will believe in you too.",
+    "Good things come to those who stay true to themselves.",
+    "Your talents will open doors you never thought possible.",
+    "A thrilling journey is about to begin.",
+    "Success is the result of hard work and perseverance.",
+    "Your greatest adventures are still ahead of you.",
+    "The best way to predict your future is to create it.",
+    "A wonderful surprise is coming your way soon.",
+    "Your unique qualities make you exceptional.",
+    "The world is full of beauty; take time to explore it.",
+    "Your compassion will touch the lives of many.",
+    "Every obstacle is an opportunity in disguise.",
+    "A fulfilling career is in your future.",
+    "Your wisdom will guide you to make the right decisions.",
+    "A joyful event will bring you and your loved ones together.",
+    "Your determination will overcome any challenge.",
+    "Embrace change, and you'll find new opportunities.",
+    "Your intuition will lead you to great discoveries.",
+    "A positive outlook will attract positive outcomes.",
+    "Adventure and excitement await you around every corner.",
+    "Your generosity knows no bounds.",
+    "A stroke of good luck will come when you least expect it.",
+    "Your dreams will lead you to a brighter future.",
+    "Your energy and enthusiasm are contagious.",
+    "A new phase of life is about to unfold for you.",
+    "Believe in yourself, and you will inspire others.",
+    "You are capable of achieving greatness in all you do."
+  ];
+
+  var currentDay = new Date().getDate();
+  var sameDay = localStorage.getItem("sameDay");
+  var fortune = localStorage.getItem("fortune");
+
+  if (!sameDay || sameDay != currentDay) {
+    var num = Math.floor(Math.random() * fortunes.length);
+    fortune = fortunes[num];
+    localStorage.setItem("sameDay", currentDay);
+    localStorage.setItem("fortune", fortune);
+  }
+
+	
     var controls = [
       { id: 'Favorite Artists', icon: 'fa-user', label: 'Fave Artists' },
       { id: 'Favorite Songs', icon: 'fa-music', label: 'Fave Songs' },
@@ -55,7 +187,7 @@ $(document).ready(function() {
 });
 
 
-	$(".about_you .about_you-item:not(.your_zodiac)").click(function() {
+	$(".about_you .about_you-item").click(function() {
 
 		$(".mm-menu .profile").removeClass("go").css("height", "0px");
 		
@@ -66,6 +198,10 @@ $(document).ready(function() {
   else if ($(this).hasClass("your_birthday")) {
     $notificationIconBody = '<i class="fa-solid fa-cake-candles"></i>';
     $notificationBodyText = "<h1>Only " + daysLeft + " days to go!</h1> <p>Sure, your age adds up but you're only getting younger, <b>" + nickname + "</b>! Let's party soon!</p>";
+  }
+  else if ($(this).hasClass("your_zodiac")) {
+    $notificationIconBody = '<i class="fa-solid fa-scale-balanced"></i>';
+    $notificationBodyText = fortune;
   }
   
   setNotificationOptions = true;
