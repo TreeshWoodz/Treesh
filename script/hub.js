@@ -201,7 +201,7 @@ var fortunes = [
   }
   else if ($(this).hasClass("your_zodiac")) {
     $notificationIconBody = '<i class="fa-solid fa-scale-balanced"></i>';
-    $notificationBodyText = fortune;
+    $notificationBodyText = "<h1>Fortune of the Day</h1> <p>" + fortune + "</p>";
   }
   
   setNotificationOptions = true;
