@@ -258,7 +258,7 @@ var fortunes = [
                              
                              $(".mm-menu .my_activity .options").on("click", "button.cancel-btn", function() {
                                  var $this = $(this);
-                                 $(".mm-menu .my_activity .fun_music-content .active ol").removeClass("select");
+                                 $(".mm-menu .my_activity .fun_music-content .active ol").removeClass("select").removeClass("selected");
                                  
                                   $(".mm-menu .my_activity .options button.remove-btn").attr("data-type", "select").html('<i class="fa-regular fa-hand-pointer"></i> <span>Options</span>').css("opacity", "1");
                                  $this.remove();
@@ -277,7 +277,7 @@ var fortunes = [
                              
                              $(".mm-menu .my_activity .fun_music-content").on("click", ".active ol", function() {
                                  if ( $(".mm-menu .my_activity .options .cancel-btn").length ) {
-                                     $(this).toggleClass("select");
+                                     $(this).toggleClass("select").toggleClass("selected");
                                      
                                      if ( $(".mm-menu .my_activity .fun_music-content .active ol:not(.select)").length ) {
                                     $(".mm-menu .my_activity .options button.remove-btn").css("opacity", "1");
