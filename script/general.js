@@ -1436,15 +1436,15 @@ $("#fun .avaitar").each(function() {
       var $findCat = $(
         ".mm-menu .backdrops .backdrop_category[data-category='" + catTag + "']"
       );
-      var $scrollContainer = $(".mm-menu .backdrops .contain .contain");
+      var $scrollContainer = $(".mm-menu .backdrops .contain .sub_contain");
 
       $this.addClass("clicked").siblings().removeClass("clicked");
 
       if (catTag === "all") {
-        $(".backdrops .contain .contain [data-category]").show();
+        $(".backdrops .contain .sub_contain [data-category]").show();
       } else {
         if ($findCat.length) {
-          $(".backdrops .contain .contain [data-category]").each(function () {
+          $(".backdrops .contain .sub_contain [data-category]").each(function () {
             if ($(this).attr("data-category") === catTag) {
               $(this).show();
             } else {
@@ -1454,17 +1454,17 @@ $("#fun .avaitar").each(function() {
         }
       }
 
-      $(".backdrops .contain .contain").scrollLeft(0);
+      $(".backdrops .contain .sub_contain").scrollTop(0);
     }
   );
 
   const initialBDContainScrollLeft = $(
-    ".backdrops .contain .contain"
-  ).scrollLeft();
+    ".backdrops .contain .sub_contain"
+  ).scrollTop();
   const scrollBDContainThreshold = 200;
 
-  $(".backdrops .contain .contain").on("scroll", function () {
-    const currentScrollLeft = $(this).scrollLeft();
+  $(".backdrops .contain .sub_contain").on("scroll", function () {
+    const currentScrollLeft = $(this).scrollTop();
     const scrollDelta = Math.abs(
       currentScrollLeft - initialBDContainScrollLeft
     );
