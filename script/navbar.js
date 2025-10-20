@@ -18,9 +18,9 @@ $(document).ready(function() {
       });
     },
     {
-      root: $(".contain .contain")[0],
+      root: $(".contain .sub_contain")[0],
       rootMargin: "0px",
-      threshold: 0.1,
+      threshold: 0.15,
     }
   );
 
