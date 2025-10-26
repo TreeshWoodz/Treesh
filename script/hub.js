@@ -132,7 +132,7 @@ var fortunes = [
 
 	
     var controls = [
-      { id: 'Favorite Artists', icon: 'fa-user', label: 'Fave Artists' },
+      { id: 'Favorite Artists', icon: 'fa-user', label: 'Fave Icons' },
       { id: 'Favorite Songs', icon: 'fa-music', label: 'Fave Songs' },
       { id: 'Recently Played Songs', icon: 'fa-play', label: 'Last Played' },
       // { id: 'Skipped Songs', icon: 'fa-forward', label: 'Skipped' },
