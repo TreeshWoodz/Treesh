@@ -278,17 +278,26 @@ form {
 
 #lyrics p.selected {
     background:var(--pink);
-    color:white;
+    color:white !important;
 }
 
 #lyrics p.set {
     background:black;
     color:white;
 }
+  
+  #lyrics p.unset {
+    background: yellow !important;
+  }
 
 #lyrics p.sync {
-    color:var(--pink);
+    color:var(--pink) !important;
+  opacity:0.8 !important;
 }
+  
+  #unset {
+    display:none;
+  }
 </style>
     </head>
 
@@ -299,13 +308,16 @@ form {
     </div>
 
 <form>
-    <input id="input" type="text">
+    <textarea id="input"></textarea>
+    <button type="button" id="addLyrics">Add Lyrics</button>
+    
     <input id="audioUploader" type="file" accept="audio/*">
     
     <button type="button" id="play" data-file="none">Play</button>
     <audio id="player" controls></audio>
     
     <button type="button" id="set">Set Time</button>
+  <button type="button" id="unset">Unset</button>
     <button type="button" id="sync">Sync</button>
     
     <button type="button" id="new">New</button>
@@ -316,6 +328,7 @@ form {
 
     var input = $("#input");
     var lyrics = $("#lyrics");
+    
 
     // load saved lyrics including <p> and <br>
     var savedLyricsData = localStorage.getItem("lyricsData");
@@ -345,26 +358,44 @@ form {
         });
         localStorage.setItem("lyricsData", JSON.stringify(lyricsData));
     }
+    
+    
+    if ( $("#lyrics p.set").length ) {
+        $("#unset").show();
+      } else {
+        $("#unset").hide();
+      }
+    
+    
+    
 
-   input.on("keyup", function(e) {
-    var $this = $(this);
-    var value = $this.val().trim(); // remove spaces
+$("#addLyrics").on("click", function(e) {
+    var value = input.val();
+    if (!value) return;
 
-    if (e.key === "Enter" || e.which === 13) {
-        if (value === "") {
-            $("#lyrics").append("<br>");
+    // normalize line breaks (\r\n, \r, \n) → \n
+    value = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+    // split into lines
+    var lines = value.split("\n");
+
+    lines.forEach(function(line) {
+        line = line.trim();
+        if (line !== "") {
+            $("<p data-minutes></p>").text(line).appendTo(lyrics);
         } else {
-            $("<p data-minutes>" + value + "</p>").appendTo(lyrics);
+            lyrics.append("<br>");
         }
+    });
 
-        saveLyrics();
-        $this.val("");
-        e.preventDefault();
+    saveLyrics();
+    input.val("");
+    e.preventDefault();
 
-        // scroll to bottom
-        $("#lyrics").scrollTop($("#lyrics")[0].scrollHeight);
-    }
+    // scroll to bottom
+    lyrics.scrollTop(lyrics[0].scrollHeight);
 });
+
 
 
     $("form").on("submit", function(e) {
@@ -489,6 +520,12 @@ document.getElementById("play").addEventListener("click", function() {
             if ($this.find("span").length === 0) {
                 $this.append(" <span></span>");
             }
+        } else {
+          if ( !$(this).hasClass("unset") ) {
+            $(this).addClass("unset");
+          } else {
+            $(this).removeClass("unset");
+          }
         }
     });
 
@@ -530,6 +567,12 @@ document.getElementById("play").addEventListener("click", function() {
         if ($("#lyrics p.selected").find("span").length === 0) {
             $("#lyrics p.selected").append(" <span></span>");
         }
+      
+      if ( $("#lyrics p.set").length ) {
+        $("#unset").show();
+      } else {
+        $("#unset").hide();
+      }
 
         saveLyrics();
     });
@@ -543,12 +586,35 @@ document.getElementById("play").addEventListener("click", function() {
     });
     
     $("#sync").click(function() {
-       
+       $("#lyrics p").removeClass("selected unset");
+      
+      $("#lyrics").scrollTop(0);
+      
        player.currentTime.fromStart;
+      
+      $("#play").click();
         
     });
     
     $("#lyrics p.selected").removeClass("selected");
+    
+    
+    $("#lyrics p").each(function() {
+      if ( !$(this).hasClass("set") ) {
+        $(this).find("span").remove();
+      }
+      
+      if ( $(this).hasClass("sync") ) {
+        $(this).removeClass("sync");
+      }
+    });
+    
+    
+    $("#unset").click(function() {
+      $("#lyrics p.unset").removeClass("unset set sync").find("span").remove();
+      
+      saveLyrics();
+    });
 
 });
 
