@@ -351,10 +351,6 @@ body.overflow {
   padding:10px;
   }
 
-#lyrics p.selected {
-    background:var(--pink);
-    color:black !important;
-}
 
 #lyrics p.set {
     background:red;
@@ -368,6 +364,11 @@ body.overflow {
 #lyrics p.sync {
     color:var(--pink) !important;
   opacity:0.8 !important;
+}
+  
+  #lyrics p.selected {
+    background:var(--pink);
+    color:black !important;
 }
   
   #unset {
@@ -648,6 +649,11 @@ body.overflow {
     display:block;
     border-radius:30px;
   }
+  
+  #record.go {
+    background:black;
+    color:var(--pink);
+  }
 </style>
     </head>
 
@@ -777,6 +783,13 @@ body.overflow {
 });
           
           
+          
+          $("#record").click(function() {
+            if ( !$(this).hasClass("inactive") ) {
+           $(this).toggleClass("go");
+              }
+          });
+          
 });
 
       </script>
@@ -802,14 +815,15 @@ body.overflow {
     
   <div class="top section">
   <button type="button" id="clear-time" for="lyrics">Clear Time</button>
-    <button type="button" id="set" for="lyrics">Set Time</button>
+    <button type="button" id="set" for="lyrics">Set</button>
   <button type="button" id="next-line" for="lyrics">Next Line</button>
+    <button type="button" id="record" for="lyrics">Record</button>
   </div>
   
   <div class="bottom section">
     <button type="button" id="new">New</button> 
     
-  <button type="button" id="refresh" style="display:none;">Refresh</button>
+  <button type="button" id="refresh">Refresh</button>
     
   <button type="button" id="save">Save</button>
   <button type="button" id="download">Download</button>
@@ -945,103 +959,82 @@ if (savedLyricsData) {
     }
 
     function playAudio() {
-      
     if (!player.src) {
         alert("Upload an audio file first!");
         return;
     }
 
-    var startTime = 0; // default to beginning
     var selectedP = $("#lyrics p.selected");
+    var startTime = 0;
 
-    if (selectedP.length) { 
+    if (selectedP.length) {
         // get previous <p> with a span
         var prevP = selectedP.prevAll("p").filter(function() {
             return $(this).find("span").length && $(this).find("span").text().trim() !== "";
         }).first();
 
         if (prevP.length) {
-            var timeText = prevP.find("span").text().trim();
-            var parts = timeText.split(/[:.]/);
-            if (parts.length === 3) {
-                startTime = parseInt(parts[0], 10) * 60 
-                          + parseInt(parts[1], 10) 
-                          + parseInt(parts[2], 10) / 100; 
-            }
+            startTime = parseTimeString(prevP.find("span").text().trim());
         }
     }
 
-    if ( $("#lyrics p").hasClass("unset") && $("#lyrics p").hasClass("clicked") ) {
-      player.currentTime = $("#lyrics p.unset.clicked span").text();
-    } else {
-      player.currentTime = startTime;
-    }
-  
-  
+    player.currentTime = startTime;
     player.play();
+}
 
-    function parseTimeString(s) {
-        if (!s) return NaN;
-        var m = s.replace(/^\s+|\s+$/g, "").match(/(\d+):(\d+)(?:\.(\d+))?/);
-        if (!m) return NaN;
-        var min = parseInt(m[1], 10);
-        var sec = parseInt(m[2], 10);
-        var frac = m[3] ? parseFloat("0." + m[3]) : 0;
-        return min * 60 + sec + frac;
-    }
+function parseTimeString(s) {
+    if (!s) return 0;
+    s = s.replace(/[\[\]]/g, "");
+    var m = s.match(/(\d+):(\d+)(?:\.(\d+))?/);
+    if (!m) return 0;
+    var min = parseInt(m[1], 10);
+    var sec = parseInt(m[2], 10);
+    var frac = m[3] ? parseInt(m[3], 10) / Math.pow(10, m[3].length) : 0;
+    return min * 60 + sec + frac;
+}
 
-    function getTimeFromP($p) {
-        var spanText = $p.find("span").text().trim();
-        if (spanText) return parseTimeString(spanText.replace(/[\[\]]/g, ""));
-        var text = $p.text().trim();
-        var brackMatch = text.match(/^\[?(\d+:\d+(?:\.\d+)?)\]?/);
-        if (brackMatch) return parseTimeString(brackMatch[1]);
-        return NaN;
-    }
+function formatTime(time) {
+    var minutes = Math.floor(time / 60);
+    var seconds = Math.floor(time % 60);
+    var milliseconds = Math.floor((time % 1) * 100);
+    return ("0" + minutes).slice(-2) + ":" + ("0" + seconds).slice(-2) + "." + ("0" + milliseconds).slice(-2);
+}
 
-    function syncLyrics() {
-        var current = player.currentTime;
-        $("#lyrics p").removeClass("sync");
+function getTimeFromP($p) {
+    var spanText = $p.find("span").text().trim();
+    if (spanText) return parseTimeString(spanText);
+    return NaN;
+}
 
-        $("#lyrics p").each(function() {
-            var $this = $(this);
-            var start = getTimeFromP($this);
-            if (isNaN(start)) return;
+function syncLyrics() {
+    var current = player.currentTime;
+    $("#lyrics p").removeClass("sync");
 
-            var nextP = $this.next("p");
-            var end = Number.POSITIVE_INFINITY;
-            if (nextP.length) {
-                var nextTime = getTimeFromP(nextP);
-                if (!isNaN(nextTime)) end = nextTime;
+    $("#lyrics p").each(function() {
+        var $this = $(this);
+        var start = getTimeFromP($this);
+        if (isNaN(start)) return;
+
+        var nextP = $this.next("p");
+        var end = Number.POSITIVE_INFINITY;
+        if (nextP.length) {
+            var nextTime = getTimeFromP(nextP);
+            if (!isNaN(nextTime)) end = nextTime;
+        }
+
+        if (current >= start && current < end) {
+            $this.addClass("sync");
+
+            if (!$this.hasClass("set") && $this.hasClass("selected") && $("#record").hasClass("go")) {
+                var lyricText = $this.clone().children("span").remove().end().text().trim();
+                $this.find("span").html("[" + formatTime(current) + "]");
             }
+            return false; // break loop
+        }
+    });
+}
 
-            if (current >= start && current < end) {
-                $this.addClass("sync");
-
-                // only update timestamp if not 'set'
-                if (!$this.hasClass("set") && $this.hasClass("selected")) {
-                    var lyricText = $this.clone().children("span").remove().end().text().trim();
-                    $this.find("span").html("[" + formatTime(current) + "]");
-                }
-                return false; // break loop
-            }
-        });
-    }
-
-    function formatTime(time) {
-        var minutes = Math.floor(time / 60);
-        var seconds = Math.floor(time % 60);
-        var milliseconds = Math.floor((time % 1) * 100);
-
-        var m = ("0" + minutes).slice(-2);
-        var s = ("0" + seconds).slice(-2);
-        var ms = ("0" + milliseconds).slice(-2);
-
-        return m + ":" + s + "." + ms;
-    }
-
-    player.addEventListener("timeupdate", syncLyrics);
-    }
+player.addEventListener("timeupdate", syncLyrics);
     
 document.getElementById("play").addEventListener("click", function() {
   playAudio();
@@ -1049,16 +1042,11 @@ document.getElementById("play").addEventListener("click", function() {
 
     
     document.getElementById("audioUploader-btn").addEventListener("click", function() {
-  if ( $(this).text() === "Upload Audio" ) {
+  if ( $(this).text() === "Upload Audio" ) { 
       $("#audioUploader").click();
       } else {
         if ( $(this).text() === "Play" ) {
-          $(this).attr("data-status", "ready");
-          if ( $(this).attr("data-status") !== "ready" ) {
             playAudio();
-          } else {
-            player.play();
-          }
           $(this).text("Pause");
         } else {
           player.pause();
@@ -1075,10 +1063,10 @@ document.getElementById("play").addEventListener("click", function() {
       $this.addClass("clicked").siblings().removeClass("clicked");
       
       if ( $(this).hasClass("set") ) {
-        $("#set").text("Unset Time");
+        $("#set").text("Unset");
         $("#lyrics p").removeClass("selected");
       } else {
-        $("#set").text("Set Time");
+        $("#set").text("Set");
         $this.addClass("selected").siblings().removeClass("selected");
       }
     });
@@ -1102,7 +1090,7 @@ document.getElementById("play").addEventListener("click", function() {
             var $p = $(this);
             var spanTime = $p.find("span").text();
 
-            if ($p.hasClass("selected") && !$p.hasClass("set")) {
+            if ($p.hasClass("selected") && !$p.hasClass("set") && $("#record").hasClass("go")) {
                 $p.find("span").text("[" + current + "]");
             }
 
@@ -1116,7 +1104,7 @@ document.getElementById("play").addEventListener("click", function() {
     player.addEventListener("seeking", updateSelected);
 
     $("#set").click(function() {
-      if ( $(this).text() === "Set Time" ) {
+      if ( $(this).text() === "Set" ) {
     if (!player.paused && !player.ended && player.currentTime > 0) { // only if audio is playing
         $("#lyrics p.selected")
             .addClass("set")
@@ -1143,7 +1131,7 @@ document.getElementById("play").addEventListener("click", function() {
     });
     
     $("#refresh").click(function() {
-      location.reload(true);
+      $("#lyrics p").removeClass();
     });
     
     $("#lyrics p").removeClass("clicked sync selected");
@@ -1181,7 +1169,7 @@ document.getElementById("play").addEventListener("click", function() {
         $("button[for='lyrics']").removeClass("inactive");
 
         var lines = $("#input").val().split("\n");
-
+ 
         $("#lyrics p, #lyrics br").each(function(i) {
             var line = lines[i] ? lines[i].trim() : "";
 
@@ -1258,6 +1246,7 @@ document.getElementById("play").addEventListener("click", function() {
 
     } else {
         // Back → input to textarea
+      $("#record").removeClass("go");
 $("#text").show();
 $("#lyrics").hide();
 $(this).text("Next");
