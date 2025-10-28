@@ -601,38 +601,35 @@ height:100px;
 
         
       $("#pull").click(function() {
-    // 1. Start Loading State
+    // 1. Initialize Loading State
     $("#song-list").addClass("loading");
-    $("#song-list").removeClass("go");
 
-    // Use relative path to avoid same-site CORS issues
-    $.get("/content/lyrics.html")
+    // 2. Make AJAX Request using a RELATIVE PATH for same-site compatibility
+    $.get("/content/lyrics.html") 
+        
         // SUCCESS Handler
         .done(function(data) {
             var html = $(data);
             var $songContainer = $("#song-list .contain");
             $songContainer.empty();
             
-            var itemCount = 0; // For debugging
+            var itemCount = 0; 
 
-            // Loop through all elements with the class 'lyric'
-            html.find(".lyric").each(function() {
+            // 🎯 ROBUST SELECTOR FIX: Find the '.lyric' elements, whether they are top-level
+            // fragments or nested inside the <body> tag of the full HTML document.
+            html.filter(".lyric").add(html.find(".lyric")).each(function() {
                 var $lyric = $(this);
                 
-                // IMPORTANT: The artist/track is nested inside the .metadata div.
-                // We find the metadata div first, then search within it.
+                // Content is nested inside the .metadata div as per your example
                 var $metadata = $lyric.find(".metadata");
                 
-                // Get the text content. .text() will return an empty string if not found.
                 var artist = $metadata.find(".artist").text(); 
                 var track = $metadata.find(".track").text();
                 
-                // 🛑 DEBUG CHECK: Ensure content was actually found
-                if (artist && track) {
+                if (artist.trim() && track.trim()) { // Check for non-empty content
                     itemCount++; 
-                    // console.log("Found Item: " + artist + " - " + track); 
 
-                    // Create the HTML structure
+                    // Construct the song list item HTML
                     var section =
                         '<div class="item">' +
                             '<div class="section">' +
@@ -644,30 +641,26 @@ height:100px;
                             '</div>' +
                         '</div>';
 
-                    // Append the new content
                     $songContainer.append(section);
                 }
             });
             
-            // 🛑 FINAL DEBUG CHECK: If itemCount is 0, nothing was displayed.
-            // console.log("Total items processed: " + itemCount); 
-            
-            // 3. Complete Loading State (Run once after ALL appending is done)
+            // 3. Finalize Loading State (Run once after all content is appended)
             $("#song-list").removeClass("loading");
             $("#song-list").addClass("go");
             
-            // Optional: Show a message if no songs were found
+            // Optional: Display message if no songs were found
             if (itemCount === 0) {
-                 $songContainer.html('<p class="info">No songs were found with the class "lyric" in the fetched content.</p>');
+                 $songContainer.html('<p class="info">Content loaded, but no valid song items were found. Check your HTML structure.</p>');
             }
         })
 
-        // FAIL Handler for network errors
+        // FAIL Handler for network/CORS issues
         .fail(function(jqXHR, textStatus, errorThrown) {
             console.error("Content failed to load:", textStatus, errorThrown);
             
             // Display an error message to the user
-            $("#song-list .contain").html('<p class="error">Failed to load songs. Check the console for network/CORS details.</p>');
+            $("#song-list .contain").html('<p class="error">Failed to load songs. Check the browser console for details (e.g., a 404 error).</p>');
             
             // Stop the loading spinner
             $("#song-list").removeClass("loading");
