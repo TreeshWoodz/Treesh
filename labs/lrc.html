@@ -457,6 +457,10 @@ height:100px;
     z-index:-100;
   }
   
+  #song-list.loading {
+    opacity:0.6;
+  }
+  
   #song-list.go {
     z-index:3;
   }
@@ -589,37 +593,67 @@ height:100px;
       </form>
       
       <script>
+        $(document).ready(function() {
+          
         $("#song-list heading button").click(function() {
           $("#song-list").removeClass("go");
         });
+
         
-      $("#pull").click(function() {
-  $.get("https://treesh.life/content/lyrics.html", function(data) {
-    var html = $(data);
-    $("#song-list .contain").empty();
+       $("#pull").click(function() {
+    // 1. Show the loading state immediately
+    $("#song-list").addClass("loading");
 
-    html.find(".lyric").each(function() {
-  var artist = $(this).find(".artist").text();
-  var track = $(this).find(".track").text();
+    // 2. Make the AJAX request
+    $.get("https://treesh.life/content/lyrics.html")
+        // SUCCESS handler
+        .done(function(data) {
+            var html = $(data);
+            var $songContainer = $("#song-list .contain");
 
-  var section = 
-    '<div class="item">' +
-      '<div class="section">' +
-        '<p class="artist">' + artist + '</p>' +
-        '<p class="name">' + track + '</p>' +
-      '</div>' +
-      '<div class="section">' +
-        '<button type="button" class="pick">Choose</button>' +
-      '</div>' +
-    '</div>';
+            // Clear existing content
+            $songContainer.empty();
 
-  $("#song-list .contain").append(section);
+            // Loop through all found elements and append the new structure
+            html.find(".lyric").each(function() {
+                var $lyric = $(this);
+                var artist = $lyric.find(".artist").text();
+                var track = $lyric.find(".track").text();
+
+                var section =
+                    '<div class="item">' +
+                        '<div class="section">' +
+                            '<p class="artist">' + artist + '</p>' +
+                            '<p class="name">' + track + '</p>' +
+                        '</div>' +
+                        '<div class="section">' +
+                            '<button type="button" class="pick">Choose</button>' +
+                        '</div>' +
+                    '</div>';
+
+                $songContainer.append(section);
+            });
+            
+            // 3. COMPLETE: Remove loading class and add 'go' class
+            // This MUST be outside the .each() loop!
+            $("#song-list").removeClass("loading");
+            $("#song-list").addClass("go");
+        })
+        
+        // FAIL handler for network/CORS issues
+        .fail(function(jqXHR, textStatus, errorThrown) {
+            console.error("Content failed to load:", textStatus, errorThrown);
+            
+            // Display an error message to the user
+            $("#song-list .contain").html('<p class="error">Failed to load songs. Please check the console for details (e.g., CORS errors).</p>');
+            
+            // Stop the loading spinner
+            $("#song-list").removeClass("loading");
+        });
 });
-
-    $("#song-list").addClass("go");
-  });
+          
+          
 });
-
 
       </script>
     
