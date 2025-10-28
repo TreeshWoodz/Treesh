@@ -963,7 +963,7 @@ if (savedLyricsData) {
         });
         localStorage.setItem("lyricsData", JSON.stringify(lyricsData));
     }
-
+ 
 
 
     $("form").on("submit", function(e) {
@@ -1076,28 +1076,31 @@ function syncLyrics() {
         var $this = $(this);
         var text = $this.clone().children("span").remove().end().text().trim();
 
-        // skip if text is only [something] and nothing else
+        // skip lines that are just [something] with no lyrics
         if (/^\s*\[.*?\]\s*$/.test(text)) return;
 
-        // skip if there's no span (no timestamp) and text is empty or just [something]
-        if ($this.find("span").length === 0 && (/^\s*\[.*?\]\s*$/.test(text) || text === "")) return;
-
         var start = getTimeFromP($this);
-        if (isNaN(start)) return;
+        if (isNaN(start)) return; // skip if no valid timestamp
 
-        var nextP = $this.nextAll("p").first();
+        // find the next <p> that actually has a valid timestamp
+        var $nextP = $this.nextAll("p").filter(function() {
+            var nextText = $(this).clone().children("span").remove().end().text().trim();
+            var nextTime = getTimeFromP($(this));
+            return !/^\s*\[.*?\]\s*$/.test(nextText) && !isNaN(nextTime);
+        }).first();
+
         var end = Number.POSITIVE_INFINITY;
-
-        if (nextP.length) {
-            var nextTime = getTimeFromP(nextP);
+        if ($nextP.length) {
+            var nextTime = getTimeFromP($nextP);
             if (!isNaN(nextTime)) end = nextTime;
         } else {
+            // reached the last lyric line
             if (current >= start) {
                 player.pause();
                 $("#record").removeClass("go");
                 $this.addClass("sync");
 
-                // scroll last line if not recording
+                // scroll last line into view if not recording
                 if (!$("#record").hasClass("go")) {
                     $("#lyrics").animate({ 
                         scrollTop: $this.position().top + $("#lyrics").scrollTop() - $("#lyrics").height()/2 
@@ -1117,6 +1120,7 @@ function syncLyrics() {
                 }, 200);
             }
 
+            // update timestamp while recording
             if (!$this.hasClass("set") && $this.hasClass("selected") && $("#record").hasClass("go")) {
                 $this.find("span").html("[" + formatTime(current) + "]");
             }
@@ -1124,7 +1128,6 @@ function syncLyrics() {
         }
     });
 }
-
 
 
 
