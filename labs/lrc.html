@@ -1070,19 +1070,21 @@ function getTimeFromP($p) {
 
 function syncLyrics() {
     var current = player.currentTime;
+    var isRecording = $("#record").hasClass("go");
+
     $("#lyrics p").removeClass("sync");
 
     $("#lyrics p").each(function() {
         var $this = $(this);
         var text = $this.clone().children("span").remove().end().text().trim();
 
-        // skip lines that are just [something] with no lyrics
+        // skip bracket-only lines like [Hook:], [Verse 1:], etc
         if (/^\s*\[.*?\]\s*$/.test(text)) return;
 
         var start = getTimeFromP($this);
-        if (isNaN(start)) return; // skip if no valid timestamp
+        if (isNaN(start)) return;
 
-        // find the next <p> that actually has a valid timestamp
+        // find the next lyric line that has a valid timestamp
         var $nextP = $this.nextAll("p").filter(function() {
             var nextText = $(this).clone().children("span").remove().end().text().trim();
             var nextTime = getTimeFromP($(this));
@@ -1093,43 +1095,28 @@ function syncLyrics() {
         if ($nextP.length) {
             var nextTime = getTimeFromP($nextP);
             if (!isNaN(nextTime)) end = nextTime;
-        } else {
-            // reached the last lyric line
-            if (current >= start) {
-                player.pause();
-                $("#record").removeClass("go");
-                $this.addClass("sync");
-
-                // scroll last line into view if not recording
-                if (!$("#record").hasClass("go")) {
-                    $("#lyrics").animate({ 
-                        scrollTop: $this.position().top + $("#lyrics").scrollTop() - $("#lyrics").height()/2 
-                    }, 200);
-                }
-                return false;
-            }
         }
 
+        // sync lyrics regardless of recording
         if (current >= start && current < end) {
             $this.addClass("sync");
 
-            // scroll current line if not recording
-            if (!$("#record").hasClass("go")) {
-                $("#lyrics").animate({ 
-                    scrollTop: ($this.position().top + 70) + $("#lyrics").scrollTop() - $("#lyrics").height()/2 
+            // scroll only if NOT recording
+            if (!isRecording) {
+                $("#lyrics").animate({
+                    scrollTop: ($this.position().top + 70) + $("#lyrics").scrollTop() - $("#lyrics").height()/2
                 }, 200);
             }
 
-            // update timestamp while recording
-            if (!$this.hasClass("set") && $this.hasClass("selected") && $("#record").hasClass("go")) {
+            // if recording, update timestamp on selected lyric
+            if (isRecording && $this.hasClass("selected") && !$this.hasClass("set")) {
                 $this.find("span").html("[" + formatTime(current) + "]");
             }
+
             return false;
         }
     });
 }
-
-
 
 
 player.addEventListener("timeupdate", syncLyrics);
