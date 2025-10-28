@@ -1076,14 +1076,18 @@ function syncLyrics() {
         var $this = $(this);
         var text = $this.clone().children("span").remove().end().text().trim();
 
-        // skip lines that are only [something] and nothing else
+        // skip if text is only [something] and nothing else
         if (/^\s*\[.*?\]\s*$/.test(text)) return;
+
+        // skip if there's no span (no timestamp) and text is empty or just [something]
+        if ($this.find("span").length === 0 && (/^\s*\[.*?\]\s*$/.test(text) || text === "")) return;
 
         var start = getTimeFromP($this);
         if (isNaN(start)) return;
 
         var nextP = $this.nextAll("p").first();
         var end = Number.POSITIVE_INFINITY;
+
         if (nextP.length) {
             var nextTime = getTimeFromP(nextP);
             if (!isNaN(nextTime)) end = nextTime;
@@ -1093,9 +1097,12 @@ function syncLyrics() {
                 $("#record").removeClass("go");
                 $this.addClass("sync");
 
-                // scroll last line into view
-                $("#lyrics").animate({ scrollTop: $this.position().top + $("#lyrics").scrollTop() - $("#lyrics").height()/2 }, 200);
-
+                // scroll last line if not recording
+                if (!$("#record").hasClass("go")) {
+                    $("#lyrics").animate({ 
+                        scrollTop: $this.position().top + $("#lyrics").scrollTop() - $("#lyrics").height()/2 
+                    }, 200);
+                }
                 return false;
             }
         }
@@ -1103,10 +1110,12 @@ function syncLyrics() {
         if (current >= start && current < end) {
             $this.addClass("sync");
 
-            // scroll current line into view
+            // scroll current line if not recording
             if (!$("#record").hasClass("go")) {
-                    $("#lyrics").animate({ scrollTop: $this.position().top + $("#lyrics").scrollTop() - $("#lyrics").height()/2 }, 200);
-                }
+                $("#lyrics").animate({ 
+                    scrollTop: ($this.position().top + 70) + $("#lyrics").scrollTop() - $("#lyrics").height()/2 
+                }, 200);
+            }
 
             if (!$this.hasClass("set") && $this.hasClass("selected") && $("#record").hasClass("go")) {
                 $this.find("span").html("[" + formatTime(current) + "]");
