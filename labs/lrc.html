@@ -266,12 +266,10 @@ body.overflow {
     background:black; 
     color:white; 
     font-size:1.2rem;
-  padding:10px;
     overflow:auto !important;
   word-break:break-word;
   
-    padding-bottom:30px;
-    padding-right:100px;
+    padding-bottom:100px;
 }
 
 #tools {
@@ -348,10 +346,14 @@ body.overflow {
     z-index:-10000;
     visibility:hidden;
   }
+  
+  #lyrics p {
+  padding:10px;
+  }
 
 #lyrics p.selected {
     background:var(--pink);
-    color:white !important;
+    color:black !important;
 }
 
 #lyrics p.set {
@@ -380,8 +382,7 @@ body.overflow {
     padding:10px;
     font-size:1.2rem;
     font-family:var(--main-font);
-    padding-bottom:30px;
-    padding-right:100px;
+    padding-bottom:100px;
   }
   
   #input[data-status="edit"] {
@@ -481,6 +482,7 @@ body.overflow {
     height:85px;
     position:relative;
     display:flex;
+    overflow:hidden;
     align-items:center;
     justify-content:space-between;
   }
@@ -928,8 +930,10 @@ if (savedLyricsData) {
         let tx = db.transaction("files", "readonly");
         let store = tx.objectStore("files");
         let getReq = store.get("savedAudio");
-
+      $("#audioUploader-btn").text("Play");
+      
         getReq.onsuccess = function(e) {
+          
             let file = e.target.result;
             if (file) {
                 let url = URL.createObjectURL(file);
@@ -940,7 +944,8 @@ if (savedLyricsData) {
         };
     }
 
-document.getElementById("play").addEventListener("click", function() {
+    function playAudio() {
+      
     if (!player.src) {
         alert("Upload an audio file first!");
         return;
@@ -1036,12 +1041,32 @@ document.getElementById("play").addEventListener("click", function() {
     }
 
     player.addEventListener("timeupdate", syncLyrics);
+    }
+    
+document.getElementById("play").addEventListener("click", function() {
+  playAudio();
 });
 
     
-    $("#audioUploader-btn").click(function() {
+    document.getElementById("audioUploader-btn").addEventListener("click", function() {
+  if ( $(this).text() === "Upload Audio" ) {
       $("#audioUploader").click();
-    });
+      } else {
+        if ( $(this).text() === "Play" ) {
+          $(this).attr("data-status", "ready");
+          if ( $(this).attr("data-status") !== "ready" ) {
+            playAudio();
+          } else {
+            player.play();
+          }
+          $(this).text("Pause");
+        } else {
+          player.pause();
+          $(this).text("Play");
+        }
+      }
+});
+
     
 
     $("#lyrics").on("click", "p", function() {
