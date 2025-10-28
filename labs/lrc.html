@@ -600,52 +600,74 @@ height:100px;
         });
 
         
-       $("#pull").click(function() {
-    // 1. Show the loading state immediately
+      $("#pull").click(function() {
+    // 1. Start Loading State
     $("#song-list").addClass("loading");
+    $("#song-list").removeClass("go");
 
-    // 2. Make the AJAX request
+    // Use relative path to avoid same-site CORS issues
     $.get("/content/lyrics.html")
-        // SUCCESS handler
+        // SUCCESS Handler
         .done(function(data) {
             var html = $(data);
             var $songContainer = $("#song-list .contain");
-
-            // Clear existing content
             $songContainer.empty();
+            
+            var itemCount = 0; // For debugging
 
-            // Loop through all found elements and append the new structure
+            // Loop through all elements with the class 'lyric'
             html.find(".lyric").each(function() {
                 var $lyric = $(this);
-                var artist = $lyric.find(".artist").text();
-                var track = $lyric.find(".track").text();
+                
+                // IMPORTANT: The artist/track is nested inside the .metadata div.
+                // We find the metadata div first, then search within it.
+                var $metadata = $lyric.find(".metadata");
+                
+                // Get the text content. .text() will return an empty string if not found.
+                var artist = $metadata.find(".artist").text(); 
+                var track = $metadata.find(".track").text();
+                
+                // 🛑 DEBUG CHECK: Ensure content was actually found
+                if (artist && track) {
+                    itemCount++; 
+                    // console.log("Found Item: " + artist + " - " + track); 
 
-                var section =
-                    '<div class="item">' +
-                        '<div class="section">' +
-                            '<p class="artist">' + artist + '</p>' +
-                            '<p class="name">' + track + '</p>' +
-                        '</div>' +
-                        '<div class="section">' +
-                            '<button type="button" class="pick">Choose</button>' +
-                        '</div>' +
-                    '</div>';
+                    // Create the HTML structure
+                    var section =
+                        '<div class="item">' +
+                            '<div class="section">' +
+                                '<p class="artist">' + artist + '</p>' +
+                                '<p class="name">' + track + '</p>' +
+                            '</div>' +
+                            '<div class="section">' +
+                                '<button type="button" class="pick">Choose</button>' +
+                            '</div>' +
+                        '</div>';
 
-                $songContainer.append(section);
+                    // Append the new content
+                    $songContainer.append(section);
+                }
             });
             
-            // 3. COMPLETE: Remove loading class and add 'go' class
-            // This MUST be outside the .each() loop!
+            // 🛑 FINAL DEBUG CHECK: If itemCount is 0, nothing was displayed.
+            // console.log("Total items processed: " + itemCount); 
+            
+            // 3. Complete Loading State (Run once after ALL appending is done)
             $("#song-list").removeClass("loading");
             $("#song-list").addClass("go");
+            
+            // Optional: Show a message if no songs were found
+            if (itemCount === 0) {
+                 $songContainer.html('<p class="info">No songs were found with the class "lyric" in the fetched content.</p>');
+            }
         })
-        
-        // FAIL handler for network/CORS issues
+
+        // FAIL Handler for network errors
         .fail(function(jqXHR, textStatus, errorThrown) {
             console.error("Content failed to load:", textStatus, errorThrown);
             
             // Display an error message to the user
-            $("#song-list .contain").html('<p class="error">Failed to load songs. Please check the console for details (e.g., CORS errors).</p>');
+            $("#song-list .contain").html('<p class="error">Failed to load songs. Check the console for network/CORS details.</p>');
             
             // Stop the loading spinner
             $("#song-list").removeClass("loading");
