@@ -1074,46 +1074,35 @@ function syncLyrics() {
 
     $("#lyrics p").removeClass("sync");
 
-    $("#lyrics p").each(function() {
+    // get all valid lyric lines (skip [Hook:], [Verse:], etc)
+    var $validLyrics = $("#lyrics p").filter(function() {
+        var text = $(this).clone().children("span").remove().end().text().trim();
+        var time = getTimeFromP($(this));
+        return !/^\s*\[.*?\]\s*$/.test(text) && !isNaN(time);
+    });
+
+    $validLyrics.each(function(index) {
         var $this = $(this);
-        var text = $this.clone().children("span").remove().end().text().trim();
-
-        // skip bracket-only lines like [Hook:], [Verse 1:], etc
-        if (/^\s*\[.*?\]\s*$/.test(text)) return;
-
         var start = getTimeFromP($this);
-        if (isNaN(start)) return;
+        var next = $validLyrics.eq(index + 1);
+        var end = next.length ? getTimeFromP(next) : Number.POSITIVE_INFINITY;
 
-        // find the next lyric line that has a valid timestamp
-        var $nextP = $this.nextAll("p").filter(function() {
-            var nextText = $(this).clone().children("span").remove().end().text().trim();
-            var nextTime = getTimeFromP($(this));
-            return !/^\s*\[.*?\]\s*$/.test(nextText) && !isNaN(nextTime);
-        }).first();
-
-        var end = Number.POSITIVE_INFINITY;
-        if ($nextP.length) {
-            var nextTime = getTimeFromP($nextP);
-            if (!isNaN(nextTime)) end = nextTime;
-        }
-
-        // sync lyrics regardless of recording
         if (current >= start && current < end) {
             $this.addClass("sync");
 
-            // scroll only if NOT recording
-            if (!isRecording) {
+            // only scroll if NOT recording AND not the last lyric
+            if (!isRecording && index !== $validLyrics.length - 1) {
                 $("#lyrics").animate({
                     scrollTop: ($this.position().top + 70) + $("#lyrics").scrollTop() - $("#lyrics").height()/2
                 }, 200);
             }
 
-            // if recording, update timestamp on selected lyric
+            // update timestamp if recording
             if (isRecording && $this.hasClass("selected") && !$this.hasClass("set")) {
                 $this.find("span").html("[" + formatTime(current) + "]");
             }
 
-            return false;
+            return false; // stop once we find current line
         }
     });
 }
