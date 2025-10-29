@@ -1036,7 +1036,7 @@ body.overflow {
   }
   
   #rhymes.go {
-    height:40px !important;
+    height:50px !important;
     opacity:1 !important;
   }
   
@@ -1044,6 +1044,7 @@ body.overflow {
     height:100%;
     width:100%;
     overflow:auto;
+    padding-bottom:20px;
   }
   
   #rhymes button {
@@ -1164,21 +1165,6 @@ body.overflow {
   </div>
   
 </form>
-      
-     
-        <script>
-$("#input").on("input", function() {
-    let text = $(this).val().trim()
-    if(!text) return
-    let words = text.split(/\s+/)
-    let lastWord = words[words.length - 1].toLowerCase()
-
-    $.getJSON("https://rhymebrain.com/talk?function=getRhymes&word=" + lastWord, function(data) {
-        let list = data.map(item => "<button type='button'>"+item.word+"</button>").join("")
-        $("#rhymes .contain").html(list)
-    });
-});
-</script>
       
 
 <script>
@@ -1783,14 +1769,14 @@ $("#save").click(function() {
                                                                              
 });
 
-    
+    let timeout;
  $("#input").on("input", function() {
     var lines = $(this).val().split("\n");
     var $lyrics = $("#lyrics");
     $lyrics.empty(); // clear first
    
-   if ( !$("#rhymes").hasClass("go") ) {
-   $("#rhymes").addClass("go");
+   if ( !$("#rhymes").hasClass("go") ) { 
+   $("#rhymes").addClass("go");  
 }
    
     lines.forEach(function(line) {
@@ -1819,9 +1805,30 @@ $("#save").click(function() {
             $lyrics.append($p);
         }
     });
+   
+   clearTimeout(timeout);
+    timeout = setTimeout(() => {
+        getRhymes();
+    }, 200);
 
     saveLyrics();
 });
+    
+    function getRhymes() {
+    let textt = $("#input").val().trim();
+    if (!textt) return;
+    let words = textt.split(/\s+/);
+    let lastWord = words[words.length-1].replace(/[^\w]/g,"").toLowerCase();
+
+    $.getJSON("https://rhymebrain.com/talk?function=getRhymes&word=" + lastWord)
+      .done(function(data) {
+        let list = data.map(item => "<button type='button'>"+item.word+"</button>").join("");
+        $("#rhymes .contain").html(list);
+      })
+      .fail(function() {
+        console.log("Rhyme API request failed");
+      });
+}
 
     
     $("#input").on("keydown", function(e) {
@@ -1838,8 +1845,60 @@ $("#save").click(function() {
     // move cursor correctly 
     this.selectionStart = this.selectionEnd = start + 1;
   }
+      
 });
 
+          
+   $("#rhymes").on("click", "button", function() {
+    let $input = $("#input");
+    let word = $(this).text();
+    let text = $input.val();
+
+    // replace the last word typed (strip punctuation at end)
+    let newText = text.replace(/(\b\w+)(\W*)$/,"") + word + " ";
+    $input.val(newText);
+    $input.focus();
+
+    // update #lyrics from textarea
+    updateLyricsFromInput();
+
+    // save
+    saveLyrics();
+});
+
+// helper to rebuild #lyrics from textarea
+function updateLyricsFromInput() {
+    let lines = $("#input").val().split("\n");
+    let $lyrics = $("#lyrics");
+    $lyrics.empty();
+
+    lines.forEach(function(line) {
+        line = line.replace(/\r/g,"").trim();
+        if (line === "") {
+            $lyrics.append("<br>");
+        } else {
+            let isSet = false;
+            if (line.startsWith("*")) {
+                isSet = true;
+                line = line.slice(1).trim();
+            }
+
+            let match = line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/);
+            let timestamp = "";
+            let text = line;
+            if (match) {
+                timestamp = match[1];
+                text = match[2].trim();
+                if (!timestamp.startsWith("[")) timestamp = "[" + timestamp + "]";
+            }
+ 
+            let $p = $("<p></p>");
+            $p.html("<span>" + (timestamp || "") + "</span> " + text);
+            if (isSet) $p.addClass("set"); 
+            $lyrics.append($p);
+        }
+    });
+}
 
     
     
