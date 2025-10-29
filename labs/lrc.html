@@ -1980,14 +1980,36 @@ $("#input").val(inputText);
      }
 });
 
+    
+    function saveAudio() {
+  let mp3 = $("#player").attr("src");
+  if (mp3) {
+    fetch(mp3)
+      .then(res => res.blob())
+      .then(blob => {
+        let tx = db.transaction("files", "readwrite");
+        let store = tx.objectStore("files");
+        store.put(blob, "savedAudio");
+
+        $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
+        if ($("#lyrics").css("display") === "block") {
+          $("#next-line").removeClass("inactive");
+        }
+
+        let url = URL.createObjectURL(blob);
+        $("#player")[0].src = url;
+        localStorage.setItem("audioReady", "true");
+      })
+      .catch(err => console.error("Failed to save audio:", err));
+  }
+}
+
 
 
 $("#save").click(function() {
-                                                                             
-    saveLyrics();
-                                                                             
-  let allEmpty = true;
+  saveLyrics();
 
+  let allEmpty = true;
   $("#metadata").find("input, textarea, select").each(function() {
     if ($(this).val().trim() !== "") {
       allEmpty = false;
@@ -1998,8 +2020,10 @@ $("#save").click(function() {
   if (!allEmpty) {
     saveMetadata();
   }
-                                                                             
+  
+  saveAudio();
 });
+
 
    function getWordAtCaret($input) {
   const el = $input[0];
@@ -2080,6 +2104,7 @@ $("#input").on("input click keyup mouseup", function() {
 
   scheduleGetRhymes();
   saveLyrics();
+  saveAudio();
 });
 
 function getRhymesForCaret() {
