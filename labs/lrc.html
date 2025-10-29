@@ -2390,29 +2390,23 @@ $("#rhymes").on("click", "button", function() {
           
     $("#song-list").on("click", ".item button", function() {
   var $item = $(this).closest(".item");
-  var artist = $item.find(".artist").text().trim();
-  var track = $item.find(".name").text().trim();
-      
-      if ( $("#lyrics").css("display") === "block" ) {
-        $("#next").click();
-      }
+  var artist = $item.find(".artist").text().trim().toLowerCase();
+  var track = $item.find(".name").text().trim().toLowerCase();
 
   $("#input").val("");
-      $("#rhymes").removeClass("go");
 
   $.get("/content/lyrics.html", function(data) {
-    // wrap the data in a jQuery object
     var $html = $("<div>").html(data);
 
-    // find all .lyric blocks
     var $lyric = $html.find(".lyric").filter(function() {
-      var a = $(this).attr("data-artist") ? $(this).attr("data-artist").trim() : "";
-      var t = $(this).attr("data-track") ? $(this).attr("data-track").trim() : "";
-      return a.toLowerCase() === artist.toLowerCase() && t.toLowerCase() === track.toLowerCase();
+      var a = $(this).attr("data-artist") ? $(this).attr("data-artist").trim().toLowerCase() : "";
+      var t = $(this).attr("data-track") ? $(this).attr("data-track").trim().toLowerCase() : "";
+
+      // partial match for artist, exact match for track
+      return artist.includes(a) && t === track;
     });
 
     if ($lyric.length) {
-      // grab <p> text only, preserve line breaks for <br>
       var lines = [];
       $lyric.contents().each(function() {
         if (this.nodeName === "P") {
@@ -2428,6 +2422,7 @@ $("#rhymes").on("click", "button", function() {
     }
   });
 });
+
 
 
 
