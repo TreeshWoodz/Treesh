@@ -576,7 +576,7 @@ body.overflow {
     height:100%;
     position:relative;
     display:block;
-    padding:10px;
+    padding:20px;
     font-size:1.4rem;
     font-family:var(--main-font);
     background:transparent;
@@ -1023,6 +1023,51 @@ body.overflow {
     background:rgba(255, 255, 255, 0.8) !important;
     color:var(--pink) !important;
   }
+  
+  
+  #rhymes {
+    width:100%;
+    height:0px !important;
+    display:block;
+    opacity:0;
+    white-space:nowrap;
+    overflow:hidden;
+    transition: height 0.2s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.2s ease-in;
+  }
+  
+  #rhymes.go {
+    height:40px !important;
+    opacity:1 !important;
+  }
+  
+  #rhymes .contain {
+    height:100%;
+    width:100%;
+    overflow:auto;
+  }
+  
+  #rhymes button {
+    display:inline-block;
+    width:auto !important;
+    background:transparent;
+    font-size:0.8rem;
+    padding:5px 10px !important;
+    height:auto !important;
+    margin-right:5px;
+  }
+  
+  #rhymes button:hover {
+    background:rgba(255, 255, 255, 0.9);
+    color:var(--pink);
+  }
+  
+  #rhymes button:first-child {
+    margin-left:20px;
+  }
+  
+  #rhymes button:last-child {
+    margin-right:20px;
+  }
 </style>
     </head>
 
@@ -1098,9 +1143,15 @@ body.overflow {
       </div>
   
   
-  <div class="bottom section">
-    <button type="button" id="audio-btn"><i class="fa-solid fa-play"></i></button>
-    <button type="button" id="next-line" data-status="record" for="lyrics"><i class="fa-solid fa-circle"></i> <span>Record</span></button>
+  <div id="rhymes">
+    <div class="contain">
+    </div>
+  </div> 
+  
+  
+  <div class="bottom section"> 
+    <button type="button" id="audio-btn" data-status="upload"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
+    <button type="button" id="next-line" data-status="record" class="inactive"><i class="fa-solid fa-circle"></i> <span>Record</span></button>
     <button type="button" id="next" data-status="next"><i class="fa-solid fa-arrow-right"></i></button>
   </div>
     
@@ -1113,6 +1164,22 @@ body.overflow {
   </div>
   
 </form>
+      
+     
+        <script>
+$("#input").on("input", function() {
+    let text = $(this).val().trim()
+    if(!text) return
+    let words = text.split(/\s+/)
+    let lastWord = words[words.length - 1].toLowerCase()
+
+    $.getJSON("https://rhymebrain.com/talk?function=getRhymes&word=" + lastWord, function(data) {
+        let list = data.map(item => "<button type='button'>"+item.word+"</button>").join("")
+        $("#rhymes .contain").html(list)
+    });
+});
+</script>
+      
 
 <script>
 function saveMetadata() {
@@ -1213,7 +1280,7 @@ if (savedLyricsData) {
                 lyricsData.push({
                     type: this.tagName.toLowerCase(),
                     text: $(this).html(),
-                    classes: $(this).attr("class") || ""
+                    classes: $(this).attr("class") || "" 
                 });
             }
         });
@@ -1250,7 +1317,11 @@ if (savedLyricsData) {
         store.put(file, "savedAudio");
         
       $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
-
+      
+      if ($("#lyrics").css("display") === "block") {
+      $("#next-line").removeClass("inactive");
+        }
+      
         let url = URL.createObjectURL(file);
         player.src = url;
         player.hidden = false;
@@ -1265,6 +1336,10 @@ if (savedLyricsData) {
         let store = tx.objectStore("files");
         let getReq = store.get("savedAudio");
       $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
+      
+      if ($("#lyrics").css("display") === "block") {
+      $("#next-line").removeClass("inactive");
+        }
       
         getReq.onsuccess = function(e) {
           
@@ -1386,18 +1461,23 @@ document.getElementById("play").addEventListener("click", function() {
 });
                                               
                                               document.getElementById("audio-btn").addEventListener("click", function() {
-        if ( $(this).attr("data-status") === "play" ) {
+                                                
+if ( $(this).attr("data-status") === "upload" && !player.src) {    
+  $("#audioUploader-btn").click();
+} else {
+  if ( $(this).attr("data-status") === "play" && player.src ) {
             playAudio();
           $(this).attr("data-status", "pause").html('<i class="fa-solid fa-stop"></i>');
         } else {
-          player.pause();
+            player.pause();
           $(this).attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
           $("#next-line").removeClass("go").attr("data-status", "record").find("span").text("Record");
-        }
+          }
+}
+                                                
+                                                
 });
-                                              
-                                              $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
-
+    
     
 
     $("#lyrics").on("click", "p", function() {
@@ -1506,15 +1586,17 @@ document.getElementById("play").addEventListener("click", function() {
   if (!$lyricsP.is(".set")) $("#refresh").addClass("inactive");
 });
 
+ 
 
-
-    $("#new").click(function() {
-        $("#lyrics").empty();
+    $("#new").click(function() { 
+        $("#lyrics").empty(); 
         localStorage.removeItem("lyricsData");
-        $("#player").attr("src", "").hide();
+        $("#player").attr("src", "").hide(); 
         localStorage.removeItem("audioReady");
         $("#input").val("");
-        $("#audioUploader-btn").text("Upload Audio");
+      $("#audio-btn i").removeClass().addClass("fa-solid fa-arrow-up-from-bracket");
+      $("#audio-btn").attr("data-status", "upload");
+      localStorage.clear(); 
     });
     
     $("#refresh").click(function() {
@@ -1549,12 +1631,20 @@ document.getElementById("play").addEventListener("click", function() {
     
     
  $("#next").click(function() {
+   if ( $("#rhymes").hasClass("go") ) {
+   $("#rhymes").removeClass("go");
+}
+   
     if ($(this).attr("data-status") === "next") {
         // Next → input to lyrics
         $("#text").hide();
         $("#lyrics").show();
       
-      if ( $("#lyrics p").hasClass("set") || $("#lyrics p").hasClass("selected") || $("#lyrics p").hasClass("clicked") ) {
+      if ($("#lyrics").css("display") === "block" && player.src) {
+      $("#next-line").removeClass("inactive");
+        }
+      
+      if ( $("#lyrics p").hasClass("set") || $("#lyrics p").hasClass("selected") || $("#lyrics p").hasClass("clicked") ) { 
       $("#refresh").removeClass("inactive");
     }
       
@@ -1694,51 +1784,45 @@ $("#save").click(function() {
 });
 
     
-    $("#input").on("keyup", function() {
+ $("#input").on("input", function() {
     var lines = $(this).val().split("\n");
     var $lyrics = $("#lyrics");
-    var existing = $lyrics.contents(); // existing <p> and <br>
-
-    lines.forEach(function(line, i) {
-        line = line.trim();
-        var $el = existing.eq(i);
-
+    $lyrics.empty(); // clear first
+   
+   if ( !$("#rhymes").hasClass("go") ) {
+   $("#rhymes").addClass("go");
+}
+   
+    lines.forEach(function(line) {
+        line = line.replace(/\r/g, ""); // just in case
         if (line === "") {
-            // empty line → <br>
-            if ($el.length && $el[0].tagName === "BR") {
-                // already a <br>, do nothing
-            } else if ($el.length && $el[0].tagName === "P") {
-                // replace <p> with <br>, keep the next <p> untouched
-                $el.replaceWith("<br>");
-            } else {
-                // append new <br>
-                $lyrics.append("<br>");
-            }
+            $lyrics.append("<br>");
         } else {
-            // non-empty line → <p>
-            if ($el.length && $el[0].tagName === "P") {
-                // update text but keep existing classes
-                var classes = $el.attr("class") || "";
-                $el.html("<span></span> " + line); // DO NOT reassign classes here
-            } else if ($el.length && $el[0].tagName === "BR") {
-                // replace <br> with new <p> without touching next <p>
-                var $newP = $("<p data-minutes></p>").html("<span></span> " + line);
-                $newP.insertBefore($el);
-                $el.remove();
-            } else {
-                // append new <p>
-                $("<p data-minutes></p>").html("<span></span> " + line).appendTo($lyrics);
+            var isSet = false;
+            if (line.startsWith("*")) {
+                isSet = true;
+                line = line.slice(1).trim();
             }
+
+            var match = line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/);
+            var timestamp = "";
+            var text = line;
+            if (match) {
+                timestamp = match[1];
+                text = match[2].trim();
+                if (!timestamp.startsWith("[")) timestamp = "[" + timestamp + "]";
+            }
+
+            var $p = $("<p></p>");
+            $p.html("<span>" + (timestamp || "") + "</span> " + text);
+            if (isSet) $p.addClass("set");
+            $lyrics.append($p);
         }
     });
 
-    // remove any extra old elements if input lines are shorter
-    if (existing.length > lines.length) {
-        existing.slice(lines.length).remove();
-    }
-
     saveLyrics();
 });
+
     
     $("#input").on("keydown", function(e) {
   if (e.key === "Enter" && !e.shiftKey) {
@@ -1746,11 +1830,12 @@ $("#save").click(function() {
     const start = this.selectionStart;
     const end = this.selectionEnd;
     const value = $(this).val();
+    
 
     // insert single newline manually
     $(this).val(value.substring(0, start) + "\n" + value.substring(end));
 
-    // move cursor correctly
+    // move cursor correctly 
     this.selectionStart = this.selectionEnd = start + 1;
   }
 });
@@ -1807,9 +1892,11 @@ $("#save").click(function() {
         }
     }
       
+      if ( player.src ) {
       $(this).addClass("go").attr("data-status", "next line").find("span").text("Next line");
       playAudio();
-       
+       }
+      
     } 
 });
 
