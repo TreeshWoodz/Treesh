@@ -480,7 +480,7 @@ body.overflow {
     visibility:hidden;
   }
   
-  #lyrics p {
+  #lyrics p:not(.no-lyrics) {
   padding:20px 10px;
     padding-top:50px;
     width: calc(100% - 30px);
@@ -499,21 +499,37 @@ body.overflow {
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  #lyrics p:before {
+  #lyrics p.no-lyrics {
+    padding:20px 10px;
+    width: calc(100% - 30px);
+    margin:auto;
+    display:block;
+    position:relative;
+    text-align:center;
+    margin-top:15px;
+    cursor:pointer;
+    z-index:3;
+    opacity:0.6;
+    font-weight:400;
+    font-size:1rem;
+    font-style:italic;
+  }
+  
+  #lyrics p:not(.no-lyrics):before {
     z-index:-1;
     border-radius:30px;
   }
   
-  #lyrics p:after {
+  #lyrics p:not(.no-lyrics):after {
     z-index:-2;
     border-radius:30px;
   }
   
-  #lyrics p:first-child {
+  #lyrics p:not(.no-lyrics):first-child {
     margin-top:0px;
   }
   
-  #lyrics p span {
+  #lyrics p:not(.no-lyrics) span {
   position: absolute;
   display: table;
     top:0;
@@ -539,62 +555,62 @@ body.overflow {
     opacity 0.3s ease-in-out;
 }
   
-  #lyrics p span:before {
+  #lyrics p:not(.no-lyrics) span:before {
     border-top-left-radius:0px !important;
     border-top-right-radius:0px !important;
   }
   
-  #lyrics p.set span {
+  #lyrics p:not(.no-lyrics).set span {
     color:var(--pink);
     background:rgba(0, 0, 0, 0.8);
   }
 
-  #lyrics p.no-time {
+  #lyrics p:not(.no-lyrics).no-time {
     padding-top:20px;
   }
 
-  #lyrics p.no-time span {
+  #lyrics p:not(.no-lyrics).no-time span {
     opacity:0 !important;
     transform:translate3d(0, -100%, 0);
   }
 
-#lyrics p.set {
+#lyrics p:not(.no-lyrics).set {
   border-color:var(--pink);
 }
   
-  #lyrics p:after {
+  #lyrics p:not(.no-lyrics):after {
     z-index:-2 !important;
   }
   
-  #lyrics p.set:after {
+  #lyrics p:not(.no-lyrics).set:after {
     background: linear-gradient( 0deg, var(--pink) 0%, rgba(255, 255, 255, 0) 100% );
   }
 
-#lyrics p.sync {
+#lyrics p:not(.no-lyrics).sync {
   transform:scale(1) !important;
   border-color:rgba(255, 255, 255, 0.5);
 }
   
-  #lyrics p.selected {
+  #lyrics p:not(.no-lyrics).selected {
     background:rgba(0, 0, 0, 0.5) !important;
     color:var(--pink) !important;
 }
   
-  #lyrics p.selected span {
+  #lyrics p:not(.no-lyrics).selected span {
     font-size:1rem;
   }
   
-  #lyrics p.clicked {
+  #lyrics p:not(.no-lyrics).clicked {
     border-color:white;
     box-shadow:0px 10px 10px rgba(255, 255, 255, 0.2);
   }
   
-   #lyrics p.clicked.set {
+   #lyrics p:not(.no-lyrics).clicked.set {
     background: white !important;
      color:var(--pink) !important;
   }
 
-  #lyrics p.no {
+  #lyrics p:not(.no-lyrics).no {
     opacity:0.4 !important;
   }
   
@@ -712,7 +728,7 @@ body.overflow {
   
   #metadata:after,
   #container:after,
-  #lyrics p:after,
+  #lyrics p:not(.no-lyrics):after,
   #song-list heading:after {
     content:"";
     position:absolute;
@@ -1081,8 +1097,8 @@ body.overflow {
   #sidebar button:after,
   #container #audio-btn:after,
   button:after,
-  #lyrics p:after,
-  #lyrics p span:before {
+  #lyrics p:not(.no-lyrics):after,
+  #lyrics p:not(.no-lyrics) span:before {
   content: "";
   position: absolute;
   top: 0;
@@ -1660,13 +1676,21 @@ if ( $(this).attr("data-status") === "upload" && !player.src) {
   if ( $(this).attr("data-status") === "play" && player.src ) {
             playAudio();
           $(this).attr("data-status", "pause").html('<i class="fa-solid fa-stop"></i>');
+    if ( $("#lyrics").css("display") === "block" ) {
           $("#next-line").removeClass("inactive");
+      }
         } else {
             player.pause();
           $(this).attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
 $("#lyrics").attr("data-status", "normal");
             $("#lyrics p").removeClass("no");
           $("#next-line").removeClass("go").attr("data-status", "record").find("span").text("Record");
+          
+          setTimeout(function() {
+            $("#lyrics p:not(.no-lyrics)").removeClass("clicked sync selected");
+            
+            $("#refresh, #clear-time").addClass("inactive");
+          }, 200);
           }
 }
                                                 
@@ -1752,23 +1776,50 @@ $("#lyrics").attr("data-status", "normal");
     player.addEventListener("timeupdate", updateSelected);
     player.addEventListener("seeking", updateSelected);
 
+    var setTime;
     $("#set").click(function() {
-    var $selected = $("#lyrics p.clicked");
+      if ( !$(this).hasClass("inactive") ) {
+    var $selected = $("#lyrics p.selected, #lyrics p.clicked");
     var spanText = $selected.find("span").text().trim();
 
     if ($(this).find("span").text() === "Set") {
         if (spanText !== "") {
-            $selected.addClass("set")
-                     .removeClass("selected")
-                     .next("p").addClass("selected");
+            $selected.addClass("set");
+
+            // auto-click next line if #next-line has 'go'
+           
+
+            // --- STOP MUSIC if last <p> is set ---
+            var $last = $("#lyrics p:last");
+            if ($last.hasClass("set")) {
+                $("#player")[0].pause();
+            } else {
+               if ($("#next-line").hasClass("go")) {
+                $("#next-line").click();
+            }
+            }
         }
     } else {
-      $("#set i").removeClass().addClass("fa-solid fa-lock");
-        $("#lyrics p.clicked.set").removeClass("set clicked");
+        $("#set span").text("Unset");
+        $("#set i").removeClass().addClass("fa-solid fa-lock"); 
+        $("#lyrics p.clicked.set, #lyrics p.selected.set").removeClass("set clicked");
     }
+      
+      clearTimeout(setTime);
+     setTime = setTimeout(function() {
+        if ( $("#lyrics p.selected").hasClass("set") ) {
+          $("#set span").text("Unset");
+        $("#set i").removeClass().addClass("fa-solid fa-lock-open"); 
+        } else {
+          $("#set span").text("Set");
+        $("#set i").removeClass().addClass("fa-solid fa-lock"); 
+        }
+      }, 200);
 
     saveLyrics();
+        }
 });
+
 
     
     $("#lyrics").on("click", function(e) {
@@ -1804,8 +1855,13 @@ $("#player")[0].load();
       localStorage.clear();
     });
     
-    $("#refresh").click(function() {
-      $("#lyrics p").removeClass();
+    $("#refresh").click(function() { 
+      if ( !$("#next-line").hasClass("go") ) {
+        $("#lyrics p:not(.no-lyrics).selected").removeClass("selected");
+      }
+      
+      $("#lyrics p:not(.no-lyrics)").removeClass("clicked");
+      
       $("#refresh").addClass("inactive");
     });
     
@@ -1842,6 +1898,7 @@ $("#player")[0].load();
 }
    
     if ($(this).attr("data-status") === "next") {
+      
         // Next → input to lyrics
         $("#text").hide();
         $("#lyrics").show();
@@ -1941,6 +1998,21 @@ $("#player")[0].load();
         $(this).removeClass("no-time");
       }
         });
+      
+      $("#lyrics p").each(function() {
+  var txt = $(this).text().trim();
+
+  // remove any timestamp at the start
+  var match = txt.match(/^\[.*?\]\s*(.*)/);
+  var contentt = match ? match[1].trim() : txt;
+
+  // if nothing left after the brackets, mark it
+  if (contentt === "") {
+    $(this).addClass("no-lyrics");
+  } else {
+    $(this).removeClass("no-lyrics"); // optional: clean old marks
+  }
+});
 
     } else {
         // Back → input to textarea
@@ -2220,6 +2292,9 @@ $("#rhymes").on("click", "button", function() {
           $("#lyrics").scrollTop(0); 
         }
       
+      $("#lyrics p.clicked").removeClass("clicked");
+      $("#set").removeClass("inactive");
+      
         let $selected = $("#lyrics p.selected");
 
       if ( $(this).attr("data-status") === "next line" ) {
@@ -2250,11 +2325,21 @@ $("#rhymes").on("click", "button", function() {
 
             $selected.removeClass("selected");
             $next.removeClass("no").addClass("selected").siblings().removeClass("selected").addClass("no");
+          
+          
             $selected = $next;
 
             if ($selected.find("span").length === 0) {
                 $selected.prepend(" <span></span> ");
             }
+          
+          if ( !$selected.hasClass("set") ) {
+            $("#set span").text("Set");
+            $("#set i").removeClass().addClass("fa-solid fa-lock");
+          } else {
+            $("#set span").text("Unset");
+            $("#set i").removeClass().addClass("fa-solid fa-lock-open");
+          }
         }
         
         
@@ -2521,6 +2606,7 @@ $("#rhymes").on("click", "button", function() {
           } else {
             $("#audio-btn i").removeClass().addClass("fa-solid fa-arrow-up-from-bracket");
       $("#audio-btn").attr("data-status", "upload");
+            $("#next-line").addClass("inactive");
           }
         }
       }); // end main site ajax
