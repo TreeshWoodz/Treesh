@@ -395,6 +395,10 @@ body.overflow {
     overflow:hidden;
   }
   
+  #tools button i {
+    text-shadow:0 0 10px rgba(0, 0, 0, 0.3);
+  }
+  
   #tools .top button {
     margin-right:10px;
     border-radius:30px;
@@ -708,7 +712,8 @@ body.overflow {
   
   #metadata:after,
   #container:after,
-  #lyrics p:after {
+  #lyrics p:after,
+  #song-list heading:after {
     content:"";
     position:absolute;
     top:0;
@@ -860,11 +865,11 @@ body.overflow {
     position:fixed;
     top:50%;
     left:50%;
+    box-shadow:0 0px 10px rgba(0, 0, 0, 0.3);
     transform:translate3d(-50%, -50%, 0);
-    background:white;
     border-radius:30px;
-    overflow:auto;
-    border:3px solid black;
+    overflow:hidden;
+    border:3px solid rgba(255, 255, 255, 0.2);
     z-index:-100;
   }
   
@@ -880,19 +885,33 @@ body.overflow {
     width:100%;
     height:auto;
     position:relative;
-    background:var(--pink);
+    background:transparent;
     display:block;
     padding:20px;
-    border-bottom:3px solid black;
+    background:var(--pink);
     font-family:var(--savionce-font);
     font-weight:100;
+  }
+  
+  #song-list heading:after {
+    opacity:1;
+    filter:brightness(80%);
+    z-index:2;
+  }
+  
+  #song-list heading span {
+    position:relative;
+    z-index:3;
+    width:100%;
+    color:white;
+    display:block;
   }
   
   #song-list heading button {
     background:black;
     color:var(--pink);
     position:absolute;
-    right:20px;
+    right:0;
     padding:5px 10px;
     font-family:var(--main-font);
     font-weight:500;
@@ -904,13 +923,21 @@ body.overflow {
     cursor:pointer;
   }
   
+  #song-list .contain {
+    width:100%;
+    height:calc(100% - 60px);
+    position:relative;
+    display:block;
+    overflow:auto;
+    background:white;
+  }
+  
   #song-list .item {
     width:100%;
     height:auto;
     position:relative;
     display:block;
     padding:15px;
-    cursor:pointer;
     display:flex;
     justify-content:space-between;
     align-items:center;
@@ -940,13 +967,16 @@ body.overflow {
   }
   
   #song-list .item button {
-    background:transparent;
-    color:var(--pink);
     border:none;
     outline:none;
     font-family:var(--main-font);
     opacity:0;
     cursor:pointer;
+    font-weight:700;
+    background:var(--pink);
+    color:black;
+    padding:5px 10px;
+    border-radius:30px;
   }
   
   #song-list .item:hover button {
@@ -1153,7 +1183,7 @@ body.overflow {
     <body>
       
       <div id="song-list">
-        <heading>Pull Lyrics <button type="button">Cancel</button></heading>
+        <heading><span>Pull Lyrics <button type="button">Cancel</button></span></heading>
         
         <div class="contain">
           
@@ -2357,6 +2387,25 @@ $("#rhymes").on("click", "button", function() {
             $("#song-list").removeClass("loading");
         });
 });
+          
+          $("#song-list").on("click", ".item button", function() {
+  var $item = $(this).closest(".item");
+  var artist = $item.find(".artist").text().trim();
+  var song = $item.find(".name").text().trim();
+
+  // clear input first
+  $("#input").val("");
+
+  $.get("/content/lyrics.html").done(function(data) {
+    var importedLyrics = $(data)
+      .find(".lyric[data-artist='" + artist + "'][data-track='" + song + "']")
+      .text()
+      .trim();
+
+    $("#input").val(importedLyrics);
+  });
+});
+
           
           
 });
