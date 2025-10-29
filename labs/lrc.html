@@ -306,7 +306,7 @@ body.overflow {
     line-height:3.25rem;
     text-shadow:0 1px 1px rgba(0, 0, 0, 0.5);
     font-weight:800;
-    padding-bottom:250px;
+    padding-bottom:200px;
     padding-top:60px;
   }
   
@@ -483,6 +483,7 @@ body.overflow {
     margin:auto;
     display:block;
     position:relative;
+    text-align:center;
     border:1px solid rgba(255, 255, 255, 0.2);
     box-shadow:0px 10px 10px rgba(0, 0, 0, 0.3);
     border-radius:30px;
@@ -510,25 +511,48 @@ body.overflow {
   
   #lyrics p span {
   position: absolute;
-  display: block; /* not block */
-  top: 10px;
+  display: table;
+    top:0;
+    left:0;
+    right:0;
+    width:auto;
+    height:auto;
+    margin:auto;
   font-size: 0.8rem;
   z-index: 3;
   color: rgba(255, 255, 255, 0.9);
     background:var(--pink);
-    padding:10px 10px;
+    text-align:center;
+    padding:10px 30px;
     line-height:0.8rem;
     border-radius:30px;
+    border-top-left-radius:0px;
+    border-top-right-radius:0px;
     color:white;
     border:1px solid rgba(255, 255, 255, 0.2);
+    transform:translate3d(0, 0%, 0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease-in-out;
 }
+  
+  #lyrics p span:before {
+    border-top-left-radius:0px !important;
+    border-top-right-radius:0px !important;
+  }
   
   #lyrics p.set span {
     color:var(--pink);
     background:rgba(0, 0, 0, 0.8);
   }
 
+  #lyrics p.no-time {
+    padding-top:20px;
+  }
 
+  #lyrics p.no-time span {
+    opacity:0 !important;
+    transform:translate3d(0, -100%, 0);
+  }
 
 #lyrics p.set {
   border-color:var(--pink);
@@ -564,6 +588,10 @@ body.overflow {
    #lyrics p.clicked.set {
     background: white !important;
      color:var(--pink) !important;
+  }
+
+  #lyrics p.no {
+    opacity:0.4 !important;
   }
   
   
@@ -668,7 +696,8 @@ body.overflow {
 }
   
   #metadata:after,
-  #container:after {
+  #container:after,
+  #lyrics p:after {
     content:"";
     position:absolute;
     top:0;
@@ -958,7 +987,8 @@ body.overflow {
   #sidebar button:after,
   #container #audio-btn:after,
   button:after,
-  #lyrics p:after {
+  #lyrics p:after,
+  #lyrics p span:before {
   content: "";
   position: absolute;
   top: 0;
@@ -1030,6 +1060,8 @@ body.overflow {
     height:0px !important;
     display:block;
     opacity:0;
+    z-index:4;
+    position:relative;
     white-space:nowrap;
     overflow:hidden;
     transition: height 0.2s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.2s ease-in;
@@ -1051,7 +1083,7 @@ body.overflow {
     display:inline-block;
     width:auto !important;
     background:transparent;
-    font-size:0.8rem;
+    font-size:1rem;
     padding:5px 10px !important;
     height:auto !important;
     margin-right:5px;
@@ -1069,6 +1101,31 @@ body.overflow {
   #rhymes button:last-child {
     margin-right:20px;
   }
+  
+  .glass-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius:30px;
+  opacity: 0.3;
+  z-index: 1;
+  background: var(--pink);
+}
+
+.glass-specular {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius:30px;
+  opacity:0.5;
+  border-radius: inherit;
+  box-shadow: inset 1px 1px 0 var(--pink),
+    inset 0 0 5px var(--pink);
+}
+
+.mm-menu .glass-specular,
+.mm-menu .glass-overlay {
+    border-radius: 100px !important;
+}
 </style>
     </head>
 
@@ -1105,20 +1162,9 @@ body.overflow {
       </nav>
         
       
-      
-      
-      <div id="container">
-        
-        <form id="text" class="main">
-       <textarea id="input" placeholder="Write your lyrics here or copy and paste what you have."></textarea>
-        </form>
-        
-    <div id="lyrics" class="main">
-        
-    </div>
-      </div>
-
-<form id="tools">
+      <form id="tools">
+  <div class="glass-overlay"></div>
+      <div class="glass-specular"></div>
     <input id="audioUploader" type="file" accept="audio/*,audio/mp3,audio/mpeg">
     
     <button type="button" id="play" data-file="none" style="display:none;">Play</button>
@@ -1129,10 +1175,10 @@ body.overflow {
           <button type="button" id="new"><i class="fa-solid fa-file"></i></button> 
     
   <button type="button" id="save"><i class="fa-solid fa-floppy-disk"></i></button>
-  <button type="button" id="download"><i class="fa-solid fa-download"></i></button>
-          <button id="lrc" type="button">LRC</button>
+  <button type="button" id="download"><i class="fa-solid fa-copy"></i></button>
+          <button id="lrc" type="button"><i class="fa-solid fa-download"></i></button>
           <button type="button" id="audioUploader-btn" style="display:none;"><span>Upload Audio</span></button>
-          <button type="button" id="pull"><i class="fa-solid fa-square-up-right"></i></button>
+          <button type="button" id="pull"><i class="fa-solid fa-book"></i></button>
     </div>
     
          <label>TITLE</label>
@@ -1158,7 +1204,7 @@ body.overflow {
     
   <div class="top section">
   <button type="button" id="clear-time" class="inactive"><i class="fa-solid fa-eraser"></i> <span>Clear Time</span></button>
-    <button type="button" id="set" class="inactive"><i class="fa-solid fa-check"></i> <span>Set</span></button>
+    <button type="button" id="set" class="inactive"><i class="fa-solid fa-lock"></i> <span>Set</span></button>
     
   <button type="button" id="refresh" class="inactive"><i class="fa-solid fa-arrows-rotate"></i> <span>Refresh</span></button>
     <button type="button" id="menu-btn"><i class="fa-solid fa-ellipsis"></i> <span>Menu</span></button>
@@ -1166,8 +1212,41 @@ body.overflow {
   
 </form>
       
+      
+      
+      <div id="container">
+        
+        <form id="text" class="main">
+       <textarea id="input" placeholder="Write your lyrics here or copy and paste what you have."></textarea>
+        </form>
+        
+    <div id="lyrics" class="main"></div>
+      </div>
+
+
+      
 
 <script>
+  const params = new URLSearchParams(window.location.search);
+var color = params.get("color");
+
+if (color) {
+  color = decodeURIComponent(color.trim().replace(/['"]/g, ""));
+
+  if (color.indexOf("#") === 0) {
+    var hex = color.replace("#", "");
+    var bigint = parseInt(hex, 16);
+    var r = (bigint >> 16) & 255;
+    var g = (bigint >> 8) & 255;
+    var b = bigint & 255;
+    color = "rgb(" + r + ", " + g + ", " + b + ")";
+  }
+
+  document.documentElement.style.setProperty("--pink", color);
+}
+
+  
+  
 function saveMetadata() {
   var metadata = {};
 
@@ -1252,6 +1331,7 @@ if (savedLyricsData) {
     }
 
     $("#input").val(textContent.trim());
+  $("#next").removeClass("inactive");
 }
 
 
@@ -1260,18 +1340,43 @@ if (savedLyricsData) {
 
     // save lyrics + classes + span content + <br>
     function saveLyrics() {
-        var lyricsData = [];
-        $("#lyrics").contents().each(function() {
-            if (this.nodeType === 1) { // element node
-                lyricsData.push({
-                    type: this.tagName.toLowerCase(),
-                    text: $(this).html(),
-                    classes: $(this).attr("class") || "" 
-                });
-            }
-        });
-        localStorage.setItem("lyricsData", JSON.stringify(lyricsData));
+  const text = $("#input").val();
+  const lines = text.split("\n");
+  const lyricsData = [];
+
+  lines.forEach(function(line) {
+    if (line === "") {
+      lyricsData.push({ type: "br", text: "", classes: "" });
+      return;
     }
+
+    let isSet = false;
+    if (line.startsWith("*")) {
+      isSet = true;
+      line = line.slice(1);
+    }
+
+    line = line.replace(/\r/g, "");
+
+    const match = line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/);
+    let timestamp = "";
+    let body = line;
+    if (match) {
+      timestamp = match[1];
+      body = match[2].trim();
+      if (!timestamp.startsWith("[")) timestamp = "[" + timestamp + "]";
+    }
+
+    // push the same shape your old function used
+    const classes = isSet ? "set" : "";
+    const html = "<span>" + (timestamp || "") + "</span> " + body;
+    lyricsData.push({ type: "p", text: html, classes: classes });
+  });
+
+  // debug — check console to confirm saved payload
+  console.log("saving lyricsData", lyricsData);
+  localStorage.setItem("lyricsData", JSON.stringify(lyricsData));
+}
  
 
 
@@ -1398,6 +1503,7 @@ function getTimeFromP($p) {
 }
 
 function syncLyrics() {
+  if ($("#text").css("display") === "none") { 
     var current = player.currentTime;
     var isRecording = $("#next-line").hasClass("go");
 
@@ -1434,6 +1540,8 @@ function syncLyrics() {
             return false; // stop once we find current line
         }
     });
+    
+      } 
 }
 
 
@@ -1456,9 +1564,12 @@ if ( $(this).attr("data-status") === "upload" && !player.src) {
   if ( $(this).attr("data-status") === "play" && player.src ) {
             playAudio();
           $(this).attr("data-status", "pause").html('<i class="fa-solid fa-stop"></i>');
+          $("#next-line").removeClass("inactive");
         } else {
             player.pause();
           $(this).attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
+$("#lyrics").attr("data-status", "normal");
+            $("#lyrics p").removeClass("no");
           $("#next-line").removeClass("go").attr("data-status", "record").find("span").text("Record");
           }
 }
@@ -1471,22 +1582,23 @@ if ( $(this).attr("data-status") === "upload" && !player.src) {
     $("#lyrics").on("click", "p", function() {
         var $this = $(this);
       
-      
       if ( $(this).hasClass("set") ) {
         $("#set span").text("Unset");
-        $("#set i").removeClass().addClass("fa-solid fa-x");
+        $("#set i").removeClass().addClass("fa-solid fa-lock-open");
         $("#lyrics p").removeClass("selected");
       } else {
+        if ( $(this).find("span").text().trim() !== "" ) {
         $("#set span").text("Set");
-        $("#set i").removeClass().addClass("fa-solid fa-check");
+        $("#set i").removeClass().addClass("fa-solid fa-lock");
         $this.toggleClass("selected").siblings().removeClass("selected");
+        }
       }
       
       if ( $(this).hasClass("clicked") ) {
         $(this).removeClass("clicked");
         
         $("#set span").text("Set");
-        $("#set i").removeClass().addClass("fa-solid fa-check");
+        $("#set i").removeClass().addClass("fa-solid fa-lock");
         
         if ( !$("#lyrics p").hasClass("clicked") ) {
         $("#set, #clear-time").addClass("inactive");
@@ -1555,7 +1667,7 @@ if ( $(this).attr("data-status") === "upload" && !player.src) {
                      .next("p").addClass("selected");
         }
     } else {
-      $("#set i").removeClass().addClass("fa-solid fa-check");
+      $("#set i").removeClass().addClass("fa-solid fa-lock");
         $("#lyrics p.clicked.set").removeClass("set clicked");
     }
 
@@ -1578,13 +1690,22 @@ if ( $(this).attr("data-status") === "upload" && !player.src) {
 
     $("#new").click(function() { 
         $("#lyrics").empty(); 
-        localStorage.removeItem("lyricsData");
-        $("#player").attr("src", "").hide(); 
-        localStorage.removeItem("audioReady");
+$("#player").removeAttr("src");
+$("#player")[0].load();
+      $("#lyrics").hide();
+      $("#lyrics").attr("data-status", "normal");
+      $("#text").show(); 
+      $("#next").addClass("inactive");
+      $("#next").html('<i class="fa-solid fa-arrow-right"></i>').attr("data-status", "next");
+          $("#metadata input").val("");
+      $("#next-line").addClass("inactive");
         $("#input").val("");
       $("#audio-btn i").removeClass().addClass("fa-solid fa-arrow-up-from-bracket");
-      $("#audio-btn").attr("data-status", "upload");
-      localStorage.clear(); 
+      $("#audio-btn").attr("data-status", "upload"); 
+      
+        localStorage.removeItem("lyricsData");  
+        localStorage.removeItem("audioReady");
+      localStorage.clear();
     });
     
     $("#refresh").click(function() {
@@ -1619,6 +1740,7 @@ if ( $(this).attr("data-status") === "upload" && !player.src) {
     
     
  $("#next").click(function() {
+   if ( !$(this).hasClass("inactive") ) {
    if ( $("#rhymes").hasClass("go") ) {
    $("#rhymes").removeClass("go");
 }
@@ -1628,7 +1750,7 @@ if ( $(this).attr("data-status") === "upload" && !player.src) {
         $("#text").hide();
         $("#lyrics").show();
       
-      if ($("#lyrics").css("display") === "block" && player.src) {
+      if ($("#lyrics").css("display") === "block" && $("#player").attr("src") && $("#player").attr("src") !== "") {
       $("#next-line").removeClass("inactive");
         }
       
@@ -1714,13 +1836,23 @@ if ( $(this).attr("data-status") === "upload" && !player.src) {
                 $("#lyrics").append($p);
             }
         }
+      
+      $("#lyrics p").each(function() {
+      if ($(this).find("span").text() === "") {
+        $(this).addClass("no-time");
+      } else {
+        $(this).removeClass("no-time");
+      }
+        });
 
     } else {
         // Back → input to textarea
       $("#refresh").addClass("inactive");
       
-      $("#next-line").removeClass("go").attr("data-status", "record").find("span").text("Record");
-      $("#lyrics p").removeClass("clicked");
+      $("#next-line").removeClass("go").attr("data-status", "record").addClass("inactive").find("span").text("Record");
+      
+      $("#lyrics").attr("data-status", "normal");
+      $("#lyrics p").removeClass("clicked").removeClass("no").removeClass("selected").removeClass("sync");
 $("#text").show();
 $("#lyrics").hide();
         $(this).html('<i class="fa-solid fa-arrow-right"></i>').attr("data-status", "next");
@@ -1748,6 +1880,7 @@ $("#lyrics").contents().each(function() {
 $("#input").val(inputText);
 
     }
+     }
 });
 
 
@@ -1771,73 +1904,172 @@ $("#save").click(function() {
                                                                              
 });
 
-    let timeout;
- $("#input").on("input", function() {
-    var lines = $(this).val().split("\n");
-    var $lyrics = $("#lyrics");
-    $lyrics.empty(); // clear first
+   function getWordAtCaret($input) {
+  const el = $input[0];
+  const text = $input.val();
+  const pos = el.selectionStart || 0;
 
-   if ( $(this).val().trim() === '' ) {
-    // input is empty
+  // find word start (scan left to whitespace or newline)
+  let start = pos;
+  while (start > 0 && !/\s/.test(text[start-1])) start--;
+
+  // find word end (scan right)
+  let end = pos;
+  while (end < text.length && !/\s/.test(text[end])) end++;
+
+  // if caret is between words (on whitespace) try previous word
+  let word = text.slice(start, end);
+  if (!word && start > 0) {
+    // try previous word
+    let prevEnd = start;
+    let prevStart = prevEnd;
+    while (prevStart > 0 && !/\s/.test(text[prevStart-1])) prevStart--;
+    word = text.slice(prevStart, prevEnd);
+  }
+
+  return (word || "").replace(/[^\w]/g,"").toLowerCase();
+}
+
+let timeout;
+function scheduleGetRhymes() {
+  clearTimeout(timeout);
+  timeout = setTimeout(getRhymesForCaret, 200);
+}
+
+$("#input").on("input click keyup mouseup", function() {
+  // rebuild visible lyrics like before
+  var lines = $(this).val().split("\n");
+  var $lyrics = $("#lyrics");
+  $lyrics.empty();
+
+  if ( $(this).val().trim() === '' ) {
     $("#next").addClass("inactive");
-} else {
-     $("#next").removeClass("inactive");
-}
-   
-   if ( !$("#rhymes").hasClass("go") ) { 
-   $("#rhymes").addClass("go");  
-}
-   
-    lines.forEach(function(line) {
-        line = line.replace(/\r/g, ""); // just in case
-        if (line === "") {
-            $lyrics.append("<br>");
-        } else {
-            var isSet = false;
-            if (line.startsWith("*")) {
-                isSet = true;
-                line = line.slice(1).trim();
-            }
+  } else {
+    $("#next").removeClass("inactive");
+  }
 
-            var match = line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/);
-            var timestamp = "";
-            var text = line;
-            if (match) {
-                timestamp = match[1];
-                text = match[2].trim();
-                if (!timestamp.startsWith("[")) timestamp = "[" + timestamp + "]";
-            }
+  if ( $(this).val().trim() !== "" ) {
+    if ( !$("#rhymes").hasClass("go") ) $("#rhymes").addClass("go");
+  } else {
+    $("#rhymes").removeClass("go");
+  }
 
-            var $p = $("<p></p>");
-            $p.html("<span>" + (timestamp || "") + "</span> " + text);
-            if (isSet) $p.addClass("set");
-            $lyrics.append($p);
-        }
+  lines.forEach(function(line) {
+    line = line.replace(/\r/g, "");
+    if (line === "") {
+      $lyrics.append("<br>");
+    } else {
+      var isSet = false;
+      if (line.startsWith("*")) {
+        isSet = true;
+        line = line.slice(1).trim();
+      }
+
+      var match = line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/);
+      var timestamp = "";
+      var text = line;
+      if (match) {
+        timestamp = match[1];
+        text = match[2].trim();
+        if (!timestamp.startsWith("[")) timestamp = "[" + timestamp + "]";
+      }
+
+      var $p = $("<p></p>");
+      $p.html("<span>" + (timestamp || "") + "</span> " + text);
+      if (isSet) $p.addClass("set");
+      $lyrics.append($p);
+    }
+  });
+
+  scheduleGetRhymes();
+  saveLyrics();
+});
+
+function getRhymesForCaret() {
+  const $input = $("#input");
+  const word = getWordAtCaret($input);
+  if (!word) {
+    $("#rhymes .contain").empty();
+    return;
+  }
+
+  $.getJSON("https://rhymebrain.com/talk?function=getRhymes&word=" + encodeURIComponent(word))
+    .done(function(data) {
+      let list = data.map(item => "<button type='button' class='rhyme-btn'>"+item.word+"</button>").join("");
+      $("#rhymes .contain").html(list);
+    })
+    .fail(function() {
+      console.log("Rhyme API request failed");
     });
-   
-   clearTimeout(timeout);
-    timeout = setTimeout(() => {
-        getRhymes();
-    }, 200);
+}
 
-    saveLyrics();
+// insert the rhyme at caret (on same line) — DO NOT replace whole word
+$("#rhymes").on("click", "button", function() {
+  const $input = $("#input");
+  const word = $(this).text();
+  const inputEl = $input[0];
+  const text = $input.val();
+  const pos = inputEl.selectionStart;
+  const before = text.substring(0, pos);
+  const after = text.substring(pos);
+
+  // detect if caret is inside a word
+  const beforeWordMatch = before.match(/(\S+)$/); // last word before caret
+  const afterWordMatch = after.match(/^(\S+)/);   // first word after caret
+
+  let newText, cursorPos;
+
+  if (beforeWordMatch && afterWordMatch) {
+    // inside a word → replace that word
+    const fullWordStart = pos - beforeWordMatch[1].length;
+    const fullWordEnd = pos + afterWordMatch[1].length;
+    newText = text.substring(0, fullWordStart) + word + " " + text.substring(fullWordEnd);
+    cursorPos = fullWordStart + word.length + 1;
+  } else if (beforeWordMatch && /\S$/.test(before)) {
+    // end of a word (cursor right after one) → add new word
+    newText = before + " " + word + " " + after;
+    cursorPos = before.length + word.length + 2;
+  } else {
+    // otherwise just insert
+    newText = before + word + " " + after;
+    cursorPos = before.length + word.length + 1;
+  } 
+
+  $input.val(newText);
+  inputEl.selectionStart = inputEl.selectionEnd = cursorPos;
+  $input.focus();
+
+  // sync with #lyrics
+  const lines = newText.split("\n");
+  const $lyrics = $("#lyrics").empty();
+  lines.forEach(line => {
+    if (line.trim() === "") $lyrics.append("<br>");
+    else $lyrics.append("<p>" + line + "</p>");
+  });
+
+  setTimeout(saveLyrics, 300);
 });
     
-    function getRhymes() {
-    let textt = $("#input").val().trim();
-    if (!textt) return;
-    let words = textt.split(/\s+/);
-    let lastWord = words[words.length-1].replace(/[^\w]/g,"").toLowerCase();
+    $("#input").on("keyup click", function() {
+  const el = this;
+  const pos = el.selectionStart;
+  const val = el.value;
 
-    $.getJSON("https://rhymebrain.com/talk?function=getRhymes&word=" + lastWord)
-      .done(function(data) {
-        let list = data.map(item => "<button type='button'>"+item.word+"</button>").join("");
-        $("#rhymes .contain").html(list);
-      })
-      .fail(function() {
-        console.log("Rhyme API request failed");
-      });
-}
+  const before = val[pos - 1] || "";
+  const after = val[pos] || "";
+
+  // check if caret is next to or inside a word
+  const isInWord = /\w/.test(before) || /\w/.test(after);
+
+  if (isInWord) {
+    $("#rhymes").addClass("go");
+  } else {
+    $("#rhymes").removeClass("go");
+  }
+});
+
+
+    
 
     
     $("#input").on("keydown", function(e) {
@@ -1857,58 +2089,6 @@ $("#save").click(function() {
       
 });
 
-          
-   $("#rhymes").on("click", "button", function() {
-    let $input = $("#input");
-    let word = $(this).text();
-    let text = $input.val();
-
-    // replace the last word typed (strip punctuation at end)
-    let newText = text.replace(/(\b\w+)(\W*)$/,"") + word + " ";
-    $input.val(newText);
-    $input.focus();
-
-    // update #lyrics from textarea
-    updateLyricsFromInput();
-
-    // save
-    saveLyrics();
-});
-
-// helper to rebuild #lyrics from textarea
-function updateLyricsFromInput() {
-    let lines = $("#input").val().split("\n");
-    let $lyrics = $("#lyrics");
-    $lyrics.empty();
-
-    lines.forEach(function(line) {
-        line = line.replace(/\r/g,"").trim();
-        if (line === "") {
-            $lyrics.append("<br>");
-        } else {
-            let isSet = false;
-            if (line.startsWith("*")) {
-                isSet = true;
-                line = line.slice(1).trim();
-            }
-
-            let match = line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/);
-            let timestamp = "";
-            let text = line;
-            if (match) {
-                timestamp = match[1];
-                text = match[2].trim();
-                if (!timestamp.startsWith("[")) timestamp = "[" + timestamp + "]";
-            }
- 
-            let $p = $("<p></p>");
-            $p.html("<span>" + (timestamp || "") + "</span> " + text);
-            if (isSet) $p.addClass("set"); 
-            $lyrics.append($p);
-        }
-    });
-}
-
     
     
     
@@ -1917,8 +2097,9 @@ function updateLyricsFromInput() {
         let $selected = $("#lyrics p.selected");
 
       if ( $(this).attr("data-status") === "next line" ) {
-        if (!$("#lyrics p").hasClass("selected")) {
-            $selected = $("#lyrics p:eq(0)").addClass("selected");
+        if (!$("#lyrics p").hasClass("selected")) {          
+            $selected = $("#lyrics p:eq(0)").addClass("selected").removeClass("no").siblings().removeClass("selected").addClass("no");
+          
             if ($selected.find("span").length === 0) {
                 $selected.prepend(" <span></span> ");
             }
@@ -1938,13 +2119,15 @@ function updateLyricsFromInput() {
             }
 
             $selected.removeClass("selected");
-            $next.addClass("selected").siblings().removeClass("selected");
+            $next.removeClass("no").addClass("selected").siblings().removeClass("selected").addClass("no");
             $selected = $next;
 
             if ($selected.find("span").length === 0) {
                 $selected.prepend(" <span></span> ");
             }
         }
+        
+        
 
         // Scroll container if selected p is below visible area
         let container = $("#lyrics");
@@ -1960,12 +2143,19 @@ function updateLyricsFromInput() {
         }
     }
       
-      if ( player.src ) {
+      if ( player.src && $("#text").css("display") === "none" ) {
       $(this).addClass("go").attr("data-status", "next line").find("span").text("Next line");
+        $("#lyrics").attr("data-status", "record");
       playAudio();
        }
       
-    } 
+      
+      setTimeout(function() {
+            $("#lyrics p:not(.selected)").addClass("no");
+          }, 200);
+      
+      $("#lyrics p.selected").removeClass("no-time");
+    }
 });
 
     $("#lyrics").hide(); 
