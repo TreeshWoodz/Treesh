@@ -1531,32 +1531,68 @@ if (savedLyricsData) {
         localStorage.setItem("audioReady", "true");
     });
 
-    function loadSavedAudio() {
-        let ready = localStorage.getItem("audioReady");
-        if (!ready) return;
+   function saveAudio() {
+    let mp3 = $("#player").attr("src");
+    if (!mp3) return;
 
-        let tx = db.transaction("files", "readonly");
-        let store = tx.objectStore("files");
-        let getReq = store.get("savedAudio");
-      $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
-      
-      if ($("#lyrics").css("display") === "block") {
-      $("#next-line").removeClass("inactive");
+    fetch(mp3)
+        .then(res => res.blob())
+        .then(blob => {
+            let tx = db.transaction("files", "readwrite");
+            let store = tx.objectStore("files");
+            let req = store.put(blob, "savedAudio");
+
+            req.onsuccess = () => {
+                $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
+                if ($("#lyrics").css("display") === "block") {
+                    $("#next-line").removeClass("inactive");
+                }
+
+                let url = URL.createObjectURL(blob);
+                $("#player")[0].src = url;
+                localStorage.setItem("audioReady", "true");
+            };
+
+            req.onerror = e => console.error("Failed to save audio:", e.target.error);
+        })
+        .catch(err => console.error("Fetch failed:", err));
+}
+
+function loadSavedAudio() {
+    let ready = localStorage.getItem("audioReady");
+    if (!ready) return;
+
+    if (!db) {
+        console.warn("DB not ready yet");
+        return;
+    }
+
+    let tx = db.transaction("files", "readonly");
+    let store = tx.objectStore("files");
+    let getReq = store.get("savedAudio");
+
+    getReq.onsuccess = function(e) {
+        let file = e.target.result;
+        if (!file) return;
+
+        let url = URL.createObjectURL(file);
+        let player = $("#player")[0];
+        player.src = url;
+        player.hidden = false;
+
+        $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
+
+        if ($("#lyrics").css("display") === "block") {
+            $("#next-line").removeClass("inactive");
         }
 
-      $("#next").removeClass("inactive");
-      
-        getReq.onsuccess = function(e) {
-          
-            let file = e.target.result;
-            if (file) {
-                let url = URL.createObjectURL(file);
-                player.src = url;
-                player.hidden = false;
-                document.getElementById("play").dataset.file = "ready";
-            }
-        };
-    }
+        $("#next").removeClass("inactive");
+        document.getElementById("play").dataset.file = "ready";
+    };
+
+    getReq.onerror = e => console.error("Failed to load audio:", e.target.error);
+}
+
 
     function playAudio() {
     if (!player.src) {
@@ -2052,31 +2088,6 @@ $("#input").val(inputText);
      }
 });
 
-    
-    function saveAudio() {
-  let mp3 = $("#player").attr("src");
-  if (mp3) {
-    fetch(mp3)
-      .then(res => res.blob())
-      .then(blob => {
-        let tx = db.transaction("files", "readwrite");
-        let store = tx.objectStore("files");
-        store.put(blob, "savedAudio");
-
-        $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
-        if ($("#lyrics").css("display") === "block") {
-          $("#next-line").removeClass("inactive");
-        }
-
-        let url = URL.createObjectURL(blob);
-        $("#player")[0].src = url;
-        localStorage.setItem("audioReady", "true");
-      })
-      .catch(err => console.error("Failed to save audio:", err));
-  }
-}
-
-
 
 $("#save").click(function() {
   saveLyrics();
@@ -2087,7 +2098,7 @@ $("#save").click(function() {
       allEmpty = false;
       return false; // stop loop early
     }
-  });
+  }); 
 
   if (!allEmpty) {
     saveMetadata();
