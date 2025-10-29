@@ -969,6 +969,7 @@ body.overflow {
   #song-list .item.error .error {
     opacity:1;
     transform:translate3d(0%, 0, 0);
+    transition-delay:0.3s;
   }
   
   #song-list .item .error x {
@@ -2430,13 +2431,17 @@ $("#rhymes").on("click", "button", function() {
         });
 });
           
-  $("#song-list").on("click", ".item button", function() {
+ 
+          
+          
+          $("#song-list").on("click", ".item button", function() {
   var $item = $(this).closest(".item");
   var artistText = $item.find(".artist").text().trim().toLowerCase();
   var trackText = $item.find(".name").text().trim().toLowerCase();
 
   $("#input").val("");
 
+  // 1. get lyrics
   $.get("/content/lyrics.html", function(data) {
     var $html = $("<div>").html(data);
 
@@ -2444,11 +2449,8 @@ $("#rhymes").on("click", "button", function() {
       var dataArtists = $(this).attr("data-artist") ? $(this).attr("data-artist").trim().toLowerCase() : "";
       var dataTrack = $(this).attr("data-track") ? $(this).attr("data-track").trim().toLowerCase() : "";
 
-      // split multiple artists by comma
-      var artistList = dataArtists.split(",").map(function(a) { return a.trim(); });
-
-      // match if any artist in list is included in the button text
-      var artistMatch = artistList.some(function(a) { return artistText.includes(a); });
+      var artistList = dataArtists.split(",").map(a=>a.trim());
+      var artistMatch = artistList.some(a=>artistText.includes(a));
 
       return artistMatch && dataTrack === trackText;
     });
@@ -2456,20 +2458,50 @@ $("#rhymes").on("click", "button", function() {
     if ($lyric.length) {
       var lines = [];
       $lyric.contents().each(function() {
-        if (this.nodeName === "P") {
-          lines.push($(this).text().trim());
-        } else if (this.nodeName === "BR") {
-          lines.push(""); // preserve blank line
-        }
+        if (this.nodeName === "P") lines.push($(this).text().trim());
+        else if (this.nodeName === "BR") lines.push("");
       });
+      
+      if ( $("#lyrics").css("display") === "block" ) {
+        $("#next").click();
+      }
+      
+      $("#song-list").removeClass("go");
 
       $("#input").val(lines.join("\n"));
     } else {
       $item.addClass("error");
       $item.append('<div class="error"><x>Error</x></div>');
     }
-  });
+
+      $("#input").val(lines.join("\n"));
+
+      // 2. now get audio from main site
+      $.get("/", function(mainData) {
+        var $main = $("<div>").html(mainData);
+
+        var $songDiv = $main.find("#music .tracks .grid .song").filter(function() {
+          var songArtists = $(this).attr("data-artist") ? $(this).attr("data-artist").trim().toLowerCase() : "";
+          var songTrack = $(this).attr("data-track") ? $(this).attr("data-track").trim().toLowerCase() : "";
+
+          var songArtistList = songArtists.split(",").map(a=>a.trim());
+          var artistMatch = songArtistList.some(a=>artistText.includes(a));
+
+          return artistMatch && songTrack === trackText;
+        });
+
+        if ($songDiv.length) {
+          var mp3 = $songDiv.attr("data-mp3");
+          if (mp3) {
+            $("#player").attr("src", mp3)[0].load();
+            $("#player")[0].play();
+          }
+        }
+      }); // end main site ajax
+    }
+  }); // end lyrics ajax
 });
+
 
 
 
