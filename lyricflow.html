@@ -1355,13 +1355,11 @@ body.overflow {
       <div id="container">
         
         <form id="text" class="main">
-          <div id="rhymes">
-    <div class="contain">
-      <button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button><button>Test</button>
-    </div>
-  </div> 
+          <div id="input-container" style="position:relative; height:100%; overflow:auto;">
+          <div id="rhymes"><div class="contain"></div></div> 
           
        <textarea id="input" placeholder="Write your lyrics here or copy and paste what you have."></textarea>
+          </div>
         </form>
         
     <div id="lyrics" class="main"></div>
@@ -1370,69 +1368,41 @@ body.overflow {
       
       <script>
         $(document).ready(function() {
-  const $input = $("#input");
-const $rhymes = $("#rhymes");
-const $container = $("#text"); // full-height parent
+ const $rhymes = $("#rhymes");
+const $container = $("#input-container");
+const padding = 8;
 
-const $mirror = $("<div id='caret-mirror' aria-hidden='true'></div>").appendTo("body").css({
-  position: "absolute",
-  visibility: "hidden",
-  whiteSpace: "pre-wrap",
-  wordWrap: "break-word",
-  overflow: "visible",
-  boxSizing: "border-box"
-});
-
-function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-function updateCaretPopup() {
-  const el = $input[0];
-  if(!el) return;
-
-  const caret = el.selectionStart;
-  const textBefore = $input.val().substring(0,caret);
-
-  const props = [
-    "font-size","font-family","font-weight","line-height",
-    "padding-top","padding-right","padding-bottom","padding-left",
-    "border-top-width","border-left-width","box-sizing","width","letter-spacing","word-spacing"
-  ];
-  props.forEach(p=>$mirror.css(p,$input.css(p)));
-
-  const offs = $input.offset();
-  $mirror.css({left:offs.left,top:offs.top,width:$input.outerWidth()});
-
-  $mirror.html(escapeHtml(textBefore).replace(/\n/g,"<br/>")+"<span id='__caret_marker__'>\u200b</span>");
-  const marker = document.getElementById("__caret_marker__");
-  if(!marker) return $rhymes.removeClass("go");
-
-  const markerRect = marker.getBoundingClientRect();
-  const containerRect = $container[0].getBoundingClientRect();
-  const scrollTop = $input.scrollTop();
+function showRhymesAt(x, y) {
   const popupWidth = $rhymes.outerWidth();
-  const popupHeight = $rhymes.outerHeight()||50;
-  const padding = 8;
+  const popupHeight = $rhymes.outerHeight() || 50;
 
-  // visualViewport offset for iOS keyboard
-  const vvOffset = window.visualViewport ? window.visualViewport.offsetTop : 0;
+  // convert page coordinates to container coordinates
+  const containerRect = $container[0].getBoundingClientRect();
+  let left = x - containerRect.left;
+  let top = y - containerRect.top + $container.scrollTop();
 
-  let top = markerRect.top - containerRect.top + scrollTop - popupHeight - padding - vvOffset;
-  let left = markerRect.left - containerRect.left;
-
-  // if goes above container, place below caret
-  if(top < 0) top = markerRect.bottom - containerRect.top + scrollTop + padding - vvOffset;
-
-  // clamp horizontally inside container
+  // clamp horizontally
   if(left < padding) left = padding;
-  if(left + popupWidth > $container.width()-padding) left = $container.width()-popupWidth-padding;
+  if(left + popupWidth > $container.width() - padding) left = $container.width() - popupWidth - padding;
 
-  $rhymes.css({top:top+"px",left:left+"px"}).addClass("go");
+  // clamp vertically
+  if(top < $container.scrollTop() + padding) top = $container.scrollTop() + padding;
+  if(top + popupHeight > $container.height() + $container.scrollTop() - padding)
+    top = $container.height() + $container.scrollTop() - popupHeight - padding;
+
+  $rhymes.css({top: top+"px", left: left+"px"}).addClass("go");
 }
 
-$input.on("input click keyup mouseup scroll",updateCaretPopup);
-$container.on("scroll",updateCaretPopup);
-$(window).on("resize",updateCaretPopup);
-$input.on("blur",()=>$rhymes.removeClass("go"));
+// hide rhymes when input loses focus
+$("#input").on("blur", () => $rhymes.removeClass("go"));
+
+// show on click or touch
+$("#input").on("click touchstart", function(e) {
+  e.preventDefault();
+  let x = e.pageX || e.originalEvent.touches[0].pageX;
+  let y = e.pageY || e.originalEvent.touches[0].pageY;
+  showRhymesAt(x, y);
+});
 
         });
       </script>
@@ -1443,7 +1413,9 @@ $input.on("blur",()=>$rhymes.removeClass("go"));
      
 
 
-
+function scrollInputToBottom() {
+  $input.scrollTop($input[0].scrollHeight);
+}
   
   
 function saveMetadata() {
@@ -1861,8 +1833,10 @@ $("#lyrics").attr("data-status", "normal");
         $("#set i").removeClass().addClass("fa-solid fa-lock");
         }
         
-        if ( !$("#lyrics p").hasClass("clicked") ) {
+        if ( !$("#lyrics p").hasClass("clicked") && !$(this).hasClass("selected") ) {
         $("#set, #clear-time").addClass("inactive");
+        } else {
+          $("#set, #clear-time").removeClass("inactive");
         }
         
         
@@ -1872,7 +1846,7 @@ $("#lyrics").attr("data-status", "normal");
           }
         
         var spanText = $(this).find("span").text().trim();
-      if (spanText !== "") {
+      if (spanText !== "" && !$(this).hasClass("set")) {
         $("#clear-time").removeClass("inactive");
       }
         
@@ -1928,6 +1902,7 @@ $("#lyrics").attr("data-status", "normal");
     if ($(this).find("span").text() === "Set") {
         if (spanText !== "") {
             $selected.addClass("set");
+          $("#clear-time").addClass("inactive");
 
             // auto-click next line if #next-line has 'go'
            
@@ -2250,6 +2225,8 @@ $("#input").on("input click keyup mouseup", function() {
   var lines = $(this).val().split("\n");
   var $lyrics = $("#lyrics");
   $lyrics.empty();
+  
+  scrollInputToBottom();
 
   if ( $(this).val().trim() === '' ) {
     $("#next").addClass("inactive");
@@ -2495,7 +2472,13 @@ $("#rhymes").on("click", "button", function() {
     
     $("#clear-time").click(function() {
       $("#lyrics p.clicked:not(.set) span").text("");
-      $("#lyrics p.clicked").removeClass("clicked");
+      $("#lyrics p.clicked").addClass("no-time").removeClass("clicked");
+      
+      setTimeout(function() {
+        if ( $("#lyrics p.selected").length ) {
+          $("#clear-time").addClass("inactive");
+        }
+      }, 200);
     });
     
     
