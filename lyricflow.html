@@ -1195,13 +1195,17 @@ body.overflow {
     position:fixed;
     overflow:hidden;
     transition: top 0.15s ease, left 0.15s ease, opacity 0.3s ease-in 0.2s;
-    
+    transform: translate3d(0, 0, 0);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  will-change: transform, opacity;
   }
   
   #rhymes.go {
     opacity:1 !important;
     pointer-events:auto;
-    transition: top 0.15s ease, left 0.15s ease, opacity 0.3s ease-in 0s;
   }
   
   #rhymes .contain {
@@ -1377,8 +1381,10 @@ const $text = $("#text");
 const $input = $("#input");
 const padding = 30;
 let repositionTimeout;
+let latestCoords = { x: 0, y: 0 };
 
-function showRhymesAt(x, y) {
+function showRhymesAt(x, y, smooth = true) {
+  latestCoords = { x, y };
   const popupWidth = $rhymes.outerWidth();
   const popupHeight = $rhymes.outerHeight() || 50;
   const vv = window.visualViewport;
@@ -1402,20 +1408,28 @@ function showRhymesAt(x, y) {
     if (left + popupWidth > viewportWidth - padding)
       left = viewportWidth - popupWidth - padding;
 
-    $rhymes.css({ top: `${top}px`, left: `${left}px` });
+    // use transform for smoother repositioning
+    const transform = `translate3d(${left}px, ${top}px, 0)`;
+    $rhymes.css({
+      transform,
+      transition: smooth
+        ? "opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)"
+        : "none"
+    });
+
     requestAnimationFrame(() => $rhymes.addClass("go"));
   }, 350);
 }
 
-// prevent clicks inside rhymes from repositioning
+// block reposition clicks inside rhymes
 $rhymes.on("click touchstart", (e) => e.stopPropagation());
 
-// click/touch anywhere inside #text (but not rhymes)
+// handle clicks/touches inside parent container
 $text.on("click touchstart", function (e) {
-  if (!$(e.target).is("#input")) return; // only trigger for input itself
+  if (!$(e.target).is("#input")) return;
   const x = e.pageX || e.originalEvent.touches[0].pageX;
   const y = e.pageY || e.originalEvent.touches[0].pageY;
-  showRhymesAt(x, y);
+  showRhymesAt(x, y); 
 });
 
 $input.on("focus", function () {
@@ -1425,12 +1439,17 @@ $input.on("focus", function () {
 
 $input.on("blur", () => $rhymes.removeClass("go"));
 
+// handle viewport changes (keyboard open/close)
 if (window.visualViewport) {
+  let resizeTimer;
   visualViewport.addEventListener("resize", () => {
-    if ($rhymes.hasClass("go")) {
-      const rect = $input[0].getBoundingClientRect();
-      showRhymesAt(rect.left + 20, rect.top - 60);
-    }
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if ($rhymes.hasClass("go")) {
+        const rect = $input[0].getBoundingClientRect();
+        showRhymesAt(rect.left + 20, rect.top - 60);
+      }
+    }, 150);
   });
 }
         });
