@@ -227,7 +227,6 @@ body {
   width: 100%;
   height: 100%;
   margin: 0 !important;
-  touch-action: manipulation;
   overflow: hidden !important;
   padding: 0 !important;
   background: black url(https://static.vecteezy.com/system/resources/previews/035/328/986/large_2x/ai-generated-wallpapers-of-nature-in-beautiful-lake-and-mountain-scenery-free-photo.jpg);
@@ -1187,7 +1186,7 @@ body.overflow {
     box-shadow:0 10px 10px rgba(0, 0, 0, 0.3);
     margin:Auto;
     height:50px !important;
-    width:0%;
+    width:100%;
     display:block;
     opacity:0;
      pointer-events: none;
@@ -1200,7 +1199,6 @@ body.overflow {
   }
   
   #rhymes.go {
-    width:100% !important;
     opacity:1 !important;
     transition: width 0.2s cubic-bezier(0.25, 0.1, 0.25, 1) 0.2s, opacity 0s ease-in 0.2s;
   }
@@ -1373,7 +1371,7 @@ body.overflow {
       
       <script>
         $(document).ready(function() {
- const $rhymes = $("#rhymes");
+const $rhymes = $("#rhymes");
 const $container = $("#text");
 const padding = 30;
 
@@ -1381,43 +1379,39 @@ function showRhymesAt(x, y) {
   const popupWidth = $rhymes.outerWidth();
   const popupHeight = $rhymes.outerHeight() || 50;
 
-  // convert page coordinates to container coordinates
   const containerRect = $container[0].getBoundingClientRect();
   let left = x - containerRect.left;
   let top = y - containerRect.top + $container.scrollTop();
 
+  // always show above touch point
+  top = top - popupHeight - padding;
+
   // clamp horizontally
-  if(left < padding) left = padding;
-  if(left + popupWidth > $container.width() - padding) left = $container.width() - popupWidth - padding;
+  if (left < padding) left = padding;
+  if (left + popupWidth > $container.width() - padding)
+    left = $container.width() - popupWidth - padding;
 
-  // clamp vertically
-  if(top < $container.scrollTop() + padding) top = $container.scrollTop() + padding;
-  if(top + popupHeight > $container.height() + $container.scrollTop() - padding)
-    top = $container.height() + $container.scrollTop() - popupHeight - padding;
+  // clamp vertically (prevent from going off top)
+  if (top < $container.scrollTop() + padding)
+    top = $container.scrollTop() + padding;
 
-  $rhymes.css({top: top+"px", left: left+"px"}).addClass("go");
+  $rhymes.css({ top: top + "px", left: left + "px" }).addClass("go");
 }
 
-// hide rhymes when input loses focus
 $("#input").on("blur", () => $rhymes.removeClass("go"));
 
-// show on click or touch
-$("#input").on("click touchstart", function(e) {
-  let x = e.pageX || e.originalEvent.touches[0].pageX;
-  let y = e.pageY || e.originalEvent.touches[0].pageY;
-  setTimeout(function() {
-  showRhymesAt(x, y);
-  }, 200);
-});
-          
-          $("#input").on("focus", function(e) {
-  // delay a little to avoid blocking focus
-  setTimeout(() => {
-    let rect = this.getBoundingClientRect();
-    showRhymesAt(rect.left + 20, rect.top - 60);
-  }, 400);
+$("#input").on("click touchstart", function (e) {
+  const x = e.pageX || e.originalEvent.touches[0].pageX;
+  const y = e.pageY || e.originalEvent.touches[0].pageY;
+  setTimeout(() => showRhymesAt(x, y), 400);
 });
 
+$("#input").on("focus", function (e) {
+  setTimeout(() => {
+    const rect = this.getBoundingClientRect();
+    showRhymesAt(rect.left + 20, rect.top - 60);
+  }, 500);
+});
         });
       </script>
 
