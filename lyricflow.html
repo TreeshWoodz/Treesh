@@ -1373,6 +1373,8 @@ body.overflow {
       <script>
         $(document).ready(function() {
 const $rhymes = $("#rhymes");
+const $text = $("#text");
+const $input = $("#input");
 const padding = 30;
 let repositionTimeout;
 
@@ -1382,7 +1384,7 @@ function showRhymesAt(x, y) {
   const vv = window.visualViewport;
 
   clearTimeout(repositionTimeout);
-  $rhymes.removeClass("go"); // hide during reposition
+  $rhymes.removeClass("go");
 
   repositionTimeout = setTimeout(() => {
     const viewportOffsetY = vv ? vv.offsetTop : 0;
@@ -1392,40 +1394,41 @@ function showRhymesAt(x, y) {
     let left = x - popupWidth / 2;
     let top = y - popupHeight - padding - viewportOffsetY;
 
-    // clamp vertically
     const bottomLimit = viewportHeight - popupHeight - padding;
     if (top > bottomLimit) top = bottomLimit;
     if (top < padding) top = padding;
 
-    // clamp horizontally
     if (left < padding) left = padding;
     if (left + popupWidth > viewportWidth - padding)
       left = viewportWidth - popupWidth - padding;
 
     $rhymes.css({ top: `${top}px`, left: `${left}px` });
-
-    // fade back in
     requestAnimationFrame(() => $rhymes.addClass("go"));
-  }, 350); // wait until keyboard / viewport settles
+  }, 350);
 }
 
-$("#input").on("blur", () => $rhymes.removeClass("go"));
+// prevent clicks inside rhymes from repositioning
+$rhymes.on("click touchstart", (e) => e.stopPropagation());
 
-$("#input").on("click touchstart", function (e) {
+// click/touch anywhere inside #text (but not rhymes)
+$text.on("click touchstart", function (e) {
+  if (!$(e.target).is("#input")) return; // only trigger for input itself
   const x = e.pageX || e.originalEvent.touches[0].pageX;
   const y = e.pageY || e.originalEvent.touches[0].pageY;
   showRhymesAt(x, y);
 });
 
-$("#input").on("focus", function () {
+$input.on("focus", function () {
   const rect = this.getBoundingClientRect();
   showRhymesAt(rect.left + 20, rect.top - 60);
 });
 
+$input.on("blur", () => $rhymes.removeClass("go"));
+
 if (window.visualViewport) {
   visualViewport.addEventListener("resize", () => {
     if ($rhymes.hasClass("go")) {
-      const rect = $("#input")[0].getBoundingClientRect();
+      const rect = $input[0].getBoundingClientRect();
       showRhymesAt(rect.left + 20, rect.top - 60);
     }
   });
