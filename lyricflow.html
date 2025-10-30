@@ -1192,15 +1192,15 @@ body.overflow {
      pointer-events: none;
     z-index:4;
     white-space:nowrap;
-    position:absolute;
+    position:fixed;
     overflow:hidden;
-    transition: width 0.2s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.2s ease-in 0.2s;
+    transition: top 0.15s ease, left 0.15s ease, opacity 0.2s ease-in 0.2s;
     
   }
   
   #rhymes.go {
     opacity:1 !important;
-    transition: width 0.2s cubic-bezier(0.25, 0.1, 0.25, 1) 0.2s, opacity 0s ease-in 0.2s;
+    transition: top 0.15s ease, left 0.15s ease, opacity 0.2s ease-in 0s;
   }
   
   #rhymes .contain {
@@ -1372,31 +1372,33 @@ body.overflow {
       <script>
         $(document).ready(function() {
 const $rhymes = $("#rhymes");
-const $container = $("#text");
 const padding = 30;
 
 function showRhymesAt(x, y) {
   const popupWidth = $rhymes.outerWidth();
   const popupHeight = $rhymes.outerHeight() || 50;
-  const containerRect = $container[0].getBoundingClientRect();
   const vv = window.visualViewport;
 
-  // adjust Y if keyboard is open (viewport shrunk)
-  let visualOffsetY = vv ? vv.offsetTop : 0;
+  // wait for viewport to settle (keyboard animation)
+  setTimeout(() => {
+    const viewportOffsetY = vv ? vv.offsetTop : 0;
+    const viewportHeight = vv ? vv.height : window.innerHeight;
 
-  let left = x - containerRect.left;
-  let top = y - containerRect.top + $container.scrollTop() - popupHeight - padding + visualOffsetY;
+    let left = x - popupWidth / 2; // center around touch
+    let top = y - popupHeight - padding - viewportOffsetY;
 
-  // clamp horizontally
-  if (left < padding) left = padding;
-  if (left + popupWidth > $container.width() - padding)
-    left = $container.width() - popupWidth - padding;
+    // if it's too close to top or under keyboard, adjust upward
+    const bottomLimit = viewportHeight - popupHeight - padding;
+    if (top > bottomLimit) top = bottomLimit;
+    if (top < padding) top = padding;
 
-  // clamp vertically
-  if (top < $container.scrollTop() + padding)
-    top = $container.scrollTop() + padding;
+    // clamp horizontally
+    if (left < padding) left = padding;
+    if (left + popupWidth > window.innerWidth - padding)
+      left = window.innerWidth - popupWidth - padding;
 
-  $rhymes.css({ top: top + "px", left: left + "px" }).addClass("go");
+    $rhymes.css({ top: `${top}px`, left: `${left}px` }).addClass("go");
+  }, 300); // delay a bit to let keyboard settle
 }
 
 $("#input").on("blur", () => $rhymes.removeClass("go"));
@@ -1404,22 +1406,23 @@ $("#input").on("blur", () => $rhymes.removeClass("go"));
 $("#input").on("click touchstart", function (e) {
   const x = e.pageX || e.originalEvent.touches[0].pageX;
   const y = e.pageY || e.originalEvent.touches[0].pageY;
-  setTimeout(() => showRhymesAt(x, y), 400);
+  showRhymesAt(x, y);
 });
 
 $("#input").on("focus", function (e) {
-  setTimeout(() => {
-    const rect = this.getBoundingClientRect();
-    const vv = window.visualViewport;
-    const visualOffsetY = vv ? vv.offsetTop : 0;
-    showRhymesAt(rect.left + 20, rect.top - 60 + visualOffsetY);
-  }, 500);
+  const rect = this.getBoundingClientRect();
+  const x = rect.left + 20;
+  const y = rect.top - 60;
+  showRhymesAt(x, y);
 });
 
-// adjust dynamically when viewport changes (keyboard opens/closes)
+// move with viewport as keyboard animates
 if (window.visualViewport) {
-  window.visualViewport.addEventListener("scroll", () => {
-    if ($rhymes.hasClass("go")) $rhymes.css("top", parseFloat($rhymes.css("top")) + window.visualViewport.offsetTop);
+  visualViewport.addEventListener("resize", () => {
+    if ($rhymes.hasClass("go")) {
+      const rect = $("#input")[0].getBoundingClientRect();
+      showRhymesAt(rect.left + 20, rect.top - 60);
+    }
   });
 }
         });
