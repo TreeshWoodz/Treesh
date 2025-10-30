@@ -1372,8 +1372,8 @@ body.overflow {
         $(document).ready(function() {
   const $input = $("#input");
 const $rhymes = $("#rhymes");
+const $container = $("#text"); // full-height parent
 
-// create hidden mirror for measuring caret
 const $mirror = $("<div id='caret-mirror' aria-hidden='true'></div>").appendTo("body").css({
   position: "absolute",
   visibility: "hidden",
@@ -1383,69 +1383,56 @@ const $mirror = $("<div id='caret-mirror' aria-hidden='true'></div>").appendTo("
   boxSizing: "border-box"
 });
 
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function updateCaretPopup() {
   const el = $input[0];
-  if (!el) return;
-  const caret = el.selectionStart;
-  const textBefore = $input.val().substring(0, caret);
+  if(!el) return;
 
-  // mirror key layout styles
+  const caret = el.selectionStart;
+  const textBefore = $input.val().substring(0,caret);
+
   const props = [
     "font-size","font-family","font-weight","line-height",
     "padding-top","padding-right","padding-bottom","padding-left",
     "border-top-width","border-left-width","box-sizing","width","letter-spacing","word-spacing"
   ];
-  props.forEach(p => $mirror.css(p, $input.css(p)));
+  props.forEach(p=>$mirror.css(p,$input.css(p)));
 
-  // position mirror same as textarea
   const offs = $input.offset();
-  $mirror.css({
-    left: offs.left,
-    top: offs.top,
-    width: $input.outerWidth()
-  });
+  $mirror.css({left:offs.left,top:offs.top,width:$input.outerWidth()});
 
-  // fill mirror up to caret
-  const html = escapeHtml(textBefore).replace(/\n/g, "<br/>") + "<span id='__caret_marker__'>\u200b</span>";
-  $mirror.html(html);
-
+  $mirror.html(escapeHtml(textBefore).replace(/\n/g,"<br/>")+"<span id='__caret_marker__'>\u200b</span>");
   const marker = document.getElementById("__caret_marker__");
-  if (!marker) return $rhymes.removeClass("go");
+  if(!marker) return $rhymes.removeClass("go");
 
-  const rect = marker.getBoundingClientRect();
-  const parentRect = $input[0].getBoundingClientRect();
-
+  const markerRect = marker.getBoundingClientRect();
+  const containerRect = $container[0].getBoundingClientRect();
+  const scrollTop = $input.scrollTop();
   const popupWidth = $rhymes.outerWidth();
-  const popupHeight = $rhymes.outerHeight() || 50;
+  const popupHeight = $rhymes.outerHeight()||50;
   const padding = 8;
 
-  let top = Math.round(rect.top) - popupHeight - padding;
-  let left = Math.round(rect.left);
+  // visualViewport offset for iOS keyboard
+  const vvOffset = window.visualViewport ? window.visualViewport.offsetTop : 0;
 
-  // keep popup within parent horizontally
-  const minLeft = parentRect.left + padding;
-  const maxLeft = parentRect.right - popupWidth - padding;
+  let top = markerRect.top - containerRect.top + scrollTop - popupHeight - padding - vvOffset;
+  let left = markerRect.left - containerRect.left;
 
-  if (left < minLeft) left = minLeft;
-  if (left > maxLeft) left = maxLeft;
+  // if goes above container, place below caret
+  if(top < 0) top = markerRect.bottom - containerRect.top + scrollTop + padding - vvOffset;
 
-  // if popup would go above viewport, move it below caret instead
-  if (top < 0) top = Math.round(rect.bottom) + padding;
+  // clamp horizontally inside container
+  if(left < padding) left = padding;
+  if(left + popupWidth > $container.width()-padding) left = $container.width()-popupWidth-padding;
 
-  $rhymes.css({
-    top: top + "px",
-    left: left + "px"
-  }).addClass("go");
+  $rhymes.css({top:top+"px",left:left+"px"}).addClass("go");
 }
 
-// bind events
-$input.on("input click keyup mouseup scroll", updateCaretPopup);
-$(window).on("resize scroll", updateCaretPopup);
-$input.on("blur", () => $rhymes.removeClass("go"));
+$input.on("input click keyup mouseup scroll",updateCaretPopup);
+$container.on("scroll",updateCaretPopup);
+$(window).on("resize",updateCaretPopup);
+$input.on("blur",()=>$rhymes.removeClass("go"));
 
         });
       </script>
