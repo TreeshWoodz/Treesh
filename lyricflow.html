@@ -1370,12 +1370,11 @@ body.overflow {
       
       <script>
         $(document).ready(function() {
-   // create mirror (hidden) once
-const $input = $("#input");
+  const $input = $("#input");
 const $rhymes = $("#rhymes");
-const $mirror = $("<div id='caret-mirror' aria-hidden='true'></div>").appendTo("body");
 
-$mirror.css({
+// create hidden mirror for measuring caret
+const $mirror = $("<div id='caret-mirror' aria-hidden='true'></div>").appendTo("body").css({
   position: "absolute",
   visibility: "hidden",
   whiteSpace: "pre-wrap",
@@ -1390,10 +1389,11 @@ function escapeHtml(s) {
 
 function updateCaretPopup() {
   const el = $input[0];
+  if (!el) return;
   const caret = el.selectionStart;
   const textBefore = $input.val().substring(0, caret);
 
-  // copy key layout styles so measurements match
+  // mirror key layout styles
   const props = [
     "font-size","font-family","font-weight","line-height",
     "padding-top","padding-right","padding-bottom","padding-left",
@@ -1401,7 +1401,7 @@ function updateCaretPopup() {
   ];
   props.forEach(p => $mirror.css(p, $input.css(p)));
 
-  // position mirror at the textarea's page position (so span rect is viewport-correct)
+  // position mirror same as textarea
   const offs = $input.offset();
   $mirror.css({
     left: offs.left,
@@ -1409,38 +1409,42 @@ function updateCaretPopup() {
     width: $input.outerWidth()
   });
 
-  // build mirror content (preserve line breaks) and add caret marker span
+  // fill mirror up to caret
   const html = escapeHtml(textBefore).replace(/\n/g, "<br/>") + "<span id='__caret_marker__'>\u200b</span>";
   $mirror.html(html);
 
   const marker = document.getElementById("__caret_marker__");
-  if (!marker) return $rhymes.removeClass("go"); // hide if no marker
+  if (!marker) return $rhymes.removeClass("go");
 
   const rect = marker.getBoundingClientRect();
-  // if caret offscreen hide popup
-  if (rect.bottom < 0 || rect.top > window.innerHeight) {
-    $rhymes.removeClass("go");
-    return;
-  }
+  const parentRect = $input[0].getBoundingClientRect();
 
-  // compute where to place #rhymes (fixed positioning relative to viewport)
+  const popupWidth = $rhymes.outerWidth();
   const popupHeight = $rhymes.outerHeight() || 50;
-  let top = Math.round(rect.top) - popupHeight - 8; // 8px gap
+  const padding = 8;
+
+  let top = Math.round(rect.top) - popupHeight - padding;
   let left = Math.round(rect.left);
 
-  // keep popup horizontally inside viewport
-  const maxLeft = window.innerWidth - $rhymes.outerWidth();
-  if (left > maxLeft) left = maxLeft - 8;
-  if (left < 8) left = 8;
+  // keep popup within parent horizontally
+  const minLeft = parentRect.left + padding;
+  const maxLeft = parentRect.right - popupWidth - padding;
 
-  $rhymes.css({ top: top + "px", left: left + "px" }).addClass("go");
+  if (left < minLeft) left = minLeft;
+  if (left > maxLeft) left = maxLeft;
+
+  // if popup would go above viewport, move it below caret instead
+  if (top < 0) top = Math.round(rect.bottom) + padding;
+
+  $rhymes.css({
+    top: top + "px",
+    left: left + "px"
+  }).addClass("go");
 }
 
 // bind events
 $input.on("input click keyup mouseup scroll", updateCaretPopup);
 $(window).on("resize scroll", updateCaretPopup);
-
-// optional: hide when textarea loses focus
 $input.on("blur", () => $rhymes.removeClass("go"));
 
         });
@@ -1845,15 +1849,6 @@ $("#lyrics").attr("data-status", "normal");
                                                 
                                                 
 });
-    
-    
-    $("#input").on("scroll", function() {
-      if ( $(this).scrollTop() >= 5 ) {
-        $("#rhymes").addClass("blur");
-      } else {
-        $("#rhymes").removeClass("blur");
-      }
-    });
     
 
     $("#lyrics").on("click", "p", function() {
