@@ -301,7 +301,7 @@ body.overflow {
     font-family:var(--main-font);
     border:none;
     color:white;
-  background:transparent !important;
+  background:rgba(0, 0, 0, 0.3);
     line-height:3.25rem;
     text-shadow:0 1px 1px rgba(0, 0, 0, 0.5);
     font-weight:800;
@@ -484,6 +484,7 @@ body.overflow {
   padding:20px 10px;
     padding-top:50px;
     width: calc(100% - 30px);
+    max-width:550px;
     margin:auto;
     display:block;
     position:relative;
@@ -523,6 +524,7 @@ body.overflow {
   #lyrics p:not(.no-lyrics):after {
     z-index:-2;
     border-radius:30px;
+    opacity:0.2 !important;
   }
   
   #lyrics p:not(.no-lyrics):first-child {
@@ -550,6 +552,7 @@ body.overflow {
     border-top-right-radius:0px;
     color:white;
     border:1px solid rgba(255, 255, 255, 0.2);
+    border-bottom:3px solid rgba(255, 255, 255, 0.2);
     transform:translate3d(0, 0%, 0);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.3s ease-in-out;
@@ -594,6 +597,7 @@ body.overflow {
   #lyrics p:not(.no-lyrics).selected {
     background:rgba(0, 0, 0, 0.5) !important;
     border-color:var(--pink) !important;
+    box-shadow:0px 10px 30px var(--pink);
 }
   
   #lyrics p:not(.no-lyrics).selected span {
@@ -601,8 +605,15 @@ body.overflow {
   }
   
   #lyrics p:not(.no-lyrics).clicked {
-    border-color:white !important;
-    box-shadow:0px 10px 10px rgba(255, 255, 255, 0.2);
+    border-top:1px solid rgba(255, 255, 255, 0.1);
+    border-left:1px solid rgba(255, 255, 255, 0.3);
+    border-right:1px solid rgba(255, 255, 255, 0.4);
+    border-bottom:3px solid rgba(255, 255, 255, 0.8);
+    box-shadow:0px 10px 30px rgba(255, 255, 255, 0.2);
+  }
+  
+  #lyrics p:not(.no-lyrics).clicked:after {
+    opacity:0.5 !important;
   }
   
    #lyrics p:not(.no-lyrics).clicked.set {
@@ -650,7 +661,7 @@ body.overflow {
     margin:auto;
     position:relative;
     display:block;
-    background:rgba(0, 0, 0, 0.5);
+    background:rgba(0, 0, 0, 0.8);
   }
   
   #container.lyrics {
@@ -669,10 +680,13 @@ body.overflow {
   #lyrics {
     width:100%;
     height:100%;
-    max-width:500px !important;
     position:relative !important;
     margin:auto !important;
     z-index:2;
+  }
+  
+  #text {
+    max-width:550px;
   }
   
   button.inactive {
@@ -710,7 +724,7 @@ body.overflow {
   
   #metadata:before,
   #container:before,
-  #rhymes.blur:before {
+  #rhymes:before {
   content: "";
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
@@ -1167,9 +1181,15 @@ body.overflow {
   
   
   #rhymes {
-    width:100%;
-    height:0px !important;
+    max-width:300px;
+    border-radius:30px;
+    border:1px solid rgba(255, 255, 255, 0.2);
+    box-shadow:0 10px 10px rgba(0, 0, 0, 0.3);
+    margin:Auto;
+    height:50px;
+    width:0%;
     display:block;
+    right:0;
     opacity:0;
     z-index:4;
     white-space:nowrap;
@@ -1177,29 +1197,31 @@ body.overflow {
     top:50px;
     left:0;
     overflow:hidden;
-    transition: height 0.2s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.2s ease-in;
+    transition: width 0.2s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.2s ease-in 0.2s;
     
   }
   
   #rhymes.go {
-    height:50px !important;
+    width:100% !important;
     opacity:1 !important;
+    transition: width 0.2s cubic-bezier(0.25, 0.1, 0.25, 1) 0.2s, opacity 0s ease-in 0.2s;
   }
   
   #rhymes .contain {
     height:100%;
     width:100%;
     overflow:auto;
-    padding:10px 0px;
+    overflow-y:hidden;
+    padding:10px 10px;
   }
   
   #rhymes button {
     display:inline-block;
-    width:auto !important;
     background:transparent;
     font-size:1rem;
     color:white;
     cursor:pointer;
+    height:30px !important;
     border:1px solid rgba(255, 255, 255, 0.2);
     font-family:var(--main-font);
     font-weight:600;
@@ -1212,14 +1234,6 @@ body.overflow {
   #rhymes button:hover {
     background:rgba(255, 255, 255, 0.9);
     color:var(--pink);
-  }
-  
-  #rhymes button:first-child {
-    margin-left:20px;
-  }
-  
-  #rhymes button:last-child {
-    margin-right:20px;
   }
   
   .glass-overlay {
@@ -1245,6 +1259,14 @@ body.overflow {
 .mm-menu .glass-specular,
 .mm-menu .glass-overlay {
     border-radius: 100px !important;
+}
+  
+  #mirror {
+  position: absolute;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  visibility: hidden;
+    z-index:1000;
 }
 </style>
     </head>
@@ -1345,6 +1367,84 @@ body.overflow {
     <div id="lyrics" class="main"></div>
       </div>
 
+      
+      <script>
+        $(document).ready(function() {
+   // create mirror (hidden) once
+const $input = $("#input");
+const $rhymes = $("#rhymes");
+const $mirror = $("<div id='caret-mirror' aria-hidden='true'></div>").appendTo("body");
+
+$mirror.css({
+  position: "absolute",
+  visibility: "hidden",
+  whiteSpace: "pre-wrap",
+  wordWrap: "break-word",
+  overflow: "visible",
+  boxSizing: "border-box"
+});
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updateCaretPopup() {
+  const el = $input[0];
+  const caret = el.selectionStart;
+  const textBefore = $input.val().substring(0, caret);
+
+  // copy key layout styles so measurements match
+  const props = [
+    "font-size","font-family","font-weight","line-height",
+    "padding-top","padding-right","padding-bottom","padding-left",
+    "border-top-width","border-left-width","box-sizing","width","letter-spacing","word-spacing"
+  ];
+  props.forEach(p => $mirror.css(p, $input.css(p)));
+
+  // position mirror at the textarea's page position (so span rect is viewport-correct)
+  const offs = $input.offset();
+  $mirror.css({
+    left: offs.left,
+    top: offs.top,
+    width: $input.outerWidth()
+  });
+
+  // build mirror content (preserve line breaks) and add caret marker span
+  const html = escapeHtml(textBefore).replace(/\n/g, "<br/>") + "<span id='__caret_marker__'>\u200b</span>";
+  $mirror.html(html);
+
+  const marker = document.getElementById("__caret_marker__");
+  if (!marker) return $rhymes.removeClass("go"); // hide if no marker
+
+  const rect = marker.getBoundingClientRect();
+  // if caret offscreen hide popup
+  if (rect.bottom < 0 || rect.top > window.innerHeight) {
+    $rhymes.removeClass("go");
+    return;
+  }
+
+  // compute where to place #rhymes (fixed positioning relative to viewport)
+  const popupHeight = $rhymes.outerHeight() || 50;
+  let top = Math.round(rect.top) - popupHeight - 8; // 8px gap
+  let left = Math.round(rect.left);
+
+  // keep popup horizontally inside viewport
+  const maxLeft = window.innerWidth - $rhymes.outerWidth();
+  if (left > maxLeft) left = maxLeft - 8;
+  if (left < 8) left = 8;
+
+  $rhymes.css({ top: top + "px", left: left + "px" }).addClass("go");
+}
+
+// bind events
+$input.on("input click keyup mouseup scroll", updateCaretPopup);
+$(window).on("resize scroll", updateCaretPopup);
+
+// optional: hide when textarea loses focus
+$input.on("blur", () => $rhymes.removeClass("go"));
+
+        });
+      </script>
 
       
 
@@ -1533,7 +1633,6 @@ if (savedLyricsData) {
         let store = tx.objectStore("files");
         store.put(file, "savedAudio");
         
-      $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
       
       if ($("#lyrics").css("display") === "block") {
       $("#next-line").removeClass("inactive");
@@ -1542,6 +1641,7 @@ if (savedLyricsData) {
         let url = URL.createObjectURL(file);
         player.src = url;
         player.hidden = false;
+      $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
         localStorage.setItem("audioReady", "true");
     });
 
@@ -1736,7 +1836,7 @@ $("#lyrics").attr("data-status", "normal");
           $("#next-line").removeClass("go").attr("data-status", "record").find("span").text("Record");
           
           setTimeout(function() {
-            $("#lyrics p:not(.no-lyrics)").removeClass("clicked sync selected");
+            $("#lyrics p:not(.no-lyrics):not(.clicked)").removeClass("sync selected");
             
             $("#refresh, #clear-time").addClass("inactive");
           }, 200);
@@ -1961,10 +2061,10 @@ $("#player").removeAttr("src");
       
         // Next → input to lyrics
         $("#text").hide();
-        $("#lyrics").show();
+        $("#lyrics").show(); 
       $("#container").addClass("lyrics");
       
-      if ($("#lyrics").css("display") === "block" && $("#player").attr("src") && $("#player").attr("src") !== "") {
+      if ($("#lyrics").css("display") === "block" && $("#player").attr("src") && $("#player").attr("src") !== "" && $("#player").attr("src") !== " ") {
       $("#next-line").removeClass("inactive");
         }
       
@@ -1973,7 +2073,6 @@ $("#player").removeAttr("src");
     }
       
         $(this).html('<i class="fa-solid fa-arrow-left"></i>').attr("data-status", "back");
-        $("button[for='lyrics']").removeClass("inactive");
 
         var lines = $("#input").val().split("\n");
  
@@ -2223,13 +2322,15 @@ function getRhymesForCaret() {
 
   $.getJSON("https://rhymebrain.com/talk?function=getRhymes&word=" + encodeURIComponent(word))
     .done(function(data) {
-      let list = data.map(item => "<button type='button' class='rhyme-btn'>"+item.word+"</button>").join("");
+      const list = data
+        .slice(0, 30)
+        .map(item => "<button type='button' class='rhyme-btn'>" + item.word + "</button>")
+        .join("");
       $("#rhymes .contain").html(list);
     })
-    .fail(function() {
-      console.log("Rhyme API request failed");
-    });
+    .fail(() => console.log("Rhyme API request failed"));
 }
+
 
 // insert the rhyme at caret (on same line) — DO NOT replace whole word
 $("#rhymes").on("click", "button", function() {
