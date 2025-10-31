@@ -1,4 +1,7 @@
- $(document).ready(function() {
+
+var $document = $(document);
+
+$(document).ready(function() {
        var artistData = {
   "1": {
     name: "London Llaflare",
