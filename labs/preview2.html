@@ -3757,6 +3757,7 @@ margin:auto;
 
 #now_playing .song_data .artist_name_font {
   fill:white !important;
+  text-transform:uppercase;
   width:100% !important;
   opacity: 0;
   display:block;
@@ -14934,58 +14935,16 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
         $("#scrub .scrubDuration").text(formattedDuration);
       });
 
-
-function findClosestMatch(trackName, artistName) {
-  let songs = $(".song"); // all the song elements
-  let found = null;
-  let minDistance = Infinity;
-
-  songs.each(function() {
-    let $this = $(this);
-    let track = $this.data("track").toLowerCase();
-    let artist = $this.data("name").toLowerCase();
-
-    // lowercase comparison
-    let dist = levenshtein(trackName.toLowerCase(), track) + levenshtein(artistName.toLowerCase(), artist);
-    if (dist < minDistance) {
-      minDistance = dist;
-      found = $this;
-    }
-  });
-
-  return found;
-}
-
-// basic Levenshtein distance algorithm
-function levenshtein(a, b) {
-  const matrix = Array.from({ length: a.length + 1 }, (_, i) => [i]);
-  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
-
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,
-        matrix[i][j - 1] + 1,
-        matrix[i - 1][j - 1] + cost
-      );
+      let sanitizedTrack = $track.toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
+      
+       $("#now_playing #lyrics .all_lyrics").load(
+  "/content/lyrics.html .song[data-track='" + songName + "'][data-name='" + songArtist + "']",
+  function(response, status) {
+    if (status === "error" || !response.trim()) {
+      $("#lyrics .lyrics .all_lyrics").html("<h5>NO LYRICS</h5>");
     }
   }
-
-  return matrix[a.length][b.length];
-}
-      
-      let match = findClosestMatch(songName, songArtist);
-if (match) {
-  $("#now_playing #lyrics .all_lyrics").load(
-    "/content/lyrics.html .song[data-track='" + match.data("track") + "'][data-name='" + match.data("name") + "']",
-    function(response, status) {
-      if (status === "error" || !response.trim()) {
-        $("#lyrics .lyrics .all_lyrics").html("<h5>NO LYRICS</h5>");
-      }
-    }
-  );
-}
+);
 
       $musicLyricsLyrics.find("br").each(function () {
         const $this = $(this);
