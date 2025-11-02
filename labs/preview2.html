@@ -14916,22 +14916,28 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
         $("#scrub .scrubDuration").text(formattedDuration);
       });
 
-$.get("/content/lyrics.html", function(data) {
-    let sanitizedTrack = songName.toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
-  let $html = $("<div>").html(data);
-  let $lyrics = $html.find(".lyric");
 
-  let matched = $lyrics.filter(function() {
-    let track = $(this).attr("data-track")?.toLowerCase().replace(/[^a-zA-Z0-9]/g, "") || "";
-    return track.includes(sanitizedTrack);
-  }).first();
+  let sanitizedTrack = songName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  let sanitizedArtist = songArtist.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  if (matched.length) {
-    $("#now_playing #lyrics .all_lyrics").html(matched);
-  } else {
-    $("#now_playing #lyrics .all_lyrics").html("<h5>NO LYRICS</h5>");
-  }
-});
+  $.get("/content/lyrics.html", function(data) {
+    let $html = $("<div>").html(data);
+    let $lyrics = $html.find(".lyric");
+
+    let matched = $lyrics.filter(function() {
+      let track = ($(this).attr("data-track") || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      let artist = ($(this).attr("data-name") || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      return track.includes(sanitizedTrack) && artist.includes(sanitizedArtist);
+    }).first();
+
+    if (matched.length) {
+      $("#now_playing #lyrics .body").html(matched);
+    } else {
+      $("#now_playing #lyrics .body").html("<h5>NO LYRICS</h5>");
+    }
+  }).fail(function() {
+    console.log("Failed to load lyrics.html — check path or permissions");
+  });
 
 
       $musicLyricsLyrics.find("br").each(function () {
