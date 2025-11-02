@@ -14936,15 +14936,23 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
       });
 
       let sanitizedTrack = $track.toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
-      
-       $("#now_playing #lyrics .all_lyrics").load(
-  "/content/lyrics.html .song[data-track='" + sanitizedTrack + "'][data-name='" + songArtist + "']",
-  function(response, status) {
-    if (status === "error" || !response.trim()) {
-      $("#lyrics .lyrics .all_lyrics").html("<h5>NO LYRICS</h5>");
-    }
+
+$.get("/content/lyrics.html", function(data) {
+  let $html = $("<div>").html(data);
+  let $lyrics = $html.find(".lyric");
+
+  let matched = $lyrics.filter(function() {
+    let track = $(this).attr("data-track")?.toLowerCase().replace(/[^a-zA-Z0-9]/g, "") || "";
+    return track.includes(sanitizedTrack);
+  }).first();
+
+  if (matched.length) {
+    $("#now_playing #lyrics .all_lyrics").html(matched);
+  } else {
+    $("#lyrics .lyrics .all_lyrics").html("<h5>NO LYRICS</h5>");
   }
-);
+});
+
 
       $musicLyricsLyrics.find("br").each(function () {
         const $this = $(this);
