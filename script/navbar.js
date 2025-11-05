@@ -31,7 +31,12 @@ $(document).ready(function() {
   
   
   /* CHANGE NICKNAME */
-  $(".mm-menu .change_input .confirmation_text").height($(".mm-menu .change_input form input").outerHeight());
+
+        gsap.to($(".mm-menu .change_input .confirmation_text"), {
+        height: $(".mm-menu .change_input form input").outerHeight(),
+        duration: 0.6,
+    ease: "expo.out"
+    });
                
              $(".mm-menu .change_input form input").on("keyup keydown keypress change", function(event) {
     var $this = $(this);
@@ -92,15 +97,37 @@ function confirmNickname(value) {
 
 $("#wave .nickname_handle, .mm-menu .profile_name").click(function() {
      if ( $(".mm-menu .change_input").hasClass("go") ) {
-         $(".mm-menu .change_input").outerHeight(0).removeClass("go");
+             gsap.to($(".mm-menu .change_input"), {
+        height: 0,
+        duration: 0.6,
+    ease: "expo.out",
+        onComplete: function() {
+                $(".mm-menu .change_input").removeClass("go");
+        }
+    });
      } else {
-         $(".mm-menu .change_input").outerHeight($(".mm-menu .change_input").children().outerHeight()).addClass("go");
+             gsap.to($(".mm-menu .change_input"), {
+        height: $(".mm-menu .change_input").children().outerHeight(),
+        duration: 0.6,
+    ease: "expo.out",
+        onComplete: function() {
+                $(".mm-menu .change_input").addClass("go");
+        }
+    });
+             
      }
 });
 
 
 $(".mm-menu .change_input .close_input-btn").click(function() {
-   $(".mm-menu .change_input").height(0).removeClass("go"); 
+        gsap.to($(".mm-menu .change_input"), {
+        height: 0,
+        duration: 0.6,
+    ease: "expo.out",
+        onComplete: function() {
+                $(".mm-menu .change_input").removeClass("go");
+        }
+    });
 });
   
     });
