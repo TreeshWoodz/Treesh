@@ -188,16 +188,7 @@ var fortunes = [
 
 
 	$(".about_you .about_you-item").click(function() {
-		gsap.to($(".mm-menu .profile"), {
-        height: 0,
-        duration: 0.6,
-    ease: "expo.out",
-    onComplete: function() {
-      $(".mm-menu .profile").removeClass("go");
-    }
-    });
-		
-  if ($(this).hasClass("your_join_date")) {
+		if ($(this).hasClass("your_join_date")) {
     $notificationIconBody = '<i class="fa-solid fa-star"></i>';
     $notificationBodyText = "<h1>Thank you, " + nickname + "!</h1> <p>We appreciate you for joining and supporting our <b>Icons</b>!</p> <p>You've visited <b>"+ visits +"</b> times and your longest time listening to music is <b>"+ storedTime +" minutes</b>!</p>";
   }
@@ -213,9 +204,15 @@ var fortunes = [
   setNotificationOptions = true;
   $notificationCloseBtnText = "Close";
   $notificationStatus = "you";
-  
-  setTimeout(function() {
-	  if ( $(".mm-menu .notification").hasClass("go") ) {
+		
+		gsap.to($(".mm-menu .profile"), {
+        height: 0,
+        duration: 0.6,
+    ease: "expo.out",
+    onComplete: function() {
+      $(".mm-menu .profile").removeClass("go");
+
+		if ( $(".mm-menu .notification").hasClass("go") ) {
       closeNotification();
       
       setTimeout(function() {
@@ -224,7 +221,10 @@ var fortunes = [
   } else {
       openNotification();
   }
-  }, 600);
+    }
+    });
+		
+ 
     });
 
                               
