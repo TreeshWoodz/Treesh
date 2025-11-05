@@ -15555,64 +15555,46 @@ $(document).on("click", ".mm-menu .backdrop_filters-btn", function() {
 });
 
 
-  $(document).on(
-    "click",
-    ".mm-menu .backdrop_item",
-    function () {
-      var srcc = $(this).attr("data-src");
-      var color = $(this).attr("data-color");
+  $(document).on("click", ".mm-menu .backdrop_item", function () {
+  var srcc = $(this).attr("data-src");
+  var color = $(this).attr("data-color");
 
-      if (!$(this).hasClass("picked")) {
-        $(".mm-menu .backdrops_menu").scrollTop(0);
+  if ($(this).hasClass("picked")) return;
 
-        $(this).addClass("picked").siblings().removeClass("picked");
+  $(".mm-menu .backdrops_menu").scrollTop(0);
+  $(this).addClass("picked").siblings().removeClass("picked");
 
-        if ($(this).data("color") !== undefined) {
-          $(":root")[0].style.setProperty("--pink", color);
-          localStorage.setItem("favColor", color);
-        }
+  if (color !== undefined) {
+    $(":root")[0].style.setProperty("--pink", color);
+    localStorage.setItem("favColor", color);
+  }
 
-gsap.to($(".mm-menu"), {
-      opacity: 0,
-      duration: 0.6,
-      ease: "expo.out"
-    });
-    
-gsap.to($(".pfp_backdrop.image-upload"), {
-      scale: 1.3,
-      duration: 0.6,
-      ease: "power2.inOut"
-    });
-    
-    var tl = gsap.timeline();
+  gsap.to($(".mm-menu"), { opacity: 0, duration: 0.6, ease: "expo.out" });
+  gsap.to($(".pfp_backdrop.image-upload"), { scale: 1.3, duration: 0.6, ease: "power2.inOut" });
 
-tl.to(".pfp_backdrop .blur", { opacity: 1, duration: 0.6, ease: "none" })
-  .add(function() {
-    // set background image immediately
-    $(".pfp_backdrop").css("background-image", "url(" + srcc + ")");
-  })
-  .add(function(next) {
-    // preload image
-    var newBg = new Image();
-    newBg.src = srcc;
-    newBg.onload = function() {
-      $(".mm-menu .backdrop_filters .filter_item").css(
-        "background-image",
-        "url('https://res.cloudinary.com/treesh/image/fetch/w_200/" + srcc + "')"
-      );
-      localStorage.setItem("pfpBackdrop", srcc);
+  var tl = gsap.timeline();
 
-      // continue timeline after image loads
-      next();
-    };
-  })
-  .to($(".pfp_backdrop.image-upload"), { scale: 1, duration: 0.6, ease: "power2.inOut" })
-  .to($(".mm-menu"), { opacity: 1, duration: 0.6, ease: "expo.out" });
+  tl.to(".pfp_backdrop .blur", { opacity: 1, duration: 0.6, ease: "expo.out" })
+    .add(() => {
+      $(".pfp_backdrop").css("background-image", "url(" + srcc + ")");
+    })
+    .add((next) => {
+      var newBg = new Image();
+      newBg.src = srcc;
+      newBg.onload = function () {
+        $(".mm-menu .backdrop_filters .filter_item").css(
+          "background-image",
+          "url('https://res.cloudinary.com/treesh/image/fetch/w_200/" + srcc + "')"
+        );
+        localStorage.setItem("pfpBackdrop", srcc);
+        gsap.to($(".pfp_backdrop.image-upload"), { scale: 1, duration: 0.6, ease: "power2.inOut" });
+        next();
+      };
+    })
+    .to(".pfp_backdrop .blur", { opacity: 0, duration: 0.6, ease: "expo.out" })
+    .to(".mm-menu", { opacity: 1, duration: 0.6, ease: "expo.out" });
+});
 
-
-      }
-    }
-  );
 
   $(".mm-menu .mm-item.ping").click(function () {
     var clickedIndex = $(this).index();
