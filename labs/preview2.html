@@ -6848,19 +6848,16 @@ input[type="file"] {
 
 #flickSite.go-pfp .user_info,
 #flickSite.go-pfp .user_info .pfp img,
-#flickSite.go-settings .user_info .pfp,
-.pfp_backdrop.image-upload.go-pfp {
+#flickSite.go-settings .user_info .pfp {
   opacity: 1 !important;
   transition-delay: 0s !important;
 }
 
-#flickSite.go-pfp .user_info .pfp img,
-.pfp_backdrop.image-upload.go-pfp {
+#flickSite.go-pfp .user_info .pfp img {
   transform: scale(1) !important;
 }
 
-#flickSite.go-pfp .user_info .pfp.selected img,
-.pfp_backdrop.image-upload.selected.go-pfp {
+#flickSite.go-pfp .user_info .pfp.selected img {
   opacity: 0.3 !important;
 }
 
@@ -6931,12 +6928,6 @@ input[type="file"] {
 .pfp_backdrop.solid:after {
   opacity: 1;
   filter: brightness(70%) !important;
-}
-
-.pfp_backdrop.solid.go-settings.go-pfp {
-  transform: scale(1.4) !important;
-  filter: none important;
-  transition-delay: 0s !important;
 }
 
 .mm-menu .emoji_contain,
@@ -12694,34 +12685,6 @@ $(document).ready(function () {
     );
   }
 
-  $(".mm-menu .backdrops .backdrop_category")
-    .each(function (index, element) {
-      var $this = $(this);
-      var catName = $this.attr("data-name");
-      var catTag = $this.attr("data-category");
-      var catIcon = $this.find("span i").attr("class");
-
-      if ($this.attr("data-category") !== undefined) {
-        $(
-          '<button type="button" class="reg_button" data-category="' +
-            catTag +
-            '">' +
-            "<i class='"+ catIcon +"'></i>" + " " + catTag +
-            "</button>"
-        ).appendTo(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain");
-
-if ($(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").children("button").length >= 5 && $(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").find(".before-six").length === 0) {
-  $(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").children("button").eq(5).before("<div class='before-six'></div>");
-}
-      }
-    })
-    .promise()
-    .done(function () {
-      $(".mm-menu .backdrops .backdrops_menu button.reg_button:first").addClass(
-        "clicked"
-      );
-    });
-
   $(document).on(
     "click",
     ".mm-menu .backdrops .backdrops_menu button.reg_button",
@@ -15071,6 +15034,9 @@ tl.to($(".mm-menu"), { opacity: 0, duration: 0.3, ease: "expo.out" })
       let $this = $(this);
       let backdropBG = $this.attr("data-src");
       let backdropSMBG = "https://res.cloudinary.com/treesh/image/fetch/w_200/" + backdropBG;
+      var catName = $this.attr("data-name");
+      var catTag = $this.attr("data-category");
+      var catIcon = $this.find("span i").attr("class");
 
       $this.css({
         "background-image": "url('" + backdropSMBG + "')",
@@ -15078,6 +15044,25 @@ tl.to($(".mm-menu"), { opacity: 0, duration: 0.3, ease: "expo.out" })
         "background-position": "center",
         "background-repeat": "no-repeat"
       }).attr("data-sm", backdropSMBG);
+      
+      if ($this.attr("data-category") !== undefined) {
+        $(
+          '<button type="button" class="reg_button" data-category="' +
+            catTag +
+            '">' +
+            "<i class='"+ catIcon +"'></i>" + " " + catTag +
+            "</button>"
+        ).appendTo(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain");
+
+if ($(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").children("button").length >= 5 && $(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").find(".before-six").length === 0) {
+  $(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").children("button").eq(5).before("<div class='before-six'></div>");
+}
+      }
+    }).promise()
+    .done(function () {
+      $(".mm-menu .backdrops .backdrops_menu button.reg_button:first").addClass(
+        "clicked"
+      );
     });
 
     $(".mm-menu .backdrops .sub_contain h5").remove();
@@ -15536,12 +15521,24 @@ $(document).on("click", ".mm-menu .backdrop_filters-btn", function() {
     const $backdropFilters = $(".mm-menu .backdrop_filters");
     const $backdropsFiltersContent = $(".mm-menu .backdrop_filters");
     
+    
     gsap.to($backdrops, {
         height: 0,
         duration: 0.6,
         ease: "expo.out",
         onComplete: function() {
             $("#flickSite").addClass("go-settings");
+            
+             gsap.to($(".pfp_backdrop"), {
+  rotation: backdropSettings.rotate,
+  scale: 1,
+  borderRadius: backdropSettings.radius + "%",
+  backgroundSize: backdropSettings.position,
+  backgroundRepeat: backdropSettings.repeat,
+  backgroundPosition: backdropSettings.xAxis + "% " + backdropSettings.yAxis + "%",
+  duration: 0.6,
+  ease: "expo.out"
+});
             
             $backdropFilters.addClass("go");
             gsap.to($backdropsFiltersContent, {
@@ -16942,7 +16939,7 @@ updateListColumns();
       $backdrop.css("transition", "none");
     }
 
-    gsap.to($backdrop, {
+    gsap.set($backdrop, {
   rotation: backdropSettings.rotate,
   scale: 1,
   borderRadius: backdropSettings.radius + "%",
@@ -17050,24 +17047,34 @@ updateListColumns();
           .find("label span:last")
           .text(level + "%");
       } else if ($this.hasClass("rotate_level")) {
-        backdropSettings.rotate = level;
+        backdropSettings.rotate = parseFloat(level);
         $this
           .parent()
           .find("label span:last")
-          .text(level + " deg");
-        localStorage.setItem(storageKeys.rotate, level);
+          .text(parseFloat(level) + " deg");
+        localStorage.setItem(storageKeys.rotate, parseFloat(level));
       } else if ($this.hasClass("radius_level")) {
-        backdropSettings.radius = level;
-        localStorage.setItem(storageKeys.radius, level);
+        backdropSettings.radius = parseFloat(level);
+        localStorage.setItem(storageKeys.radius, parseFloat(level));
         $this
           .parent()
           .find("label span:last")
-          .text(level + "%");
+          .text(parseFloat(level) + "%");
       }
 
       updateBackdrop(true);
-    }
-  );
+      
+      gsap.to($backdrop, {
+  rotation: parseFloat(backdropSettings.rotate) + "deg",
+  scale: 1,
+  borderRadius: parseFloat(backdropSettings.radius) + "%",
+  backgroundSize: backdropSettings.position,
+  backgroundRepeat: backdropSettings.repeat,
+  backgroundPosition: backdropSettings.xAxis + "% " + backdropSettings.yAxis + "%",
+  duration: 0.6,
+  ease: "expo.out"
+});
+    });
 
   $(
     '.mm-menu .backdrop_position-settings button[data-action="reset backdrop positions"]'
