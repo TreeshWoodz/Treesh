@@ -592,10 +592,6 @@ button {
   color: white;
   overflow: hidden;
   text-align: center;
-  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 
@@ -2404,10 +2400,6 @@ select {
     opacity:1;
     z-index:2;
     transition-delay:0s;
-}
-
-#flickSite.go-settings .blur {
-    opacity:0 !important;
 }
 
 #music {
@@ -6156,7 +6148,7 @@ text-align: center;
 .pfp_backdrop.image-upload {
   will-change: transform, opacity;
   width: 100%;
-  height: 100vh !important;
+  height: 100%;
   overflow: hidden;
   position: fixed;
   text-align: center;
@@ -6167,11 +6159,8 @@ text-align: center;
   background-size: 100%;
   background-position: 50% 50%;
   background-repeat: repeat;
-  transform: scale(1);
+  transform: scale(0);
   opacity: 0;
-  transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease-in-out;
-  transition-delay: 0s !important;
 }
 
 .pfp_backdrop .blur {
@@ -6197,16 +6186,6 @@ text-align: center;
     z-index:2;
     background:var(--pink);
     opacity:0.3;
-}
-
-.pfp_backdrop.image-upload.go-modal .blur {
-    opacity: 1 !important;
-}
-
-@media screen and (min-width:900px) {
-    .pfp_backdrop.image-upload.go-modal .blur {
-        display:none;
-}
 }
 
 .fun_bg {
@@ -6805,16 +6784,6 @@ input[type="file"] {
   transform: scale(0) !important;
   opacity: 0 !important;
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.pfp_backdrop.image-upload.go-settings {
-  opacity: 1 !important;
-  transition-delay: 0s !important;
-  transform: scale(1.4) !important;
-}
-
-.pfp_backdrop.image-upload.go-settings .blur {
-    opacity:0 !important;
 }
 
 /*
@@ -9275,6 +9244,7 @@ height: 60px;
         display:block;
         box-shadow:0 0 30px var(--pink), 0 0 10px rgba(0, 0, 0, 0.3);
         border-radius:100%;
+        transform:scale(0);
         z-index:2;
     }
     
@@ -12452,12 +12422,6 @@ if (!supportsVoiceRecognition()) {
 }
 
       $("#flickSite, #your_hub").removeClass("unload");
-      
-      gsap.to($(".pfp_backdrop.image-upload"), {
-        opacity: 1,
-        scale: 1,
-    ease: "expo.out",
-    });
 
     setTimeout(function () {
       
@@ -15103,20 +15067,34 @@ if ($(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").childr
        
         $(".mm-menu .profile").removeClass("go");
         
-       gsap.to($(".mm-menu .profile"), {
-        height: 0,
-        duration: 0.6,
-    ease: "expo.out",
-    onComplete: function() {
-            $modal.addClass("go");
+        const tl = gsap.timeline();
 
-            gsap.to($modal, {
-                height: "60vh",
-                duration: 0.6,
-                ease: "expo.out"
-            });
-        }
-    });
+tl.to(".pfp_backdrop", {
+  rotation: 0,
+  scale: 1,
+  borderRadius: 0,
+  backgroundSize: "cover",
+  backgroundRepeat: "repeat",
+  backgroundPosition: "center center",
+  duration: 0.6,
+  ease: "expo.out"
+})
+.to(".mm-menu .profile", {
+  height: 0,
+  duration: 0.6,
+  ease: "expo.out"
+})
+.add(() => {
+  $modal.addClass("go");
+})
+.to($modal, {
+  height: "60vh",
+  duration: 0.6,
+  ease: "expo.out"
+});
+
+    
+    
     });
 
   $document.on(
@@ -15251,11 +15229,7 @@ if ($(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").childr
   // *** ANIMATIONS *** ///
   
   gsap.registerPlugin(ScrollTrigger);
- 
-  gsap.to("#wave, .mm-menu", {
-  y: "0%",
-  ease: "none",
-});
+
   
 gsap.ticker.add(() => {
   gsap.to($musicRecordPlayerVinyl, {
@@ -15287,16 +15261,33 @@ function closeModalAnimation() {
   });
 }
 
-  
+gsap.to(".pfp_backdrop", {
+  scale: 1,
+  opacity: 1,
+  duration: 0.6,
+  ease: "expo.out",
+  onComplete: () => {
+    gsap.fromTo(
+      "#your_hub figure",
+      { scale: 0, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.6, ease: "power2.out" }
+    );
+    
+    gsap.fromTo(
+      "#your_hub figure img",
+      { scale: 0 },
+      { scale: 1, duration: 0.8, ease: "power2.out", onComplete: initScroll }
+    );
+  }
+});
 
-// 1. initial page load animation
-gsap.fromTo("#your_hub figure",
-  { scale: 0, opacity: 0 }, 
-  { scale: 1, opacity: 1, duration: 1, ease: "power2.out", onComplete: initScroll }
-);
-
-// 2. scroll-triggered animation, only after load tween finishes
 function initScroll() {
+    
+    gsap.to("#wave, .mm-menu", {
+  y: "0%",
+  ease: "none",
+});
+    
   gsap.to("#your_hub figure", {
     y: -30,
     scale: 0,
@@ -15805,73 +15796,92 @@ $(document).on("click", ".mm-menu .backdrop_filters-btn", function() {
     if (filters.hasClass("go") || backdrops.hasClass("go")) {
         
          if (backdrops.hasClass("go") && !filters.hasClass("go")) {
-          gsap.to($(".mm-menu .backdrops"), {
-        height: 0,
-        duration: 0.6,
-    ease: "expo.out",
-    onComplete: function() {
-        backdrops.removeClass("go");
-         $(".mm-menu .backdrops .sub_contain").empty().scrollTop(0);
-         
-        userIcon.removeClass().addClass("fa-solid fa-user");
-        
-         mm.addClass("go-modal");
-         
-          profile.addClass("go");
-          gsap.to($(".mm-menu .profile"), {
-        height: "60vh",
-        duration: 0.6,
-    ease: "expo.out",
-    onComplete: function() {
-        $(".page_title span").text(
-        "Profile"
-      );
+          
+        const tl = gsap.timeline();
+
+tl.to(".mm-menu .backdrops", {
+  height: 0,
+  duration: 0.6,
+  ease: "expo.out"
+})
+.add(() => {
+  backdrops.removeClass("go");
+  $(".mm-menu .backdrops .sub_contain").empty().scrollTop(0);
+  userIcon.removeClass().addClass("fa-solid fa-user");
+  mm.addClass("go-modal");
+  profile.addClass("go");
+})
+.to(".pfp_backdrop", {
+  rotation: backdropSettings.rotate,
+  scale: 1,
+  borderRadius: backdropSettings.radius + "%",
+  backgroundSize: backdropSettings.position,
+  backgroundRepeat: backdropSettings.repeat,
+  backgroundPosition: backdropSettings.xAxis + "% " + backdropSettings.yAxis + "%",
+  duration: 0.6,
+  ease: "expo.out"
+})
+.to(".mm-menu .profile", {
+  height: "60vh",
+  duration: 0.6,
+  ease: "expo.out",
+  onComplete: () => {
+    $(".page_title span").text("Profile");
+    
+    if ($(".mm-menu .backdrops .backdrop_tags").hasClass("go")) {
+      $(".mm-menu .backdrops .backdrop_controls .clicked").removeClass("clicked");
+      $(".mm-menu .backdrops .backdrop_tags .go").removeClass("go");
       
-      if ( $(".mm-menu .backdrops .backdrop_tags").hasClass("go") ) {
-         $(".mm-menu .backdrops .backdrop_controls .clicked").removeClass("clicked");
-  $(".mm-menu .backdrops .backdrop_tags .go").removeClass("go");
-         
-         gsap.to($(".mm-menu .backdrops .backdrop_tags"), {
+      gsap.to(".mm-menu .backdrops .backdrop_tags", {
         height: 0,
         opacity: 0,
         duration: 0.3,
-    ease: "expo.out",
-    onComplete: function() {
-        $(".mm-menu .backdrops .backdrop_tags").removeClass("go");
+        ease: "expo.out",
+        onComplete: () => {
+          $(".mm-menu .backdrops .backdrop_tags").removeClass("go");
+        }
+      });
     }
-    });
+
+    $(".pfp_backdrop.image-upload").removeClass("go-settings");
+    $("#overlay").addClass("go").removeClass("go-settings");
+    $("#flickSite").removeClass("go-settings");
   }
-        $(".pfp_backdrop.image-upload").removeClass("go-settings");
-        $("#overlay").addClass("go").removeClass("go-settings");
-        $("#flickSite").removeClass("go-settings");
-    }
-    });   
-    }
-    });
-        
+});
+
       }
         
       if (filters.hasClass("go") && !backdrops.hasClass("go")) {
-           gsap.to(filters, {
-        height: 0,
-        duration: 0.6,
-    ease: "expo.out",
-    onComplete: function() {
-        filters.removeClass("go");
-        
-         backdrops.addClass("go");
-        gsap.to($(".mm-menu .backdrops"), {
-        height: "60vh",
-        duration: 0.6,
-    ease: "expo.out",
-    onComplete: function() {
-        $(".page_title span").text(
-        "Customize > Theme"
-      );
-    }
-    });
-    }
-    });
+         const tl = gsap.timeline();
+
+tl.to(filters, {
+  height: 0,
+  duration: 0.6,
+  ease: "expo.out"
+})
+.add(() => {
+  filters.removeClass("go");
+  backdrops.addClass("go");
+})
+.to(".pfp_backdrop", {
+  rotation: 0,
+  scale: 1,
+  borderRadius: 0,
+  backgroundSize: "cover",
+  backgroundRepeat: "repeat",
+  backgroundPosition: "center center",
+  duration: 0.6,
+  ease: "expo.out"
+})
+.to(".mm-menu .backdrops", {
+  height: "60vh",
+  duration: 0.6,
+  ease: "expo.out",
+  onComplete: () => {
+    $(".page_title span").text("Customize > Theme");
+  }
+});
+
       }
      
     } else {
@@ -16921,15 +16931,13 @@ updateListColumns();
       $backdrop.css("transition", "none");
     }
 
-    gsap.set($backdrop, {
+    gsap.set($(".pfp_backdrop"), {
   rotation: backdropSettings.rotate,
-  scale: 1,
+  scale: 0,
   borderRadius: backdropSettings.radius + "%",
   backgroundSize: backdropSettings.position,
   backgroundRepeat: backdropSettings.repeat,
-  backgroundPosition: backdropSettings.xAxis + "% " + backdropSettings.yAxis + "%",
-  duration: 0.6,
-  ease: "expo.out"
+  backgroundPosition: backdropSettings.xAxis + "% " + backdropSettings.yAxis + "%"
 });
 
 
