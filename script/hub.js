@@ -188,8 +188,14 @@ var fortunes = [
 
 
 	$(".about_you .about_you-item").click(function() {
-
-		$(".mm-menu .profile").removeClass("go").css("height", "0px");
+		gsap.to($(".mm-menu .profile"), {
+        height: 0,
+        duration: 0.6,
+    ease: "expo.out",
+    onComplete: function() {
+      $(".mm-menu .profile").removeClass("go");
+    }
+    });
 		
   if ($(this).hasClass("your_join_date")) {
     $notificationIconBody = '<i class="fa-solid fa-star"></i>';
@@ -250,7 +256,12 @@ var fortunes = [
         
         
         if ( !$(".mm-menu .my_activity .fun_music-content .active ol:not(.select)").length ) {
-                                             $(".mm-menu .my_activity .options button.remove-btn").css("opacity", "0.6");
+			gsap.to($(".mm-menu .my_activity .options button.remove-btn"), {
+        opacity: 0.6,
+        duration: 0.3,
+    ease: "expo.out"
+    });
+			
                                          }
                                      }, 400);
                                  }
