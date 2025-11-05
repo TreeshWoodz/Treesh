@@ -11951,6 +11951,7 @@ const $window = $(window);
 var $document = $(document);
 const $body = $("body");
 const $icons = $("#icons");
+	var pushState = "/";
 var currentAudioTime = 0;
 const $members = $("#icons .members");
 const $member = $("#icons .member");
@@ -14242,8 +14243,12 @@ $notificationStatus = "nowPlaying";
         });
       }
 
+pushState =
+  "?artist=" + mainArtist.replace(/\s+/g, "-") +
+  "&song=" + songName.replace(/[^a-zA-Z0-9]/g, "").replace(/\s+/g, "-");
 
-history.pushState(null, null, '?artist=' + mainArtist.replace(/\s+/g, '-') + "&song=" + songName.replace(/[^a-zA-Z0-9]/g, '').replace(/\s+/g, '-'));
+history.pushState(null, null, pushState);
+
       
       if ( $this.find(".fave-hrt").length ) {
           $("#about_song .toggle-heart").prop('checked', true);
@@ -14558,31 +14563,44 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
         
                     
             
-         $("#now_playing #lyrics .lyrics p[data-minutes]").each(function(i, el) {
-    let lyricTime = $(el).attr("data-minutes").split(":");
-    let lyricSecs = parseInt(lyricTime[0]) * 60 + parseFloat(lyricTime[1]);
+      $("#now_playing #lyrics .lyrics p[data-minutes]").each(function (i, el) {
+    var $el = $(el);
+    var lyricTime = $el.attr("data-minutes").split(":");
+    var lyricSecs = parseInt(lyricTime[0]) * 60 + parseFloat(lyricTime[1]);
 
-    let nextEl = $("#now_playing #lyrics .lyrics [data-minutes]").eq(i + 1);
-    let nextSecs = nextEl.length
-      ? parseInt(nextEl.attr("data-minutes").split(":")[0]) * 60 + parseFloat(nextEl.attr("data-minutes").split(":")[1])
+    var $nextEl = $("#now_playing #lyrics .lyrics [data-minutes]").eq(i + 1);
+    var nextSecs = $nextEl.length
+      ? parseInt($nextEl.attr("data-minutes").split(":")[0]) * 60 + parseFloat($nextEl.attr("data-minutes").split(":")[1])
       : Infinity;
-      
-      var scrollPos = ($(el).offset().top - lyricContainer.offset().top + lyricContainer.scrollTop()) - ((lyricContainer.height() / 2) - ($(".mm-menu").height() / 2));
+
+    var scrollPos =
+      $el.offset().top -
+      lyricContainer.offset().top +
+      lyricContainer.scrollTop() -
+      ((lyricContainer.height() / 2) - $(".mm-menu").height() / 2);
 
     if (currentTime >= lyricSecs && currentTime < nextSecs) {
-        if ( $("#now_playing").hasClass("go") && $("#now_playing #lyrics").hasClass("go") && $("#now_playing").attr("data-lyricSync") === "true" ) {
-      $("#now_playing #lyrics .lyrics").scrollTop(scrollPos);
-      $(el).addClass("current").siblings().removeClass("current");
-        }
-      
+      if (
+        $("#now_playing").hasClass("go") &&
+        $("#now_playing #lyrics").hasClass("go") &&
+        $("#now_playing").attr("data-lyricSync") === "true"
+      ) {
+        gsap.to(lyricContainer, {
+          scrollTop: scrollPos,
+          duration: 0.6,
+          ease: "expo.out"
+        });
+
+        $el.addClass("current").siblings().removeClass("current");
+      }
     } else {
-        if ( $("#now_playing").attr("data-lyricSync") === "true" ) {
-        $(el).removeClass("current");
-        } else {
-            if ( scrollPos >= $("#music #lyrics .lyrics").scrollTop() ) {
-            $(el).removeClass("current");
-            }
+      if ($("#now_playing").attr("data-lyricSync") === "true") {
+        $el.removeClass("current");
+      } else {
+        if (scrollPos >= $("#music #lyrics .lyrics").scrollTop()) {
+          $el.removeClass("current");
         }
+      }
     }
   });
         
@@ -14751,25 +14769,34 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
   );
 
   $("#now_playing #lyrics .lyrics").scroll(function () {
-    var $this = $(this);
-    var scrollTop = $this.scrollTop();
-    var lyricsHalfHeight = $this.height() / 2;
-    
-    if ( $("#now_playing").attr("data-lyricSync") !== "true" ) {
+  var $this = $(this);
+  var scrollTop = $this.scrollTop();
+  var lyricsHalfHeight = $this.height() / 2;
 
+  if ($("#now_playing").attr("data-lyricSync") !== "true") {
     $this.find(".body p").each(function () {
       var $p = $(this);
       var pTop = $p.position().top;
 
-     if (pTop + $p.outerHeight(true) <= scrollTop + lyricsHalfHeight) {
-    $p.addClass("current");
-} else {
-    $p.removeClass("current");
-}
+      if (pTop + $p.outerHeight(true) <= scrollTop + lyricsHalfHeight) {
+        gsap.to($p, {
+          color: "rgb(255,255,255)",
+          scale: 1,
+          duration: 0.3,
+          ease: "expo.out"
+        });
+      } else {
+        gsap.to($p, {
+          color: "rgba(255,255,255,0.6)",
+          scale: 0.9,
+          duration: 0.3,
+          ease: "expo.out"
+        });
+      }
     });
-    
-    }
-  });
+  }
+});
+
 
   // MUSIC MODULE - WHATS NEW
 
@@ -14829,6 +14856,7 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
           $("#overlay").removeClass("go").removeClass("go-settings");
           
     $("#now_playing").addClass("go");
+		  history.pushState(null, null, pushState);
           
            gsap.to($musicRecordPlayer,
 { y: "0%", opacity:1, overwrite: "auto",
@@ -14854,6 +14882,7 @@ onComplete: function() {
 });
 } else {
     $("#now_playing").removeClass("go");
+			  history.pushState(null, null, "/");
 }
 
 $travelBtn.find("i").addClass("fadeOut");
@@ -17253,6 +17282,9 @@ function fuzzyWordMatchFlexible(input, track) {
         $("#voice, #overlay").removeClass("go").removeClass("listening");
         $("#voice .dictation").text("What can I do for you?");
         $("#voice-btn").removeClass("clicked");
+        
+        var newHeight = $(".mm-menu").height();
+       $(":root")[0].style.setProperty("--navBarHeight", parseInt($(".mm-menu").height()) + "px");
     }
     });
 	  
@@ -17290,6 +17322,8 @@ function fuzzyWordMatchFlexible(input, track) {
         $("#voice, #overlay").removeClass("go").removeClass("listening");
         $("#voice .dictation").text("What can I do for you?");
         $("#voice-btn").removeClass("clicked");
+        var newHeight = $(".mm-menu").height();
+       $(":root")[0].style.setProperty("--navBarHeight", parseInt($(".mm-menu").height()) + "px");
          bestArtist.click();
     }
     });
