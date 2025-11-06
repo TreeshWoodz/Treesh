@@ -3374,11 +3374,11 @@ margin:auto;
 }
 
 #now_playing #flick-now_playing {
-  width: 100%;
+  width: 300vw;
+  display: flex;
   height: 100%;
   position: relative;
   overflow: hidden;
-  display: block;
   z-index: 2;
 }
 
@@ -3432,12 +3432,16 @@ margin:auto;
 }
 
 #now_playing .slide {
-  width: 100%;
+  width: 100vw;
   height: 100%;
-  position: absolute;
+  position: relative;
   top:0;
   left:0;
-  display:block;
+  display:inline-block;
+  
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   opacity:0 !important;
   z-index:-1 !important;
   transition: opacity 0.3s ease-in, z-index 0s 0.3s !important;
@@ -11552,6 +11556,7 @@ height: 60px;
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.1.3/TweenMax.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/Draggable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/InertiaPlugin.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollSmoother.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
@@ -11925,6 +11930,8 @@ if (artistID && !$(this).hasClass("nomusic"))
 ---->
 
 <script>
+
+
      // GLOBAL VARIABLES ---------------------
 
 // NO ZOOM ON MOBILE
@@ -12541,6 +12548,8 @@ if (!supportsVoiceRecognition()) {
     
     $(".mm-menu .selection_icon").prependTo(".mm-menu .colors .colors_container");
 }
+
+ gsap.registerPlugin(ScrollTrigger, Draggable, InertiaPlugin, TweenMax, ScrollSmoother, ScrollToPlugin, SplitText,EasePack );
 
 $(document).ready(function () {
     
@@ -15307,7 +15316,77 @@ tl.to(".pfp_backdrop", {
   
   // *** ANIMATIONS *** ///
   
-  gsap.registerPlugin(ScrollTrigger);
+  function initPlayer() {
+  const playerr = document.getElementById("flick-now_playing");
+  const $panels = $("#flick-now_playing .slide");
+
+  if (!playerr || $panels.length === 0) {
+    return setTimeout(initPlayer, 100);
+  }
+
+  console.log("player ready!", playerr, $panels.length);
+
+  let currentIndex = 0;
+  gsap.set(playerr, { x: 0, display: "flex" });
+
+  Draggable.create(playerr, {
+    type: "x",
+    bounds: { minX: -$(window).width() * ($panels.length - 1), maxX: 0 },
+    inertia: true,
+    edgeResistance: 0.8,
+    onDragEnd: function() {
+      let newIndex = Math.round(Math.abs(this.x) / $(window).width());
+
+      gsap.to(playerr, {
+        x: -newIndex * $(window).width(),
+        duration: 0.6,
+        ease: "power3.out"
+      });
+
+      currentIndex = newIndex;
+        
+        $("#now_playing .slide").removeClass("go");
+     if (currentIndex === 0) {
+      gsap.to("#now_playing-main", { opacity: 1, duration: 0.6 });
+      $("#now_playing-main").addClass("go");
+    }
+
+    if (currentIndex === 1) {
+      gsap.to("#lyrics", { opacity: 1, duration: 0.6 });
+      $("#lyrics").addClass("go");
+    }
+
+    if (currentIndex === 2) {
+      gsap.to("#about_song", { opacity: 1, duration: 0.6 });
+      $("#about_song").addClass("go");
+    }
+    }
+  });
+
+  $("#now_playing .next").on("click", function() {
+    if (currentIndex < $panels.length - 1) goToPanel(currentIndex + 1);
+  });
+
+  $("#now_playing .prev").on("click", function() {
+    if (currentIndex > 0) goToPanel(currentIndex - 1);
+  });
+
+  function goToPanel(index) {
+    gsap.to(playerr, {
+      x: -index * $(window).width(),
+      duration: 0.6,
+      ease: "power3.out"
+    });
+    currentIndex = index;
+
+    $panels.css({ opacity: 0.5 });
+    $($panels[index]).css({ opacity: 1 });
+  }
+}
+
+// start polling
+initPlayer();
+  
 
   
 gsap.ticker.add(() => {
@@ -15317,10 +15396,6 @@ gsap.ticker.add(() => {
 	  ease: "none",
     overwrite: "auto"
   });
-});
-
-gsap.set($musicRecordPlayer,
-{ y: "100%", opacity:0
 });  
 
 gsap.set(".mm-menu .modal", { height: 0, transformOrigin: "top" });
