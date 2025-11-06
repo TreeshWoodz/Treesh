@@ -95,11 +95,15 @@ function confirmNickname(value) {
         });
 
 
-$("#wave .nickname_handle, .mm-menu .profile_name").click(function() {
+        $("#wave .nickname_handle").click(function() {
+                $(".mm-menu .profile-btn").click();
+        });
+
+$(".mm-menu .profile_name").click(function() {
      if ( $(".mm-menu .change_input").hasClass("go") ) {
              gsap.to($(".mm-menu .change_input"), {
         height: 0,
-        duration: 0.6,
+        duration: 0.3,
     ease: "expo.out",
         onComplete: function() {
                 $(".mm-menu .change_input").removeClass("go");
@@ -108,7 +112,7 @@ $("#wave .nickname_handle, .mm-menu .profile_name").click(function() {
      } else {
              gsap.to($(".mm-menu .change_input"), {
         height: $(".mm-menu .change_input").children().outerHeight(),
-        duration: 0.6,
+        duration: 0.3,
     ease: "expo.out",
         onComplete: function() {
                 $(".mm-menu .change_input").addClass("go");
