@@ -3549,10 +3549,6 @@ margin:auto;
   transform: translate3d(0%, 100%, 0);
 }
 
-#now_playing.go #record_player.nodelaytransition {
-    transition-delay:0s;
-}
-
 #now_playing #record_player:after {
   content: "";
   height: 100%;
@@ -3612,7 +3608,7 @@ margin:auto;
 }
 
 #now_playing.go #now_playing-main.go #record_player .record__ring {
-  transform:translate3d(-50%, 0%, 0) rotateZ(0deg) scale(1.2);
+  transform:translate3d(-50%, 0%, 0) rotateZ(0deg) scale(1.1);
 }
 
 #now_playing #record_player .record__ring--outer {
@@ -3624,7 +3620,7 @@ margin:auto;
 }
 
 #now_playing.go #now_playing-main.go #record_player .record__ring--outer {
-  transform:translate3d(-50%, 0%, 0) rotateZ(0deg) scale(1.3);
+  transform:translate3d(-50%, 0%, 0) rotateZ(0deg) scale(1.2);
   transition-delay:0.15s !important;
 }
 
@@ -3636,7 +3632,7 @@ margin:auto;
 }
 
 #now_playing.go #now_playing-main.go #record_player .record__ring--outer2 {
-  transform:translate3d(-50%, 0%, 0) rotateZ(0deg) scale(1.4);
+  transform:translate3d(-50%, 0%, 0) rotateZ(0deg) scale(1.3);
   transition-delay:0.2s !important;
 }
 
@@ -12844,6 +12840,7 @@ $(document).ready(function () {
                 
           gsap.to("#music_filters", {
         height: 0,
+        duration: 0.3,
     ease: "expo.inOut",
     onComplete: function() {
         $("#music_filters").removeClass("go");
@@ -14298,24 +14295,31 @@ if ( $("#now_playing").hasClass("go") ) {
       $playPauseBtn.removeClass("fa-pause").addClass("fa-play");
 
 
-      if (nowPlayingScreen === true && $(window).scrollTop() >= $("#music").offset().top ) {
+      if (nowPlayingScreen === true || $(window).scrollTop() >= $("#music").offset().top ) {
         setTimeout(function () {
             if ( $(".mm-menu .music_filters").hasClass("go") && !$("#now_playing").hasClass("go") ) {
             
             gsap.to("#music_filters", {
         height: 0,
+        duration: 0.6,
+        ease: "expo.out",
     ease: "expo.inOut",
     onComplete: function() {
         $(".mm-menu .music_filters").removeClass("go");
     }
     });
         }
+        
+         gsap.to($musicRecordPlayer,
+{ y: "100%", opacity:0, duration: 0.6, ease: "expo.out", overwrite: "auto", onComplete:function() {
+    $("#now_playing .bg").css("background", "url(" + thumbnail + ")");
+}
+});
             
           $("#now_playing, #navbar-btn").addClass("go");
           
           $(".mm-menu #music_filters div[data-show]").hide();
           $(".mm-menu #music_filters div[data-show='nowplaying']").show();
-          $musicRecordPlayer.addClass("nodelaytransition");
         }, 300);
       }
 
@@ -14356,9 +14360,6 @@ for (let i = 1; i < parts.length; i++) {
       $nowPlayingSongDataTitle.html(songName);
       $nowPlayingSongDataArtist.html(songArtist);
 
-      setTimeout(function () {
-        $("#now_playing .bg").css("background", "url(" + thumbnail + ")");
-      }, recordTime);
       
       if ( autoPlaySongs === "true" ) {
         theSong.play();
@@ -14371,12 +14372,9 @@ for (let i = 1; i < parts.length; i++) {
 
       $musicScrubber.val(0).attr("max", "0");
       
-       gsap.to($musicRecordPlayer,
-{ y: "100%", opacity:1, overwrite: "auto"
-});
-      
     
     theSong.addEventListener("loadstart", function() {
+
         $("#scrub .scrubDuration, #scrub .scrubTime").text("0:00");
         clearTimeout(playPauseStateTimeout);
         $(".mm-menu .music_bar .playpause").addClass("loading");
@@ -14402,13 +14400,10 @@ for (let i = 1; i < parts.length; i++) {
     });
 
       theSong.addEventListener("loadeddata", function () {
-          
            gsap.to($musicRecordPlayer,
-{ y: 0, opacity:1, overwrite: "auto"
+{ y: 0, opacity:1, duration: 0.6, ease: "expo.out", overwrite: "auto"
 });
-
-
-
+          
     $(".mm-menu .now_playing-card h3").text(songArtist.split(" x ")[0]);
     
           let artistMap = {};
@@ -14827,10 +14822,10 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
           $("#overlay").removeClass("go").removeClass("go-settings");
           
     $("#now_playing").addClass("go");
-		  history.pushState(null, null, pushState);
+		  history.replaceState(null, null, pushState);
           
            gsap.to($musicRecordPlayer,
-{ y: "0%", opacity:1, overwrite: "auto",
+{ y: "0%", opacity:1, duration: 0.6, ease: "expo.out", overwrite: "auto",
 onComplete: function() {
      $("#flickSite").addClass("go-modal");
      $travelBtn.find(".audio_ani").removeClass("go");
@@ -14842,21 +14837,29 @@ onComplete: function() {
           
           if ( $("#now_playing #now_playing-main").hasClass("go") ) {
               $("#now_playing").removeClass("go");
-              
-              setTimeout(function() {
           gsap.to($musicRecordPlayer,
-{ y: "100%", opacity:1, overwrite: "auto",
+{ y: "100%", opacity:0, duration: 0.6, ease: "expo.out", overwrite: "auto",
 onComplete: function() {
-    history.pushState(null, null, "/");
+    history.replaceState(null, null, "/");
+    setTimeout(function() {
+            musicPlayerMain();
+        }, 400);
+}
+});
+} else {
+    $("#now_playing").removeClass("go");
+    setTimeout(function() {
+          gsap.to($musicRecordPlayer,
+{ y: "100%", opacity:0, overwrite: "auto",
+onComplete: function() {
+    history.replaceState(null, null, "/");
     setTimeout(function() {
             musicPlayerMain();
         }, 400);
 }
 });
 }, 600);
-} else {
-    $("#now_playing").removeClass("go");
-			  history.pushState(null, null, "/");
+			 history.replaceState(null, null, "/");
 }
 
 $travelBtn.find("i").addClass("fadeOut");
@@ -15315,6 +15318,10 @@ gsap.ticker.add(() => {
     overwrite: "auto"
   });
 });
+
+gsap.set($musicRecordPlayer,
+{ y: "100%", opacity:0
+});  
 
 gsap.set(".mm-menu .modal", { height: 0, transformOrigin: "top" });
 
@@ -16769,6 +16776,9 @@ var nextTrackTimeout;
     if (!$("#repeat").hasClass("color")) {
         
         if ( $("#now_playing").hasClass("go") ) {
+             gsap.to($musicRecordPlayer,
+{ y: "100%", opacity:0, duration: 0.6, ease: "expo.out", overwrite: "auto" });
+
             $("#now_playing.go .song_data").addClass("fade");
             
             nextTrackTimeout = setTimeout(function() {
