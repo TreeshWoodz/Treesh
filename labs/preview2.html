@@ -9838,10 +9838,21 @@ height: 60px;
   font-weight:500;
   color: transparent;
 }
+
+#audio {
+    position:fixed;
+    z-index:-100000000;
+    top:-100%;
+    left:-100%;
+    opacity:0;
+    width:0px;
+    height:0px;
+}
 </style>
     </head>
 
     <body data-page="home">
+    <audio id="audio" src=""></audio>
       
        <!--- BACKGROUND --->
       <div class="pfp_backdrop image-upload">
@@ -11908,6 +11919,8 @@ var homepageURL = "https://treesh.life/";
 const $window = $(window);
 var $document = $(document);
 let goToPanel;
+const audio = $("#audio")[0];
+let recordTime = 0;
 const $body = $("body");
 const $icons = $("#icons");
 	var pushState = "/";
@@ -11929,7 +11942,6 @@ let songArtist;
 let thumbnail;
 let playing = false;
 var song;
-var theSong;
 const $playPause = $("#playpause");
 const $playPauseBtn = $(".mm-menu .playpause-btn");
 const $repeatBtn = $("#repeat");
@@ -13478,14 +13490,6 @@ if (isVisible) {
   function loadMusicPlayer() {
     $musicGridSongs.each(function () {
       var $this = $(this);
-      if (!$(this).find("audio").length) {
-        var audioUrl = $this.data("mp3");
-        song = new Audio(audioUrl);
-        song.preload = "auto";
-
-        var comb = "<div class='dfwmh' data-try='okdwQOWKeokwdkp3kpdo-oqwkdpqokdoqowDOKokd3okdwdwd-pqwokdqpwijdeiwjedWEOJerer-ei3ejijdeij3iejE3934jriejr-39429843jdEDIJED-orekrwok'></div> ";
-        $this.append("<div class='tita' data-try='iej39j0d3-20e3je04j039-3e93ejdj039dj32-e30jee039dj2e90i-r39r94ri0-3r932e09i-39i39ri9i'><div class='spkis' data-try='329i30rj20d3d-dj3d0jidjejr-3irj3ijdoijd039jd-eeji3je9jd3ije93-e3ej3dij3d'><div class='oebws' data-try='j3idj3idj3d30d3idjffoiwejoweijr0909rn3-fjfjeifjdi3ej3jfiejrie3d-eifjfeij3iejijdefoej-3eijiejdijfjiufejiwe'><div class='aiagtft'><div class='owisamot' data-try='p3eok3d3d3-doekdeokd3oej3ekoe3d3-deodkeffowfjweoid3d-edwofiwjeoidj3d-deodiwjoiedj3doijd'>" + comb + "</div></div></div></div></div>").find(".dfwmh").append(song);
-      }
       
     const $coverArt = $this.find(".coverart");
   const coverArtSrc = $coverArt.attr("src");
@@ -14065,20 +14069,25 @@ $notificationStatus = "nowPlaying";
       
     if (!$this.hasClass("selected-menu")) {
         
-      let currentSong = $this;
+      currentSong = $this;
       let $coverart = currentSong.find(".coverart");
       let $h2 = currentSong.find("h2");
       let $h3 = currentSong.find("h3");
-      theSong = $this.find("audio")[0];
       
       let $track = currentSong.attr("data-track");
       songPlaying = currentSong;
-      theSong.src = $this.attr("data-mp3");
+      
+      if (audio) {
+  audio.src = currentSong.attr("data-mp3");
+  audio.load();
+}
       thumbnail = $coverart.attr("data-coverart");
       songName = $h2.html();
       songArtist = $h3.text();
       mainArtist = $this.attr("data-artist");
       currentArtistID = $this.attr("data-artist-id");
+      
+      $("#record_player .record_player").attr("src", thumbnail);
 
       $("#now_playing").attr("data-track", $track);
         $this.addClass("play");
@@ -14119,10 +14128,6 @@ $notificationStatus = "nowPlaying";
       hideOrShow("[data-song-creation-date]", trackCreationDate);
       hideOrShow("[data-song-written-by]", trackWrittenBy);
       hideOrShow("[data-song-mixtape]", mixtape);
-
-      $("audio").each(function () {
-        this.pause();
-      });
       
       if ( $(window).scrollTop() >= $("#music").offset().top + 30 ) {
       if ( $(window).scrollTop() >= $("#music").offset().top ) {
@@ -14201,7 +14206,7 @@ pushState =
   "?artist=" + mainArtist.replace(/\s+/g, "-") +
   "&song=" + songName.replace(/[^a-zA-Z0-9]/g, "").replace(/\s+/g, "-");
 
-history.pushState(null, null, pushState);
+history.replaceState(null, null, pushState);
 
       
       if ( $this.find(".fave-hrt").length ) {
@@ -14328,14 +14333,14 @@ for (let i = 1; i < parts.length; i++) {
       $travelBtn.find(".audio_ani").removeClass("go");
       $travelBtn.find("i").removeClass("fadeOut");
 
-      let recordTime = 600;
+      recordTime = 600;
 
       $nowPlayingSongDataTitle.html(songName);
       $nowPlayingSongDataArtist.html(songArtist);
 
       
       if ( autoPlaySongs === "true" ) {
-        theSong.play();
+        audio.play();
         playing = true;
     }
 
@@ -14344,9 +14349,106 @@ for (let i = 1; i < parts.length; i++) {
     }
 
       $musicScrubber.val(0).attr("max", "0");
-      
-    
-    theSong.addEventListener("loadstart", function() {
+
+
+  let sanitizedTrack = songName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  let sanitizedArtist = songArtist.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  $.get("/content/lyrics.html", function(data) {
+    let $html = $("<div>").html(data);
+    let $lyrics = $html.find(".lyric");
+
+    let matched = $lyrics.filter(function() {
+      let track = ($(this).attr("data-track") || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      let artist = ($(this).attr("data-name") || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      return track.includes(sanitizedTrack);
+    }).first();
+
+    if (matched.length) {
+      $("#now_playing #lyrics .body").html(matched);
+    } else {
+      $("#now_playing #lyrics .body").html("<h5>NO LYRICS</h5>");
+    }
+  }).fail(function() {
+    console.log("Failed to load lyrics.html — check path or permissions");
+  });
+
+
+      $musicLyricsLyrics.find("br").each(function () {
+        const $this = $(this);
+        $this.prev("p").addClass("break");
+      });
+
+      $musicLyrics.scrollTop(0);
+    }
+
+    const artistLookup = {};
+    $("#music .artists .artist").each(function () {
+      const artistName = $(this).find("p:first").text().trim();
+      artistLookup[artistName] = true;
+    });
+
+    $(
+      "#about_song [data-song-artist], #about_song [data-song-written-by], #about_song [data-song-producer], #about_song [data-song-featuring], #about_song [data-song-mixer], #about_song [data-song-mixtape]"
+    ).each(function () {
+      const $this = $(this);
+      const text = $this.text().trim();
+
+      let newText = text;
+      for (const artistName in artistLookup) {
+        const escapedArtistName = artistName.replace(
+          /[-\/\\^$*+?.()|[\]{}]/g,
+          "\\$&"
+        );
+        const regex = new RegExp("\\b" + escapedArtistName + "\\b", "gi");
+        newText = newText.replace(
+          regex,
+          '<span class="artist_name_font">' + artistName + "</span>"
+        );
+      }
+
+      $this.html(newText);
+    });
+  });
+
+  function playRandomSong() {
+    const songs = $tracksItems
+      .filter(":visible")
+      .toArray()
+      .filter((audio) => !$(audio).hasClass("play"));
+    const randomIndex = Math.floor(Math.random() * songs.length);
+    randomSong = songs[randomIndex];
+    randomTitle = $(randomSong).attr("data-track");
+    const oneMinuteBeforeEnd = audio.duration - 30;
+    audio.triggeredFunction = false;
+  }
+
+/*
+  $musicGridSongs
+    .on("mousedown touchstart", function () {
+      favoriteSong($(this));
+      menuModalOpen($(this));
+    })
+    .on("mouseup touchend", function () {
+      clearTimeout(pressTimer);
+    });
+    */
+
+  function favoriteSong($this) {
+    selectedItemMenu = $this;
+  }
+
+
+  $musicScrubber.on("input", function () {
+    audio.currentTime = $(this).val();
+    clearTimeout(pressTimer);
+  });
+  
+  
+  
+  // AUDIO //
+  
+  audio.addEventListener("loadstart", function() {
 
         $("#scrub .scrubDuration, #scrub .scrubTime").text("0:00");
         clearTimeout(playPauseStateTimeout);
@@ -14369,8 +14471,9 @@ for (let i = 1; i < parts.length; i++) {
     }
     }, 5000);
     });
-
-      theSong.addEventListener("loadeddata", function () {
+    
+    
+    audio.addEventListener("loadeddata", function () {
            gsap.to($musicRecordPlayer,
 { y: 0, opacity:1, duration: 0.6, ease: "expo.out", overwrite: "auto"
 });
@@ -14403,7 +14506,7 @@ let result = text.split(" x ")[0];
         $playPauseBtn.removeClass("fa-play").addClass("fa-pause").removeClass("loading");
         $(".mm-menu .music_bar .playpause").removeClass("loading");
         $navBar.addClass("go_music-player");
-        $musicScrubber.attr("max", theSong.duration);
+        $musicScrubber.attr("max", audio.duration);
         
         setTimeout(function() {
             $("#now_playing").removeClass("loading");
@@ -14437,45 +14540,11 @@ let result = text.split(" x ")[0];
       });
       
       
-      theSong.addEventListener("error", function () { 
-          $playPauseBtn.removeClass("fa-pause").removeClass("loading").addClass("fa-play");
-   $notificationIconBody = '<i class="fa-solid fa-bug"></i>';
-      $notificationBodyText =
-        "<h1>Uh oh...</h1><p>There appears to be an error loading <b>'"+ $track +"'</b> by <b>"+ songArtist +"</b>!</p><p>It could be the following reasons:</p><p><li>Wi-Fi connection has been disconnected,</li><li>The app may not have loaded fully,</li><li>The song does not exist anymore,</li><li>Another audio source is currently playing,</li><li>Using private or masked connections such as VPN,</li><li>JavaScript is disabled in settings.</li></p><p>Click or tap <b>'Try Again'</b> to reload the track. Check your connection and refresh the app if error continues.</p>";
-        setNotificationOptions = true;
-            $notificationCloseBtnText = "Try again";
-      openNotification();
-      $("#scrub .scrubDuration").text("0:00");
-      
-      if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
-          $(".mm-menu .page_title .title span").text("Loading Error");
-    }
-});
-      
-
-      theSong.addEventListener("ended", function () {
-        if (!$repeatBtn.hasClass("color")) {
-          randomSong.click();
-
-          theSong.removeEventListener("ended", arguments.callee);
-        } else {
-          theSong.currentTime = 0;
-
-          setTimeout(function () {
-            theSong.play();
-          }, 300);
-        }
-        
-        $("#scrub .scrubDuration, #scrub .scrubTime").text("0:00");
-        
-        $(".mm-menu .my_profile .my_activity .fun_music-content ol.play").removeClass("play");
-      });
-      
-var lyricContainer = $("#now_playing #lyrics .lyrics");
-      theSong.addEventListener("timeupdate", function () {
-        let currentTime = theSong.currentTime;
+      var lyricContainer = $("#now_playing #lyrics .lyrics");
+      audio.addEventListener("timeupdate", function () {
+        let currentTime = audio.currentTime;
         currentAudioTime = currentTime;
-        let audioDuration = theSong.duration;
+        let audioDuration = audio.duration;
         let remainingTime = audioDuration - currentTime;
         let targetTime;
         var minutes = Math.floor(currentTime / 60);
@@ -14557,100 +14626,41 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
         $("#scrub .scrubTime").text(formattedTime);
         $("#scrub .scrubDuration").text(formattedDuration);
       });
+      
+      
+      audio.addEventListener("ended", function () {
+        if (!$repeatBtn.hasClass("color")) {
+          randomSong.click();
 
+          audio.removeEventListener("ended", arguments.callee);
+        } else {
+          audio.currentTime = 0;
 
-  let sanitizedTrack = songName.toLowerCase().replace(/[^a-z0-9]/g, "");
-  let sanitizedArtist = songArtist.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-  $.get("/content/lyrics.html", function(data) {
-    let $html = $("<div>").html(data);
-    let $lyrics = $html.find(".lyric");
-
-    let matched = $lyrics.filter(function() {
-      let track = ($(this).attr("data-track") || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      let artist = ($(this).attr("data-name") || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      return track.includes(sanitizedTrack);
-    }).first();
-
-    if (matched.length) {
-      $("#now_playing #lyrics .body").html(matched);
-    } else {
-      $("#now_playing #lyrics .body").html("<h5>NO LYRICS</h5>");
-    }
-  }).fail(function() {
-    console.log("Failed to load lyrics.html — check path or permissions");
-  });
-
-
-      $musicLyricsLyrics.find("br").each(function () {
-        const $this = $(this);
-        $this.prev("p").addClass("break");
+          setTimeout(function () {
+            audio.play();
+          }, 300);
+        }
+        
+        $("#scrub .scrubDuration, #scrub .scrubTime").text("0:00");
+        
+        $(".mm-menu .my_profile .my_activity .fun_music-content ol.play").removeClass("play");
       });
-
-      $musicLyrics.scrollTop(0);
+      
+        
+      audio.addEventListener("error", function () { 
+          $playPauseBtn.removeClass("fa-pause").removeClass("loading").addClass("fa-play");
+   $notificationIconBody = '<i class="fa-solid fa-bug"></i>';
+      $notificationBodyText =
+        "<h1>Uh oh...</h1><p>There appears to be an error loading <b>'"+ $track +"'</b> by <b>"+ songArtist +"</b>!</p><p>It could be the following reasons:</p><p><li>Wi-Fi connection has been disconnected,</li><li>The app may not have loaded fully,</li><li>The song does not exist anymore,</li><li>Another audio source is currently playing,</li><li>Using private or masked connections such as VPN,</li><li>JavaScript is disabled in settings.</li></p><p>Click or tap <b>'Try Again'</b> to reload the track. Check your connection and refresh the app if error continues.</p>";
+        setNotificationOptions = true;
+            $notificationCloseBtnText = "Try again";
+      openNotification();
+      $("#scrub .scrubDuration").text("0:00");
+      
+      if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
+          $(".mm-menu .page_title .title span").text("Loading Error");
     }
-
-    const artistLookup = {};
-    $("#music .artists .artist").each(function () {
-      const artistName = $(this).find("p:first").text().trim();
-      artistLookup[artistName] = true;
-    });
-
-    $(
-      "#about_song [data-song-artist], #about_song [data-song-written-by], #about_song [data-song-producer], #about_song [data-song-featuring], #about_song [data-song-mixer], #about_song [data-song-mixtape]"
-    ).each(function () {
-      const $this = $(this);
-      const text = $this.text().trim();
-
-      let newText = text;
-      for (const artistName in artistLookup) {
-        const escapedArtistName = artistName.replace(
-          /[-\/\\^$*+?.()|[\]{}]/g,
-          "\\$&"
-        );
-        const regex = new RegExp("\\b" + escapedArtistName + "\\b", "gi");
-        newText = newText.replace(
-          regex,
-          '<span class="artist_name_font">' + artistName + "</span>"
-        );
-      }
-
-      $this.html(newText);
-    });
-  });
-
-  function playRandomSong() {
-    const songs = $tracksItems
-      .filter(":visible")
-      .toArray()
-      .filter((theSong) => !$(theSong).hasClass("play"));
-    const randomIndex = Math.floor(Math.random() * songs.length);
-    randomSong = songs[randomIndex];
-    randomTitle = $(randomSong).attr("data-track");
-    const oneMinuteBeforeEnd = theSong.duration - 30;
-    theSong.triggeredFunction = false;
-  }
-
-/*
-  $musicGridSongs
-    .on("mousedown touchstart", function () {
-      favoriteSong($(this));
-      menuModalOpen($(this));
-    })
-    .on("mouseup touchend", function () {
-      clearTimeout(pressTimer);
-    });
-    */
-
-  function favoriteSong($this) {
-    selectedItemMenu = $this;
-  }
-
-
-  $musicScrubber.on("input", function () {
-    theSong.currentTime = $(this).val();
-    clearTimeout(pressTimer);
-  });
+});
 
   
 
@@ -14663,7 +14673,7 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
   */
 
   $document.on("click", "#now_playing #about_song .video", function () {
-    theSong.pause();
+    audio.pause();
   });
 
   // MUSIC LYRICS
@@ -14790,6 +14800,7 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
           $("#overlay").removeClass("go").removeClass("go-settings");
           
     $("#now_playing").addClass("go");
+    history.replaceState(null, null, pushState);
           
            gsap.to($musicRecordPlayer,
 { y: "0%", opacity:1, duration: 0.6, ease: "expo.out", overwrite: "auto",
@@ -14804,7 +14815,7 @@ onComplete: function() {
           
           if ( $("#now_playing #now_playing-main").hasClass("go") ) {
               $("#now_playing").removeClass("go");
-              
+              history.replaceState(null, null, "/");
          setTimeout(function() {
              gsap.to($musicRecordPlayer,
 { y: "100%", opacity:0, duration: 0.6, ease: "expo.inOut", overwrite: "auto",
@@ -14817,7 +14828,7 @@ onComplete: function() {
 });
          }, 400);
 } else {
-    
+    history.replaceState(null, null, "/");
     setTimeout(function() {
           gsap.to($musicRecordPlayer,
 { y: "100%", opacity:0, overwrite: "auto",
@@ -16762,7 +16773,7 @@ $(".mm-menu .my_profile .my_activity .fun_music-content [data-favorite-artist].a
 var nextTrackTimeout;
   function prevSong() {
       clearTimeout(nextTrackTimeout);
-      song.pause();
+      audio.pause();
     var $trackPlaying = $("#music .grid .song.play");
     var trackPlayingName = $nowPlaying.attr("data-track");
     var inLastPlayedList = "[data-song='" + trackPlayingName + "']";
@@ -16781,7 +16792,7 @@ var nextTrackTimeout;
       nowPlayingScreen = false;
     }
 
-    if (theSong.currentTime <= 10 && !$("#repeat").hasClass("color")) {
+    if (audio.currentTime <= 10 && !$("#repeat").hasClass("color")) {
         if ( $("#now_playing").hasClass("go") ) {
             $("#now_playing.go .song_data").addClass("fade");
             
@@ -16826,7 +16837,7 @@ var nextTrackTimeout;
       }
 
     } else {
-      theSong.currentTime = 0;
+      audio.currentTime = 0;
     }
   }
 
@@ -16834,7 +16845,7 @@ var nextTrackTimeout;
 
   function nextSong() {
       clearTimeout(nextTrackTimeout);
-      song.pause();
+      audio.pause();
     var $trackPlaying = $("#music .grid .song.play");
     var trackPlayingName = $nowPlaying.attr("data-track");
     var inPrevSongList = "[data-song='" + trackPlayingName + "']";
@@ -16881,7 +16892,7 @@ var nextTrackTimeout;
       $selectNextSong.click();
     } else {
       
-      theSong.currentTime = 0;
+      audio.currentTime = 0;
     }
   }
 
@@ -16890,7 +16901,7 @@ var nextTrackTimeout;
   function playSong() {
     playing = true;
     $playPauseBtn.removeClass("fa-play").addClass("fa-pause").removeClass("loading");
-    theSong.play();
+    audio.play();
     
     if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
           $(".mm-menu .page_title .title span").text("Now Playing");
@@ -16903,7 +16914,7 @@ var nextTrackTimeout;
   function pauseSong() {
     playing = false;
     $playPauseBtn.removeClass("fa-pause").addClass("fa-play").removeClass("loading");
-    theSong.pause();
+    audio.pause();
     
     if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
         setTimeout(function() {
