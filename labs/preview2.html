@@ -3539,7 +3539,8 @@ margin:auto;
   will-change: transform;
   position: absolute;
   display: block;
-  bottom: calc( -1 * var(--waveHeight) );
+  
+  bottom:calc(-100% + 360px);
   left: 0;
   right:0;
   width:100%;
@@ -3598,6 +3599,8 @@ margin:auto;
     rgba(0, 0, 0, 0) 80%,
     var(--pink) 100%
   );
+  
+  transition-delay:0.1s !important;
   box-shadow: 4px 0 2px -4px rgba(255, 255, 255, 0.9),
     -4px 0 2px -4px rgba(255, 255, 255, 0.9);
     z-index:4;
@@ -3617,6 +3620,7 @@ margin:auto;
   position:absolute;
   opacity:0.45;
   filter:brightness(150%);
+  transition-delay:0.05s !important;
   transform:translate3d(-50%, 100%, 0) rotateZ(0deg) scale(0);
   z-index:3;
 }
@@ -3642,11 +3646,12 @@ margin:auto;
   position: relative;
   padding: 0px;
   margin: 0px;
+  height:calc(100% - 360px);
 	display:flex;
 	align-items:center;
 	justify-content:center;
 	flex-direction:column;
-  padding-top: calc(var(--waveHeight) + 20px);
+  padding-top: var(--waveHeight);
 	z-index: 6;
 }
 
@@ -11415,7 +11420,7 @@ height: 60px;
               </div>
             </div>
 
-            <div id="record_player">
+            <div id="record_player" style="transform:translate3d(0%, 0%, 0);">
             <img src="https://static.tumblr.com/9leohrr/mvNsrhusz/treesh.jpg" alt="Treesh Music" class="record_player" />
             
                         <div class="record__ring"></div>
@@ -15330,14 +15335,20 @@ if (existing) existing.kill();
     gsap.killTweensOf(playerr);
   },
   onDrag: function() {
-    // optional: live update visuals while dragging
+    
   },
   onThrowUpdate: function() {
-    // optional: useful if you want live feedback while inertia is happening
-  },
-  onThrowComplete: function() {
-    // this.x is final snapped value; finalize index and UI here
-    const finalX = this.x;
+      if ( !$("#now_playing.go #now_playing-main").hasClass("go") ) {
+          gsap.to($musicRecordPlayer,
+{ y: "100%", opacity:0, duration: 0.6, ease: "expo.inOut", overwrite: "auto"
+});
+      } else {
+           gsap.to($musicRecordPlayer,
+{ y: 0, opacity:1, duration: 0.6, ease: "expo.inOut", overwrite: "auto"
+});
+      }
+
+     const finalX = this.x;
     const newIndex = Math.round(Math.abs(finalX) / width);
 
     // ensure exact pixel alignment (prevents subpixel jitter)
@@ -15346,14 +15357,17 @@ if (existing) existing.kill();
     currentIndex = newIndex;
     updatePanels(currentIndex);
   },
-  onRelease: function() {
-    // if inertia is disabled, onThrowComplete won't run — handle fallback:
-    if (!this.isThrowing) {
+  onThrowComplete: function() {
+       if (!this.isThrowing) {
       const newIndex = Math.round(Math.abs(this.x) / width);
       gsap.to(playerr, { x: -newIndex * width, duration: 0.45, ease: "power3.out" });
       currentIndex = newIndex;
       updatePanels(currentIndex);
     }
+  },
+  onRelease: function() {
+    // if inertia is disabled, onThrowComplete won't run — handle fallback:
+   
   }
 })[0]; // Draggable.create returns an array
 
@@ -16955,6 +16969,8 @@ var nextTrackTimeout;
         windowResize();
       }
     }, 1000);
+    
+    $("#record_player").height($("#record_player").children().outerHeight());
     
     $("#record_player .record_player").each(function() {
   gsap.set(this, {
