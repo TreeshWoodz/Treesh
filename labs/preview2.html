@@ -3374,12 +3374,15 @@ margin:auto;
 }
 
 #now_playing #flick-now_playing {
-  width: 300vw;
+  width: calc(100vw * 3);
   display: flex;
   height: 100%;
   position: relative;
   overflow: hidden;
   z-index: 2;
+  
+  align-items: center;
+  justify-content: center;
 }
 
 #now_playing .bg {
@@ -3434,14 +3437,9 @@ margin:auto;
 #now_playing .slide {
   width: 100vw;
   height: 100%;
-  position: relative;
-  top:0;
-  left:0;
   display:inline-block;
-  
+  position:relative;
   flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
   opacity:0 !important;
   z-index:-1 !important;
   transition: opacity 0.3s ease-in, z-index 0s 0.3s !important;
@@ -11935,6 +11933,7 @@ var homepageURL = "https://treesh.life/";
 
 const $window = $(window);
 var $document = $(document);
+let goToPanel;
 const $body = $("body");
 const $icons = $("#icons");
 	var pushState = "/";
@@ -13740,7 +13739,6 @@ if (isVisible) {
       function musicPlayerMain() {
           musicPlayerBlurRemoved();
           hideMusicPlayerSlides();
-		  goToPanel(0);
           $("#now_playing #now_playing-main").addClass("go");
       }
       
@@ -13748,7 +13746,6 @@ if (isVisible) {
           hideMusicPlayerSlides();
         musicPlayerBlur();
           $(".mm-menu #music_filters div[data-show='nowplaying']").find(".lyrics_song-btn").addClass("clicked");
-        goToPanel(1);
          gsap.to("#now_playing #lyrics .nolyrics", {
         opacity: 1,
     ease: "expo.out",
@@ -13766,7 +13763,6 @@ if (isVisible) {
       function musicPlayerMetadata() {
           hideMusicPlayerSlides();
         musicPlayerBlur();
-		  goToPanel(2);
         $(".mm-menu #music_filters div[data-show='nowplaying'] .about_song-btn").addClass("clicked");
           $("#now_playing #about_song").addClass("go");
       }
@@ -15310,7 +15306,7 @@ tl.to(".pfp_backdrop", {
   
   // *** ANIMATIONS *** ///
   
-  function initPlayer() {
+function initPlayer() {
   const playerr = document.getElementById("flick-now_playing");
   const $panels = $("#flick-now_playing .slide");
 
@@ -15338,22 +15334,20 @@ tl.to(".pfp_backdrop", {
       });
 
       currentIndex = newIndex;
-        
-        $("#now_playing .slide").removeClass("go");
-     if (currentIndex === 0) {
-      gsap.to("#now_playing-main", { opacity: 1, duration: 0.6 });
-       musicPlayerMain();
-    }
 
-    if (currentIndex === 1) {
-      gsap.to("#lyrics", { opacity: 1, duration: 0.6 });
-       musicPlayerLyrics();
-    }
-
-    if (currentIndex === 2) {
-      gsap.to("#about_song", { opacity: 1, duration: 0.6 });
-      musicPlayerMetadata();
-    }
+      $("#now_playing .slide").removeClass("go");
+      if (currentIndex === 0) {
+        gsap.to("#now_playing-main", { opacity: 1, duration: 0.6 });
+        musicPlayerMain();
+      }
+      if (currentIndex === 1) {
+        gsap.to("#lyrics", { opacity: 1, duration: 0.6 });
+        musicPlayerLyrics();
+      }
+      if (currentIndex === 2) {
+        gsap.to("#about_song", { opacity: 1, duration: 0.6 });
+        musicPlayerMetadata(); // call the function properly
+      }
     }
   });
 
@@ -15365,7 +15359,7 @@ tl.to(".pfp_backdrop", {
     if (currentIndex > 0) goToPanel(currentIndex - 1);
   });
 
-  function goToPanel(index) {
+  goToPanel = function(index) {
     gsap.to(playerr, {
       x: -index * $(window).width(),
       duration: 0.6,
@@ -15373,14 +15367,11 @@ tl.to(".pfp_backdrop", {
     });
     currentIndex = index;
 
-    $panels.css({ opacity: 0.5 });
-    $($panels[index]).css({ opacity: 1 });
+    $panels.css({ opacity: 0 }).removeClass("go");
+    $($panels[index]).css({ opacity: 1 }).addClass("go");
   }
 }
-
-// start polling
-initPlayer();
-  
+  initPlayer();
 
   
 gsap.ticker.add(() => {
@@ -16271,14 +16262,17 @@ $("#open_music_controls-btn").click(function() {
   $(".mm-menu #music_filters div[data-show='nowplaying']").on("click", "button, h4", function() {
       if ( $(this).hasClass("lyrics_song-btn") ) {
           musicPlayerLyrics();
+		  goToPanel(1);
       }
       
       if ( $(this).hasClass("about_song-btn") ) {
           musicPlayerMetadata();
+		  goToPanel(2);
       }
 
 	if ( $(this).hasClass("song_home-btn") ) {
           musicPlayerMain();
+		  goToPanel(0);
       }
       
       if ( $(this).hasClass("share_song-btn") ) {
