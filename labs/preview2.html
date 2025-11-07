@@ -15396,7 +15396,7 @@ if (existing) existing.kill();
 
      const finalX = this.x;
     const newIndex = Math.round(Math.abs(finalX) / width);
-
+ 
     // ensure exact pixel alignment (prevents subpixel jitter)
     gsap.set(playerr, { x: -newIndex * width });
 
@@ -15412,8 +15412,12 @@ if (existing) existing.kill();
     }
   },
   onRelease: function() {
-    // if inertia is disabled, onThrowComplete won't run — handle fallback:
-   
+    if (!this.isThrowing) {
+      const newIndex = Math.round(Math.abs(this.x) / width);
+      gsap.to(playerr, { x: -newIndex * width, duration: 0.45, ease: "power3.out" });
+      currentIndex = newIndex;
+      updatePanels(currentIndex);
+    }
   }
 })[0]; // Draggable.create returns an array
 
@@ -16190,9 +16194,13 @@ $("#now_playing").removeClass("go");
     }
     
     function scrollToTop() {
-        $('#flickSite').animate({
+        $(window).animate({
         scrollTop: 0
       }, 800);
+
+		if ( $("#now_playing").hasClass("go") ) {
+			$("#now_playing").removeClass("go");
+		}
     }
           
           
@@ -16256,11 +16264,22 @@ $("#now_playing").removeClass("go");
     }
     
     function scrollToMusic() {
-        $('#flickSite').animate({
+        $(window).animate({
         scrollTop: $("#music").offset().top - 100
       }, 800);
-    }
-      
+
+		if ( $("#now_playing").hasClass("go") ) {
+			$("#now_playing").removeClass("go");
+
+			gsap.to("#now_playing #record_player", {
+			y: "100%",
+				opacity: 0, 
+				duration: 0.6,
+				ease: "expo.inOut"
+    });
+		}
+	}
+		
     $("#open_music_controls-btn").addClass("go");
         } else {
 
