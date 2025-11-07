@@ -11929,7 +11929,7 @@ var homepageURL = "https://treesh.life/";
 const $window = $(window);
 var $document = $(document);
 let goToPanel;
-const audio = $("#audio")[0];
+var audio = document.getElementById("audio");
 let recordTime = 0;
 const $body = $("body");
 const $icons = $("#icons");
@@ -12940,6 +12940,19 @@ $(document).ready(function () {
     
     if ($this.text() == "Duly noted") {
         localStorage.setItem("learnedTreesh", true);
+    }
+    
+    if ($this.text() == "Try again") {
+        audio.pause();        
+    audio.currentTime = 0; 
+    audio.load();           
+    audio.play().catch(err => console.log("play blocked:", err));
+    
+     if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
+            if ( !$playPauseBtn.hasClass("fa-pause") ) {
+          $(".mm-menu .page_title .title span").text("Trying again...");
+            }
+    }
     }
     
     if ( $this.text() === "Nice!" ) {
@@ -14071,6 +14084,7 @@ if (currentURL.indexOf('?artist') !== -1 && currentURL.indexOf('song')) {
     autoPlaySongs = "true";
 }
 
+var $track;
   $musicGridSongs.click(function () {
     let $this = $(this);
 $notificationStatus = "nowPlaying";
@@ -14084,13 +14098,13 @@ $notificationStatus = "nowPlaying";
       let $h2 = currentSong.find("h2");
       let $h3 = currentSong.find("h3");
       
-      let $track = currentSong.attr("data-track");
+      $track = currentSong.attr("data-track");
       songPlaying = currentSong;
       
-      if (audio) {
-  audio.src = currentSong.attr("data-mp3");
-  audio.load();
-}
+audio.pause();
+audio.currentTime = 0;
+audio.src = $this.attr("data-mp3"); 
+    
       thumbnail = $coverart.attr("data-coverart");
       songName = $h2.html();
       songArtist = $h3.text();
@@ -14297,8 +14311,7 @@ if ( $("#now_playing").hasClass("go") ) {
     }
     });
         }
-        
-        $("#now_playing, #navbar-btn").addClass("go");
+
         
          gsap.to($musicRecordPlayer,
 { y: "100%", opacity:0, duration: 0.6, ease: "expo.inOut", overwrite: "auto", onComplete:function() {
@@ -14415,8 +14428,9 @@ for (let i = 1; i < parts.length; i++) {
     });
   });
 
+var randomSong;
  function playRandomSong() {
-  const $audio = $("#audio")[0]; // central audio element
+  const $audio = $("#audio")[0];
   const songs = $tracksItems
     .filter(":visible")
     .toArray()
@@ -14425,14 +14439,14 @@ for (let i = 1; i < parts.length; i++) {
   if (!songs.length) return; // no visible tracks available
 
   const randomIndex = Math.floor(Math.random() * songs.length);
-  const randomSong = songs[randomIndex];
+  randomSong = songs[randomIndex];
   const $randomSong = $(randomSong);
 
   const randomTitle = $randomSong.attr("data-track");
   const randomSrc = $randomSong.attr("data-src"); // assuming this has the mp3/url
 
   // update the central audio element
-  $audio.src = randomSrc;
+  $audio.attr("src", randomSrc);
   $audio.load();
   $audio.play();
 
@@ -14477,6 +14491,10 @@ for (let i = 1; i < parts.length; i++) {
   // AUDIO //
   
   audio.addEventListener("loadstart", function() {
+      
+      if ( !$("#now_playing").hasClass("go") && $(window).scrollTop() >= $("#music").offset().top - 100 && !$(".mm-menu .modal, .mm-menu .sub_modal, .mm-menu .sub_sub_modal").hasClass("go") ) {
+          $("#now_playing").addClass("go");
+      }
 
         $("#scrub .scrubDuration, #scrub .scrubTime").text("0:00");
         clearTimeout(playPauseStateTimeout);
@@ -14484,19 +14502,13 @@ for (let i = 1; i < parts.length; i++) {
         $("#now_playing").addClass("loading");
         
         if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
+            if ( !$playPauseBtn.hasClass("fa-pause") ) {
           $(".mm-menu .page_title .title span").text("Now Loading...");
+            }
     }
     
     playPauseStateTimeout = setTimeout(function() {
        $(".mm-menu .music_bar .playpause").removeClass("loading");
-       
-        if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
-            if ( !$playPauseBtn.hasClass("fa-pause") ) {
-          $(".mm-menu .page_title .title span").text("Now Playing");
-            } else {
-                $(".mm-menu .page_title .title span").text("Ready to Play");
-            }
-    }
     }, 5000);
     });
     
@@ -14505,10 +14517,14 @@ for (let i = 1; i < parts.length; i++) {
            gsap.to($musicRecordPlayer,
 { y: 0, opacity:1, duration: 0.6, ease: "expo.out", overwrite: "auto"
 });
+
+if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
+            if ( $playPauseBtn.hasClass("fa-pause") ) {
+                $(".mm-menu .page_title .title span").text("Ready to Play");
+            }
+    }
           
     $(".mm-menu .now_playing-card h3").text(songArtist.split(" x ")[0]);
-    
-    audio.play();
     
           let artistMap = {};
 $("#music .artists").find(".artist").each(function() {
@@ -14557,17 +14573,19 @@ let result = text.split(" x ")[0];
     $travelBtn.find(".audio_ani").removeClass("go");
       $travelBtn.find("i").removeClass("fadeOut");
       
-      if ( $("#now_playing #now_playing-main").hasClass('go') ) {
-
-          if ( $repeatBtn.hasClass("color") ) {
-          $(".mm-menu .page_title .title span").text("Now Replaying");
-    } else {
-        $(".mm-menu .page_title .title span").text("Now Playing");
-    }
-    }
-      
         }
       });
+      
+      var musicErrorNotification;
+      audio.addEventListener("canplaythrough", () => {
+          
+          if ( $(window).scrollTop() >= $("#music").offset().top - 100 && !$("#flickSite").hasClass("go-settings") ) {
+              $("#now_playing").addClass("go");
+          }
+          
+          clearTimeout(musicErrorNotification);
+    audio.play().catch(err => console.log("play blocked:", err));
+});
       
       
       var lyricContainer = $("#now_playing #lyrics .lyrics");
@@ -14593,14 +14611,6 @@ const msStr = String(milliseconds).padStart(2, '0');
 
 const formatted = minStr + ':' + secStr + '.' + msStr;
 const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
-
-if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
-          if ( $repeatBtn.hasClass("color") ) {
-          $(".mm-menu .page_title .title span").text("Now Replaying");
-    } else {
-        $(".mm-menu .page_title .title span").text("Now Playing");
-    }
-    }
 
         $("#lyrics .all_lyrics .lyric[data-go-lyrics='animate'].go p").each(
           function () {
@@ -14677,19 +14687,33 @@ if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").has
       });
       
         
-      audio.addEventListener("error", function () { 
-          $playPauseBtn.removeClass("fa-pause").removeClass("loading").addClass("fa-play");
+      audio.addEventListener("error", function () {
    $notificationIconBody = '<i class="fa-solid fa-bug"></i>';
       $notificationBodyText =
-        "<h1>Uh oh...</h1><p>There appears to be an error loading <b>'"+ $track +"'</b> by <b>"+ songArtist +"</b>!</p><p>It could be the following reasons:</p><p><li>Wi-Fi connection has been disconnected,</li><li>The app may not have loaded fully,</li><li>The song does not exist anymore,</li><li>Another audio source is currently playing,</li><li>Using private or masked connections such as VPN,</li><li>JavaScript is disabled in settings.</li></p><p>Click or tap <b>'Try Again'</b> to reload the track. Check your connection and refresh the app if error continues.</p>";
+        "<h1>Uh oh...</h1><p>There appears to be an error loading <b>'"+ $("#now_playing .song_data h1").text() +"'</b> by <b>"+ $("#now_playing .song_data h2").text() +"</b>!</p><p>It could be the following reasons:</p><p><li>Wi-Fi connection has been disconnected,</li><li>The app may not have loaded fully,</li><li>The song does not exist anymore,</li><li>Another audio source is currently playing,</li><li>Using private or masked connections such as VPN,</li><li>JavaScript is disabled in settings.</li></p><p>Click or tap <b>'Try Again'</b> to reload the track. Check your connection and refresh the app if error continues.</p>";
         setNotificationOptions = true;
             $notificationCloseBtnText = "Try again";
-      openNotification();
-      $("#scrub .scrubDuration").text("0:00");
-      
-      if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
+            
+            var notificationTime;
+            if ( $(".mm-menu .notification").hasClass("go") ) {
+                notificationTime = 30000;
+            } else {
+                notificationTime = 0;
+            }
+            
+            musicErrorNotification = setTimeout(function() {
+                openNotification();
+                
+                musicErrorNotification = setTimeout(function() {
+          $playPauseBtn.removeClass("fa-pause").addClass("fa-play").removeClass("loading");
+          
+          if ( $("#now_playing").hasClass("go") ) {
           $(".mm-menu .page_title .title span").text("Loading Error");
     }
+    }, 600);
+            }, notificationTime);
+      
+      $("#scrub .scrubDuration").text("0:00");
 });
 
   
@@ -16116,6 +16140,7 @@ tl.to(filters, {
   ease: "expo.inOut",
   onComplete: () => {
     $(".page_title span").text("Customize > Theme");
+    backdrops.addClass("go");
   }
 });
 
@@ -16397,9 +16422,6 @@ $("#open_music_controls-btn").click(function() {
              $(".mm-menu #music_filters div[data-show]").hide();
           $(".mm-menu #music_filters div[data-show='nowplaying']").show();
           
-          if ( $("#now_playing #now_playing-main").hasClass('go') ) {
-          $(".mm-menu .page_title .title span").text("Now Playing");
-    }
     
           if ( $("#now_playing #lyrics").hasClass("go") ) {
     $(".mm-menu .page_title .title span").html("<b>\"" + $("#now_playing .song_data h1").text() + "\"</b> Lyrics");
@@ -16879,6 +16901,7 @@ var nextTrackTimeout;
 
   // next song
 
+var $selectNextSong;
   function nextSong() {
       clearTimeout(nextTrackTimeout);
       audio.pause();
@@ -16889,7 +16912,6 @@ var nextTrackTimeout;
       .find("[data-song]")
       .eq(0)
       .attr("data-song");
-    var $selectNextSong;
     
 
     if ($("#music").hasClass("go")) {
@@ -16937,15 +16959,44 @@ var nextTrackTimeout;
   function playSong() {
     playing = true;
     $playPauseBtn.removeClass("fa-play").addClass("fa-pause").removeClass("loading");
-    audio.play();
-    
-    if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
-          $(".mm-menu .page_title .title span").text("Now Playing");
+
+    audio.muted = true; // mute first to bypass autoplay restrictions
+    audio.play().then(() => {
+        audio.muted = false; // unmute if play succeeds
+    }).catch(err => {
+        console.log("play failed:", err);
+    });
+
+    // update UI
+    if ($("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go")) {
+        $(".mm-menu .page_title .title span").text("Now Playing");
     }
+
+    $("title").text(
+        $("#now_playing .song_data .artist_name_font").text() + 
+        " — \""+ $("#now_playing .song_data h1").text() +"\" on Treesh Music"
+    );
     
-    
-     $("title").text($("#now_playing .song_data .artist_name_font").text() + " — \""+ $("#now_playing .song_data h1").text() +"\" on Treesh Music"); 
-  }
+    setTimeout(() => {
+        if (audio.currentTime === 0) {
+            console.log("audio not playing, retrying...");
+            $(".mm-menu .page_title .title span").text("Loading Error");
+            audio.muted = true;
+            audio.play().then(() => {
+                audio.muted = false;
+            }).catch(err => console.log("retry failed:", err));
+        } else {
+             if ( $("#now_playing #now_playing-main").hasClass('go') ) {
+
+          if ( $repeatBtn.hasClass("color") ) {
+          $(".mm-menu .page_title .title span").text("Now Replaying");
+    } else {
+        $(".mm-menu .page_title .title span").text("Now Playing");
+    }
+    }
+        }
+    }, 500);
+}
 
   function pauseSong() {
     playing = false;
