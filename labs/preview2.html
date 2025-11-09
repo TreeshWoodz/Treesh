@@ -11976,6 +11976,8 @@ $(document).ready(function () {
     percentPosition: true
   });
   alert("Songs loaded");
+  
+  loadMusicPlayer();
 });
     
     var ua = navigator.userAgent.toLowerCase();
@@ -12019,6 +12021,184 @@ $(document).ready(function () {
     
 
     daysLeftFunc();
+  }
+  
+  
+   function loadMusicPlayer() {
+    $musicGridSongs.each(function () {
+      var $this = $(this);
+      
+    const $coverArt = $this.find(".coverart");
+  const coverArtSrc = $coverArt.attr("src");
+  $coverArt.attr("data-coverart", coverArtSrc).attr("src", "https://res.cloudinary.com/treesh/image/fetch/w_300/" + coverArtSrc);
+    });
+
+    $faveHrt.css("transition-duration", "0.3s");
+
+    $grid.isotope({ filter: $("*") });
+
+    $grid.isotope();
+
+    if ($("#now_playing").hasClass("go")) {
+      $travelBtn.find(".audio_ani").removeClass("go");
+      $travelBtn.find("i").removeClass("fadeOut");
+    }
+
+    if (localStorage.getItem("favArtist")) {
+        setTimeout(function() {
+            $(".mm-menu .my_profile [data-favorite-artist] [data-artist]").each(function() {
+               $("#music .artists .artist[data-name='"+ $(this).attr("data-artist") +"']").addClass("liked").append(appendHrt);
+
+            setTimeout(function () {
+              $("#music .artists .artist").find(".fave-hrt").addClass("go");
+            }, 800);
+            });
+            
+            
+        }, 7000);
+    }
+
+    if (localStorage.getItem("favSong")) {
+        setTimeout(function() {
+      $dataFavoriteSong.find("[data-song]").each(function(index) {
+        var $this = $(this);
+        var songName = $this.attr("data-song");
+
+        $tracksItems.each(function () {
+          var $trackItem = $(this);
+          var trackName = $trackItem.attr("data-track");
+
+          if (songName === trackName && !$trackItem.find(".fave-hrt").length) {
+            $trackItem.addClass("liked").append(appendHrt);
+            
+            $likedSongsSong = $trackItem.eq(
+        Math.floor(Math.random() * $trackItem.length)
+      );
+
+            setTimeout(function () {
+              $trackItem.find(".fave-hrt").addClass("go");
+            }, 800);
+          }
+        });
+      });
+        }, 1000);
+    }
+
+    if (localStorage.getItem("deletedSong")) {
+      $tracksItems.each(function () {
+        let $this = $(this);
+        $dataDeletedSong.find("[data-song]").each(function () {
+          if ($this.find("h2").text() == $(this).text()) {
+            $this.remove();
+            $grid.isotope("remove", $this).isotope("layout");
+          }
+        });
+      });
+    }
+            $musicArtistsContain.children().each(function () {
+        $musicArtistsContain.append($(this).detach());
+      });
+
+      var shuffledChildren = $musicArtistsContain
+        .children()
+        .toArray()
+        .sort(function () {
+          return 0.5 - Math.random();
+        });
+
+      $musicArtistsContain.append(shuffledChildren).scrollLeft("-15px");
+      
+      
+          $grid.isotope("shuffle");
+       
+  
+  setTimeout(function() {
+  $grid.isotope();
+  }, 400);
+  
+  
+  setTimeout(function () {
+      var $newSong = $musicGridSongs.eq(0);
+      var $treeshChoiceSong = $("#music .grid [data-treeshChoice]").eq(
+        Math.floor(Math.random() * $("#music .grid [data-treeshChoice]").length)
+      );
+      var $treeshExclusiveSong = $("#music .grid [data-exclusive]").eq(
+        Math.floor(Math.random() * $("#music .grid [data-exclusive]").length)
+      );
+      var $songWithLyrics = $("#music .grid [data-lyrics]").eq(
+        Math.floor(Math.random() * $("#music .grid [data-lyrics]").length)
+      );
+      var $songWithVideo = $("#music .grid [data-video]").eq(
+        Math.floor(Math.random() * $("#music .grid [data-video]").length)
+      );
+      
+      $("#music .whats_new .item").each(function () {
+        var $this = $(this);
+        var theType = $(this).attr("data-type");
+        var theSongToFind;
+
+        if (theType === "new") {
+          theSongToFind = $newSong;
+        }
+
+        if (theType === "treesh choice") {
+          theSongToFind = $treeshChoiceSong;
+        }
+
+        if (theType === "treesh x-clusive") {
+          theSongToFind = $treeshExclusiveSong;
+        }
+
+        if (theType === "know the lyrics") {
+          theSongToFind = $songWithLyrics;
+        }
+
+        if (theType === "your faves") {
+          theSongToFind = $("#music .tracks .song.liked").eq(
+        Math.floor(Math.random() * $("#music .tracks .song.liked").length)
+      );
+        }
+
+        $this.find(".titles title-tag").text(
+          theSongToFind
+            .find("h2")
+            .text()
+        );
+        $this.find("artists-tag").text(
+          theSongToFind
+            .find("h3")
+            .text()
+        );
+        $this
+          .find(".coverart img")
+          .attr("src", theSongToFind.find(".coverart").attr("data-coverart"));
+      });
+
+      $grid.isotope();
+    }, 1000);
+
+    setTimeout(function () {
+      $("#music .whats_new .whats_new_bg").attr(
+        "style",
+        "background-image:url('" +
+          $(
+            "#music .whats_new .whats_new_flick .item.is-selected .coverart img"
+          ).attr("src") +
+          "') !important;"
+      );
+
+      $("#music .whats_new .play-btn").attr(
+        "data-track",
+        $(
+          "#music .whats_new .whats_new_flick .item.is-selected title-tag"
+        ).text()
+      );
+      
+        if ($("#music .tracks .song.liked").length === 0) {
+          $musicWhatsNewFlick.flickity("remove", $("#music .whats_new .whats_new_flick .item[data-type='your faves']"));
+          $("#music .whats_new .whats_new_flick .item[data-type='your faves'").remove();
+        }
+    }, 1000);
   }
   
   setTimeout(function() {
@@ -12947,185 +13127,6 @@ if (isVisible) {
       $("#video_viewer").removeClass("go");
       $(".mm-menu, #wave").removeClass("deactivate");
   });
-
-  function loadMusicPlayer() {
-    $musicGridSongs.each(function () {
-      var $this = $(this);
-      
-    const $coverArt = $this.find(".coverart");
-  const coverArtSrc = $coverArt.attr("src");
-  $coverArt.attr("data-coverart", coverArtSrc).attr("src", "https://res.cloudinary.com/treesh/image/fetch/w_300/" + coverArtSrc);
-    });
-
-    $faveHrt.css("transition-duration", "0.3s");
-
-    $grid.isotope({ filter: $("*") });
-
-    $grid.isotope();
-
-    if ($("#now_playing").hasClass("go")) {
-      $travelBtn.find(".audio_ani").removeClass("go");
-      $travelBtn.find("i").removeClass("fadeOut");
-    }
-
-    if (localStorage.getItem("favArtist")) {
-        setTimeout(function() {
-            $(".mm-menu .my_profile [data-favorite-artist] [data-artist]").each(function() {
-               $("#music .artists .artist[data-name='"+ $(this).attr("data-artist") +"']").addClass("liked").append(appendHrt);
-
-            setTimeout(function () {
-              $("#music .artists .artist").find(".fave-hrt").addClass("go");
-            }, 800);
-            });
-            
-            
-        }, 7000);
-    }
-
-    if (localStorage.getItem("favSong")) {
-        setTimeout(function() {
-      $dataFavoriteSong.find("[data-song]").each(function(index) {
-        var $this = $(this);
-        var songName = $this.attr("data-song");
-
-        $tracksItems.each(function () {
-          var $trackItem = $(this);
-          var trackName = $trackItem.attr("data-track");
-
-          if (songName === trackName && !$trackItem.find(".fave-hrt").length) {
-            $trackItem.addClass("liked").append(appendHrt);
-            
-            $likedSongsSong = $trackItem.eq(
-        Math.floor(Math.random() * $trackItem.length)
-      );
-
-            setTimeout(function () {
-              $trackItem.find(".fave-hrt").addClass("go");
-            }, 800);
-          }
-        });
-      });
-        }, 1000);
-    }
-
-    if (localStorage.getItem("deletedSong")) {
-      $tracksItems.each(function () {
-        let $this = $(this);
-        $dataDeletedSong.find("[data-song]").each(function () {
-          if ($this.find("h2").text() == $(this).text()) {
-            $this.remove();
-            $grid.isotope("remove", $this).isotope("layout");
-          }
-        });
-      });
-    }
-            $musicArtistsContain.children().each(function () {
-        $musicArtistsContain.append($(this).detach());
-      });
-
-      var shuffledChildren = $musicArtistsContain
-        .children()
-        .toArray()
-        .sort(function () {
-          return 0.5 - Math.random();
-        });
-
-      $musicArtistsContain.append(shuffledChildren).scrollLeft("-15px");
-      
-      
-          $grid.isotope("shuffle");
-       
-  
-  setTimeout(function() {
-  $grid.isotope();
-  }, 400);
-  
-  
-  setTimeout(function () {
-      var $newSong = $musicGridSongs.eq(0);
-      var $treeshChoiceSong = $("#music .grid [data-treeshChoice]").eq(
-        Math.floor(Math.random() * $("#music .grid [data-treeshChoice]").length)
-      );
-      var $treeshExclusiveSong = $("#music .grid [data-exclusive]").eq(
-        Math.floor(Math.random() * $("#music .grid [data-exclusive]").length)
-      );
-      var $songWithLyrics = $("#music .grid [data-lyrics]").eq(
-        Math.floor(Math.random() * $("#music .grid [data-lyrics]").length)
-      );
-      var $songWithVideo = $("#music .grid [data-video]").eq(
-        Math.floor(Math.random() * $("#music .grid [data-video]").length)
-      );
-      
-      $("#music .whats_new .item").each(function () {
-        var $this = $(this);
-        var theType = $(this).attr("data-type");
-        var theSongToFind;
-
-        if (theType === "new") {
-          theSongToFind = $newSong;
-        }
-
-        if (theType === "treesh choice") {
-          theSongToFind = $treeshChoiceSong;
-        }
-
-        if (theType === "treesh x-clusive") {
-          theSongToFind = $treeshExclusiveSong;
-        }
-
-        if (theType === "know the lyrics") {
-          theSongToFind = $songWithLyrics;
-        }
-
-        if (theType === "your faves") {
-          theSongToFind = $("#music .tracks .song.liked").eq(
-        Math.floor(Math.random() * $("#music .tracks .song.liked").length)
-      );
-        }
-
-        $this.find(".titles title-tag").text(
-          theSongToFind
-            .find("h2")
-            .text()
-        );
-        $this.find("artists-tag").text(
-          theSongToFind
-            .find("h3")
-            .text()
-        );
-        $this
-          .find(".coverart img")
-          .attr("src", theSongToFind.find(".coverart").attr("data-coverart"));
-      });
-
-      $grid.isotope();
-    }, 1000);
-
-    setTimeout(function () {
-      $("#music .whats_new .whats_new_bg").attr(
-        "style",
-        "background-image:url('" +
-          $(
-            "#music .whats_new .whats_new_flick .item.is-selected .coverart img"
-          ).attr("src") +
-          "') !important;"
-      );
-
-      $("#music .whats_new .play-btn").attr(
-        "data-track",
-        $(
-          "#music .whats_new .whats_new_flick .item.is-selected title-tag"
-        ).text()
-      );
-      
-        if ($("#music .tracks .song.liked").length === 0) {
-          $musicWhatsNewFlick.flickity("remove", $("#music .whats_new .whats_new_flick .item[data-type='your faves']"));
-          $("#music .whats_new .whats_new_flick .item[data-type='your faves'").remove();
-        }
-    }, 1000);
-  }
-  
-  loadMusicPlayer();
 
   // MUSIC MODULE ---------------------
   
