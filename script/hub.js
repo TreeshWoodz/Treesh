@@ -1,4 +1,6 @@
 $(document).ready(function() {
+	var $musicLibrarySongs = $("#music #library").find(".song");
+	
 var fortunes = [
     "A pleasant surprise is waiting for you.",
     "You will find success in unexpected places.",
@@ -160,7 +162,7 @@ var fortunes = [
         if (containerID === "Favorite Songs") {
             $("[data-favorite-song] [data-song]").each(function() {
                 let $song = $(this),
-                    songData = $("#music .grid .song[data-track='" + $song.attr("data-song") + "']"),
+                    songData = $("#music #library .song[data-track='" + $song.attr("data-song") + "']"),
                     newCover = songData.attr("data-coverart"),
                     img = $song.find("img");
 
