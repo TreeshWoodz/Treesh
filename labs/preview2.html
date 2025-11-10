@@ -3365,7 +3365,8 @@ margin:auto;
   z-index: 2;
 }
 
-#now_playing .bg {
+#now_playing .bg,
+  #now_playing .bg_blur {
   width: 100%;
   height: 100%;
   position: fixed;
@@ -3378,18 +3379,14 @@ margin:auto;
   z-index: 1;
   transition-delay: 0s !important;
 }
+  
+  #now_playing .bg_blur {
+    background: rgba(0, 0, 0, 0.8) !important;
+    backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+    z-index:2 !important;
+  }
 
-#now_playing .bg:before {
-  content: "";
-  position: absolute;
-  width: 100%;
-  top: 0;
-  left: 0;
-  height: 100%;
-  z-index: -1;
-    backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
 
 #now_playing .bg:after {
   content: "";
@@ -3415,11 +3412,11 @@ margin:auto;
   
   #now_playing #now_playing-main {
     height:100vh !important;
-    padding-top:var(--waveHeight);
+    padding-top:80px;
   }
   
   #now_playing #about_song {
-    background:blue;
+    
   }
 
 #now_playing .slide .heading {
@@ -3775,7 +3772,6 @@ margin:auto;
 
 #now_playing #about_song .contain {
   opacity: 0;
-  padding-bottom:calc(var(--navBarHeight) + 50px) !important;
   transform: translate3d(0, 60px, 0);
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out;
 }
@@ -3954,8 +3950,8 @@ margin:auto;
     top:0;
     left:0;
     border-radius:30px;
-    backdrop-filter: blur(9px);
-  -webkit-backdrop-filter: blur(9px);
+    backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
 }
 
 #now_playing #about_song .contain ul h2 {
@@ -10818,6 +10814,7 @@ height: 60px;
 <!--- NOW PLAYING --->
       <div id="now_playing" data-track="Treesh Life" data-lyricSync="false">
         <div class="bg"></div>
+        <div class="bg_blur"></div>
 
         <div id="flick-now_playing">
           <div id="now_playing-main" class="slide go">
@@ -11937,7 +11934,7 @@ var $track;
   
 $(document).ready(function () {
     
- $("#library").load("https://yvll.tumblr.com/songs.html .song", function() {
+ $("#library").load("/content/songs.html .song", function() {
   libraryIsotope = $("#music #library").isotope({
     itemSelector: ".song",
     gutter: 0,
@@ -11951,7 +11948,6 @@ $(document).ready(function () {
       var $this = $(this);
       
     var trackName = $this.find("h2").text();
-      $track = trackName;
     var genre = $this.attr("data-genre");
     var trackNameSimplified = trackName
       .toLowerCase()
@@ -12248,6 +12244,7 @@ if ($genresContain.children("button").length >= 6 && $genresContain.find(".befor
      const artist = $this.find("h3").text();
      const mainArtist = artist.split(" x ")[0];
      const title = $this.find("h2").text();
+     $track = title;
      const cover = $this.find(".coverart").attr("src");
      const audioLink = $this.attr("data-mp3");
      const artistID = $this.attr("data-artist-id");
@@ -12259,6 +12256,8 @@ if ($genresContain.children("button").length >= 6 && $genresContain.find(".befor
       var trackWrittenBy = $this.attr("data-written-by");
       var trackProducer = $this.attr("data-producer");
       var mixtape = $this.attr("data-mixtape");
+     
+     $("#music #flick-now_playing").scrollTop(0);
      
      
      // ADD CLASS TO SELECTED SONG
@@ -12406,7 +12405,7 @@ history.replaceState(null, null, pushState);
      
      // FIND LYRICS
 
-     $.get("https://yvll.tumblr.com/lyrics.html", function(data) {
+     $.get("/content/lyrics.html", function(data) {
     let $html = $("<div>").html(data);
     let $lyrics = $html.find(".lyric");
        let sanitizedTrack = $track.toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
@@ -12433,6 +12432,7 @@ history.replaceState(null, null, pushState);
       });
 
       $musicLyrics.scrollTop(0);
+     
      
      // ABOUT SONG
      
@@ -13562,7 +13562,6 @@ if (isVisible) {
       
       function musicPlayerLyrics() {
           hideMusicPlayerSlides();
-        musicPlayerBlur();
           $(".mm-menu #music_filters div[data-show='nowplaying']").find(".lyrics_song-btn").addClass("clicked");
          gsap.to("#now_playing #lyrics .nolyrics", {
         opacity: 1,
@@ -13950,7 +13949,7 @@ let result = text.split(" x ")[0];
   });
       
       
-      var lyricContainer = $("#now_playing #lyrics .lyrics");
+      var lyricContainer = $("#now_playing #flick-now_playing");
   
       audio.addEventListener("timeupdate", function () {
         let currentTime = audio.currentTime;
@@ -13995,11 +13994,11 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
       ? parseInt(nextEl.attr("data-minutes").split(":")[0]) * 60 + parseFloat(nextEl.attr("data-minutes").split(":")[1])
       : Infinity;
       
-      var scrollPos = ($(el).offset().top - lyricContainer.offset().top + lyricContainer.scrollTop()) - ((lyricContainer.height() / 2) - ($(".mm-menu").height() / 2));
+      var scrollPos = ($(el).offset().top - lyricContainer.offset().top + lyricContainer.scrollTop()) - (((lyricContainer.height() - 80) / 2) - ($(".mm-menu").height() / 2));
 
     if (currentTime >= lyricSecs && currentTime < nextSecs) {
-        if ( $("#now_playing").hasClass("go") && $("#now_playing #lyrics").hasClass("go") && $("#now_playing").attr("data-lyricSync") === "true" ) {
-      $("#now_playing #lyrics .lyrics").scrollTop(scrollPos);
+        if ( $("#now_playing").hasClass("go") && $("#now_playing").attr("data-lyricSync") === "true" ) {
+      $("#now_playing #flick-now_playing").scrollTop(scrollPos);
       $(el).addClass("current").siblings().removeClass("current");
         }
       
@@ -14007,7 +14006,7 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
         if ( $("#now_playing").attr("data-lyricSync") === "true" ) {
         $(el).removeClass("current");
         } else {
-            if ( scrollPos >= $("#music #lyrics .lyrics").scrollTop() ) {
+            if ( scrollPos >= $("#now_playing #flick-now-playing").scrollTop() ) {
             $(el).removeClass("current");
             }
         }
@@ -14132,15 +14131,15 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
     }
   );
 
-  $("#now_playing #lyrics .lyrics").scroll(function () {
+  $("#now_playing #flick-now_playing").scroll(function () {
   var $this = $(this);
   var scrollTop = $this.scrollTop();
-  var lyricsHalfHeight = $this.height() / 2;
+  var lyricsHalfHeight = ($("#flick-now_playing").height() / 2) - 80;
 
   if ($("#now_playing").attr("data-lyricSync") !== "true") {
     $this.find(".body p").each(function () {
       var $p = $(this);
-      var pTop = $p.position().top;
+      var pTop = $p.offset().top;
 
       if (pTop + $p.outerHeight(true) <= scrollTop + lyricsHalfHeight) {
         gsap.to($p, {
@@ -14159,6 +14158,11 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
       }
     });
   }
+    
+    
+    if ( $(this).scrollTop() >= $("#now_playing #lyrics").offset().top - 100 ) {
+      musicPlayerLyrics();
+    }
 });
 
 
@@ -14186,6 +14190,8 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
   function travelBtn() {
     
     if ( $nowPlaying.hasClass("go") ) {
+      
+      $("#now_playing #flick-now_playing").scrollTop(0);
       
         gsap.to($musicBG, {
          opacity: 0,
@@ -14753,6 +14759,17 @@ gsap.to(".pfp_backdrop", {
 });
 
 function initScroll() {
+  
+   gsap.to("#now_playing .bg_blur", {
+       opacity: 1,
+  ease: "none",
+  scrollTrigger: {
+    trigger: "#now_playing #flick-now_playing",
+    start: "top top",
+    end: () => $("#now_playing #about_song").offset().top - 100, 
+    scrub: 0.5
+  }
+});
     
     gsap.to("#wave, .mm-menu", {
   y: "0%",
@@ -14822,6 +14839,7 @@ gsap.to(".mm-menu .profile-btn i", {
     scrub: 0.5
   }
 });
+  
   
   
   
