@@ -12567,23 +12567,11 @@ if ($genresContain.children("button").length >= 6 && $genresContain.find(".befor
      $("#now_playing").addClass("loading").attr("data-track", title);
      $notificationStatus = "nowPlaying";
      
-     $(".mm-menu .now_playing-card h3, #now_playing .song_data h2, #now_playing .about_artist .about_artist-body .about_artist-body_heading h2").text(mainArtist);
-     $(".mm-menu .now_playing-card h4, #now_playing .song_data h1").text(title);
-     $(".mm-menu .now_playing-card .now_playing-card-section:eq(0)").attr("data-artist-id", artistID);
-     
      // ABOUT 
      
      const mainArtistNoSpaces = mainArtist.replace(/\s+/g, "");
      const bio = $("#music .artists .artist[data-name='"+ mainArtist +"']").attr("data-bio");
      const artistPic = $("#music .artists .artist[data-name='"+ mainArtist +"']").attr("data-bg");
-     
-     $("#now_playing .about_artist .about_artist-banner").css({
-       backgroundImage: "url("+ artistPic +")",
-       backgroundSize: "cover",
-       backgroundPosition: "center"
-     });
-     
-     $("#now_playing .about_artist .about_artist-body p").html(bio);
      
     fields.forEach(function(attr) {
     var value = $this.attr("data-" + attr);
@@ -12639,63 +12627,6 @@ if ($genresContain.children("button").length >= 6 && $genresContain.find(".befor
           $(".mm-menu #music_filters .favorite_song-btn").removeClass("clicked");
           $(".mm-menu #music_filters .favorite_song-btn span:last, #now_playing #about_song .favorite_song-btn p").text("Like");
           $("#now_playing #about_song .favorite_song-btn").find("input").prop("checked", false);
-      }
-
-      function resizeImage(src, newWidth, newHeight, callback) {
-        var imgRS = new Image();
-
-        imgRS.crossOrigin = "Anonymous";
-        imgRS.onload = function () {
-          var canvas = document.createElement("canvas");
-          var ctx = canvas.getContext("2d");
-
-          canvas.width = newWidth;
-          canvas.height = newHeight;
-          ctx.drawImage(img, 0, 0, newWidth, newHeight);
-
-          var resizedImageURL = canvas.toDataURL("image/jpeg");
-
-          callback(resizedImageURL);
-        };
-
-        imgRS.src = src;
-      }
-
-      if ("mediaSession" in navigator) {
-        var sizes = [
-          "96x96",
-          "128x128",
-          "256x256",
-          "400x400",
-          "512x512",
-          "800x800",
-          "1024x1024",
-          "1440x1440",
-          "2000x2000"
-        ];
-        var artworkArray = [];
-
-        sizes.forEach(function (size) {
-          var dimensions = size.split("x");
-          var width = parseInt(dimensions[0]);
-          var height = parseInt(dimensions[1]);
-
-          resizeImage(cover, width, height, function (resizedURL) {
-            artworkArray.push({
-              src: resizedURL,
-              sizes: size,
-              type: "image/jpeg"
-            });
-
-            if (artworkArray.length === sizes.length) {
-              navigator.mediaSession.metadata = new MediaMetadata({
-                title: title,
-                artist: artist,
-                artwork: artworkArray
-              });
-            }
-          });
-        });
       }
 
 pushState =
@@ -12827,6 +12758,20 @@ img.onload = function() {
          transitionDelay: 0,
 		   onComplete: function() {
   $musicRecordPlayerVinyl.attr("src", cover);
+
+			   $(".mm-menu .now_playing-card h3, #now_playing .song_data h2, #now_playing .about_artist .about_artist-body .about_artist-body_heading h2").text(mainArtist);
+     $(".mm-menu .now_playing-card h4, #now_playing .song_data h1").text(title);
+     $(".mm-menu .now_playing-card .now_playing-card-section:eq(0)").attr("data-artist-id", artistID);
+	   
+     $("#now_playing .about_artist .about_artist-banner").css({
+       backgroundImage: "url("+ artistPic +")",
+       backgroundSize: "cover",
+       backgroundPosition: "center"
+     });
+
+	$(".mm-menu .now_playing-card .now_playing-card-pic img").attr("src", artistPic);
+     
+     $("#now_playing .about_artist .about_artist-body p").html(bio);
 			   
 			   setTimeout(function() {
 				    $("#now_playing.go #now_playing-main.go").removeClass("loading");
@@ -14254,18 +14199,56 @@ let result = text.split(" x ")[0];
       });
       
       var musicErrorNotification;
-      audio.addEventListener("canplaythrough", () => {
-          $nowPlaying.removeClass("loading");
-          clearTimeout(musicErrorNotification);
+
+audio.addEventListener("canplaythrough", () => {
+    $nowPlaying.removeClass("loading");
+    clearTimeout(musicErrorNotification);
+
     audio.play().catch(err => console.log("play blocked:", err));
+
+    // Resize helper
+    function resizeImage(src, newWidth, newHeight, callback) {
+        var img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = function() {
+            var canvas = document.createElement("canvas");
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            canvas.getContext("2d").drawImage(img, 0, 0, newWidth, newHeight);
+            callback(canvas.toDataURL("image/jpeg"));
+        };
+        img.src = src;
+    }
+
+    if ("mediaSession" in navigator) {
+        var sizes = ["96x96","128x128","256x256","400x400","512x512","800x800","1024x1024","1440x1440","2000x2000"];
+        var artworkArray = [];
+        var imgSrc = $("#now_playing #record_player .record_player").attr("src");
+
+        sizes.forEach(size => {
+            var [width, height] = size.split("x").map(Number);
+            resizeImage(imgSrc, width, height, resizedURL => {
+                artworkArray.push({ src: resizedURL, sizes: size, type: "image/jpeg" });
+
+                // Only set metadata once all sizes are ready
+                if (artworkArray.length === sizes.length) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: $("#now_playing .song_data h1").text(),
+                        artist: $("#now_playing .song_data h2").text(),
+                        artwork: artworkArray
+                    });
+                }
+            });
+        });
+    }
 });
+
   
  audio.addEventListener("play", async () => {
     if ( $screenTitle.text() !== "Now Playing" ) {
       $screenTitle.text("Now Playing");
     $playPauseBtn.removeClass("fa-play").addClass("fa-pause").removeClass("loading");
     }
-    
   });
   
   audio.addEventListener("pause", function () {
