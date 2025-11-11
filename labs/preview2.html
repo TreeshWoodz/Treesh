@@ -12583,6 +12583,7 @@ if ($genresContain.children("button").length >= 6 && $genresContain.find(".befor
       $target.parent().hide();
     }
   });
+	   
      
      // SCRUB
      
@@ -12594,7 +12595,42 @@ if ($genresContain.children("button").length >= 6 && $genresContain.find(".befor
      audio.pause();
      audio.currentTime = 0;
      audio.src = audioLink;
-     
+
+	   // Resize helper
+    function resizeImage(src, newWidth, newHeight, callback) {
+        var img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = function() {
+            var canvas = document.createElement("canvas");
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            canvas.getContext("2d").drawImage(img, 0, 0, newWidth, newHeight);
+            callback(canvas.toDataURL("image/jpeg"));
+        };
+        img.src = src;
+    }
+
+    if ("mediaSession" in navigator) {
+        var sizes = ["96x96","128x128","256x256","400x400","512x512","800x800","1024x1024","1440x1440","2000x2000"];
+        var artworkArray = [];
+        var imgSrc = cover;
+
+        sizes.forEach(size => {
+            var [width, height] = size.split("x").map(Number);
+            resizeImage(imgSrc, width, height, resizedURL => {
+                artworkArray.push({ src: resizedURL, sizes: size, type: "image/jpeg" });
+
+                // Only set metadata once all sizes are ready
+                if (artworkArray.length === sizes.length) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: title,
+                        artist: artist,
+                        artwork: artworkArray
+                    });
+                }
+            });
+        });
+    }
      
      // NAV BAR 
      
@@ -14205,42 +14241,6 @@ audio.addEventListener("canplaythrough", () => {
     clearTimeout(musicErrorNotification);
 
     audio.play().catch(err => console.log("play blocked:", err));
-
-    // Resize helper
-    function resizeImage(src, newWidth, newHeight, callback) {
-        var img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.onload = function() {
-            var canvas = document.createElement("canvas");
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            canvas.getContext("2d").drawImage(img, 0, 0, newWidth, newHeight);
-            callback(canvas.toDataURL("image/jpeg"));
-        };
-        img.src = src;
-    }
-
-    if ("mediaSession" in navigator) {
-        var sizes = ["96x96","128x128","256x256","400x400","512x512","800x800","1024x1024","1440x1440","2000x2000"];
-        var artworkArray = [];
-        var imgSrc = $("#now_playing #record_player .record_player").attr("src");
-
-        sizes.forEach(size => {
-            var [width, height] = size.split("x").map(Number);
-            resizeImage(imgSrc, width, height, resizedURL => {
-                artworkArray.push({ src: resizedURL, sizes: size, type: "image/jpeg" });
-
-                // Only set metadata once all sizes are ready
-                if (artworkArray.length === sizes.length) {
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: $("#now_playing .song_data h1").text(),
-                        artist: $("#now_playing .song_data h2").text(),
-                        artwork: artworkArray
-                    });
-                }
-            });
-        });
-    }
 });
 
   
