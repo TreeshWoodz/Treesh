@@ -95,7 +95,7 @@ function confirmNickname(value) {
         });
 
 
-        $("#wave .nickname_handle").click(function() {
+        $("#wave .nickname_handle, #your_hub figure").click(function() {
                 $(".mm-menu .profile-btn").click();
         });
 
