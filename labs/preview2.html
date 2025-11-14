@@ -3962,7 +3962,7 @@ transform: translate3d(0, -20px, 0) !important;
     text-align:center !important;
     font-weight:800;
     font-size:1rem;
-    line-height:60px;
+    line-height:55px;
     overflow:hidden;
     padding:0px 65px;
     border-bottom:1px solid rgba(255, 255, 255, 0.2);
@@ -4107,7 +4107,7 @@ transform: translate3d(0, -20px, 0) !important;
 }
   
   #now_playing #lyrics.expand .lyrics .body {
-    padding-top:90px !important;
+    padding-top:110px !important;
   }
 
 
@@ -5142,6 +5142,7 @@ background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 25
   border-radius: 50%;
   scrollbar-color: var(--pink);
   border: none;
+  filter:brightness(150%);
   position:relative;
   cursor: pointer;
 }
@@ -9537,6 +9538,7 @@ height: 60px;
         border-radius:100%;
     border:3px solid var(--border-color);
       transform:scale(0);
+      cursor:pointer;
     }
   
     
@@ -10181,8 +10183,16 @@ height: 60px;
   
   
   #lyrics.expand .slide_heading {
-    padding: 0px 30px;
+    padding: 0px 10px !important;
     text-align:center;
+    width:80% !important;
+    border-radius:100px;
+    margin:auto;
+    left:0;
+    right:0;
+    margin-top:20px;
+    border:1px solid var(--border-color);
+    box-shadow: 0 10px 10px rgba(0, 0, 0, 0.2);
   }
   
   #lyrics #mini-now_playing {
@@ -10195,8 +10205,8 @@ height: 60px;
   }
   
   #lyrics #mini-now_playing img {
-    width:40px;
-    height:40px;
+    width:50px;
+    height:50px;
     border-radius:100px;
     border:3px solid var(--border-color);
     display:inline-block;
@@ -12997,6 +13007,13 @@ img.src = cover;
    // END SONG CLICK
 });
   
+  $(document).on("click", "#lyrics.expand #mini-now_playing", function() {
+    $("#now_playing #now_playing-main").removeClass("go");
+    gsap.to("#now_playing #record_player", { y: "135%", duration: 0, overwrite: true, ease: "none" });
+    $("#flick-now_playing").scrollTop(0);
+    closeLyrics();
+  });
+  
   var expandBodyClick;
               $(document).on("click", "#lyrics.expand .body p", function() {
                 if ( $(".mm-menu #prevbtn").hasClass("clicked") ) {
@@ -13030,9 +13047,6 @@ img.src = cover;
               });
               
               $("#open_lyrics-btn").click(function() {
-    $("#open_music_controls-btn, #navbar-btn").removeClass("go");
-                
-                $screenTitle.text("Lyrics Maximized");
 
     gsap.to("#now_playing #now_playing-main, #now_playing #lyrics, #now_playing #about_song", {
         opacity: 0,
@@ -13041,6 +13055,9 @@ img.src = cover;
         ease: "expo.inOut",
         onComplete: function() {
             var $lyricsClone = $("#now_playing #lyrics").clone().addClass("expand").appendTo("#now_playing");
+          $screenTitle.text("Lyrics Maximized");
+          
+    $("#open_music_controls-btn, #navbar-btn").removeClass("go");
           
           $("#lyrics.expand .slide_heading .heading_contain").html('<div id="mini-now_playing"><img src="'+ $("#now_playing #record_player .record_player").attr("src") +'" alt="'+ $("#now_playing .song_data h1").text() +'" /> <h2>'+ $("#now_playing .song_data h1").text() +'</h2></div>');
           
@@ -14520,83 +14537,98 @@ audio.addEventListener("canplaythrough", () => {
   });
       
       
-      var lyricContainer = $("#now_playing #lyrics .body");
   
-      audio.addEventListener("timeupdate", function () {
-        let currentTime = audio.currentTime;
-        currentAudioTime = currentTime;
-        let audioDuration = audio.duration;
-        let remainingTime = audioDuration - currentTime;
-        let targetTime;
-        var minutes = Math.floor(currentTime / 60);
-        var seconds = Math.floor(currentTime % 60);
-  var milliseconds = Math.floor((currentTime % 1) * 100);
-        seconds = seconds < 10 ? "0" + seconds : seconds;
-        var formattedTime = minutes + ":" + seconds;
-        var minutess = Math.floor(audioDuration / 60);
-        var secondss = Math.floor(audioDuration % 60);
-        secondss = secondss < 10 ? "0" + secondss : secondss;
-        var formattedDuration = minutess + ":" + secondss;
-        
-  const minStr = String(minutes).padStart(2, '0');
-const secStr = String(seconds).padStart(2, '0');
-const msStr = String(milliseconds).padStart(2, '0');
+     let lyricScrolling = false;
+let lyricCooldown;
 
-const formatted = minStr + ':' + secStr + '.' + msStr;
-const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
-                    
-            
-         $("#now_playing #lyrics .lyrics .body p[data-minutes]").each(function(i, el) {
-    let lyricTime = $(el).attr("data-minutes").split(":");
-    let lyricSecs = parseInt(lyricTime[0]) * 60 + parseFloat(lyricTime[1]);
+function scrollLyrics(container, pos) {
+    if (lyricScrolling) return;
 
-    let nextEl = $("#now_playing #lyrics .lyrics .body [data-minutes]").eq(i + 1);
-    let nextSecs = nextEl.length
-      ? parseInt(nextEl.attr("data-minutes").split(":")[0]) * 60 + parseFloat(nextEl.attr("data-minutes").split(":")[1])
-      : Infinity;
-      
-      var scrollPos;
+    lyricScrolling = true;
+    container.scrollTop(pos);
 
-    if (currentTime >= lyricSecs && currentTime < nextSecs) {
-        if ( $("#now_playing").hasClass("go") && $("#now_playing").attr("data-lyricSync") === "true" && !$("#prevbtn").hasClass("clicked") ) {
-      if ( !$("#now_playing #lyrics.expand").length ) {
-        scrollPos = ($(el).offset().top - lyricContainer.offset().top + lyricContainer.scrollTop()) - (lyricContainer.height() / 2);
-        $("#now_playing #lyrics .body").scrollTop(scrollPos);
-      } else {
-        scrollPos = $("#now_playing #lyrics.expand .body").find(el).offset().top - 120;
-        $("#now_playing #lyrics.expand .body").scrollTop(scrollPos);
-      }
-          
-          
-      $(el).addClass("current").siblings().removeClass("current");
-        }
-      
-    } else {
-        if ( $("#now_playing").attr("data-lyricSync") === "true" ) {
-        $(el).removeClass("current");
-        } else {
-            if ( scrollPos >= $("#now_playing #lyrics .body").scrollTop() ) {
-            $(el).removeClass("current");
+    clearTimeout(lyricCooldown);
+    lyricCooldown = setTimeout(function() {
+        lyricScrolling = false;
+    }, 120);
+}
+
+audio.addEventListener("timeupdate", function () {
+
+    const currentTime = audio.currentTime;
+    const duration = audio.duration;
+    currentAudioTime = currentTime;
+
+    const minutes = Math.floor(currentTime / 60);
+    const seconds = Math.floor(currentTime % 60).toString().padStart(2, "0");
+    const ms = Math.floor((currentTime % 1) * 100).toString().padStart(2, "0");
+
+    const formattedTime = minutes + ":" + seconds;
+    const formattedDuration = Math.floor(duration / 60) + ":" + Math.floor(duration % 60).toString().padStart(2, "0");
+
+    const isExpanded = $("#now_playing #lyrics.expand").length > 0;
+    const syncOn = $("#now_playing").attr("data-lyricSync") === "true";
+    const isGoing = $("#now_playing").hasClass("go");
+
+    const baseSelector = isExpanded
+        ? "#now_playing #lyrics.expand .lyrics .body"
+        : "#now_playing #lyrics:not(.expand) .lyrics .body";
+
+    const container = $(baseSelector);
+    const lines = container.find("p[data-minutes]");
+
+    lines.each(function(i, el) {
+
+        const t = $(el).attr("data-minutes").split(":");
+        const lyricSecs = Number(t[0]) * 60 + Number(t[1]);
+
+        const nextEl = lines.eq(i + 1);
+        const nextSecs = nextEl.length
+            ? (function(){
+                const n = nextEl.attr("data-minutes").split(":");
+                return Number(n[0]) * 60 + Number(n[1]);
+            })()
+            : Infinity;
+
+        if (currentTime >= lyricSecs && currentTime < nextSecs) {
+
+            if (syncOn && isGoing) {
+
+                let scrollPos;
+
+                if (isExpanded && !$("#prevbtn").hasClass("clicked")) {
+                    scrollPos = $(el).position().top + container.scrollTop() - 120;
+                } else if (!isExpanded) {
+                    scrollPos = (
+                        $(el).offset().top 
+                        - container.offset().top 
+                        + container.scrollTop()
+                    ) - container.height() / 2;
+                }
+
+                scrollLyrics(container, scrollPos);
+                $(el).addClass("current").siblings().removeClass("current");
             }
-        }
-    }
-  });
-        
 
-        $musicScrubber.val(currentTime);
-        
-        let percentTime = currentTime / audioDuration;
-        percentTime = percentTime * $(".mm-menu #scrub .range_fill").prev("input").width() + 15;
-        
-        gsap.to(".mm-menu #scrub .range_fill", {
-        width: percentTime + "px",
-    ease: "expo.inOut",
+        } else if (syncOn) {
+            $(el).removeClass("current");
+        }
     });
-        
-       
-        $("#scrub .scrubTime").text(formattedTime);
-        $("#scrub .scrubDuration").text(formattedDuration);
-      });
+
+    $musicScrubber.val(currentTime);
+
+    let percentTime = (currentTime / duration);
+    percentTime = percentTime * $(".mm-menu #scrub .range_fill").prev("input").width() + 15;
+
+    gsap.to(".mm-menu #scrub .range_fill", {
+        width: percentTime + "px",
+        ease: "expo.inOut"
+    });
+
+    $("#scrub .scrubTime").text(formattedTime);
+    $("#scrub .scrubDuration").text(formattedDuration);
+});
+
       
       
       audio.addEventListener("ended", function () {
@@ -14753,6 +14785,12 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
     
     $screenTitle.text("Now Playing");
     
+    if ( $("#now_playing #flick-now_playing").scrollTop() <= 10 ) {
+     $("#now_playing #now_playing-main").removeClass("go");
+    gsap.to("#now_playing #record_player", { y: "135%", duration: 0, overwrite: true, ease: "none" });
+    $("#flick-now_playing").scrollTop(0);
+    }
+    
     gsap.to("#now_playing #lyrics.expand", {
       y: "100%",
       duration: 0.6,
@@ -14776,6 +14814,8 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
                     overwrite: true,
                     ease: "expo.inOut",
                     onComplete: function() {
+                      $("#now_playing #now_playing-main").addClass("go");
+                      gsap.to("#now_playing #record_player", {y:0, duration: 0.6, overwrite: true, ease: "expo.inOut"});
                         $prev.find("i").addClass("fa-backward-step").removeClass("fa-share-nodes");
                         $prev.attr("data-status", "prev");
                         gsap.to($prev, {opacity: 1, x: 0, duration: 0.6, overwrite: true, ease: "expo.inOut"});
@@ -14831,6 +14871,14 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
          duration: 1,
          ease: "expo.inOut"
     });
+      
+      if ( $("#lyrics.expand").length ) {
+        gsap.to("#now_playing #lyrics.expand", {
+      y: "100%",
+      duration: 0.6,
+      ease: "expo.inOut"
+        });
+      }
        
       setTimeout(function() {
         $nowPlaying.removeClass("go");
@@ -14863,6 +14911,14 @@ const currentSeconds = minutes * 60 + seconds + (milliseconds / 100);
       $("#now_playing #flick-now_playing").scrollTop(0);
       $("body, html").addClass("go-now_playing");
       $nowPlaying.addClass("go");
+      
+       if ( $("#lyrics.expand").length ) {
+        gsap.to("#now_playing #lyrics.expand", {
+      y: 0,
+      duration: 0.6,
+      ease: "expo.inOut"
+        });
+      }
       
       gsap.to($musicRecordPlayer, {
          y: 0,
@@ -16883,7 +16939,7 @@ $("#record_player .record__ring").width($("#record_player .record_player").width
           $(this).addClass("clicked");
           
           gsap.to("#prevbtn i", {
-  filter: "drop-shadow(0 0 5px white)",
+  filter: "drop-shadow(0 0 10px white)",
   duration: 0.6,
   overwrite: true,
   ease: "expo.inOut"
@@ -16918,12 +16974,13 @@ $("#record_player .record__ring").width($("#record_player .record_player").width
     }
     }
   });
+  
   $nextBtn.click(function () {
     if ( !$(this).hasClass("inactive") ) {
     if ( $(this).attr("data-status") === "next" ) {
       nextSong();
     } else {
-      if ( !$("#repeat[data-status='share']").hasClass("clicked") || !$("#repeat[data-status='share now']").hasClass("clicked") ) {
+      if ( !$("#prevbtn").hasClass("clicked") ) {
         closeLyrics();
       } else {
         closeLyricsShare();
@@ -16931,6 +16988,7 @@ $("#record_player .record__ring").width($("#record_player .record_player").width
     }
     }
   });
+  
   $repeatBtn.click(function () {
     if ( !$(this).hasClass("inactive") ) {
     if ( $(this).attr("data-status") === "repeat" ) {
