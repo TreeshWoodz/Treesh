@@ -10263,6 +10263,122 @@ height: 60px;
     margin-left: 15px;
     font-family:var(--main-font);
   }
+  
+  #lyrics_share-modal {
+    width:80vw;
+    height:80vw;
+    position:fixed;
+    top:50%;
+    left:0;
+    right:0;
+    margin:auto;
+    transform:translate3d(0, -50%, 0) scale(0);
+    opacity:0;
+    z-index:40000000;
+    background:var(--pink) url(https://64.media.tumblr.com/60de0949bec58e0c72ff8c263d2ceba9/7e614af597ca2214-97/s1280x1920/64e7002435d4c5c9c09ee356eb87c9668589be67.png);
+    background-size:cover;
+    background-position:center;
+    padding:15px;
+    overflow:hidden;
+    border-radius:60px;
+    color:var(--text-color);
+    border:1px solid var(--border-color);
+  }
+  
+  #lyrics_share-modal:after {
+    content:"";
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:var(--pink);
+    z-index:2;
+    opacity:0.8;
+  }
+  
+  #lyrics_share-modal:before {
+    content:"";
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    z-index:1;
+    backdrop-filter:blur(5px);
+  }
+  
+  #lyrics_share-modal img {
+    width:100px;
+    height:auto;
+    display:block;
+    position:relative;
+  }
+  
+  #lyrics_share-modal .treesh_banner {
+    width:100%;
+    height:40px;
+    white-space:nowrap;
+    font-family:var(--savionce-font);
+    font-weight:100;
+    line-height:40px;
+    position:relative;
+    z-index:3;
+    display:block;
+  }
+  
+  #lyrics_share-modal .treesh_banner img {
+    height:100%;
+    width:auto;
+    display:inline-block;
+    vertical-align:bottom;
+    border-radius:10px;
+    margin-right:10px;
+  }
+  
+  #lyrics_share-modal .metadata {
+    width:100%;
+    height:auto;
+    position:relative;
+    display:block;
+    display:flex;
+    justify-content:space-between;
+    align-items:top;
+    margin-top:10px;
+    z-index:3;
+  }
+  
+  #lyrics_share-modal .metadata img {
+    border-radius:10px;
+  }
+  
+  #lyrics_share-modal .metadata .section {
+    width:auto;
+    height:auto;
+    position:relative;
+    display:inline-block;
+    vertical-align:top;
+  }
+  
+  #lyrics_share-modal .metadata .section:last-child {
+    width:100%;
+    margin-left:10px;
+  }
+  
+  #lyrics_share-modal .metadata h3 {
+    font-family:var(--savionce-font);
+    font-weight:100;
+    margin-top:5px;
+  }
+  
+  #lyrics_share-modal .body {
+    margin-top:15px;
+    font-size:1.35rem;
+    font-weight:900;
+    position:relative;
+    display:block;
+    z-index:3;
+  }
 </style>
 
  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
@@ -10277,7 +10393,8 @@ height: 60px;
     </head>
 
     <body data-page="home">
-    <audio id="audio" src=""></audio>
+    <audio id="audio"></audio>
+      
       
        <!--- BACKGROUND --->
       <div class="pfp_backdrop image-upload">
@@ -11411,8 +11528,52 @@ height: 60px;
     </div>
   </div>
   
- 
-
+      
+      
+ <script src="https://cdn.jsdelivr.net/npm/dom-to-image-more@2.9.0/dist/dom-to-image-more.min.js"></script>
+      
+      <script>
+  $(document).on("click", "#saveBtn", function() {
+    setTimeout(function() {
+      gsap.to("#lyrics_share-modal", {
+      scale: 0,
+      duration: 0.6,
+      opacity: 0,
+      ease: "expo.out",
+        onComplete: function() {
+          $("#lyrics_share-modal").remove();
+        }
+    });
+    }, 1000);
+    
+var node = document.getElementById('lyrics_share-modal');
+  
+  domtoimage.toPng(node, {
+    quality: 1,
+    bgcolor: null,
+    cacheBust: true,
+    style: {
+      transform: 'none', // fix translate3d clipping
+      position: 'static'
+    },
+    filter: function(node) {
+      // exclude invisible or utility elements
+      return !($(node).is('script') || $(node).attr('id') === 'saveBtn');
+    }
+  })
+  .then(function(dataUrl) {
+    var link = document.createElement('a');
+    link.download = 'lyrics-share.png';
+    link.href = dataUrl;
+    link.click();
+  })
+  .catch(function(error) {
+    console.error('error capturing modal:', error);
+  });
+    
+  });
+</script>
+      
 <script src="https://treesh.life/script/flickity.js"></script>
 
 <script src="https://treesh.life/script/isotope.js"></script>
@@ -13044,11 +13205,50 @@ img.src = cover;
    // END SONG CLICK
 });
   
-  $(document).on("click", "#lyrics.expand #mini-now_playing", function() {
+  $(document).on("click", "#lyrics.expand #mini-now_playing", function(e) {
+    e.stopPropagation();
     $("#now_playing #now_playing-main").removeClass("go");
     gsap.to("#now_playing #record_player", { y: "135%", duration: 0, overwrite: true, ease: "none" });
     $("#flick-now_playing").scrollTop(0);
     closeLyrics();
+  });
+  
+  $(document).on("click", "#lyrics.expand #mini-now_playing button", function(e) {
+    e.stopPropagation();
+    
+    const songTitle = $("#now_playing .song_data h1").text();
+    const artistName = $("#now_playing .song_data h2").text();
+    const cover = $("#now_playing #record_player .record_player").attr("src");
+    const lyrics = $("#now_playing #lyrics.expand p.selected");
+    
+    let lyricsHTML = "";
+  lyrics.each(function() {
+    lyricsHTML += "<p>" + $(this).html() + "</p>";
+  });
+    
+    const modal = $(
+    '<div id="lyrics_share-modal">' +
+      '<div class="treesh_banner">' +
+        '<img src="https://64.media.tumblr.com/ba62443b4e168f21a0600e4a5e7093ae/5473b49f1a26646d-75/s2048x3072/ff5797a757ab502aa76650083546ebe5a9560dc5.png" alt="Treesh" />' +
+        'Treesh' +
+        '<button id="saveBtn">Save as PNG</button>' +
+      '</div>' +
+      '<div class="metadata">' +
+        '<div class="section"><img src="'+ cover +'" alt="'+ songTitle +'" /></div>' +
+        '<div class="section"><h2>'+ songTitle +'</h2><h3>'+ artistName +'</h3></div>' +
+      '</div>' +
+      '<div class="body">' + lyricsHTML + '</div>' +
+    '</div>'
+  );
+  
+  $("body").append(modal);
+    
+    gsap.to("#lyrics_share-modal", {
+      scale: 1,
+      duration: 0.6,
+      opacity: 1,
+      ease: "expo.in"
+    });
   });
   
   
@@ -13144,6 +13344,7 @@ img.src = cover;
     }
     
   });
+  
 
               
               $("#open_lyrics-btn").click(function() {
