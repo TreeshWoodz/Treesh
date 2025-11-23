@@ -5381,7 +5381,8 @@ input[type=range]:focus {
     border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-#music .artist__blur {
+#music .artist__blur,
+  #icon-profile .artist__blur {
   opacity: 1;
 }
 
@@ -5402,7 +5403,8 @@ input[type=range]:focus {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in, box-shadow 0.3s ease-in-out;
 }
 
-#music .artist__image {
+#music .artist__image,
+  #icon-profile .artist__image  {
   opacity: 1;
   transform: scale(1) translate3d(0, -50%, 0);
 }
@@ -5421,11 +5423,13 @@ input[type=range]:focus {
 }
 
 
-#music .artist__ring {
+#music .artist__ring,
+  #icon-profile .artist__ring  {
   transform: scale(1) translate3d(0, -50%, 0);
 }
 
-#music .artist__ring {
+#music .artist__ring,
+  #icon-profile .artist__ring  {
   background: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.2) 0%,
@@ -5443,7 +5447,8 @@ input[type=range]:focus {
   width: 200px;
   height: 200px;
 }
-#music .artist__ring--outer {
+#music .artist__ring--outer,
+  #icon-profile .artist__ring--outer  {
   transform: scale(1) translate3d(0, -50%, 0);
 }
 
@@ -10379,6 +10384,62 @@ height: 60px;
     display:block;
     z-index:3;
   }
+  
+  
+  
+  
+  
+  #icon-profile {
+  width:100%;
+  height:100vh;
+  position:fixed;
+  top:0;
+  left:0;
+  z-index:-200;
+}
+
+#icon-profile.go {
+  z-index:4 !important;
+}
+
+#icon-profile #icon-profile-bg {
+ width:100%;
+  height:100%;
+  top:0;
+  left:0;
+  background:var(--pink) url();
+  background-size:cover;
+  background-position:center center;
+  opacity:0;
+}
+
+#icon-profile #icon-profile-bg:after {
+    content:"";
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    z-index:1;
+    background:inherit;
+  filter: grayscale(100%) !important;
+}
+
+#icon-profile #icon-profile-bg:before {
+    content:"";
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    z-index:2;
+    background:var(--pink);
+  mix-blend-mode: color;
+}
+
+#icon-profile .artist {
+  z-index:4 !important;
+}
 </style>
 
  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
@@ -11095,6 +11156,13 @@ height: 60px;
 
         </div>
 <!---- END FUN ---->
+        
+        <!----- ICON PROFILE ---->
+        
+        <div id="icon-profile">
+          <div id="icon-profile-bg"></div>
+        </div>
+        
 
 <!--- MUSIC PLAYER ---->
         <div id="music" for="music" data-title="Music" class="site_page" data-for-btn=".music_player-btn">
@@ -11227,6 +11295,84 @@ height: 60px;
 
                   </div>
                 </section>
+                
+                 <script>
+                   var tl;
+        $("#music .artists").on("click", ".artist", function() {
+  var $this = $(this);
+  var artistOffset = $this.offset();
+  var containerOffset = $("#icon-profile").offset();
+   var bg = $("#icon-profile #icon-profile-bg");
+
+  var top = artistOffset.top - containerOffset.top + ($this.outerHeight() / 2);
+  var left = artistOffset.left - containerOffset.left + ($this.outerWidth() / 2);
+          
+          var navbarHeight = getComputedStyle(document.documentElement).getPropertyValue('--navbarHeight');
+
+navbarHeight = parseFloat(navbarHeight);
+
+  $("#icon-profile .artist").remove();
+
+  var $clone = $this.clone();
+
+  var computed = window.getComputedStyle($this[0]);
+  for (var i = 0; i < computed.length; i++) {
+    var prop = computed[i];
+    $clone.css(prop, computed.getPropertyValue(prop));
+  }
+  
+          $clone.find(".artist__label").remove();
+          
+  $clone.css({
+    position: "absolute",
+    top: top,
+    left: left,
+    height: "auto",
+    display: "block",
+    transform: "translate(-50%, -50%)"
+  }).appendTo("#icon-profile");
+          
+          bg.css("backgroundImage", "url("+ $this.attr("data-bg") +")");
+          
+          $("#icon-profile").addClass("go");
+          
+          tl = gsap.timeline();
+
+tl.to("#music", {
+  opacity: 0,
+  duration: 0.6,
+  ease: "power4.in"
+})
+.to($clone, {
+  top: "50%",
+  left: "50%",
+  y: -navbarHeight / 3,
+  duration: 0.6,
+  ease: "power4.out"
+})
+.to("#icon-profile .artist__ring, #icon-profile .artist__blur", {
+  scale: 1.2,
+  duration: 2,
+  ease: "power1.inOut",
+  repeat: -1,
+  yoyo: true
+})
+.to("#icon-profile #icon-profile-bg", {
+  opacity: 1,
+  ease: "power1.inOut"
+}, "<");
+
+});
+                   
+                   $("#icon-profile").click(function() {
+  tl.call(() => {
+  $("#icon-profile").removeClass("go");
+  $("#icon-profile .artist").remove();
+}, null, "-=1.1"); // triggers 1s before the previous tween ends
+tl.reverse();
+});
+
+        </script>
                 
                 <section class="featured_videos">
                   <header class="heading section_heading">
