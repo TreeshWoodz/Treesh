@@ -9670,7 +9670,7 @@ height: 60px;
 }
   
   .mm-menu .profile .profile_section {
-  transition:opacity 1s ease-in 1s;
+  transition:opacity 1s ease-in !important;
 }
 
 .mm-menu .profile.new .profile_section {
@@ -9698,11 +9698,49 @@ height: 60px;
 
 	.mm-menu .profile .new_profile input {
 		width:100% !important;
+    font-size:1.2rem;
 	}
+  
+  .mm-menu .profile .new_profile .new_profile-section {
+  width:100%;
+  height:auto;
+  position:absolute;
+  padding:0px 20px;
+  top:50%;
+  left:0;
+  transform:translate3d(0, -50%, 0);
+  display:block;
+  opacity:0;
+  z-index:-100;
+    transition: opacity 0.3s ease-in;
+}
+
+.mm-menu .profile .new_profile .new_profile-section.go {
+  opacity:1;
+  z-index:2;
+}
+
+.mm-menu .profile .new_profile .new_profile-options {
+  width:100%;
+  height:auto;
+  position:absolute;
+  bottom:0;
+  left:0;
+  display:block;
+  white-space:nowrap;
+  display:flex;
+  justify-content:space-around;
+  align-items:center;
+  padding-bottom:20px;
+}
+
+.mm-menu .profile .new_profile .new_profile-options button.inactive {
+  opacity: 0.5 !important;
+}
 
 .mm-menu .profile .new_profile .profile_pic {
-  width:200px;
-  height:200px;
+  width:150px;
+  height:150px;
   border-radius:100%;
   position:relative;
   display:block !important;
@@ -10707,20 +10745,28 @@ height: 60px;
         
         <div class="profile modal new">
           <form class="new_profile">
-            <h1>Create Your Profile</h1>
-            
-            <button class="profile_pic"><img src="https://64.media.tumblr.com/70a6536cb5ee3fbfe44bf36edb308852/tumblr_pp55d7E81v1rnz1s9o1_1280.jpg" alt="Your Profile" /></button>
-            <p style="text-align:center; margin-top:10px; position:relative; display:block;">Change Profile Picture</p>
-            <br>
+            <h1>Let's Get Started</h1>
+           
+            <div class="new_profile-section go">
             <label>Nickname</label>
             <input type="text" placeholder="Treesh" required maxlength="21" id="nicknameInput" />
-            <br>
+            </div>
+            
+            <div class="new_profile-section">
             <label>Birthday</label>
             <input type="date" id="birthdayInput" required />
             <p class="birthdayInputInfo">Zodiac sign: <span>Capricorn</span></p>
-            <br>
-            <br>
-            <button type="button" id="confirm-profile-btn" class="inactive">Confirm</button>
+            </div>
+            
+            <div class="new_profile-section">
+            <button class="profile_pic"><img src="https://64.media.tumblr.com/70a6536cb5ee3fbfe44bf36edb308852/tumblr_pp55d7E81v1rnz1s9o1_1280.jpg" alt="Your Profile" /></button>
+              </div>
+            
+            <div class="new_profile-options">
+              <button type="button" id="new_profile-prev-btn" class="inactive">Back</button>
+              <button type="button" id="confirm-profile-btn" class="inactive">Confirm</button>
+              <button type="button" id="new_profile-next-btn" class="inactive">Next</button>
+            </div>
           </form>
           
           <script>
@@ -10762,6 +10808,52 @@ birthdayInput.attr("max", yyyy + "-" + mm + "-" + dd);
     $(".mm-menu .profile .new_profile .birthdayInputInfo span").text(zodiac);
   }
 });
+              $(".mm-menu .profile .new_profile #nicknameInput, .mm-menu .profile .new_profile #birthdayInput").on("input change", function() {
+  if ($(this).val() !== "" && $(this).val().trim() !== "") {
+    $("#new_profile-next-btn").removeClass("inactive");
+  } else {
+    $("#new_profile-next-btn").addClass("inactive");
+  }
+});
+              
+              $(".mm-menu .profile .new_profile #new_profile-next-btn").on("click", function() {
+                var $this = $(this);
+                
+                if ( !$this.hasClass("inactive") ) {
+                  $(".mm-menu .profile .new_profile .new_profile-section.go").removeClass("go").next().addClass("go");
+                  $(".mm-menu .profile .new_profile #new_profile-prev-btn").removeClass("inactive");
+                  
+                  if ($(".mm-menu .profile .new_profile #birthdayInput").val().trim() === "" || $(".mm-menu .profile .new_profile .new_profile-section").eq(2).hasClass("go")) {
+                    $this.addClass("inactive");
+                  }
+                }
+              });
+              
+              var prevBtnTimeout;
+$(".mm-menu .profile .new_profile #new_profile-prev-btn").on("click", function() {
+  var $this = $(this);
+
+  if (!$this.hasClass("inactive")) {
+    $(".mm-menu .profile .new_profile .new_profile-section.go")
+      .removeClass("go")
+      .prev()
+      .addClass("go");
+
+    $(".mm-menu .profile .new_profile #new_profile-next-btn").removeClass("inactive");
+
+    clearTimeout(prevBtnTimeout);
+
+    prevBtnTimeout = setTimeout(function() {
+      var firstHasGo = $(".mm-menu .profile .new_profile .new_profile-section").eq(0).hasClass("go");
+      console.log("firstHasGo:", firstHasGo);
+      if (firstHasGo) {
+        $this.addClass("inactive");
+      }
+    }, 100);
+  }
+});
+
+              
               
               function checkInputs() {
   var allFilled = true;
@@ -10788,15 +10880,23 @@ $(".mm-menu .profile .new_profile input[required]").on("input change", checkInpu
               $(".mm-menu .profile .new_profile #confirm-profile-btn").click(function() {
                 var nicknameInput = $(".mm-menu .profile .new_profile #nicknameInput");
                var nickname = nicknameInput.val();
+                var birthdayVal = $(".mm-menu .profile .new_profile #birthdayInput").val();
+                
+                if ( !$(this).hasClass("inactive") ) {
                $("[data-nickname], .mm-menu .profile .profile_name, .nickname").text(nickname);
                 localStorage.setItem("nickname", nickname);
+                  localStorage.setItem("birthday", birthdayVal);
                 
                 $(".mm-menu .profile .new_profile").addClass("go");
-                $(".mm-menu .profile").removeClass("go");
+                  
+                  setTimeout(function() {
+                    $(".mm-menu .profile").removeClass("new");
+                  });
                 
                 setTimeout(function() {
                   $(".mm-menu .profile .new_profile").remove();
                 }, 1000);
+              }
               });
               
             });
