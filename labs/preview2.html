@@ -7525,6 +7525,7 @@ input[type="file"] {
 .mm-menu .backdrop_filters .filter_item p:before,
    #now_playing .slide_heading button:before,
   #now_playing .slide .options button:before,
+  #icon-profile #icon-profile-header .artist .options button:before,
 #icons .member .location:before,
 #music .whats_new .sub_head:before,
 .page_options button:before,
@@ -10392,6 +10393,7 @@ height: 60px;
   height:100vh;
   position:fixed;
   top:0;
+    background:transparent !important;
   left:0;
   z-index:-200;
 }
@@ -10408,6 +10410,7 @@ height: 60px;
   background:var(--pink) url();
   background-size:cover;
   background-position:center center;
+  transform:scale(1.5);
   opacity:0;
 }
 
@@ -10479,6 +10482,48 @@ height: 60px;
     left:0;
     display:block;
     z-index:2;
+  }
+  
+  #icon-profile #icon-profile-header .artist .options {
+    position:relative;
+    display:block;
+    width:100%;
+    z-index:4;
+    text-align:center;
+    padding-top:0px;
+    height:0px;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  
+  #icon-profile #icon-profile-header .artist .options button {
+    position:relative;
+    display:inline-block;
+    vertical-align:middle;
+    z-index:4;
+    background:var(--pink);
+    padding:0px;
+    font-family:var(--main-font);
+    font-size:1.2rem;
+    border-radius:100px;
+    margin-right:10px;
+    width:40px;
+    cursor:pointer;
+    height:40px;
+    line-height:40px;
+    border:1px solid var(--border-color);
+    opacity: 1 !important;
+  }
+  
+  #icon-profile #icon-profile-header .artist .options button i {
+    position:relative;
+    display:block;
+    z-index:3;
+    margin:auto;
+  }
+  
+  #icon-profile #icon-profile-header .artist .options button:last-child {
+    margin-right:0px;
   }
   
   #icon-profile #icon-profile-bio {
@@ -11357,6 +11402,7 @@ height: 60px;
                    var pulse;
                    var iconProfileBlurOpacity;
                    var iconProfileBlurAni;
+                   var iconProfileArtistOptionsAni;
 
                    $(document).ready(function() {
                    
@@ -11374,10 +11420,25 @@ height: 60px;
 navbarHeight = parseFloat(navbarHeight);
 
   $("#icon-profile .artist").remove();
+          $("#icon-profile #icon-profile-contain").scrollTop(0);
+          
+          $("#icon-profile .blur").css("opacity", "0");
+          
+          gsap.to("#icon-profile #icon-profile-bg", {
+  scale: 1.5,
+  opacity: 0,
+  duration: 0,
+            x: 0,            
+  y: 0,
+                       repeat: 0,
+                       yoyo: false
+});
           
           $("html, body").addClass("go-icon_profile");
 
   var $clone = $this.clone();
+          
+          $clone.find(".artist__label").append('<div class="options"><button type="button" id="icon-profile-bio-btn"><i class="fa-solid fa-circle-info"></i></button> <button type="button" id="icon-profile-discography-btn"><i class="fa-solid fa-music"></i></button> <button type="button" id="icon-profile-events-btn"><i class="fa-solid fa-calendar-days"></i></button></div>');
 
   var computed = window.getComputedStyle($this[0]);
   for (var i = 0; i < computed.length; i++) {
@@ -11391,6 +11452,8 @@ navbarHeight = parseFloat(navbarHeight);
     left: left,
 	  margin: 0,
 	  padding: 0,
+    borderRadius:0,
+    overflow: "visible",
     display: "block",
     transform: "translate(-50%, -50%)"
   }).appendTo("#icon-profile #icon-profile-header");
@@ -11412,13 +11475,44 @@ tl.to($this, {
   duration: 0.6,
   ease: "power4.in",
    onComplete: function() {
-    iconProfileBlurOpacity = gsap.to("#icon-profile .blur", {
+    iconProfileBlurOpacity = gsap.fromTo("#icon-profile .blur", {
+    opacity: 0 },
+    {
       opacity: 0.8,
       duration: 0.6,
       ease: "power1.inOut"
     });
+    
+   pulse = gsap.to("#icon-profile .artist__ring, #icon-profile .artist__blur", {
+  scale: 1.2,
+  duration: 2,
+  ease: "power1.inOut",
+  repeat: -1,
+  yoyo: true
+});
      
-     iconProfileBlurAni = gsap.to("#icon-profile #icon-profile-bg", {
+     iconProfileArtistOptionsAni = gsap.to("#icon-profile #icon-profile-header .artist .options", {
+       height: "auto",
+       paddingTop: "15px",
+       duration: 0.6,
+       ease: "power1.inOut"
+     });
+  }
+})
+.to($clone, {
+  top: "50%",
+  left: "50%",
+  y: -((navbarHeight / 6) + 55),
+  duration: 0.6,
+  ease: "power4.out"
+})
+.to("#icon-profile #icon-profile-bg", {
+  scale: 1,
+  opacity: 1,
+  duration: 0.6,     
+  ease: "power1.inOut",
+  onComplete: function() {
+    gsap.to("#icon-profile #icon-profile-bg", {
   scale: 1.4,       
   x: 20,            
   y: 20,             
@@ -11428,25 +11522,19 @@ tl.to($this, {
   yoyo: true         
 });
     
-   pulse = gsap.to("#icon-profile .artist__ring, #icon-profile .artist__blur", {
-  scale: 1.2,
-  duration: 2,
-  ease: "power1.inOut",
-  repeat: -1,
-  yoyo: true
-});
+     gsap.fromTo("#icon-profile .blur", 
+  { opacity: 0.8 }, 
+  { 
+    opacity: 0,
+    scrollTrigger: {
+      trigger: "#icon-profile #icon-profile-contain",
+      scroller: "#icon-profile #icon-profile-contain",
+      start: "top top",
+      end: "+=100",
+      scrub: true
+    }
+  });
   }
-})
-.to($clone, {
-  top: "50%",
-  left: "50%",
-  y: -navbarHeight / 3,
-  duration: 0.6,
-  ease: "power4.out"
-})
-.to("#icon-profile #icon-profile-bg", {
-  opacity: 1,
-  ease: "power1.inOut"
 }, "<");
           
           
@@ -11480,6 +11568,7 @@ tl.to($this, {
                    }
                      
                      function resetIconProfile() {
+                       iconProfileArtistOptionsAni.reverse();
                        iconProfileBlurOpacity.reverse();
                      
                    pulse.repeat(0).yoyo(false).reverse();
@@ -11492,6 +11581,7 @@ tl.to($this, {
   $("#icon-profile .artist").remove();
   $("#icon-profile").removeClass("go");
       $("html, body").removeClass("go-icon_profile");
+      $("#icon-profile #icon-profile-contain").scrollTop(0);
 }, null, "-=1.3");
                      
                      gsap.to("#icon-profile #icon-profile-bg", {
@@ -11503,6 +11593,7 @@ tl.to($this, {
                        repeat: 0,
                        yoyo: false
 });
+                       
                      
                      tl.eventCallback("onReverseComplete", function() {
     iconProfileBlurAni.kill();
