@@ -240,7 +240,9 @@ html.fade {
 }
   
   body.go-now_playing,
-  html.go-now_playing {
+  html.go-now_playing,
+  body.go-icon_profile,
+  html.go-icon_profile {
     overflow:hidden !important;
   }
 
@@ -5471,18 +5473,16 @@ input[type=range]:focus {
 }
 
 .artist__label p:first-child {
-  font-family: var(--savionce-font);
+  font-family: var(--savionce-font) !important;
+  background: var(--pink) !important;
+  background: linear-gradient( 32.4deg, rgba(255, 255, 255, 1) 0%, var(--pink) 100% ) !important;
+  background-clip: text !important;
+  color: transparent !important;
+ filter:brightness(150%) !important;
 }
 
-#music .artist__label p:first-child { 
-  background: var(--pink);
-  background: linear-gradient( 32.4deg, rgba(255, 255, 255, 1) 0%, var(--pink) 100% );
-  background-clip: text;
-  color: transparent;
- filter:brightness(150%);
-}
-
-#music .artists .capital {
+#music .artists .capital,
+  #icon-profile .artist .capital {
   color: var(--text-color);
   text-transform: uppercase;
   font-size: 1rem;
@@ -10450,6 +10450,43 @@ height: 60px;
     opacity:0;
     background:var(--pink);
 }
+  
+  #icon-profile .artist__label p:first-child {
+  font-family: var(--savionce-font) !important;
+  background: var(--pink) !important;
+  background: linear-gradient( 32.4deg, rgba(255, 255, 255, 1) 0%, var(--pink) 100% ) !important;
+  background-clip: text !important;
+  color: transparent !important;
+ filter:brightness(150%) !important;
+}
+  
+  #icon-profile #icon-profile-contain {
+    width:100%;
+    height:100%;
+    position:absolute;
+    top:0;
+    left:0;
+    display:block;
+    overflow:auto;
+    z-index:4;
+  }
+  
+  #icon-profile #icon-profile-header {
+    width:100%;
+    height:100vh;
+    position:sticky;
+    top:0;
+    left:0;
+    display:block;
+    z-index:2;
+  }
+  
+  #icon-profile #icon-profile-bio {
+    position:relative;
+    display:block;
+    width:100%;
+    height:4000px;
+  }
 </style>
 
  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
@@ -11172,6 +11209,14 @@ height: 60px;
         <div id="icon-profile">
           <div id="icon-profile-bg"></div>
           <div class="blur"></div>
+          
+          <div id="icon-profile-contain">
+          <div id="icon-profile-header"></div>
+            
+            <div id="icon-profile-bio">
+              
+            </div>
+          </div>
         </div>
         
 
@@ -11309,6 +11354,12 @@ height: 60px;
                 
                  <script>
                    var tl;
+                   var pulse;
+                   var iconProfileBlurOpacity;
+                   var iconProfileBlurAni;
+
+                   $(document).ready(function() {
+                   
         $("#music .artists").on("click", ".artist", function() {
   var $this = $(this);
   var artistOffset = $this.offset();
@@ -11318,11 +11369,13 @@ height: 60px;
   var top = artistOffset.top - containerOffset.top + ($this.outerHeight() / 2);
   var left = artistOffset.left - containerOffset.left + ($this.outerWidth() / 2);
           
-          var navbarHeight = getComputedStyle(document.documentElement).getPropertyValue('--navbarHeight');
+          var navbarHeight = getComputedStyle(document.documentElement).getPropertyValue('--navBarHeight');
 
 navbarHeight = parseFloat(navbarHeight);
 
   $("#icon-profile .artist").remove();
+          
+          $("html, body").addClass("go-icon_profile");
 
   var $clone = $this.clone();
 
@@ -11340,7 +11393,7 @@ navbarHeight = parseFloat(navbarHeight);
 	  padding: 0,
     display: "block",
     transform: "translate(-50%, -50%)"
-  }).appendTo("#icon-profile");
+  }).appendTo("#icon-profile #icon-profile-header");
           
           bg.css("backgroundImage", "url("+ $this.attr("data-bg") +")");
           
@@ -11351,54 +11404,116 @@ navbarHeight = parseFloat(navbarHeight);
 tl.to($this, {
 	opacity: 0,
 	duration: 0,
-	transitionDelay: "none"
+	transitionDelay: "none",
+  ease: "none"
 })
 .to("#music", {
   opacity: 0,
   duration: 0.6,
-  ease: "power4.in"
+  ease: "power4.in",
+   onComplete: function() {
+    iconProfileBlurOpacity = gsap.to("#icon-profile .blur", {
+      opacity: 0.8,
+      duration: 0.6,
+      ease: "power1.inOut"
+    });
+     
+     iconProfileBlurAni = gsap.to("#icon-profile #icon-profile-bg", {
+  scale: 1.4,       
+  x: 20,            
+  y: 20,             
+  duration: 20,     
+  ease: "power1.inOut",
+  repeat: -1,        
+  yoyo: true         
+});
+    
+   pulse = gsap.to("#icon-profile .artist__ring, #icon-profile .artist__blur", {
+  scale: 1.2,
+  duration: 2,
+  ease: "power1.inOut",
+  repeat: -1,
+  yoyo: true
+});
+  }
 })
 .to($clone, {
   top: "50%",
   left: "50%",
   y: -navbarHeight / 3,
   duration: 0.6,
-  ease: "power4.out",
-  onComplete: function() {
-    gsap.to("#icon-profile .blur", {
-      opacity: 0.8,
-      duration: 0.6,
-      ease: "power1.inOut"
-    });
-  }
-})
-.to("#icon-profile .artist__ring, #icon-profile .artist__blur", {
-  scale: 1.2,
-  duration: 2,
-  ease: "power1.inOut",
-  repeat: -1,
-  yoyo: true
+  ease: "power4.out"
 })
 .to("#icon-profile #icon-profile-bg", {
   opacity: 1,
   ease: "power1.inOut"
 }, "<");
+          
+          
+          gsap.to("#icon-profile #icon-profile-header", {
+  y: -50,        
+  opacity: 0.5,
+            overwrite:true,
+  scrollTrigger: {
+    trigger: "#icon-profile #icon-profile-contain",
+    scroller: "#icon-profile #icon-profile-contain",
+    start: "top top",   
+    end: "bottom top", 
+    scrub: true       
+  }
+});
 
 });
                    
                    $("#icon-profile").click(function() {
-                     gsap.to("#icon-profile .blur", {
-      opacity: 0,
-      duration: 0.6,
-      ease: "power1.inOut"
-    });
+                   if ( $("#icon-profile #icon-profile-contain").scrollTop() >= 10 ) {
+                     gsap.to("#icon-profile #icon-profile-contain", {
+    duration: 1,
+    scrollTo: { y: 0 },
+    ease: "power2.inOut",
+                       onComplete: function() {
+                         resetIconProfile();
+                       }
+  });
+                   } else {
+                     resetIconProfile();
+                   }
+                     
+                     function resetIconProfile() {
+                       iconProfileBlurOpacity.reverse();
+                     
+                   pulse.repeat(0).yoyo(false).reverse();
+  pulse.eventCallback("onReverseComplete", function() {
+    pulse.kill();
+  });
+                     
                      
     tl.call(function() {
   $("#icon-profile .artist").remove();
   $("#icon-profile").removeClass("go");
-}, null, "-=1.7");
-tl.reverse();
+      $("html, body").removeClass("go-icon_profile");
+}, null, "-=1.3");
+                     
+                     gsap.to("#icon-profile #icon-profile-bg", {
+  scale: 1,       
+  x: 0,            
+  y: 0,             
+  duration: 0.6,     
+  ease: "power1.inOut",
+                       repeat: 0,
+                       yoyo: false
 });
+                     
+                     tl.eventCallback("onReverseComplete", function() {
+    iconProfileBlurAni.kill();
+  });
+                     
+tl.reverse();
+                     }
+});
+                     
+                     
+                     });
 
         </script>
                 
@@ -12638,7 +12753,7 @@ function loadSite() {
   
   $("#about .body").load("/content/about.html");
   
-  $.get("https://yvll.tumblr.com/icons.html", function(data) {
+  $.get("/content/icons.html", function(data) {
     let $html = $("<div>").html(data);
     let theIconsList = $html.find(".artist");
 
@@ -12743,7 +12858,7 @@ var $track;
   
 $(document).ready(function () {
     
- $("#library").load("https://yvll.tumblr.com/songs.html .song", function() {
+ $("#library").load("/content/songs.html .song", function() {
   libraryIsotope = $("#music #library").isotope({
     itemSelector: ".song",
     gutter: 0,
@@ -12806,7 +12921,7 @@ $(document).ready(function () {
       }
       
 
-      $.get("https://yvll.tumblr.com/lyrics.html", function(lyricsData) {
+      $.get("/content/lyrics.html", function(lyricsData) {
       const $lyrics = $(lyricsData);
       const match = $lyrics.find(".lyric[data-track='" + trackName + "']");
         
@@ -13206,7 +13321,7 @@ history.replaceState(null, null, pushState);
      
      // FIND LYRICS
 
-     $.get("https://yvll.tumblr.com/lyrics.html", function(data) {
+     $.get("/content/lyrics.html", function(data) {
     let $html = $("<div>").html(data);
     let $lyrics = $html.find(".lyric");
        let sanitizedTrack = $track.toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
@@ -15616,7 +15731,7 @@ tl.to(".mm-menu", { opacity: 0, duration: 0.3, ease: "expo.out" })
     .css("background-image", $(".pfp_backdrop").css("background-image"));
 
   $(document).on("click", ".mm-menu .theme-btn", function () {
-  $.get("https://yvll.tumblr.com/backdrops.html", function (data) {
+  $.get("/content/backdrops.html", function (data) {
     let $html = $("<div>").html(data);
     let containers = $html.find(".backdrops_container");
 
