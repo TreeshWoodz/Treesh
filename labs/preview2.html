@@ -12468,7 +12468,7 @@ localStorage.setItem("dateCreated", formatted);
     </div>
         <!--- END VOICE --->
         
-        <div class="notification modal" data-status="normal">
+        <div class="notification modal">
           <div class="body_contain">
             <div class="section icon">
               <i class="fa-solid fa-circle-info"></i>
@@ -12477,10 +12477,7 @@ localStorage.setItem("dateCreated", formatted);
             <div class="section body"></div>
           </div>
 
-          <div class="options">
-            <div class="more"></div>
-            <button type="button" data-close><span>Thanks!</span></button>
-          </div>
+          <div class="options"></div>
         </div>
         <!--- END NOTIFICATION --->
 
@@ -13403,7 +13400,7 @@ gsap.to("#icon-profile .artist .artist__image", {
 
 			var artist = $(this).attr("data-name");
 
-discographyContainer.load("/content/songs.html", function(response) {
+discographyContainer.load("https://yvll.tumblr.com/songs.html", function(response) {
   var temp = $("<div>").html(response);
   var filtered = temp.find(".song[data-artist='" + artist + "']");
 
@@ -14664,96 +14661,83 @@ function menuModalClose() {
     });
   }
 }
-
-function openNotification() {
+  
+  function notification(msg, icon, btn, time) {
   clearTimeout(notificationTimeout);
-  $notificationIcon.html($notificationIconBody);
-  $notificationBody.html($notificationBodyText);
-  $notificationCloseBtnSpan.text($notificationCloseBtnText);
-  $notificationMoreOptions.html($notificationButtons);
-  
-  if (!setNotificationOptions) {
-      isClickable = true;
-    $notificationOptions.hide();
+    time = time || 0;
+
+  let icons = {
+    welcome: "face-laugh-squint",
+    music: "music"
+  };
+
+  $notificationIcon.html('<i class="fa-solid fa-' + (icons[icon] || icon) + '"></i>');
+  $notificationBody.html(msg).scrollTop(0);
     
-    if ( $(".mm-menu .notification").attr("data-status") === "troubleshoot" ) {
-        ifDeactivateTime = ifDeactivateTime + 1000;
-    }
+    let notificationHeight = $notificationBodyContain.innerHeight();
 
-    setTimeout(function () {
-        
-        gsap.to($notification, {
-        height: $notificationBodyContain.innerHeight(),
-        duration: 0.3,
-    ease: "expo.inOut",
-    onComplete: function() {
-        $notification.addClass("go");
-    }
-    });
-
-        closeNotification();
-      }, notificationTimer);
+    if (btn && typeof btn === "object") {
+  $notificationOptions.empty();
+      
+  Object.entries(btn).forEach(([text, fn]) => {
+    $('<button type="button"><span>'+ text +'</span></button>')
+      .appendTo($notificationOptions)
+      .on("click", () => {
+        if (typeof fn === "function") fn();
+        else closeNotification();
+      });
+  });
+      
+  $notificationOptions.show();
+  notificationHeight += $notificationOptions.innerHeight();
   } else {
-      gsap.to($notification, {
-        height: $notificationBodyContain.innerHeight() + $notificationOptions.innerHeight(),
-        duration: 0.3,
-    ease: "expo.inOut",
-    onComplete: function() {
-        $notification.addClass("go");
-    }
-    });
-    
-      isClickable = false;
-      
-      $navBarItem.addClass("inactive");
+    $notificationOptions.hide();
+    notificationHeight = notificationHeight;
   }
-  
-  $(".mm-menu .notification .section.body").scrollTop(0);
-}
 
-function closeNotification() {
-    isClickable = true;
-    $notificationStatus === false;
-    
-    $navBarItem.removeClass("inactive");
-	
-	$(".mm-menu .notification").attr("data-status", "normal");
-	
   gsap.to($notification, {
-        height: 0,
-        duration: 0.3,
+    height: notificationHeight,
+    duration: 0.6,
     ease: "expo.inOut",
-    onComplete: function() {
-      $notification.removeClass("go");
-      
-      setNotificationOptions = true;
+    onComplete: () => {
+      $notification.addClass("go");
 
-  if (setNotificationOptions) {
-    $notificationOptions.show();
-  }
-
-  if ($("#flickSite").hasClass("no-form")) {
-    $("#flickSite").removeClass("no-form");
-  }
-  
-  if ( $(".mm-menu .profile-btn").hasClass("picked") && !$("body").hasClass("deleting_data") ) {
-	 $(".mm-menu .profile-btn").siblings().addClass("inactive");
-	 
-      setTimeout(function() {
-          gsap.to(".mm-menu .profile", {
-        height: "60vh",
-        duration: 0.3,
-    ease: "expo.inOut",
-    onComplete: function() {
-      $(".mm-menu .profile").addClass("go");
+      if (!btn) {
+        
+        setTimeout(() => {
+          closeNotification();
+        }, time + 1000);
+      }
     }
-    });
-  }, 600);
-  }
-    }
-    });
-    
+  });
 }
+  
+  function closeNotification() {
+    $notification.removeClass("go");
+    
+    gsap.to($notification, {
+            height: 0,
+            duration: 0.6,
+      delay: 0.6,
+            ease: "expo.inOut"
+          });
+  }
+
+  
+  function retryLoadingAudio() {
+        audio.pause();        
+    audio.currentTime = 0; 
+    audio.load();           
+    audio.play().catch(err => console.log("play blocked:", err));
+    
+     if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
+            if ( !$playPauseBtn.hasClass("fa-pause") ) {
+          $(".mm-menu .page_title .title span").text("Trying again...");
+            }
+    }
+   
+    closeNotification();
+  }
 
 // EVERYTHING LOADED --------------------------
 
@@ -14778,11 +14762,12 @@ const $musicWhatsNewFlick = $("#music .whats_new .whats_new_flick").flickity({
 });
 
 function loadSite() {
+  
   $("#wave .nickname").text($(".profile .profile_name").text());
   
-  $("#about .body").load("/content/about.html");
+  $("#about .body").load("https://yvll.tumblr.com/about.html");
   
-  $.get("/content/icons.html", function(data) {
+  $.get("https://yvll.tumblr.com/icons.html", function(data) {
     let $html = $("<div>").html(data);
     let theIconsList = $html.find(".artist");
 
@@ -14801,32 +14786,28 @@ if (!supportsVoiceRecognition()) {
     gsap.to("#voice-btn", {
         opacity: 1,
         duration: 0.6,
+      delay: 4000,
     ease: "expo.out",
     });
 }
+  
+  setTimeout(function() {
+    notification(
+      // Message
+      "<h1>Welcome to Treesh 3.0!</h1><p>This is currently a testing preview. Things may not work correctly, but we are aware!</p>",
+      // Icon
+      "welcome",
+      // Options
+      {
+        "Cool!": null
+      });
+  }, 4000);
 
       $("#flickSite, #your_hub").removeClass("unload");
-
-    setTimeout(function () {
-      
-      if ( $notificationStatus === "fun" && !localStorage.getItem("learnedHub") && !$("#flickSite").hasClass("go-settings") && !localStorage.getItem("learnedTreesh") ) {
-          $notificationIconBody = '<i class="fa-regular fa-face-laugh-squint"></i>';
-      $notificationBodyText =
-        "<h1>Welcome to Treesh 3.0!</h1><p>Discover new up-and-coming artists passionate in the art of <b>Music</b>. Watch them as they grow and become the next big <b>Icons</b>!</p>";
-        setNotificationOptions = true;
-        if ( localStorage.getItem("dateCreated") ) {
-    $notificationCloseBtnText = "Duly noted";
-        } else {
-            $notificationCloseBtnText = "Duly noted";
-        }
-      openNotification();
-      }
       
       setTimeout(function() {
             $("#fun .chevron_container").fadeIn(600);
         }, 6000);
-      
-    }, 1000);
   
   if (currentURL.indexOf('?artist') !== -1 && currentURL.indexOf('song') !== -1) {
         var urlParams = new URLSearchParams(window.location.search);
@@ -14887,7 +14868,7 @@ var $track;
   
 $(document).ready(function () {
     
- $("#library").load("/content/songs.html .song", function() {
+ $("#library").load("https://yvll.tumblr.com/songs.html .song", function() {
   libraryIsotope = $("#music #library").isotope({
     itemSelector: ".song",
     gutter: 0,
@@ -14950,7 +14931,7 @@ $(document).ready(function () {
       }
       
 
-      $.get("/content/lyrics.html", function(lyricsData) {
+      $.get("https://yvll.tumblr.com/lyrics.html", function(lyricsData) {
       const $lyrics = $(lyricsData);
       const match = $lyrics.find(".lyric[data-track='" + trackName + "']");
         
@@ -15354,7 +15335,7 @@ history.replaceState(null, null, pushState);
      
      // FIND LYRICS
 
-     $.get("/content/lyrics.html", function(data) {
+     $.get("https://yvll.tumblr.com/lyrics.html", function(data) {
     let $html = $("<div>").html(data);
     let $lyrics = $html.find(".lyric");
        let sanitizedTrack = $track.toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
@@ -16159,67 +16140,6 @@ if ($(".mm-menu .emoji_contain favehrt-tag").length > 1) {
   }
 
   // NOTIFICATION
-
-  $notificationCloseBtn.click(function () {
-    const $this = $(this);
-
-    $lyricExplained.removeClass("hover");
-
-    if ($notification.hasClass("go")) {
-      closeNotification();
-    } else {
-      $this.parents(".modal").removeClass("go");
-    }
-    
-    if ($this.text() == "Duly noted") {
-        localStorage.setItem("learnedTreesh", true);
-    }
-    
-    if ($this.text() == "Try again") {
-        audio.pause();        
-    audio.currentTime = 0; 
-    audio.load();           
-    audio.play().catch(err => console.log("play blocked:", err));
-    
-     if ( $("#now_playing #now_playing-main").hasClass('go') && $("#now_playing").hasClass("go") ) {
-            if ( !$playPauseBtn.hasClass("fa-pause") ) {
-          $(".mm-menu .page_title .title span").text("Trying again...");
-            }
-    }
-    }
-    
-    if ( $this.text() === "Nice!" ) {
-    localStorage.setItem("learnedHub", true);
-    }
-
-    if ($this.text() == "Explore") {
-        localStorage.setItem("learnedMusic", true);
-    }
-    
-    if ($this.text() == "View Icons") {
-        localStorage.setItem("learnedIcons", true);
-    }
-
-    if ($this.text() == "Let me think") {
-      $deleteDataBtn.html('<i class="fa-regular fa-thumbs-up"></i>').removeClass("fade");
-    $(".mm-menu .mm-item").removeClass("inactive");
-    
-    setTimeout(function() {
-      gsap.to(".mm-menu .profile", {
-        height: "60vh",
-        duration: 0.3,
-    ease: "expo.inOut",
-    onComplete: function() {
-      $(".mm-menu .profile").addClass("go");
-    }
-    });
-    }, 600);
-    }
-    
-     if ( $this.text() === "Sweet!" ) {
-    localStorage.setItem("knowProfiles", true);
-    }
-  });
     
     var deletingInProgress;
   $deleteDataBtn.click(function () {
@@ -16231,118 +16151,30 @@ if ($(".mm-menu .emoji_contain favehrt-tag").length > 1) {
     ease: "expo.inOut",
     onComplete: function() {
       $(".mm-menu .profile").removeClass("go");
+      
+      notification(
+      // Message
+      "<h1>Delete Everything?</h1><p>There are no servers to retrieve your data! Everything is stored on your device only and we cannot help you get anything back!</p>",
+      // Icon
+      "warning",
+      // Options
+      {
+        "Delete": () => { 
+      localStorage.clear(); 
+      location.reload(); 
+    },
+        "Never mind": () => { 
+      closeNotification(); 
+      
+          setTimeout(function() {
+            let btnProfile = $(".mm-menu .profile-btn");
+if (btnProfile.length) btnProfile.trigger("click");
+          }, 1200);
+    },
+      });
     }
     });
     
-    $(".mm-menu .mm-item").addClass("inactive");
-
-    $notificationIconBody = '<i class="fa-solid fa-skull-crossbones"></i>';
-    $notificationBodyText =
-      "<h1>Are you absolutely sure?</h1> <p>Confirm by pressing the button again. All of your data will be erased and you cannot retrieve it.</p>";
-    setNotificationOptions = true;
-    $notificationCloseBtnText = "Let me think";
-    openNotification();
-
-    if ($this.html() == '<i class="fa-regular fa-thumbs-up"></i>') {
-      $deleteDataBtn.text("WAIT! I change my mind!");
-      $("body").addClass("deleting_data");
-      $(".mm-menu .mm-item").removeClass("inactive");
-      
-      $notificationIconBody = '<i class="fa-regular fa-thumbs-up"></i>';
-      $notificationBodyText = "That's okay. It's nice to start over.";
-      setNotificationOptions = false;
-      notificationTimer = 5000;
-      openNotification();
-
-      deletingInProgress = setTimeout(function () {
-        $notificationIconBody = '<i class="fa-solid fa-power-off"></i>';
-        $notificationBodyText = "Let's reset everything then.";
-        setNotificationOptions = false;
-        notificationTimer = 5000;
-        openNotification();
-        $("#flickSite").removeClass("go");
-
-        deletingInProgress = setTimeout(function () {
-          $notificationIconBody = '<i class="fa-solid fa-stopwatch-20"></i>';
-          $notificationBodyText = "<h1>5...</h1>";
-          setNotificationOptions = false;
-          notificationTimer = 1000;
-          openNotification();
-
-          deletingInProgress = setTimeout(function () {
-            $notificationIconBody = '<i class="fa-solid fa-stopwatch-20"></i>';
-            $notificationBodyText = "<h1>4...</h1>";
-            setNotificationOptions = false;
-            notificationTimer = 1000;
-            openNotification();
-
-            deletingInProgress = setTimeout(function () {
-              $notificationIconBody =
-                '<i class="fa-solid fa-stopwatch-20"></i>';
-              $notificationBodyText =
-                "<h1>3...</h1>";
-              setNotificationOptions = false;
-              notificationTimer = 1000;
-              openNotification();
-
-              deletingInProgress = setTimeout(function () {
-                $notificationIconBody =
-                  '<i class="fa-solid fa-stopwatch-20"></i>';
-                $notificationBodyText =
-                  "<h1>2...</h1>";
-                setNotificationOptions = false;
-                notificationTimer = 1000;
-                openNotification();
-
-                deletingInProgress = setTimeout(function () {
-                  $notificationIconBody =
-                    '<i class="fa-solid fa-stopwatch-20"></i>';
-                  $notificationBodyText =
-                    "<h1>1...</h1>";
-                  setNotificationOptions = false;
-                  notificationTimer = 1000;
-                  openNotification();
-
-                  deletingInProgress = setTimeout(function () {
-                    $notificationIconBody =
-                      '<i class="fa-regular fa-face-kiss-wink-heart"></i>';
-                    $notificationBodyText =
-                      "See ya later, <b>" + nickname + "</b>!";
-                    setNotificationOptions = false;
-                    notificationTimer = 3000;
-                    openNotification();
-
-                    deletingInProgress = setTimeout(function () {
-                      $("#content").addClass("fade");
-                      localStorage.clear();
-                    }, 2000);
-
-                    deletingInProgress = setTimeout(function () {
-                      location.reload();
-                    }, 3600);
-                  }, 1600);
-                }, 1600);
-              }, 1600);
-            }, 1600);
-          }, 1600);
-        }, 1600);
-      }, 3600);
-    } else if ( $this.text() == "WAIT! I change my mind!" ) {
-        clearTimeout(deletingInProgress);
-        $("body").removeClass("deleting_data");
-        $(".mm-menu .mm-item").removeClass("inactive");
-        $notificationIconBody = '<i class="fa-solid fa-face-grin-squint-tears"></i>';
-        $notificationBodyText = "Whew! You had us worried. We'll keep everything for you. Was this a sick joke?!";
-        setNotificationOptions = false;
-        notificationTimer = 5000;
-        openNotification();
-        
-        setTimeout(function() {
-        $("#flickSite").addClass("go");
-        }, 5000);
-        
-        $this.html('button type="button" id="delete_data-btn" data-for="Profile"><i class="fa-solid fa-trash"></i></button>');
-    }
   });
 
   // FLICKITY ---------------------
@@ -16946,8 +16778,7 @@ if (isVisible) {
           $this.find(".fave-hrt").addClass("go");
         }, 100);
 
-        $notificationIconBody = '<i class="fa fa-music"></i>';
-        $notificationBodyText = "You've favorited <b>" + artistName + "</b>!";
+        theMsg = "You've favorited <b>" + artistName + "</b>!";
         $this.addClass("liked");
         
         var btnStatus = "Unlike";
@@ -16957,6 +16788,7 @@ if (isVisible) {
           $(".mm-menu #music_filters .favorite_icon-btn").removeClass("clicked");
           
        var btnStatus = "Like";
+        theMsg = "You've taken away <b>" + artistName + "</b>'s heart.";
           
         $this.find(".fave-hrt").removeClass("go");
 
@@ -16965,10 +16797,8 @@ if (isVisible) {
         }, 300);
         
         $this.removeClass("liked");
+        
 
-        $notificationIconBody = '<i class="fa fa-music"></i>';
-        $notificationBodyText =
-          "You've taken away <b>" + artistName + "</b>'s heart.";
         $dataFavoriteArtist.find("[data-artist='" + artistName + "']").remove();
 
         if ($dataFavoriteArtist.is(":empty")) {
@@ -16981,10 +16811,17 @@ if (isVisible) {
       var theHtml = btnStatus +' <p class="artist_picked">'+ iconPicked +'</p>';
    
    $(".mm-menu #music_filters .favorite_icon-btn span:last").html(theHtml);
+      
+      notification(
+      // Message
+      theMsg,
+      // Icon
+      "music",
+      // Options
+      false,
+        3000);
 
-      setNotificationOptions = false;
-      notificationTimer = 6000;
-      openNotification();
+      
     }, 1000);
   }
 
@@ -17309,11 +17146,8 @@ audio.addEventListener("timeupdate", function () {
       
         
       audio.addEventListener("error", function () {
-   $notificationIconBody = '<i class="fa-solid fa-bug"></i>';
-      $notificationBodyText =
+      let theMsg =
         "<h1>Uh oh...</h1><p>There appears to be an error loading <b>'"+ $("#now_playing .song_data h1").text() +"'</b> by <b>"+ $("#now_playing .song_data h2").text() +"</b>!</p><p>It could be the following reasons:</p><p><li>Wi-Fi connection has been disconnected,</li><li>The app may not have loaded fully,</li><li>The song does not exist anymore,</li><li>Another audio source is currently playing,</li><li>Using private or masked connections such as VPN,</li><li>JavaScript is disabled in settings.</li></p><p>Click or tap <b>'Try Again'</b> to reload the track. Check your connection and refresh the app if error continues.</p>";
-        setNotificationOptions = true;
-            $notificationCloseBtnText = "Try again";
             
             var notificationTime;
             if ( $(".mm-menu .notification").hasClass("go") ) {
@@ -17323,7 +17157,15 @@ audio.addEventListener("timeupdate", function () {
             }
             
             musicErrorNotification = setTimeout(function() {
-                openNotification();
+                notification(
+      // Message
+      theMsg,
+      // Icon
+      "bug",
+      // Options
+                  {
+                    "Try again": () => retryLoadingAudio()
+                  });
                 
                 musicErrorNotification = setTimeout(function() {
           $playPauseBtn.removeClass("fa-pause").addClass("fa-play").removeClass("loading");
@@ -17360,6 +17202,7 @@ audio.addEventListener("timeupdate", function () {
       var $this = $(this);
       $this.addClass("hover").siblings().removeClass("hover");
       var dataExplainValue = $this.data("explain");
+      let theMsg;
 
       if (dataExplainValue === undefined || dataExplainValue === "") {
         // If the current paragraph doesn't have a value, find the previous one with a value
@@ -17374,19 +17217,21 @@ audio.addEventListener("timeupdate", function () {
           .first();
 
         if (prevParagraphWithVal.length > 0) {
-          $notificationIconBody = '<i class="fa-solid fa-music"></i>';
-          $notificationBodyText = prevParagraphWithVal.attr("data-explain");
-          setNotificationOptions = true;
-          $notificationCloseBtnText = "Close";
-          openNotification();
+          theMsg = prevParagraphWithVal.attr("data-explain");
         }
       } else {
-        $notificationIconBody = '<i class="fa-solid fa-music"></i>';
-        $notificationBodyText = $this.attr("data-explain");
-        setNotificationOptions = true;
-        $notificationCloseBtnText = "Close";
-        openNotification();
+        theMsg = $this.attr("data-explain");
       }
+      
+      notification(
+      // Message
+      theMsg,
+      // Icon
+      "music",
+      // Options
+                  {
+                    "Close": null
+                  });
     }
   );
 
@@ -17824,7 +17669,7 @@ tl.to(".mm-menu", { opacity: 0, duration: 0.3, ease: "expo.out" })
     .css("background-image", $(".pfp_backdrop").css("background-image"));
 
   $(document).on("click", ".mm-menu .theme-btn", function () {
-  $.get("/content/backdrops.html", function (data) {
+  $.get("https://yvll.tumblr.com/backdrops.html", function (data) {
     let $html = $("<div>").html(data);
     let containers = $html.find(".backdrops_container");
 
@@ -18895,19 +18740,6 @@ $("#now_playing").removeClass("go");
         if ($this.hasClass("music_player-btn") && !$("#flickSite").hasClass("go-settings") && $(window).scrollTop() < $("#music").offset().top - 100) {
       
 $("#now_playing").removeClass("go");
-
-            if (!localStorage.getItem("learnedMusic")) {
-      $notificationIconBody = '<i class="fa fa-music"></i>';
-      $notificationBodyText =
-        "<h1>Welcome to <b>Treesh Music</b>!</h1> <p>Discover the hottest new, up-and-coming music artists from around the globe. Learn new lyrics, view music videos and explore new territory.</p>";
-      setNotificationOptions = true;
-      $notificationCloseBtnText = "Explore";
-
-                $notificationStatus = "music";
-      setTimeout(function () {
-        openNotification();
-      }, 1000);
-    }
             
           nowPlayingScreen = true;
           
@@ -19040,12 +18872,16 @@ $(".mm-menu #nav_bar .music_player-btn").click(function() {
           const url = window.location.href;
   navigator.clipboard.writeText(url);
   
-  $notificationIconBody = '<i class="fa fa-music"></i>';
-    $notificationBodyText =
+    let theMsg =
       "The link has been copied and ready to share!";
-    setNotificationOptions = false;
-    notificationTimer = 6000;
-    openNotification();
+        
+        notification(
+      // Message
+      theMsg,
+      // Icon
+      "music",
+      false,
+        6000);
       }
   });
 
@@ -19166,6 +19002,7 @@ $('.mm-menu').on('transitionend webkitTransitionEnd oTransitionEnd', function ()
     var trackWholeName = $selectedItem.find("h2").text();
     var songPic = $selectedItem.attr("data-coverart");
     var songArtist = $selectedItem.find("song-info-tag h3").text();
+    let theMsg;
     
     if (!$dataFavoriteSong.find("[data-song='" + faveTrackName + "']").length) {
       $selectedItem.addClass("liked").append(appendHrt);
@@ -19194,8 +19031,7 @@ $('.mm-menu').on('transitionend webkitTransitionEnd oTransitionEnd', function ()
       
       $(".mm-menu #music_filters .favorite_song-btn").addClass("clicked").find("span:eq(1)").text("Unlike");
 
-      $notificationIconBody = '<i class="fa fa-music"></i>';
-      $notificationBodyText =
+      theMsg =
         "You've picked '<b>" + trackWholeName + "</b>' by <b>"+ songArtist +"</b> as your new favorite!";
     } else {
       $selectedItem.find(".fave-hrt").removeClass("go");
@@ -19205,8 +19041,7 @@ $('.mm-menu').on('transitionend webkitTransitionEnd oTransitionEnd', function ()
       
       $(".mm-menu #music_filters .favorite_song-btn").removeClass("clicked").find("span:eq(1)").text("Like");
 
-      $notificationIconBody = '<i class="fa fa-music"></i>';
-      $notificationBodyText =
+     theMsg =
         "Seems you feel different about '<b>" + trackWholeName + "</b>'!";
       $dataFavoriteSong.find("[data-song='" + faveTrackName + "']").remove();
     }
@@ -19215,9 +19050,13 @@ $('.mm-menu').on('transitionend webkitTransitionEnd oTransitionEnd', function ()
       localStorage.setItem("favSong", $dataFavoriteSong.html());
     }, 101);
 
-    setNotificationOptions = false;
-    notificationTimer = 6000;
-    openNotification();
+    notification(
+      // Message
+      theMsg,
+      // Icon
+      "music",
+      false,
+    6000);
   } 
   
     
@@ -19255,12 +19094,18 @@ $(document).on("click", ".mm-menu #music_filters .about_icon-btn", function() {
         $matchingArtist.click();
         initiatePageOptions();
     } else {
-        $notificationIconBody = '<i class="fa fa-music"></i>';
-    $notificationBodyText =
+    let theMsg =
       "Hmm... Seems there's a plus one! They aren't a part of the <b>Treesh Icons</b>. They are a featured cameo icon! So, we don't have a profile for you to check out.";
-    setNotificationOptions = false;
-    notificationTimer = 6000;
-    openNotification();
+    
+      notification(
+      // Message
+      theMsg,
+      // Icon
+      "music",
+      // Options
+                  {
+                    "Okay": null
+                  });
     }
 });
 
@@ -19308,12 +19153,15 @@ $(document).on("click", ".mm-menu #music_filters .about_icon-btn", function() {
       }, 100);
     }, 600);
 
-    $notificationIconBody = '<i class="fa fa-music"></i>';
-    $notificationBodyText =
+    let theMsg =
       "Aww. You've deleted <b>\"" + trackWholeName + '"</b> by <b>'+ songArtist +'</b> from your music.';
-    setNotificationOptions = false;
-    notificationTimer = 6000;
-    openNotification();
+    notification(
+      // Message
+      theMsg,
+      // Icon
+      "music",
+      false,
+    6000);
 
     if ($dataDeletedSong.find(".nothing_here").length) {
       $dataDeletedSong.empty();
@@ -19350,12 +19198,14 @@ $(document).on("click", ".mm-menu #music_filters .about_icon-btn", function() {
       textArea.setSelectionRange(0, 99999);
       document.execCommand("copy");
       document.body.removeChild(textArea);
-      $notificationIconBody = '<i class="fa fa-music"></i>';
-      $notificationBodyText =
+      let theMsg =
         "The link has been copied. Go share it with others!";
-      setNotificationOptions = false;
-      notificationTimer = 6000;
-      openNotification();
+      notification(
+      // Message
+      theMsg,
+      // Icon
+      "music",
+      false, 6000);
     } else {
       if ($this.attr("for") === "message") {
         theLink =
@@ -19425,13 +19275,14 @@ if ( !$(".mm-menu .my_profile .my_activity").find(".cancel-btn").length ) {
   $(".mm-menu .my_profile .my_activity .options").on("click", ".remove-btn", function() {
       var numOfRemoved = $(".mm-menu .my_profile .my_activity .fun_music-content").find(".active .delete").length;
       var nameOfContent = $(".mm-menu .my_profile .my_activity .title .active").text();
+    let theMsg;
       
       if ( $(".mm-menu .my_profile .my_activity .fun_music-content .active ol.delete").length ) {
           if ( $(".mm-menu .my_profile .my_activity .fun_music-content [data-for='Deleted Songs']").hasClass("active") ) {
-              $notificationBodyText =
+              theMsg =
       "You've removed <b>" + numOfRemoved + "</b> items from your "+ nameOfContent + ". <b>Restart the app</b> to view them in the <b>Music</b> app again.";
           } else {
-              $notificationBodyText =
+              theMsg =
       "You've removed <b>" + numOfRemoved + "</b> items from your "+ nameOfContent + ".";
           }
           
@@ -19446,10 +19297,12 @@ $(".mm-menu .my_profile .my_activity .fun_music-content [data-favorite-artist].a
 });
 
           
-     $notificationIconBody = '<i class="fa fa-music"></i>';
-    setNotificationOptions = false;
-    notificationTimer = 6000;
-    openNotification();
+     notification(
+      // Message
+      theMsg,
+      // Icon
+      "music",
+      false, 6000);
       }
   });
   
