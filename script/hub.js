@@ -191,21 +191,27 @@ var fortunes = [
 
 	$(".about_you .about_you-item").click(function() {
 		if ($(this).hasClass("your_join_date")) {
-    $notificationIconBody = '<i class="fa-solid fa-star"></i>';
+    $notificationIconBody = 'star';
     $notificationBodyText = "<h1>Thank you, " + nickname + "!</h1> <p>We appreciate you for joining and supporting our <b>Icons</b>!</p> <p>You've visited <b>"+ visits +"</b> times and your longest time listening to music is <b>"+ storedTime +" minutes</b>!</p>";
   }
   else if ($(this).hasClass("your_birthday")) {
-    $notificationIconBody = '<i class="fa-solid fa-cake-candles"></i>';
+    $notificationIconBody = 'cake-candles';
     $notificationBodyText = "<h1>Only " + daysLeft + " days to go!</h1> <p>Sure, your age adds up but you're only getting younger, <b>" + nickname + "</b>! Let's party soon!</p>";
   }
   else if ($(this).hasClass("your_zodiac")) {
-    $notificationIconBody = '<i class="fa-solid fa-scale-balanced"></i>';
+    $notificationIconBody = 'scale-balanced';
     $notificationBodyText = "<h1>Fortune of the Day</h1> <p>" + fortune + "</p>";
   }
-  
-  setNotificationOptions = true;
-  $notificationCloseBtnText = "Close";
-  $notificationStatus = "you";
+
+		notification(
+      // Message
+      $notificationBodyText,
+      // Icon
+      $notificationIconBody,
+      // Options
+      {
+        "Close": null
+      });
 		
 		gsap.to($(".mm-menu .profile"), {
         height: 0,
