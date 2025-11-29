@@ -203,6 +203,14 @@ var fortunes = [
     $notificationBodyText = "<h1>Fortune of the Day</h1> <p>" + fortune + "</p>";
   }
 
+		
+		gsap.to($(".mm-menu .profile"), {
+        height: 0,
+        duration: 0.6,
+    ease: "expo.out",
+    onComplete: function() {
+      $(".mm-menu .profile").removeClass("go");
+
 		notification(
       // Message
       $notificationBodyText,
@@ -212,23 +220,6 @@ var fortunes = [
       {
         "Close": null
       });
-		
-		gsap.to($(".mm-menu .profile"), {
-        height: 0,
-        duration: 0.6,
-    ease: "expo.out",
-    onComplete: function() {
-      $(".mm-menu .profile").removeClass("go");
-
-		if ( $(".mm-menu .notification").hasClass("go") ) {
-      closeNotification();
-      
-      setTimeout(function() {
-          openNotification();
-      }, 600);
-  } else {
-      openNotification();
-  }
     }
     });
 		
