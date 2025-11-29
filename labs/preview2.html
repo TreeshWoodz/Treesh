@@ -13506,6 +13506,7 @@ localStorage.setItem("dateCreated", formatted);
   
       
       
+	<script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
  <script src="https://cdn.jsdelivr.net/npm/dom-to-image-more@2.9.0/dist/dom-to-image-more.min.js"></script>
       
       <script>
@@ -14432,6 +14433,26 @@ function menuModalClose() {
       delay: 0.6,
             ease: "expo.inOut"
           });
+
+	if ( $(".mm-menu .profile-btn").hasClass("picked") && !$("body").hasClass("deleting_data") ) {
+	 $(".mm-menu .profile-btn").siblings().addClass("inactive");
+	 
+      setTimeout(function() {
+	 gsap.to(".mm-menu .profile", {
+        height: "60vh",
+        duration: 0.3,
+    ease: "expo.inOut",
+    onComplete: function() {
+        $(".page_title .title span").text(
+        "Profile"
+      );
+      $(".mm-menu .profile").addClass("go");
+      $("#overlay").addClass("go").removeClass("go-settings");
+      if ($("#flickSite").hasClass("go-now_playing")) $("#now_playing").addClass("go");
+    }
+    });
+  }, 600);
+  }
   }
 
   
@@ -14725,20 +14746,23 @@ function loadSite() {
     var artist = $this.attr("data-name");
 
     $.get("/content/songs.html", function(response) {
-      var temp = $("<div>").html(response);
-      var filtered = temp.find(".song[data-artist='" + artist + "']");
+  var temp = $("<div>").html(response);
+  var filtered = temp.find(".song[data-artist='" + artist + "']");
 
-      discographyContainer.empty().append(filtered);
+  discographyContainer.empty().append(filtered);
 
-      setTimeout(function() {
-        discographyContainer.isotope({
-          itemSelector: ".song",
-          gutter: 0,
-          percentPosition: true
-        });
-        discographyContainer.isotope("layout");
-      }, 200);
+  // wait for images and DOM to render before isotope init
+  discographyContainer.imagesLoaded(function() {
+    discographyContainer.isotope({
+      itemSelector: ".song",
+      percentPosition: true,
+      gutter: 0
     });
+
+    discographyContainer.isotope("layout");
+  });
+});
+
   });
 
   $("#icon-profile").click(function() {
