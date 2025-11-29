@@ -8427,11 +8427,50 @@ input[type="file"] {
 .mm-menu .page_title {
   text-align: center;
   color: var(--text-color);
-  width: 100%;
+  width: 60%;
+  margin:auto;
   height: auto;
   position: relative;
+  display:flex;
+	padding:10px 0px !important;
+  justify-content:space-between;
+  align-items:center;
   z-index:4;
 }
+  
+  .mm-menu .page_title button {
+  width:40px;
+    height:15px;
+	  cursor:pointer;
+    background:rgba(255, 255, 255, 0.6);
+    border-radius:30px;
+    display:inline-block;
+    position:relative;
+}
+
+	.mm-menu .page_title button span {
+		width: auto;
+  height: 10px;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  background: var(--pink);
+  border-radius: 30px;
+  color: white;
+  display: block;
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-family: "Doto", sans-serif !important;
+  padding: 0px 3px !important;
+  transform: translate3d(0, -50%, 0);
+	}
+
+	.mm-menu .page_title button span i {
+		font-size:0.8rem;
+		line-height:10px;
+		color:white;
+	}
 
 @media screen and (min-width: 900px) {
     .mm-menu .page_title {
@@ -8443,6 +8482,10 @@ input[type="file"] {
   font-size: 0.72rem;
   padding: 5px 10px 5px 10px;
   opacity: 0.8;
+	width:100%;
+	display:block;
+	overflow:hidden;
+  text-overflow: ellipsis;
 }
 
 .mm-menu .backdrops,
@@ -9149,16 +9192,6 @@ input[type="file"] {
     transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), 
     bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
-#lyricSync-btn, 
-  #navbar-btn {
-  transform: translate3d(0, 20px, 0);
-  right:50px;
-}
-
-#lyricSync-btn {
-    right:130px;
-}
   
   #voice-btn {
     left:50px;
@@ -9181,11 +9214,6 @@ input[type="file"] {
   opacity: 0.3;
   border-color: var(--pink);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease-in-out, opacity 0.3s ease-in;
-}
-
-#navbar-btn.go {
-    opacity:1;
-    transform: translate3d(0, 0px, 0);
 }
 
 .mm-menu #nav_bar .music_player-btn.clicked i {
@@ -11826,15 +11854,15 @@ height: 60px;
     
           <button id="voice-btn" type="button" class="floater"><i class="fa-solid fa-microphone"></i></button>
           <button id="open_music_controls-btn" class="floater" type="button"><i class="fa-solid fa-xmark"></i></button>
-          <button type="button" id="lyricSync-btn" class="floater" data-action="sync lyrics"><i class="fa-solid fa-quote-right"></i></button>
-          <button type="button" id="navbar-btn" class="floater" data-action="open navbar"><i class="fa-solid fa-compass"></i></button>
           
       <div class="mm-menu">
       <div class="glass-overlay"></div>
       <div class="glass-specular"></div>
       
         <div class="page_title" style="padding:0px 0px;">
-          <h4 class="title"><span>Home</span></h4>
+          <div class="page_title-section" style="opacity: 0; z-index:-200; top:-2000px;"><button type="button" id="navbar-btnn" data-action="open navbar"><span>NAV</span></button></div>
+          <div class="page_title-section"><h4 class="title"><span>Home</span></h4></div>
+          <div class="page_title-section"><button type="button" id="navbar-btn" data-action="open navbar"><span>NAV</span></button></div>
         </div>
         
         <div class="profile modal new">
@@ -15278,7 +15306,17 @@ $buttons.eq(halfIndex).before("<div class='before-half'></div>");
      // NAV BAR 
      
      if ( !$("#navbar-btn").hasClass("go") ) {
-         $("#navbar-btn").addClass("go");
+         
+
+	gsap.to("#navbar-btn span", {
+        x: 10,
+        duration: 0.3,
+    ease: "expo.inOut",
+		onComplete:function() {
+			$("#navbar-btn span").text("MUS");
+			$("#navbar-btn").addClass("go");
+	}
+    });
          
         openMusicBar();
        }
@@ -16637,14 +16675,24 @@ if (isVisible) {
       }
       
       $("#navbar-btn").click(function() {
-          if ( $(this).attr("data-status") === "navbar" || !$(this).is("[data-status]")  ) {
-              $(this).attr("data-status", "music");
-         openNavBar();
-          } else {
-              $(this).attr("data-status", "navbar");
-              openMusicBar();
-          }
-      });
+  const btn = this;
+  const span = btn.querySelector("span");
+  const isNavbar = btn.getAttribute("data-status") === "navbar" || !btn.hasAttribute("data-status");
+
+  gsap.to(span, {
+    x: isNavbar ? 0 : 10,
+    duration: 0.3,
+    ease: "expo.inOut",
+    onComplete: function() {
+      span.textContent = isNavbar ? "NAV" : "MUS";
+    }
+  });
+
+  btn.setAttribute("data-status", isNavbar ? "music" : "navbar");
+  isNavbar ? openNavBar() : openMusicBar();
+});
+
+
 
   // MUSIC WHAT'S NEW
   
@@ -17148,13 +17196,6 @@ audio.addEventListener("timeupdate", function () {
       let theMsg =
         "<h1>Uh oh...</h1><p>There appears to be an error loading <b>'"+ $("#now_playing .song_data h1").text() +"'</b> by <b>"+ $("#now_playing .song_data h2").text() +"</b>!</p><p>It could be the following reasons:</p><p><li>Wi-Fi connection has been disconnected,</li><li>The app may not have loaded fully,</li><li>The song does not exist anymore,</li><li>Another audio source is currently playing,</li><li>Using private or masked connections such as VPN,</li><li>JavaScript is disabled in settings.</li></p><p>Click or tap <b>'Try Again'</b> to reload the track. Check your connection and refresh the app if error continues.</p>";
             
-            var notificationTime;
-            if ( $(".mm-menu .notification").hasClass("go") ) {
-                notificationTime = 30000;
-            } else {
-                notificationTime = 0;
-            }
-            
             musicErrorNotification = setTimeout(function() {
                 notification(
       // Message
@@ -17163,11 +17204,13 @@ audio.addEventListener("timeupdate", function () {
       "bug",
       // Options
                   {
-                    "Try again": () => retryLoadingAudio()
+                    "Retry": () => retryLoadingAudio(),
+                    "Next song": () => nextSong(),
+                    "Okay": null
                   });
                 
                 musicErrorNotification = setTimeout(function() {
-          $playPauseBtn.removeClass("fa-pause").addClass("fa-play").removeClass("loading");
+          $playPauseBtn.removeClass("fa-pause").removeClass("fa-play").addClass("loading");
           
           if ( $("#now_playing").hasClass("go") ) {
           $(".mm-menu .page_title .title span").text("Loading Error");
