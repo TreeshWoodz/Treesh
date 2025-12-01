@@ -13995,10 +13995,13 @@ if (artistID && !$(this).hasClass("nomusic"))
 <script src="/script/general.js" defer></script>
 ---->
 
+      <!--- GLOBAL VARIABLES AND FUNCTIONS ---->
 <script>
+  
+</script>
 
-
-     // GLOBAL VARIABLES ---------------------
+<script>
+// GLOBAL VARIABLES ---------------------
 
 // NO ZOOM ON MOBILE
 
@@ -15367,130 +15370,102 @@ let isNavigating = false;
 function playPrevSong() {
   audio.pause();
 
+  // repeat one
   if (repeatMode === 1) {
-    // repeat one
     audio.currentTime = 0;
     audio.play();
     return;
   }
 
+  // repeat all
   if (repeatMode === 2) {
-    // repeat all (loop only through history)
-    if (historyIndex > 0) {
-      isNavigating = true;
-      historyIndex--;
-      currentSong = songHistory[historyIndex];
-      currentSong.trigger("click");
-    } else {
-      // go to last in history when at start
-      isNavigating = true;
-      historyIndex = songHistory.length - 1;
-      currentSong = songHistory[historyIndex];
-      currentSong.trigger("click");
-    }
+    if (songHistory.length === 0) return;
+    isNavigating = true;
+    historyIndex = historyIndex > 0 ? historyIndex - 1 : songHistory.length - 1;
+    currentSong = $(songHistory[historyIndex]);
+    currentSong.trigger("click");
     setTimeout(() => (isNavigating = false), 100);
     return;
   }
 
-  // normal (non-repeat) mode
-  if (!$("#repeat").hasClass("color") && audio.currentTime <= 5) {
+  // default mode
+  if (audio.currentTime <= 5) {
+    // go to previous in history if exists
     if (historyIndex > 0) {
       isNavigating = true;
       historyIndex--;
-      currentSong = songHistory[historyIndex];
+      currentSong = $(songHistory[historyIndex]);
       currentSong.trigger("click");
       setTimeout(() => (isNavigating = false), 100);
     } else {
+      // first song: restart current
       audio.currentTime = 0;
       audio.play();
     }
   } else {
+    // more than 5s: restart current song
     audio.currentTime = 0;
     audio.play();
   }
 }
 
-let $selectNextSong;
-function playNextSong() {
+  
+  function playNextSong() {
   audio.pause();
 
-  let allSongs = $("#music .library .song");
+  let allSongs = $("#music #library .song");
   let unplayed = allSongs.filter(function() {
     return !songHistory.includes($(this)[0]);
   });
 
+  // repeat one
   if (repeatMode === 1) {
-    // repeat one
     audio.currentTime = 0;
     audio.play();
     return;
   }
 
+  // repeat all
   if (repeatMode === 2) {
-    // repeat all: loop only through history
-    if (historyIndex < songHistory.length - 1) {
-      isNavigating = true;
-      historyIndex++;
-      currentSong = songHistory[historyIndex];
-      currentSong.trigger("click");
-    } else {
-      isNavigating = true;
-      historyIndex = 0;
-      currentSong = songHistory[0];
-      currentSong.trigger("click");
+    if (historyIndex >= songHistory.length - 1) {
+      historyIndex = -1;
     }
-    setTimeout(() => (isNavigating = false), 100);
-    
-    if ( $("#now_playing").hasClass("go") ) {
-          $("#now_playing #flick-now_playing").scrollTop(0);
-        }
-    
+    historyIndex++;
+    currentSong = $(songHistory[historyIndex]);
+    currentSong.trigger("click");
     return;
   }
 
-  // normal mode
+  let nextSong;
+
+  // next from history if not at end
   if (historyIndex < songHistory.length - 1) {
-    isNavigating = true;
     historyIndex++;
-    currentSong = songHistory[historyIndex];
-    currentSong.trigger("click");
-    
-    if ( $("#now_playing").hasClass("go") ) {
-          $("#now_playing #flick-now_playing").scrollTop(0);
-        }
-   
-  } else if (unplayed.length > 0) {
-    // random unplayed song
-    let randomSong = $(unplayed[Math.floor(Math.random() * unplayed.length)]);
-    isNavigating = true;
-    currentSong = randomSong;
-    songHistory.push(randomSong);
+    nextSong = $(songHistory[historyIndex]);
+  } 
+  // else pick a random unplayed or random from all
+  else if (unplayed.length > 0) {
+    nextSong = $(unplayed[Math.floor(Math.random() * unplayed.length)]);
+    songHistory.push(nextSong[0]);
     historyIndex = songHistory.length - 1;
-    randomSong.trigger("click");
-  } else {
-    // loop back to first song
-    isNavigating = true;
-    historyIndex = 0;
-    currentSong = songHistory[0];
-    currentSong.trigger("click");
+  } 
+  else {
+    nextSong = $(allSongs[Math.floor(Math.random() * allSongs.length)]);
+    songHistory.push(nextSong[0]);
+    historyIndex = songHistory.length - 1;
   }
 
+  isNavigating = true;
+  currentSong = nextSong;
+  currentSong.trigger("click");
   setTimeout(() => (isNavigating = false), 100);
-  
-   if ($dataPreviousSong.find("[data-song]").length === 0) {
-        $selectNextSong = randomSong;
-        $dataPreviousSong.html("<span class='nothing_here'>Nothing here!</span>");
-      } else {
-        $selectNextSong = $(
-          "#music #library .song[data-track='" + firstInPrevSongListName + "']"
-        );
-        $dataPreviousSong.find("[data-song]:first").remove();
 
-        if ($dataPreviousSong.find("[data-song]").length === 0) {
-          $dataPreviousSong.empty().text("None");
-        }
-      }
+  if ($("#now_playing").hasClass("go")) {
+    $("#now_playing #flick-now_playing").scrollTop(0);
+  }
 }
+
+
   
   
   
@@ -15639,41 +15614,34 @@ $("#repeat").addClass("one color");
   }
   
 
-	   // Resize helper
-    function resizeImage(src, newWidth, newHeight, callback) {
-        var img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.onload = function() {
-            var canvas = document.createElement("canvas");
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            canvas.getContext("2d").drawImage(img, 0, 0, newWidth, newHeight);
-            callback(canvas.toDataURL("image/jpeg"));
-        };
-        img.src = src;
-    }
+	function updateMediaSession(title, artist, cover) {
+  if (!('mediaSession' in navigator)) return;
 
-    if ("mediaSession" in navigator) {
-        var sizes = ["96x96","128x128","256x256","400x400","512x512","800x800","1024x1024","1440x1440","2000x2000"];
-        var artworkArray = [];
-        var imgSrc = cover;
+  var sizes = ["96x96","128x128","256x256","400x400","512x512","800x800","1024x1024","1440x1440","2000x2000"];
+  var artworkArray = [];
 
-        sizes.forEach(size => {
-            var [width, height] = size.split("x").map(Number);
-            resizeImage(imgSrc, width, height, resizedURL => {
-                artworkArray.push({ src: resizedURL, sizes: size, type: "image/jpeg" });
+  sizes.forEach(size => {
+    var [width, height] = size.split("x").map(Number);
+    resizeImage(cover, width, height, resizedURL => {
+      artworkArray.push({ src: resizedURL, sizes: size, type: "image/jpeg" });
+      if (artworkArray.length === sizes.length) {
 
-                // Only set metadata once all sizes are ready
-                if (artworkArray.length === sizes.length) {
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: title,
-                        artist: artist,
-                        artwork: artworkArray
-                    });
-                }
-            });
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: title,
+          artist: artist,
+          artwork: artworkArray
         });
-    }
+
+        navigator.mediaSession.setActionHandler("previoustrack", playPrevSong);
+        navigator.mediaSession.setActionHandler("nexttrack", playNextSong);
+        navigator.mediaSession.setActionHandler("seekbackward", null);
+        navigator.mediaSession.setActionHandler("seekforward", null);
+      }
+    });
+  });
+}
+
+
      
      // NAV BAR 
      
@@ -15855,9 +15823,10 @@ img.onload = function() {
   $musicRecordPlayerVinyl.attr("src", cover);
 			   
 			   setTimeout(function() {
-				   $(".mm-menu .now_playing-card h3, #now_playing .song_data h2, #now_playing .about_artist .about_artist-body .about_artist-body_heading h2").text(mainArtist);
+				   $(".mm-menu .now_playing-card h3, #now_playing .about_artist .about_artist-body .about_artist-body_heading h2").text(mainArtist);
      $(".mm-menu .now_playing-card h4, #now_playing .song_data h1").text(title);
      $(".mm-menu .now_playing-card .now_playing-card-section:eq(0)").attr("data-artist-id", artistID);
+           $("#now_playing .song_data h2").text(artist);
 	   
      $("#now_playing .about_artist .about_artist-banner").css({
        backgroundImage: "url("+ artistPic +")",
