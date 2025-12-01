@@ -13556,7 +13556,7 @@ $(".mm-menu .profile .new_profile input[required]").on("input change", checkInpu
               $(".mm-menu .profile .new_profile .profile_pic").not(".profile_pic-upload").click(function() {
                 $(".profile_pic-upload img, #your_hub img, .pfp_pic").not($(".mm-menu .new_profile .profile_pic-upload img")).attr("src", $(this).find("img").attr("src"));
                 
-                saveImageToDB("pfp", $(this).find("img").attr("src"));
+                localStorage.setItem("pfp", $(this).find("img").attr("src"));
                 
                 gsap.to($(this), {
                   opacity: 1,
@@ -16513,6 +16513,15 @@ if ($(".mm-menu .emoji_contain favehrt-tag").length > 1) {
     var month = today.getMonth();
     var day = today.getDate();
     var year = today.getFullYear();
+    
+
+  if (localStorage.getItem("pfp")) {
+    $(".profile_pic-upload img, #your_hub img, .pfp_pic").attr("src", localStorage.getItem("pfp"));
+
+    setTimeout(function() {
+$(".profile_pic-upload img, #your_hub img, .pfp_pic").attr("src", localStorage.getItem("pfp"));
+    }, 400);
+  }
 
   
   if (localStorage.getItem("dateCreated")) {
@@ -18252,196 +18261,162 @@ audio.addEventListener("timeupdate", function () {
     }
   });
 
-  
-  
   var file, render;
-let db;
-let storedImages = [];
 
-// initialize IndexedDB
-initDB();
+  const uploadButton = document.getElementById("upload_button");
+  const backgroundInput = document.getElementById("background_input");
+  const uploadButtonn = document.getElementById("upload_buttonn");
+  const backgroundInputt = document.getElementById("background_inputt");
 
-function initDB() {
-  const request = indexedDB.open("ProfileDB", 1);
+  uploadButton.addEventListener(
+    "click",
+    () => {
+      backgroundInput.click();
+      uploadButton.classList.add("active");
+      uploadButtonn.classList.remove("active");
+    },
+    false
+  );
 
-  request.onupgradeneeded = function(e) {
-    db = e.target.result;
-    if (!db.objectStoreNames.contains("images")) {
-      db.createObjectStore("images", { keyPath: "id" });
+  uploadButtonn.addEventListener(
+    "click",
+    () => {
+      backgroundInputt.click();
+      uploadButtonn.classList.add("active");
+      uploadButton.classList.remove("active");
+    },
+    false
+  );
+
+  function handleFile(file) {
+    if (!file.type.match("image.*")) {
+      alert("This file isn't an image or it's an unsupported format");
+      return;
     }
-  };
 
-  request.onsuccess = function(e) {
-    db = e.target.result;
-    loadImagesFromDB();
-  };
-}
+    var reader = new FileReader();
 
-// save image to IndexedDB
-function saveImageToDB(id, dataURL) {
-  if (!db) return;
-  const tx = db.transaction("images", "readwrite");
-  const store = tx.objectStore("images");
-  store.put({ id, dataURL });
-}
+    reader.addEventListener(
+      "load",
+      (e) => {
+        setTimeout(function () {
+  var imageUrls = e.target.result;
+  
+  if (uploadButton.classList.contains("active")) {
+      $("#your_hub img, .pfp_pic, .profile_pic-upload img").attr("src", e.target.result);
+      localStorage.setItem("pfp", e.target.result);
+    
+    gsap.to(".profile_pic-upload", {
+                  opacity: 1,
+                  duration: 0.2,
+                  ease: "ease.out"
+                });
+    
+    gsap.to(".mm-menu .profile .new_profile .profile_pic:not(.profile_pic-upload)", {
+                  opacity: 0.6,
+                  duration: 0.2,
+                  ease: "ease.out"
+                });
+    
+    gsap.to(".profile_pic-upload img", {
+  scale: 0,
+  duration: 1,
+  ease: "power4.in",
+  onComplete: function() {
+    $(".profile_pic-upload img").attr("src", e.target.result);
+    gsap.to(".profile_pic-upload img", {
+      scale: 1,
+      duration: 1,
+      ease: "power4.out"
+    });
+  }
+});
+  }
 
-// load saved images
-function loadImagesFromDB() {
-  const tx = db.transaction("images", "readonly");
-  const store = tx.objectStore("images");
-
-  // load profile image
-  const pfpReq = store.get("pfp");
-  pfpReq.onsuccess = function(e) {
-    const result = e.target.result;
-    if (result && result.dataURL) {
-      $(".profile_pic-upload img, #your_hub img, .pfp_pic").attr("src", result.dataURL);
-      setTimeout(() => {
-        $(".profile_pic-upload img, #your_hub img, .pfp_pic").attr("src", result.dataURL);
-      }, 400);
-    }
-  };
-
-  // load backdrop
-  const backdropReq = store.get("pfpBackdrop");
-  backdropReq.onsuccess = function(e) {
-    const result = e.target.result;
-    if (result && result.dataURL) {
+          if (uploadButtonn.classList.contains("active")) {
+              var tl = gsap.timeline();
+              
+tl.to(".mm-menu", { opacity: 0, duration: 0.3, ease: "expo.out" })
+  .to(".pfp_backdrop .blur", { opacity: 1, duration: 0.6, ease: "expo.out" })
+  .add(function() {
+    var newbg = new Image();
+    newbg.src = e.target.result;
+    newbg.onload = function() {
       $(".pfp_backdrop, .fun_bg").css({
-        "background-image": "url(" + result.dataURL + ")",
+        "background-image": "url(" + e.target.result + ")",
         "background-size": "cover",
         "background-position": "center"
       });
-      $(".mm-menu .backdrop_filters .filter_item").attr("src", result.dataURL);
-    }
-  };
-}
+      $(".mm-menu .backdrop_filters .filter_item").attr("src", e.target.result);
 
-// element refs
-const uploadButton = document.getElementById("upload_button");
-const backgroundInput = document.getElementById("background_input");
-const uploadButtonn = document.getElementById("upload_buttonn");
-const backgroundInputt = document.getElementById("background_inputt");
+      gsap.to(".pfp_backdrop .blur", { opacity: 0, duration: 1, ease: "expo.out" });
+      gsap.to(".mm-menu", { opacity: 1, duration: 0.6, ease: "expo.out" });
+    };
+  });
 
-// upload button events
-uploadButton.addEventListener("click", () => {
-  backgroundInput.click();
-  uploadButton.classList.add("active");
-  uploadButtonn.classList.remove("active");
-});
+          
 
-uploadButtonn.addEventListener("click", () => {
-  backgroundInputt.click();
-  uploadButtonn.classList.add("active");
-  uploadButton.classList.remove("active");
-});
+            localStorage.setItem("pfpBackdrop", e.target.result);
+            
+            localStorage.setItem("backdrop", true);
+            
+            if ( $('.mm-menu .backdrops .backdrops_container[data-category="Yours"] .custom_item[data-src="'+ e.target.result +'"]').length === 0 ) {
+                  $('.mm-menu .backdrops .backdrops_container[data-category="Yours"]').prepend(
+                    '<div class="backdrop_item custom_item" data-src="' +
+                      e.target.result +
+                      '" style="background-image:url(' +
+                      e.target.result +
+                      '); background-size:cover; background-position:center;"></div>'
+                  );
+                
+                  storedImages.push(imageUrls);
+                  localStorage.setItem("uploadedImages", JSON.stringify(storedImages));
+            }
+                
 
-function handleFile(file) {
-  if (!file.type.match("image.*")) {
-    alert("This file isn't an image or it's an unsupported format");
-    return;
+            if (
+              $(".mm-menu .solid_backdrop-btn span")
+                .text()
+                .toLowerCase()
+                .includes("show")
+            ) {
+              $(".mm-menu .solid_backdrop-btn").click();
+            }
+          }
+        }, 100);
+      },
+      false
+    );
+
+    reader.readAsDataURL(file);
   }
 
-  const reader = new FileReader();
+  document.body.addEventListener(
+    "drop",
+    (ev) => {
+      const droppedFile = ev.dataTransfer.files[0];
+      handleFile(droppedFile);
+    },
+    false
+  );
 
-  reader.onload = (e) => {
-    setTimeout(function () {
-      const imageUrl = e.target.result;
+  backgroundInput.addEventListener(
+    "change",
+    (ev) => {
+      const selectedFile = ev.target.files[0];
+      handleFile(selectedFile);
+    },
+    false
+  );
 
-      // Profile picture upload
-      if (uploadButton.classList.contains("active")) {
-        $("#your_hub img, .pfp_pic, .profile_pic-upload img").attr("src", imageUrl);
-        saveImageToDB("pfp", imageUrl);
-
-        gsap.to(".profile_pic-upload", { opacity: 1, duration: 0.2, ease: "ease.out" });
-        gsap.to(".mm-menu .profile .new_profile .profile_pic:not(.profile_pic-upload)", {
-          opacity: 0.6,
-          duration: 0.2,
-          ease: "ease.out"
-        });
-
-        gsap.to(".profile_pic-upload img", {
-          scale: 0,
-          duration: 1,
-          ease: "power4.in",
-          onComplete: function() {
-            $(".profile_pic-upload img").attr("src", imageUrl);
-            gsap.to(".profile_pic-upload img", { scale: 1, duration: 1, ease: "power4.out" });
-          }
-        });
-      }
-
-      // Backdrop upload
-      if (uploadButtonn.classList.contains("active")) {
-        const tl = gsap.timeline();
-
-        tl.to(".mm-menu", { opacity: 0, duration: 0.3, ease: "expo.out" })
-          .to(".pfp_backdrop .blur", { opacity: 1, duration: 0.6, ease: "expo.out" })
-          .add(function() {
-            const newbg = new Image();
-            newbg.src = imageUrl;
-            newbg.onload = function() {
-              $(".pfp_backdrop, .fun_bg").css({
-                "background-image": "url(" + imageUrl + ")",
-                "background-size": "cover",
-                "background-position": "center"
-              });
-              $(".mm-menu .backdrop_filters .filter_item").attr("src", imageUrl);
-
-              gsap.to(".pfp_backdrop .blur", { opacity: 0, duration: 1, ease: "expo.out" });
-              gsap.to(".mm-menu", { opacity: 1, duration: 0.6, ease: "expo.out" });
-            };
-          });
-
-        saveImageToDB("pfpBackdrop", imageUrl);
-        saveImageToDB("backdrop", true);
-
-        if (
-          $('.mm-menu .backdrops .backdrops_container[data-category="Yours"] .custom_item[data-src="' +
-            imageUrl +
-            '"]').length === 0
-        ) {
-          $('.mm-menu .backdrops .backdrops_container[data-category="Yours"]').prepend(
-            '<div class="backdrop_item custom_item" data-src="' +
-              imageUrl +
-              '" style="background-image:url(' +
-              imageUrl +
-              '); background-size:cover; background-position:center;"></div>'
-          );
-
-          storedImages.push(imageUrl);
-          saveImageToDB("uploadedImages", JSON.stringify(storedImages));
-        }
-
-        if ($(".mm-menu .solid_backdrop-btn span").text().toLowerCase().includes("show")) {
-          $(".mm-menu .solid_backdrop-btn").click();
-        }
-      }
-    }, 100);
-  };
-
-  reader.readAsDataURL(file);
-}
-
-// drag-drop
-document.body.addEventListener("drop", (ev) => {
-  const droppedFile = ev.dataTransfer.files[0];
-  handleFile(droppedFile);
-});
-
-// file inputs
-backgroundInput.addEventListener("change", (ev) => {
-  const selectedFile = ev.target.files[0];
-  handleFile(selectedFile);
-});
-
-backgroundInputt.addEventListener("change", (ev) => {
-  const selectedFile = ev.target.files[0];
-  handleFile(selectedFile);
-});
-
-
-
+  backgroundInputt.addEventListener(
+    "change",
+    (ev) => {
+      const selectedFile = ev.target.files[0];
+      handleFile(selectedFile);
+    },
+    false
+  );
 
   $(".pfp_backdrop")
     .css("background-image", $(".pfp_backdrop").css("background-image"));
@@ -20798,5 +20773,4 @@ function fuzzyWordMatchFlexible(input, track) {
 });
 </script>
 </body>
-
 </html>
