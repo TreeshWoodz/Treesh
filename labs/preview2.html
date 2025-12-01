@@ -1909,13 +1909,17 @@ select {
     cursor:pointer;
 }
   
+  .mm-menu .btn-contain #lyricflow-btn {
+    text-align:center;
+  }
+  
   .mm-menu .btn-contain button img {
     width:100%;
     max-width:100px;
     height:auto;
     position:relative;
     display:block;
-    margin:0px;
+    margin:auto;
     padding:0px;
     filter:drop-shadow(0 0 10px rgba(0, 0, 0, 0.2));
   }
@@ -4976,6 +4980,17 @@ transform: translate3d(0, -20px, 0) !important;
     color:var(--text-color);
     background:rgba(0, 0, 0, 0.9);
 }
+  
+  #repeat[data-status="repeat"] .mini_icon {
+    position:absolute;
+    top:50%;
+    left:0;
+    right:0;
+    margin:auto;
+    transform:translate3d(0, -50%, 0);
+    z-index:4;
+    font-size:60%;
+  }
 
 #music_bar #travel {
   position: absolute;
@@ -8451,11 +8466,15 @@ input[type="file"] {
   z-index:4;
 }
   .mm-menu .page_title .page_title-section {
-	  width:auto;
+	  width:calc(calc(100% / 3) - 40px);
 	  height:15px;
 	  position:relative;
 	  display:inline-block;
 	vertical-align:middle;
+  }
+  
+  .mm-menu .page_title .page_title-section:nth-of-type(2) {
+    width:calc(calc(100% / 3) + 40px);
   }
   
   .mm-menu .page_title button {
@@ -10995,7 +11014,8 @@ height: 60px;
     margin-top:10px;
   }
   
-  #icon-profile #icon-profile-bio {
+  #icon-profile #icon-profile-bio .icon-profile-bio,
+  #icon-profile #icon-profile-events .icon-profile-events {
     line-height:1.8rem;
     font-size:1.2rem;
   }
@@ -14601,7 +14621,11 @@ $("body").css({
     var top = artistOffset.top - containerOffset.top + ($this.outerHeight() / 2);
     var left = artistOffset.left - containerOffset.left + ($this.outerWidth() / 2);
 
-    $("#icon-profile .icon-profile-bio").html(bio);
+    
+$("#icon-profile .icon-profile-bio").html(
+  bio && bio.trim() !== "" ? bio : "This Icon hasn't written their bio yet!"
+);
+
 
     var navbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navBarHeight"));
 
@@ -15021,7 +15045,7 @@ var $track;
   
 $(document).ready(function () {
     
- $("#library").load("https://yvll.tumblr.com/songs.html .song", function() {
+ $("#library").load("/content/songs.html .song", function() {
   libraryIsotope = $("#music #library").isotope({
     itemSelector: ".song",
     gutter: 0,
@@ -15326,8 +15350,223 @@ $buttons.eq(halfIndex).before("<div class='before-half'></div>");
 
   }
      // END LOADING MUSIC PLAYER
+});
+  
+  
+  
+  // Audio Controls 
+  
+  // previous song
+  let currentSong;
+let songHistory = [];
+var audio = document.getElementById("audio");
+  let isGoingBack = false;
+  let historyIndex = -1;
+let isNavigating = false;
+  
+function playPrevSong() {
+  audio.pause();
+
+  if (repeatMode === 1) {
+    // repeat one
+    audio.currentTime = 0;
+    audio.play();
+    return;
+  }
+
+  if (repeatMode === 2) {
+    // repeat all (loop only through history)
+    if (historyIndex > 0) {
+      isNavigating = true;
+      historyIndex--;
+      currentSong = songHistory[historyIndex];
+      currentSong.trigger("click");
+    } else {
+      // go to last in history when at start
+      isNavigating = true;
+      historyIndex = songHistory.length - 1;
+      currentSong = songHistory[historyIndex];
+      currentSong.trigger("click");
+    }
+    setTimeout(() => (isNavigating = false), 100);
+    return;
+  }
+
+  // normal (non-repeat) mode
+  if (!$("#repeat").hasClass("color") && audio.currentTime <= 5) {
+    if (historyIndex > 0) {
+      isNavigating = true;
+      historyIndex--;
+      currentSong = songHistory[historyIndex];
+      currentSong.trigger("click");
+      setTimeout(() => (isNavigating = false), 100);
+    } else {
+      audio.currentTime = 0;
+      audio.play();
+    }
+  } else {
+    audio.currentTime = 0;
+    audio.play();
+  }
+}
+
+let $selectNextSong;
+function playNextSong() {
+  audio.pause();
+
+  let allSongs = $("#music .library .song");
+  let unplayed = allSongs.filter(function() {
+    return !songHistory.includes($(this)[0]);
+  });
+
+  if (repeatMode === 1) {
+    // repeat one
+    audio.currentTime = 0;
+    audio.play();
+    return;
+  }
+
+  if (repeatMode === 2) {
+    // repeat all: loop only through history
+    if (historyIndex < songHistory.length - 1) {
+      isNavigating = true;
+      historyIndex++;
+      currentSong = songHistory[historyIndex];
+      currentSong.trigger("click");
+    } else {
+      isNavigating = true;
+      historyIndex = 0;
+      currentSong = songHistory[0];
+      currentSong.trigger("click");
+    }
+    setTimeout(() => (isNavigating = false), 100);
+    
+    if ( $("#now_playing").hasClass("go") ) {
+          $("#now_playing #flick-now_playing").scrollTop(0);
+        }
+    
+    return;
+  }
+
+  // normal mode
+  if (historyIndex < songHistory.length - 1) {
+    isNavigating = true;
+    historyIndex++;
+    currentSong = songHistory[historyIndex];
+    currentSong.trigger("click");
+    
+    if ( $("#now_playing").hasClass("go") ) {
+          $("#now_playing #flick-now_playing").scrollTop(0);
+        }
    
-   $(document).on("click", "#music #library .song", function() {
+  } else if (unplayed.length > 0) {
+    // random unplayed song
+    let randomSong = $(unplayed[Math.floor(Math.random() * unplayed.length)]);
+    isNavigating = true;
+    currentSong = randomSong;
+    songHistory.push(randomSong);
+    historyIndex = songHistory.length - 1;
+    randomSong.trigger("click");
+  } else {
+    // loop back to first song
+    isNavigating = true;
+    historyIndex = 0;
+    currentSong = songHistory[0];
+    currentSong.trigger("click");
+  }
+
+  setTimeout(() => (isNavigating = false), 100);
+  
+   if ($dataPreviousSong.find("[data-song]").length === 0) {
+        $selectNextSong = randomSong;
+        $dataPreviousSong.html("<span class='nothing_here'>Nothing here!</span>");
+      } else {
+        $selectNextSong = $(
+          "#music #library .song[data-track='" + firstInPrevSongListName + "']"
+        );
+        $dataPreviousSong.find("[data-song]:first").remove();
+
+        if ($dataPreviousSong.find("[data-song]").length === 0) {
+          $dataPreviousSong.empty().text("None");
+        }
+      }
+}
+  
+  
+  
+  var currentIndex = 0;
+  
+  
+ // repeat song
+let repeatMode = 0; 
+  function repeat() {
+    repeatMode++;
+  if (repeatMode > 2) {
+    repeatMode = 0;
+
+  $("#repeat").removeClass("one all color");
+    $("#repeat .mini_icon").remove();
+  }
+
+  if (repeatMode === 1) {
+$("#repeat").addClass("one color");
+    
+    $("#repeat").append('<i class="fa-solid fa-1 mini_icon"></i>');
+    
+  }
+  else if (repeatMode === 2) {
+    $("#repeat").addClass("all color");
+    
+    $("#repeat .mini_icon").removeClass("fa-1").addClass("fa-a");
+  }
+  }
+  
+  // song play/pause function
+
+  function playSong() {
+    playing = true;
+
+    audio.muted = true; // mute first to bypass autoplay restrictions
+    audio.play().then(() => {
+        audio.muted = false; // unmute if play succeeds
+    }).catch(err => {
+        console.log("play failed:", err);
+    });
+
+    $("title").text(
+        $("#now_playing .song_data .artist_name_font").text() + 
+        " — \""+ $("#now_playing .song_data h1").text() +"\" on Treesh Music"
+    );
+    
+    setTimeout(() => {
+        if (audio.currentTime === 0) {
+            console.log("audio not playing, retrying...");
+            $(".mm-menu .page_title .title span").text("Loading Error");
+            audio.muted = true;
+            audio.play().then(() => {
+                audio.muted = false;
+            }).catch(err => console.log("retry failed:", err));
+        } else {
+             if ( $("#now_playing #now_playing-main").hasClass('go') ) {
+
+          if ( $repeatBtn.hasClass("color") ) {
+          $(".mm-menu .page_title .title span").text("Now Replaying");
+    } else {
+        $(".mm-menu .page_title .title span").text("Now Playing");
+    }
+    }
+        }
+    }, 500);
+}
+
+  function pauseSong() {
+    playing = false;
+    audio.pause();
+  }
+
+
+  
+  $(document).on("click", "#music #library .song", function() {
      const $this = $(this);
      const $about = $("#now_playing #about_song");
      const scrollTop = $(window).scrollTop();
@@ -15392,6 +15631,13 @@ $buttons.eq(halfIndex).before("<div class='before-half'></div>");
      audio.pause();
      audio.currentTime = 0;
      audio.src = audioLink;
+     
+     if (!isNavigating) {
+    currentSong = $(this);
+    songHistory.push(currentSong);
+    historyIndex = songHistory.length - 1;
+  }
+  
 
 	   // Resize helper
     function resizeImage(src, newWidth, newHeight, callback) {
@@ -15676,7 +15922,162 @@ img.src = cover;
       $musicLyricsLyrics.scrollTop(0);
    });
    // END SONG CLICK
+  
+  $playPause.click(function () {
+    if ( !$(this).hasClass("inactive") ) {
+    if (!$(".mm-menu .playpause-btn").hasClass("fa-play")) {
+  pauseSong();
+} else {
+  playSong();
+}
+    }
+  });
+  $prevBtn.click(function () {
+    if ( !$(this).hasClass("inactive") ) {
+    if ( $(this).attr("data-status") === "prev" ) {
+     playPrevSong();
+    } else {
+      if ( !$(this).hasClass("clicked") ) {
+        
+        setTimeout(function() {
+        $("#lyrics.expand .body p").removeClass("current");
+        
+          gsap.to("#lyrics.expand .body p", {
+  duration: 0.6,
+            opacity: 0.6,
+            color: "white",
+  overwrite: true,
+            scale: 0.9,
+  ease: "expo.in"
 });
+          }, 100);
+          
+          $(this).addClass("clicked");
+          
+          gsap.to("#prevbtn i", {
+  filter: "drop-shadow(0 0 10px white)",
+  duration: 0.6,
+  overwrite: true,
+  ease: "expo.inOut"
+});
+          
+          audio.pause();
+          
+          gsap.to(".mm-menu #repeat, .mm-menu #playpause, .mm-menu #travel", {
+            opacity: 0.2,
+            duration: 0.6, 
+            ease: "expo.out",
+            onComplete: function() {
+              $(".mm-menu #repeat, .mm-menu #playpause, .mm-menu #travel").addClass("inactive");
+            }
+          });
+       
+      } else {
+        
+        if ( $nowPlaying.attr("data-lyricsync") === "false" ) {
+          gsap.to("#lyrics.expand .body p", {
+  duration: 0.6,
+            opacity: 0.9,
+            color: "white",
+          scale: 1,
+  overwrite: true,
+  ease: "expo.in"
+});
+        } else {
+          gsap.to("#lyrics.expand .body p", {
+  duration: 0.6,
+            opacity: 0.9,
+            color: "white",
+          scale: 0.9,
+  overwrite: true,
+  ease: "expo.in"
+});
+        }
+        
+        $("#mini-now_playing .selected_lyrics_count span").text("0 lines selected");
+        
+        gsap.to("#mini-now_playing .selected_lyrics_count", {
+          height: 0,
+          duration: 0.3,
+          ease: "expo.in",
+          borderTop: "0px solid rgba(255, 255, 255, 0.2)"
+        });
+        
+        $("#lyrics.expand .body p").removeClass("can_select selected");
+        
+        $screenTitle.text("Now Playing");
+        
+        gsap.to(".mm-menu #repeat, .mm-menu #playpause, .mm-menu #travel", {
+            opacity: 1,
+            duration: 0.6, 
+            ease: "expo.out",
+            onComplete: function() {
+              $(".mm-menu #repeat, .mm-menu #playpause, .mm-menu #travel").removeClass("inactive");
+            }
+          });
+        
+        audio.play();
+        
+        gsap.to("#prevbtn i", {
+  filter: "drop-shadow(0 0 0px white)",
+  duration: 0.6,
+  overwrite: true,
+  ease: "expo.inOut"
+});
+        
+      $(this).removeClass("clicked");
+      }
+    }
+    }
+  });
+  
+  $nextBtn.click(function () {
+    if ( !$(this).hasClass("inactive") ) {
+    if ( $(this).attr("data-status") === "next" ) {
+      playNextSong();
+    } else {
+      if ( !$("#prevbtn").hasClass("clicked") ) {
+        closeLyrics();
+      } else {
+        closeLyricsShare();
+      }
+    }
+    }
+  });
+  
+  $repeatBtn.click(function () {
+    if ( !$(this).hasClass("inactive") ) {
+    if ( $(this).attr("data-status") === "repeat" ) {
+      repeat();
+    } else {
+      
+       const $btn = $(this);
+  const $nowPlaying = $("#now_playing");
+  const $lyrics = $("#now_playing #lyrics.expand");
+
+  const isClicked = $btn.hasClass("clicked");
+  const isSync = $btn.hasClass("sync-btn");
+
+  if (!isClicked && !isSync) {
+    $btn.addClass("clicked");
+    $("#lyrics .lyrics.expand .body p").css("color", "rgba(255, 255, 255, 0.6)");
+    $nowPlaying.attr("data-lyricSync", "true");
+    return;
+  }
+
+  if (isClicked && !isSync) {
+    $btn.addClass("sync-btn");
+    $nowPlaying.addClass("go-focus_lyrics");
+    $("#lyrics .lyrics.expand .body p").css("color", "rgba(255, 255, 255, 0)");
+  } else {
+    $btn.removeClass("clicked sync-btn");
+    $nowPlaying.removeClass("go-focus_lyrics").attr("data-lyricSync", "false");
+    $("#lyrics .lyrics.expand .body p").css("color", "rgba(255, 255, 255, 1)");
+  }
+      
+    }
+  }
+  });
   
   $(document).on("click", "#lyrics.expand #mini-now_playing", function(e) {
     e.stopPropagation();
@@ -17260,27 +17661,27 @@ audio.addEventListener("timeupdate", function () {
       
       
       audio.addEventListener("ended", function () {
-        if (!$repeatBtn.hasClass("color") && !$("#lyrics.expand").length ) {
-          randomSong.click();
+  $("#scrub .scrubDuration, #scrub .scrubTime").text("0:00");
+  $(".mm-menu .my_profile .my_activity .fun_music-content ol.play").removeClass("play");
 
-          audio.removeEventListener("ended", arguments.callee);
-        } else {
-          audio.currentTime = 0;
-
-          setTimeout(function () {
-            audio.play();
-          }, 300);
-        }
-        
-        $("#scrub .scrubDuration, #scrub .scrubTime").text("0:00");
-        
-        $(".mm-menu .my_profile .my_activity .fun_music-content ol.play").removeClass("play");
-        
-       if (!skipped && !isRewarded) {
-    giveStarlites("133300");
+  if (!skipped && !isRewarded) {
+    giveStarlites("3000");
     isRewarded = true;
   }
-      });
+
+  if ($("#lyrics.expand").length) return; 
+
+        
+  if (repeatMode === 1) {
+    audio.currentTime = 0;
+    setTimeout(() => audio.play(), 300);
+  } else if (repeatMode === 2) {
+    playNextSong();
+  } else {
+    playNextSong();
+  }
+});
+
       
         
       audio.addEventListener("error", function () {
@@ -19419,141 +19820,10 @@ $(".mm-menu .my_profile .my_activity .fun_music-content [data-favorite-artist].a
 
   // GLOBAL FUNCTIONS - MUSIC MODULE - AUDIO CONTROLS
 
-  // repeat song
-
-  function repeat() {
-    $repeatBtn.toggleClass("color");
-    var $mostRepeatedSong = $musicLibrary.find(".song.play");
-    var songTrack = $mostRepeatedSong.attr("data-track");
-    var songCoverArt = $mostRepeatedSong.find(".coverart").attr("src");
-    var songName = $mostRepeatedSong.find("h2").text();
-  }
+ 
 
   
-  // Audio Controls 
   
-  var currentIndex = 0;
-
-
-
-  // next song
-var nextTrackTimeout;
-var $selectNextSong;
-  function nextSong() {
-      clearTimeout(nextTrackTimeout);
-      audio.pause();
-    var $trackPlaying = $("#music #library .song.play");
-    var trackPlayingName = $nowPlaying.attr("data-track");
-    var inPrevSongList = "[data-song='" + trackPlayingName + "']";
-    var firstInPrevSongListName = $dataPreviousSong
-      .find(".song")
-      .eq(0)
-      .attr("data-song");
-    
-
-    if ($("#music").hasClass("go")) {
-      nowPlayingScreen = true;
-    } else {
-      nowPlayingScreen = false;
-    }
-
-    if (!$("#repeat").hasClass("color")) {
-        
-        if ( $("#now_playing").hasClass("go") ) {
-          $("#now_playing #flick-now_playing").scrollTop(0);
-        }
-        
-      if ($dataPreviousSong.find("[data-song]").length === 0) {
-        $selectNextSong = randomSong;
-        $dataPreviousSong.html("<span class='nothing_here'>Nothing here!</span>");
-      } else {
-        $selectNextSong = $(
-          "#music #library .song[data-track='" + firstInPrevSongListName + "']"
-        );
-        $dataPreviousSong.find("[data-song]:first").remove();
-
-        if ($dataPreviousSong.find("[data-song]").length === 0) {
-          $dataPreviousSong.empty().text("None");
-        }
-      }
-
-      $selectNextSong.click();
-    } else {
-      
-      audio.currentTime = 0;
-    }
-  }
-  
-  // previous song
-  
-  function prevSong() {
-  clearTimeout(nextTrackTimeout);
-  audio.pause();
-
-  var trackPlayingName = $nowPlaying.attr("data-track");
-  var prevSongName = $dataLastPlayedSong.find(".song").eq(0).attr("data-song");
-  var $selectPrevSong = $("#music #library .song[data-track='" + prevSongName + "']");
-
-  if (!$selectPrevSong.length) return;
-
-  if (audio.currentTime <= 10 && !$("#repeat").hasClass("color")) {
-    if ($("#now_playing").hasClass("go")) {
-      $("#now_playing.go #now_playing-main.go").addClass("loading");
-            
-            nextTrackTimeout = setTimeout(function() {
-                $("#now_playing.go #now_playing-main.go").removeClass("loading");
-            }, 300);
-    }
-
-    $dataLastPlayedSong.find("[data-song='" + prevSongName + "']").remove();
-    $selectPrevSong.click();
-  } else {
-    audio.currentTime = 0;
-  }
-}
-
-  // song play/pause function
-
-  function playSong() {
-    playing = true;
-
-    audio.muted = true; // mute first to bypass autoplay restrictions
-    audio.play().then(() => {
-        audio.muted = false; // unmute if play succeeds
-    }).catch(err => {
-        console.log("play failed:", err);
-    });
-
-    $("title").text(
-        $("#now_playing .song_data .artist_name_font").text() + 
-        " — \""+ $("#now_playing .song_data h1").text() +"\" on Treesh Music"
-    );
-    
-    setTimeout(() => {
-        if (audio.currentTime === 0) {
-            console.log("audio not playing, retrying...");
-            $(".mm-menu .page_title .title span").text("Loading Error");
-            audio.muted = true;
-            audio.play().then(() => {
-                audio.muted = false;
-            }).catch(err => console.log("retry failed:", err));
-        } else {
-             if ( $("#now_playing #now_playing-main").hasClass('go') ) {
-
-          if ( $repeatBtn.hasClass("color") ) {
-          $(".mm-menu .page_title .title span").text("Now Replaying");
-    } else {
-        $(".mm-menu .page_title .title span").text("Now Playing");
-    }
-    }
-        }
-    }, 500);
-}
-
-  function pauseSong() {
-    playing = false;
-    audio.pause();
-  }
 
   var resizeWindow = true;
 
@@ -19599,161 +19869,7 @@ $("#record_player .record__ring").width($("#record_player .record_player").width
   }
   windowResize();
 
-  $playPause.click(function () {
-    if ( !$(this).hasClass("inactive") ) {
-    if (!$(".mm-menu .playpause-btn").hasClass("fa-play")) {
-  pauseSong();
-} else {
-  playSong();
-}
-    }
-  });
-  $prevBtn.click(function () {
-    if ( !$(this).hasClass("inactive") ) {
-    if ( $(this).attr("data-status") === "prev" ) {
-      prevSong();
-    } else {
-      if ( !$(this).hasClass("clicked") ) {
-        
-        setTimeout(function() {
-        $("#lyrics.expand .body p").removeClass("current");
-        
-          gsap.to("#lyrics.expand .body p", {
-  duration: 0.6,
-            opacity: 0.6,
-            color: "white",
-  overwrite: true,
-            scale: 0.9,
-  ease: "expo.in"
-});
-          }, 100);
-          
-          $(this).addClass("clicked");
-          
-          gsap.to("#prevbtn i", {
-  filter: "drop-shadow(0 0 10px white)",
-  duration: 0.6,
-  overwrite: true,
-  ease: "expo.inOut"
-});
-          
-          audio.pause();
-          
-          gsap.to(".mm-menu #repeat, .mm-menu #playpause, .mm-menu #travel", {
-            opacity: 0.2,
-            duration: 0.6, 
-            ease: "expo.out",
-            onComplete: function() {
-              $(".mm-menu #repeat, .mm-menu #playpause, .mm-menu #travel").addClass("inactive");
-            }
-          });
-       
-      } else {
-        
-        if ( $nowPlaying.attr("data-lyricsync") === "false" ) {
-          gsap.to("#lyrics.expand .body p", {
-  duration: 0.6,
-            opacity: 0.9,
-            color: "white",
-          scale: 1,
-  overwrite: true,
-  ease: "expo.in"
-});
-        } else {
-          gsap.to("#lyrics.expand .body p", {
-  duration: 0.6,
-            opacity: 0.9,
-            color: "white",
-          scale: 0.9,
-  overwrite: true,
-  ease: "expo.in"
-});
-        }
-        
-        $("#mini-now_playing .selected_lyrics_count span").text("0 lines selected");
-        
-        gsap.to("#mini-now_playing .selected_lyrics_count", {
-          height: 0,
-          duration: 0.3,
-          ease: "expo.in",
-          borderTop: "0px solid rgba(255, 255, 255, 0.2)"
-        });
-        
-        $("#lyrics.expand .body p").removeClass("can_select selected");
-        
-        $screenTitle.text("Now Playing");
-        
-        gsap.to(".mm-menu #repeat, .mm-menu #playpause, .mm-menu #travel", {
-            opacity: 1,
-            duration: 0.6, 
-            ease: "expo.out",
-            onComplete: function() {
-              $(".mm-menu #repeat, .mm-menu #playpause, .mm-menu #travel").removeClass("inactive");
-            }
-          });
-        
-        audio.play();
-        
-        gsap.to("#prevbtn i", {
-  filter: "drop-shadow(0 0 0px white)",
-  duration: 0.6,
-  overwrite: true,
-  ease: "expo.inOut"
-});
-        
-      $(this).removeClass("clicked");
-      }
-    }
-    }
-  });
   
-  $nextBtn.click(function () {
-    if ( !$(this).hasClass("inactive") ) {
-    if ( $(this).attr("data-status") === "next" ) {
-      nextSong();
-    } else {
-      if ( !$("#prevbtn").hasClass("clicked") ) {
-        closeLyrics();
-      } else {
-        closeLyricsShare();
-      }
-    }
-    }
-  });
-  
-  $repeatBtn.click(function () {
-    if ( !$(this).hasClass("inactive") ) {
-    if ( $(this).attr("data-status") === "repeat" ) {
-      repeat();
-    } else {
-      
-       const $btn = $(this);
-  const $nowPlaying = $("#now_playing");
-  const $lyrics = $("#now_playing #lyrics.expand");
-
-  const isClicked = $btn.hasClass("clicked");
-  const isSync = $btn.hasClass("sync-btn");
-
-  if (!isClicked && !isSync) {
-    $btn.addClass("clicked");
-    $("#lyrics .lyrics.expand .body p").css("color", "rgba(255, 255, 255, 0.6)");
-    $nowPlaying.attr("data-lyricSync", "true");
-    return;
-  }
-
-  if (isClicked && !isSync) {
-    $btn.addClass("sync-btn");
-    $nowPlaying.addClass("go-focus_lyrics");
-    $("#lyrics .lyrics.expand .body p").css("color", "rgba(255, 255, 255, 0)");
-  } else {
-    $btn.removeClass("clicked sync-btn");
-    $nowPlaying.removeClass("go-focus_lyrics").attr("data-lyricSync", "false");
-    $("#lyrics .lyrics.expand .body p").css("color", "rgba(255, 255, 255, 1)");
-  }
-      
-    }
-  }
-  });
 
   // STYLING
 
