@@ -569,10 +569,13 @@ syncArtistSelects();
      });
 
 	  $("#publish").click(async function() {
-  updateCode(); 
+  const codeEl = $("#code");
+  if (!codeEl.length) return alert("Code container not found");
 
-  const code = $("#code").html();
-  const body = JSON.stringify({ content: code, message: "Prepend new song" });
+  updateCode(); // make sure this actually updates #code
+
+  const newSongHtml = `<div class="song">${codeEl.html()}</div>`; // wrap in div
+  const body = JSON.stringify({ content: newSongHtml, message: "Prepend new song" });
 
   try {
     const res = await fetch("https://treesh.vercel.app/api/update-song", {
@@ -580,6 +583,12 @@ syncArtistSelects();
       headers: { "Content-Type": "application/json" },
       body
     });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.error || "Unknown error");
+    }
+
     const result = await res.json();
     console.log(result);
     alert("Song pushed! Check GitHub to confirm.");
@@ -588,6 +597,7 @@ syncArtistSelects();
     alert("Failed to push to GitHub. Check console for details.");
   }
 });
+
 
 });
 
