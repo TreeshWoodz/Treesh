@@ -1244,7 +1244,8 @@ $("#copy").click(function() {
 });
 
 	  $("#publish").click(async function() {
-  // grab inputs
+  updateCode();
+
   const inputs = {
     songName: $("#songName").val() || "",
     songSrc: $("#songSrc").val() || "",
@@ -1261,7 +1262,7 @@ $("#copy").click(function() {
     featuredArtists: $("#featuredArtists").val() || []
   };
 
-  // sanitize attributes against defaults
+  // clear any default values
   const sanitized = {
     "data-track": inputs.songName === defaults.songName ? "" : inputs.songName,
     "data-mp3": inputs.songSrc === defaults.songSrc ? "" : inputs.songSrc,
@@ -1278,35 +1279,26 @@ $("#copy").click(function() {
     "data-featuring": (inputs.featuredArtists.join(",") === defaults.featuredNames) ? "" : inputs.featuredArtists.join(",")
   };
 
-  // build allIds
   let allIdsVal = [];
-  if (inputs.mainArtist && inputs.mainArtist !== defaults.mainName) {
-    allIdsVal.push($("#mainArtist option:selected").data("id"));
-  }
-  if (inputs.featuredArtists.length) {
-    allIdsVal.push(...inputs.featuredArtists.map(id => $("#featuredArtists option[value='"+id+"']").data("id")));
-  }
+  if (inputs.mainArtist && inputs.mainArtist !== defaults.mainName) allIdsVal.push($("#mainArtist option:selected").data("id"));
+  if (inputs.featuredArtists.length) allIdsVal.push(...inputs.featuredArtists.map(id => $("#featuredArtists option[value='"+id+"']").data("id")));
   sanitized["data-artist-id"] = allIdsVal.join(",");
 
-  // build artist line for display
   const artistLine = (sanitized["data-artist"] || "") + (sanitized["data-featuring"] ? " x " + sanitized["data-featuring"].split(",").join(" x ") : "");
-
-  // build final html
   const theCode = `<ul class="song" ${Object.entries(sanitized).map(([k,v])=>`${k}="${v}"`).join(" ")}><span><section><img src="${sanitized["data-coverart"]}" alt="${sanitized["data-track"]}" class="coverart"></section><section><song-info-tag><h2>${sanitized["data-track"]}</h2><h3>${artistLine}</h3></song-info-tag></section></span></ul>`;
-
-  // send to API
-  const body = JSON.stringify({ content: theCode + "\n", message: "Prepend new song" });
 
   try {
     const res = await fetch("https://treesh.vercel.app/api/update-song", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body
+      body: JSON.stringify({ content: theCode + "\n", message: "Prepend new song" })
     });
+
     if (!res.ok) {
       const errData = await res.json();
       throw new Error(errData.error || "Unknown error");
     }
+
     const result = await res.json();
     console.log(result);
     alert("Song pushed! Check GitHub to confirm.");
@@ -1315,6 +1307,7 @@ $("#copy").click(function() {
     alert("Failed to push to GitHub. Check console for details.");
   }
 });
+
 
 
      
