@@ -1249,6 +1249,9 @@ $("#copy").click(function() {
 	   $("#publish").click(async function() {
   updateCode();
 
+  const $btn = $(this);
+  $btn.prop("disabled", true).text("Publishing...");
+
   const inputs = {
     songName: $("#songName").val() || "",
     songSrc: $("#songSrc").val() || "",
@@ -1292,28 +1295,29 @@ $("#copy").click(function() {
   const body = JSON.stringify({ content: theCode + "\n", message: "Prepend new song" });
 
   try {
-    const res = await fetch("https://treesh.vercel.app/api/update-song", {  // full Vercel URL
+    const res = await fetch("https://treesh.vercel.app/api/update-song", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        "X-Upload-Key": "TWsavionce3-000369"  // use your UPLOAD_KEY env
+        "X-Upload-Key": "TWsavionce3-000369"
       },
       body
     });
 
-    if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.error || "Unknown error");
-    }
+    const data = await res.json();
 
-    const result = await res.json();
-    console.log(result);
-    alert("Song pushed! Check GitHub to confirm.");
+    if (!res.ok) throw new Error(data.error || "Unknown error");
+
+    alert("Song published successfully!");
+    console.log(data);
   } catch (err) {
     console.error(err);
-    alert("Failed to push to GitHub. Check console for details.");
+    alert("Failed to publish song: " + err.message);
+  } finally {
+    $btn.prop("disabled", false).text("Publish");
   }
 });
+
 
 
 
