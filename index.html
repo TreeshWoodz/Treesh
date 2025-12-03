@@ -15631,8 +15631,8 @@ function playPrevSong() {
   function playNextSong() {
   audio.pause();
 
-  const allSongs = $("#music #library .song");
-  const unplayed = allSongs.filter(function() {
+  let allSongs = $("#music #library .song");
+  let unplayed = allSongs.filter(function() {
     return !songHistory.includes($(this)[0]);
   });
 
@@ -15643,57 +15643,40 @@ function playPrevSong() {
     return;
   }
 
-  let nextSong;
-
   // repeat all
   if (repeatMode === 2) {
-    if (historyIndex >= songHistory.length - 1) historyIndex = -1;
+    if (historyIndex >= songHistory.length - 1) {
+      historyIndex = -1;
+    }
+    historyIndex++;
+    currentSong = $(songHistory[historyIndex]);
+    currentSong.trigger("click");
+    return;
+  }
+
+  let nextSong;
+
+  // next from history if not at end
+  if (historyIndex < songHistory.length - 1) {
     historyIndex++;
     nextSong = $(songHistory[historyIndex]);
-  } else {
-    // next from history if not at end
-    if (historyIndex < songHistory.length - 1) {
-      historyIndex++;
-      nextSong = $(songHistory[historyIndex]);
-    } else if (unplayed.length > 0) {
-      // pick a random unplayed
-      nextSong = $(unplayed[Math.floor(Math.random() * unplayed.length)]);
-      songHistory.push(nextSong[0]);
-      historyIndex = songHistory.length - 1;
-    } else {
-      // fallback: random from all
-      nextSong = $(allSongs[Math.floor(Math.random() * allSongs.length)]);
-      songHistory.push(nextSong[0]);
-      historyIndex = songHistory.length - 1;
-    }
+  } 
+  // else pick a random unplayed or random from all
+  else if (unplayed.length > 0) {
+    nextSong = $(unplayed[Math.floor(Math.random() * unplayed.length)]);
+    songHistory.push(nextSong[0]);
+    historyIndex = songHistory.length - 1;
+  } 
+  else {
+    nextSong = $(allSongs[Math.floor(Math.random() * allSongs.length)]);
+    songHistory.push(nextSong[0]);
+    historyIndex = songHistory.length - 1;
   }
 
-  // set current song
+  isNavigating = true;
   currentSong = nextSong;
-
-  // play current song using audio element
-  audio.src = currentSong.attr("data-mp3");
-  audio.currentTime = 0;
-  audio.play().then(() => {
-    updateMediaSession(
-      currentSong.find("h2").text(),
-      currentSong.find("h3").text(),
-      currentSong.find(".coverart").attr("src")
-    );
-  });
-
-  // preload the following track
-  const currentIndex = allSongs.index(currentSong);
-  const nextIndex = (currentIndex + 1) % allSongs.length;
-  const followingSong = allSongs.eq(nextIndex);
-  if (followingSong.length) {
-    nextAudio.src = followingSong.attr("data-mp3");
-    nextAudio.preload = "auto";
-  }
-
-  // highlight playing
-  allSongs.removeClass("play");
-  currentSong.addClass("play");
+  currentSong.trigger("click");
+  setTimeout(() => (isNavigating = false), 100);
 
   if ($("#now_playing").hasClass("go")) {
     $("#now_playing #flick-now_playing").scrollTop(0);
@@ -15847,16 +15830,6 @@ async function updateMediaSession(title, artist, cover) {
      audio.src = audioLink;
   audio.play().then(() => {
     updateMediaSession(title, artist, cover);
-
-  const allSongs = $("#music #library .song");
-  const currentIndex = allSongs.index($this);
-  const nextIndex = (currentIndex + 1) % allSongs.length;
-  const nextSong = allSongs.eq(nextIndex);
-  if (nextSong.length) {
-    const nextSrc = nextSong.attr("data-mp3");
-    nextAudio.src = nextSrc;
-    nextAudio.preload = "auto"; 
-  }
   }).catch(err => {
     console.log("Playback error:", err);
   });
@@ -18457,6 +18430,9 @@ tl.to(".mm-menu", { opacity: 0, duration: 0.3, ease: "expo.out" })
     .css("background-image", $(".pfp_backdrop").css("background-image"));
 
   $(document).on("click", ".mm-menu .theme-btn", function () {
+  const $buttonContainer = $(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain");
+
+
   $.get("/content/backdrops.html", function (data) {
     let $html = $("<div>").html(data);
     let containers = $html.find(".backdrops_container");
@@ -18466,9 +18442,8 @@ tl.to(".mm-menu", { opacity: 0, duration: 0.3, ease: "expo.out" })
       let backdropBG = $this.attr("data-src");
       let backdropSMBG = "https://res.cloudinary.com/treesh/image/fetch/w_200/" + backdropBG;
       let $category = $this.closest(".backdrops_container").find(".backdrop_category");
-var catName = $category.attr("data-name") || "";
-var catTag = $category.attr("data-category") || "";
-var catIcon = $category.find("i").attr("class") || "";
+      var catTag = $category.attr("data-category") || ""; 
+      var catIcon = $category.find("i").attr("class") || "";
 
 
       $this.css({
@@ -18479,16 +18454,16 @@ var catIcon = $category.find("i").attr("class") || "";
       }).attr("data-sm", backdropSMBG);
       
         $(
-          '<button type="button" class="reg_button" data-category="' +
-            catTag +
-            '">' +
-            "<i class='"+ catIcon +"'></i>" + " " + catTag +
-            "</button>"
-        ).appendTo(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain");
+        '<button type="button" class="reg_button" data-category="' +
+          catTag +
+          '">' +
+          "<i class='"+ catIcon +"'></i>" + " " + catTag +
+          "</button>"
+      ).appendTo($buttonContainer);
 
-if ($(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").children("button").length >= 5 && $(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").find(".before-six").length === 0) {
-  $(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").children("button").eq(5).before("<div class='before-six'></div>");
-}
+      if ($buttonContainer.children("button").length >= 5 && $buttonContainer.find(".before-six").length === 0) {
+        $buttonContainer.children("button").eq(5).before("<div class='before-six'></div>");
+      }
     }).promise()
     .done(function () {
       $(".mm-menu .backdrops .backdrops_menu button.reg_button:first").addClass(
@@ -18499,8 +18474,8 @@ if ($(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").childr
     $(".mm-menu .backdrops .sub_contain h5").remove();
     
     setTimeout(function() {
-    $(".mm-menu .backdrops .sub_contain").empty().append(containers);
-      }, 300);
+      $(".mm-menu .backdrops .sub_contain").empty().append(containers);
+    }, 300);
   }).fail(function () {
     $(".mm-menu .backdrops .sub_contain").append("<h5>Error loading backdrops...<br><br>Maybe we should try again</h5>");
   });
@@ -18509,7 +18484,7 @@ if ($(".backdrops .backdrops_menu .backdrop_tags .backdrop_tags-contain").childr
     
       
         $(".mm-menu .page_title .title span").text(
-        "Customize > Theme"
+        "Theme"
       );
     
     if ( $("#now_playing").hasClass("go") ) {
@@ -18952,7 +18927,7 @@ $(document).on("click", ".mm-menu .backdrop_filters-btn", function() {
                 ease: "expo.inOut",
                 onComplete: function() {
             $backdrops.removeClass("go");
-                    $(".page_title .title span").text("Customize > Theme > Backdrop");
+                    $(".page_title .title span").text("Theme > Backdrop");
                 }
             });
         }
@@ -19309,7 +19284,7 @@ tl.to(filters, {
   duration: 0.3,
   ease: "expo.inOut",
   onComplete: () => {
-    $(".page_title .title span").text("Customize > Theme");
+    $(".page_title .title span").text("Theme");
     backdrops.addClass("go");
   }
 });
