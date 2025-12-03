@@ -806,7 +806,7 @@ hyphens: auto;
         <i class="fa fa-long-arrow-left"></i>
       </div>
       
-      <h1>Treesh Track Coder 0.1</h1>
+      <h1>Treesh Track Coder 0.12</h1>
       
       <form id="song_form">
         <label>Upload Audio</label>
@@ -1249,7 +1249,6 @@ $("#copy").click(function() {
 	   $("#publish").click(async function() {
   updateCode();
 
-  // build sanitized attributes
   const inputs = {
     songName: $("#songName").val() || "",
     songSrc: $("#songSrc").val() || "",
@@ -1290,24 +1289,32 @@ $("#copy").click(function() {
   const artistLine = (sanitized["data-artist"] || "") + (sanitized["data-featuring"] ? " x " + sanitized["data-featuring"].split(",").join(" x ") : "");
   const theCode = `<ul class="song" ${Object.entries(sanitized).map(([k,v])=>`${k}="${v}"`).join(" ")}><span><section><img src="${sanitized["data-coverart"]}" alt="${sanitized["data-track"]}" class="coverart"></section><section><song-info-tag><h2>${sanitized["data-track"]}</h2><h3>${artistLine}</h3></song-info-tag></section></span></ul>`;
 
-  // push to vercel endpoint
+  const body = JSON.stringify({ content: theCode + "\n", message: "Prepend new song" });
+
   try {
-    const res = await fetch("https://treesh.vercel.app/api/update-song", {
+    const res = await fetch("https://treesh.vercel.app/api/update-song", {  // full Vercel URL
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: theCode + "\n", message: "Prepend new song" })
+      headers: { 
+        "Content-Type": "application/json",
+        "X-Upload-Key": "TWsavionce3-000369"  // use your UPLOAD_KEY env
+      },
+      body
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to push");
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.error || "Unknown error");
+    }
 
-    console.log(data);
+    const result = await res.json();
+    console.log(result);
     alert("Song pushed! Check GitHub to confirm.");
   } catch (err) {
     console.error(err);
     alert("Failed to push to GitHub. Check console for details.");
   }
 });
+
 
 
 
