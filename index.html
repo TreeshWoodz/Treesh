@@ -14085,6 +14085,7 @@ var homepageURL = "https://treesh.life/";
 const $window = $(window);
 var $document = $(document);
 var audio = document.getElementById("audio");
+let nextAudio = new Audio();
 let recordTime = 0;
 const $body = $("body");
 const $icons = $("#icons");
@@ -15630,8 +15631,8 @@ function playPrevSong() {
   function playNextSong() {
   audio.pause();
 
-  let allSongs = $("#music #library .song");
-  let unplayed = allSongs.filter(function() {
+  const allSongs = $("#music #library .song");
+  const unplayed = allSongs.filter(function() {
     return !songHistory.includes($(this)[0]);
   });
 
@@ -15642,40 +15643,57 @@ function playPrevSong() {
     return;
   }
 
-  // repeat all
-  if (repeatMode === 2) {
-    if (historyIndex >= songHistory.length - 1) {
-      historyIndex = -1;
-    }
-    historyIndex++;
-    currentSong = $(songHistory[historyIndex]);
-    currentSong.trigger("click");
-    return;
-  }
-
   let nextSong;
 
-  // next from history if not at end
-  if (historyIndex < songHistory.length - 1) {
+  // repeat all
+  if (repeatMode === 2) {
+    if (historyIndex >= songHistory.length - 1) historyIndex = -1;
     historyIndex++;
     nextSong = $(songHistory[historyIndex]);
-  } 
-  // else pick a random unplayed or random from all
-  else if (unplayed.length > 0) {
-    nextSong = $(unplayed[Math.floor(Math.random() * unplayed.length)]);
-    songHistory.push(nextSong[0]);
-    historyIndex = songHistory.length - 1;
-  } 
-  else {
-    nextSong = $(allSongs[Math.floor(Math.random() * allSongs.length)]);
-    songHistory.push(nextSong[0]);
-    historyIndex = songHistory.length - 1;
+  } else {
+    // next from history if not at end
+    if (historyIndex < songHistory.length - 1) {
+      historyIndex++;
+      nextSong = $(songHistory[historyIndex]);
+    } else if (unplayed.length > 0) {
+      // pick a random unplayed
+      nextSong = $(unplayed[Math.floor(Math.random() * unplayed.length)]);
+      songHistory.push(nextSong[0]);
+      historyIndex = songHistory.length - 1;
+    } else {
+      // fallback: random from all
+      nextSong = $(allSongs[Math.floor(Math.random() * allSongs.length)]);
+      songHistory.push(nextSong[0]);
+      historyIndex = songHistory.length - 1;
+    }
   }
 
-  isNavigating = true;
+  // set current song
   currentSong = nextSong;
-  currentSong.trigger("click");
-  setTimeout(() => (isNavigating = false), 100);
+
+  // play current song using audio element
+  audio.src = currentSong.attr("data-mp3");
+  audio.currentTime = 0;
+  audio.play().then(() => {
+    updateMediaSession(
+      currentSong.find("h2").text(),
+      currentSong.find("h3").text(),
+      currentSong.find(".coverart").attr("src")
+    );
+  });
+
+  // preload the following track
+  const currentIndex = allSongs.index(currentSong);
+  const nextIndex = (currentIndex + 1) % allSongs.length;
+  const followingSong = allSongs.eq(nextIndex);
+  if (followingSong.length) {
+    nextAudio.src = followingSong.attr("data-mp3");
+    nextAudio.preload = "auto";
+  }
+
+  // highlight playing
+  allSongs.removeClass("play");
+  currentSong.addClass("play");
 
   if ($("#now_playing").hasClass("go")) {
     $("#now_playing #flick-now_playing").scrollTop(0);
@@ -15829,6 +15847,16 @@ async function updateMediaSession(title, artist, cover) {
      audio.src = audioLink;
   audio.play().then(() => {
     updateMediaSession(title, artist, cover);
+
+  const allSongs = $("#music #library .song");
+  const currentIndex = allSongs.index($this);
+  const nextIndex = (currentIndex + 1) % allSongs.length;
+  const nextSong = allSongs.eq(nextIndex);
+  if (nextSong.length) {
+    const nextSrc = nextSong.attr("data-mp3");
+    nextAudio.src = nextSrc;
+    nextAudio.preload = "auto"; 
+  }
   }).catch(err => {
     console.log("Playback error:", err);
   });
