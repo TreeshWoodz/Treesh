@@ -15790,25 +15790,19 @@ $("#repeat").addClass("one color");
 async function updateMediaSession(title, artist, cover) {
   if (!('mediaSession' in navigator)) return;
 
-  const sizesToResize = ["96x96", "128x128", "256x256", "400x400", "800x800"];
-  
-  const artworkPromises = [{ 
-    src: cover, 
-    sizes: "512x512", 
-    type: "image/jpeg" 
-  }];
-  
-  sizesToResize.forEach(size => {
-    const [w, h] = size.split("x").map(Number);
-    artworkPromises.push(getResizedArtwork(cover, w, h));
-  });
-  
-  const allArtwork = await Promise.all(artworkPromises);
-  
+  const allArtwork = [
+    { src: cover, sizes: "96x96", type: "image/jpeg" },
+    { src: cover, sizes: "128x128", type: "image/jpeg" },
+    { src: cover, sizes: "256x256", type: "image/jpeg" },
+    { src: cover, sizes: "400x400", type: "image/jpeg" },
+    { src: cover, sizes: "512x512", type: "image/jpeg" },
+    { src: cover, sizes: "800x800", type: "image/jpeg" }
+  ];
+
   navigator.mediaSession.metadata = new MediaMetadata({
     title: title,
     artist: artist,
-    artwork: allArtwork 
+    artwork: allArtwork
   });
 
   navigator.mediaSession.setActionHandler("previoustrack", playPrevSong);
@@ -15831,7 +15825,15 @@ async function updateMediaSession(title, artist, cover) {
      const audioLink = $this.attr("data-mp3");
      const artistID = $this.attr("data-artist-id");
 
-     updateMediaSession(title, artist, cover);
+     audio.pause();
+     audio.currentTime = 0;
+     audio.src = audioLink;
+  audio.play().then(() => {
+    updateMediaSession(title, artist, cover);
+  }).catch(err => {
+    console.log("Playback error:", err);
+  });
+});
 
        const fields = [
     "bio",
@@ -15880,9 +15882,6 @@ async function updateMediaSession(title, artist, cover) {
      
      // AUDIO
      
-     audio.pause();
-     audio.currentTime = 0;
-     audio.src = audioLink;
      
      if (!isNavigating) {
     currentSong = $(this);
@@ -16634,6 +16633,7 @@ $(".profile_pic-upload img, #your_hub img, .pfp_pic").attr("src", localStorage.g
         $(this).addClass("clicked");
       }
     });
+
   }
   
   if (localStorage.getItem("favTextColor")) {
@@ -16645,6 +16645,14 @@ $(".profile_pic-upload img, #your_hub img, .pfp_pic").attr("src", localStorage.g
         localStorage.getItem("newColor")
       );
     }
+
+    if (!$(".mm-menu .colors .colors_container .selection_icon").length) {
+  $('<div class="selection_icon" data-for="colors"><input type="color" /><span data-for="colors"><i class="fa-solid fa-plus"></i></span></div>')
+    .prependTo(".mm-menu .colors .colors_container");
+  
+  // immediately save back to localStorage so future reloads have it
+  localStorage.setItem("newColor", $(".mm-menu .colors .colors_container").html());
+}
 
 
 
@@ -18433,7 +18441,8 @@ tl.to(".mm-menu", { opacity: 0, duration: 0.3, ease: "expo.out" })
       let backdropSMBG = "https://res.cloudinary.com/treesh/image/fetch/w_200/" + backdropBG;
       var catName = $this.attr("data-name");
       var catTag = $this.attr("data-category");
-      var catIcon = $this.find("span i").attr("class");
+      var catIcon = $this.find("span i").attr("class") || "";
+
 
       $this.css({
         "background-image": "url('" + backdropSMBG + "')",
