@@ -15787,33 +15787,35 @@ $("#repeat").addClass("one color");
 }
 
 
-function updateMediaSession(title, artist, cover) {
+async function updateMediaSession(title, artist, cover) {
   if (!('mediaSession' in navigator)) return;
 
+  const sizesToResize = ["96x96", "128x128", "256x256", "400x400", "800x800"];
+  
+  const artworkPromises = [{ 
+    src: cover, 
+    sizes: "512x512", 
+    type: "image/jpeg" 
+  }];
+  
+  sizesToResize.forEach(size => {
+    const [w, h] = size.split("x").map(Number);
+    artworkPromises.push(getResizedArtwork(cover, w, h));
+  });
+  
+  const allArtwork = await Promise.all(artworkPromises);
+  
   navigator.mediaSession.metadata = new MediaMetadata({
     title: title,
     artist: artist,
-    artwork: [{ src: cover, sizes: "512x512", type: "image/jpeg" }]
+    artwork: allArtwork 
   });
 
   navigator.mediaSession.setActionHandler("previoustrack", playPrevSong);
   navigator.mediaSession.setActionHandler("nexttrack", playNextSong);
   navigator.mediaSession.setActionHandler("seekbackward", null);
   navigator.mediaSession.setActionHandler("seekforward", null);
-
-  var sizes = ["96x96","128x128","256x256","400x400","512x512","800x800"];
-  sizes.forEach(size => {
-    var [w,h] = size.split("x").map(Number);
-    resizeImage(cover, w, h, resizedURL => {
-      navigator.mediaSession.metadata.artwork.push({
-        src: resizedURL,
-        sizes: size,
-        type: "image/jpeg"
-      });
-    });
-  });
 }
-
   
   $(document).on("click", ".song", function() {
      const $this = $(this);
