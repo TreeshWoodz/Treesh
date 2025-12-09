@@ -15133,88 +15133,83 @@ gsap.set("#music .whats_new .item .ani", {
   x: "-100%"
 });
 
+// initial animation state
+gsap.set("#music .whats_new .item .ani", { opacity: 0, scale: 0.8, y: 20 });
+gsap.set("#music .whats_new .item .sub_head", { x: "-100%" });
+
+const flick = document.querySelector("#music .whats_new .whats_new_flick");
+let scrollTimer;
 let isTouching = false;
-let isChecking = false;
-let lastScrollLeft = 0;
 
-const $flick = $("#music .whats_new .whats_new_flick");
+// handle input
+flick.addEventListener("pointerdown", () => isTouching = true);
+flick.addEventListener("pointerup", () => { isTouching = false; snapToClosest(); });
+flick.addEventListener("touchstart", () => isTouching = true);
+flick.addEventListener("touchend", () => { isTouching = false; snapToClosest(); });
 
-$flick
-  .on("touchstart pointerdown", () => {
-    isTouching = true;
-  })
-  .on("touchend pointerup", () => {
-    isTouching = false;
-  })
-  .on("scroll", () => {
-    if (!isChecking && !isTouching) checkScrollStopped();
-  });
+// detect scroll stop
+flick.addEventListener("scroll", () => {
+  clearTimeout(scrollTimer);
+  if (!isTouching) scrollTimer = setTimeout(snapToClosest, 200);
+});
 
-function checkScrollStopped() {
-  if (isChecking || isTouching) return;
-  isChecking = true;
-  let prev = $flick.scrollLeft();
+function snapToClosest() {
+  const items = flick.querySelectorAll(".item");
+  const scroll = flick.scrollLeft;
+  const containerCenter = scroll + flick.clientWidth / 2;
 
-  const step = () => {
-    const current = $flick.scrollLeft();
+  let closest = null;
+  let minDist = Infinity;
 
-    if (isTouching) {
-      isChecking = false;
-      return;
-    }
-
-    if (current !== prev) {
-      prev = current;
-      requestAnimationFrame(step); 
-    } else {
-      isChecking = false;
-      triggerAfterStop($flick); 
-    }
-  };
-
-  requestAnimationFrame(step);
-}
-
-function triggerAfterStop($c) {
-  const scroll = $c.scrollLeft();
-  const containerWidth = $c.innerWidth();
-  const items = $c.find(".item");
-  const containerCenter = scroll + containerWidth / 2;
-
-  let closestItem = null;
-  let minDistance = Infinity;
-
-  items.each(function() {
-    const $el = $(this);
-    const itemLeft = $el.offset().left - $c.offset().left + scroll;
-    const itemCenter = itemLeft + $el.outerWidth(true) / 2;
-    const distance = Math.abs(containerCenter - itemCenter);
-
-    if (distance < minDistance) {
-      minDistance = distance;
-      closestItem = $el;
+  items.forEach(item => {
+    const center = item.offsetLeft + item.offsetWidth / 2;
+    const dist = Math.abs(center - containerCenter);
+    if (dist < minDist) {
+      minDist = dist;
+      closest = item;
     }
   });
 
-  if (!closestItem || closestItem.hasClass("go")) return; 
+  if (!closest) return;
 
-  gsap.set("#music .whats_new .item .ani", { opacity: 0, scale: 0.8, y: 20 });
-  gsap.set("#music .whats_new .item .sub_head", { x: "-100%" });
+  // temporarily disable smooth behavior so momentum doesn’t fight
+  flick.style.scrollBehavior = "auto";
+  flick.scrollLeft = closest.offsetLeft;
+  flick.style.scrollBehavior = "smooth";
 
-  gsap.to($c, {
-    height: () => closestItem.outerHeight(true) + 40,
+  // jQuery wrapper for GSAP
+  const $closest = $(closest);
+  const $flick = $(flick);
+
+  // adjust height
+  gsap.to($flick, {
+    height: $closest.outerHeight(true) + 40,
     duration: 0.4,
     ease: "power1.out"
   });
 
-  playAni(closestItem);
+  // reset all
+  gsap.set("#music .whats_new .item .ani", { opacity: 0, scale: 0.8, y: 20 });
+  gsap.set("#music .whats_new .item .sub_head", { x: "-100%" });
+
+  // animate active
+  gsap.to($closest.find(".ani"), {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    stagger: 0.05,
+    duration: 0.6,
+    ease: "power1.out"
+  });
+  gsap.to($closest.find(".sub_head"), {
+    x: 0,
+    duration: 0.6,
+    ease: "power1.out"
+  });
+
+  $closest.addClass("go").siblings().removeClass("go");
 }
 
-function playAni($el) {
-  gsap.to($el.find(".ani"), { opacity: 1, scale: 1, y: 0, stagger: 0.05, duration: 0.6, ease:"power1.out" });
-  gsap.to($el.find(".sub_head"), { x: 0, duration: 0.6, ease: "power1.out" });
-  $el.addClass("go").siblings().removeClass("go");
-}
 
 
 
