@@ -555,7 +555,7 @@ button,
     position:fixed;
     top:0;
     left:0;
-    z-index:2;
+    z-index:-2;
     display:block;
     overflow:auto;
     opacity:0;
@@ -875,43 +875,47 @@ buttons.forEach(btn => {
   { opacity: 1, duration: 3, ease: "power4.out", delay: 0.6, paused: false }); 
   
   
-let holdTimer;
-let isHeld = false;
-  
-playPause.addEventListener("mousedown", () => {
+const startHold = (e) => {
+  e.preventDefault(); // prevent double firing on touch + mouse
   isHeld = false;
-  
+
   holdTimer = setTimeout(() => {
     playPause.classList.add("held");
-    isHeld = true; // mark as held
-  }, 100); // threshold for hold
-  
+    isHeld = true;
+  }, 100);
+
   holdTween = gsap.to(circle, { 
     strokeDashoffset: 0, 
     duration: 3, 
     ease: "linear",
     onComplete: () => {
-      if ( !bg.classList.contains("go-modal") ) {
-        playlistAni.play(); 
-    bg.classList.add("go-modal");
+      if (!bg.classList.contains("go-modal")) {
+        playlistAni.play();
+        bg.classList.add("go-modal");
       } else {
-        playlistAni.reverse(); 
-    bg.classList.remove("go-modal");
+        playlistAni.reverse();
+        bg.classList.remove("go-modal");
       }
-                      }
+    }
   });
-});
+};
 
-// mouseup/mouseleave resets hold but does NOT toggle audio
-const cancelHold = () => {
+const endHold = () => {
   clearTimeout(holdTimer);
   playPause.classList.remove("held");
   if (holdTween) holdTween.kill();
   gsap.set(circle, { strokeDashoffset: circumference });
 };
 
-playPause.addEventListener("mouseup", cancelHold);
-playPause.addEventListener("mouseleave", cancelHold);
+// mouse events
+playPause.addEventListener("mousedown", startHold);
+playPause.addEventListener("mouseup", endHold);
+playPause.addEventListener("mouseleave", endHold);
+
+// touch events
+playPause.addEventListener("touchstart", startHold);
+playPause.addEventListener("touchend", endHold);
+playPause.addEventListener("touchcancel", endHold);
 
 // click only works if button was NOT held
 playPause.addEventListener("click", function() {
@@ -982,8 +986,8 @@ playPause.addEventListener("click", function() {
 
 const backgroundsTimeline = gsap.timeline({ paused: true })
   .fromTo("#backgrounds", 
-    { y: 20, opacity: 0 },
-    { y: 0, opacity: 1, duration: 0.6, ease: "power4.out" }
+    { y: 20, opacity: 0, zIndex: -2},
+    { y: 0, opacity: 1, duration: 0.6, zIndex: 2, ease: "power4.out" }
   )
   .fromTo(bgItems, 
     { y: 20, opacity: 0, scale: 0.8 },
@@ -1035,5 +1039,6 @@ bgBtn.addEventListener("click", () => {
         // end Document Ready
       </script>
 </body>
+
 
 </html>
