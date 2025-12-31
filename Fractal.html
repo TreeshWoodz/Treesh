@@ -279,6 +279,20 @@ button,
     align-items:center;
   }
   
+  #wave:after {
+    content:"";
+    clear:both;
+    display:table;
+    width:100%;
+    height:200%;
+    top:0;
+    left:0;
+    background: linear-gradient(to bottom, black 0%, transparent 60%);
+    position:absolute;
+    z-index:-1;
+    pointer-events:none;
+  }
+  
   #wave .section {
     width:100%;
     height:100%;
@@ -296,12 +310,18 @@ button,
   }
   
   #wave button {
-    width:40px;
-    height:40px;
+    width:60px;
+    height:60px;
+    transition:background-color 0.3s ease-in, color 0.3s ease-in;
+  }
+  
+  #wave button.clicked {
+    background:white !important;
+    color:black !important;
   }
   
   #wave button i {
-    font-size:1rem;
+    font-size:2rem;
   }
 
   /* Dynamic Background */
@@ -350,6 +370,20 @@ button,
     align-items:center;
     background:transparent url('') center / cover no-repeat;
     z-index:3;
+  }
+  
+  #player:after {
+    content:"";
+    clear:both;
+    display:table;
+    width:100vw;
+    height:200%;
+    bottom:-30px;
+    left:-15px;
+    background: linear-gradient(to top, black 0%, transparent 60%);
+    position:absolute;
+    z-index:-1;
+    pointer-events:none;
   }
   
   #player button {
@@ -702,37 +736,29 @@ const randomBg = () => {
   if ( !bg.classList.contains("picked") ) {
   const randomImage = bgs[Math.floor(Math.random() * bgs.length)];
 
-  // create overlay div
   const overlay = document.createElement("div");
   overlay.style.position = "fixed";
   overlay.style.top = "50%";
   overlay.style.left = 0;
   overlay.style.right = 0;
-  overlay.style.width = "20px";
-  overlay.style.height = "20px";
-  overlay.style.borderRadius = "100%";
+  overlay.style.width = "100%";
+  overlay.style.height = "100%";
   overlay.style.background = `url(${randomImage}) center / cover no-repeat`;
   overlay.style.opacity = 0;
-  overlay.style.transform = "translateY(-50%) scale(0)";
+  overlay.style.transform = "translateY(-50%) scale(1.2)";
   overlay.style.margin = "auto";
   overlay.style.transformOrigin = "50% 50%";
   overlay.style.pointerEvents = "none";
   overlay.style.zIndex = 1;
   bg.appendChild(overlay);
 
-  // fade in overlay
   gsap.to(overlay, {
     opacity: 1,
-    duration: 1.5,
-    width: "100%",
-    height: "100%",
-    scale:1,
+    duration: 2,
+    scale: 1,
     ease: "power2.out",
-    borderRadius:0,
     onComplete: () => {
-      // set new background on main div
       bg.style.background = `url(${randomImage}) center / cover no-repeat`;
-      // remove overlay
       bg.removeChild(overlay);
     }
   });
@@ -822,7 +848,6 @@ if (songs.length) {
         
         // start Audio Events
         
-        // Audio Play Function
   audio.addEventListener("play", function() {
   icon.classList.remove("fa-play");
   icon.classList.add("fa-pause");
@@ -835,40 +860,108 @@ if (songs.length) {
         
         // ------ start Global Functions
         
-        const playlistAni = gsap.fromTo(playlist, 
-  { y: "100%", opacity: 0 }, 
-  { y: 0, opacity: 1, duration: 0.6, ease: "power4.out", paused: true, onComplete: () => {
-    gsap.fromTo(songs, {
-      y: 20,
-      opacity: 0,
-      scale: 0.8
-    }, {
-      y: 0,
-      opacity: 1,
-      scale: 1,
+        const iconn = document.querySelector("#bgBtn i");
+
+const playlistAni = gsap.timeline({ paused: true })
+  .fromTo(playlist, 
+    { y: "100%", opacity: 0 }, 
+    { y: 0, opacity: 1, duration: 0.6, ease: "power4.out" }
+  )
+  .fromTo(iconn, 
+    { scale: 0 }, 
+    { 
+      scale: 1, 
       duration: 0.6,
       ease: "power4.out",
-      stagger: 0.05
-    });
-  } 
-  });
+      onStart: () => {
+        iconn.classList.remove("fa-image");
+        iconn.classList.add("fa-x");
+        bgBtn.classList.add("clicked");
+      }
+    },
+    0
+  )
+  .fromTo(songs, 
+    { y: 20, opacity: 0, scale: 0.8 }, 
+    { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power4.out", stagger: 0.05 }, 
+    0
+  );
+
+        gsap.set(iconn, { scale: 1 }); 
+
+
+
+        
+function reversePlaylist() {
+  playlistAni.eventCallback("onReverseComplete", () => {
+        bg.classList.remove("go-modal");
+        
+  iconn.classList.remove("fa-x");
+  iconn.classList.add("fa-image");
+  gsap.to(iconn, { scale: 1, duration: 0.6 }); 
+        
+        const scrollable = document.querySelector("#playlist"); 
+        if(scrollable) scrollable.scrollTop = 0;
+        playlistAni.eventCallback("onReverseComplete", null);
+      });
+      playlistAni.reverse();
+}
+
+        
+function reverseBgList() {
+  backgroundsTimeline.eventCallback("onReverseComplete", () => {
+        bg.classList.remove("go-modal");
+        const scrollable = document.querySelector("#backgrounds"); 
+        if (scrollable) scrollable.scrollTop = 0;
+        backgroundsTimeline.eventCallback("onReverseComplete", null);
+      });
+      backgroundsTimeline.reverse();
+}
         
         
-        // start Document Ready
+        
+  const bgItems = document.querySelectorAll("#backgrounds .item");
+
+const backgroundsTimeline = gsap.timeline({ paused: true })
+  .fromTo("#backgrounds", 
+    { y: 20, opacity: 0, zIndex: -2 },
+    { 
+      y: 0, 
+      opacity: 1, 
+      duration: 0.6, 
+      zIndex: 2, 
+      ease: "power4.out",
+    onStart: () => {
+      bgBtn.classList.add("clicked");
+    }
+    }
+  )
+  .fromTo(bgItems, 
+    { y: 20, opacity: 0, scale: 0.8 },
+    { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.05, ease: "power4.out" },
+    "-=0.3" 
+  );
+        
+        
 document.addEventListener("DOMContentLoaded", () => {
   
-  // Append Glass to All Buttons
 buttons.forEach(btn => {
   btn.insertAdjacentHTML("beforeend", '<div class="glass-overlay"></div><div class="glass-specular"></div>');
 });
 
-  // Random Background Function
   randomBg();
   
   
-  let playerBtnsAni = gsap.fromTo(buttons, 
-  { y: "100%", opacity: 0, scale:0.8 }, 
-  { y: 0, opacity: 1, scale:1, duration: 0.6, ease: "power4.out", stagger: 0.1, delay: 0.9, paused: false });
+  let playerBtnsAni = gsap.fromTo("#playPause", 
+  { y: "100%", opacity: 0, scale: 0.8 }, 
+  { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power4.out", delay: 0.9 }
+);
+
+let playerBtnsAniLittleBtns = gsap.fromTo($(buttons).not("#playPause"), 
+  { y: "100%", opacity: 0, scale: 0.6 }, 
+  { y: 0, opacity: 1, scale: 0.8, duration: 0.6, ease: "power4.out", stagger: 0.1, delay: 0.9 }
+);
+
    
   let bgAni = gsap.fromTo(bg, 
   { opacity: 0 }, 
@@ -876,7 +969,6 @@ buttons.forEach(btn => {
   
   
 const startHold = (e) => {
-  e.preventDefault(); // prevent double firing on touch + mouse
   isHeld = false;
 
   holdTimer = setTimeout(() => {
@@ -885,19 +977,34 @@ const startHold = (e) => {
   }, 100);
 
   holdTween = gsap.to(circle, { 
-    strokeDashoffset: 0, 
-    duration: 3, 
-    ease: "linear",
-    onComplete: () => {
-      if (!bg.classList.contains("go-modal")) {
-        playlistAni.play();
-        bg.classList.add("go-modal");
-      } else {
-        playlistAni.reverse();
+  strokeDashoffset: 0, 
+  duration: 1,
+  ease: "linear",
+  onComplete: () => {
+    const scrollable = document.querySelector("#backgrounds"); 
+
+    if (bg.classList.contains("go-modal")) {
+      backgroundsTimeline.eventCallback("onReverseComplete", () => {
+        playlistAni.play();          
+        if (scrollable) scrollable.scrollTop = 0;
+        backgroundsTimeline.eventCallback("onReverseComplete", null); 
+      });
+      backgroundsTimeline.reverse(); 
+    } else if (!backgroundsTimeline.isActive() && !backgroundsTimeline.reversed() && playlistAni.progress() > 0) {
+      playlistAni.eventCallback("onReverseComplete", () => {
         bg.classList.remove("go-modal");
-      }
+        playlistAni.eventCallback("onReverseComplete", null); 
+      });
+      playlistAni.reverse();
+    } else {
+      playlistAni.play();
+      bg.classList.add("go-modal");
     }
-  });
+  }
+});
+
+
+
 };
 
 const endHold = () => {
@@ -907,19 +1014,16 @@ const endHold = () => {
   gsap.set(circle, { strokeDashoffset: circumference });
 };
 
-// mouse events
 playPause.addEventListener("mousedown", startHold);
 playPause.addEventListener("mouseup", endHold);
 playPause.addEventListener("mouseleave", endHold);
 
-// touch events
 playPause.addEventListener("touchstart", startHold);
 playPause.addEventListener("touchend", endHold);
 playPause.addEventListener("touchcancel", endHold);
 
-// click only works if button was NOT held
 playPause.addEventListener("click", function() {
-  if (isHeld) return; // ignore click if held
+  if (isHeld) return; 
   if (audio.paused) {
     audio.play();
   } else {
@@ -940,7 +1044,6 @@ playPause.addEventListener("click", function() {
 }
 
   
-  // start Next Button Click Function
   next.addEventListener("click", function() {
   randomBg();
     
@@ -950,7 +1053,6 @@ playPause.addEventListener("click", function() {
   let nextSong = current ? current.nextElementSibling : null;
 
   if (!nextSong) {
-    // if at the end or no current, go to first song
     nextSong = document.querySelector("#playlist .song");
   }
 
@@ -959,9 +1061,7 @@ playPause.addEventListener("click", function() {
      gsapScrollSong(nextSong, 130);
   }
 });
-  // end Next Button Click Function
   
-  // start Next Button Click Function
   prev.addEventListener("click", function() {
   randomBg();
     audio.pause();
@@ -970,7 +1070,6 @@ playPause.addEventListener("click", function() {
   let prevSong = current ? current.previousElementSibling : null;
 
   if (!prevSong) {
-    // if at the first song or no current, go to the last song
     const allSongs = document.querySelectorAll("#playlist .song");
     prevSong = allSongs[allSongs.length - 1];
   }
@@ -979,53 +1078,53 @@ playPause.addEventListener("click", function() {
     prevSong.click();
    gsapScrollSong(prevSong, 130);
   }
-});
-  // end Prev Button Click Function
+}); 
   
-  const bgItems = document.querySelectorAll("#backgrounds .item");
 
-const backgroundsTimeline = gsap.timeline({ paused: true })
-  .fromTo("#backgrounds", 
-    { y: 20, opacity: 0, zIndex: -2},
-    { y: 0, opacity: 1, duration: 0.6, zIndex: 2, ease: "power4.out" }
-  )
-  .fromTo(bgItems, 
-    { y: 20, opacity: 0, scale: 0.8 },
-    { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.05, ease: "power4.out" },
-    "-=0.3" // overlap slightly with container animation
-  );
+bgBtn.addEventListener("click", function() {
+  const icon = this.querySelector("i");
 
-bgBtn.addEventListener("click", () => {
-  if (!bg.classList.contains("go-modal")) {
-    bg.classList.add("go-modal");
-    backgroundsTimeline.play();
+  const bgStyle = getComputedStyle(document.querySelector("#backgrounds"));
+  
+  if (icon.classList.contains("fa-image")) {
+    if (!bg.classList.contains("go-modal")) {
+      bg.classList.add("go-modal");
+      backgroundsTimeline.play();
+      
+        iconn.classList.add("fa-x");
+  iconn.classList.remove("fa-image");
+    }
   } else {
-    bg.classList.remove("go-modal");
-    backgroundsTimeline.reverse();
+    if ( parseFloat(bgStyle.opacity) === 1 ) {
+      reverseBgList();
+    } else {
+      reversePlaylist();
+}
+    iconn.classList.remove("fa-x");
+  iconn.classList.add("fa-image");
+      bgBtn.classList.remove("clicked");
   }
 });
+
+
   
   
   bgItems.forEach(item => {
   item.addEventListener("click", function() {
     const newImage = this.style.backgroundImage;
 
-    // fade out current bg
     gsap.to(bg, { 
       opacity: 0, 
       duration: 0.5, 
       onComplete: () => {
-        // change bg image
         bg.style.backgroundImage = newImage;
         
         bg.classList.add("picked");
 
-        // fade in new bg
         gsap.to(bg, { opacity: 1, duration: 0.5 });
       }
     });
 
-    // set clicked item opacity to 1 and siblings to 0.5
     bgItems.forEach(sib => {
       gsap.to(sib, { opacity: sib === this ? 1 : 0.5, duration: 0.3 });
     });
