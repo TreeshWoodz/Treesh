@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chains - Ultimate Word Game</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0a0a1a 0%,#1a0a2e 50%,#0a0a1a 100%);color:#fff;padding:20px;overflow:hidden}
+#game{text-align:center;max-width:500px;width:100%;position:relative;z-index:1}
+#score{font-size:1.1rem;color:#fff;margin-bottom:5px;font-weight:600}
+#difficulty{font-size:0.9rem;color:#0ff;margin-bottom:15px;text-shadow:0 0 10px #0ff}
+#current-word{font-size:3.5rem;margin:30px 0;color:#0ff;text-shadow:0 0 15px #0ff,0 0 30px #0ff,0 0 45px #0ff;transition:transform 0.2s,color 0.3s;font-weight:bold;letter-spacing:2px}
+#current-word.pulse{animation:pulse 0.3s ease}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+#input-word{font-size:1.3rem;padding:15px;width:100%;border-radius:12px;border:2px solid #333;outline:none;text-align:center;transition:all 0.2s;background:#1a1a2e;color:#fff;font-weight:500}
+#input-word:focus{border-color:#0ff;box-shadow:0 0 20px rgba(0,255,255,0.3)}
+#input-word.correct{border-color:#0f0;box-shadow:0 0 30px #0f0;animation:correctShake 0.4s}
+#input-word.wrong{border-color:#f00;box-shadow:0 0 30px #f00;animation:wrongShake 0.4s}
+@keyframes correctShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px) scale(1.02)}75%{transform:translateX(5px) scale(1.02)}}
+@keyframes wrongShake{0%,100%{transform:translateX(0)}10%,30%,50%,70%,90%{transform:translateX(-8px)}20%,40%,60%,80%{transform:translateX(8px)}}
+#timer-bar{height:12px;background:#1a1a2e;margin:15px 0;border-radius:6px;overflow:hidden;border:1px solid #333}
+#timer-fill{width:100%;height:100%;background:linear-gradient(90deg,#0ff,#0af);transition:width 0.1s linear,background 0.3s;box-shadow:0 0 10px #0ff}
+#timer-fill.warning{background:linear-gradient(90deg,#ff0,#fa0)}
+#timer-fill.danger{background:linear-gradient(90deg,#f00,#a00)}
+#hint{margin:15px 0;font-size:1rem;min-height:24px;color:#aaf;font-style:italic}
+#message{margin:20px 0;font-size:1.3rem;min-height:30px;font-weight:600;text-shadow:0 0 10px currentColor}
+#message.success{color:#0f0}
+#message.error{color:#f55}
+#message.combo{color:#ff0;font-size:1.5rem;animation:comboPopIn 0.5s}
+@keyframes comboPopIn{0%{transform:scale(0) rotate(-10deg);opacity:0}50%{transform:scale(1.2) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+button{padding:12px 30px;font-size:1.1rem;cursor:pointer;border:none;border-radius:10px;background:linear-gradient(135deg,#0ff,#0af);color:#111;font-weight:bold;transition:all 0.2s;box-shadow:0 4px 15px rgba(0,255,255,0.4)}
+button:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,255,255,0.6)}
+button:active{transform:translateY(0)}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+#floating-words{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:0}
+.floating-word{position:absolute;font-size:2rem;font-weight:bold;opacity:0.12;color:#0ff;text-shadow:0 0 20px #0ff;pointer-events:none;white-space:nowrap}
+.floating-letter{position:absolute;font-size:4rem;font-weight:900;opacity:0.08;color:#0af;text-shadow:0 0 30px #0af;pointer-events:none}
+@keyframes floatUp{
+  0%{transform:translateY(0) translateX(0);opacity:0}
+  10%{opacity:0.15}
+  90%{opacity:0.15}
+  100%{transform:translateY(calc(-100vh - 100px)) translateX(var(--drift));opacity:0}
+}
+@keyframes floatUpRotate{
+  0%{transform:translateY(0) rotate(0deg);opacity:0}
+  10%{opacity:0.1}
+  90%{opacity:0.1}
+  100%{transform:translateY(calc(-100vh - 150px)) rotate(var(--rotation));opacity:0}
+}
+@media(max-width:500px){#current-word{font-size:2.8rem}}
+  
+  #logo {
+    width:150px;
+    position:relative;
+    height:80px;
+    margin:auto;
+    display:Block;
+  }
+  
+  #logo img {
+    position:absolute;
+    width:100%;
+    height:auto;
+    top:50%;
+    left:0;
+    right:0;
+    margin:auto;
+    display:block;
+    transform:translate3d(0, -50%, 0);
+  }
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+<div id="floating-words"></div>
+<div id="game">
+  <div id="logo"><img src="https://64.media.tumblr.com/f880564d5db242dc056126429550bcd3/e063f5044017966d-e7/s400x600/fb89052f49b7fb94d15c54a3e1aacd779f280bc9.pnj" alt="chainz" /></div>
+  <div id="score">Score: 0 | Streak: 0 | High: 0</div>
+  <div id="difficulty">Level 1</div>
+  <div id="current-word"></div>
+  <input type="text" id="input-word" placeholder="Type a related word + SPACE" autocomplete="off"/>
+  <div id="timer-bar"><div id="timer-fill"></div></div>
+  <div id="hint"></div>
+  <div id="message"></div>
+  <button id="restart">New Game</button>
+</div>
+
+<script>
+// ====== EXPANDED GAME DATA ======
+const wordBank = {
+  Door:["Way","Handle","Knob","Window","Slit","Exit","Enter","Hinge","Frame","Slam"],
+  Knob:["Lock","Handle","Twist","Turn","Door","Round"],
+  Window:["Glass","Frame","Pane","View","Light","Open","Curtain"],
+  Handle:["Twist","Grip","Pull","Hold","Door","Knob"],
+  Lock:["Key","Bolt","Secure","Safe","Chain","Unlock"],
+  Way:["Path","Exit","Hall","Road","Route","Direction"],
+  Slit:["Gap","Opening","Crack","Narrow","Slot"],
+  Glass:["Pane","Shatter","Window","Clear","Bottle","Mirror"],
+  Frame:["Edge","Border","Window","Picture","Structure"],
+  Pane:["Glass","Window","Segment","Panel"],
+  Key:["Lock","Open","Metal","Press","Answer","Unlock"],
+  Exit:["Way","Door","Leave","Escape","Out"],
+  Path:["Way","Road","Walk","Trail","Route"],
+  Hall:["Way","Corridor","Room","Walk","Entry"],
+  Grip:["Handle","Hold","Grasp","Squeeze","Firm"],
+  Pull:["Handle","Drag","Tug","Draw","Haul"],
+  Bolt:["Lock","Fast","Lightning","Secure","Fasten"],
+  Secure:["Lock","Safe","Fasten","Tight","Bolt"],
+  Twist:["Turn","Knob","Spin","Rotate","Bend"],
+  Gap:["Slit","Space","Hole","Opening","Break"],
+  Opening:["Gap","Slit","Start","Begin","Hole"],
+  Crack:["Slit","Break","Split","Gap","Snap"],
+  Turn:["Twist","Rotate","Spin","Bend","Corner"],
+  Round:["Circle","Knob","Ball","Turn","Curved"],
+  Open:["Door","Window","Start","Unlock","Wide"],
+  Light:["Window","Bright","Lamp","Glow","Sun"],
+  View:["Window","See","Look","Scene","Watch"],
+  Clear:["Glass","Transparent","Clean","Obvious","Bright"],
+  Mirror:["Glass","Reflect","Image","Look","Shiny"],
+  Metal:["Key","Steel","Iron","Hard","Shiny"],
+  Safe:["Secure","Lock","Protected","Sound","Box"],
+  Chain:["Lock","Link","Connect","Metal","Series"],
+  Road:["Path","Way","Street","Drive","Route"],
+  Walk:["Path","Hall","Step","Move","Stroll"],
+  Room:["Hall","Space","Chamber","Area","Door"],
+  Hold:["Grip","Keep","Contain","Grasp","Carry"],
+  Fast:["Quick","Bolt","Rapid","Speed","Swift"],
+  Break:["Crack","Smash","Stop","Gap","Snap"],
+  Space:["Gap","Room","Area","Distance","Void"],
+  Start:["Begin","Opening","Launch","First","Origin"],
+  Wide:["Open","Broad","Large","Spacious","Vast"],
+  Edge:["Frame","Border","Rim","Side","Boundary"],
+  Steel:["Metal","Strong","Iron","Hard","Blade"],
+  Snap:["Break","Crack","Click","Quick","Pop"],
+  Click:["Snap","Sound","Press","Connect","Mouse"],
+  Sound:["Noise","Safe","Hear","Tone","Audio"],
+  Press:["Push","Key","Squeeze","Iron","Force"],
+  Force:["Push","Power","Strength","Press","Drive"],
+  Power:["Force","Energy","Strength","Control","Might"],
+  Enter:["Door","Go","Come","Input","Join"],
+  Leave:["Exit","Go","Depart","Quit","Abandon"],
+  Step:["Walk","Stair","Move","Stage","Pace"],
+  Hinge:["Door","Joint","Pivot","Swing"],
+  Slam:["Door","Bang","Shut","Hit","Crash"],
+  Curtain:["Window","Drape","Cover","Screen","Veil"],
+  Sun:["Light","Bright","Star","Heat","Day"],
+  Lamp:["Light","Bulb","Shine","Glow"],
+  Bright:["Light","Clear","Shine","Smart","Vivid"],
+  Look:["View","See","Mirror","Watch","Gaze"],
+  See:["View","Look","Eye","Watch","Spot"],
+  Watch:["View","See","Look","Clock","Guard"],
+  Eye:["See","Look","Watch","Vision"],
+  Bolt:["Lock","Fast","Lightning","Secure","Run"]
+};
+
+let currentWord = "";
+let usedWords = new Set();
+let timer,timeLeft;
+const baseTime = 8;
+let score = 0;
+let streak = 0;
+let gameActive = true;
+let highScore = 0;
+let difficulty = 1;
+let comboMultiplier = 1;
+
+// ====== DOM ======
+const currentWordDiv = document.getElementById("current-word");
+const inputWord = document.getElementById("input-word");
+const timerFill = document.getElementById("timer-fill");
+const messageDiv = document.getElementById("message");
+const restartBtn = document.getElementById("restart");
+const scoreDiv = document.getElementById("score");
+const difficultyDiv = document.getElementById("difficulty");
+const hintDiv = document.getElementById("hint");
+
+// ====== SOUNDS ======
+const correctSound = new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3");
+const wrongSound = new Audio("https://www.soundjay.com/buttons/sounds/button-10.mp3");
+
+// ====== PARTICLES ======
+const canvas = document.getElementById("particles");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+let particles = [];
+function drawParticles(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fill();
+    p.x += p.dx;
+    p.y += p.dy;
+    p.life--;
+    if(p.life <= 0) particles.splice(i,1);
+  }
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// ====== FLOATING BACKGROUND WORDS & LETTERS ======
+const floatingContainer = document.getElementById("floating-words");
+const backgroundWords = ["LOCK","KEY","DOOR","LIGHT","CHAIN","PATH","TWIST","SPARK","LINK","OPEN","FLOW","JUMP","MOVE","FAST","BOLD","RUSH","WORD","GAME","PLAY","WIN"];
+const backgroundLetters = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"];
+
+function createFloatingWord(){
+  const word = backgroundWords[Math.floor(Math.random()*backgroundWords.length)];
+  const el = document.createElement("div");
+  el.className = "floating-word";
+  el.textContent = word;
+  el.style.left = Math.random()*100 + "%";
+  el.style.top = "100vh";
+  
+  const duration = 15 + Math.random()*10;
+  const drift = (Math.random()-0.5)*200;
+  
+  el.style.setProperty("--drift", drift + "px");
+  el.style.animation = `floatUp ${duration}s linear`;
+  
+  floatingContainer.appendChild(el);
+  
+  setTimeout(()=>el.remove(), duration*1000);
+}
+
+function createFloatingLetter(){
+  const letter = backgroundLetters[Math.floor(Math.random()*backgroundLetters.length)];
+  const el = document.createElement("div");
+  el.className = "floating-letter";
+  el.textContent = letter;
+  el.style.left = Math.random()*100 + "%";
+  el.style.top = "100vh";
+  
+  const duration = 20 + Math.random()*15;
+  const rotation = (Math.random()-0.5)*720;
+  
+  el.style.setProperty("--rotation", rotation + "deg");
+  el.style.animation = `floatUpRotate ${duration}s linear`;
+  
+  floatingContainer.appendChild(el);
+  
+  setTimeout(()=>el.remove(), duration*1000);
+}
+
+// Create initial floating elements
+for(let i=0;i<8;i++){
+  setTimeout(()=>createFloatingWord(), i*1500);
+  setTimeout(()=>createFloatingLetter(), i*2500);
+}
+
+// Continuously spawn new elements
+setInterval(createFloatingWord, 6000);
+setInterval(createFloatingLetter, 9000);
+
+window.addEventListener("resize",()=>{
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+});
+
+// ====== PARTICLE SPAWN FOR INPUT ======
+function spawnInputParticles(color){
+  const rect = inputWord.getBoundingClientRect();
+  const scaleX = canvas.width / window.innerWidth;
+  const scaleY = canvas.height / window.innerHeight;
+  const x = (rect.left + rect.width/2) * scaleX;
+  const y = (rect.top + rect.height/2) * scaleY;
+  for(let i=0;i<20;i++){
+    particles.push({x,y,dx:(Math.random()-0.5)*6,dy:(Math.random()-0.5)*6,r:Math.random()*4+2,color,life:80});
+  }
+}
+
+// ====== GAME FUNCTIONS ======
+function getRandomWord(){
+  const keys = Object.keys(wordBank);
+  return keys[Math.floor(Math.random()*keys.length)];
+}
+
+function startTurn(){
+  const totalTime = Math.max(4, baseTime - difficulty * 0.3);
+  timeLeft = totalTime;
+  timerFill.style.width = "100%";
+  timerFill.classList.remove("warning","danger");
+  messageDiv.textContent = "";
+  messageDiv.className = "";
+  inputWord.value = "";
+  inputWord.focus();
+  gameActive = true;
+  inputWord.disabled = false;
+  currentWordDiv.classList.add("pulse");
+  setTimeout(()=>currentWordDiv.classList.remove("pulse"),300);
+
+  showHint();
+
+  clearInterval(timer);
+  timer = setInterval(()=>{
+    timeLeft -= 0.1;
+    if(timeLeft<0) timeLeft=0;
+    const percent = (timeLeft/totalTime)*100;
+    timerFill.style.width = `${percent}%`;
+    
+    if(percent < 30 && percent >= 15){
+      timerFill.classList.add("warning");
+      timerFill.classList.remove("danger");
+    } else if(percent < 15){
+      timerFill.classList.add("danger");
+      timerFill.classList.remove("warning");
+    }
+    
+    if(timeLeft <= 0){
+      gameActive = false;
+      inputWord.disabled = true;
+      clearInterval(timer);
+      gameOver("Time's up! Game Over");
+    }
+  },100);
+}
+
+// ====== ALLOW ANY WORD FROM BANK ======
+function isValidWord(word){
+  const lowerWord = word.toLowerCase();
+  const allWords = Object.values(wordBank).flat().map(w=>w.toLowerCase());
+  return allWords.includes(lowerWord) && !usedWords.has(lowerWord);
+}
+
+function submitWord(word){
+  if(!gameActive) return;
+  word = word.trim();
+  if(!word) return;
+  const lowerWord = word.toLowerCase();
+  if(!isValidWord(word)){
+    inputWord.classList.add("wrong");
+    wrongSound.play();
+    spawnInputParticles("#f00");
+    setTimeout(()=>inputWord.classList.remove("wrong"),400);
+    streak = 0;
+    comboMultiplier = 1;
+    updateScore();
+    messageDiv.textContent = "Not valid! Try again";
+    messageDiv.className = "error";
+    return;
+  }
+  usedWords.add(lowerWord);
+  currentWord = word;
+  currentWordDiv.textContent = currentWord;
+  streak++;
+  
+  if(streak > 0 && streak % 5 === 0){
+    comboMultiplier = Math.floor(streak / 5) + 1;
+    difficulty = Math.floor(streak / 8) + 1;
+    messageDiv.textContent = `${streak}x COMBO! 🔥`;
+    messageDiv.className = "combo";
+    difficultyDiv.textContent = `Level ${difficulty}`;
+  } else {
+    messageDiv.textContent = `+${10*streak*comboMultiplier} points!`;
+    messageDiv.className = "success";
+  }
+  
+  score += 10 * streak * comboMultiplier;
+  updateScore();
+  inputWord.classList.add("correct");
+  correctSound.play();
+  spawnInputParticles("#0f0");
+  setTimeout(()=>inputWord.classList.remove("correct"),400);
+  startTurn();
+}
+
+function updateScore(){
+  if(score > highScore) highScore = score;
+  scoreDiv.textContent = `Score: ${score} | Streak: ${streak} | High: ${highScore}`;
+}
+
+function showHint(){
+  const validWords = Object.values(wordBank).flat().filter(w=>!usedWords.has(w.toLowerCase()));
+  if(validWords.length > 0 && streak < 3){
+    const hints = validWords.slice(0,3).join(", ");
+    hintDiv.textContent = `Hint: ${hints}`;
+  } else {
+    hintDiv.textContent = "";
+  }
+}
+
+function gameOver(msg){
+  messageDiv.textContent = `${msg} | Final Score: ${score}`;
+  messageDiv.className = "error";
+  hintDiv.textContent = "Click 'New Game' to play again!";
+}
+
+// ====== INPUT EVENTS ======
+inputWord.addEventListener("input",(e)=>{
+  const word = e.target.value.trim();
+  if(word.length>0 && word[word.length-1]===" "){
+    submitWord(word);
+  }
+});
+inputWord.addEventListener("keydown",(e)=>{
+  if(e.key === "Enter") submitWord(inputWord.value);
+});
+
+restartBtn.addEventListener("click",()=>{
+  currentWord = getRandomWord();
+  currentWordDiv.textContent = currentWord;
+  score = 0;
+  streak = 0;
+  difficulty = 1;
+  comboMultiplier = 1;
+  usedWords.clear();
+  updateScore();
+  difficultyDiv.textContent = "Level 1";
+  startTurn();
+});
+
+// ====== INITIAL START ======
+currentWord = getRandomWord();
+currentWordDiv.textContent = currentWord;
+startTurn();
+</script>
+</body>
+</html>
