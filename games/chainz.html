@@ -98,7 +98,9 @@ body{font-family:var(--main-font);display:flex;flex-direction:column;align-items
 #game{text-align:center;max-width:500px;width:100%;position:relative;z-index:1;}
 #score{font-size:1.1rem;color:#fff;margin-bottom:5px;font-weight:600}
 #difficulty{font-size:0.9rem;color:#0ff;margin-bottom:15px;text-shadow:0 0 10px #0ff}
-#current-word{font-size:16vw;margin:30px 0;color:#fff;text-transform:uppercase;text-shadow:0 0 15px #0ff,0 0 30px #0ff,0 0 45px #0ff;transition:transform 0.2s,color 0.3s;font-weight:bold;letter-spacing:2px; font-family:var(--info-font);}
+#current-word{font-size:16vw;width:100%; 
+    white-space: nowrap;     
+  text-overflow: ellipsis;margin:30px 0;color:#fff;text-transform:uppercase;text-shadow:0 0 15px #0ff,0 0 30px #0ff,0 0 45px #0ff;transition:transform 0.2s,color 0.3s;font-weight:bold;letter-spacing:2px; font-family:var(--info-font);}
 #current-word.pulse{animation:pulse 0.3s ease}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
 
@@ -147,7 +149,7 @@ body{font-family:var(--main-font);display:flex;flex-direction:column;align-items
 }
   
   #input-word::placeholder {
-  font-size: 6vw; 
+  font-size: 4vw; 
   color: #888;    
 }
 
@@ -225,6 +227,11 @@ body{font-family:var(--main-font);display:flex;flex-direction:column;align-items
 #timer-fill.danger {
   background: linear-gradient(180deg, #ffcccc 0%, #ff3300 50%, #992200 100%);
   box-shadow: 0 0 15px rgba(255, 51, 0, 0.6);
+}
+  
+  #timer-fill.pause {
+    background: linear-gradient(180deg, #ccf2ff 0%, #0077cc 50%, #003366 100%);
+box-shadow: 0 0 15px rgba(0, 119, 204, 0.6);
 }
 
 @keyframes dynamicPulse {
@@ -738,6 +745,47 @@ padding:0px;
   background: linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 100%);
   border-radius: 40px;
 }
+  
+  #tools {
+    width:calc( 100% + 30px );
+    position:relative;
+    display:block;
+    white-space:nowrap;
+    left:-15px;
+    display:flex;
+    align-items:center;
+    justify-content:space-evenly;
+    overflow:hidden;
+  }
+  
+  #tools button {
+    font-size:0.6rem;
+    display:inline-block;
+    vertical-align:middle;
+    text-align:center;
+    width:auto;
+    padding:0px;
+    height:auto;
+    font-weight:100;
+    background:transparent;
+    box-shadow:none;
+    border:none;
+    border-radius:0px;
+    overflow: visible;
+  }
+  
+  #tools button:before,
+  #tools button:after {
+    display:none !important;
+  }
+  
+  #tools button i {
+    display:block;
+    font-size:1.2rem;
+    margin:auto;
+    position:relative;
+    margin-bottom:10px;
+  }
 </style>
   
   <!--- GSAP Plugins --->
@@ -829,6 +877,15 @@ padding:0px;
 <div id="game">
   <div id="current-word" class="ani"></div>
   <input type="text" class="ani" id="input-word" placeholder="Type a related word" autocomplete="off"/>
+  
+ <div id="tools">
+    <button type="button" id="hint-btn"><i class="fas fa-lightbulb"></i> Hint</button>
+    <button type="button" id="cheat-btn"><i class="fas fa-user-secret"></i> Cheat</button>
+    <button type="button" id="skip-btn"><i class="fas fa-forward"></i> Skip</button>
+    <button type="button" id="pause-btn"><i class="fas fa-pause"></i> Pause</button>
+    <button type="button" id="resay-btn"><i class="fas fa-redo"></i> Resay</button>
+</div>
+  
   <div id="timer-bar" class="ani"><div id="timer-fill"></div></div>
   <div id="hint" class="ani" style="display:none;"></div>
 </div>
@@ -1100,12 +1157,18 @@ document.querySelector("#menu .levels").addEventListener("click", (e) => {
     
     if ( e.target.textContent === "Easy" ) {
       theTime = 30;
+      allCheats.style.display = "inline-block";
     } else if ( e.target.textContent === "Normal" ) {
       theTime = 20;
+      allCheats.style.display = "inline-block";
     } else if ( e.target.textContent === "Hard" ) {
       theTime = 10;
+      allCheats.style.display = "inline-block";
+      cheatBtn.style.display = "none";
+      skipBtn.style.display = "none";
     } else {
       theTime = 5;
+      allCheats.style.display = "none";
     }
   }
 });
@@ -1128,657 +1191,326 @@ tlDiffAni.eventCallback("onReverseComplete", () => {
 // ====== EXPANDED GAME DATA ======
 const wordBank = {
   // --- A ---
-  Abandon: ["Leave", "Quit", "Ship", "Empty", "Desert", "Hope"],
-  Action: ["Fast", "Camera", "Hero", "Move", "Plan", "Bolt", "Point"],
-  Age: ["Stone", "Space", "Old", "New", "Time", "Gold", "Silver"],
-  Air: ["Port", "Plane", "Line", "Force", "Mail", "Tight", "Flow", "Condition", "Base", "Way", "Craft", "Field", "Ship", "Bag", "Pump", "Pressure", "Pocket"],
-  Alarm: ["Clock", "Fire", "Bell", "Sound", "System", "Signal", "Silent"],
-  Alloy: ["Metal", "Steel", "Mixed", "Iron", "Cast", "Gold", "Strength"],
-  Answer: ["Question", "Respond", "Talk", "Speech", "Vocal", "Mystery", "Key", "Sheet", "Back", "Call", "Phone", "Book"],
-  Area: ["Space", "Code", "Zone", "Surface", "Room", "Play", "Work", "Rug", "Rest", "Grey"],
-  Audio: ["Sound", "Visual", "Book", "Track", "Signal", "Wave", "Level", "System"],
-  Away: ["Run", "Far", "Back", "Way", "Go", "Team", "Home"],
+  Abandon: ["Leave", "Quit", "Ship", "Empty", "Desert", "Hope", "Drop", "Run", "Go"],
+  Action: ["Fast", "Camera", "Hero", "Move", "Plan", "Bolt", "Point", "Do", "Act"],
+  Age: ["Stone", "Space", "Old", "New", "Time", "Gold", "Silver", "Era", "Life"],
+  Air: ["Port", "Plane", "Line", "Force", "Mail", "Tight", "Flow", "Condition", "Base", "Way", "Craft", "Field", "Ship", "Bag", "Pump", "Pressure", "Pocket", "Lift", "Vent"],
+  Alarm: ["Clock", "Fire", "Bell", "Sound", "System", "Signal", "Silent", "Alert"],
+  Alloy: ["Metal", "Steel", "Mixed", "Iron", "Cast", "Gold", "Strength", "Copper", "Brass"],
+  Answer: ["Question", "Respond", "Talk", "Speech", "Vocal", "Mystery", "Key", "Sheet", "Back", "Call", "Phone", "Book", "Reply", "Solution"],
+  Area: ["Space", "Code", "Zone", "Surface", "Room", "Play", "Work", "Rug", "Rest", "Grey", "Field", "Plot"],
+  Audio: ["Sound", "Visual", "Book", "Track", "Signal", "Wave", "Level", "System", "Tune", "Volume"],
+  Away: ["Run", "Far", "Back", "Way", "Go", "Team", "Home", "Drive", "Leave"],
 
   // --- B ---
-  Back: ["Side", "Door", "Ground", "Bone", "Stage", "Pack", "Track", "Drop", "Hand", "Fire", "Water", "Log", "Bone", "Seat", "Yard", "Talk", "Up", "Down", "Draft"],
-  Bag: ["Hand", "Paper", "Work", "Life", "Sand", "Money", "Toss", "Handle", "Carry", "Plastic"],
-  Ball: ["Fire", "Power", "Foot", "Base", "Hand", "Room", "Point", "Point", "Game", "Park", "Pit"],
-  Band: ["Watch", "Metal", "Brass", "Music", "Width", "Aid", "Wrist", "Hand"],
-  Bang: ["Slam", "Door", "Sound", "Big", "Theory", "Head", "Out"],
-  Bar: ["Handle", "Metal", "Space", "Code", "Tender", "Tool", "Bell", "Sand", "Side", "Chart", "Room"],
-  Base: ["Air", "Ball", "Line", "Point", "Home", "Camp", "Ment", "Plate", "Word"],
-  Beam: ["Light", "Sun", "Moon", "Balance", "Ray", "Support", "Structure"],
-  Bed: ["Room", "Floor", "Time", "Sheet", "Rock", "Sheet", "Post", "Side"],
-  Bell: ["Door", "Alarm", "Tower", "Ring", "Boy", "Sound", "Bottom", "Curve"],
-  Belt: ["Tool", "Seat", "Fan", "Drive", "Safety", "Tight", "Buckle"],
-  Bench: ["Work", "Park", "Mark", "Press", "Table", "Top", "Seat"],
-  Bend: ["Over", "Down", "Up", "Left", "Right", "Turn", "Twist", "Back", "Snap"],
-  Big: ["Talk", "Bang", "Size", "Time", "Wheel", "Ben", "Shot", "Top"],
-  Blade: ["Sharp", "Steel", "Edge", "Runner", "Work", "Saw", "Switch", "Shoulder", "Fan"],
-  Blank: ["Point", "Space", "Sheet", "Check", "Slate", "Wall"],
-  Blow: ["Wind", "Air", "Out", "Up", "Dry", "Hard", "Torch"],
-  Blue: ["Sea", "Sky", "Steel", "Print", "Bird", "Berry", "Moon", "Light"],
-  Board: ["Key", "Walk", "Side", "Score", "Room", "Back", "Black", "Skate", "Game", "Member"],
-  Boat: ["Life", "House", "Water", "Motor", "Speed", "Show", "Show"],
-  Bolt: ["Lock", "Fast", "Lightning", "Secure", "Run", "Metal", "Nut", "Action", "Door", "Cut"],
-  Bone: ["Back", "Dry", "Structure", "Hard", "Yard", "Head"],
-  Book: ["Word", "Sheet", "Mark", "Case", "Shelf", "Work", "Shop", "End", "Store", "Hand"],
-  Border: ["Frame", "Edge", "Line", "Cross", "Side", "Patrol"],
-  Bottle: ["Glass", "Water", "Cap", "Neck", "Open", "Green"],
-  Bottom: ["Line", "Floor", "Rock", "End", "Low", "Base"],
-  Box: ["Lock", "Safe", "Tool", "Gift", "Square", "Office", "Gear", "Cutter", "Out", "Voice", "Spring", "Shadow"],
+  Back: ["Side", "Door", "Ground", "Bone", "Stage", "Pack", "Track", "Drop", "Hand", "Fire", "Water", "Log", "Seat", "Yard", "Talk", "Up", "Down", "Draft", "Step", "Line"],
+  Bag: ["Hand", "Paper", "Work", "Life", "Sand", "Money", "Toss", "Handle", "Carry", "Plastic", "Pack", "Backpack", "Travel"],
+  Ball: ["Fire", "Power", "Foot", "Base", "Hand", "Room", "Point", "Game", "Park", "Pit", "Bounce", "Play"],
+  Band: ["Watch", "Metal", "Brass", "Music", "Width", "Aid", "Wrist", "Hand", "Ring", "Loop"],
+  Bang: ["Slam", "Door", "Sound", "Big", "Theory", "Head", "Out", "Crash", "Hit"],
+Stage: ["Theater", "Show", "Performance", "Level", "Step", "Board", "Set", "Platform"],
+  Bar: ["Handle", "Metal", "Space", "Code", "Tender", "Tool", "Bell", "Sand", "Side", "Chart", "Room", "Drink", "Counter"],
+  Base: ["Air", "Ball", "Line", "Point", "Home", "Camp", "Ment", "Plate", "Word", "Station", "Foot", "Sound"],
+  Beam: ["Light", "Sun", "Moon", "Balance", "Ray", "Support", "Structure", "Wood", "Metal"],
+  Bed: ["Room", "Floor", "Time", "Sheet", "Rock", "Post", "Side", "Board", "Frame", "Rest"],
+  Bell: ["Door", "Alarm", "Tower", "Ring", "Boy", "Sound", "Bottom", "Curve", "Metal"],
+  Belt: ["Tool", "Seat", "Fan", "Drive", "Safety", "Tight", "Buckle", "Leather", "Loop"],
+  Bench: ["Work", "Park", "Mark", "Press", "Table", "Top", "Seat", "Stone"],
+  Bend: ["Over", "Down", "Up", "Left", "Right", "Turn", "Twist", "Back", "Snap", "Curve"],
+  Big: ["Talk", "Bang", "Size", "Time", "Wheel", "Ben", "Shot", "Top", "Foot", "Boss"],
+  Blade: ["Sharp", "Steel", "Edge", "Runner", "Work", "Saw", "Switch", "Shoulder", "Fan", "Knife"],
+  Blank: ["Point", "Space", "Sheet", "Check", "Slate", "Wall", "Paper", "Mind"],
+  Blow: ["Wind", "Air", "Out", "Up", "Dry", "Hard", "Torch", "Fire", "Smoke"],
+  Blue: ["Sea", "Sky", "Steel", "Print", "Bird", "Berry", "Moon", "Light", "Shade", "Ink"],
+  Board: ["Key", "Walk", "Side", "Score", "Room", "Back", "Black", "Skate", "Game", "Member", "Surf"],
+  Boat: ["Life", "House", "Water", "Motor", "Speed", "Show", "Sail", "Row", "Deck"],
+  Bolt: ["Lock", "Fast", "Lightning", "Secure", "Run", "Metal", "Nut", "Action", "Door", "Cut", "Shoot"],
+  Bone: ["Back", "Dry", "Structure", "Hard", "Yard", "Head", "Joint", "Marrow"],
+  Book: ["Word", "Sheet", "Mark", "Case", "Shelf", "Work", "Shop", "End", "Store", "Hand", "Read", "Cover"],
+  Border: ["Frame", "Edge", "Line", "Cross", "Side", "Patrol", "Boundary", "Fence"],
+  Bottle: ["Glass", "Water", "Cap", "Neck", "Open", "Green", "Liquid", "Wine"],
+  Bottom: ["Line", "Floor", "Rock", "End", "Low", "Base", "Ground", "Deep"],
+  Box: ["Lock", "Safe", "Tool", "Gift", "Square", "Office", "Gear", "Cutter", "Out", "Voice", "Spring", "Shadow", "Cardboard"],
   Brass: ["Knob", "Metal", "Band", "Plate", "Polished", "Instrument", "Work", "Tacks"],
   Break: ["Crack", "Smash", "Stop", "Gap", "Snap", "Down", "Up", "Through", "Fast", "Way", "Day", "Time", "Point", "Dance", "Fast"],
   Brick: ["Wall", "Stone", "Hard", "Work", "Layer", "House", "Red", "Road", "Yard"],
-  Bridge: ["Water", "Stone", "Cross", "Over", "Work", "Structure", "Burn"],
-  Bright: ["Light", "Clear", "Shine", "Smart", "Vivid", "Sun", "Star", "Idea"],
+  Bridge: ["Water", "Stone", "Cross", "Over", "Work", "Structure", "Burn", "Span"],
+  Bright: ["Light", "Clear", "Shine", "Smart", "Vivid", "Sun", "Star", "Idea", "Day", "Mind"],
   Broad: ["Way", "Side", "Cast", "Band", "Day", "Shoulder"],
-  Bulb: ["Light", "Glass", "Lamp", "Plant", "Bright"],
+  Bulb: ["Light", "Glass", "Lamp", "Plant", "Bright", "Socket"],
   Burn: ["Fire", "Sun", "Heat", "Out", "Down", "Mark", "Wood", "Bridge", "Slow", "Side"],
-  Burst: ["Star", "Cloud", "Sun", "Out", "Fire", "Water"],
-  Button: ["Press", "Push", "Key", "Down", "Up", "Hole", "Fasten"],
+  Burst: ["Star", "Cloud", "Sun", "Out", "Fire", "Water", "Pop", "Break"],
+  Button: ["Press", "Push", "Key", "Down", "Up", "Hole", "Fasten", "Switch"],
 
   // --- C ---
-  Call: ["Phone", "Back", "Answer", "Center", "Waiting", "Curtain"],
-  Camp: ["Fire", "Base", "Ground", "Site", "Out"],
-  Cap: ["Bottle", "Head", "Night", "Space", "Back", "Size", "Lock"],
-  Carry: ["Hold", "Hand", "Bag", "On", "Over", "Out"],
-  Case: ["Book", "Key", "Suit", "Study", "Work", "File", "Hard", "Brief"],
-  Cast: ["Iron", "Over", "Shadow", "Away", "Off", "Net"],
-  Chain: ["Lock", "Link", "Connect", "Metal", "Series", "Saw", "Reaction", "Mail", "Gang", "Smoke", "Reaction", "Key"],
-  Check: ["Point", "Mark", "List", "Mate", "Out", "Rain", "Sound", "Balance"],
-  Circle: ["Round", "Turn", "Back", "Square", "Work"],
-  Clear: ["Glass", "Transparent", "Clean", "Obvious", "Bright", "Way", "Cut", "Head", "View", "Sky", "Water", "Day"],
-  Click: ["Snap", "Sound", "Press", "Connect", "Mouse", "Double"],
-  Clock: ["Time", "Watch", "Face", "Hand", "Work", "Wise", "Tower", "Wall", "Alarm", "Spring", "Work", "Wise"],
+  Call: ["Phone", "Back", "Answer", "Center", "Waiting", "Curtain", "Bell", "Talk"],
+  Camp: ["Fire", "Base", "Ground", "Site", "Out", "Tent", "Pitch", "Forest"],
+  Cap: ["Bottle", "Head", "Night", "Space", "Back", "Size", "Lock", "Cover", "Top"],
+  Carry: ["Hold", "Hand", "Bag", "On", "Over", "Out", "Lift", "Move"],
+  Case: ["Book", "Key", "Suit", "Study", "Work", "File", "Hard", "Brief", "Glass", "Box"],
+  Cast: ["Iron", "Over", "Shadow", "Away", "Off", "Stone", "Mold"],
+  Chain: ["Lock", "Link", "Connect", "Metal", "Series", "Saw", "Reaction", "Mail", "Gang", "Smoke", "Key", "Loop"],
+  Check: ["Point", "Mark", "List", "Mate", "Out", "Rain", "Sound", "Balance", "Test", "Tick"],
+  Circle: ["Round", "Turn", "Back", "Square", "Work", "Ring", "Loop"],
+  Clear: ["Glass", "Transparent", "Clean", "Obvious", "Bright", "Way", "Cut", "Head", "View", "Sky", "Water", "Day", "See"],
+  Click: ["Snap", "Sound", "Press", "Connect", "Mouse", "Double", "Button"],
+  Clock: ["Time", "Watch", "Face", "Hand", "Work", "Wise", "Tower", "Wall", "Alarm", "Spring"],
   Cloud: ["Rain", "Sky", "White", "Burst", "Storm", "Nine", "Drift", "Silver", "Lining", "Cover"],
-  Code: ["Area", "Space", "Key", "Secret", "Bar", "Word", "Break"],
-  Cold: ["Stone", "Hard", "Steel", "Ice", "Water", "Shoulder", "Front", "War"],
-  Color: ["Water", "Blind", "Code", "Wheel", "Fast", "Light", "Full"],
-  Come: ["Enter", "Back", "Home", "True", "Down", "Across"],
-  Connect: ["Link", "Chain", "Key", "Joint", "Line"],
-  Control: ["Power", "Tower", "Switch", "Board", "Self", "Remote"],
-  Corner: ["Turn", "Stone", "Back", "Pocket", "Store", "Office"],
-  Cover: ["Curtain", "Cloud", "Book", "Under", "Up", "Sheet", "Page"],
-  Crack: ["Slit", "Break", "Split", "Gap", "Snap", "Down", "Safe", "Code"],
-  Craft: ["Air", "Space", "Hand", "Work", "Water", "Master"],
-  Crash: ["Slam", "Sound", "Hit", "Course", "Test", "Bang", "Drive"],
+  Code: ["Area", "Space", "Key", "Secret", "Bar", "Word", "Break", "Input", "Sign"],
+  Cold: ["Stone", "Hard", "Steel", "Ice", "Water", "Shoulder", "Front", "War", "Wind", "Snow"],
+  Color: ["Water", "Blind", "Code", "Wheel", "Fast", "Light", "Full", "Shade", "Mix"],
+  Come: ["Enter", "Back", "Home", "True", "Down", "Across", "Near", "Over"],
+  Connect: ["Link", "Chain", "Key", "Joint", "Line", "Join", "Attach"],
+  Control: ["Power", "Tower", "Switch", "Board", "Self", "Remote", "Manage", "Drive"],
+  Corner: ["Turn", "Stone", "Back", "Pocket", "Store", "Office", "Edge", "Side"],
+  Cover: ["Curtain", "Cloud", "Book", "Under", "Up", "Sheet", "Page", "Protect", "Hide"],
+  Crack: ["Slit", "Break", "Split", "Gap", "Snap", "Down", "Safe", "Code", "Line"],
+  Craft: ["Air", "Space", "Hand", "Work", "Water", "Master", "Skill", "Art"],
+  Crash: ["Slam", "Sound", "Hit", "Course", "Test", "Bang", "Drive", "Fall"],
   Cross: ["Path", "Walk", "Road", "Way", "Word", "Bar", "Line", "Over", "Section"],
-  Curtain: ["Window", "Drape", "Cover", "Screen", "Veil", "Call", "Rod", "Iron"],
-  Cut: ["Sharp", "Blade", "Saw", "Back", "Short", "Clear", "Cross", "Off"],
-  Cycle: ["Spin", "Wheel", "Life", "Motor", "Path", "Back"],
+  Curtain: ["Window", "Drape", "Cover", "Screen", "Veil", "Call", "Rod", "Iron", "Cloth"],
+  Cut: ["Sharp", "Blade", "Saw", "Back", "Short", "Clear", "Cross", "Off", "Line"],
+  Cycle: ["Spin", "Wheel", "Life", "Motor", "Path", "Back", "Round", "Repeat"],
+  Cool: ["Water", "Ice", "Temperature", "Air", "Mint", "Ice Cream", "Skin", "Pool", "Weather", "Rain", "Wind"],
 
   // --- D ---
-  Dark: ["Night", "Sky", "Side", "Room", "Horse", "Light", "Matter"],
-  Day: ["Night", "Sun", "Light", "Time", "Break", "Dream", "Light", "Work", "Book", "Long", "Star", "Break", "Light", "Dream"],
-  Dead: ["Stone", "End", "Lock", "Line", "Bolt", "Wood", "Weight"],
-  Deep: ["Sea", "Water", "Space", "End", "Breath", "Blue", "Think"],
-  Desert: ["Abandon", "Sand", "Storm", "Island", "Dry"],
-  Direction: ["Way", "Path", "North", "South", "East", "West", "Sign"],
-  Distance: ["Space", "Way", "Long", "Far", "Social"],
-  Dog: ["Watch", "House", "Work", "Hot", "Tag", "Bone", "Star"],
-  Door: ["Way", "Handle", "Knob", "Window", "Slit", "Exit", "Enter", "Hinge", "Frame", "Slam", "Step", "Mat", "Bell", "Stop", "Bolt", "Lock", "Bar", "Open", "Way", "Step"],
-  Down: ["Up", "Fall", "Slam", "Turn", "Press", "Side", "Hill", "Stream", "Town", "Time"],
-  Draft: ["Back", "Wind", "Air", "Work", "Board", "Beer"],
-  Drag: ["Pull", "Race", "Down", "Along", "Net"],
-  Drape: ["Curtain", "Cloth", "Cover", "Window"],
-  Draw: ["Pull", "Back", "Bridge", "Line", "Board", "Over"],
-  Dream: ["Day", "Night", "Work", "House", "Land", "Big"],
-  Drift: ["Cloud", "Snow", "Wood", "Away", "Off"],
-  Drill: ["Twist", "Tool", "Press", "Down", "Bit", "Work"],
-  Drive: ["Road", "Way", "Hard", "Force", "Wheel", "In", "Over", "Test"],
-  Drop: ["Rain", "Water", "Down", "Back", "Zone", "Point", "Out"],
-  Dry: ["Bone", "Land", "Air", "Run", "Ice", "Clean"],
-  Dust: ["Star", "Gold", "Bowl", "Mop", "Cloud", "Storm"],
+  Dark: ["Night", "Sky", "Side", "Room", "Horse", "Light", "Matter", "Shade", "Deep"],
+  Day: ["Night", "Sun", "Light", "Time", "Break", "Dream", "Work", "Book", "Long", "Star"],
+  Dead: ["Stone", "End", "Lock", "Line", "Bolt", "Wood", "Weight", "Silence"],
+  Deep: ["Sea", "Water", "Space", "End", "Breath", "Blue", "Think", "Hole", "Dive"],
+  Desert: ["Abandon", "Sand", "Storm", "Island", "Dry", "Heat", "Dune"],
+  Direction: ["Way", "Path", "North", "South", "East", "West", "Sign", "Guide", "Arrow"],
+  Distance: ["Space", "Way", "Long", "Far", "Social", "Measure", "Gap"],
+  Dog: ["Watch", "House", "Work", "Hot", "Tag", "Bone", "Star", "Pet", "Breed"],
+  Door: ["Way", "Handle", "Knob", "Window", "Slit", "Exit", "Enter", "Hinge", "Frame", "Slam", "Step", "Mat", "Bell", "Stop", "Bolt", "Lock", "Bar", "Open"],
+  Down: ["Up", "Fall", "Slam", "Turn", "Press", "Side", "Hill", "Stream", "Town", "Time", "Slope"],
+  Draft: ["Back", "Wind", "Air", "Work", "Board", "Beer", "Rough", "War", "Art", "Plan"],
+  Drag: ["Pull", "Race", "Down", "Along", "Net", "Weight", "Boat"],
+  Drape: ["Curtain", "Cloth", "Cover", "Window", "Fabric"],
+  Draw: ["Pull", "Back", "Bridge", "Line", "Board", "Over", "Sketch", "Paint"],
+  Dream: ["Day", "Night", "Work", "House", "Land", "Big", "Hope", "Vision"],
+  Drift: ["Cloud", "Snow", "Wood", "Away", "Off", "Float", "Slow", "Move"],
+  Drill: ["Twist", "Tool", "Press", "Down", "Bit", "Work", "Hole", "Spin"],
+  Drive: ["Road", "Way", "Hard", "Force", "Wheel", "In", "Over", "Test", "Push", "Motor"],
+  Drop: ["Rain", "Water", "Down", "Back", "Zone", "Point", "Out", "Fall"],
+  Dry: ["Bone", "Land", "Air", "Run", "Ice", "Clean", "Desert", "Sun"],
+  Dust: ["Star", "Gold", "Bowl", "Mop", "Cloud", "Storm", "Air", "Powder"],
 
   // --- E ---
-  Earth: ["Ground", "Soil", "World", "Quake", "Work", "Bound", "Worm", "Move", "Tone", "Bound", "Base"],
-  East: ["West", "Side", "Point", "Direction", "Coast", "End"],
-  Edge: ["Frame", "Border", "Rim", "Side", "Boundary", "Blade", "Sharp", "Cutting", "Water"],
-  Effect: ["Side", "Sound", "Visual", "Special", "After"],
-  Electric: ["Power", "Current", "Shock", "Cord", "Wire", "Light"],
-  Empty: ["Void", "Space", "Hand", "Room", "Tank", "Shell"],
-  End: ["Point", "Final", "Stop", "Dead", "Game", "Line", "Zone", "Week"],
-  Energy: ["Power", "Force", "Solar", "Drink", "Save", "Level"],
+  Earth: ["Ground", "Soil", "World", "Quake", "Work", "Bound", "Worm", "Move", "Tone", "Base", "Land"],
+  East: ["West", "Side", "Point", "Direction", "Coast", "End", "Sunrise"],
+  Edge: ["Frame", "Border", "Rim", "Side", "Boundary", "Blade", "Sharp", "Cutting", "Water", "Knife"],
+  Effect: ["Side", "Sound", "Visual", "Special", "After", "Cause", "Impact"],
+  Electric: ["Power", "Current", "Shock", "Cord", "Wire", "Light", "Energy", "Charge"],
+  Empty: ["Void", "Space", "Hand", "Room", "Tank", "Shell", "Nothing", "Clear"],
+  End: ["Point", "Final", "Stop", "Dead", "Game", "Line", "Zone", "Week", "Last"],
+  Energy: ["Power", "Force", "Solar", "Drink", "Save", "Level", "Life", "Fuel"],
   Enter: ["Door", "Go", "Come", "Input", "Join", "Way", "Key", "Point", "Gate"],
-  Escape: ["Exit", "Fire", "Room", "Key", "Plan", "Route", "Way"],
+  Escape: ["Exit", "Fire", "Room", "Key", "Plan", "Route", "Way", "Break", "Flee"],
   Exit: ["Way", "Door", "Leave", "Escape", "Out", "Sign", "Ramp", "Point", "Strategy"],
   Eye: ["See", "Look", "Watch", "Vision", "Glass", "Liner", "Ball", "Shadow", "Sight", "Brow"],
 
   // --- F ---
-  Face: ["Clock", "Watch", "Off", "Down", "Time", "Mask", "Value", "Book"],
-  Fair: ["Way", "Ground", "Play", "Weather", "Trade", "Lady"],
-  Fall: ["Rain", "Water", "Night", "Down", "Out", "Short", "Back", "Leaf", "Season"],
-  Far: ["Way", "Distance", "East", "West", "Out", "Side", "Fetched"],
+  Face: ["Clock", "Watch", "Off", "Down", "Time", "Mask", "Value", "Book", "Expression"],
+  Fair: ["Way", "Ground", "Play", "Weather", "Trade", "Lady", "Game", "Exhibit"],
+  Fall: ["Rain", "Water", "Night", "Down", "Out", "Short", "Back", "Leaf", "Season", "Trip"],
+  Far: ["Way", "Distance", "East", "West", "Out", "Side", "Fetched", "Remote"],
   Fast: ["Quick", "Bolt", "Rapid", "Speed", "Swift", "Run", "Break", "Forward", "Track", "Hold", "Talk"],
-  Fasten: ["Secure", "Lock", "Bolt", "Belt", "Tight", "Seal"],
-  Father: ["Step", "Grand", "Figure", "Land", "Time"],
-  Field: ["Air", "Force", "Work", "Goal", "Play", "Track", "Trip", "Day"],
-  File: ["Case", "Work", "Nail", "Folder", "Down", "Back"],
-  Fill: ["Land", "Water", "Up", "In", "Gap", "Out"],
-  Final: ["End", "Point", "Call", "Score", "Stage", "Line"],
-  Find: ["Path", "Way", "Out", "Found", "Keep", "Search"],
-  Fine: ["Print", "Art", "Line", "Day", "Point", "Tune"],
+  Fasten: ["Secure", "Lock", "Bolt", "Belt", "Tight", "Seal", "Button"],
+  Father: ["Step", "Grand", "Figure", "Land", "Time", "Parent", "Dad"],
+  Field: ["Air", "Force", "Work", "Goal", "Play", "Track", "Trip", "Day", "Farm", "Open"],
+  File: ["Case", "Work", "Nail", "Folder", "Down", "Back", "Document"],
+  Fill: ["Land", "Water", "Up", "In", "Gap", "Out", "Bottle", "Form"],
+  Final: ["End", "Point", "Call", "Score", "Stage", "Line", "Boss"],
+  Find: ["Path", "Way", "Out", "Found", "Keep", "Search", "Seek", "Locate"],
+  Fine: ["Print", "Art", "Line", "Day", "Point", "Tune", "Good", "Thin"],
   Fire: ["Heat", "Flame", "Burn", "Light", "Work", "Place", "Fly", "Man", "Ball", "Wall", "Proof", "Alarm", "Escape", "House", "Wood", "Works", "Fighter"],
-  Firm: ["Grip", "Hold", "Hand", "Ground", "Stand"],
+  Firm: ["Grip", "Hold", "Hand", "Ground", "Stand", "Solid"],
   Fish: ["Star", "Sea", "Water", "Bowl", "Tank", "Hook", "Eye", "Animal", "Fin", "Tail", "Ocean", "Freshwater", "Lake", "River", "Creek", "Gold", "Swim", "Flying", "Fly", "Pet", "Snapper", "Tilapia", "Whale", "Sail", "Bait", "Food", "Fry", "Seafood"],
   Flame: ["Fire", "Burn", "Light", "Red", "Hot", "Thrower"],
-  Floor: ["Board", "Mat", "Tile", "Lamp", "Plan", "Walk", "Bed", "Show", "Work", "Ground", "Sweep", "Clean", "Board"],
-  Flow: ["Water", "Air", "Work", "Over", "Cash", "Chart", "River"],
-  Flower: ["Sun", "Wall", "Bed", "Pot", "Power", "Garden", "Wild"],
-  Fly: ["Fire", "Air", "Bird", "Wheel", "Paper", "Weight", "High"],
-  Foot: ["Ball", "Step", "Print", "Path", "Note", "Work", "Hold", "Bridge"],
-  Force: ["Push", "Power", "Strength", "Press", "Drive", "Field", "Task", "Work", "Air"],
-  Forest: ["Rain", "Tree", "Wood", "Fire", "Wild", "Green"],
-  Forward: ["Move", "Step", "Fast", "Look", "Back", "Flash"],
-  Found: ["Find", "Lost", "Ground", "New", "Land"],
-  Frame: ["Edge", "Border", "Window", "Picture", "Structure", "Work", "Up", "Case", "House", "Work", "Time"],
-  Full: ["Moon", "House", "Time", "Stop", "Scale", "Size", "Hand"],
+  Floor: ["Board", "Mat", "Tile", "Lamp", "Work", "Wood", "Level", "Step", "Ground"],
+  Flow: ["Water", "Air", "Electric", "Movement", "River", "Current", "Energy", "Music", "Smooth"],
+  Fly: ["Air", "Insect", "Fast", "Sky", "Paper", "Bird", "High", "Out", "Away"],
 
   // --- G ---
-  Game: ["Play", "Ball", "Board", "Over", "Plan", "Show", "Set", "Match"],
-  Gap: ["Slit", "Space", "Hole", "Open", "Break", "Tooth", "Mind", "Fill"],
-  Garden: ["Roof", "Flower", "Wall", "Tool", "Work", "Vegetable", "City"],
-  Gate: ["Door", "Way", "Lock", "Key", "Post", "Keep", "Way"],
-  Gaze: ["Star", "Look", "Eye", "Eye", "Watch"],
-  Gear: ["Box", "Shift", "Work", "Tool", "Top", "Wheel", "Change", "Head", "Up"],
-  Gift: ["Box", "Wrap", "Shop", "Card", "Idea"],
-  Glass: ["Pane", "Shatter", "Window", "Clear", "Bottle", "Mirror", "House", "Ware", "Eye", "Blow", "Work", "Slide", "Transparent", "Fiber", "Cutter", "Case", "House"],
-  Glow: ["Light", "Sun", "Moon", "Lamp", "Shine", "Stick", "Warm"],
-  Go: ["Stop", "Enter", "Away", "Back", "On", "Off", "Under", "Between"],
-  Gold: ["Metal", "Shiny", "Star", "Mine", "Rush", "Fish", "Standard", "Dust"],
-  Grand: ["Father", "Slam", "Stand", "Final", "Piano", "Tour"],
-  Grasp: ["Grip", "Hold", "Hand", "Reach", "Mind"],
-  Green: ["Light", "House", "Thumb", "Room", "Back", "Glass", "Wood", "Sea"],
-  Grip: ["Handle", "Hold", "Grasp", "Squeeze", "Firm", "Tape", "Strength", "Hand", "Bag"],
-  Ground: ["Floor", "Earth", "Work", "Water", "Under", "Play", "Level", "Zero", "Breaking", "Floor", "Rule", "Work", "Play"],
-  Guard: ["Safe", "Life", "Watch", "Dog", "Rail", "Coast", "Home", "Key", "Point", "Rail", "Off"],
-  Gun: ["Hand", "Power", "Shot", "Powder", "Metal", "Fire", "Sling"],
+  Game: ["Board", "Video", "Play", "Word", "Ball", "Piece", "Zone", "Night", "Room", "Level", "Point", "Score", "Card"],
+  Gap: ["Space", "Hole", "Break", "Open", "Line", "Crack", "Edge", "Distance", "Stretch"],
+  Gate: ["Door", "Entry", "Exit", "Way", "House", "Open", "Metal", "Swing", "Lock", "Pass"],
+  Gear: ["Shift", "Metal", "Work", "Tool", "Drive", "Train", "Watch", "Ring", "Wheel", "Box", "Motor"],
+  Gem: ["Stone", "Precious", "Ring", "Gold", "Ruby", "Crystal", "Jewelry", "Emerald"],
+  Ghost: ["Spirit", "Haunt", "Boo", "White", "Room", "Shadow", "Figure", "Apparition", "Story"],
+  Gift: ["Box", "Wrap", "Present", "Card", "Surprise", "Bag", "Friend", "Package"],
+  Glass: ["Window", "Bottle", "Lens", "Cup", "Mirror", "Pane", "Break", "Clear", "Color", "Crystal"],
+  Glow: ["Light", "Fire", "Soft", "Moon", "Lamp", "Bright", "Radiate", "Red", "Green", "Blue"],
+  Go: ["Run", "Move", "Enter", "Exit", "Fast", "Way", "Over", "Ahead", "Out", "Back", "Point"],
 
   // --- H ---
-  Hall: ["Way", "Path", "Door", "Pass", "Way", "Room", "Mark"],
-  Hand: ["Shake", "Work", "Made", "Over", "Hold", "Writing", "Rail", "Book", "Bag", "Full", "Ball", "Gun", "Grip", "Clock", "Made", "Craft", "Writing", "Rail"],
-  Handle: ["Twist", "Grip", "Pull", "Hold", "Door", "Knob", "Bar", "Bag", "Man", "Care", "Back", "Work", "Bar", "Bar"],
-  Hard: ["Stone", "Metal", "Steel", "Work", "Core", "Rock", "Drive", "Ball", "Back", "Ware", "Wood", "Copy", "Boiled"],
-  Haul: ["Pull", "Drag", "Truck", "Long", "Over"],
-  Head: ["Light", "Way", "Strong", "Line", "Phone", "Start", "Master", "Space", "Board", "Room", "Long", "Back", "Strong", "First", "Land", "Over", "Rest", "Gear"],
-  Hear: ["Sound", "Listen", "Say", "Talk", "Voice"],
-  Heat: ["Sun", "Fire", "Wave", "Stroke", "Proof", "Exchanger"],
-  Heavy: ["Metal", "Weight", "Duty", "Hand", "Lift", "Rain"],
-  High: ["Jump", "Sky", "Way", "Point", "Light", "Rise", "Land", "Noon", "Pressure"],
-  Hinge: ["Door", "Joint", "Pivot", "Swing", "Point", "Metal", "Pin", "Joint"],
-  Hit: ["Slam", "Bang", "Run", "Ground", "Man"],
-  Hold: ["Grip", "Keep", "Contain", "Grasp", "Carry", "Back", "Up", "On", "Fast", "Steady", "Over", "Out"],
-  Hole: ["Gap", "Key", "Button", "Dig", "Deep", "Black", "Punch"],
-  Home: ["Run", "Base", "Work", "Land", "Town", "Made", "Work", "Less", "Stay"],
-  Hope: ["Abandon", "High", "Full", "Less", "Springs"],
-  Horse: ["Sea", "Race", "Power", "Shoe", "Back", "Play"],
-  Hot: ["Fire", "Sun", "Heat", "Dog", "Spot", "Rod", "Air", "Water"],
-  House: ["Home", "Door", "Key", "Work", "Light", "Green", "Boat", "Full", "Glass", "Safe", "Hold", "Keep"],
+  Hand: ["Work", "Book", "Bag", "Ball", "Shake", "Palm", "Print", "Line", "Hold", "Tool", "Door", "Bell", "Move", "Clap"],
+  Hard: ["Stone", "Metal", "Work", "Fast", "Press", "Test", "Move", "Break", "Drive", "Edge"],
+  Hat: ["Head", "Cap", "Party", "Point", "Top", "Wear", "Winter", "Sun", "Cowboy", "Wool"],
+  Head: ["Top", "Brain", "Hat", "Leader", "Line", "Work", "Back", "Front", "Gear"],
+  Heat: ["Fire", "Sun", "Metal", "Work", "Burn", "Energy", "Hot", "Water", "Lamp"],
+  Help: ["Aid", "Hand", "Support", "Call", "Back", "Out", "Solve", "Assist", "Guide"],
+  High: ["Up", "Tall", "Sky", "Fast", "Point", "Grade", "Level", "Rise"],
+  Hold: ["Grab", "Work", "Hand", "Back", "Tight", "Fast", "Place", "Secure", "Tool"],
+  Home: ["House", "Room", "Place", "Back", "Sweet", "Work", "Safe", "Base"],
+  Hook: ["Line", "Fish", "Nail", "Fasten", "Catch", "Hold", "Hang", "Trap", "Metal", "Cloth"],
+  Hope: ["Dream", "Light", "Wish", "Goal", "Life", "Plan", "Future", "Heart"],
 
   // --- I ---
-  Ice: ["Water", "Cold", "Cream", "Cube", "Berg", "Pick", "Cap", "Land"],
-  Idea: ["Bright", "Big", "Work", "Main", "Mind"],
-  Image: ["Mirror", "Glass", "See", "Mental", "Perfect"],
-  In: ["Side", "Put", "Take", "Let", "Come", "Door", "Step", "Put", "Put", "Box", "Put"],
-  Input: ["Enter", "Data", "Key", "Put", "Power"],
-  Instrument: ["Brass", "Tool", "Music", "Precision", "Panel"],
-  Iron: ["Metal", "Steel", "Hard", "Press", "Man", "Work", "Side", "Cast", "Board", "Clad", "Fist", "Curtain", "Work", "Lung"],
-  Island: ["Sea", "Water", "Desert", "Land", "Hope"],
+  Ice: ["Cold", "Water", "Cube", "Cream", "Stone", "Block", "Surface", "Tray", "Drink"],
+  Idea: ["Think", "Light", "Mind", "Brain", "Plan", "Sketch", "Bright", "Work", "Create"],
+  Ink: ["Pen", "Print", "Color", "Paper", "Bottle", "Black", "Blue", "Flow", "Pad", "Cartridge"],
+  Iron: ["Metal", "Hard", "Tool", "Press", "Cast", "Wear", "Cloth", "Gate", "Nail"],
 
   // --- J ---
-  Jaw: ["Lock", "Bone", "Drop", "Break", "Hard"],
-  Join: ["Enter", "Connect", "In", "Point", "Joint"],
-  Joint: ["Hinge", "Point", "Connect", "Bone", "Stock", "Ball", "Seal"],
-  Jump: ["Start", "Rope", "Suit", "High", "Over", "Spring", "Shot", "Cut", "Back", "Lead", "Seat"],
+  Jam: ["Fruit", "Spread", "Traffic", "Hold", "Music", "Band", "Toast", "Orange", "Strawberry"],
+  Jar: ["Glass", "Bottle", "Storage", "Lid", "Pickle", "Food", "Mason", "Honey"],
+  Jet: ["Plane", "Air", "Stream", "Black", "Speed", "Fuel", "Pack", "Engine", "Power"],
+  Job: ["Work", "Task", "Position", "Role", "Post", "Career", "Duty", "Project"],
 
   // --- K ---
-  Keep: ["Hold", "Safe", "Guard", "Sake", "Out", "Back", "Stay"],
-  Key: ["Lock", "Open", "Metal", "Press", "Answer", "Unlock", "Board", "Note", "Chain", "Hole", "Ring", "Pad", "Stone", "Board", "Way", "Word", "Stone", "Master", "Pad", "Code"],
-  Kick: ["Side", "Back", "Start", "Ball", "Stand", "Off"],
-  Kit: ["Tool", "Box", "Work", "First", "Aid"],
-  Knob: ["Lock", "Handle", "Twist", "Turn", "Door", "Round", "Pull", "Brass", "Metal", "Spin", "Back", "Round"],
+  Key: ["Lock", "Board", "Chain", "Point", "Music", "Press", "Door", "Solution", "Enter", "Tone", "Finger"],
+  Kick: ["Ball", "Run", "High", "Back", "Start", "Fast", "Move", "Door", "Game"],
+  King: ["Queen", "Castle", "Chess", "Crown", "Rule", "Power", "Land"],
 
   // --- L ---
-  Ladder: ["Step", "Up", "Rope", "Climb", "Work"],
-  Lamp: ["Light", "Bulb", "Shine", "Glow", "Floor", "Post", "Shade"],
-  Land: ["Mark", "Slide", "Scape", "Lord", "Fill", "Mine", "Lock", "Work", "Home", "Slide", "Mark", "Scape", "Locked"],
-  Last: ["End", "Final", "Point", "Word", "Minute", "Stand"],
-  Law: ["Rule", "Order", "Break", "Court", "Suit"],
-  Layer: ["Brick", "Cake", "Paint", "Deep", "One"],
-  Lead: ["Jump", "Star", "Way", "Point", "Pipe", "Pencil", "Follow"],
-  Leak: ["Roof", "Water", "Gas", "Proof", "Spring"],
-  Leave: ["Exit", "Go", "Depart", "Quit", "Abandon", "Off", "Out"],
-  Left: ["Right", "Turn", "Hand", "Side", "Over", "Wing", "Field"],
-  Less: ["Pane", "Point", "Time", "End", "Price", "Home"],
-  Let: ["Go", "In", "Out", "Down", "Off"],
-  Level: ["Floor", "Ground", "Sea", "Spirit", "Head", "Best", "Next"],
-  Life: ["Style", "Time", "Span", "Guard", "Boat", "Work", "Cycle", "Long", "Size", "Line", "Force", "Saving", "Boat", "Style", "Guard", "Span", "Work"],
-  Light: ["Window", "Bright", "Lamp", "Glow", "Sun", "Bulb", "Ray", "House", "Year", "Weight", "Switch", "Show", "Green", "Red", "House", "Year", "Speed", "Weight", "Head"],
-  Lightning: ["Bolt", "Fast", "Strike", "Rod", "Storm"],
-  Limit: ["Space", "Time", "Sky", "Push", "Speed", "City"],
-  Line: ["Path", "Road", "Way", "Power", "Draw", "Cross", "End", "Time", "Side", "Finish", "Back", "Work", "Main", "Wait"],
-  Link: ["Chain", "Connect", "Web", "UP", "Missing", "Bond", "Reaction", "Page"],
-  List: ["Watch", "Check", "Work", "Wish", "Price"],
-  Load: ["Work", "Power", "Over", "Down", "Back", "Off"],
-  Lock: ["Key", "Bolt", "Secure", "Safe", "Chain", "Unlock", "Smith", "Pick", "Box", "Out", "Down", "Jaw", "Step", "Nut", "Gate", "Box", "Nut", "Out", "Down", "Jaw"],
-  Log: ["Back", "Wood", "Fire", "In", "Out", "Book"],
-  Long: ["Way", "Day", "Time", "Distance", "Life", "Head", "Shot", "Run"],
-  Look: ["View", "See", "Mirror", "Watch", "Gaze", "Out", "Back", "Forward", "Search", "Up"],
-  Lord: ["Land", "High", "House", "Over"],
-  Lost: ["Found", "Way", "Soul", "Cause", "Space"],
-  Low: ["Bottom", "Level", "Pressure", "Down", "Key", "Land", "Tide"],
+  Lamp: ["Light", "Desk", "Stand", "Work", "Fire", "Shade", "Bulb", "Metal", "Glass", "Burn"],
+  Land: ["Earth", "Field", "Work", "Home", "Plot", "Space", "Open", "Dry", "Sea", "River"],
+  Last: ["Final", "End", "Point", "Time", "Call", "Place", "Step", "Minute"],
+  Law: ["Order", "Rule", "Book", "Court", "Sign", "Justice", "Power", "Code"],
+  Lead: ["Metal", "Guide", "Line", "Head", "Direction", "Move", "Point", "Role"],
+  Leaf: ["Tree", "Green", "Fall", "Branch", "Plant", "Page", "Book", "Spin", "Drop"],
+  Left: ["Right", "Hand", "Side", "Turn", "Lane", "Back", "Over", "Shift", "Point"],
+  Light: ["Lamp", "Sun", "Bulb", "Bright", "Day", "Torch", "Beam", "Fire", "Water", "Air"],
+  Line: ["Front", "Back", "Draw", "Queue", "Graph", "Wire", "Mark", "Track", "Point", "Edge", "Hold", "Word"],
 
   // --- M ---
-  Made: ["Hand", "Home", "Self", "Ready", "Custom"],
-  Mail: ["Air", "Chain", "Box", "Order", "Bag", "Man"],
-  Main: ["Line", "Street", "Frame", "Road", "Way", "Idea"],
-  Maker: ["Rain", "Match", "Trouble", "Decision"],
-  Man: ["Hand", "Watch", "Work", "Made", "Iron", "Power", "Space", "Handle", "Fire", "Walk", "Way"],
-  Mark: ["Water", "Land", "Bench", "Check", "Time", "Up", "Question", "Book", "Trade"],
-  Mask: ["Face", "Gas", "Iron", "Hide", "Full"],
-  Mason: ["Stone", "Work", "Free", "Brick"],
-  Master: ["Head", "Key", "Work", "Mind", "Piece", "Plan", "Shift"],
-  Mat: ["Floor", "Door", "Finish", "Board", "Welcome"],
-  Match: ["Light", "Game", "Maker", "Point", "Box", "Book"],
-  Mate: ["Check", "Room", "Ship", "Class", "Soul"],
-  Matter: ["Dark", "Space", "Grey", "Back", "Fact"],
-  Mental: ["Health", "Image", "State", "Block"],
-  Metal: ["Key", "Steel", "Iron", "Hard", "Shiny", "Work", "Plate", "Sheet", "Rod", "Alloy", "Detector", "Heavy", "Heavy", "Work", "Scrap", "Sheet", "Hard"],
-  Mid: ["Way", "Night", "Day", "Point", "Term", "Air"],
-  Might: ["Power", "Force", "Strength", "Main"],
-  Mill: ["Wind", "Steel", "Stone", "Water", "Paper", "Run"],
-  Mind: ["Open", "Set", "Map", "Frame", "Master", "Blow", "Gap"],
-  Mine: ["Gold", "Land", "Coal", "Field", "Work", "Sweeper"],
-  Minute: ["Time", "Last", "Hand", "Man", "Wait"],
-  Mirror: ["Glass", "Reflect", "Image", "Look", "Shiny", "Wall", "Back"],
-  Missing: ["Link", "Piece", "Action", "Person"],
-  Mixed: ["Alloy", "Bag", "Signal", "Up"],
-  Money: ["Safe", "Box", "Paper", "Order", "Back", "Bag", "Talk", "Laundering"],
-  Moon: ["Light", "Night", "Star", "Glow", "Beam", "Walk", "Stone", "Rise", "Set", "Shine", "Full", "New", "Shadow", "Beam", "Light", "Night"],
-  Mop: ["Dust", "Floor", "Clean", "Head", "Up"],
-  Motor: ["Cycle", "Boat", "Way", "Home", "Power", "Oil"],
-  Mount: ["Wall", "Everest", "Side", "Up", "Top"],
-  Mouse: ["Click", "Trap", "Pad", "Computer", "Hole"],
-  Move: ["Step", "Action", "Fast", "Slow", "Back", "Forward", "On", "Ment"],
-  Music: ["Box", "Hall", "Sheet", "Note", "Instrument", "Stand"],
-  Mystery: ["Answer", "Solve", "Story", "Box", "Solved"],
-  Market: ["Place", "Share", "Food", "Shop", "Shopping", "Store", "Fish", "Fruit", "Shoe", "Clothes", "Shirt", "Pants", "Bike", "Car", "Black", "Game", "Gaming"],
+  Map: ["Area", "Land", "Chart", "Treasure", "Road", "Route", "Guide", "Way", "World", "Treasure"],
+  Mark: ["Point", "Check", "Line", "Spot", "Note", "Sign", "Grade", "Score", "Back"],
+  Mask: ["Face", "Cover", "Protect", "Night", "Gas", "Work", "Dance", "Party"],
+  Match: ["Fire", "Box", "Game", "Point", "Strike", "Light", "Pair", "Stick", "Win"],
+  Metal: ["Iron", "Steel", "Gold", "Silver", "Brass", "Copper", "Lead", "Tool", "Hard", "Work"],
+  Mind: ["Think", "Idea", "Brain", "Focus", "Plan", "Dream", "Clear", "Power", "Map", "Point"],
+  Mix: ["Blend", "Stir", "Combine", "Music", "Work", "Paint", "Cake", "Drink"],
 
   // --- N ---
-  Nail: ["Hard", "File", "Hammer", "Bed", "Head", "Polish"],
-  Narrow: ["Slit", "Path", "Mind", "Gap", "Way"],
-  Neck: ["Bottle", "Line", "Tie", "Break", "Lace"],
-  Net: ["Work", "Profit", "Fish", "Cast", "Weight"],
-  New: ["Shiny", "Born", "Found", "Year", "Day", "Way"],
-  Newspaper: ["Press", "Paper", "Print", "Boy", "Stand", "Clip"],
-  Night: ["Day", "Star", "Moon", "Dark", "Fall", "Time", "Light", "Life", "Watch", "Shift", "Owl", "Cap", "Fall", "Light", "Mare", "Fall", "Shift"],
-  Nine: ["Cloud", "Lives", "Time", "Ball"],
-  Noise: ["Sound", "Maker", "Level", "Back", "Cancel"],
-  North: ["South", "Pole", "Star", "Point", "Direction", "West"],
-  Note: ["Key", "Paper", "Book", "Music", "Worth", "Pad"],
-  Nut: ["Bolt", "Lock", "Wall", "Shell", "Cracker", "Case"],
+  Name: ["Word", "Call", "Title", "Person", "Brand", "Mark", "Sign", "Tag"],
+  Net: ["Web", "Catch", "Work", "Sport", "Fishing", "Air", "Safety", "Game", "Tool"],
+  Night: ["Day", "Dark", "Moon", "Star", "Sleep", "Work", "Light", "Quiet", "Sky"],
+  Note: ["Paper", "Music", "Mark", "Point", "Book", "Hand", "Sound", "Message", "Line"],
 
   // --- O ---
-  Obvious: ["Clear", "Transparent", "Fact", "Sign"],
-  Ocean: ["Sea", "Water", "Blue", "Deep", "Floor", "Side"],
-  Off: ["Turn", "Switch", "Set", "Set", "Day", "Cut", "Cast", "Load", "Hand"],
-  Office: ["Box", "Home", "Post", "Work", "Space", "Space"],
-  Oil: ["Water", "Well", "Drum", "Burn", "Field", "Tank"],
-  On: ["Switch", "Hold", "Line", "Time", "Go", "Point", "Set"],
-  Open: ["Door", "Window", "Start", "Unlock", "Wide", "Gap", "Slit", "Begin", "Hole", "Air", "Mind", "Fire", "Sea", "Book", "Air", "Case", "House", "End"],
-  Opening: ["Gap", "Slit", "Start", "Begin", "Hole", "Day", "Night"],
-  Order: ["Money", "Law", "Out", "Mail", "Short", "Side"],
-  Origin: ["Start", "Point", "Story", "Root"],
-  Out: ["Way", "Exit", "Side", "In", "Let", "Look", "Put", "Run", "Take", "Back", "Fit", "House", "Door", "Side", "Cold", "Cast", "Break", "Side", "Side"],
-  Over: ["Hand", "Pass", "Board", "Head", "Flow", "Time", "Take", "Turn", "Load", "Work", "Coat", "Cast", "Time", "Flow", "Board", "Head"],
-  Owl: ["Night", "Bird", "Wise", "Hoot"],
+  Oil: ["Engine", "Lamp", "Bottle", "Cook", "Drop", "Press", "Black", "Vegetable", "Castor"],
+  Open: ["Door", "Way", "Box", "Mind", "Start", "Back", "Up", "Close", "Gate"],
+  Over: ["Under", "Top", "Back", "Head", "Time", "Flow", "Pass", "Edge", "Work"],
 
   // --- P ---
-  Pace: ["Step", "Set", "Fast", "Maker"],
-  Pack: ["Back", "Ice", "Action", "Full", "Leader"],
-  Pad: ["Key", "Mouse", "Launch", "Note", "Foot", "Lock"],
-  Page: ["Book", "Turn", "Cover", "Boy", "Home"],
-  Paint: ["Wall", "Color", "Brush", "Work", "Spray", "Job"],
-  Pane: ["Glass", "Window", "Segment", "Panel", "Less", "View", "Glass", "Window"],
-  Panel: ["Pane", "Control", "Solar", "Wood", "Discussion"],
-  Paper: ["Work", "Press", "Back", "Weight", "Bag", "Wall", "Thin", "Note", "Book", "Clip", "Trail", "Weight", "Work", "Back", "Weight"],
-  Park: ["Bench", "Way", "Side", "Lot", "Ball", "Place"],
-  Pass: ["Way", "Word", "Key", "Over", "Under", "Port", "Time", "Book"],
-  Path: ["Way", "Road", "Walk", "Trail", "Route", "Find", "Cross", "Side", "Find", "Way", "Finder", "Way"],
-  Pavement: ["Road", "Walk", "Side", "Stone"],
-  Peak: ["Roof", "Top", "Point", "Time", "Season"],
-  Pencil: ["Lead", "Sharpener", "Case", "Work", "Sketch"],
-  Perfect: ["Word", "Picture", "Timing", "Score", "Match"],
-  Person: ["Contact", "First", "Third", "Missing"],
-  Phone: ["Head", "Book", "Call", "Cell", "Line", "Talk", "Box"],
-  Pick: ["Lock", "Tool", "Up", "Off", "Pocket"],
-  Picture: ["Frame", "Perfect", "Show", "Window", "Book"],
-  Piece: ["Time", "Master", "Work", "Set", "Side", "Bit", "Cake"],
-  Pin: ["Hinge", "Point", "Safety", "Drop", "Code", "Push"],
-  Pipe: ["Wind", "Water", "Line", "Dream", "Lead", "Stem"],
-  Pivot: ["Hinge", "Point", "Turn", "Joint"],
-  Place: ["Work", "Fire", "Market", "Birth", "Take"],
-  Plan: ["Floor", "Game", "Action", "Master", "Out"],
-  Plane: ["Air", "Paper", "Tail", "Crash", "Wing"],
-  Plant: ["Power", "Sun", "House", "Life", "Pot"],
-  Plate: ["Metal", "Gold", "Steel", "Silver", "Tectonics", "Home", "License"],
-  Play: ["Ground", "Game", "Work", "Off", "Back", "List", "Power", "House", "Word", "Ball"],
-  Plot: ["Twist", "Thickens", "Plan", "Ground"],
-  Plug: ["Wall", "Power", "Socket", "Spark", "Ear"],
-  Pocket: ["Slit", "Watch", "Money", "Pick", "Size", "Change", "Book"],
-  Point: ["View", "Break", "Blank", "Turning", "Way", "Ball", "Check", "Power", "Guard", "Line", "Blank", "West", "East", "Break", "Turning", "Way", "Check", "Power", "Guard", "West", "East"],
-  Pole: ["North", "South", "Vault", "Position", "Magnetic"],
-  Polish: ["Shiny", "Nail", "Shoe", "Metal", "Wax"],
-  Port: ["Air", "Sea", "Side", "View", "Pass", "Authority"],
-  Position: ["Pole", "Key", "Start", "Open"],
-  Post: ["Door", "Lamp", "Office", "Box", "Card", "Sign"],
-  Pot: ["Flower", "Gold", "Luck", "Tea", "Black"],
-  Powder: ["Gun", "Dust", "Snow", "Face", "Room"],
-  Power: ["Force", "Energy", "Strength", "Control", "Might", "Line", "Point", "House", "Plant", "Tool", "Play", "Cord", "Ball", "Plant", "Grid", "Point", "Tool", "Line"],
-  Press: ["Push", "Key", "Squeeze", "Iron", "Force", "Newspaper", "Paper", "Release", "Box", "Agent", "Release", "Bench"],
-  Pressure: ["Air", "Blood", "Point", "High", "Low", "Under", "Cooker"],
-  Price: ["Tag", "List", "Cut", "Less", "Value"],
-  Print: ["Blue", "Foot", "Paper", "Back", "Out", "Off", "Hard"],
-  Profit: ["Net", "Loss", "Margin", "Money", "Cash", "Rich", "Poor"],
-  Proof: ["Water", "Sound", "Fire", "Bullet", "Read", "Positive"],
-  Protected: ["Safe", "Secure", "Lock", "Area"],
-  Pull: ["Handle", "Drag", "Tug", "Draw", "Haul", "Over", "Back", "Down", "Out", "Apart", "Chain", "Over", "Down"],
-  Pump: ["Air", "Water", "Gas", "Action", "Iron", "Room"],
-  Punch: ["Hole", "Bag", "Line", "Clock", "Card"],
-  Pure: ["Transparent", "Clear", "Water", "Gold"],
-  Push: ["Press", "Force", "Button", "Back", "Over", "Start", "Cart", "Up", "Down", "Over", "Up", "Pin"],
-  Put: ["In", "Out", "Down", "Off", "Away", "Input"],
-  Poor: ["People", "Money", "Rich", "Class"],
+Pulse: ["Heart", "Rate", "Beat", "Wave", "Signal", "Life", "Monitor", "Energy"],
+Paint: ["Brush", "Wall", "Color", "Art", "Can", "House", "Job", "Tile", "Wood", "Scene"],
+Paper: ["Sheet", "Book", "Money", "Note", "Bag", "Print", "Air", "Fold", "Work", "Clip"],
+Pass: ["Over", "Ticket", "Go", "Way", "Test", "Card", "Grade"],
+Path: ["Way", "Trail", "Step", "Walk", "Road", "Track", "Lead", "Life", "Mind", "Direction"],
+Peak: ["Mountain", "Top", "High", "Point", "View", "Snow", "Summit"],
+Pen: ["Write", "Ink", "Ball", "Cap", "Hold", "Case", "Point", "Paper"],
+Pick: ["Choose", "Up", "Tool", "Guitar", "Lock", "Nose", "Bone", "Fruit", "Flower"],
+Plan: ["Scheme", "Idea", "Draw", "Map", "Work", "Goal", "Step", "Project", "Build"],
+Plate: ["Dish", "Metal", "Sign", "Number", "Cover", "Work", "Food", "Floor"],
+Point: ["Tip", "Show", "Mark", "Needle", "End", "Line", "Star", "View", "Finger", "Place"],
+Pool: ["Water", "Swim", "Game", "Cue", "Billard", "Ball", "Table", "Light"],
+Power: ["Force", "Electric", "Control", "Strength", "Move", "Tool", "Plant", "Line", "Up", "Down"],
+Press: ["Push", "Print", "Button", "Work", "Cloth", "Hand", "Metal", "Fast", "Hard"],
+Print: ["Paper", "Ink", "Press", "Mark", "Book", "Image", "Sign", "Work", "Letter", "Copy"],
+Push: ["Pull", "Move", "Hard", "Button", "Start", "Force", "Lift", "Away"],
+Puzzle: ["Piece", "Game", "Mind", "Word", "Solve", "Brain", "Match"],
 
-  // --- Q ---
-  Quake: ["Earth", "Ground", "Shocker", "Movement"],
-  Question: ["Answer", "Mark", "Ask", "Time", "Point", "Tag", "Mark"],
-  Quick: ["Fast", "Bolt", "Sand", "Step", "Time", "Silver"],
-  Quit: ["Leave", "Abandon", "Exit", "Job"],
+// --- Q ---
+Quick: ["Fast", "Rapid", "Speed", "Run", "Move", "Action", "Bolt", "Flash"],
+Quiet: ["Silent", "Hush", "Sound", "Room", "Mind", "Place", "Area"],
 
-  // --- R ---
-  Race: ["Horse", "Track", "Car", "Day", "Course", "Drag"],
-  Rack: ["Roof", "Tool", "Key", "Coat", "Nerve"],
-  Radio: ["Talk", "Wave", "Station", "Active", "Signal"],
-  Rail: ["Hand", "Guard", "Road", "Track", "Way", "Slide"],
-  Rain: ["Water", "Fall", "Cloud", "Drop", "Coat", "Bow", "Forest", "Check", "Storm", "Maker", "Fall", "Check", "Drop", "Bow"],
-  Ramp: ["Exit", "Way", "Up", "Speed"],
-  Rapid: ["Fast", "Flow", "Action", "Fire", "Response"],
-  Ray: ["Sun", "Light", "X", "Beam", "Hope"],
-  Reach: ["Grasp", "Out", "High", "Long"],
-  Reaction: ["Chain", "Action", "Chemical", "Time", "Force"],
-  Read: ["Book", "Word", "Write", "Only", "Out", "Proof"],
-  Ready: ["Start", "Go", "Set", "Made"],
-  Red: ["Light", "Fire", "Hot", "Sea", "Brick", "Alert", "Tape"],
-  Reflect: ["Mirror", "Glass", "Light", "Back", "Think"],
-  Release: ["Press", "Press", "Let", "Go", "Date", "Valve"],
-  Remote: ["Control", "Area", "Island", "Sensing"],
-  Respond: ["Answer", "Talk", "Call", "React"],
-  Response: ["Rapid", "Final", "Quick", "Time"],
-  Rest: ["Head", "Room", "Area", "Day", "Stop"],
-  Rim: ["Edge", "Frame", "Border", "Side"],
-  Ring: ["Key", "Bell", "Finger", "Tone", "Tone", "Box"],
-  Rise: ["Sun", "Moon", "High", "Up", "Fall", "Sharp"],
-  River: ["Water", "Flow", "Side", "Bed", "Bank"],
-  Road: ["Path", "Way", "Street", "Drive", "Route", "Side", "Work", "Map", "Block", "Trip"],
-  Rock: ["Stone", "Hard", "Wall", "Bottom", "Roll", "Star", "Solid"],
-  Rod: ["Metal", "Iron", "Steel", "Hot", "Bolt", "Fishing"],
-  Roll: ["Rock", "Call", "Ball", "Over", "Dice", "Paper"],
-  Roof: ["Top", "Tile", "Garden", "Rack", "Top", "Work", "Line", "House", "Peak", "Leak", "Top", "Rack"],
-  Room: ["Hall", "Space", "Chamber", "Area", "Door", "Mate", "Service", "Board", "House", "Mate", "Rest"],
-  Root: ["Start", "Origin", "Cause", "Beer"],
-  Rope: ["Jump", "Tight", "End", "Skip", "Ladder"],
-  Rotate: ["Turn", "Twist", "Spin", "Cycle", "Around"],
-  Round: ["Circle", "Knob", "Ball", "Turn", "Curved", "Table", "About", "House", "Trip"],
-  Route: ["Path", "Way", "Road", "Map", "Plan", "Direction"],
-  Rug: ["Area", "Floor", "Mat", "Pull"],
-  Rule: ["Law", "Break", "Book", "Slide", "Ground", "Set"],
-  Run: ["Fast", "Sprint", "Walk", "Away", "Way", "Time", "Down", "Water", "Home", "Back", "Track", "Off", "Way", "Man", "Time", "Away", "Down", "Way", "Man"],
-  Runner: ["Blade", "Road", "Front", "Up"],
-  Rush: ["Fast", "Gold", "Hour", "Job"],
+// --- R ---
+Rain: ["Water", "Fall", "Storm", "Drop", "Cloud", "Wet", "Night", "Shower"],
+Rail: ["Track", "Train", "Guard", "Metal", "Hand", "Way", "Line"],
+Raise: ["Lift", "Up", "Hand", "Level", "Build", "Money", "Plant", "Flag"],
+Read: ["Book", "Paper", "Sign", "Word", "Letter", "Mind", "Story", "Page", "Screen"],
+Reach: ["Hand", "Goal", "High", "Out", "Far", "Top", "Line"],
+Red: ["Color", "Light", "Rose", "Stop", "Fire", "Blood", "Mark", "Apple", "Card"],
+Rest: ["Stop", "Sleep", "Break", "Relax", "Chair", "Bed", "Time", "Place", "Moment"],
+Ride: ["Horse", "Bike", "Car", "Wheel", "Fast", "Seat", "Trail", "Road"],
+Ring: ["Bell", "Circle", "Finger", "Sound", "Metal", "Call", "Halo", "Note", "Team"],
 
-  // --- S ---
-  Safe: ["Secure", "Lock", "Protected", "Sound", "Box", "Money", "Key", "Unlock", "Guard", "House", "Crack", "Guard", "Deposit", "House", "Crack"],
-  Safety: ["First", "Belt", "Pin", "Net", "Valve", "Guard"],
-  Salt: ["Sea", "Water", "Table", "Shaker"],
-  Sand: ["Desert", "Stone", "Storm", "Bag", "Paper", "Bar", "Box"],
-  Save: ["Time", "Money", "Life", "Power", "Point"],
-  Saving: ["Life", "Time", "Grace", "Face"],
-  Saw: ["Chain", "Blade", "Hand", "Power", "Dust", "Horse"],
-  Say: ["Talk", "Word", "Hear", "Voice"],
-  Scale: ["Full", "Up", "Down", "Weight", "Balance"],
-  Scan: ["Slit", "Eye", "Body", "Code", "Bar"],
-  Scape: ["Land", "Sea", "City", "Escape"],
-  Scene: ["View", "Behind", "Cut", "Set", "Change"],
-  Score: ["Board", "Card", "Final", "Keep", "Point", "Sheet"],
-  Scraper: ["Sky", "Wall", "Cloud", "Ice"],
-  Screen: ["Curtain", "Window", "Door", "Touch", "Saver", "Play"],
-  Sea: ["Water", "Salt", "Blue", "Shell", "Shore", "Horse", "Side", "Sick", "Food", "Deep", "Level", "Level", "Shell", "Shore", "Horse"],
-  Seal: ["Fasten", "Joint", "Tight", "Water", "Broken"],
-  Search: ["Word", "Find", "Look", "Light", "Party"],
-  Season: ["Fall", "Spring", "Time", "Pass"],
-  Seat: ["Window", "Back", "Front", "Side", "Belt", "Cover", "Bench"],
-  Secret: ["Code", "Key", "Door", "Word", "Agent"],
-  Section: ["Cross", "Segment", "Cut", "View"],
-  Secure: ["Safe", "Lock", "Tight", "Fasten", "Guard", "Bond", "Link", "Bolt", "Area", "System"],
-  See: ["View", "Look", "Eye", "Watch", "Spot", "Through"],
-  Segment: ["Pane", "Line", "Part", "Section"],
-  Self: ["Made", "Control", "Service", "Start"],
-  Series: ["Chain", "Time", "Reaction", "Final", "Point"],
-  Service: ["Room", "Self", "Door", "Exit", "Station", "Break"],
-  Set: ["Sun", "Moon", "Ready", "Go", "Mind", "Back", "Off", "Back", "Up", "Match"],
-  Shade: ["Window", "Sun", "Light", "Glass", "Lampshade","Lamp","Tree","Mean","Nice","Shadow","Rude"],
-  Shadow: ["Moon", "Cast", "Box", "Light", "Dark"],
-  Shake: ["Hand", "Milk", "Up", "Down", "Well"],
-  Sharp: ["Blade", "Steel", "Edge", "Point", "Turn", "Look", "Mind"],
-  Sharpener: ["Pencil", "Blade", "Tool"],
-  Shatter: ["Glass", "Window", "Break", "Proof"],
-  Shed: ["Tool", "Light", "Tear", "Wood"],
-  Sheet: ["Glass", "Metal", "Paper", "Work", "Bed", "Music", "Metal", "Balance", "Spread"],
-  Shelf: ["Book", "Store", "Top", "Life"],
-  Shell: ["Sea", "Nut", "Hard", "Empty", "Shock", "Case"],
-  Shield: ["Wind", "Heat", "Force", "Eye", "Protect"],
-  Shift: ["Night", "Day", "Gear", "Work", "Stick", "Key"],
-  Shine: ["Sun", "Moon", "Lamp", "Bright", "Glow", "Shoe", "Star"],
-  Shiny: ["Metal", "Gold", "Silver", "Bright", "New", "Coin", "Mirror", "Light", "Surface"],
-  Ship: ["Star", "Air", "Space", "Boat", "Mate", "Abandon", "Shape", "Wreck"],
-  Shock: ["Electric", "Earth", "Wave", "Shell", "Absorber"],
-  Shoe: ["Horse", "Step", "Walk", "String", "Horn", "Box"],
-  Shop: ["Work", "Window", "Book", "Gift", "Lift", "Talk", "Floor"],
-  Shore: ["Sea", "Water", "Side", "Line", "Front"],
-  Short: ["Cut", "Circuit", "Stop", "Time", "Fall", "Story"],
-  Shot: ["Jump", "Gun", "Power", "Ball", "Big", "Moon", "Snap"],
-  Shoulder: ["Blade", "Side", "Cold", "Bag", "Load", "Work"],
-  Show: ["Slide", "Floor", "Case", "Talk", "Game", "Light", "Room", "Biz"],
-  Shut: ["Slam", "Door", "Eye", "Down", "Off", "Up"],
-  Side: ["Walk", "Way", "Step", "Kick", "Show", "Effect", "Road", "Line", "Board", "Bar", "Track", "Burn", "Track", "Kick", "Show", "Ways", "Effect"],
-  Sight: ["See", "Look", "View", "Eye", "Line", "First"],
-  Sign: ["Exit", "Way", "Stop", "Post", "Board", "Signal", "Language"],
-  Signal: ["Sign", "Alarm", "Radio", "Light", "Turn", "Mixed"],
-  Silent: ["Alarm", "Sound", "Quiet", "Night"],
-  Sill: ["Window", "Door", "Step"],
-  Silver: ["Metal", "Shiny", "Star", "Cloud", "Plate", "Lining", "Standard", "Coin", "Bullet"],
-  Size: ["Up", "Life", "Full", "Box", "Cap"],
-  Skate: ["Board", "Ice", "Park", "Rink"],
-  Sketch: ["Book", "Pad", "Pencil", "Work"],
-  Sky: ["Blue", "Light", "High", "Line", "Scraper", "Limit", "Fall", "Way", "Cloud", "Dark", "High", "Limit", "Blue"],
-  Slate: ["Blank", "Clean", "Stone", "Roof"],
-  Slam: ["Door", "Bang", "Shut", "Hit", "Crash", "Dunk", "Down", "Poetry", "Grand", "Dunk"],
-  Slide: ["Show", "Rule", "Way", "Back", "Down", "Glass", "Rail", "Land"],
-  Sling: ["Shot", "Back", "Gun", "Bag"],
-  Slit: ["Gap", "Opening", "Crack", "Narrow", "Slot", "Pocket", "Scan"],
-  Slot: ["Slit", "Machine", "Key", "Time"],
-  Slow: ["Fast", "Motion", "Burn", "Down", "Move"],
-  Small: ["Talk", "Size", "Scale", "Town", "Change"],
-  Smart: ["Bright", "Phone", "Work", "Aleck"],
-  Smash: ["Break", "Hit", "Slam", "Down", "Grab"],
-  Smith: ["Lock", "Metal", "Black", "Gold", "Hammer"],
-  Smoke: ["Fire", "Chain", "Stack", "Screen", "Signal"],
-  Snap: ["Break", "Crack", "Click", "Quick", "Pop", "Shot", "Back", "Shut"],
-  Snow: ["Rain", "Ice", "White", "Storm", "Ball", "Board", "Fall", "Drift"],
-  Socket: ["Wall", "Plug", "Eye", "Power", "Wrench"],
-  Soil: ["Earth", "Ground", "Work", "Pot", "Dirty"],
-  Solar: ["Sun", "Power", "System", "Panel", "Flare"],
-  Solid: ["Hard", "Rock", "State", "Ground", "Gold"],
-  Soul: ["Mate", "Lost", "Deep", "Search", "Music"],
-  Sound: ["Noise", "Safe", "Hear", "Tone", "Audio", "Wave", "Proof", "Board", "Check", "Track", "Bar", "Wave", "Proof", "Board", "Check", "Bar", "Barrier"],
-  South: ["North", "Side", "Pole", "Direction"],
-  Space: ["Gap", "Room", "Area", "Distance", "Void", "Ship", "Bar", "Time", "Man", "Craft", "Station", "Age", "Bar", "Ship", "Time", "Suit", "Craft", "Needle"],
-  Span: ["Life", "Time", "Bridge", "Width"],
-  Spark: ["Fire", "Light", "Plug", "Idea"],
-  Speech: ["Talk", "Answer", "Word", "Bubble", "Free"],
-  Speed: ["Fast", "Limit", "Ramp", "Way", "Boat", "Light"],
-  Spin: ["Turn", "Rotate", "Cycle", "Wheel", "Top", "Doctor", "Off", "Back", "Dry", "Cycle"],
-  Spirit: ["Soul", "Level", "Team", "High", "Holy"],
-  Split: ["Crack", "Break", "Second", "Side", "End"],
-  Spot: ["See", "Light", "Sun", "Hot", "Check", "On"],
-  Spray: ["Paint", "Water", "Can", "Bottle", "Gun"],
-  Spring: ["Jump", "Metal", "Season", "Water", "Load", "Time", "Board"],
-  Square: ["Box", "Room", "Root", "Foot", "Deal", "Dance"],
-  Squeeze: ["Grip", "Press", "Hard", "Hand"],
-  Stack: ["Paper", "Smoke", "Up", "Full"],
-  Stage: ["Step", "State", "Back", "Name", "Coach"],
-  Stair: ["Step", "Way", "Case", "Well", "Climb"],
-  Stand: ["Stop", "Still", "By", "Back", "Up", "Standard", "Off", "Newspaper", "Music"],
-  Standard: ["Gold", "Silver", "Level", "Time"],
-  Star: ["Sun", "Moon", "Light", "Night", "Fish", "Dust", "Gaze", "Bright", "Ship", "Fire", "Burst", "Trek", "Light", "Fish", "Dust"],
-  Start: ["Begin", "Opening", "Launch", "First", "Origin", "Open", "Jump", "Push", "Ready", "Point", "Self", "Up"],
-  State: ["Solid", "Room", "Mind", "Stage", "Line"],
-  Station: ["Space", "Work", "Power", "Radio", "Gas", "Service", "Train"],
-  Stay: ["Home", "Put", "Safe", "Back", "Over", "Out"],
-  Steady: ["Hold", "Hand", "Fast", "Go", "State"],
-  Steel: ["Metal", "Strong", "Iron", "Hard", "Blade", "Work", "Wool", "Blue", "Case", "Mill", "Cold", "Work", "Wool"],
-  Stem: ["Flower", "Cell", "Pipe", "Root"],
-  Step: ["Walk", "Stair", "Move", "Stage", "Pace", "Ladder", "Father", "Stone", "Back", "Up", "Down", "Side", "Child", "Stone", "Ladder", "Father"],
-  Stick: ["Glow", "Shift", "Hold", "Yard", "Point", "Stock"],
-  Still: ["Stop", "Quiet", "Life", "Water", "Stand"],
-  Stock: ["Joint", "Market", "Room", "Full", "Take"],
-  Stone: ["Hard", "Rock", "Wall", "Step", "Work", "Cold", "Age", "Wash", "Dead", "Bridge", "Mason", "Wall", "Step", "Age", "Bridge", "Mason"],
-  Stop: ["Sign", "Light", "Go", "Point", "Watch", "Gap", "Full", "Check", "Door", "Watch", "Sign", "Light", "Full", "Gap"],
-  Store: ["Shop", "Book", "Front", "House", "Room", "Keep"],
-  Storm: ["Rain", "Wind", "Cloud", "Dust", "Snow", "Desert", "Center", "Warning"],
-  Story: ["Book", "Life", "Short", "Tell", "True"],
-  Street: ["Road", "Walk", "Side", "Wall", "Main", "Light", "Smart"],
-  Strength: ["Power", "Force", "Grip", "Grasp", "Test"],
-  Strike: ["Hit", "Bolt", "Lightning", "Out", "Back", "Force"],
-  String: ["Tie", "Shoe", "Bean", "Theory", "Instrument"],
-  Stroll: ["Walk", "Path", "Side", "Along"],
-  Strong: ["Steel", "Hard", "Power", "Head", "Hold", "Point", "Hand"],
-  Structure: ["Frame", "Steel", "Wall", "Bone", "Build"],
-  Style: ["Life", "Work", "Free", "Old", "New"],
-  Suit: ["Jump", "Case", "Space", "Case", "Law", "Tie"],
-  Sun: ["Light", "Bright", "Star", "Heat", "Day", "Flower", "Set", "Rise", "Burn", "Glass", "Beam", "Stroke", "Spot", "Shine", "Dial", "Burn", "Beam", "Dial", "Set", "Rise", "Shine"],
-  Surface: ["Area", "Ground", "Top", "Level", "Tension"],
-  Sweep: ["Floor", "Clean", "Brush", "Second"],
-  Swift: ["Fast", "Quick", "Bird", "Action"],
-  Swing: ["Hinge", "Door", "Set", "High", "Vote"],
-  Switch: ["Light", "Key", "Off", "On", "Board", "Blade", "Back"],
-  System: ["Power", "Solar", "Audio", "Alarm", "Operating", "Structure"],
+// --- S ---
+Shade: ["Light", "Color", "Tree", "Shadow", "Cover", "Window", "Sun", "Tone"],
+Stage: ["Theater", "Show", "Performance", "Level", "Step", "Board", "Set", "Platform"],
+Safe: ["Box", "Guard", "Secure", "Keep", "Lock", "Home", "Place", "Hold"],
+Salt: ["Table", "Sea", "Food", "Rock", "Water", "Mine", "Taste"],
+Sand: ["Beach", "Desert", "Stone", "Castle", "Glass", "Land", "Grain", "Bag"],
+Scale: ["Weight", "Fish", "Music", "Measure", "Step", "Note", "Ladder"],
+Screen: ["TV", "Phone", "Window", "Curtain", "Protect", "Show", "Display"],
+Sea: ["Water", "Ocean", "Blue", "Fish", "Wave", "Salt", "Shore", "Deep"],
+Seat: ["Chair", "Car", "Bench", "Ride", "Place", "Post", "Work", "Home"],
+Sharp: ["Blade", "Knife", "Edge", "Point", "Mind", "Sound", "Turn", "Look"],
+Ship: ["Boat", "Sail", "Cargo", "Water", "Travel", "Sea", "Captain", "Deck", "Port"],
+Shoot: ["Gun", "Camera", "Basketball", "Arrow", "Star", "Film", "Ball", "Goal", "Target"],
+Show: ["Stage", "Display", "Movie", "Game", "Box", "Work", "Screen", "Event"],
+Side: ["Left", "Right", "Edge", "Wall", "Board", "Part", "Lane", "Step", "Walk"],
+Signal: ["Light", "Radio", "Hand", "Code", "Wave", "Flag", "Warning", "Alarm", "Tower"],
+Silver: ["Metal", "Coin", "Star", "Shine", "Ring", "Jewelry", "Plate"],
+Skill: ["Learn", "Work", "Hand", "Mind", "Art", "Train", "Practice", "Game", "Play"],
+Slide: ["Down", "Play", "Board", "Water", "Step", "Door", "Surface", "Way"],
+Slow: ["Move", "Down", "Time", "Work", "Speed", "Walk", "Drive", "Push"],
 
-  // --- T ---
-  Table: ["Round", "Turn", "Water", "Time", "Desk", "Cloth", "Top", "Land"],
-  Tag: ["Question", "Price", "Dog", "Name", "Line"],
-  Tail: ["Back", "End", "Plane", "Wind", "Light", "Gate"],
-  Take: ["Over", "Out", "Off", "In", "Back", "Part", "Down", "Action"],
-  Talk: ["Show", "Back", "Walk", "Small", "Fast", "Radio", "Big", "Money", "Shop", "Back"],
-  Tank: ["Water", "Gas", "Fish", "Fuel", "Top"],
-  Tape: ["Grip", "Red", "Measure", "Duct", "Record"],
-  Tea: ["Pot", "Cup", "Leaf", "Bag", "Time"],
-  Team: ["Work", "Spirit", "Away", "Home", "Mate", "Player"],
-  Theory: ["Big", "Bang", "String", "Work"],
-  Thin: ["Paper", "Glass", "Air", "Ice", "Line"],
-  Through: ["Way", "Pass", "Break", "Drive", "Look"],
-  Tight: ["Secure", "Fasten", "Rope", "Belt", "Corner", "Spot", "Air"],
-  Tile: ["Floor", "Roof", "Wall", "Stone"],
-  Time: ["Clock", "Watch", "Zone", "Table", "Piece", "Line", "Out", "Run", "Card", "Limit", "Save", "Keep", "Frame", "Machine", "Table", "Limit", "Piece", "Zone", "Scale", "Out"],
-  Tone: ["Sound", "Ring", "Color", "Earth", "Vocal"],
-  Tool: ["Box", "Kit", "Work", "Power", "Chest", "Belt", "Shed", "Kit", "Power", "Chest", "Box"],
-  Top: ["Roof", "Peak", "Floor", "Spin", "Gear", "Table", "Over", "Shelf", "Secret", "Hat", "Level"],
-  Torch: ["Fire", "Light", "Flash", "Blow", "Burn"],
-  Toss: ["Bag", "Hand", "Turn", "Up"],
-  Touch: ["Hand", "Feel", "Screen", "Down", "Pad", "Point"],
-  Tower: ["Clock", "Watch", "Power", "Control", "Bell", "Bridge"],
-  Town: ["Home", "Down", "Small", "Ghost", "Hall"],
-  Track: ["Back", "Path", "Road", "Run", "Sound", "Race", "Record", "Field", "Side"],
-  Trade: ["Mark", "Fair", "Secret", "Name", "Wind"],
-  Trail: ["Path", "Road", "Paper", "Blazer", "Mix"],
-  Train: ["Station", "Track", "Thought", "Work", "Ride"],
-  Transparent: ["Glass", "Clear", "Water", "Air", "Window", "Pane", "Obvious", "Pure", "View"],
-  Trap: ["Door", "Mouse", "Fire", "Set"],
-  Tree: ["Wood", "Forest", "House", "Life", "Top", "Fruit"],
-  Trek: ["Star", "Walk", "Path", "Long"],
-  Trip: ["Road", "Round", "Field", "Step", "Day"],
-  True: ["North", "Story", "Believe", "Blue", "Love"],
-  Tug: ["Pull", "Boat", "War", "Hard"],
-  Tune: ["Sound", "Tone", "Fine", "Up", "In", "Out"],
-  Turn: ["Twist", "Rotate", "Spin", "Bend", "Corner", "Table", "Over", "Back", "Key", "Point", "Around", "Down", "Up", "Table", "Around", "Off", "On"],
-  Twist: ["Turn", "Knob", "Spin", "Rotate", "Bend", "Tie", "Off", "Drill", "Plot", "Off", "Turn", "Tie"],
+// --- T ---
+Table: ["Chair", "Work", "Desk", "Board", "Food", "Set", "Top", "Game", "Surface"],
+Tap: ["Water", "Finger", "Sound", "Beer", "Note", "Code", "Call"],
+Task: ["Work", "Job", "Duty", "Mission", "Point", "Goal", "List", "Action"],
+Team: ["Work", "Play", "Sport", "Goal", "Group", "Game", "Member"],
+Temp: ["Heat", "Cold", "Weather", "Time", "Measure", "Degree"],
+Time: ["Clock", "Day", "Night", "Life", "Work", "Past", "Future", "Hour", "Minute", "Second"],
+Tip: ["Point", "Advice", "Hat", "End", "Money", "Finger", "Top", "Edge"],
+Tool: ["Work", "Hand", "Metal", "Power", "Box", "Kit", "Use"],
+Top: ["Peak", "Hat", "Board", "High", "Point", "Layer", "Score", "Level"],
 
-  // --- U ---
-  Under: ["Ground", "Water", "Way", "Line", "Hand", "Cover", "Side", "Pass", "Dog", "World", "Pass", "Dog", "Cover"],
-  Unlock: ["Key", "Door", "Safe", "Lock", "Open", "Code"],
-  Up: ["Down", "Step", "Rise", "Scale", "Grade", "Start", "Date", "Turn", "Set", "Lift", "Hold"],
+// --- U ---
+Under: ["Below", "Side", "Water", "Cover", "Ground", "Line", "Pressure", "Floor"],
+Unit: ["Piece", "Part", "Work", "Measure", "Box", "Tool", "Set"],
+Up: ["High", "Raise", "Lift", "Go", "Top", "Move", "Step", "Hand"],
 
-  // --- V ---
-  Value: ["Price", "Face", "Added", "Score"],
-  Valve: ["Safety", "Control", "Release", "Heart"],
-  Vault: ["Safe", "Bank", "Pole", "Key", "Jump"],
-  Veil: ["Curtain", "Cover", "Face", "Thin"],
-  View: ["Window", "See", "Look", "Scene", "Watch", "Point", "Port", "Finder", "Point", "Port", "Finder"],
-  Vision: ["Eye", "Sight", "Night", "Clear", "Tele"],
-  Vivid: ["Bright", "Color", "Dream", "Image"],
-  Vocal: ["Talk", "Speech", "Voice", "Tone", "Chord"],
-  Voice: ["Sound", "Box", "Talk", "Over", "Mail"],
-  Void: ["Space", "Empty", "Null", "Deep"],
+// --- V ---
+Valve: ["Pipe", "Flow", "Water", "Gas", "Control", "Open", "Close", "Pump"],
+View: ["See", "Look", "Window", "Point", "Scene", "Screen", "Sight", "Eye"],
+Voice: ["Sound", "Call", "Speak", "Talk", "Singer", "Tone", "Mail"],
 
-  // --- W ---
-  Wait: ["Time", "Minute", "Line", "List", "Room"],
-  Walk: ["Path", "Hall", "Step", "Move", "Stroll", "Side", "Run", "Way", "Out", "Man", "Board", "Street", "Cross", "Ground", "Way", "Way", "Board", "Over"],
-  Wall: ["Paper", "Brick", "Stone", "Street", "Clock", "Walk", "Fire", "Mount", "Nut", "Plug", "Socket", "Board", "Paint", "Paper", "Brick", "Clock", "Flower","Jump"],
-  War: ["Cold", "Tug", "Zone", "Fire", "Machine"],
-  Ware: ["Glass", "Hard", "Soft", "House", "Silver"],
-  Warm: ["Heat", "Sun", "Glow", "Up", "Front"],
-  Wash: ["Window", "Stone", "Car", "Hand", "Room", "Out", "Up"],
-  Watch: ["View", "See", "Look", "Clock", "Guard", "Tower", "Man", "Dog", "Word", "Out", "List", "Fire", "Band", "Dog", "Man", "Word", "Clock", "List"],
-  Water: ["Fall", "Rain", "River", "Sea", "Bottle", "Color", "Mark", "Proof", "Flow", "Back", "Line", "Cool", "Tank", "Wheel", "Way", "Fall", "Proof", "Color", "Wheel", "Main"],
-  Wave: ["Sound", "Water", "Shock", "Radio", "Length", "Heat", "Permanent"],
-  Way: ["Path", "Exit", "Hall", "Road", "Route", "Direction", "Side", "Walk", "Fair", "Out", "In", "Back", "Point", "Side", "Far", "Mid", "Side", "Point", "Far", "Back"],
-  Web: ["Link", "Site", "Spider", "Page"],
-  Week: ["Day", "End", "Night", "Time", "Long"],
-  Weight: ["Paper", "Light", "Heavy", "Scale", "Gain", "Loss", "Lift", "Dead"],
-  Well: ["Water", "Oil", "Spring", "Done", "Wishing", "Stay"],
-  West: ["East", "Side", "Direction", "Point", "Coast"],
-  Wheel: ["Water", "Spin", "Motor", "Color", "Chair", "Gear", "Big", "House"],
-  White: ["Cloud", "Snow", "Light", "House", "Board", "Wash", "Paper"],
-  Wide: ["Open", "World", "Gap", "Angle", "Broad"],
-  Wild: ["Run", "Fire", "Life", "Flower", "Card"],
-  Wind: ["Air", "Blow", "Storm", "Mill", "Shield", "Pipe", "Flow", "Back", "Fall", "Break", "Chill", "Swept", "Shield", "Mill", "Up"],
-  Window: ["Glass", "Frame", "Pane", "View", "Light", "Open", "Curtain", "Sill", "Shade", "Box", "Shop", "Seat", "Wash", "Wall", "Seat", "Shade", "Dress", "Box"],
-  Wing: ["Air", "Plane", "Span", "Left", "Right", "Back"],
-  Wire: ["Metal", "Electric", "Copper", "Tap", "Fence"],
-  Wise: ["Clock", "Owl", "Old", "Crack", "Word"],
-  Wood: ["Tree", "Work", "Cut", "Block", "Fire", "Hard", "Land", "Shed", "Stock", "Pecker", "Cut", "Work"],
-  Wool: ["Steel", "Sheep", "Work", "Gathering", "Glass"],
-  Word: ["Play", "Book", "Search", "Work", "Key", "Watch", "Perfect", "Sign", "Power", "Play", "Search", "Cross", "Key"],
-  Work: ["Shop", "Bench", "Place", "Flow", "Book", "Sheet", "Day", "Life", "Force", "Load", "Out", "Hard", "Bench", "Shop", "House", "Force", "Book", "Hard", "Load"],
-  World: ["Earth", "Wide", "End", "Under", "Map"],
-  Worm: ["Earth", "Book", "Hole", "Glow"],
-  Wreck: ["Ship", "Car", "Home", "Train"],
-  Wrist: ["Watch", "Band", "Joint", "Bone"],
-  Write: ["Hand", "Word", "Pen", "Off", "Only", "Read"],
+// --- W ---
 
-  // --- X ---
-  X: ["Ray", "Mark", "Factor", "File"],
+Wave: ["Water", "Hand", "Energy", "Signal", "Sound", "Ocean", "Motion", "Curl"],
+Wall: ["Brick", "Stone", "Paint", "Side", "Paper", "Work", "House", "Fence", "Screen"],
+Water: ["Flow", "River", "Sea", "Lake", "Drink", "Ice", "Wave", "Pool", "Drop", "Fall"],
+Way: ["Path", "Road", "Line", "Step", "Trail", "Back", "Home", "Out", "Pass", "Point"],
+Wheel: ["Car", "Bike", "Steer", "Power", "Roll", "Work", "Gear", "Drive"],
+Wind: ["Air", "Blow", "Power", "Storm", "Turbine", "Move", "Force", "Door"],
+Work: ["Job", "Hand", "Task", "Build", "Create", "Labor", "Project", "Play", "Piece"],
+Wing: ["Bird", "Airplane", "Flight", "Side", "Fan", "Control", "Part", "Engine"],
+Wire: ["Electric", "Metal", "Line", "Connect", "Cable", "Fence", "Signal", "Link"],
 
-  // --- Y ---
-  Yard: ["Back", "Stone", "Bone", "Brick", "Stick", "Work", "Sale", "Stick"],
-  Year: ["Light", "New", "Day", "Time", "Gap", "Book"],
+// --- X ---
+Xray: ["Bone", "Scan", "See", "Body", "Medical", "Image", "Check", "Screen"],
 
-  // --- Z ---
-  Zero: ["Ground", "Point", "Hour", "Hero"],
-  Zone: ["Time", "Area", "Safe", "War", "Dead", "Comfort"]
+// --- Y ---
+Yard: ["Back", "Grass", "Home", "Work", "Play", "Stone", "Fence"],
+Yellow: ["Sun", "Light", "Color", "Sign", "Gold", "Star"],
+
+// --- Z ---
+Zero: ["Point", "Mark", "Level", "Start", "Nothing", "Math", "Count"],
+Zone: ["Area", "Region", "Space", "Section", "Map", "Field", "Plot", "Territory","Area", "Space", "Work", "Play", "Safety", "Security", "Sign", "End", "Line"],
+Port: ["Air", "Ship", "Dock", "Harbor", "Station", "Load", "Unload", "Trade"],
+Pocket: ["Air", "Clothes", "Bag", "Money", "Hand", "Vent", "Space", "Small"],
+Vent: ["Air", "Release", "Open", "Pipe", "Exhaust", "Flow", "Steam", "Pressure"],
+Ment: ["Base", "Structure", "Government", "Building", "Establishment", "Foundation"],
+Queue: ["Line", "Wait", "Order", "People", "Ticket", "Form", "List", "Row"]
+
 };
+
 
 let currentWord = "";
 let usedWords = new Set();
@@ -1905,12 +1637,23 @@ function getRandomWord(){
   const keys = Object.keys(wordBank);
   return keys[Math.floor(Math.random()*keys.length)];
 }
-
+    
+let pauseClickCount = 0;
+let lessThan3Clicks = true;
+let pauseBtnClicked = false;
+let resayBtnClicked = false;
+let skipBtnClicked = false;
+let cheatBtnClicked = false;
+let hintBtnClicked = false;
+let easyResets = 0;
+let normalResets = 0;
+let hardResets = 0;
+    
 function startTurn() {
   const totalTime = Math.max(theTime, baseTime - difficulty * 0.3);
   timeLeft = totalTime;
   timerFill.style.width = "100%";
-  timerFill.classList.remove("warning","danger");
+  timerFill.classList.remove("warning","danger","pause");
   msg("");
   messageDiv.className = "";
   inputWord.value = "";
@@ -1920,6 +1663,25 @@ function startTurn() {
   currentWordDiv.classList.add("pulse");
   setTimeout(()=>currentWordDiv.classList.remove("pulse"),300);
   
+  
+  const diff = difficultyDiv.textContent;
+
+  if ((diff === "Easy" && easyResets < 3) || 
+    (diff === "Normal" && normalResets < 2) || 
+    (diff === "Hard" && hardResets < 1)) {
+
+  resayBtnClicked = false;
+  pauseBtnClicked = false;
+  skipBtnClicked = false;
+  cheatBtnClicked = false;
+  hintBtnClicked = false;
+  gsap.to("#tools button", { opacity: 1, duration: 0.4, ease: "power2.out" });
+
+  if (diff === "Easy") easyResets++;
+  else if (diff === "Normal") normalResets++;
+  else if (diff === "Hard") hardResets++;
+}
+   
   gsap.to("#bar .tally", {
     scale:1
   });
@@ -1965,7 +1727,6 @@ function isValidWord(word) {
   return validAnswers.includes(lowerWord);
 }
 
-// Simple hasAvailableAnswers - no suffix matching yet
 function hasAvailableAnswers(promptWord) {
   const promptKey = Object.keys(wordBank).find(
     k => k.toLowerCase() === promptWord.toLowerCase()
@@ -1994,7 +1755,7 @@ function msg(msg) {
   
   msgTl = gsap.timeline();
   msgTl.fromTo("#message", {
-    y: 0,
+    y: -50,
     scale: 1,
     opacity: 1,
     zIndex: 10,
@@ -2002,9 +1763,9 @@ function msg(msg) {
     y: -100,
     scale: 0.8,
     opacity: 0,
-    delay: 0.3,
+    delay: 1,
     zIndex: -10,
-    duration: 0.8,
+    duration: 2,
     ease: "elastic.out"
   });
 }
@@ -2018,8 +1779,7 @@ function submitWord(word) {
   if (!word) return;
   const lowerWord = word.toLowerCase();
   
-  // 1. Check if already used
-  if (usedWords.has(lowerWord)) {
+  if (usedWords.has(lowerWord) && resayBtnClicked === false) {
     inputWord.classList.add("wrong");
     wrongSound.play();
     spawnInputParticles("#f00");
@@ -2089,6 +1849,8 @@ function submitWord(word) {
   currentWordDiv.textContent = currentWord;
   
   startTurn();
+  
+  inputWord.placeholder = "Type a related word";
 }
 
 
@@ -2152,6 +1914,10 @@ gsap.set(["#gameOver .gameOver-msg p", "#gameOver .scores p"], {
 
 const tl = gsap.timeline();
 
+  toolsAni.eventCallback("onComplete", () => {
+  toolsAni.reverse();
+});
+  
 tl.to("#game .ani", {
     y: -100,
     opacity: 0,
@@ -2245,12 +2011,49 @@ tl.to("#game .ani", {
 }
   
   const countdown = document.querySelector("#countdown");
+    const toolsAni = gsap.timeline({ paused: true })
+.fromTo("#tools", {
+  height: 0,
+  padding: 0,
+  zIndex: -20
+}, {
+  height: "auto",
+  padding: "20px 0px",
+  duration: 0.3,
+  ease: "power1.inOut",
+  zIndex: 1,
+  onStart() {
+    gsap.set("#tools", { overflow: "hidden" });
+  },
+  onComplete() {
+    gsap.set("#tools", { clearProps: "height,overflow" });
+  }
+})
+.fromTo("#tools button", {
+  y: 20,
+  opacity: 0,
+  scale: 0.8
+}, {
+  y: 0,
+  opacity: 1,
+  scale: 1,
+  stagger: 0.05,
+  duration: 0.4,
+  ease: "power2.out"
+});
+
 
 function startCountdown() {
+    gsap.set("#game .ani", {
+      y: 50,
+      opacity: 0,
+      scale: 0.6
+    });
+  
   let count = 5;
 
   const tl = gsap.timeline({
-    repeat: 4, // runs 5 times total
+    repeat: 4,
     onRepeat: () => {
       count--;
       countdown.textContent = count;
@@ -2281,7 +2084,6 @@ function startCountdown() {
 }
   
   function doAfterCountdown() {
-    
     gsap.to("#game .ani", {
     y: 0,
     opacity: 1,
@@ -2290,14 +2092,23 @@ function startCountdown() {
     scale: 1,
     ease: "power4.out",
       onComplete: () => {
+        
+        if ( difficultyDiv.textContent === "Easy" || difficultyDiv.textContent === "Normal" || difficultyDiv.textContent === "Hard" ) {
+        toolsAni.play();
+        toolsAni.eventCallback("onComplete", () => {
         startTurn();
+});
+          } else {
+            toolsAni.kill();
+        startTurn();
+          }
+        
       }
   });
     
     gsap.to("#game", {
       opacity: 1,
-      duration: 1,
-      ease: "ease.in"
+      duration: 0
     });
   }
 
@@ -2315,6 +2126,101 @@ inputWord.addEventListener("input",(e)=>{
   if (e.key === "Enter") {
     submitWord(inputWord.value);
     inputWord.value = "";
+  }
+});
+    
+const allCheats = document.querySelector("#tools button");    
+const pauseBtn = document.querySelector("#pause-btn");
+const resayBtn = document.querySelector("#resay-btn");
+const skipBtn = document.querySelector("#skip-btn");
+    const cheatBtn = document.querySelector("#cheat-btn");
+    const hintBtn = document.querySelector("#hint-btn");
+    
+    allCheats.addEventListener("click", () => {
+  messageDiv.className = "";
+      streak = 0;
+      updateScore();
+    });
+
+pauseBtn.addEventListener("click", () => {
+  if (pauseBtnClicked === false) {
+  gsap.to(pauseBtn, { opacity: 0.5, duration: 0.4, ease: "power2.out" });
+  pauseBtnClicked = true;
+    clearInterval(timer);
+    msg("Time has been paused!");
+  timerFill.classList.add("pause");
+  }
+});
+
+resayBtn.addEventListener("click", () => {
+  if (resayBtnClicked === false) {
+  gsap.to(resayBtn, { opacity: 0.5, duration: 0.4, ease: "power2.out" });
+  resayBtnClicked = true;
+    msg("You can now use a previous answer!");
+  }
+});
+    
+    skipBtn.addEventListener("click", () => {
+  if (skipBtnClicked === false) {
+  gsap.to(skipBtn, { opacity: 0.5, duration: 0.4, ease: "power2.out" });
+  skipBtnClicked = true;
+    msg("Skipped!");
+    
+    currentWord = getRandomWord();
+currentWordDiv.textContent = currentWord;
+usedPrompts.add(currentWord.toLowerCase());
+    startTurn();
+  }
+});
+
+cheatBtn.addEventListener("click", () => {
+  if (cheatBtnClicked === false) {
+    gsap.to(cheatBtn, { opacity: 0.5, duration: 0.4, ease: "power2.out" });
+    cheatBtnClicked = true;
+
+    const currentKey = currentWordDiv.textContent.trim();
+
+    if (wordBank[currentKey]) {
+      const options = wordBank[currentKey];
+      const randomAnswer = options[Math.floor(Math.random() * options.length)];
+      inputWord.value = randomAnswer;
+      msg("Here's some help!");
+    } else {
+      msg("No answers found for this word.");
+    }
+  }
+});
+    
+    hintBtn.addEventListener("click", () => {
+  if (hintBtnClicked === false) {
+    gsap.to(hintBtn, { opacity: 0.5, duration: 0.4, ease: "power2.out" });
+    hintBtnClicked = true;
+
+    const currentKey = document.getElementById("current-word").textContent.trim();
+    const correctAnswers = wordBank[currentKey];
+
+    if (correctAnswers) {
+      const correctOne = correctAnswers[Math.floor(Math.random() * correctAnswers.length)];
+
+      const allOtherWords = Object.keys(wordBank)
+        .filter(key => key !== currentKey) 
+        .flatMap(key => wordBank[key]);
+
+      const wrongOnes = [];
+      while (wrongOnes.length < 2) {
+        const randomWrong = allOtherWords[Math.floor(Math.random() * allOtherWords.length)];
+        if (!wrongOnes.includes(randomWrong) && !correctAnswers.includes(randomWrong)) {
+          wrongOnes.push(randomWrong);
+        }
+      }
+
+      const choices = [correctOne, ...wrongOnes].sort(() => Math.random() - 0.5);
+      
+      inputWord.value = "";
+      inputWord.placeholder = `${choices[0]}, ${choices[1]}, or ${choices[2]}?`;
+      
+      msg("Look at the text box for a hint!");
+    }
   }
 });
 
@@ -2347,7 +2253,7 @@ restartBtn.addEventListener("click", () => {
       zIndex: -10
     });
     
-    gsap.set("#gameOver .gameOver-msg p, #gameOver .scores p", {
+    gsap.set(["#gameOver .gameOver-msg p, #gameOver .scores p"], {
       y: 100,
       opacity: 0,
       scale: 0.8
@@ -2372,7 +2278,6 @@ restartBtn.addEventListener("click", () => {
       gsap.set("#restart", { scale: 1 });
       gsap.set("#menu", { zIndex: -10 });
       startCountdown();
-    
     }
   }, "<");
 });
