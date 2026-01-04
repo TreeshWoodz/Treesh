@@ -99,7 +99,7 @@ body{font-family:var(--main-font);display:flex;flex-direction:column;align-items
 #difficulty{font-size:0.9rem;color:#0ff;margin-bottom:15px;text-shadow:0 0 10px #0ff}
 #current-word{font-size:3.3rem;width:100%; 
     white-space: nowrap;     
-  text-overflow: ellipsis;margin:30px 0 15px 0px;color:#fff;text-transform:uppercase;text-shadow:0 0 15px #0ff,0 0 30px #0ff,0 0 45px #0ff;transition:transform 0.2s,color 0.3s;font-weight:bold;letter-spacing:2px; font-family:var(--info-font);}
+  text-overflow: ellipsis;margin:0px 0 15px 0px;color:#fff;text-transform:uppercase;text-shadow:0 0 15px #0ff,0 0 30px #0ff,0 0 45px #0ff;transition:transform 0.2s,color 0.3s;font-weight:bold;letter-spacing:2px; font-family:var(--info-font);}
 #current-word.pulse{animation:pulse 0.3s ease}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
 
@@ -108,8 +108,13 @@ body{font-family:var(--main-font);display:flex;flex-direction:column;align-items
     text-align:center;
     max-width:500px;
     width:100%;
-    position:relative;
+    position:fixed;
+    top:0;
     z-index:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
   }
   
   #game:after {
@@ -203,14 +208,12 @@ body{font-family:var(--main-font);display:flex;flex-direction:column;align-items
   width: calc(100% - 10px);
   height: 14px;
   background: rgba(0, 0, 0, 0.3);
-  margin: 10px auto auto auto;
+  margin: 10px auto 15px auto;
   border-radius: 10px;
   overflow: hidden;
   transition: all 0.4s ease;
-  
   border: 1px solid rgba(0, 255, 100, 0.5);
   box-shadow: 0 0 15px rgba(0, 255, 100, 0.3);
-  
   animation: dynamicPulse 1.5s infinite alternate;
 }
 
@@ -778,6 +781,7 @@ padding:0px;
     align-items:center;
     justify-content:space-evenly !important;
     overflow:hidden;
+    margin-top: -20px;
     margin-bottom: 0 !important;
   }
   
@@ -818,7 +822,7 @@ padding:0px;
       z-index:10;
       background: linear-gradient(180deg, rgba(26, 11, 46, 0.95) 0%, rgba(45, 27, 78, 0.98) 100%);
       backdrop-filter: blur(20px);
-      padding: 0px 3px 12px 3px;
+      padding: 0px 15px 30px 15px;
       box-shadow: 0 -5px 30px rgba(0, 255, 255, 0.1);
       border-top: 1px solid rgba(0, 255, 255, 0.2);
      transform:translateY(100%);
@@ -1107,8 +1111,10 @@ padding:0px;
   </div>
   
 <div id="game">
+  <div class="center">
   <div id="current-word" class="ani"></div>
   <input type="text" class="ani" id="input-word" placeholder="Type a related word" autocomplete="off"/>
+  </div>
 </div>
   
   <script>
@@ -1851,16 +1857,15 @@ function spawnInputParticles(color){
 // ====== KEYBOARD =======
     
     const keyboard = document.querySelector("#keyboard");
-    
+  let viewportHeight = window.innerHeight;
+    let keyboardHeight = keyboard.offsetHeight;
     
 function updateGameHeight() {
-  gsap.to("#game", {
-  height: () => (window.visualViewport ? window.visualViewport.height : window.innerHeight) - keyboard.offsetHeight + "px",
-    top: -keyboard.offsetHeight/6.5 + "px",
-  duration: 0.3,
-  ease: "power1.in"
-});
+  viewportHeight = window.innerHeight;
+    keyboardHeight = keyboard.offsetHeight;
+  document.querySelector("#game").style.height = (viewportHeight - keyboardHeight) + 40 + "px";
 }
+    updateGameHeight();
 
 
 
@@ -2178,12 +2183,7 @@ tl.to("#keyboard", {
   y: "100%",
   duration: 0.6,
   ease: "power1.out"
-}).to("#game", {
-  height: "100%",
-  y: 0,
-  duration: 0.6,
-  ease: "power1.out"
-}, 0).to("#game .ani", {
+}).to("#game .ani", {
     y: -100,
     opacity: 0,
     stagger: 0.05,
@@ -2281,15 +2281,19 @@ tl.to("#keyboard", {
 .fromTo("#tools", {
   height: 0,
   padding: 0,
+  marginTop: 0,
   zIndex: -20
 }, {
   height: "auto",
   padding: "20px 0px",
   duration: 0.3,
+  marginTop: "-20px",
   ease: "power1.inOut",
   zIndex: 1,
   onStart() {
     gsap.set("#tools", { overflow: "hidden" });
+    
+    updateGameHeight();
   },
   onComplete() {
     gsap.set("#tools", { clearProps: "height,overflow" });
@@ -2317,21 +2321,28 @@ function startCountdown() {
     });
   
   let count = 5;
-
+  
+  const beepSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+  const goSound = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3');
+  
   const tl = gsap.timeline({
     repeat: 4,
     onRepeat: () => {
       count--;
       countdown.textContent = count;
+      beepSound.currentTime = 0;
+      beepSound.play();
     },
     onStart: () => {
       countdown.textContent = count;
+      beepSound.play();
     },
     onComplete: () => {
-    doAfterCountdown();
-  }
+      goSound.play();
+      doAfterCountdown();
+    }
   });
-
+  
   tl.to(countdown, {
     scale: 1,
     zIndex: 7,
@@ -2367,8 +2378,6 @@ tl.to("#game .ani", {
     }
   }
 });
-    
-    updateGameHeight();
 
 tl.to("#bar .tally", {
   y: "100%",
@@ -2381,6 +2390,7 @@ tl.to("#bar .tally", {
   ease: "power1.in",
   onComplete: () => {
       startTurn();
+    updateGameHeight();
   }
 });
 
