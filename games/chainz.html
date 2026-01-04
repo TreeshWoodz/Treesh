@@ -1206,9 +1206,8 @@ const wordBank = {
   Back: ["Side", "Door", "Ground", "Bone", "Stage", "Pack", "Track", "Drop", "Hand", "Fire", "Water", "Log", "Seat", "Yard", "Talk", "Up", "Down", "Draft", "Step", "Line"],
   Bag: ["Hand", "Paper", "Work", "Life", "Sand", "Money", "Toss", "Handle", "Carry", "Plastic", "Pack", "Backpack", "Travel"],
   Ball: ["Fire", "Power", "Foot", "Base", "Hand", "Room", "Point", "Game", "Park", "Pit", "Bounce", "Play"],
-  Band: ["Watch", "Metal", "Brass", "Music", "Width", "Aid", "Wrist", "Hand", "Ring", "Loop"],
+  Band: ["Watch", "Metal", "Brass", "Music", "Width", "Aid", "Wrist", "Hand", "Ring", "Loop", "Rock"],
   Bang: ["Slam", "Door", "Sound", "Big", "Theory", "Head", "Out", "Crash", "Hit"],
-Stage: ["Theater", "Show", "Performance", "Level", "Step", "Board", "Set", "Platform"],
   Bar: ["Handle", "Metal", "Space", "Code", "Tender", "Tool", "Bell", "Sand", "Side", "Chart", "Room", "Drink", "Counter"],
   Base: ["Air", "Ball", "Line", "Point", "Home", "Camp", "Ment", "Plate", "Word", "Station", "Foot", "Sound"],
   Beam: ["Light", "Sun", "Moon", "Balance", "Ray", "Support", "Structure", "Wood", "Metal"],
@@ -1434,6 +1433,7 @@ Rail: ["Track", "Train", "Guard", "Metal", "Hand", "Way", "Line"],
 Raise: ["Lift", "Up", "Hand", "Level", "Build", "Money", "Plant", "Flag"],
 Read: ["Book", "Paper", "Sign", "Word", "Letter", "Mind", "Story", "Page", "Screen"],
 Reach: ["Hand", "Goal", "High", "Out", "Far", "Top", "Line"],
+Rock: ["Band", "Stone", "Diamond", "Bed", "Cap", "Lay", "Man", "Star", "Men", "Hopper", "Hop"],
 Red: ["Color", "Light", "Rose", "Stop", "Fire", "Blood", "Mark", "Apple", "Card"],
 Rest: ["Stop", "Sleep", "Break", "Relax", "Chair", "Bed", "Time", "Place", "Moment"],
 Ride: ["Horse", "Bike", "Car", "Wheel", "Fast", "Seat", "Trail", "Road", "Share", "Truck", "Rollercoaster", "Passenger", "Train", "Trolley"],
@@ -1823,16 +1823,21 @@ function submitWord(word) {
   spawnInputParticles("#0f0");
   setTimeout(() => inputWord.classList.remove("correct"), 400);
   
-  const nextKey = Object.keys(wordBank).find(k => k.toLowerCase() === lowerWord);
+  // FIXED: Build pool from words that exist as keys in wordBank
   let pool = [];
-
-  if (nextKey) {
-    const potentialNextWords = wordBank[nextKey];
+  const nextKey = Object.keys(wordBank).find(k => k.toLowerCase() === lowerWord);
+  
+  if (nextKey && wordBank[nextKey]) {
+    // Get words that are ALSO keys in the wordBank
+    const potentialNextWords = wordBank[nextKey].filter(w => 
+      Object.keys(wordBank).some(k => k.toLowerCase() === w.toLowerCase())
+    );
     pool = potentialNextWords.filter(w => !usedPrompts.has(w.toLowerCase()));
     
     if (pool.length === 0) pool = potentialNextWords;
   }
-
+  
+  // If still no valid pool, pick from all unused keys
   if (pool.length === 0) {
     const allKeys = Object.keys(wordBank);
     pool = allKeys.filter(k => !usedPrompts.has(k.toLowerCase()));
@@ -1841,9 +1846,8 @@ function submitWord(word) {
   }
   
   const computerPick = pool[Math.floor(Math.random() * pool.length)];
-  const finalNextKey = Object.keys(wordBank).find(k => k.toLowerCase() === computerPick.toLowerCase()) || computerPick;
-
-  currentWord = finalNextKey;
+  const finalNextKey = Object.keys(wordBank).find(k => k.toLowerCase() === computerPick.toLowerCase());
+  currentWord = finalNextKey || computerPick;
   usedPrompts.add(currentWord.toLowerCase());
   usedWords.add(currentWord.toLowerCase());
   currentWordDiv.textContent = currentWord;
@@ -1914,9 +1918,7 @@ gsap.set(["#gameOver .gameOver-msg p", "#gameOver .scores p"], {
 
 const tl = gsap.timeline();
 
-  toolsAni.eventCallback("onComplete", () => {
   toolsAni.reverse();
-});
   
 tl.to("#game .ani", {
     y: -100,
