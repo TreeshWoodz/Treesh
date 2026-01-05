@@ -679,7 +679,7 @@ canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none
     left:0;
     right:0;
     display:block;
-    z-index:7;
+    z-index:0;
     opacity:1;
     color:white;
     width:calc(100% - 30px);
@@ -690,6 +690,10 @@ canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none
     text-align:center;
     pointer-events:none;
     background:transparent;
+  } 
+  
+  #gameOver {
+    opacity:0;
   }
   
   #gameOver .gameOver-msg {
@@ -698,12 +702,13 @@ canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none
     font-size:30vw;
     position:absolute;
     top:50%;
-    left:0;
-    right:0;
+    left:50%;
+    width:100%;
+    text-align:center;
     line-height:25vw;
-    transform:translate3d(0, -50%, 0);
+    transform:translate3d(-50%, -50%, 0);
     margin:auto;
-    display:block;
+    display:table;
     text-shadow:0 0px 15px rgba(0,255,255,1);
   }
   
@@ -1704,8 +1709,6 @@ padding:0px;
             background: linear-gradient(135deg, #1a1f4d 0%, #0d1128 100%);
             border-radius: 0;
             padding: 100px 30px 30px 30px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            border: 2px solid rgba(100, 200, 255, 0.3);
             overflow-y: auto;
             overflow-x: hidden;
             z-index: 9;
@@ -2333,11 +2336,12 @@ let timer, timeLeft;
     });
     
     gsap.set("#gameOver", {
-      zIndex: -10
+      zIndex: -10,
+      opacity: 0
     });
     
     gsap.set(["#gameOver .gameOver-msg p, #gameOver .scores p"], {
-      y: 100,
+      y: 100, 
       opacity: 0,
       scale: 0.8
     });
@@ -3569,7 +3573,7 @@ function gameOver() {
     scale: 0.8,
     ease: "power4.out",
     onComplete: () => {
-      gsap.set("#gameOver", { zIndex: 7 });
+      gsap.set("#gameOver", { zIndex: 7, opacity: 1 });
     }
   })
   .to("#gameOver .gameOver-msg p", {
@@ -3616,7 +3620,7 @@ const continueBtn = document.querySelector("#continue-btn");
     ease: "power4.out",
     onComplete: () => {
       gsap.set("#menu", { zIndex: 7 });
-      gsap.set("#gameOver", { zIndex: -10 });
+      gsap.set("#gameOver", { zIndex: -10, opacity: 0 });
       
       gsap.to(["#bar .profile, #bar .profile .ani"], {
     opacity: 1,
@@ -3806,8 +3810,11 @@ const skipBtn = document.querySelector("#skip-btn");
     });
 
 pauseBtn.addEventListener("click", () => {
-  if (!pauseBtnClicked && !allCheatsInactive) {
-    startTurn();
+  if (pauseBtnClicked === false && !allCheatsInactive) {
+    pauseBtnClicked = true;
+  gsap.to(pauseBtn, { opacity: 0.5, duration: 0.4, ease: "power2.out" });
+  timerFill.style.width = "100%"; 
+  timerFill.classList.remove("warning","danger","pause");
     msg("More time added!");
   }
 });
@@ -3911,7 +3918,8 @@ restartBtn.addEventListener("click", () => {
   updateScore();
   
   gsap.set("#gameOver", {
-      zIndex: -10
+      zIndex: -10,
+    opacity: 0
     });
     
     gsap.set(["#gameOver .gameOver-msg p, #gameOver .scores p"], {
@@ -3952,12 +3960,10 @@ restartBtn.addEventListener("click", () => {
   }
   
   buttons.forEach(button => {
-    // Check if chains already exist
     if (button.querySelector('.chain-before')) {
-      return; // Skip if already initialized
+      return; 
     }
     
-    // Create chain elements
     const beforeChain = document.createElement('div');
     beforeChain.className = 'chain-before';
     button.appendChild(beforeChain);
@@ -3966,7 +3972,6 @@ restartBtn.addEventListener("click", () => {
     afterChain.className = 'chain-after';
     button.appendChild(afterChain);
     
-    // Store original animation timelines - floating energy orbs
     const beforeTl = gsap.to(beforeChain, {
       y: -6,
       scale: 1.4,
@@ -3990,7 +3995,6 @@ restartBtn.addEventListener("click", () => {
       paused: false
     });
     
-    // Animation functions
     const animateHoverIn = () => {
       gsap.to(button, {
         y: -3,
@@ -4010,7 +4014,6 @@ restartBtn.addEventListener("click", () => {
         });
       }
       
-      // Speed up and intensify orb animations
       beforeTl.duration(1);
       afterTl.duration(1);
     };
@@ -4034,7 +4037,6 @@ restartBtn.addEventListener("click", () => {
         });
       }
       
-      // Return orb animations to normal speed
       beforeTl.duration(2);
       afterTl.duration(2);
     };
@@ -4059,13 +4061,11 @@ restartBtn.addEventListener("click", () => {
       });
     };
     
-    // Desktop events
     button.addEventListener('mouseenter', animateHoverIn);
     button.addEventListener('mouseleave', animateHoverOut);
     button.addEventListener('mousedown', animatePressDown);
     button.addEventListener('mouseup', animatePressUp);
     
-    // Mobile touch events
     let touchActive = false;
     
     button.addEventListener('touchstart', (e) => {
@@ -4093,11 +4093,11 @@ restartBtn.addEventListener("click", () => {
 
   
   initButtonAnimations('#tools button');
-});
 
 currentWord = getRandomWord();
 currentWordDiv.textContent = currentWord;
 usedPrompts.add(currentWord.toLowerCase());
+});
 </script>
   
   <script>
@@ -4261,7 +4261,6 @@ usedPrompts.add(currentWord.toLowerCase());
                 }, '<');
             });
 
-            // Animate word boxes
             tl.from('.word-box', {
                 scale: 0,
                 opacity: 0,
@@ -4270,7 +4269,6 @@ usedPrompts.add(currentWord.toLowerCase());
                 ease: 'back.out(1.7)'
             }, '-=0.8');
 
-            // Animate difficulty items
             tl.from('.difficulty-item', {
                 scale: 0,
                 opacity: 0,
@@ -4279,7 +4277,6 @@ usedPrompts.add(currentWord.toLowerCase());
                 ease: 'back.out(1.7)'
             }, '-=0.4');
 
-            // Animate score displays
             tl.from('.score-item', {
                 y: 20,
                 opacity: 0,
@@ -4288,7 +4285,6 @@ usedPrompts.add(currentWord.toLowerCase());
                 ease: 'power2.out'
             }, '-=0.5');
 
-            // Counter animation for score values
             const scoreValues = document.querySelectorAll('.score-value');
             scoreValues.forEach((value, index) => {
                 const endValue = parseInt(value.textContent);
@@ -4303,7 +4299,6 @@ usedPrompts.add(currentWord.toLowerCase());
             return tl;
         }
 
-        // Help button click handler
         const helpBtn = document.getElementById('how_to');
         const helpDiv = document.getElementById('help');
 
