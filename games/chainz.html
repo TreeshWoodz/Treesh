@@ -1708,7 +1708,7 @@ padding:0px;
             padding: 100px 30px 30px 30px;
             overflow-y: auto;
             overflow-x: hidden;
-            z-index:11;
+            z-index: 11;
         }
 
         #help::-webkit-scrollbar {
@@ -2808,6 +2808,223 @@ padding:0px;
 </div>
   
   <script>
+    const settings = {
+  sfx: true,
+  music: false,
+  volume: 80,
+  particles: true,
+  floating: true,
+  shake: true,
+  reducedMotion: false,
+  autocap: true,
+  timer: true,
+  countdownStyle: 'numeric',
+  animSpeed: 100,
+  accentColor: 'cyan'
+};
+
+// Load settings from localStorage
+function loadSettings() {
+  const saved = localStorage.getItem('chainzSettings');
+  if (saved) {
+    Object.assign(settings, JSON.parse(saved));
+    applySettings();
+  }
+}
+
+// Save settings to localStorage
+function saveSettings() {
+  localStorage.setItem('chainzSettings', JSON.stringify(settings));
+}
+
+// Apply settings to UI
+function applySettings() {
+  // Toggle switches
+  document.querySelectorAll('.toggle-switch').forEach(toggle => {
+    const setting = toggle.dataset.setting;
+    const key = setting.replace(/-([a-z])/g, g => g[1].toUpperCase());
+    if (settings[key]) {
+      toggle.classList.add('active');
+    } else {
+      toggle.classList.remove('active');
+    }
+  });
+  
+  // Sliders
+  document.getElementById('volume-slider').value = settings.volume;
+  document.getElementById('volume-value').textContent = settings.volume + '%';
+  
+  document.getElementById('speed-slider').value = settings.animSpeed;
+  document.getElementById('speed-value').textContent = settings.animSpeed + '%';
+  
+  // Select
+  document.getElementById('countdown-style').value = settings.countdownStyle;
+  
+  // Color options
+  document.querySelectorAll('.color-option').forEach(option => {
+    if (option.dataset.color === settings.accentColor) {
+      option.classList.add('active');
+    } else {
+      option.classList.remove('active');
+    }
+  });
+}
+
+// Initialize settings
+loadSettings();
+
+// Settings panel toggle
+const settingsToggle = document.getElementById('settings-toggle');
+const settingsPanel = document.getElementById('settings');
+let isSettingsOpen = false;
+
+settingsToggle.addEventListener('click', () => {
+  if (!isSettingsOpen) {
+    isSettingsOpen = true;
+    
+    gsap.to(settingsPanel, {
+      y: 0,
+      duration: 0.5,
+      ease: 'power2.out'
+    });
+    
+    gsap.to('.title', {
+      opacity: 1,
+      duration: 0.4,
+      delay: 0.2
+    });
+    
+    gsap.to('.setting-group', {
+      opacity: 1,
+      y: 0,
+      duration: 0.4,
+      stagger: 0.1,
+      delay: 0.3
+    });
+    
+    gsap.to('.reset-section', {
+      opacity: 1,
+      duration: 0.4,
+      delay: 0.6
+    });
+    
+    gsap.to(settingsToggle, {
+      rotation: 180,
+      duration: 0.3
+    });
+  } else {
+    isSettingsOpen = false;
+    
+    gsap.to(settingsPanel, {
+      y: '-100%',
+      duration: 0.5,
+      ease: 'power2.in'
+    });
+    
+    gsap.to(settingsToggle, {
+      rotation: 0,
+      duration: 0.3
+    });
+  }
+});
+
+// Toggle switches
+document.querySelectorAll('.toggle-switch').forEach(toggle => {
+  toggle.addEventListener('click', () => {
+    toggle.classList.toggle('active');
+    const setting = toggle.dataset.setting;
+    const key = setting.replace(/-([a-z])/g, g => g[1].toUpperCase());
+    settings[key] = toggle.classList.contains('active');
+    saveSettings();
+    
+    // Visual feedback
+    gsap.fromTo(toggle, 
+      { scale: 1 },
+      { scale: 1.1, duration: 0.1, yoyo: true, repeat: 1 }
+    );
+  });
+});
+
+// Volume slider
+const volumeSlider = document.getElementById('volume-slider');
+const volumeValue = document.getElementById('volume-value');
+
+volumeSlider.addEventListener('input', (e) => {
+  const value = e.target.value;
+  volumeValue.textContent = value + '%';
+  settings.volume = parseInt(value);
+  saveSettings();
+});
+
+// Speed slider
+const speedSlider = document.getElementById('speed-slider');
+const speedValue = document.getElementById('speed-value');
+
+speedSlider.addEventListener('input', (e) => {
+  const value = e.target.value;
+  speedValue.textContent = value + '%';
+  settings.animSpeed = parseInt(value);
+  saveSettings();
+});
+
+// Countdown style select
+document.getElementById('countdown-style').addEventListener('change', (e) => {
+  settings.countdownStyle = e.target.value;
+  saveSettings();
+});
+
+// Color options
+document.querySelectorAll('.color-option').forEach(option => {
+  option.addEventListener('click', () => {
+    document.querySelectorAll('.color-option').forEach(opt => {
+      opt.classList.remove('active');
+    });
+    option.classList.add('active');
+    settings.accentColor = option.dataset.color;
+    saveSettings();
+    
+    // Visual feedback
+    gsap.fromTo(option,
+      { scale: 1 },
+      { scale: 1.2, duration: 0.2, yoyo: true, repeat: 1 }
+    );
+  });
+});
+
+// Reset settings
+document.getElementById('reset-settings').addEventListener('click', () => {
+  if (confirm('Are you sure you want to reset all settings to default?')) {
+    // Reset to defaults
+    settings.sfx = true;
+    settings.music = false;
+    settings.volume = 80;
+    settings.particles = true;
+    settings.floating = true;
+    settings.shake = true;
+    settings.reducedMotion = false;
+    settings.autocap = true;
+    settings.timer = true;
+    settings.countdownStyle = 'numeric';
+    settings.animSpeed = 100;
+    settings.accentColor = 'cyan';
+    
+    saveSettings();
+    applySettings();
+    
+    // Visual feedback
+    gsap.fromTo('.setting-group',
+      { scale: 1 },
+      { scale: 0.95, duration: 0.1, yoyo: true, repeat: 1 }
+    );
+  }
+});
+
+// Initial GSAP setup
+gsap.set('.setting-group', { opacity: 0, y: 20 });
+gsap.set('.reset-section', { opacity: 0 });
+  </script>
+  
+  <script>
     
 let timer, timeLeft;
     let theTime = 30;
@@ -3145,13 +3362,12 @@ difficultyBtn.addEventListener("click", () => {
 });
      
      let levelBtnActive = false;
-    difficultyBtnTwo.addEventListener("click", () => {
+     difficultyBtnTwo.addEventListener("click", () => {
   levelBtnActive = true;
   document.getElementById('gameOver').classList.remove('active');
   
   const tl = gsap.timeline();
   
-  // First fade out game over scores
   tl.to("#gameOver .scores p", {
     opacity: 0,
     y: -100,
@@ -3160,13 +3376,11 @@ difficultyBtn.addEventListener("click", () => {
     duration: 0.4,
     ease: "power2.out"
   })
-  // Then update z-index and prepare menu
   .set("#gameOver", { zIndex: -10, opacity: 0 })
   .set("#menu", { zIndex: 7, opacity: 1 })
   .set("#menu .main", { display: "none" })
   .set("#menu .levels", { display: "block" })
   .set("#menu .levels button", { y: 50, opacity: 0, scale: 0.8 })
-  // Finally animate menu buttons in
   .to("#menu .levels button", {
     y: 0,
     opacity: 1,
@@ -3612,7 +3826,6 @@ let allTimeScore = parseInt(localStorage.getItem("allTimeScore")) || 0;
 let longestStreak = parseInt(localStorage.getItem("longestStreak")) || 0;
 let highScore = parseInt(localStorage.getItem("gameHighScore")) || 0;
 let allScores = JSON.parse(localStorage.getItem("gameScoreHistory") || "[]");
-let timesCheated = parseInt(localStorage.getItem("timesCheated")) || 0;
 let difficulty = 1;
 let comboMultiplier = 1;
     
@@ -3621,7 +3834,6 @@ const longestStreakSpan = document.querySelector(".longest_streak");
     
     allTimeScoreSpan.textContent = allTimeScore;
     longestStreakSpan.textContent = longestStreak;
-    document.querySelector(".times_cheated").textContent = timesCheated;
 
 // ====== DOM ======
 const currentWordDiv = document.getElementById("current-word");
@@ -3745,7 +3957,7 @@ function spawnInputParticles(color){
 function updateGameHeight() {
   viewportHeight = window.innerHeight;
     keyboardHeight = keyboard.offsetHeight;
-  document.querySelector("#game").style.height = (viewportHeight - keyboardHeight) + 70 + "px";
+  document.querySelector("#game").style.height = (viewportHeight - keyboardHeight) + 40 + "px";
 }
     updateGameHeight();
 
@@ -3768,251 +3980,6 @@ let allCheatsInactive = false;
 let easyResets = 0;
 let normalResets = 0;
 let hardResets = 0;
-    
-    
-    
-    
-// ===== SETTINGS OBJECT =====
-const settings = {
-  sfx: true,
-  music: false,
-  volume: 80,
-  particles: true,
-  floating: true,
-  shake: true,
-  reducedMotion: false,
-  autocap: true,
-  timer: true,
-  countdownStyle: 'numeric',
-  animSpeed: 100,
-  accentColor: 'cyan'
-};
-
-// ===== SETTINGS FUNCTIONS =====
-function loadSettings() {
-  const saved = localStorage.getItem('chainzSettings');
-  if (saved) {
-    Object.assign(settings, JSON.parse(saved));
-    applySettings();
-  }
-}
-
-function saveSettings() {
-  localStorage.setItem('chainzSettings', JSON.stringify(settings));
-}
-
-function applySettings() {
-  document.querySelectorAll('.toggle-switch').forEach(toggle => {
-    const setting = toggle.dataset.setting;
-    const key = setting.replace(/-([a-z])/g, g => g[1].toUpperCase());
-    if (settings[key]) {
-      toggle.classList.add('active');
-    } else {
-      toggle.classList.remove('active');
-    }
-  });
-  
-  document.getElementById('volume-slider').value = settings.volume;
-  document.getElementById('volume-value').textContent = settings.volume + '%';
-  
-  document.getElementById('speed-slider').value = settings.animSpeed;
-  document.getElementById('speed-value').textContent = settings.animSpeed + '%';
-  
-  document.getElementById('countdown-style').value = settings.countdownStyle;
-  
-  document.querySelectorAll('.color-option').forEach(option => {
-    if (option.dataset.color === settings.accentColor) {
-      option.classList.add('active');
-    } else {
-      option.classList.remove('active');
-    }
-  });
-}
-
-function applyGameSettings() {
-  if (settings.reducedMotion) {
-    gsap.globalTimeline.timeScale(0.5);
-  } else {
-    gsap.globalTimeline.timeScale(settings.animSpeed / 100);
-  }
-  
-  if (!settings.particles) {
-    particles = [];
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  
-  if (!settings.floating) {
-    document.querySelectorAll('.floating-word, .floating-letter').forEach(el => el.remove());
-  }
-  
-  document.getElementById('timer-bar').style.display = settings.timer ? 'block' : 'none';
-  
-  if (typeof correctSound !== 'undefined' && typeof wrongSound !== 'undefined') {
-    const vol = settings.sfx ? settings.volume / 100 : 0;
-    correctSound.volume = vol;
-    wrongSound.volume = vol;
-  }
-}
-
-// ===== INITIALIZE =====
-loadSettings();
-applyGameSettings();
-
-// ===== SETTINGS PANEL =====
-const settingsToggle = document.getElementById('settings-toggle');
-const settingsPanel = document.getElementById('settings');
-let isSettingsOpen = false;
-
-console.log('Settings toggle found:', settingsToggle); // Debug line
-
-settingsToggle.addEventListener('click', () => {
-  console.log('Settings clicked, current state:', isSettingsOpen); // Debug line
-  
-  if (!isSettingsOpen) {
-    isSettingsOpen = true;
-    
-    gsap.to(settingsPanel, {
-      y: 0,
-      duration: 0.5,
-      ease: 'power2.out'
-    });
-    
-    gsap.to('#settings .title', {
-      opacity: 1,
-      duration: 0.4,
-      delay: 0.2
-    });
-    
-    gsap.to('.setting-group', {
-      opacity: 1,
-      y: 0,
-      duration: 0.4,
-      stagger: 0.1,
-      delay: 0.3
-    });
-    
-    gsap.to('.reset-section', {
-      opacity: 1,
-      duration: 0.4,
-      delay: 0.6
-    });
-    
-    gsap.to(settingsToggle, {
-      rotation: 180,
-      duration: 0.3
-    });
-  } else {
-    isSettingsOpen = false;
-    
-    gsap.to(settingsPanel, {
-      y: '-100%',
-      duration: 0.5,
-      ease: 'power2.in'
-    });
-    
-    gsap.to(settingsToggle, {
-      rotation: 0,
-      duration: 0.3
-    });
-  }
-});
-
-// ===== TOGGLE SWITCHES =====
-document.querySelectorAll('.toggle-switch').forEach(toggle => {
-  toggle.addEventListener('click', () => {
-    toggle.classList.toggle('active');
-    const setting = toggle.dataset.setting;
-    const key = setting.replace(/-([a-z])/g, g => g[1].toUpperCase());
-    settings[key] = toggle.classList.contains('active');
-    saveSettings();
-    applyGameSettings();
-    
-    gsap.fromTo(toggle, 
-      { scale: 1 },
-      { scale: 1.1, duration: 0.1, yoyo: true, repeat: 1 }
-    );
-  });
-});
-
-// ===== SLIDERS =====
-const volumeSlider = document.getElementById('volume-slider');
-const volumeValue = document.getElementById('volume-value');
-
-volumeSlider.addEventListener('input', (e) => {
-  const value = e.target.value;
-  volumeValue.textContent = value + '%';
-  settings.volume = parseInt(value);
-  saveSettings();
-  applyGameSettings();
-});
-
-const speedSlider = document.getElementById('speed-slider');
-const speedValue = document.getElementById('speed-value');
-
-speedSlider.addEventListener('input', (e) => {
-  const value = e.target.value;
-  speedValue.textContent = value + '%';
-  settings.animSpeed = parseInt(value);
-  saveSettings();
-  applyGameSettings();
-});
-
-// ===== SELECT =====
-document.getElementById('countdown-style').addEventListener('change', (e) => {
-  settings.countdownStyle = e.target.value;
-  saveSettings();
-});
-
-// ===== COLOR OPTIONS =====
-document.querySelectorAll('.color-option').forEach(option => {
-  option.addEventListener('click', () => {
-    document.querySelectorAll('.color-option').forEach(opt => {
-      opt.classList.remove('active');
-    });
-    option.classList.add('active');
-    settings.accentColor = option.dataset.color;
-    saveSettings();
-    
-    gsap.fromTo(option,
-      { scale: 1 },
-      { scale: 1.2, duration: 0.2, yoyo: true, repeat: 1 }
-    );
-  });
-});
-
-// ===== RESET =====
-document.getElementById('reset-settings').addEventListener('click', () => {
-  if (confirm('Are you sure you want to reset all settings to default?')) {
-    settings.sfx = true;
-    settings.music = false;
-    settings.volume = 80;
-    settings.particles = true;
-    settings.floating = true;
-    settings.shake = true;
-    settings.reducedMotion = false;
-    settings.autocap = true;
-    settings.timer = true;
-    settings.countdownStyle = 'numeric';
-    settings.animSpeed = 100;
-    settings.accentColor = 'cyan';
-    
-    saveSettings();
-    applySettings();
-    applyGameSettings();
-    
-    gsap.fromTo('.setting-group',
-      { scale: 1 },
-      { scale: 0.95, duration: 0.1, yoyo: true, repeat: 1 }
-    );
-  }
-});
-
-// ===== INITIAL GSAP =====
-gsap.set('.setting-group', { opacity: 0, y: 20 });
-gsap.set('.reset-section', { opacity: 0 });
-
-    
-    
     
 function startTurn() {
   const totalTime = Math.max(theTime, baseTime - difficulty * 0.3);
@@ -4309,15 +4276,41 @@ function submitWord(word) {
   
   inputWord.placeholder = "Type a related word";
 }
-    
-    
-  function saveGameOver() {
-  // Add to all-time score immediately
-  const newAllTimeScore = allTimeScore + score;
-  localStorage.setItem("allTimeScore", newAllTimeScore);
-  allTimeScore = newAllTimeScore;
 
-  // Update longest streak
+
+function updateScore() {
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem("gameHighScore", highScore);
+  }
+  
+  const currentLevel = difficultyDiv.textContent;
+  const content = `<p>Score: ${score}</p> <p>Streak: ${streak}</p> <p>High: ${highScore}</p>`;
+  
+  if (streak > parseInt(longestStreakSpan.textContent)) {
+  longestStreakSpan.textContent = streak;
+}
+  
+  allTimeScoreSpan.textContent = allTimeScore + score;
+  
+  if (scoreDiv) {
+    scoreDiv.innerHTML = content;
+    keyboardScoresDiv.innerHTML = content;
+  }
+  
+  if (scoresDiv) {
+    scoresDiv.innerHTML = content;
+    scoresDiv.innerHTML += `<p>Level: ${currentLevel}</p>`;
+  }
+  
+  saveGameOver();
+}
+    
+
+function saveGameOver() {
+  allTimeScore += score; 
+  localStorage.setItem("allTimeScore", allTimeScore);
+
   if (streak > longestStreak) {
     longestStreak = streak;
     localStorage.setItem("longestStreak", longestStreak);
@@ -4334,71 +4327,6 @@ function submitWord(word) {
   allScores.unshift(scoreEntry);
   localStorage.setItem("gameScoreHistory", JSON.stringify(allScores.slice(0, 10)));
 }
-
-
-// Update cheat tracking in each cheat button
-pauseBtn.addEventListener("click", () => {
-  if (pauseBtnClicked === false && !allCheatsInactive) {
-    const totalTime = Math.max(theTime, baseTime - difficulty * 0.3);
-    timeLeft = totalTime;
-    timerFill.style.width = "100%"; 
-    timerFill.classList.remove("warning","danger","pause");
-    gsap.to(pauseBtn, { opacity: 0.5, duration: 0.4, ease: "power2.out" });
-    msg("More time added!");
-    pauseBtnClicked = true;
-    
-    // Track cheat usage
-    timesCheated++;
-    localStorage.setItem("timesCheated", timesCheated);
-    document.querySelector(".times_cheated").textContent = timesCheated;
-  }
-});
-
-// Add similar timesCheated++ to resayBtn, skipBtn, cheatBtn, hintBtn click handlers
-// Then update display on load:
-document.querySelector(".times_cheated").textContent = timesCheated;
-
-
-let highScores = JSON.parse(localStorage.getItem("highScores") || '{"Easy":0,"Normal":0,"Hard":0,"Insane":0}');
-
-function updateScore() {
-  const currentLevel = difficultyDiv.textContent;
-  
-  // Update level-specific high score
-  if (score > highScores[currentLevel]) {
-    highScores[currentLevel] = score;
-    localStorage.setItem("highScores", JSON.stringify(highScores));
-  }
-  
-  const highScore = highScores[currentLevel];
-  const content = `<p>Score: ${score}</p> <p>Streak: ${streak}</p> <p>High: ${highScore}</p>`;
-  
-  if (streak > parseInt(longestStreakSpan.textContent)) {
-    longestStreakSpan.textContent = streak;
-  }
-  
-  allTimeScoreSpan.textContent = allTimeScore;
-  
-  if (scoreDiv) {
-    scoreDiv.innerHTML = content;
-    keyboardScoresDiv.innerHTML = content;
-  }
-  
-  if (scoresDiv) {
-    scoresDiv.innerHTML = content;
-    scoresDiv.innerHTML += `<p>Level: ${currentLevel}</p>`;
-  }
-  
-  saveGameOver();
-}
-
-function initializeScoreDisplay() {
-  const currentLevel = difficultyDiv.textContent;
-  const highScore = highScores[currentLevel];
-  scoreDiv.innerHTML = `<p>Score: 0</p> <p>Streak: 0</p> <p>High: ${highScore}</p>`;
-  keyboardScoresDiv.innerHTML = `<p>Score: 0</p> <p>Streak: 0</p> <p>High: ${highScore}</p>`;
-}
-    
 
 function gameOver() {
   inputWord.value = "";
@@ -4643,38 +4571,11 @@ const skipBtn = document.querySelector("#skip-btn");
     const cheatBtn = document.querySelector("#cheat-btn");
     const hintBtn = document.querySelector("#hint-btn");
     
-    // Track times cheated
-document.querySelector(".times_cheated").textContent = timesCheated;
-
-// Single listener on the parent that tracks ALL cheat usage
-allCheats.addEventListener("click", (e) => {
-  // Only count if it's actually a button click and not already used
-  if (e.target.closest('button')) {
-    const button = e.target.closest('button');
-    const buttonId = button.id;
-    
-    // Check if this specific cheat hasn't been used yet this round
-    if (buttonId === 'pause-btn' && !pauseBtnClicked && !allCheatsInactive) {
-      timesCheated++;
-    } else if (buttonId === 'resay-btn' && !resayBtnClicked && !allCheatsInactive) {
-      timesCheated++;
-    } else if (buttonId === 'skip-btn' && !skipBtnClicked && !allCheatsInactive) {
-      timesCheated++;
-    } else if (buttonId === 'cheat-btn' && !cheatBtnClicked && !allCheatsInactive) {
-      timesCheated++;
-    } else if (buttonId === 'hint-btn' && !hintBtnClicked && !allCheatsInactive) {
-      timesCheated++;
-    }
-    
-    // Save and update display
-    localStorage.setItem("timesCheated", timesCheated);
-    document.querySelector(".times_cheated").textContent = timesCheated;
-  }
-  
+    allCheats.addEventListener("click", () => {
   messageDiv.className = "";
-  streak = 0;
-  updateScore();
-});
+      streak = 0;
+      updateScore();
+    });
 
 pauseBtn.addEventListener("click", () => {
   if (pauseBtnClicked === false && !allCheatsInactive) {
