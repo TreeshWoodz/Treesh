@@ -3114,6 +3114,8 @@ let timer, timeLeft;
     }
   });
 }
+
+
     
    document.addEventListener("DOMContentLoaded", function() {
      
@@ -3341,46 +3343,19 @@ difficultyBtn.addEventListener("click", () => {
  
 document.querySelector("#menu .levels").addEventListener("click", (e) => {
   if (e.target.matches("button")) {
+    const selectedDiff = e.target.textContent;
+    gameStats.difficulty = selectedDiff;
     
-    if ( levelBtnActive === false ) {
-    tlDiffAni.reverse();
-    } else {
-      levelBtnActive = false;
-
-      let returnToGameOverScreenAni = gsap.timeline();
-
-returnToGameOverScreenAni.to("#menu .levels button", {
-    y: 50,
-    opacity: 0,
-    scale: 0.8,
-    duration: 0.3,
-    stagger: 0.03,
-    onComplete: () => {
-      document.getElementById('gameOver').classList.add('active');
-      gsap.set("#gameOver", { zIndex: 7, opacity: 1 });
-    }
-  }).to("#gameOver .scores p", {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    stagger:0.03,
-    duration: 0.6,
-    ease: "power4.out"
-  });
-
-    }
+    difficultyDiv.textContent = selectedDiff;
+    localStorage.setItem("difficulty", selectedDiff);
     
-    difficultyDiv.textContent = e.target.textContent;
-    
-    localStorage.setItem("difficulty", e.target.textContent);
-    
-    if ( e.target.textContent === "Easy" ) {
+    if (selectedDiff === "Easy") {
       theTime = 30;
       allCheats.style.display = "inline-block";
-    } else if ( e.target.textContent === "Normal" ) {
+    } else if (selectedDiff === "Normal") {
       theTime = 20;
       allCheats.style.display = "inline-block";
-    } else if ( e.target.textContent === "Hard" ) {
+    } else if (selectedDiff === "Hard") {
       theTime = 10;
       allCheats.style.display = "inline-block";
       cheatBtn.style.display = "none";
@@ -3388,6 +3363,24 @@ returnToGameOverScreenAni.to("#menu .levels button", {
     } else {
       theTime = 5;
       allCheats.style.display = "none";
+    }
+    
+    updateHighScoreDisplay();
+    
+    if (levelBtnActive === false) {
+      tlDiffAni.reverse();
+    } else {
+      levelBtnActive = false;
+      let returnToGameOverScreenAni = gsap.timeline();
+      returnToGameOverScreenAni.to("#menu .levels button", {
+        y: 50, opacity: 0, scale: 0.8, duration: 0.3, stagger: 0.03,
+        onComplete: () => {
+          document.getElementById('gameOver').classList.add('active');
+          gsap.set("#gameOver", { zIndex: 7, opacity: 1 });
+        }
+      }).to("#gameOver .scores p", {
+        opacity: 1, y: 0, scale: 1, stagger: 0.03, duration: 0.6, ease: "power4.out"
+      });
     }
   }
 });
@@ -3743,6 +3736,77 @@ Queue: ["Line", "Wait", "Order", "People", "Ticket", "Form", "List", "Row"]
 };
 
 
+let pauseClickCount = 0;
+let lessThan3Clicks = true;
+let pauseBtnClicked = false;
+let resayBtnClicked = false;
+let skipBtnClicked = false;
+let cheatBtnClicked = false;
+let hintBtnClicked = false;
+let allCheatsInactive = false;
+let easyResets = 0;
+let normalResets = 0;
+let hardResets = 0;
+
+
+// Centralized Stats Object
+const gameStats = {
+  score: 0,
+  streak: 0,
+  difficulty: "Easy",
+  combo: 1,
+  
+  // Persistent Data (Loaded from LocalStorage)
+  allTimeScore: parseInt(localStorage.getItem("chainz_AllTimeScore")) || 0,
+  longestStreak: parseInt(localStorage.getItem("chainz_LongestStreak")) || 0,
+  timesCheated: parseInt(localStorage.getItem("chainz_TimesCheated")) || 0,
+  
+  // Level Specific High Scores
+  highScores: {
+    Easy: parseInt(localStorage.getItem("chainz_High_Easy")) || 0,
+    Normal: parseInt(localStorage.getItem("chainz_High_Normal")) || 0,
+    Hard: parseInt(localStorage.getItem("chainz_High_Hard")) || 0,
+    Insane: parseInt(localStorage.getItem("chainz_High_Insane")) || 0
+  }
+};
+
+// DOM Elements for Stats
+const ui = {
+  score: document.getElementById("score"), // Top bar score area
+  barLegend: {
+    allTime: document.querySelector(".all_time_score"),
+    streak: document.querySelector(".longest_streak"),
+    cheats: document.querySelector(".times_cheated")
+  },
+  gameOver: {
+    scores: document.querySelector(".scores span")
+  },
+  keyboard: document.getElementById("scores")
+};
+
+// Initialize UI with Saved Stats
+function initStatsDisplay() {
+  ui.barLegend.allTime.textContent = gameStats.allTimeScore.toLocaleString();
+  ui.barLegend.streak.textContent = gameStats.longestStreak.toLocaleString();
+  ui.barLegend.cheats.textContent = gameStats.timesCheated.toLocaleString();
+  updateHighScoreDisplay(); // Set initial high score text based on default difficulty
+}
+
+// Update High Score Display based on Level
+function updateHighScoreDisplay() {
+  const currentLevelHigh = gameStats.highScores[gameStats.difficulty] || 0;
+  
+  // Update the HTML for Score/Streak/High
+  const scoreHTML = `<p>Score: ${gameStats.score}</p> <p>Streak: ${gameStats.streak}</p> <p>High: ${currentLevelHigh}</p>`;
+  
+  ui.score.innerHTML = scoreHTML;
+  ui.keyboard.innerHTML = scoreHTML;
+}
+
+initStatsDisplay();
+
+// ====== GAME LOGIC ======
+
 let currentWord = "";
 let usedWords = new Set();
 let usedPrompts = new Set();
@@ -3897,17 +3961,7 @@ function getRandomWord(){
   return keys[Math.floor(Math.random()*keys.length)];
 }
     
-let pauseClickCount = 0;
-let lessThan3Clicks = true;
-let pauseBtnClicked = false;
-let resayBtnClicked = false;
-let skipBtnClicked = false;
-let cheatBtnClicked = false;
-let hintBtnClicked = false;
-let allCheatsInactive = false;
-let easyResets = 0;
-let normalResets = 0;
-let hardResets = 0;
+
     
 function startTurn() {
   const totalTime = Math.max(theTime, baseTime - difficulty * 0.3);
@@ -4206,61 +4260,68 @@ function submitWord(word) {
 
 
 function updateScore() {
-  if (score > highScore) {
-    highScore = score;
-    localStorage.setItem("gameHighScore", highScore);
+  const currentLevel = gameStats.difficulty;
+  
+  if (gameStats.score > gameStats.highScores[currentLevel]) {
+    gameStats.highScores[currentLevel] = gameStats.score;
+    localStorage.setItem(`chainz_High_${currentLevel}`, gameStats.score);
+    
+    const overallMax = Math.max(...Object.values(gameStats.highScores));
+    localStorage.setItem("gameHighScore", overallMax); 
   }
-  
-  const currentLevel = difficultyDiv.textContent;
-  const content = `<p>Score: ${score}</p> <p>Streak: ${streak}</p> <p>High: ${highScore}</p>`;
-  
-  if (streak > parseInt(longestStreakSpan.textContent)) {
-  longestStreakSpan.textContent = streak;
-}
-  
-  allTimeScoreSpan.textContent = allTimeScore + score;
-  
-  if (scoreDiv) {
-    scoreDiv.innerHTML = content;
-    keyboardScoresDiv.innerHTML = content;
+
+  if (gameStats.streak > gameStats.longestStreak) {
+    gameStats.longestStreak = gameStats.streak;
+    localStorage.setItem("chainz_LongestStreak", gameStats.longestStreak);
+    ui.barLegend.streak.textContent = gameStats.longestStreak;
+    
+    ui.barLegend.streak.style.color = "#00ff88"; 
   }
+
+  const currentTotal = gameStats.allTimeScore + gameStats.score;
+  ui.barLegend.allTime.textContent = currentTotal.toLocaleString();
+
+  updateHighScoreDisplay();
   
-  if (scoresDiv) {
-    scoresDiv.innerHTML = content;
-    scoresDiv.innerHTML += `<p>Level: ${currentLevel}</p>`;
+  if (ui.gameOver.scores) {
+    ui.gameOver.scores.innerHTML = `
+      <p>Score: ${gameStats.score}</p> 
+      <p>Streak: ${gameStats.streak}</p> 
+      <p>High: ${gameStats.highScores[currentLevel]}</p> 
+      <p>Level: ${currentLevel}</p>
+    `;
   }
-  
-  saveGameOver();
 }
     
 
 function saveGameOver() {
-  allTimeScore += score; 
-  localStorage.setItem("allTimeScore", allTimeScore);
-
-  if (streak > longestStreak) {
-    longestStreak = streak;
-    localStorage.setItem("longestStreak", longestStreak);
-  }
-
+  // Commit the score to the permanent All Time Score
+  gameStats.allTimeScore += gameStats.score;
+  localStorage.setItem("chainz_AllTimeScore", gameStats.allTimeScore);
+  
+  // Save History
   const scoreEntry = {
-    points: score,
-    streak: streak,
-    level: difficultyDiv.textContent,
+    points: gameStats.score,
+    streak: gameStats.streak,
+    level: gameStats.difficulty,
     date: new Date().toLocaleDateString()
   };
   
-  let allScores = JSON.parse(localStorage.getItem("gameScoreHistory") || "[]");
-  allScores.unshift(scoreEntry);
-  localStorage.setItem("gameScoreHistory", JSON.stringify(allScores.slice(0, 10)));
+  let history = JSON.parse(localStorage.getItem("gameScoreHistory") || "[]");
+  history.unshift(scoreEntry);
+  localStorage.setItem("gameScoreHistory", JSON.stringify(history.slice(0, 10)));
 }
 
 function gameOver() {
+  gameActive = false;
+    clearInterval(timer);
+    
+    saveGameOver();
+
   inputWord.value = "";
   
   currentWordDiv.classList.remove("active");
   
-  saveGameOver();
   
   gsap.set("#gameOver", {
     opacity: 1
@@ -4499,10 +4560,13 @@ const skipBtn = document.querySelector("#skip-btn");
     const hintBtn = document.querySelector("#hint-btn");
     
     allCheats.addEventListener("click", () => {
-  messageDiv.className = "";
+    messageDiv.className = "";
       streak = 0;
-      updateScore();
-    });
+    gameStats.timesCheated++;
+    localStorage.setItem("chainz_TimesCheated", gameStats.timesCheated);
+    ui.barLegend.cheats.textContent = gameStats.timesCheated;
+    gsap.fromTo(ui.barLegend.cheats, { scale: 1.5, color: "#ff0055" }, { scale: 1, color: "#fff", duration: 0.5 });
+});
 
 pauseBtn.addEventListener("click", () => {
   if (pauseBtnClicked === false && !allCheatsInactive) {
@@ -4622,62 +4686,77 @@ window.addEventListener('resize', () => {
 updateWordFit();
 
 
+// ====== RESTART LOGIC ======
+
 function restartGame() {
-   gsap.to(["#bar .profile, #bar .profile .ani"], {
-    opacity: 0,
-    duration: 0.6,
-    x: 50,
-    delay: 0.6,
-    stagger: 0.05,
+  // Animate Profile/Stats out (Original Animation)
+  gsap.to(["#bar .profile, #bar .profile .ani"], {
+    opacity: 0, 
+    duration: 0.6, 
+    x: 50, 
+    delay: 0.6, 
+    stagger: 0.05, 
     ease: "ease.in"
   });
   
-  streak = 0; 
+  // Reset Session Stats (New System)
+  gameStats.streak = 0;
+  gameStats.score = 0;
+  gameStats.combo = 1;
   
+  // Reset Button Usage Limits (for the tools/cheats logic)
+  easyResets = 0; 
+  normalResets = 0; 
+  hardResets = 0;
+  
+  // Reset Game Board
   currentWord = getRandomWord();
   currentWordDiv.textContent = currentWord;
-  score = 0;
-  difficulty = 1;
-  comboMultiplier = 1;
   
   usedWords.clear();
   usedPrompts.clear();
   usedPrompts.add(currentWord.toLowerCase());
   
-  updateScore();
+  // Update UI
+  updateScore(); 
   
-  gsap.set("#gameOver", {
-      zIndex: -10,
-    opacity: 0
-    });
-    
-    gsap.set(["#gameOver .gameOver-msg p, #gameOver .scores p"], {
-      y: 100,
-      opacity: 0,
-      scale: 0.8
-    });
+  // Reset Cheat/Hint buttons visual state
+  gsap.to("#tools button", { opacity: 1, duration: 0.4 });
   
-  gsap.timeline().to("#restart", {
-    color: "transparent",
-    duration: 0.3,
-    y: 100
-  }).to("#menu button:not(#restart)", { 
-        scale: 0,
-    opacity:0,
-    ease: "power1.in",
-    duration: 0.3
-        }, 0).to("#restart", {
-    duration: 1,
-    y: "100%",
-    scale: 100,
+  // Hide Game Over Screen
+  gsap.set("#gameOver", { zIndex: -10, opacity: 0 });
+  
+  gsap.set(["#gameOver .gameOver-msg p, #gameOver .scores p"], {
+    y: 100,
     opacity: 0,
-    ease: "power4.in",
-    onComplete: () => {
-      gsap.set("#restart", { scale: 1 });
-      gsap.set("#menu", { zIndex: -10 });
-      startCountdown();
-    }
-  }, "<");
+    scale: 0.8
+  });
+  
+  // Play "Play/Restart" Button Transition Animation
+  gsap.timeline()
+    .to("#restart", {
+      color: "transparent",
+      duration: 0.3,
+      y: 100
+    })
+    .to("#menu button:not(#restart)", { 
+      scale: 0,
+      opacity: 0,
+      ease: "power1.in",
+      duration: 0.3
+    }, 0)
+    .to("#restart", {
+      duration: 1,
+      y: "100%",
+      scale: 100,
+      opacity: 0,
+      ease: "power4.in",
+      onComplete: () => {
+        gsap.set("#restart", { scale: 1 });
+        gsap.set("#menu", { zIndex: -10 });
+        startCountdown();
+      }
+    }, "<");
 }
 
 restartBtn.addEventListener("click", () => {
@@ -5078,6 +5157,14 @@ usedPrompts.add(currentWord.toLowerCase());
                 });
             }
         });
+
+        window.addEventListener('load', () => {
+    initStatsDisplay();
+    const savedDiff = localStorage.getItem("difficulty") || "Easy";
+    gameStats.difficulty = savedDiff;
+    if(typeof difficultyDiv !== 'undefined') difficultyDiv.textContent = savedDiff;
+    updateHighScoreDisplay();
+});
   </script>
 </body>
 </html>
