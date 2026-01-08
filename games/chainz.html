@@ -2817,51 +2817,13 @@ const longestStreakDiv = document.querySelectorAll(".longest_streak");
 const cheatedTimesDiv = document.querySelectorAll(".times_cheated");
 
        
-let difficulty = 1;
 let comboMultiplier = 1;
 const baseTime = 8;
-       
+
 let score = 0;
 let streak = 0;
-let highScore = Number(localStorage.getItem("high score")) || 0;
 let allTimeScore = Number(localStorage.getItem("all time score")) || 0;
-let longestStreak = Number(localStorage.getItem("longest streak")) || 0;
-let timesCheated = Number(localStorage.getItem("times cheated")) || 0;
-       
-       function updateScore(points) {
-  if (points > 0) {
-    const multiplier = streak > 0 ? streak : 1;
-    const pointsEarned = points * multiplier;
 
-    score += pointsEarned;
-    allTimeScore += pointsEarned;
-    
-    localStorage.setItem("all time score", allTimeScore);
-  }
-
-  if (score > highScore) {
-    highScore = score;
-    localStorage.setItem("high score", highScore);
-  }
-
-  if (streak > longestStreak) {
-    longestStreak = streak;
-    localStorage.setItem("longest streak", longestStreak);
-  }
-
-  updateDisplay();
-}
-
-function updateDisplay() {
-  scorePointsDiv.forEach(div => div.innerText = score);
-  streakPointsDiv.forEach(div => div.innerText = streak);
-  comboPointsDiv.forEach(div => div.innerText = streak);
-  highScorePointsDiv.forEach(div => div.innerText = highScore);
-  allTimePointsDiv.forEach(div => div.innerText = allTimeScore);
-  longestStreakDiv.forEach(div => div.innerText = longestStreak);
-}
-        updateDisplay();
-    
 
 // ====== UI & Dimensions ======
 let viewportHeight = window.innerHeight;
@@ -2909,9 +2871,96 @@ const goSound = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435
   
   document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('dblclick', e => e.preventDefault());
+       
+       
+       
+       
+       
     
 let timer, timeLeft;
     let theTime = 30;
+       
+       let difficulty = localStorage.getItem("difficulty") || "Easy";
+let difficultyScores = JSON.parse(localStorage.getItem("difficultyScores")) || {};
+let timesCheated = Number(localStorage.getItem("times cheated")) || 0;
+let longestStreak = Number(localStorage.getItem("longest streak")) || 0;
+let highScore = 0; 
+let scoreData = {}; 
+
+function initScoreData() {
+  if (!difficultyScores[difficulty]) {
+    difficultyScores[difficulty] = { highScore: 0, longestStreak: 0 };
+  }
+  scoreData = difficultyScores[difficulty];
+}
+
+initScoreData();
+       
+      if (!difficultyScores[difficulty]) {
+  difficultyScores[difficulty] = { 
+    highScore: 0, 
+    longestStreak: 0 
+  };
+}
+       
+       
+       function updateDisplay() {
+  highScore = scoreData.highScore;
+  scorePointsDiv.forEach(div => div.innerText = score);
+  streakPointsDiv.forEach(div => div.innerText = streak);
+  comboPointsDiv.forEach(div => div.innerText = streak);
+  highScorePointsDiv.forEach(div => div.innerText = highScore);
+  allTimePointsDiv.forEach(div => div.innerText = allTimeScore);
+  longestStreakDiv.forEach(div => div.innerText = scoreData.longestStreak);
+  cheatedTimesDiv.forEach(div => div.innerText = timesCheated);
+}
+       
+function updateScore(points) {
+  if (points > 0) {
+    score += points;
+    allTimeScore += points;
+    localStorage.setItem("all time score", allTimeScore);
+  }
+
+  if (score > scoreData.highScore) {
+    scoreData.highScore = score;
+  }
+
+  if (streak > scoreData.longestStreak) {
+    scoreData.longestStreak = streak;
+  }
+
+  localStorage.setItem("difficultyScores", JSON.stringify(difficultyScores));
+  updateDisplay();
+}
+
+function updateDifficulty() {
+  difficultyDiv.textContent = difficulty;
+  
+  // RE-INITIALIZE DATA FOR THE NEW DIFFICULTY
+  initScoreData();
+
+  allCheats.forEach(cheat => cheat.style.display = "inline-block");
+
+  if (difficulty === "Easy") {
+    theTime = 30;
+  } else if (difficulty === "Normal") {
+    theTime = 20;
+  } else if (difficulty === "Hard") {
+    theTime = 10;
+    cheatBtn.style.display = "none";
+    skipBtn.style.display = "none";
+  } else {
+    theTime = 5;
+    allCheats.forEach(cheat => cheat.style.display = "none");
+  }
+
+  localStorage.setItem("difficulty", difficulty);
+  updateDisplay();
+}
+
+updateDifficulty();
+       
        
     gsap.set("#logo", {
       scale: 0
@@ -3294,30 +3343,18 @@ difficultyBtn.addEventListener("click", () => {
   });
 });
      
-     if (localStorage.getItem("difficulty")) {
-       difficultyDiv.textContent = localStorage.getItem("difficulty");
-       
-       if ( difficultyDiv.textContent === "Easy" ) {
-      theTime = 30;
-    } else if ( difficultyDiv.textContent === "Normal" ) {
-      theTime = 20;
-    } else if ( difficultyDiv.textContent === "Hard" ) {
-      theTime = 10;
-      
-      cheatBtn.style.display = "none";
-      skipBtn.style.display = "none";
-    } else {
-      theTime = 5;
-      
-      allCheats.forEach((cheat) => {
-  cheat.style.display = "none";
-});
-    }
-     }
  
 document.querySelector("#menu .levels").addEventListener("click", (e) => {
   if (e.target.matches("button")) {
     gameOverDiv.style.display = "block";
+    
+    if ( difficulty !== e.target.textContent ) {
+    streak = 0;
+  score = 0;
+  updateScore();
+      difficulty = e.target.textContent;
+      updateDifficulty();
+    }
     
     if ( levelBtnActive === false ) {
     tlDiffAni.reverse();
@@ -3350,29 +3387,7 @@ returnToGameOverScreenAni.to("#menu .levels button", {
 
     }
     
-    difficultyDiv.textContent = e.target.textContent;
     
-    localStorage.setItem("difficulty", e.target.textContent);
-    
-    allCheats.forEach((cheat) => {
-  cheat.style.display = "inline-block";
-});
-    
-    if ( e.target.textContent === "Easy" ) {
-      theTime = 30;
-    } else if ( e.target.textContent === "Normal" ) {
-      theTime = 20;
-    } else if ( e.target.textContent === "Hard" ) {
-      theTime = 10;
-      cheatBtn.style.display = "none";
-      skipBtn.style.display = "none";
-    } else {
-      theTime = 5;
-      
-      allCheats.forEach((cheat) => {
-  cheat.style.display = "none";
-});
-    }
   }
 });
 
@@ -3447,7 +3462,7 @@ tlDiffAni.eventCallback("onReverseComplete", () => {
 const wordBank = {
   // --- A ---
   Abandon: ["Leave", "Quit", "Ship", "Empty", "Desert", "Hope", "Drop", "Run", "Go", "Flee", "Escape", "Forsake", "Relinquish", "Surrender", "Vacate", "Withdraw", "Disown", "Renounce", "Resign", "Ditch", "Dump", "Jettison", "Abdicate", "Evade", "Avoid", "Neglect", "Forswear"],
-  Action: ["Fast", "Camera", "Hero", "Move", "Plan", "Bolt", "Point", "Do", "Act", "Movie", "Star", "Scene", "Shoot", "Fight", "Adventure", "Thrill", "Chase", "Escape", "Mission", "Spy", "Secret", "Danger", "Rescue", "Battle", "Warrior", "Legend", "Epic", "Quest", "Journey", "Saga", "Climax", "Plot", "Twist", "Character", "Dialogue", "Script", "Director", "Producer", "Cinematography"],
+  Action: ["Fast", "Camera", "Hero", "Move", "Plan", "Bolt", "Point", "Do", "Act", "Movie", "Star", "Scene", "Shoot", "Fight", "Adventure", "Thrill", "Chase", "Escape", "Mission", "Spy", "Secret", "Danger", "Rescue", "Battle", "Warrior", "Legend", "Epic", "Quest", "Journey", "Saga", "Climax", "Plot", "Twist", "Character", "Dialogue", "Script", "Director", "Producer", "Cinematography", "Pack", "Packed", "Action-packed", "Blockbuster", "Star", "Stunt", "Explosion", "Pursuit", "Conflict", "Intensity", "Adrenaline"],
   Age: ["Stone", "Space", "Old", "New", "Time", "Gold", "Silver", "Era", "Life", "Period", "History", "Generation", "Century", "Millennium", "Evolution", "Antique", "Vintage", "Modern", "Ancient", "Medieval", "Renaissance", "Industrial", "Digital", "Futuristic"],
   Air: ["Port", "Plane", "Line", "Force", "Mail", "Tight", "Flow", "Condition", "Base", "Way", "Craft", "Field", "Ship", "Bag", "Pump", "Pressure", "Pocket", "Lift", "Vent", "Current", "Breeze", "Wind", "Storm", "Cloud", "Oxygen", "Atmosphere", "Altitude", "Flight", "Aviation", "Helicopter", "Glider", "Parachute", "Balloon"],
   Alarm: ["Clock", "Fire", "Bell", "Sound", "System", "Signal", "Silent", "Alert", "Warning", "Siren", "Emergency", "Notification", "Detector", "Sensor", "Response", "Evacuation", "Drill", "Caution", "Precaution", "Safety", "Protection", "Guard", "Watch", "Monitor", "Surveillance"],
@@ -3481,7 +3496,7 @@ const wordBank = {
   Board: ["Key", "Walk", "Side", "Score", "Room", "Back", "Black", "Skate", "Game", "Member", "Surf"],
   Boat: ["Life", "House", "Water", "Motor", "Speed", "Show", "Sail", "Row", "Deck", "Flag", "Anchor", "Captain", "Crew", "Dock", "Harbor", "Marina", "Port", "Starboard", "Bow", "Stern", "Hull", "Cabin", "Bridge", "Galley", "Berth", "Mast", "Rigging", "Ferry", "Yacht", "Cruise", "Fishing", "Trawler", "Submarine", "Vessel"],
   Bolt: ["Lock", "Fast", "Lightning", "Secure", "Run", "Metal", "Nut", "Action", "Door", "Cut", "Shoot"],
-  Bone: ["Back", "Dry", "Structure", "Hard", "Yard", "Head", "Joint", "Marrow"],
+  Bone: ["Back", "Dry", "Structure", "Hard", "Yard", "Head", "Joint", "Marrow", "Funny", "Leg", "Femur", "Tibia", "Fibula", "Humerus", "Radius", "Ulna", "Scapula", "Clavicle", "Sternum", "Rib", "Vertebra", "Pelvis", "Skull", "Mandible", "Maxilla", "Phalanges", "Carpals", "Tarsals", "Metacarpals", "Metatarsals", "Calcaneus", "Patella", "Arm", "Hand", "Foot", "Skeleton", "Osteology", "Anatomy", "Physiology", "Fossil", "Archaeology", "Paleontology"],
   Book: ["Word", "Sheet", "Mark", "Case", "Shelf", "Work", "Shop", "End", "Store", "Hand", "Read", "Cover", "Bag"],
   Border: ["Frame", "Edge", "Line", "Cross", "Side", "Patrol", "Boundary", "Fence"],
   Bottle: ["Glass", "Water", "Cap", "Neck", "Open", "Green", "Liquid", "Wine"],
@@ -3549,7 +3564,7 @@ const wordBank = {
   Drill: ["Twist", "Tool", "Press", "Down", "Bit", "Work", "Hole", "Spin", "Build", "Construction", "Carpentry", "Woodworking", "Metalworking", "Masonry", "Plumbing", "Electrical", "Automotive", "DIY", "Home Improvement", "Renovation", "Repair", "Maintenance", "Power Tool", "Cordless Drill", "Hammer Drill", "Impact Driver", "Drill Press", "Auger", "Spade Bit", "Forstner Bit", "Hole Saw"],
   Drive: ["Road", "Way", "Hard", "Force", "Wheel", "In", "Over", "Test", "Push", "Motor", "Car", "Vehicle", "Journey", "Trip", "Commute", "Travel", "Expedition", "Tour", "Through", "Along", "Across", "Navigate", "Steer", "Accelerate", "Brake", "Park", "Fuel", "Gasoline", "Diesel", "Electric", "Hybrid", "Engine", "Transmission", "Tire", "Wheel", "Steering Wheel", "Dashboard", "Seatbelt", "Airbag", "Headlights", "Taillights", "Turn Signal", "Horn"],
   Drop: ["Rain", "Water", "Down", "Back", "Zone", "Point", "Out", "Fall", "Tear", "Ship", "Ball", "Top", "Shot", "Box", "Dead", "Leaf", "Call", "Beat", "Mic", "Bass", "Sound", "Beatbox", "Drum", "Drums", "Percussion", "Cymbal", "Snare", "Hi-hat", "Tom", "Kick", "Rhythm", "Groove", "Flow", "Jam", "Session", "Loop", "Sample", "Track", "Mix", "Remix", "Producer", "DJ", "Turntable", "Vinyl", "Record", "Album", "EP", "Single", "Chart", "Hit", "Top 40", "Billboard", "Platinum", "Gold", "Silver", "Bronze", "Award", "Grammy", "MTV", "VMA", "BET", "AMA", "iHeartRadio", "CMA", "ACM", "Juno", "Brit Awards", "Mercury Prize"],
-  Dry: ["Bone", "Land", "Air", "Run", "Ice", "Clean", "Desert", "Sun", "Heat", "Towel", "Cloth", "Fabric", "Clothing", "Laundry", "Wash", "Rinse", "Spin", "Cycle", "Dehydrate", "Moisture", "Humidity", "Drought", "Arid", "Parched", "Thirsty", "Wilted", "Cracked", "Brittle", "Fragile"],
+  Dry: ["Bone", "Land", "Air", "Run", "Ice", "Clean", "Desert", "Sun", "Heat", "Towel", "Cloth", "Fabric", "Clothing", "Laundry", "Wash", "Rinse", "Spin", "Cycle", "Dehydrate", "Moisture", "Humidity", "Drought", "Arid", "Parched", "Thirsty", "Wilted", "Cracked", "Brittle", "Fragile", "Mouth", "Lips", "Skin", "Hair", "Nails", "Eyes", "Lungs", "Throat", "Nose", "Hydration", "Moisturize", "Lotion", "Cream", "Serum", "Sunscreen"],
   Dust: ["Star", "Gold", "Bowl", "Mop", "Cloud", "Storm", "Air", "Powder", "Sweep", "Clean", "Wipe", "Vacuum", "Allergen", "Particle", "Debris", "Dirt", "Grime", "Soot", "Ash", "Pollen", "Mold", "Fungus", "Spore", "Contaminant", "Pollutant", "Irritant", "Respiratory", "Allergy", "Asthma"],
 
   // --- E ---
@@ -3608,9 +3623,9 @@ const wordBank = {
   Head: ["Top", "Brain", "Hat", "Leader", "Line", "Work", "Back", "Front", "Gear", "Mind", "Skull", "Crown", "Forehead", "Temple", "Cheek", "Chin", "Jaw", "Mouth", "Nose", "Eye", "Ear", "Neck", "Throat", "Voice", "Thought", "Idea", "Concept", "Notion", "Belief", "Opinion", "Viewpoint", "Perspective", "Outlook", "Attitude", "Disposition"],
   Heat: ["Fire", "Sun", "Metal", "Work", "Burn", "Energy", "Hot", "Water", "Lamp", "Warm", "Temperature", "Thermal", "Climate", "Weather", "Humidity", "Drought", "Fever", "Inflammation", "Combustion", "Ignition", "Flame", "Blaze", "Inferno", "Sizzle", "Scorch", "Broil", "Roast", "Bake", "Grill"],
   Help: ["Aid", "Hand", "Support", "Call", "Back", "Out", "Solve", "Assist", "Guide", "Rescue", "Relieve", "Sustain", "Facilitate", "Empower", "Encourage", "Uplift", "Strengthen", "Bolster", "Boost", "Promote", "Advance", "Foster", "Nurture", "Cultivate", "Develop", "Enhance", "Improve", "Enrich", "Augment", "Supplement", "Complement"],
-  High: ["Up", "Tall", "Sky", "Fast", "Point", "Grade", "Level", "Rise", "Climb", "Elevate", "Ascend", "Soar", "Fly", "Tower", "Peak", "Summit", "Apex", "Zenith", "Pinnacle", "Crest", "Acme", "Height", "Altitude", "Elevation", "Lofty", "Skyward", "Heavenly", "Celestial"],
+  High: ["Up", "Tall", "Sky", "Fast", "Point", "Grade", "Level", "Rise", "Climb", "Elevate", "Ascend", "Soar", "Fly", "Tower", "Peak", "Summit", "Apex", "Zenith", "Pinnacle", "Crest", "Acme", "Height", "Altitude", "Elevation", "Lofty", "Skyward", "Heavenly", "Celestial", "Chair", "Throne", "Platform", "Stage", "Thought", "Thoughts", "Mind", "Ideas", "Imagination", "Creativity", "Inspiration", "Horse", "Weed", "Drug", "Marijuana", "Cannabis", "Pot", "Ganja", "Mary Jane", "Reefer", "Dope", "Joint", "Blunt", "Bong", "Pipe", "Vape"],
   Hold: ["Grab", "Work", "Hand", "Back", "Tight", "Fast", "Place", "Secure", "Tool", "Grip", "Clutch", "Clasp", "Seize", "Grasp", "Catch", "Retain", "Keep", "Maintain", "Sustain", "Preserve", "Protect", "Defend", "Guard", "Shelter", "Harbor", "Harbour", "Anchor"],
-  Home: ["House", "Room", "Place", "Back", "Sweet", "Work", "Safe", "Base", "Going", "Coming", "Land", "Family", "Living", "Residence", "Dwelling", "Abode", "Haven", "Sanctuary", "Refuge", "Shelter", "Habitat", "Nest", "Lair", "Den", "Cottage", "Cabin", "Villa", "Mansion", "Apartment", "Condo", "Townhouse", "Bungalow", "Farm"],
+  Home: ["House", "Room", "Place", "Back", "Sweet", "Work", "Safe", "Base", "Going", "Coming", "Land", "Family", "Living", "Residence", "Dwelling", "Abode", "Haven", "Sanctuary", "Refuge", "Shelter", "Habitat", "Nest", "Lair", "Den", "Cottage", "Cabin", "Villa", "Mansion", "Apartment", "Condo", "Townhouse", "Bungalow", "Farm", "Studio", "Gym", "Office", "Shop", "Store"],
   Hook: ["Line", "Fish", "Nail", "Fasten", "Catch", "Hold", "Hang", "Trap", "Metal", "Cloth", "Curve", "Bend", "Loop", "Eye", "Point", "Barb", "Shank", "Lure", "Bait", "Tackle", "Angling", "Fishing", "Sport", "Recreation"],
   Hope: ["Dream", "Light", "Wish", "Goal", "Life", "Plan", "Future", "Heart", "Faith", "Trust", "Aspire", "Believe", "Optimism", "Expectation", "Desire", "Ambition", "Confidence", "Encouragement", "Inspiration", "Motivation", "Determination", "Perseverance", "Resilience", "Courage", "Strength", "Endurance", "Positivity", "Vision", "Goal-setting", "Achievement", "Success", "Belief"],
 
@@ -3647,14 +3662,14 @@ const wordBank = {
   Man: ["Work", "Power", "Strong", "Hand", "People", "Hu", "Black", "Person", "Guy", "Dude", "Fellow", "Chap", "Bloke", "Gentleman", "Sir", "Mister", "Mister", "Mr.", "Hombre", "Lad", "Miater", "Bro", "Brother", "Buddy", "Pal", "Mate", "Companion", "Comrade", "Associate", "Colleague", "Coworker", "Father", "Daddy", "Dad", "Son", "Brother", "Uncle", "Cousin", "Nephew", "Husband", "Fiancé", "Boyfriend"],
   Mark: ["Point", "Check", "Bench", "Line", "Spot", "Note", "Sign", "Grade", "Score", "Back", "Word", "Hall", "Book", "Target", "Aim", "Label", "Tag", "Sticker", "Stamp", "Insignia", "Emblem", "Symbol", "Logo", "Brand", "Trademark", "Seal", "Badge", "Crest", "Coat of Arms", "Monogram", "Signature", "Autograph", "Imprint", "Engraving", "Etching", "Carving", "Inscription", "Tally", "Record", "Notation", "Annotation", "Commentary", "Observation", "Remark", "Reflection", "Thought", "Idea", "Signature", "Exclamation", "Question", "Period", "Comma", "Apostrophe", "Quotation", "Parenthesis", "Bracket", "Dash", "Hyphen", "Birth"],
   Mask: ["Face", "Cover", "Protect", "Night", "Gas", "Work", "Dance", "Party", "Costume", "Disguise", "Camouflage", "Veil", "Shield", "Barrier", "Filter", "Respirator", "Surgical", "Medical", "Halloween", "Carnival", "Masquerade", "Theater", "Performance", "Role", "Character", "Identity", "Anonymity", "Secrecy", "Mystery"],
-  Match: ["Fire", "Box", "Game", "Point", "Strike", "Light", "Pair", "Stick", "Win", "Lose", "Competition", "Contest", "Tournament", "Championship", "League", "Season", "Team", "Player", "Athlete", "Coach", "Referee", "Umpire", "Scorekeeper", "Spectator", "Fan", "Supporter", "Cheerleader", "Mascot"],
+  Match: ["Fire", "Box", "Game", "Point", "Strike", "Light", "Pair", "Stick", "Win", "Lose", "Competition", "Contest", "Tournament", "Championship", "League", "Season", "Team", "Player", "Athlete", "Coach", "Referee", "Umpire", "Scorekeeper", "Spectator", "Fan", "Supporter", "Cheerleader", "Mascot", "Soccer", "Tennis", "Basketball", "Football", "Boxing", "Wrestling"],
   Metal: ["Iron", "Steel", "Gold", "Silver", "Brass", "Copper", "Lead", "Tool", "Hard", "Work", "Heavy", "Alloy", "Mineral", "Ore", "Element", "Periodic Table", "Atomic Number", "Atomic Weight", "Density", "Melting Point", "Boiling Point", "Conductivity", "Magnetism", "Corrosion", "Oxidation", "Refining", "Smelting", "Casting", "Forging", "Welding", "Machining", "Fabrication"],
-  Mind: ["Think", "Idea", "Brain", "Focus", "Plan", "Dream", "Clear", "Power", "Map", "Point", "Work", "Concentrate", "Meditate", "Reflect", "Contemplate", "Ponder", "Consider", "Deliberate", "Ruminate", "Speculate", "Analyze", "Evaluate", "Assess", "Judge", "Decide", "Choose", "Select", "Determine", "Resolve", "Solve", "Understand", "Comprehend", "Grasp", "Apprehend"],
+  Mind: ["Think", "Idea", "Brain", "Focus", "Plan", "Dream", "Clear", "Power", "Map", "Point", "Work", "Concentrate", "Meditate", "Reflect", "Contemplate", "Ponder", "Consider", "Deliberate", "Ruminate", "Speculate", "Analyze", "Evaluate", "Assess", "Judge", "Decide", "Choose", "Select", "Determine", "Resolve", "Solve", "Understand", "Comprehend", "Grasp", "Apprehend", "Thought", "Thoughts", "Cognition", "Perception", "Awareness", "Consciousness", "Intelligence", "Wisdom", "Game", "Games"],
   Mix: ["Blend", "Stir", "Combine", "Music", "Work", "Paint", "Cake", "Drink", "Sound", "Mash", "Fry", "Salad", "Smoothie", "Cocktail", "Juice", "Shake", "Whisk", "Fold", "Knead", "Beat", "Cream", "Incorporate", "Emulsify", "Homogenize", "Sift", "Strain", "Filter", "Purify"],
 
   // --- N ---
   Name: ["Word", "Call", "Title", "Person", "Brand", "Mark", "Sign", "Tag", "Sake", "Nick", "Label", "Moniker", "Handle", "Alias", "Pseudonym", "Sobriquet", "Epithet", "Appellation", "Denomination", "Designation", "Cognomen", "Byname", "Nickname", "Stage", "Pen Name", "Nom de Plume", "Nom de Guerre", "Sir", "Sur", "Last", "First", "Middle", "Rap", "Given", "Family", "Surname", "Christian", "Legal", "Official", "Formal", "Informal"],
-  Net: ["Web", "Catch", "Work", "Sport", "Fishing", "Air", "Safety", "Game", "Tool", "Mesh", "Grid", "Network", "System", "Internet", "Online", "Digital", "Virtual", "Cyber", "Technology", "Communication", "Connection", "Link", "Bond", "Tie", "Relationship", "Association", "Affiliation", "Partnership", "Collaboration", "Cooperation", "Coordination"],
+  Net: ["Web", "Catch", "Work", "Sport", "Fishing", "Air", "Safety", "Game", "Tool", "Mesh", "Grid", "Network", "System", "Internet", "Online", "Digital", "Virtual", "Cyber", "Technology", "Communication", "Connection", "Link", "Bond", "Tie", "Relationship", "Association", "Affiliation", "Partnership", "Collaboration", "Cooperation", "Coordination", "Worth", "Income", "Revenue", "Profit", "Earnings", "Salary", "Wage", "Paycheck", "Take-home"],
   Night: ["Day", "Dark", "Moon", "Star", "Sleep", "Work", "Light", "Quiet", "Sky", "Time", "Evening", "Midnight", "Dusk", "Twilight", "Nocturnal", "After Hours", "Late", "Bedtime", "Dream", "Rest", "Slumber", "Nighttime", "Nightfall", "Nightlife", "Nightclub", "Party", "Social", "Event", "Gathering", "Celebration", "Festival", "Concert", "Show", "Performance", "Mid", "Mare", "Life"],
   Note: ["Paper", "Music", "Mark", "Point", "Book", "Hand", "Sound", "Message", "Line", "Write", "Letter", "Memo", "Reminder", "Annotation", "Comment", "Observation", "Remark", "Reflection", "Thought", "Idea", "Concept", "Notion", "Insight", "Epiphany", "Revelation", "Brainstorm", "Ideation", "Conception", "Development", "Implementation", "Execution", "Realization"],
 
@@ -3715,11 +3730,11 @@ Ring: ["Bell", "Circle", "Finger", "Sound", "Metal", "Call", "Halo", "Note", "Te
 
 // --- S ---
 Shade: ["Light", "Color", "Tree", "Shadow", "Cover", "Window", "Sun", "Tone", "Hue", "Tint", "Saturation", "Brightness", "Contrast", "Gradient", "Spectrum", "Palette", "Swatch", "Sample", "Variation", "Nuance", "Subtlety", "Delicacy", "Refinement", "Sophistication", "Elegance", "Class", "Style", "Fashion", "Trend", "Vogue", "Chic", "Glamour", "Allure", "Attraction", "Appeal"],
- Shake: ["Hand", "Move", "Work", "Mix", "Vibrate", "Tremble", "Quake", "Shiver", "Jolt", "Jiggle", "Wobble", "Sway", "Rock", "Roll", "Bounce", "Spring", "Leap", "Jump", "Hop", "Skip", "Dance", "Groove", "Boogie", "Funk", "Swing", "Rhythm", "Beat"],
+ Shake: ["Hand", "Move", "Work", "Mix", "Vibrate", "Tremble", "Quake", "Shiver", "Jolt", "Jiggle", "Wobble", "Sway", "Rock", "Roll", "Bounce", "Spring", "Leap", "Jump", "Hop", "Skip", "Dance", "Groove", "Boogie", "Funk", "Swing", "Rhythm", "Beat", "Milk", "Twerk", "Chocolate", "Strawberry", "Vanilla", "Peach", "Mango", "Kiwi", "Orange", "Banana", "Blueberry", "Raspberry", "Salt", "Pepper"],
  Shark: ["Fish", "Sea", "Jaws", "Teeth", "Ocean", "Swim", "Danger", "Attack", "Fins", "Predator", "Marine", "Aquatic", "Underwater", "Reef", "Great White", "Hammerhead", "Tiger Shark", "Bull Shark", "Mako Shark", "Thresher Shark", "Nurse Shark", "Lemon Shark"],
 Stage: ["Theater", "Show", "Performance", "Level", "Step", "Board", "Set", "Platform", "Act", "Scene", "Play", "Drama", "Musical", "Concert", "Recital", "Production", "Presentation", "Exhibition", "Display", "Demonstration", "Showcase", "Event", "Occasion", "Ceremony", "Festival", "Gala", "Pageant", "Spectacle", "Extravaganza"],
  Stand: ["Up", "Work", "Place", "Hold", "Table", "Fight", "Point", "Firm", "Base", "Support", "Foundation", "Pedestal", "Plinth", "Dais", "Podium", "Riser", "Platform", "Stage", "Elevated", "Raised", "Uplifted", "Lofty", "Towering", "Soaring", "Sky-high"],
- Star: ["Sky", "Night", "Light", "Shine", "Point", "Movie", "Famous", "Bright", "Space", "Galaxy", "Constellation", "Nebula", "Supernova", "Pulsar", "Quasar", "Black Hole", "Astronomy", "Astrophysics", "Cosmology", "Universe", "Celestial", "Heavenly Body", "Orbit", "Eclipse", "Meteor", "Comet", "Asteroid", "Satellite", "Rocket", "Spacecraft", "Astronaut", "Cosmonaut"],
+ Star: ["Sky", "Night", "Light", "Shine", "Point", "Movie", "Famous", "Bright", "Space", "Galaxy", "Constellation", "Nebula", "Supernova", "Pulsar", "Quasar", "Black Hole", "Astronomy", "Astrophysics", "Cosmology", "Universe", "Celestial", "Heavenly Body", "Orbit", "Eclipse", "Meteor", "Comet", "Asteroid", "Satellite", "Rocket", "Spacecraft", "Astronaut", "Cosmonaut", "Fish"],
 Safe: ["Box", "Guard", "Secure", "Keep", "Lock", "Home", "Place", "Hold", "Protect", "Secure", "Shield", "Defend", "Fortify", "Safeguard", "Preserve", "Conserve", "Maintain", "Uphold", "Support", "Sustain", "Ensure", "Guarantee", "Warrant", "Assure", "Certify", "Validate", "Authenticate", "Verify", "Check", "Inspect", "Examine", "Audit", "Review"],
  Sail: ["Boat", "Ship", "Wind", "Sea", "Water", "Travel", "Wave", "Captain", "Deck", "Port", "Flag", "Anchor", "Crew", "Hull", "Mast", "Rigging", "Boom", "Jib", "Spinnaker", "Tack", "Jibe", "Helm", "Rudder", "Keel", "Bow", "Stern", "Marina", "Harbor", "Dock", "Pier", "Yacht", "Sailboat"],
 Salt: ["Table", "Sea", "Food", "Rock", "Water", "Mine", "Taste", "Spice", "Seasoning", "Preserve", "Cure", "Brine", "Pickle", "Sodium", "Chloride", "Mineral", "Crystal", "Granule", "Flake", "Cube", "Shaker", "Cellar", "Lick", "Dash", "Pinch", "Sprinkle", "Grain", "Coarse", "Fine"],
@@ -3733,8 +3748,8 @@ Seat: ["Chair", "Car", "Bench", "Ride", "Place", "Post", "Work", "Home", "Belt",
  Second: ["Time", "Minute", "Hour", "Clock", "Hand", "Fast", "Quick", "Moment", "Instant", "Immediate", "Sudden", "Rapid", "Swift", "Speedy", "Brisk", "Nimble", "Agile", "Fleet", "Zippy", "Snappy", "Hurried", "Breakneck", "Lightning", "Whirlwind"],
  Sense: ["Feel", "Touch", "Mind", "See", "Hear", "Taste", "Smell", "Perceive", "Understand", "Comprehend", "Grasp", "Apprehend", "Discern", "Recognize", "Identify", "Distinguish", "Differentiate", "Detect", "Notice", "Observe", "Witness", "Experience", "Encounter", "Undergo"],
  Serve: ["Help", "Work", "Food", "Table", "Team", "Play", "Ball", "Customer", "Client", "Guest", "Patron", "Consumer", "User", "Audience", "Spectator", "Viewer", "Listener", "Participant", "Member"],
- Set: ["Table", "Work", "Box", "Game", "Sun", "Up", "Down", "Tool", "Match", "Collection", "Group", "Series", "Assortment", "Array", "Selection", "Variety", "Diversity", "Range", "Spectrum", "Span", "Extent", "Reach", "Breadth", "Width", "Amplitude", "Magnitude", "Size", "Dimension", "Proportion", "Ratio", "Scale"],
-Sharp: ["Blade", "Knife", "Edge", "Point", "Mind", "Sound", "Turn", "Look"],
+ Set: ["Table", "Work", "Box", "Game", "Sun", "Up", "Down", "Tool", "Match", "Collection", "Group", "Series", "Assortment", "Array", "Selection", "Variety", "Diversity", "Range", "Spectrum", "Span", "Extent", "Reach", "Breadth", "Width", "Amplitude", "Magnitude", "Size", "Dimension", "Proportion", "Ratio", "Scale", "Movie", "Film", "Scene", "Stage", "Show", "Display", "Exhibit", "Presentation"],
+Sharp: ["Blade", "Knife", "Edge", "Point", "Mind", "Sound", "Turn", "Look", "Quick", "Clever", "Intelligent", "Smart", "Astute", "Shrewd", "Perceptive", "Insightful", "Observant", "Discerning", "Acute", "Keen", "Alert", "Vigilant", "Attentive", "Focused", "Concentrated", "Clear-headed", "Razor-sharp"],
 Share: ["Ride", "Holder", "Hold", "Farm", "Farmer", "Time", "Broker", "Broke", "Ground", "Ware", "Food", "Part", "Piece", "Portion", "Segment", "Division", "Subdivision", "Section", "Area", "Region", "District", "Neighborhood", "Community", "Suburb", "Outskirts", "Collective", "Cooperative", "Mutual", "Joint", "Common", "Public", "Communal", "Social", "Collaborative", "Coordinated", "Unified", "Integrated", "Candy", "Love", "Stock", "Equity", "Investment", "Asset", "Holding", "Portfolio", "Security", "Shareholder", "Stakeholder", "Holder"],
  Sheep: ["Wool", "Farm", "Animal", "Black", "White", "Flock", "Graze", "Herd", "Lamb", "Ewe", "Ram", "Pasture", "Field", "Barn", "Shepherd", "Woolen", "Textile", "Cloth", "Garment", "Fabric", "Knitting", "Weaving", "Spinning", "Yarn", "Thread", "Fiber", "Fleece", "Lanolin"],
 Ship: ["Boat", "Sail", "Cargo", "Water", "Travel", "Sea", "Captain", "Deliver", "Deck", "Port", "Flag", "Anchor", "Crew", "Hull", "Mast", "Navigation", "Voyage", "Maritime", "Dock", "Harbor", "Vessel", "Freight", "Logistics"],
@@ -3773,7 +3788,7 @@ Time: ["Clock", "Day", "Night", "Life", "Work", "Past", "Future", "Hour", "Minut
  Trip: ["Travel", "Journey", "Work", "Tour", "Vacation", "Holiday", "Ride", "Drive", "Fly", "Sail", "Explore", "Discover", "Adventure", "Excursion", "Expedition", "Outing", "Getaway", "Retreat", "Sojourn", "Voyage"],
 Tip: ["Point", "Advice", "Hat", "End", "Money", "Finger", "Top", "Edge", "Clue", "Hint", "Suggestion", "Recommendation", "Guidance", "Counsel", "Direction", "Instruction", "Information", "Insight", "Wisdom", "Knowledge", "Understanding"],
  Tooth: ["Brush", "Brush", "Smile", "Mouth", "Chew", "Bite", "Food", "Dentist", "Cavity", "Floss", "Paste", "Hygiene", "Health", "Decay", "Gum", "Enamel", "Molars", "Incisors", "Canines", "Premolars"],
- Tower: ["Build", "High", "Work", "Tall", "Sky", "Look", "View", "Castle", "Fortress", "Skyscraper", "Antenna", "Observation", "Structure", "Edifice", "Monument", "Landmark"],
+ Tower: ["Build", "High", "Work", "Tall", "Sky", "Look", "View", "Castle", "Fortress", "Skyscraper", "Antenna", "Observation", "Structure", "Edifice", "Monument", "Landmark", "Water", "Communication", "Broadcast", "Transmission", "Tank", "Elevator", "Staircase", "Ladder", "Platform", "Deck", "Bridge", "Spire", "Pinnacle", "Clock", "Bell", "Watch", "Guard", "Signal"],
 Tool: ["Work", "Hand", "Metal", "Power", "Box", "Kit", "Use", "Build", "Fix", "Create", "Construct", "Repair", "Maintain", "Measure", "Cut", "Drill", "Hammer", "Screw", "Wrench", "Pliers", "Saw", "Chisel", "Level", "Square", "Tape Measure", "Caliper", "Micrometer", "Compass", "Protractor"],
 Top: ["Peak", "Hat", "Board", "High", "Point", "Layer", "Score", "Level", "Work", "Up", "Surface", "Summit", "Apex", "Pinnacle", "Crest", "Acme", "Zenith", "Crown", "Capstone", "Climax", "Height", "Elevation", "Altitude", "Overlook", "Lookout", "Observation", "Viewpoint"],
 
@@ -3806,7 +3821,7 @@ Wind: ["Air", "Blow", "Power", "Storm", "Turbine", "Move", "Force", "Door", "Wav
 Woman: ["Female", "Girl", "Lady", "Mother", "Sister", "Daughter", "Wife", "Feminine", "Queen", "Princess", "Goddess", "Bride", "Aunt", "Niece", "Grandmother", "Cousin", "Matriarch", "Heroine", "Actress", "Feminist", "Empowerment", "Independence", "Strength", "Beauty", "Grace", "Compassion", "Nurture"],
 Work: ["Job", "Hand", "Task", "Build", "Create", "Labor", "Project", "Play", "Piece", "Life", "Time", "Office", "Team", "Hard", "Fast", "Tool", "Power", "Plan", "Design", "Construct", "Develop", "Engineer", "Manufacture", "Fabricate", "Assemble", "Produce", "Craft", "Forge", "Weld", "Hammer", "Nail", "Screw", "Drill", "Measure", "Calculate", "Analyze", "Evaluate", "Optimize"],
 Wing: ["Bird", "Airplane", "Flight", "Side", "Fan", "Control", "Part", "Engine", "Feather", "Flap", "Soar", "Glide", "Hover", "Lift", "Aerofoil", "Aileron", "Flap", "Spoiler", "Rudder", "Elevator", "Jet", "Propeller", "Turbine", "Winglet"],
-Wire: ["Electric", "Metal", "Line", "Connect", "Cable", "Fence", "Signal", "Link", "Circuit", "Conductor", "Insulator", "Resistor", "Capacitor", "Inductor", "Transistor", "Diode", "Switch", "Connector", "Terminal", "Solder", "Crimp", "Strip", "Twist", "Braid", "Mesh", "Netting"],
+Wire: ["Electric", "Metal", "Line", "Connect", "Cable", "Fence", "Signal", "Link", "Circuit", "Conductor", "Insulator", "Resistor", "Capacitor", "Inductor", "Transistor", "Diode", "Switch", "Connector", "Terminal", "Solder", "Crimp", "Strip", "Twist", "Braid", "Mesh", "Netting", "Fraud", "Money", "Cash"],
  Wood: ["Tree", "Build", "Work", "House", "Table", "Chair", "Floor", "Forest", "Lumber", "Timber", "Plank", "Beam", "Log", "Branch", "Bark", "Leaf", "Saw", "Carve", "Chisel", "Sand", "Polish", "Varnish", "Stain", "Paint"],
 
 // --- X ---
@@ -4277,7 +4292,6 @@ function submitWord(word) {
   streak++;
   if (streak > 0 && streak % 5 === 0) {
     comboMultiplier = Math.floor(streak / 5) + 1;
-    difficulty = Math.floor(streak / 8) + 1;
     msg(`${streak}x COMBO! 🔥`);
     messageDiv.className = "combo";
   } else {
@@ -4584,7 +4598,7 @@ inputWord.addEventListener("focus", e => e.preventDefault());
     streak = 0;
     timesCheated++;
     localStorage.setItem("times cheated", timesCheated);
-    updateScore();
+    updateScore(10);
   });
 });
 
@@ -4716,13 +4730,10 @@ function restartGame() {
     ease: "ease.in"
   });
   
-  streak = 0;
+  
   currentWord = getRandomWord();
   currentWordDiv.textContent = currentWord;
-  score = 0;
-  difficulty = 1;
   comboMultiplier = 1;
-  updateScore();
   
   usedWords.clear();
   usedPrompts.clear();
