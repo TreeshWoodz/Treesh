@@ -1166,6 +1166,7 @@ canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none
     margin-top:10px;
     text-align:right;
     margin-right:20px;
+    white-space:nowrap;
     font-family:var(--info-font);
     text-transform:uppercase;
   }
@@ -3482,6 +3483,8 @@ tlDiffAni.to("#menu .main button", {
   scale: 0.8,
   duration: 0.3,
   stagger: 0.03,
+}).to("#bar", {
+  opacity:0
 })
   .set("#menu .main", { display: "none" })
   .set("#menu .levels", { display: "block" })
@@ -3934,7 +3937,7 @@ Time: ["Clock", "Day", "Night", "Life", "Work", "Past", "Future", "Hour", "Minut
  Trip: ["Travel", "Journey", "Work", "Tour", "Vacation", "Holiday", "Ride", "Drive", "Fly", "Sail", "Explore", "Discover", "Adventure", "Excursion", "Expedition", "Outing", "Getaway", "Retreat", "Sojourn", "Voyage"],
 Tip: ["Point", "Advice", "Hat", "End", "Money", "Finger", "Top", "Edge", "Clue", "Hint", "Suggestion", "Recommendation", "Guidance", "Counsel", "Direction", "Instruction", "Information", "Insight", "Wisdom", "Knowledge", "Understanding"],
  Tooth: ["Brush", "Brush", "Smile", "Mouth", "Chew", "Bite", "Food", "Dentist", "Cavity", "Floss", "Paste", "Hygiene", "Health", "Decay", "Gum", "Enamel", "Molars", "Incisors", "Canines", "Premolars"],
- Tower: ["Build", "High", "Work", "Tall", "Sky", "Look", "View", "Castle", "Fortress", "Skyscraper", "Antenna", "Observation", "Structure", "Edifice", "Monument", "Landmark", "Water", "Communication", "Broadcast", "Transmission", "Tank", "Elevator", "Staircase", "Ladder", "Platform", "Deck", "Bridge", "Spire", "Pinnacle", "Clock", "Bell", "Watch", "Guard", "Signal"],
+ Tower: ["Build", "Eiffel", "High", "Work", "Tall", "Sky", "Look", "View", "Castle", "Fortress", "Skyscraper", "Antenna", "Observation", "Structure", "Edifice", "Monument", "Landmark", "Water", "Communication", "Broadcast", "Transmission", "Tank", "Elevator", "Staircase", "Ladder", "Platform", "Deck", "Bridge", "Spire", "Pinnacle", "Clock", "Bell", "Watch", "Guard", "Signal"],
 Tool: ["Work", "Hand", "Metal", "Power", "Box", "Kit", "Use", "Build", "Fix", "Create", "Construct", "Repair", "Maintain", "Measure", "Cut", "Drill", "Hammer", "Screw", "Wrench", "Pliers", "Saw", "Chisel", "Level", "Square", "Tape Measure", "Caliper", "Micrometer", "Compass", "Protractor"],
 Top: ["Peak", "Hat", "Board", "High", "Point", "Layer", "Score", "Level", "Work", "Up", "Surface", "Summit", "Apex", "Pinnacle", "Crest", "Acme", "Zenith", "Crown", "Capstone", "Climax", "Height", "Elevation", "Altitude", "Overlook", "Lookout", "Observation", "Viewpoint"],
 
@@ -4450,7 +4453,6 @@ function submitWord(word) {
   word = word.trim();
   if (!word) return;
   const lowerWord = word.toLowerCase();
-
   if (usedWords.has(lowerWord) && resayBtnClicked === false) {
     inputWord.classList.add("wrong");
     wrongSound.play();
@@ -4460,7 +4462,6 @@ function submitWord(word) {
     messageDiv.className = "error";
     return;
   }
-
   if (!isValidWord(word)) {
     inputWord.classList.add("wrong");
     wrongSound.play();
@@ -4471,9 +4472,7 @@ function submitWord(word) {
     messageDiv.className = "error";
     return;
   }
-
   usedWords.add(lowerWord);
-
   streak++;
   if (streak > 0 && streak % 5 === 0) {
     comboMultiplier = Math.floor(streak / 5) + 1;
@@ -4483,46 +4482,52 @@ function submitWord(word) {
     msg(`+${100 * streak * comboMultiplier} points!`);
     messageDiv.className = "success";
   }
-
   updateScore(100 * streak);
-
   inputWord.classList.add("correct");
   correctSound.play();
   spawnInputParticles("#0f0");
   setTimeout(() => inputWord.classList.remove("correct"), 400);
-
   const bankKeys = Object.keys(wordBank);
   const lowerBankKeys = bankKeys.map(k => k.toLowerCase());
-
-  // Helper to find which prompts contain a specific word in their answer arrays
-  const getPromptsContainingWord = (targetWord) => {
-    const targetLower = targetWord.toLowerCase();
-    return bankKeys.filter(key => 
-      wordBank[key].some(answer => answer.toLowerCase() === targetLower)
-    );
-  };
-
+  
   let pool = [];
+  
+  // First try: If the player's word exists as a prompt, use its answers
   const nextKey = bankKeys.find(k => k.toLowerCase() === lowerWord);
-
   if (nextKey && wordBank[nextKey]) {
-    pool = wordBank[nextKey].filter(w => {
-      const isSingleWord = !w.includes(" ");
-      const existsAsPrompt = lowerBankKeys.includes(w.toLowerCase());
-      
-      // Check if this word exists as an answer in OTHER prompts
-      const occursInOtherPrompts = getPromptsContainingWord(w).length > 0;
-
-      return isSingleWord && existsAsPrompt && occursInOtherPrompts;
+    pool = wordBank[nextKey]
+      .filter(w => !w.includes(" ")) // Single words only
+      .filter(w => !usedPrompts.has(w.toLowerCase())) // Not recently used as prompt
+      .filter(w => lowerBankKeys.includes(w.toLowerCase())); // Exists as a prompt
+  }
+  
+  // Second try: Find unused prompts that have the player's word in their answers
+  if (pool.length === 0) {
+    pool = bankKeys.filter(key => {
+      const keyLower = key.toLowerCase();
+      const notUsedRecently = !usedPrompts.has(keyLower);
+      const containsPlayerWord = wordBank[key].some(
+        answer => answer.toLowerCase() === lowerWord
+      );
+      const isSingleWord = !key.includes(" ");
+      return notUsedRecently && containsPlayerWord && isSingleWord;
     });
   }
-
-  // Fallback if no valid "interconnected" single words are found
+  
+  // Third try: Any unused single-word prompt
   if (pool.length === 0) {
-    pool = bankKeys.filter(k => !k.includes(" ") && !usedPrompts.has(k.toLowerCase()));
-    if (pool.length === 0) pool = bankKeys.filter(k => !k.includes(" "));
+    pool = bankKeys.filter(k => 
+      !k.includes(" ") && !usedPrompts.has(k.toLowerCase())
+    );
   }
-
+  
+  // Final fallback: Any single-word prompt
+  if (pool.length === 0) {
+    pool = bankKeys.filter(k => !k.includes(" "));
+    usedPrompts.clear(); // Reset to allow reuse
+  }
+  
+  // Pick random word from pool
   const computerPick = pool[Math.floor(Math.random() * pool.length)];
   const finalNextKey = bankKeys.find(k => k.toLowerCase() === computerPick.toLowerCase());
   
@@ -4530,11 +4535,10 @@ function submitWord(word) {
   usedPrompts.add(currentWord.toLowerCase());
   usedWords.add(currentWord.toLowerCase());
   currentWordDiv.textContent = currentWord;
-
   startTurn();
   inputWord.placeholder = "Type a related word";
 }
-       
+
 let scoreboardAni = gsap.timeline({
   paused: true,
   repeat: -1,
