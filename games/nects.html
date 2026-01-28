@@ -1007,26 +1007,73 @@
       if (gameState.inTutorial || !gameState.isPlaying || gameState.isPaused) return;
       gameState.roundLocked = false; gameState.casualPlayerSelected = false; gameState.casualOpponentSelected = false;
       if (gameState.rowsTimer) clearInterval(gameState.rowsTimer);
-      if (gameState.availablePlayerEmojis.length === 0) { gameState.availablePlayerEmojis = [...gameState.playerEmojis]; gameState.availableOpponentEmojis = [...gameState.opponentEmojis]; }
-      const ri = Math.floor(Math.random() * gameState.availablePlayerEmojis.length);
-      gameState.currentCall = gameState.availablePlayerEmojis[ri]; gameState.availablePlayerEmojis.splice(ri, 1);
-      const oi = gameState.availableOpponentEmojis.indexOf(gameState.currentCall); if (oi > -1) gameState.availableOpponentEmojis.splice(oi, 1);
+      
+      // LOGIC UPDATE: Better selection for disparate boards
+      let pool = [];
+      const useSharedPool = !gameState.isRowMode || gameState.rowsSameEmoji;
+      
+      if (useSharedPool) {
+        if (gameState.availablePlayerEmojis.length === 0) { 
+           gameState.availablePlayerEmojis = [...gameState.playerEmojis]; 
+           gameState.availableOpponentEmojis = [...gameState.opponentEmojis]; 
+        }
+        pool = gameState.availablePlayerEmojis;
+      } else {
+        // In disparate row mode, pool is combination of both remaining sets
+        if (gameState.availablePlayerEmojis.length === 0 && gameState.availableOpponentEmojis.length === 0) {
+           gameState.availablePlayerEmojis = [...gameState.playerEmojis];
+           gameState.availableOpponentEmojis = [...gameState.opponentEmojis];
+        }
+        pool = [...gameState.availablePlayerEmojis, ...gameState.availableOpponentEmojis];
+      }
+      
+      // Fallback
+      if (pool.length === 0) {
+          gameState.availablePlayerEmojis = [...gameState.playerEmojis];
+          gameState.availableOpponentEmojis = [...gameState.opponentEmojis];
+          pool = [...gameState.availablePlayerEmojis, ...gameState.availableOpponentEmojis];
+      }
+
+      const ri = Math.floor(Math.random() * pool.length);
+      gameState.currentCall = pool[ri];
+      
+      // Remove from availability lists
+      const pi = gameState.availablePlayerEmojis.indexOf(gameState.currentCall);
+      if (pi > -1) gameState.availablePlayerEmojis.splice(pi, 1);
+      
+      const oi = gameState.availableOpponentEmojis.indexOf(gameState.currentCall);
+      if (oi > -1) gameState.availableOpponentEmojis.splice(oi, 1);
+      
+      // UI Update
       $('#called-emoji').text(gameState.currentCall);
       gsap.fromTo('#called-emoji', { scale: 0, rotation: -180 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(1.7)' });
       
       if (gameState.freeSpotActive && gameState.freeSpotIndex !== null) {
         setTimeout(() => { if (!gameState.roundLocked && !gameState.playerSelected[gameState.freeSpotIndex]) { gameState.playerSelected[gameState.freeSpotIndex] = true; $(`#player-board .board-cell`).eq(gameState.freeSpotIndex).addClass('selected').removeClass('free-spot-marked'); showNotification('🎁 Free spot!', 'player'); if (checkWin('player')) { handleRoundWin('player'); return; } } gameState.freeSpotActive = false; gameState.freeSpotIndex = null; }, 200);
       }
+      
       if (gameState.isRowMode) { const times = { easy: 10, normal: 5, hard: 3, insane: 2 }; startRowsTimer(times[gameState.difficulty]); }
       if (gameState.gameMode !== 'casual') scheduleOpponentTurn(); else scheduleCasualOpponent();
       maybeOpponentCheat();
     }
     
-    // FIXED Slower opponent for Easy/Normal
+    // FIXED Slower opponent for Easy/Normal and Mess up logic
     function scheduleOpponentTurn() {
       const base = { easy: 3500, normal: 2200, hard: 1200, insane: 900 };
       const ranges = { easy: 2000, normal: 1200, hard: 500, insane: 200 };
-      const delay = base[gameState.difficulty] + Math.random() * ranges[gameState.difficulty] + (Math.random() < 0.3 ? Math.random() * 500 : 0);
+      let delay = base[gameState.difficulty] + Math.random() * ranges[gameState.difficulty] + (Math.random() < 0.3 ? Math.random() * 500 : 0);
+      
+      // LOGIC UPDATE: Opponent mess up chance in Row Mode
+      if (gameState.isRowMode) {
+          const missChance = { easy: 0.3, normal: 0.15, hard: 0.05, insane: 0 };
+          const timerVal = { easy: 10, normal: 5, hard: 3, insane: 2 }[gameState.difficulty] * 1000;
+          
+          if (Math.random() < missChance[gameState.difficulty]) {
+              // Intentionally delay beyond timer to simulate "couldn't find it"
+              delay = timerVal + 1000; 
+          }
+      }
+      
       gameState.opponentTimeout = setTimeout(() => handleOpponentTurn(), delay);
     }
     
