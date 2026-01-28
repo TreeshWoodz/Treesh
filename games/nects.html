@@ -36,6 +36,7 @@
       --neon-green: #00ff88;
       --neon-pink: #ff00ff;
       --neon-orange: #ff6b35;
+      --danger: #ff4444;
       
       /* Fonts */
       --main-font: "Exo 2", sans-serif;
@@ -66,6 +67,7 @@
     @keyframes winPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
     @keyframes confetti { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
     @keyframes splatDrip { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
     
     html, body { width: 100%; height: 100%; overflow: hidden; position: fixed; }
     
@@ -99,30 +101,17 @@
         opacity: 0;
     }
 
-    .intro-brand {
-        font-family: var(--info-font);
-        font-size: 1rem;
-        letter-spacing: 5px;
-        color: rgba(255, 255, 255, 0.5);
+    .intro-logo-container {
         margin-bottom: 20px;
         opacity: 0;
-    }
-
-    .intro-title-container {
-        display: flex;
-        gap: 5px;
-        perspective: 1000px;
+        transform: scale(0.5);
     }
     
-    .intro-letter {
-        font-family: var(--display-font);
-        font-size: 4rem;
-        font-weight: 900;
-        color: white;
-        text-shadow: 0 0 20px var(--primary-accent);
-        opacity: 0;
-        display: inline-block;
-        transform-origin: center;
+    .intro-logo-container img {
+        width: 180px;
+        height: auto;
+        filter: drop-shadow(0 0 30px var(--primary-accent));
+        animation: logoGlow 3s ease-in-out infinite;
     }
 
     .intro-loader-bar {
@@ -233,12 +222,122 @@
     #game { width: 100%; height: 100%; background: var(--ui-glass); padding: 10px; position: fixed; top: 0; left: 0; z-index: 10; display: none; overflow: hidden; }
     #game.active { display: flex; flex-direction: column; }
     
-    .game-content { width: 100%; max-width: 500px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+    /* Layout Logic for Responsive Design */
+    .game-content { 
+        width: 100%; 
+        max-width: 500px; 
+        height: 100%; 
+        margin: 0 auto; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 8px; 
+        overflow: hidden; 
+        transition: max-width 0.3s ease;
+    }
     
-    #call { text-align: center; flex-shrink: 0; padding: 5px 0; }
+    /* DESKTOP LAYOUT (Landscape) */
+    @media (min-width: 1024px) {
+        .game-content {
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr 300px 1fr;
+            grid-template-rows: 1fr;
+            gap: 20px;
+            padding: 20px;
+            align-items: center;
+        }
+        
+        #slide-container {
+            grid-column: 1 / -1; /* Reset logic handled below */
+            display: contents; /* Removes the container from flow, letting children use grid */
+        }
+        
+        #slide {
+            display: contents; /* Removes flex slider logic */
+            transform: none !important;
+            width: auto !important;
+        }
+
+        /* Order: Player Left, Info Center, Opponent Right */
+        #player-slide { grid-column: 1; order: 1; }
+        .game-center-panel { grid-column: 2; order: 2; display: flex !important; flex-direction: column; justify-content: center; height: 100%; }
+        #opponent-slide { grid-column: 3; order: 3; }
+
+        .slide { width: 100% !important; padding: 0 !important; }
+        
+        #call { display: none; } /* Move call logic to center panel */
+        .view-toggle { display: none; }
+        
+        /* Desktop specific adjustments */
+        .game_bar { margin-top: auto; }
+        .board-cell { font-size: 2rem !important; }
+    }
+    
+    /* MOBILE HEADER */
+    #call { text-align: center; flex-shrink: 0; padding: 5px 0; position: relative; }
     #call h3 { background: linear-gradient(135deg, var(--neon-pink), var(--primary-accent)); display: inline-block; padding: 4px 14px; font-weight: 600; border-radius: 20px; font-size: 0.8rem; font-family: var(--info-font); box-shadow: 0 4px 15px rgba(0,0,0, 0.4); margin-bottom: 5px; }
-    #call h1 { font-size: 3rem; background: rgba(0, 0, 0, 0.3); border-radius: 50%; width: 80px; height: 80px; line-height: 80px; margin: 5px auto; box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3), 0 0 40px rgba(255, 215, 0, 0.4); animation: starGlow 2s ease-in-out infinite; }
     
+    /* Redesigned Call Container with Flexbox */
+    .call-container { 
+        position: relative; 
+        width: 100%;
+        margin: 10px auto; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        gap: 20px; /* Separates Emoji and Mini Map */
+    }
+    
+    /* Redesigned Called Emoji Card */
+    #called-emoji { 
+        font-size: 4rem; 
+        width: 100px; 
+        height: 100px; 
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.3) 100%);
+        border: 3px solid var(--gold);
+        border-radius: 20px;
+        line-height: 94px; /* Vertically center based on height - border */
+        margin: 0; 
+        box-shadow: 0 0 25px rgba(255, 215, 0, 0.4), inset 0 0 20px rgba(255, 215, 0, 0.1);
+        animation: starGlow 2s ease-in-out infinite; 
+        z-index: 5; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Mini Opponent Preview (Flex Item) */
+    .mini-opponent-preview {
+        position: relative; /* Not absolute anymore */
+        width: 80px; /* Slightly bigger */
+        height: 80px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid var(--opponent-accent);
+        border-radius: 12px;
+        z-index: 4;
+        cursor: pointer;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        transition: transform 0.2s;
+    }
+    .mini-opponent-preview:active { transform: scale(0.9); }
+    .mini-opponent-preview .mini-grid {
+        display: grid;
+        width: 100%;
+        height: 100%;
+        gap: 1px;
+    }
+    .mini-cell {
+        background: var(--opponent-secondary);
+        border-radius: 1px;
+    }
+    .mini-cell.selected { background: var(--gold); }
+    
+    @media (min-width: 1024px) { .mini-opponent-preview { display: none; } }
+
     /* Rows Timer */
     .rows-timer { display: none; justify-content: center; align-items: center; gap: 10px; margin-top: 5px; }
     .rows-timer.active { display: flex; }
@@ -263,6 +362,10 @@
       margin-bottom: 8px; 
     }
     
+    .opponent_container { 
+      top:-20px;
+    }
+    
     .board-cell {
       background: linear-gradient(135deg, var(--player-primary), var(--player-secondary));
       border-radius: 10px; display: flex; align-items: center; justify-content: center;
@@ -276,7 +379,14 @@
     .board-cell.selected { background: linear-gradient(135deg, var(--gold), var(--neon-orange)); box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 50px rgba(255, 107, 53, 0.5); border-color: rgba(255, 215, 0, 0.8); animation: pulse 1s ease-in-out infinite; }
     .board-cell.winning { background: linear-gradient(90deg, #ffd700, #fff, #ffd700); background-size: 200% 100%; animation: shimmer 1s linear infinite; }
     .board-cell.free-spot-marked { border: 3px solid var(--neon-green) !important; box-shadow: 0 0 20px var(--neon-green); }
-    .board-cell.tutorial-highlight { animation: borderGlow 1.5s ease-in-out infinite !important; z-index: 600 !important; position: relative; }
+    
+    /* Tutorial Spotlight Highlight */
+    .board-cell.tutorial-highlight, .tutorial-highlight { 
+        position: relative;
+        z-index: 10002 !important; 
+        box-shadow: 0 0 0 4000px rgba(0,0,0,0.85), 0 0 30px var(--gold) !important;
+        pointer-events: auto !important;
+    }
     
     /* Splat Effect */
     .board-cell.splatted { pointer-events: none; cursor: not-allowed; }
@@ -286,7 +396,12 @@
     .splat-timer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: var(--info-font); font-size: 4rem; color: white; text-shadow: 0 0 20px rgba(255, 0, 100, 0.8); z-index: 1000; display: none; pointer-events: none; }
     .splat-timer.active { display: block; }
     
-    .game_bar { background: rgba(0, 0, 0, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; padding: 8px; flex-shrink: 0; }
+    .game_bar { background: rgba(0, 0, 0, 0.4); border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 12px; padding: 8px; flex-shrink: 0; width: 100%; }
+    
+    #opponent-slide .game_bar { 
+      transform:translate3d(0, -40px, 0);
+    }
+    
     .scoreboard { display: flex; justify-content: space-around; margin-bottom: 8px; gap: 4px; }
     .scoreboard p { font-size: 0.65rem; font-family: var(--info-font); font-weight: 600; background: linear-gradient(135deg, rgba(30, 58, 138, 0.5), rgba(107, 63, 160, 0.5)); padding: 5px 8px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.15); flex: 1; text-align: center; }
     .scoreboard span { color: var(--gold); font-size: 0.85rem; display: block; margin-top: 2px; }
@@ -304,6 +419,64 @@
     .forfeit button { width: 100%; background: linear-gradient(135deg, rgba(224, 42, 73, 0.7), rgba(139, 0, 0, 0.7)); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 10px; color: white; padding: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: var(--main-font); transition: all 0.2s ease; }
     .forfeit button:hover { box-shadow: 0 0 20px rgba(224, 42, 73, 0.5); }
     
+    /* --- NEW WIN MODAL --- */
+    .win-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.92); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; overflow: hidden; backdrop-filter: blur(5px); }
+    .win-overlay.active { display: flex; }
+    
+    .win-modal {
+        background: linear-gradient(135deg, var(--bg-gradient-inner), var(--bg-gradient-outer));
+        border: 4px solid var(--gold);
+        border-radius: 30px;
+        padding: 40px;
+        width: 100%;
+        max-width: 500px;
+        text-align: center;
+        box-shadow: 0 0 60px rgba(255, 215, 0, 0.4);
+        position: relative;
+        animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+    
+    .win-modal.opponent-win { border-color: var(--danger); box-shadow: 0 0 60px rgba(255, 68, 68, 0.4); }
+    
+    .win-icon { font-size: 5rem; margin-bottom: 20px; display: inline-block; filter: drop-shadow(0 0 30px rgba(255,255,255,0.5)); animation: float 2s ease-in-out infinite; }
+    
+    .win-title {
+        font-family: var(--display-font);
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        background: linear-gradient(135deg, var(--gold), #fff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+    .opponent-win .win-title { background: linear-gradient(135deg, var(--danger), #ff8888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    .win-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+    .win-score-box { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); }
+    .win-score-box .label { font-size: 0.8rem; opacity: 0.7; margin-bottom: 5px; font-family: var(--info-font); }
+    .win-score-box .value { font-size: 1.5rem; font-weight: 700; color: white; }
+    .win-total-score { font-size: 1.2rem; color: var(--gold); margin: 20px 0; font-family: var(--info-font); padding: 10px; border-top: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); }
+    
+    .win-actions { display: flex; gap: 10px; justify-content: center; margin-top: 25px; }
+    .win-btn { padding: 12px 25px; border-radius: 25px; border: none; font-weight: 700; cursor: pointer; font-family: var(--main-font); transition: transform 0.2s; }
+    .win-btn:hover { transform: scale(1.05); }
+    .btn-play { background: linear-gradient(135deg, var(--neon-green), #00aa55); color: #000; box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4); }
+    .btn-menu { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+
+    .confetti { position: absolute; width: 10px; height: 10px; background: var(--gold); animation: confetti 3s linear forwards; }
+    
+    /* Tutorial Styling */
+    .tutorial-tooltip { position: fixed; background: linear-gradient(135deg, rgba(255, 215, 0, 0.98), rgba(255, 107, 53, 0.98)); color: #000; padding: 18px 22px; border-radius: 18px; font-family: var(--main-font); font-weight: 600; font-size: 0.95rem; max-width: 300px; z-index: 10005; box-shadow: 0 0 50px rgba(255, 215, 0, 0.9), 0 10px 40px rgba(0, 0, 0, 0.5); display: none; animation: tooltipBounce 2s ease-in-out infinite; border: 3px solid rgba(255, 255, 255, 0.5); }
+    .tutorial-tooltip::after { content: ''; position: absolute; border: 12px solid transparent; }
+    .tutorial-tooltip.arrow-down::after { bottom: -24px; left: 50%; transform: translateX(-50%); border-top-color: rgba(255, 180, 0, 0.98); }
+    .tutorial-tooltip.arrow-up::after { top: -24px; left: 50%; transform: translateX(-50%); border-bottom-color: rgba(255, 215, 0, 0.98); }
+    .tutorial-tooltip .tooltip-buttons { display: flex; gap: 8px; margin-top: 15px; justify-content: center; }
+    .tutorial-tooltip button { background: rgba(0, 0, 0, 0.85); color: white; border: none; padding: 10px 20px; border-radius: 25px; font-size: 0.9rem; font-weight: 700; cursor: pointer; font-family: var(--main-font); }
+    .tutorial-tooltip button:hover { background: rgba(0, 0, 0, 1); transform: scale(1.05); }
+    .tutorial-tooltip button.skip-btn { background: rgba(100, 100, 100, 0.85); }
+    
+    /* Generic Popup */
     .popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
     .popup-overlay.active { display: flex; }
     .popup-box { background: linear-gradient(135deg, var(--bg-gradient-inner), var(--bg-gradient-outer)); border: 3px solid var(--primary-accent); border-radius: 20px; padding: 30px; max-width: 450px; width: 100%; text-align: center; box-shadow: 0 0 50px var(--primary-accent); }
@@ -319,31 +492,6 @@
     .notification { background: linear-gradient(135deg, rgba(26, 10, 46, 0.95), rgba(10, 10, 26, 0.95)); border: 2px solid var(--secondary-accent); border-radius: 15px; padding: 12px 20px; text-align: center; font-family: var(--main-font); font-weight: 600; box-shadow: 0 0 30px rgba(0, 255, 255, 0.4); pointer-events: auto; }
     .notification.player-notif { border-color: var(--neon-green); box-shadow: 0 0 30px rgba(0, 255, 136, 0.4); }
     .notification.opponent-notif { border-color: var(--neon-orange); box-shadow: 0 0 30px rgba(255, 107, 53, 0.4); }
-    
-    /* REDESIGNED Win Overlay */
-    .win-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.92); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; overflow: hidden; }
-    .win-overlay.active { display: flex; }
-    .win-message { background: linear-gradient(135deg, rgba(26, 10, 46, 0.95), rgba(10, 10, 26, 0.95)); padding: 40px 50px; border-radius: 30px; text-align: center; font-family: var(--display-font); font-size: 1.5rem; color: white; position: relative; animation: winPulse 1s ease-in-out infinite; }
-    .win-message.player-win { border: 4px solid var(--gold); box-shadow: 0 0 60px rgba(255, 215, 0, 0.6), 0 0 100px rgba(0, 255, 136, 0.4); }
-    .win-message.player-win::before { content: '🎉'; font-size: 3rem; display: block; margin-bottom: 15px; animation: float 1s ease-in-out infinite; }
-    .win-message.player-win::after { content: '🎉'; font-size: 3rem; display: block; margin-top: 15px; animation: float 1s ease-in-out infinite 0.5s; }
-    .win-message.opponent-win { border: 4px solid var(--opponent-accent); box-shadow: 0 0 60px rgba(255, 68, 68, 0.6); }
-    .win-message.opponent-win::before { content: '🤖'; font-size: 3rem; display: block; margin-bottom: 15px; }
-    .win-message .win-text { background: linear-gradient(135deg, var(--gold), var(--neon-orange)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .win-message.opponent-win .win-text { background: linear-gradient(135deg, var(--neon-orange), var(--neon-pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .confetti { position: absolute; width: 10px; height: 10px; background: var(--gold); animation: confetti 3s linear forwards; }
-    
-    .tutorial-tooltip { position: fixed; background: linear-gradient(135deg, rgba(255, 215, 0, 0.98), rgba(255, 107, 53, 0.98)); color: #000; padding: 18px 22px; border-radius: 18px; font-family: var(--main-font); font-weight: 600; font-size: 0.95rem; max-width: 300px; z-index: 700; box-shadow: 0 0 50px rgba(255, 215, 0, 0.9), 0 10px 40px rgba(0, 0, 0, 0.5); display: none; animation: tooltipBounce 2s ease-in-out infinite; border: 3px solid rgba(255, 255, 255, 0.5); }
-    .tutorial-tooltip::after { content: ''; position: absolute; border: 12px solid transparent; }
-    .tutorial-tooltip.arrow-down::after { bottom: -24px; left: 50%; transform: translateX(-50%); border-top-color: rgba(255, 180, 0, 0.98); }
-    .tutorial-tooltip.arrow-up::after { top: -24px; left: 50%; transform: translateX(-50%); border-bottom-color: rgba(255, 215, 0, 0.98); }
-    .tutorial-tooltip .tooltip-buttons { display: flex; gap: 8px; margin-top: 15px; justify-content: center; }
-    .tutorial-tooltip button { background: rgba(0, 0, 0, 0.85); color: white; border: none; padding: 10px 20px; border-radius: 25px; font-size: 0.9rem; font-weight: 700; cursor: pointer; font-family: var(--main-font); }
-    .tutorial-tooltip button:hover { background: rgba(0, 0, 0, 1); transform: scale(1.05); }
-    .tutorial-tooltip button.skip-btn { background: rgba(100, 100, 100, 0.85); }
-    
-    .tutorial-dim { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 500; display: none; }
-    .tutorial-dim.active { display: block; }
     
     /* REDESIGNED How to Play */
     #tutorial { width: 100%; height: 100%; overflow-y: auto; background: var(--ui-glass); padding: 20px; position: fixed; top: 0; left: 0; z-index: 200; display: none; }
@@ -405,21 +553,6 @@
     .stat-card .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--gold); font-family: var(--info-font); }
     .stats-close { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, rgba(80, 80, 100, 0.9), rgba(50, 50, 70, 0.9)); color: white; border: 2px solid rgba(255, 255, 255, 0.3); padding: 12px 40px; border-radius: 25px; font-size: 1rem; font-weight: 700; cursor: pointer; z-index: 210; }
     
-    .endgame-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.92); display: none; justify-content: center; align-items: center; z-index: 1100; padding: 20px; }
-    .endgame-overlay.active { display: flex; }
-    .endgame-box { background: linear-gradient(135deg, var(--bg-gradient-inner), var(--bg-gradient-outer)); border: 3px solid var(--gold); border-radius: 25px; padding: 30px; max-width: 450px; width: 100%; text-align: center; box-shadow: 0 0 60px rgba(255, 215, 0, 0.5); }
-    .endgame-box h2 { font-family: var(--title-font); font-size: 1.8rem; color: var(--gold); margin-bottom: 20px; }
-    .endgame-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-    .endgame-player { background: linear-gradient(135deg, var(--player-primary), var(--player-secondary)); border: 2px solid var(--primary-accent); border-radius: 15px; padding: 15px; }
-    .endgame-player.winner { border-color: var(--gold); box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
-    .endgame-player h4 { font-family: var(--info-font); font-size: 0.9rem; margin-bottom: 10px; }
-    .endgame-player .score { font-size: 2rem; font-weight: 700; color: var(--gold); font-family: var(--info-font); }
-    .endgame-stats { text-align: left; margin-bottom: 20px; }
-    .endgame-stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; }
-    .endgame-stat span:last-child { color: var(--gold); font-weight: 600; }
-    .endgame-box button { background: linear-gradient(135deg, var(--primary-accent), var(--neon-pink)); color: white; border: none; padding: 14px 35px; border-radius: 25px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; }
-    .endgame-box button:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(255, 0, 255, 0.5); }
-    
     .color-preview { width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 8px; border: 3px solid rgba(255, 255, 255, 0.3); }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); border-radius: 10px; }
@@ -430,14 +563,11 @@
   <!-- EPIC ANIMATED INTRO SCREEN -->
   <div id="intro-screen">
     <div class="intro-star-bg"></div>
-    <div class="intro-brand">TREESH GAMES</div>
-    <div class="intro-title-container">
-       <span class="intro-letter">N</span>
-       <span class="intro-letter">E</span>
-       <span class="intro-letter">C</span>
-       <span class="intro-letter">T</span>
-       <span class="intro-letter">S</span>
+    <!-- NEW LOGO ANIMATION -->
+    <div class="intro-logo-container">
+        <img src="https://64.media.tumblr.com/a5031fb3214fb741cbbdb94a342829fb/ed3290ac330fa493-14/s1280x1920/a051753678688371e898a3b2745f096f18629c8a.png" alt="Nects Logo">
     </div>
+    <!-- Removed text titles as requested -->
     <div class="intro-loader-bar"><div class="intro-bar-fill"></div></div>
     <div class="intro-tap-text">TAP TO START</div>
   </div>
@@ -599,15 +729,29 @@
   
   <div id="game">
     <div class="game-content">
+      
+      <!-- DESKTOP CENTER PANEL - Hidden on Mobile, populated on Desktop -->
+      <div class="game-center-panel">
+          <!-- Calls and Timer moved here via CSS Grid logic -->
+      </div>
+
       <div id="call">
         <h3>Round <span id="round-number">1</span></h3>
-        <h1 id="called-emoji">🎉</h1>
+        <div class="call-container">
+            <h1 id="called-emoji">🎉</h1>
+            <!-- NEW MINI OPPONENT PREVIEW (Mobile Only) -->
+            <div class="mini-opponent-preview" id="mini-opponent-preview">
+                <div class="mini-grid" id="mini-grid"></div>
+            </div>
+        </div>
         <div class="rows-timer" id="rows-timer">
           <div class="rows-timer-bar"><div class="rows-timer-fill" id="rows-timer-fill"></div></div>
           <span class="rows-timer-text" id="rows-timer-text">10s</span>
         </div>
       </div>
+      
       <div class="view-toggle"><button id="toggle-view">👁️ View Opponent</button></div>
+      
       <div id="slide-container">
         <div id="slide">
           <div class="slide" id="player-slide">
@@ -616,8 +760,8 @@
             <div class="game_bar">
               <div class="scoreboard">
                 <p>🏆 Score<br><span id="player-score">000</span></p>
-                <p>🍀 Win Streak<br><span id="player-streak">000</span></p>
-                <p>🕵️ Cheated<br><span id="player-cheated">000</span></p>
+                <p>🍀 Streak<br><span id="player-streak">000</span></p>
+                <p>🕵️ Cheats<br><span id="player-cheated">000</span></p>
               </div>
               <div class="cheats" id="player-cheats">
                 <button type="button" id="shuffle-btn" data-cheat="shuffle"><i class="fas fa-random"></i><span>Shuffle</span></button>
@@ -636,8 +780,12 @@
             <div class="game_bar">
               <div class="scoreboard">
                 <p>🏆 Score<br><span id="opponent-score">000</span></p>
-                <p>🍀 Win Streak<br><span id="opponent-streak">000</span></p>
-                <p>🕵️ Cheated<br><span id="opponent-cheated">000</span></p>
+                <p>🍀 Streak<br><span id="opponent-streak">000</span></p>
+                <p>🕵️ Cheats<br><span id="opponent-cheated">000</span></p>
+              </div>
+              <!-- OPPONENT CHEATS VIEW -->
+              <div class="cheats" id="opponent-cheats" style="pointer-events: none; opacity: 0.8;">
+                  <!-- Populated by JS -->
               </div>
             </div>
           </div>
@@ -646,8 +794,32 @@
     </div>
   </div>
   
+  <!-- REPLACED OLD WIN OVERLAY WITH NEW MODAL -->
   <div class="win-overlay" id="win-overlay">
-    <div class="win-message" id="win-message"><span class="win-text">YOU WIN!</span></div>
+    <div class="win-modal" id="win-modal">
+        <div class="win-icon" id="win-icon">🏆</div>
+        <div class="win-title" id="win-title">Victory!</div>
+        
+        <div class="win-score-grid">
+            <div class="win-score-box">
+                <div class="label">Round Points</div>
+                <div class="value" id="win-round-pts">1000</div>
+            </div>
+            <div class="win-score-box">
+                <div class="label">Streak Bonus</div>
+                <div class="value" id="win-streak-bonus">+200</div>
+            </div>
+        </div>
+
+        <div class="win-total-score">
+            Total Score: <span id="win-total-score-val">1200</span>
+        </div>
+        
+        <div class="win-actions">
+            <button class="win-btn btn-menu" id="win-btn-menu">Exit</button>
+            <button class="win-btn btn-play" id="win-btn-next">Next Round</button>
+        </div>
+    </div>
   </div>
   
   <div class="popup-overlay" id="popup-overlay">
@@ -660,24 +832,11 @@
   
   <div class="notification-container" id="notification-container"></div>
   
-  <div class="tutorial-dim" id="tutorial-dim"></div>
   <div class="tutorial-tooltip" id="tutorial-tooltip">
     <p id="tooltip-text">Tutorial text</p>
     <div class="tooltip-buttons">
       <button id="tooltip-next">Next</button>
       <button id="tooltip-skip" class="skip-btn">Skip</button>
-    </div>
-  </div>
-  
-  <div class="endgame-overlay" id="endgame-overlay">
-    <div class="endgame-box">
-      <h2>🏁 Match Complete!</h2>
-      <div class="endgame-scores">
-        <div class="endgame-player" id="endgame-player"><h4>👤 You</h4><div class="score" id="endgame-player-score">0</div></div>
-        <div class="endgame-player" id="endgame-opponent"><h4>🤖 Opponent</h4><div class="score" id="endgame-opponent-score">0</div></div>
-      </div>
-      <div class="endgame-stats" id="endgame-stats"></div>
-      <button id="endgame-close">Return to Menu</button>
     </div>
   </div>
   
@@ -752,22 +911,15 @@
     
     function savePlayerData() { saveToStorage('nects_player_data_v2', playerData); }
     
-    function calculateStarlites() {
-      // Starlites are now a saved currency, this function calculates EARNED TOTAL from stats for display purposes in stats screen
-      // Real currency is stored in playerData.starlites
-      return playerData.starlites;
-    }
-    
-    function getModeSpecificStarlites(mode) {
-        // Calculate theoretical starlites earned in a specific mode for stats display
-        const rates = { easy: 0.01, normal: 0.05, hard: 0.15, insane: 0.3, casual: 0.03 };
-        const rate = rates[mode] || 0;
-        return Math.floor(playerData.stats[mode].highScore * rate);
-    }
-    
     function updateStarlitesDisplay() {
       $('#starlites-count').text(playerData.starlites);
       $('#shop-starlites').text(playerData.starlites);
+    }
+    
+    function getModeSpecificStarlites(mode) {
+        const rates = { easy: 0.01, normal: 0.05, hard: 0.15, insane: 0.3, casual: 0.03 };
+        const rate = rates[mode] || 0;
+        return Math.floor(playerData.stats[mode].highScore * rate);
     }
     
     const gameState = {
@@ -777,7 +929,7 @@
       availablePlayerEmojis: [], availableOpponentEmojis: [], currentCall: null, round: 1,
       playerScore: 0, opponentScore: 0, playerStreak: 0, opponentStreak: 0, playerCheated: 0, opponentCheated: 0,
       matchCheatsUsed: { shuffle: false, free: false, swap: false, shake: false, switch: false, splat: false },
-      roundCheatsUsed: false, // NEW: Track if cheat used in CURRENT round for penalty
+      roundCheatsUsed: false,
       freeSpotActive: false, freeSpotIndex: null, isPlaying: false, isPaused: false, roundLocked: false,
       inTutorial: false, tutorialStep: 0, rows: 3, cols: 3, isRowMode: false, opponentCheatCooldown: 0, viewingOpponent: false,
       rowsTimer: null, rowsTimeLeft: 0, opponentTimeout: null, playerSplatted: false, opponentSplatted: false,
@@ -809,33 +961,17 @@
       // 1. Star field fade in
       tl.to('.intro-star-bg', { opacity: 1, duration: 1.5 });
       
-      // 2. Brand Reveal (Glitchy)
-      tl.to('.intro-brand', { opacity: 1, duration: 0.1 });
-      tl.to('.intro-brand', { opacity: 0.2, duration: 0.05 });
-      tl.to('.intro-brand', { opacity: 1, duration: 0.05 });
+      // 2. Logo Reveal (Scale & Glitch Effect)
+      tl.to('.intro-logo-container', { opacity: 1, scale: 1, duration: 0.8, ease: "elastic.out(1, 0.5)" }, "-=0.5");
       
-      // 3. Staggered Title Entry
-      tl.to('.intro-letter', { 
-          opacity: 1, 
-          scale: 1, 
-          startAt: { scale: 3, opacity: 0 },
-          stagger: 0.1, 
-          duration: 0.6, 
-          ease: "back.out(1.7)" 
-      }, "-=0.5");
-
-      // 4. Loader Bar
+      // 3. Loader Bar
       tl.to('.intro-loader-bar', { opacity: 1, duration: 0.5 });
       tl.to('.intro-bar-fill', { width: '100%', duration: 1.5, ease: "power2.inOut" });
       
-      // 5. Light burst on finish load
-      tl.to('.intro-title-container', { textShadow: "0 0 50px #fff", duration: 0.2, yoyo: true, repeat: 1 });
-
       $('#intro-screen').on('click touchstart', function() { 
           if (introReady) { 
               // Exit animation
-              gsap.to('.intro-letter', { y: -100, opacity: 0, stagger: 0.05, duration: 0.5 });
-              gsap.to('.intro-brand', { opacity: 0, duration: 0.5 });
+              gsap.to('.intro-logo-container', { scale: 0, opacity: 0, duration: 0.4 });
               gsap.to('.intro-loader-bar', { width: 0, opacity: 0, duration: 0.3 });
               gsap.to('.intro-tap-text', { opacity: 0, duration: 0.3 });
               gsap.to('#intro-screen', { 
@@ -937,7 +1073,7 @@
     const tutorialSteps = [
       { target: '#call', text: "👆 This shows the emoji to find!", position: 'bottom' },
       { target: '#player-board', text: "🎯 This is your board! Tap the matching emoji.", position: 'top' },
-      { target: '#toggle-view', text: "👁️ Tap to view opponent's board!", position: 'bottom' },
+      { target: '#toggle-view', text: "👁️ Tap to view opponent's board! (Or check the mini-view)", position: 'bottom' },
       { target: '#player-cheats', text: "🔮 Power-ups! Buy more in Shop!", position: 'top' },
       { target: '.scoreboard', text: "📊 Track your score and streak!", position: 'top' },
       { target: null, text: "🏆 Complete a line to win! Good luck!", position: 'center' }
@@ -947,9 +1083,9 @@
     
     function showTutorialStep(step) {
       if (step >= tutorialSteps.length) { endTutorial(); return; }
-      const data = tutorialSteps[step], tt = $('#tutorial-tooltip'), dim = $('#tutorial-dim');
+      const data = tutorialSteps[step], tt = $('#tutorial-tooltip');
       $('.tutorial-highlight').removeClass('tutorial-highlight');
-      dim.addClass('active'); $('#tooltip-text').text(data.text);
+      $('#tooltip-text').text(data.text);
       if (data.target) {
         const t = $(data.target);
         if (t.length) {
@@ -961,15 +1097,28 @@
           else if (data.position === 'top') { top = rect.top - 160; left = rect.left + rect.width/2 - 150; tt.addClass('arrow-down'); }
           left = Math.max(10, Math.min(left, window.innerWidth - 310)); top = Math.max(10, top);
           tt.css({ top, left, transform: 'none', right: 'auto' });
+          
+          // Hack to ensure highlight isn't cut off by overflow:hidden containers during tutorial
+          $('#game, #slide-container').css('overflow', 'visible');
         }
       } else { tt.css({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', right: 'auto' }); tt.removeClass('arrow-up arrow-down arrow-left arrow-right'); }
       tt.show(); gsap.fromTo(tt[0], { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.3 });
     }
     
     function endTutorial() {
-      gameState.inTutorial = false; $('.tutorial-highlight').removeClass('tutorial-highlight'); $('#tutorial-dim').removeClass('active'); $('#tutorial-tooltip').hide();
+      gameState.inTutorial = false; 
+      $('.tutorial-highlight').removeClass('tutorial-highlight'); 
+      $('#tutorial-tooltip').hide();
+      
+      // Reset overflow
+      $('#game').css('overflow', 'hidden');
+      $('#slide-container').css('overflow', 'hidden');
+      
       playerData.playedBefore = true; savePlayerData();
-      gsap.to('#game', { opacity: 0, duration: 0.3, onComplete: () => { $('#game').removeClass('active'); $('#menu').show(); $('#logo').show(); $('#starlites-display').show(); gsap.fromTo('#menu', { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.3 }); }});
+      
+      // START GAME IMMEDIATELY
+      showNotification("Tutorial Complete! Starting Match...", "player");
+      initGame(); // Restart game fresh
     }
     $('#tooltip-next').click(() => { gameState.tutorialStep++; showTutorialStep(gameState.tutorialStep); });
     $('#tooltip-skip').click(() => endTutorial());
@@ -998,7 +1147,7 @@
     function purchaseCheat(id) { 
         const price = cheatPrices[id];
         if (playerData.starlites >= price && !playerData.ownedCheats.includes(id)) { 
-            playerData.starlites -= price; // FIXED: Cost subtraction
+            playerData.starlites -= price; 
             playerData.ownedCheats.push(id); 
             savePlayerData(); 
             showNotification(`Unlocked ${id}!`, 'player'); 
@@ -1010,7 +1159,7 @@
     function purchaseTheme(id) { 
         const th = colorThemes.find(t => t.id === id); 
         if (th && playerData.starlites >= th.price && !playerData.ownedThemes.includes(id)) { 
-            playerData.starlites -= th.price; // FIXED: Cost subtraction
+            playerData.starlites -= th.price;
             playerData.ownedThemes.push(id); 
             savePlayerData(); 
             showNotification(`Unlocked ${th.name}!`, 'player'); 
@@ -1025,7 +1174,6 @@
     function applyColorTheme() { 
         const th = colorThemes.find(t => t.id === playerData.equippedTheme) || colorThemes[0]; 
         
-        // FIXED: Apply entire app color scheme
         document.documentElement.style.setProperty('--player-primary', th.colors[0]); 
         document.documentElement.style.setProperty('--player-secondary', th.colors[1]); 
         document.documentElement.style.setProperty('--player-accent', th.colors[2]);
@@ -1044,7 +1192,6 @@
       const stats = mode === 'all' ? calculateAllTimeStats() : playerData.stats[mode];
       const grid = $('#stats-grid').empty();
       
-      // FIXED: Show mode specific starlites unless in 'all' view
       const starlitesToShow = mode === 'all' ? playerData.starlites : getModeSpecificStarlites(mode);
       
       const items = [
@@ -1087,7 +1234,6 @@
       gameState.availablePlayerEmojis = [...gameState.playerEmojis]; gameState.availableOpponentEmojis = [...gameState.opponentEmojis];
       gameState.playerSelected = new Array(total).fill(false); gameState.opponentSelected = new Array(total).fill(false);
       
-      // FIXED: Streak doesn't reset per round, only resets on loss. Init round vars here.
       gameState.round = 1; 
       gameState.playerScore = 0; 
       gameState.opponentScore = 0; 
@@ -1108,7 +1254,19 @@
       
       gsap.to('#menu', { opacity: 0, scale: 0.9, duration: 0.3, onComplete: () => {
         $('#menu').hide(); $('#logo').hide(); $('#starlites-display').hide(); $('#game').addClass('active');
-        setTimeout(() => { renderBoard('player'); renderBoard('opponent'); updateScoreboard(); gsap.fromTo('#game', { opacity: 0 }, { opacity: 1, duration: 0.3 }); }, 50);
+        
+        // Setup Desktop Layout logic if needed
+        if (window.innerWidth >= 1024) {
+            setupDesktopLayout();
+        }
+
+        setTimeout(() => { 
+            renderBoard('player'); 
+            renderBoard('opponent'); 
+            updateMiniPreview(); // Init Mini Preview
+            updateScoreboard(); 
+            gsap.fromTo('#game', { opacity: 0 }, { opacity: 1, duration: 0.3 }); 
+        }, 50);
       }});
       
       gameState.isPlaying = true; gameState.inTutorial = isTutorial;
@@ -1119,11 +1277,44 @@
       else { gameState.currentCall = gameState.playerEmojis[0]; $('#called-emoji').text(gameState.currentCall); }
     }
     
+    function setupDesktopLayout() {
+        const centerPanel = $('.game-center-panel');
+        if (centerPanel.is(':empty')) {
+            // Move Call, Timer and Stats Logic to center for Desktop
+            $('#call').clone().appendTo(centerPanel).attr('id', 'desktop-call').css('display', 'block');
+            $('#toggle-view').hide();
+        }
+    }
+    
     function setupCheatsUI() {
       const allowed = gameState.difficulty === 'easy' || gameState.difficulty === 'normal';
       const cc = $('#player-cheats');
-      if (!allowed) cc.addClass('hidden');
-      else { cc.removeClass('hidden'); cc.find('button').each(function() { const id = $(this).data('cheat'), owned = playerData.ownedCheats.includes(id), used = gameState.matchCheatsUsed[id]; $(this).removeClass('locked used').prop('disabled', false); if (!owned) $(this).addClass('locked').prop('disabled', true); else if (used) $(this).addClass('used').prop('disabled', true); }); }
+      const occ = $('#opponent-cheats');
+      
+      // Clear opponent cheats to refresh
+      occ.empty();
+      
+      if (!allowed) {
+          cc.addClass('hidden');
+          occ.addClass('hidden');
+      } else { 
+          cc.removeClass('hidden'); 
+          occ.removeClass('hidden');
+          
+          // Setup Player Cheats
+          cc.find('button').each(function() { 
+              const id = $(this).data('cheat'), owned = playerData.ownedCheats.includes(id), used = gameState.matchCheatsUsed[id]; 
+              $(this).removeClass('locked used').prop('disabled', false); 
+              if (!owned) $(this).addClass('locked').prop('disabled', true); 
+              else if (used) $(this).addClass('used').prop('disabled', true); 
+              
+              // Duplicate to Opponent Cheats (Visual only)
+              // Assuming opponent has standard access or same as player for visual symmetry
+              const oppBtn = $(this).clone();
+              oppBtn.prop('id', 'opp-cheat-' + id); // Unique ID
+              occ.append(oppBtn);
+          }); 
+      }
     }
     
     function renderBoard(type) {
@@ -1143,8 +1334,16 @@
       const cols = gameState.cols;
       const rows = gameState.rows;
       
-      const maxW = (maxWidth - (gap * (cols - 1))) / cols;
-      const maxH = (maxHeight - (gap * (rows - 1))) / rows;
+      // Responsive Cell Sizing
+      let maxW, maxH;
+      if (window.innerWidth >= 1024) {
+          // Desktop specific sizing
+          maxW = (300 - (gap * (cols - 1))) / cols; // Fixed column width roughly
+          maxH = (300 - (gap * (rows - 1))) / rows;
+      } else {
+          maxW = (maxWidth - (gap * (cols - 1))) / cols;
+          maxH = (maxHeight - (gap * (rows - 1))) / rows;
+      }
       
       let cellSize = Math.min(maxW, maxH);
       cellSize = Math.max(35, Math.min(cellSize, 85));
@@ -1183,7 +1382,7 @@
         
         if (type === 'player') {
             cell.click(function() { 
-                if (gameState.inTutorial) return; 
+                if (gameState.inTutorial && !$(this).hasClass('tutorial-highlight') && gameState.tutorialStep === 1) return; // Restrict clicks in tutorial
                 if (gameState.playerSplatted) { showNotification('❌ Board splatted!', 'info'); return; } 
                 handlePlayerClick($(this).data('index')); 
             });
@@ -1194,7 +1393,30 @@
         gsap.fromTo(cell[0], { scale: 0 }, { scale: 1, duration: 0.3, delay: i * 0.02, ease: 'back.out(1.5)' });
       }
     }
+
+    // Mini Map Logic
+    function updateMiniPreview() {
+        const grid = $('#mini-grid');
+        grid.empty();
+        const rows = gameState.rows;
+        const cols = gameState.cols;
+        
+        grid.css({
+            'grid-template-columns': `repeat(${cols}, 1fr)`,
+            'grid-template-rows': `repeat(${rows}, 1fr)`
+        });
+        
+        for (let i = 0; i < gameState.opponentBoard.length; i++) {
+            const cell = $('<div class="mini-cell"></div>');
+            if (gameState.opponentSelected[i]) cell.addClass('selected');
+            grid.append(cell);
+        }
+    }
     
+    $('#mini-opponent-preview').click(function() {
+        $('#toggle-view').click();
+    });
+
     function startRowsTimer(duration) {
       gameState.rowsTimeLeft = duration; $('#rows-timer-text').text(`${duration}s`); $('#rows-timer-fill').css('width', '100%');
       const startTime = Date.now(), totalDuration = duration * 1000;
@@ -1202,7 +1424,12 @@
         if (gameState.isPaused) return;
         const elapsed = Date.now() - startTime, remaining = Math.max(0, totalDuration - elapsed);
         const seconds = Math.ceil(remaining / 1000), percent = (remaining / totalDuration) * 100;
-        gameState.rowsTimeLeft = seconds; $('#rows-timer-text').text(`${seconds}s`); $('#rows-timer-fill').css('width', `${percent}%`);
+        gameState.rowsTimeLeft = seconds; 
+        
+        // Update both mobile and desktop timers
+        $('.rows-timer-text').text(`${seconds}s`); 
+        $('.rows-timer-fill').css('width', `${percent}%`);
+        
         if (remaining <= 0) { clearInterval(gameState.rowsTimer); if (!gameState.roundLocked) { gameState.roundLocked = true; showNotification('⏰ Time\'s up!', 'info'); setTimeout(() => makeCall(), 1000); } }
       }, 100);
     }
@@ -1244,8 +1471,9 @@
       const oi = gameState.availableOpponentEmojis.indexOf(gameState.currentCall);
       if (oi > -1) gameState.availableOpponentEmojis.splice(oi, 1);
       
-      $('#called-emoji').text(gameState.currentCall);
-      gsap.fromTo('#called-emoji', { scale: 0, rotation: -180 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(1.7)' });
+      // Update ALL called emoji displays (mobile + desktop)
+      $('[id="called-emoji"]').text(gameState.currentCall);
+      gsap.fromTo('[id="called-emoji"]', { scale: 0, rotation: -180 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(1.7)' });
       
       if (gameState.freeSpotActive && gameState.freeSpotIndex !== null) {
         setTimeout(() => { if (!gameState.roundLocked && !gameState.playerSelected[gameState.freeSpotIndex]) { gameState.playerSelected[gameState.freeSpotIndex] = true; $(`#player-board .board-cell`).eq(gameState.freeSpotIndex).addClass('selected').removeClass('free-spot-marked'); showNotification('🎁 Free spot!', 'player'); if (checkWin('player')) { handleRoundWin('player'); return; } } gameState.freeSpotActive = false; gameState.freeSpotIndex = null; }, 200);
@@ -1277,7 +1505,13 @@
       gameState.opponentTimeout = setTimeout(() => {
         if (gameState.isPaused || gameState.roundLocked || gameState.opponentSplatted) return;
         const idx = gameState.opponentBoard.indexOf(gameState.currentCall);
-        if (idx !== -1 && !gameState.opponentSelected[idx]) { gameState.opponentSelected[idx] = true; $(`#opponent-board .board-cell`).eq(idx).addClass('selected'); gameState.casualOpponentSelected = true; if (gameState.casualPlayerSelected) resolveCasualRound(); }
+        if (idx !== -1 && !gameState.opponentSelected[idx]) { 
+            gameState.opponentSelected[idx] = true; 
+            $(`#opponent-board .board-cell`).eq(idx).addClass('selected'); 
+            updateMiniPreview();
+            gameState.casualOpponentSelected = true; 
+            if (gameState.casualPlayerSelected) resolveCasualRound(); 
+        }
       }, delay);
     }
     
@@ -1296,7 +1530,6 @@
         const cell = $(`#player-board .board-cell`).eq(index); cell.addClass('selected');
         gsap.to(cell[0], { scale: 1.2, duration: 0.15, onComplete: () => gsap.to(cell[0], { scale: 1, duration: 0.15 }) });
         
-        // FIXED: NO score added here. Only add on round win.
         if (checkWin('player')) handleRoundWin('player'); else setTimeout(() => makeCall(), 800);
       }
     }
@@ -1317,8 +1550,8 @@
         gameState.opponentSelected[idx] = true; gameState.roundLocked = true;
         if (gameState.rowsTimer) clearInterval(gameState.rowsTimer);
         $(`#opponent-board .board-cell`).eq(idx).addClass('selected');
+        updateMiniPreview();
         
-        // FIXED: No score added here.
         if (checkWin('opponent')) handleRoundWin('opponent'); else setTimeout(() => makeCall(), 800);
       }
     }
@@ -1330,7 +1563,18 @@
       const progress = countWinProgress('player'), urgency = progress >= 0.6 ? 0.2 : 0;
       if (Math.random() < chance + urgency) {
         const cheats = ['shuffle', 'shake'], cheat = cheats[Math.floor(Math.random() * cheats.length)];
-        setTimeout(() => { if (gameState.isPaused) return; if (cheat === 'shuffle') opponentShuffleBoard(); else opponentShakePlayer(); gameState.opponentCheated++; gameState.opponentCheatCooldown = 3 + Math.floor(Math.random() * 3); updateScoreboard(); }, 500 + Math.random() * 1000);
+        setTimeout(() => { 
+            if (gameState.isPaused) return; 
+            if (cheat === 'shuffle') opponentShuffleBoard(); 
+            else opponentShakePlayer(); 
+            
+            // Mark visually used on opponent board
+            $(`#opp-cheat-${cheat}`).addClass('used').prop('disabled', true);
+            
+            gameState.opponentCheated++; 
+            gameState.opponentCheatCooldown = 3 + Math.floor(Math.random() * 3); 
+            updateScoreboard(); 
+        }, 500 + Math.random() * 1000);
       }
     }
     
@@ -1342,7 +1586,7 @@
       for (let co = 0; co < cols; co++) { let c = 0; for (let r = 0; r < rows; r++) if (sel[r * cols + co]) c++; mp = Math.max(mp, c / wl); }
       return mp;
     }
-    function opponentShuffleBoard() { const ui = []; for (let i = 0; i < gameState.opponentBoard.length; i++) if (!gameState.opponentSelected[i]) ui.push(i); const ue = ui.map(i => gameState.opponentBoard[i]), sh = shuffleArray(ue); ui.forEach((idx, i) => { gameState.opponentBoard[idx] = sh[i]; }); renderBoard('opponent'); showNotification('🤖 Opponent shuffled!', 'opponent'); }
+    function opponentShuffleBoard() { const ui = []; for (let i = 0; i < gameState.opponentBoard.length; i++) if (!gameState.opponentSelected[i]) ui.push(i); const ue = ui.map(i => gameState.opponentBoard[i]), sh = shuffleArray(ue); ui.forEach((idx, i) => { gameState.opponentBoard[idx] = sh[i]; }); renderBoard('opponent'); updateMiniPreview(); showNotification('🤖 Opponent shuffled!', 'opponent'); }
     function opponentShakePlayer() { const ui = []; for (let i = 0; i < gameState.playerBoard.length; i++) if (!gameState.playerSelected[i]) ui.push(i); const ue = ui.map(i => gameState.playerBoard[i]), sh = shuffleArray(ue); ui.forEach((idx, i) => { gameState.playerBoard[idx] = sh[i]; }); renderBoard('player'); showNotification('🤖 Opponent shook you!', 'opponent'); }
     
     function checkWin(type) {
@@ -1369,62 +1613,73 @@
         if (selected[index]) $(this).addClass('winning');
       });
 
-      // FIXED: Scoring logic moved here.
-      // Score = Base (1000) + (Streak * 200).
       let roundPoints = 1000;
+      let streakBonus = 0;
       
       if (winner === 'player') {
           gameState.playerStreak++; 
-          gameState.opponentStreak = 0; // Reset opponent streak
-          roundPoints += (gameState.playerStreak * 200);
+          gameState.opponentStreak = 0; 
+          streakBonus = (gameState.playerStreak * 200);
+          roundPoints += streakBonus;
           
-          // FIXED: Row Mode Halved Points
           if (gameState.isRowMode) roundPoints = Math.floor(roundPoints * 0.5);
-          
-          // FIXED: Cheat usage in round halved points
           if (gameState.roundCheatsUsed) roundPoints = Math.floor(roundPoints * 0.5);
 
           gameState.playerScore += roundPoints;
       } else {
           gameState.opponentStreak++;
-          gameState.playerStreak = 0; // Reset player streak
+          gameState.playerStreak = 0;
           roundPoints += (gameState.opponentStreak * 200);
-          
-           // AI doesn't get penalized for row mode/cheats usually, but let's keep it fair
-           if (gameState.isRowMode) roundPoints = Math.floor(roundPoints * 0.5);
-           
+          if (gameState.isRowMode) roundPoints = Math.floor(roundPoints * 0.5);
           gameState.opponentScore += roundPoints;
       }
       
       updateScoreboard();
       
-      const winMessage = $('#win-message');
-      winMessage.removeClass('player-win opponent-win');
+      // NEW WIN MODAL POPUP
+      const winModal = $('#win-modal');
+      const winOverlay = $('#win-overlay');
+      
+      winModal.removeClass('opponent-win');
       
       if (winner === 'player') {
-        winMessage.addClass('player-win');
-        winMessage.find('.win-text').text('YOU WIN!');
+        $('#win-icon').text('🏆');
+        $('#win-title').text('YOU WON!');
+        $('#win-round-pts').text(roundPoints);
+        $('#win-streak-bonus').text(streakBonus > 0 ? '+' + streakBonus : '0');
         createConfetti();
-        // Earn currency immediately on win
         const starlitesEarned = Math.floor(roundPoints * 0.05);
         playerData.starlites += starlitesEarned;
         updateStarlitesDisplay();
       } else {
-        winMessage.addClass('opponent-win');
-        winMessage.find('.win-text').text('OPPONENT WINS!');
+        winModal.addClass('opponent-win');
+        $('#win-icon').text('☠️');
+        $('#win-title').text('DEFEAT');
+        $('#win-round-pts').text('0'); // Player gets 0
+        $('#win-streak-bonus').text('0');
       }
       
-      $('#win-overlay').addClass('active');
-      gsap.fromTo('#win-message', { scale: 0, rotation: -10 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(1.7)' });
+      $('#win-total-score-val').text(gameState.playerScore);
+      
+      winOverlay.addClass('active');
       
       const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
       playerData.stats[statKey].roundsPlayed++;
       playerData.stats[statKey].longestStreak = Math.max(playerData.stats[statKey].longestStreak, winner === 'player' ? gameState.playerStreak : 0);
       if (winner === 'player') playerData.stats[statKey].highScore = Math.max(playerData.stats[statKey].highScore, gameState.playerScore);
       savePlayerData();
-      
-      setTimeout(() => { $('#win-overlay').removeClass('active'); startNextRound(); }, 2500);
     }
+
+    // Win Modal Actions
+    $('#win-btn-next').click(function() {
+        $('#win-overlay').removeClass('active');
+        startNextRound();
+    });
+    
+    $('#win-btn-menu').click(function() {
+        $('#win-overlay').removeClass('active');
+        endMatch();
+    });
     
     function createConfetti() {
       const colors = ['#ffd700', '#ff6b35', '#00ff88', '#00ffff', '#ff00ff', '#b24bf3'];
@@ -1438,7 +1693,7 @@
     
     function startNextRound() {
       gameState.round++;
-      gameState.roundCheatsUsed = false; // Reset round cheat flag
+      gameState.roundCheatsUsed = false; 
       $('#round-number').text(gameState.round);
       const total = gameState.rows * gameState.cols;
       
@@ -1461,6 +1716,9 @@
       
       renderBoard('player');
       renderBoard('opponent');
+      updateMiniPreview();
+      // Reset visual state of opponent cheats
+      setupCheatsUI();
       setTimeout(() => makeCall(), 800);
     }
     
@@ -1486,7 +1744,7 @@
     function markCheatUsed(btn, id) {
         gameState.matchCheatsUsed[id] = true; 
         gameState.playerCheated++;
-        gameState.roundCheatsUsed = true; // Mark round as cheated
+        gameState.roundCheatsUsed = true; 
         $(btn).addClass('used').prop('disabled', true); 
         updateScoreboard();
         const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
@@ -1552,6 +1810,7 @@
       const ue = ui.map(i => gameState.opponentBoard[i]), sh = shuffleArray(ue);
       ui.forEach((idx, i) => { gameState.opponentBoard[idx] = sh[i]; });
       renderBoard('opponent');
+      updateMiniPreview();
       markCheatUsed(this, 'shake');
       showNotification('🤛 Opponent\'s board shaken!', 'player');
     });
@@ -1564,6 +1823,7 @@
       const tempAvailable = [...gameState.availablePlayerEmojis];
       gameState.availablePlayerEmojis = [...gameState.availableOpponentEmojis]; gameState.availableOpponentEmojis = tempAvailable;
       renderBoard('player'); renderBoard('opponent');
+      updateMiniPreview();
       markCheatUsed(this, 'switch');
       showNotification('↔️ Boards switched!', 'player');
     });
@@ -1617,32 +1877,9 @@
       playerData.mostPlayedMode = gameState.gridSize;
       savePlayerData();
       updateStarlitesDisplay();
-      showEndGameScoreboard();
+      
+      returnToMenu();
     }
-    
-    function showEndGameScoreboard() {
-      const playerWon = gameState.playerScore > gameState.opponentScore;
-      $('#endgame-player-score').text(gameState.playerScore);
-      $('#endgame-opponent-score').text(gameState.opponentScore);
-      $('#endgame-player').toggleClass('winner', playerWon);
-      $('#endgame-opponent').toggleClass('winner', !playerWon);
-      const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
-      const statsHtml = `
-        <div class="endgame-stat"><span>Rounds Played</span><span>${gameState.round}</span></div>
-        <div class="endgame-stat"><span>Win Streak</span><span>${playerData.stats[statKey].longestStreak}</span></div>
-        <div class="endgame-stat"><span>Times Cheated</span><span>${gameState.playerCheated}</span></div>
-        <div class="endgame-stat"><span>Difficulty</span><span>${gameState.gameMode === 'casual' ? 'Casual' : gameState.difficulty.charAt(0).toUpperCase() + gameState.difficulty.slice(1)}</span></div>
-        <div class="endgame-stat"><span>Mode</span><span>${gameState.gridSize}</span></div>
-        <div class="endgame-stat"><span>Starlites Balance</span><span>⭐ ${playerData.starlites}</span></div>
-      `;
-      $('#endgame-stats').html(statsHtml);
-      $('#endgame-overlay').addClass('active');
-      gsap.fromTo('.endgame-box', { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(1.7)' });
-    }
-    
-    $('#endgame-close').click(function() {
-      gsap.to('.endgame-box', { scale: 0.8, opacity: 0, duration: 0.3, onComplete: () => { $('#endgame-overlay').removeClass('active'); returnToMenu(); }});
-    });
     
     function returnToMenu() {
       gsap.to('#game', { opacity: 0, duration: 0.3, onComplete: () => {
@@ -1672,7 +1909,16 @@
     let resizeTimeout;
     $(window).on('resize orientationchange', function() {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => { if (gameState.isPlaying) { renderBoard('player'); renderBoard('opponent'); } }, 100);
+      resizeTimeout = setTimeout(() => { 
+          if (gameState.isPlaying) { 
+              renderBoard('player'); 
+              renderBoard('opponent'); 
+              
+              // Handle desktop/mobile layout switches
+              if (window.innerWidth >= 1024) setupDesktopLayout();
+              
+          } 
+      }, 100);
     });
   </script>
 </body>
