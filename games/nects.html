@@ -687,7 +687,7 @@
     .starlites-display i { color: var(--gold); font-size: 1.1rem; }
     .starlites-display span { color: var(--gold); font-weight: 700; }
     
-    #game { width: 100%; height: 100%; background: var(--ui-glass); padding: 10px; position: fixed; top: 0; left: 0; z-index: 10; display: none; overflow: hidden; }
+    #game { width: 100%; height: 100%; height: 100dvh; background: var(--ui-glass); padding: 10px; position: fixed; top: 0; left: 0; z-index: 10; display: none; overflow: hidden; }
     #game.active { display: flex; flex-direction: column; }
     
     /* Layout Logic for Responsive Design */
@@ -698,7 +698,7 @@
         margin: 0 auto; 
         display: flex; 
         flex-direction: column; 
-        gap: 8px; 
+        gap: 5px; 
         overflow: hidden; 
         transition: max-width 0.3s ease;
     }
@@ -801,7 +801,6 @@
             margin-top: 15px;
             max-width: 400px;
         }
-        .board-cell { font-size: 2.2rem !important; }
         
         .play_container, .opponent_container {
             width: 100%;
@@ -822,7 +821,6 @@
     @media (min-width: 1400px) {
         .game-content { gap: 30px 60px; padding: 25px 60px; }
         .play_container, .opponent_container { max-width: 480px; }
-        .board-cell { font-size: 2.5rem !important; }
         #call #called-emoji { font-size: 5rem; width: 120px; height: 120px; line-height: 116px; }
     }
     
@@ -907,29 +905,34 @@
     .slide { 
       width: 50%; 
       flex-shrink: 0; 
-      padding: 10px 5px; 
+      padding: 5px; 
       display: flex; 
       flex-direction: column; 
       justify-content: space-between;
       align-items: center;
       height: 100%; 
       position: relative;
+      overflow: hidden;
     }
     
-    /* Board containers - ALWAYS SQUARE, 100% width */
+    /* Board containers - ALWAYS SQUARE, fit within available space */
     .play_container, .opponent_container { 
       display: grid;
       width: 100%;
+      max-width: min(100%, calc(100dvh - 320px));
       aspect-ratio: 1 / 1;
       position: relative;
       gap: 5px;
       justify-content: center;
       align-content: center;
+      flex-shrink: 1;
+      margin: 0 auto;
     }
     
     /* Rows mode - inline cells, not square board */
     .play_container.rows-mode, .opponent_container.rows-mode {
       aspect-ratio: auto;
+      max-width: 100%;
       width: 100%;
       display: flex;
       flex-wrap: nowrap;
@@ -939,7 +942,7 @@
     }
     
     .opponent_container { 
-      margin-top: 0;
+      margin-top: 10px;
     }
     
     /* Ensure boards fit on small screens */
@@ -973,10 +976,42 @@
       -webkit-tap-highlight-color: transparent;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       aspect-ratio: 1 / 1;
+      font-size: clamp(1rem, 8vw, 3rem);
+      overflow: hidden;
     }
     .board-cell.opponent-cell { background: linear-gradient(135deg, var(--opponent-primary), var(--opponent-secondary)); cursor: default; }
     .board-cell:hover:not(.selected):not(.opponent-cell):not(.splatted) { transform: scale(1.05); box-shadow: 0 8px 25px var(--player-accent); }
-    .board-cell.selected { background: linear-gradient(135deg, var(--gold), var(--neon-orange)); box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 50px rgba(255, 107, 53, 0.5); border-color: rgba(255, 215, 0, 0.8); animation: pulse 1s ease-in-out infinite; }
+    .board-cell.selected { 
+      background: linear-gradient(135deg, var(--gold), var(--neon-orange)); 
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.9), 0 0 60px rgba(255, 107, 53, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.3); 
+      border-color: rgba(255, 255, 255, 0.9); 
+      animation: selectedGlow 1.5s ease-in-out infinite; 
+    }
+    .board-cell.selected::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.4) 50%, transparent 70%);
+      animation: shineEffect 2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes selectedGlow {
+      0%, 100% { 
+        box-shadow: 0 0 30px rgba(255, 215, 0, 0.9), 0 0 60px rgba(255, 107, 53, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.3); 
+        transform: scale(1);
+      }
+      50% { 
+        box-shadow: 0 0 40px rgba(255, 215, 0, 1), 0 0 80px rgba(255, 107, 53, 0.8), inset 0 0 40px rgba(255, 255, 255, 0.5); 
+        transform: scale(1.02);
+      }
+    }
+    @keyframes shineEffect {
+      0% { transform: translateX(-100%) rotate(45deg); }
+      50%, 100% { transform: translateX(100%) rotate(45deg); }
+    }
     .board-cell.winning { background: linear-gradient(90deg, #ffd700, #fff, #ffd700); background-size: 200% 100%; animation: shimmer 1s linear infinite; }
     .board-cell.free-spot-marked { border: 3px solid var(--neon-green) !important; box-shadow: 0 0 20px var(--neon-green); }
     
@@ -1037,17 +1072,22 @@
     }
     
     #opponent-slide .game_bar { 
-      transform:translate3d(0, -40px, 0);
+      transform:translate3d(0, -10px, 0);
     }
     
     .scoreboard { display: flex; justify-content: space-around; margin-bottom: 8px; gap: 4px; }
     .scoreboard p { font-size: 0.65rem; font-family: var(--info-font); font-weight: 600; background: linear-gradient(135deg, rgba(30, 58, 138, 0.5), rgba(107, 63, 160, 0.5)); padding: 5px 8px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.15); flex: 1; text-align: center; }
     .scoreboard span { color: var(--gold); font-size: 0.85rem; display: block; margin-top: 2px; }
     
-    .cheats { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-bottom: 6px; }
+    .cheats { white-space:nowrap; margin-bottom: 6px; width:100%; overflow:hidden; overflow-x:auto;}
+    .cheats:after {
+      content:"";
+      display:table;
+      clear:both;
+    }
     .cheats.hidden { display: none !important; }
-    .cheats button { background: linear-gradient(135deg, rgba(30, 58, 138, 0.6), rgba(107, 63, 160, 0.6)); border-radius: 10px; font-size: 0.4rem; cursor: pointer; color: white; border: 2px solid rgba(255, 255, 255, 0.2); padding: 5px 2px; font-family: var(--main-font); font-weight: 600; transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .cheats button i { font-size: 0.75rem; }
+    .cheats button { background: linear-gradient(135deg, rgba(30, 58, 138, 0.6), rgba(107, 63, 160, 0.6)); border-radius: 10px; font-size: 0.4rem; cursor: pointer; color: white; border: 2px solid rgba(255, 255, 255, 0.2); padding: 5px 2px; font-family: var(--main-font); font-weight: 600; transition: all 0.2s ease; text-align:center; float:left; width:60px; margin-right:5px; }
+    .cheats button i { font-size: 0.75rem; display:block; margin-bottom:3px; }
     .cheats button:hover:not(:disabled):not(.locked) { transform: scale(1.05); box-shadow: 0 6px 20px var(--primary-accent); }
     .cheats button:disabled, .cheats button.used { opacity: 0.3; cursor: not-allowed; background: rgba(0, 0, 0, 0.4); }
     .cheats button.locked { opacity: 0.5; cursor: not-allowed; position: relative; }
@@ -1212,7 +1252,7 @@
     .mode-indicator { font-family: var(--info-font); font-size: 0.7rem; color: rgba(255, 255, 255, 0.7); padding: 4px 12px; background: rgba(0, 0, 0, 0.3); border-radius: 15px; margin: 5px 0; }
     
     /* Round limit controls */
-    .game-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin-top: 10px; padding: 8px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; }
+    .game-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin-top: 10px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; }
     .round-limit-control { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; }
     .round-limit-label { color: rgba(255, 255, 255, 0.7); font-family: var(--info-font); font-size: 0.7rem; }
     .round-limit-value { min-width: 30px; text-align: center; font-family: var(--info-font); color: var(--gold); font-size: 0.9rem; }
@@ -1277,7 +1317,6 @@
     
     /* Fix board grid for all screen sizes */
     @media (max-height: 700px) {
-      .board-cell { font-size: 1.2rem !important; }
       .game_bar { padding: 5px !important; }
       #call { padding: 5px !important; }
       #called-emoji { font-size: 2.5rem !important; width: 70px !important; height: 70px !important; line-height: 66px !important; }
@@ -1329,13 +1368,12 @@
       overflow-y: auto; 
       overflow-x: hidden;
       background: linear-gradient(135deg, rgba(10, 5, 25, 0.98), rgba(5, 10, 30, 0.98));
-      padding: 20px 20px 120px 20px; 
+      padding: 20px 20px 100px 20px; 
       position: fixed; 
       top: 0; 
       left: 0; 
       z-index: 200; 
-      display: none; 
-      perspective: 1000px; 
+      display: none;
     }
     #shop.active { display: block; }
     .shop-content { max-width: 500px; margin: 0 auto; padding-bottom: 30px; text-align: center; }
@@ -1667,10 +1705,6 @@
         </button>
       </div>
       <div class="home-btn-row">
-        <button type="button" class="home-btn small-btn" id="themes-btn">
-          <i class="fas fa-palette"></i>
-          <span>Themes</span>
-        </button>
         <button type="button" class="home-btn small-btn" id="modes-btn">
           <i class="fas fa-cog"></i>
           <span>Options</span>
@@ -1679,34 +1713,6 @@
       <button type="button" class="home-btn text-btn" id="tutorial-btn">
         <i class="fas fa-question-circle"></i> How to Play
       </button>
-    </div>
-    
-    <!-- REDESIGNED THEMES MENU - Carousel Style -->
-    <div class="themes_menu menu_section">
-      <h3 class="menu-title">Choose Theme</h3>
-      <div class="theme-carousel" id="theme-carousel">
-        <div class="theme-card active" data-theme="all">
-          <div class="theme-emoji">🎲</div>
-          <div class="theme-name">Random</div>
-        </div>
-        <div class="theme-card" data-theme="Smileys & Emotion">
-          <div class="theme-emoji">😀</div>
-          <div class="theme-name">Smileys</div>
-        </div>
-        <div class="theme-card" data-theme="Animals & Nature">
-          <div class="theme-emoji">🐶</div>
-          <div class="theme-name">Animals</div>
-        </div>
-        <div class="theme-card" data-theme="Food & Drink">
-          <div class="theme-emoji">🍕</div>
-          <div class="theme-name">Food</div>
-        </div>
-        <div class="theme-card" data-theme="Activities & Sports">
-          <div class="theme-emoji">⚽</div>
-          <div class="theme-name">Sports</div>
-        </div>
-      </div>
-      <button type="button" class="home-btn back-btn" id="back-from-themes"><i class="fas fa-arrow-left"></i> Back</button>
     </div>
     
     <div class="modes_menu menu_section">
@@ -1886,6 +1892,7 @@
       <p class="shop-balance">Your Starlites: <span id="shop-starlites">0</span> ⭐</p>
       <div class="shop-section"><h3>🔮 Power-Ups</h3><div class="shop-items" id="cheat-shop-items"></div></div>
       <div class="shop-section"><h3>🎨 Color Themes</h3><div class="shop-items" id="theme-shop-items"></div></div>
+      <div class="shop-section"><h3>🎭 Emoji Themes</h3><div class="shop-items" id="emoji-theme-shop-items"></div></div>
     </div>
     <button class="shop-close" id="close-shop"><i class="fas fa-arrow-left"></i> Back</button>
   </div>
@@ -2183,11 +2190,22 @@
       }
     ];
     
+    // Emoji themes for shop
+    const emojiThemes = [
+      { id: 'all', name: 'Random', emoji: '🎲', price: 0 },
+      { id: 'Smileys & Emotion', name: 'Smileys', emoji: '😀', price: 600 },
+      { id: 'Animals & Nature', name: 'Animals', emoji: '🐶', price: 600 },
+      { id: 'Food & Drink', name: 'Food', emoji: '🍕', price: 600 },
+      { id: 'Activities & Sports', name: 'Sports', emoji: '⚽', price: 600 }
+    ];
+    
     function loadFromStorage(key, def) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } catch { return def; } }
     function saveToStorage(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
     
     let playerData = loadFromStorage('nects_player_data_v3', {
-      starlites: 0, ownedCheats: ['shuffle'], ownedThemes: ['cosmic'], equippedTheme: 'cosmic', playedBefore: false,
+      starlites: 0, ownedCheats: ['shuffle'], ownedThemes: ['cosmic'], equippedTheme: 'cosmic', 
+      ownedEmojiThemes: ['all'], equippedEmojiTheme: 'all',
+      playedBefore: false,
       nickname: '',
       settings: { 
         theme: 'all', difficulty: 'normal', gridSize: '3x3', gameMode: 'classic', rowsSameEmoji: false,
@@ -2204,6 +2222,9 @@
     if (!playerData.nickname) playerData.nickname = '';
     if (playerData.settings.soundEnabled === undefined) playerData.settings.soundEnabled = true;
     if (playerData.settings.animationsEnabled === undefined) playerData.settings.animationsEnabled = true;
+    // Migration for emoji themes
+    if (!playerData.ownedEmojiThemes) playerData.ownedEmojiThemes = ['all'];
+    if (!playerData.equippedEmojiTheme) playerData.equippedEmojiTheme = 'all';
     
     // Opponent names by difficulty
     const opponentNames = {
@@ -2378,7 +2399,7 @@
     }
     
     const gameState = {
-      theme: playerData.settings.theme, difficulty: playerData.settings.difficulty, gridSize: playerData.settings.gridSize,
+      theme: playerData.equippedEmojiTheme || playerData.settings.theme, difficulty: playerData.settings.difficulty, gridSize: playerData.settings.gridSize,
       gameMode: playerData.settings.gameMode || 'classic', rowsSameEmoji: playerData.settings.rowsSameEmoji || false,
       playerBoard: [], opponentBoard: [], playerSelected: [], opponentSelected: [], playerEmojis: [], opponentEmojis: [],
       availablePlayerEmojis: [], availableOpponentEmojis: [], currentCall: null, round: 1,
@@ -2563,10 +2584,6 @@
     }
     
     function updateSelectedButtons() {
-      // Theme cards
-      $('.theme-card').removeClass('selected active');
-      $(`.theme-card[data-theme="${gameState.theme}"]`).addClass('selected active');
-      
       // Difficulty cards/buttons
       $('.diff-btn, .diff-card').removeClass('selected');
       $(`.diff-btn[data-difficulty="${gameState.difficulty}"], .diff-card[data-difficulty="${gameState.difficulty}"]`).addClass('selected');
@@ -2590,8 +2607,6 @@
     }
     
     // Menu handlers with audio
-    $('#themes-btn').click(() => { AudioSystem.playClick(); showMenu('themes_menu'); });
-    $('#back-from-themes').click(() => { AudioSystem.playClick(); showMenu('main_menu', 'left'); });
     $('#modes-btn').click(() => { AudioSystem.playClick(); showMenu('modes_menu'); });
     $('#back-from-modes').click(() => { AudioSystem.playClick(); showMenu('main_menu', 'left'); });
     $('#difficulty-btn').click(() => { AudioSystem.playClick(); showMenu('difficulty_menu'); });
@@ -2602,17 +2617,6 @@
     $('#back-from-rows').click(() => { AudioSystem.playClick(); showMenu('modes_menu', 'left'); });
     $('#gamemode-btn').click(() => { AudioSystem.playClick(); showMenu('gamemode_menu'); });
     $('#back-from-gamemode').click(() => { AudioSystem.playClick(); showMenu('modes_menu', 'left'); });
-    
-    // Theme card handlers
-    $('.theme-card').click(function() { 
-      AudioSystem.playClick(); 
-      gameState.theme = $(this).data('theme'); 
-      playerData.settings.theme = gameState.theme; 
-      savePlayerData(); 
-      updateSelectedButtons(); 
-      showNotification(`Theme: ${$(this).find('.theme-name').text()}`, 'player'); 
-      setTimeout(() => showMenu('main_menu', 'left'), 300);
-    });
     
     // Difficulty card/button handlers
     $('.diff-btn, .diff-card').click(function() { 
@@ -2817,6 +2821,28 @@
         tc.append(item);
       }
       
+      // Emoji themes section
+      const ec = $('#emoji-theme-shop-items').empty();
+      for (const et of emojiThemes) {
+        const owned = playerData.ownedEmojiThemes.includes(et.id);
+        const equipped = playerData.equippedEmojiTheme === et.id;
+        const canAfford = playerData.starlites >= et.price;
+        const item = $(`<div class="shop-item ${owned ? 'owned' : ''}">
+          <div class="item-icon">${et.emoji}</div>
+          <div class="item-name">${et.name}</div>
+          <div class="item-price">${owned ? (equipped ? 'Equipped' : 'Owned') : (et.price === 0 ? 'Free' : et.price + ' ⭐')}</div>
+          <button ${(!owned && !canAfford) ? 'disabled' : ''} class="${equipped ? 'equipped-btn' : (owned ? 'owned-btn' : '')}" data-emoji-theme="${et.id}">${equipped ? '★ Active' : (owned ? 'Equip' : 'Purchase')}</button>
+        </div>`);
+        item.find('button').click(function(e) { 
+          e.stopPropagation();
+          AudioSystem.playClick(); 
+          const etid = $(this).data('emoji-theme'); 
+          if (playerData.ownedEmojiThemes.includes(etid)) equipEmojiTheme(etid); 
+          else purchaseEmojiTheme(etid); 
+        });
+        ec.append(item);
+      }
+      
       // Close tooltip when clicking outside
       $(document).off('click.shoptooltip').on('click.shoptooltip', function(e) {
         if (!$(e.target).closest('.shop-item').length) {
@@ -2886,6 +2912,38 @@
     }
     
     function equipTheme(id) { playerData.equippedTheme = id; savePlayerData(); applyColorTheme(); renderShop(); showNotification(`Equipped ${colorThemes.find(t => t.id === id).name}!`, 'player'); }
+    
+    function purchaseEmojiTheme(id) {
+      const et = emojiThemes.find(t => t.id === id);
+      if (et && playerData.starlites >= et.price && !playerData.ownedEmojiThemes.includes(id)) {
+        const shopItem = $(`.shop-item button[data-emoji-theme="${id}"]`).closest('.shop-item');
+        shopItem.addClass('purchasing');
+        animateStarliteSubtraction(et.price);
+        
+        playerData.starlites -= et.price;
+        playerData.ownedEmojiThemes.push(id);
+        savePlayerData();
+        
+        AudioSystem.playPowerup();
+        showNotification(`🎭 Unlocked ${et.name}!`, 'player');
+        
+        setTimeout(() => {
+          equipEmojiTheme(id);
+          renderShop();
+          updateStarlitesDisplay();
+        }, 500);
+      }
+    }
+    
+    function equipEmojiTheme(id) {
+      playerData.equippedEmojiTheme = id;
+      gameState.theme = id;
+      playerData.settings.theme = id;
+      savePlayerData();
+      renderShop();
+      const et = emojiThemes.find(t => t.id === id);
+      showNotification(`Equipped ${et ? et.name : id}!`, 'player');
+    }
     
     function applyColorTheme() { 
         const th = colorThemes.find(t => t.id === playerData.equippedTheme) || colorThemes[0]; 
@@ -3388,7 +3446,7 @@
         const maxBoardWidth = Math.min(viewportWidth - 40, 400);
         const cellSize = Math.floor((maxBoardWidth - (gap * (cols - 1))) / cols);
         const clampedCellSize = Math.max(40, Math.min(cellSize, 65));
-        const fontSize = Math.max(Math.floor(clampedCellSize * 0.5), 16);
+        const fontSize = Math.max(Math.floor(clampedCellSize * 0.55), 16);
         
         $container.css({
           'display': 'flex',
@@ -3449,6 +3507,11 @@
           'flex-shrink': ''
         });
         
+        // Calculate cell size based on container width
+        const containerWidth = $container.width() || Math.min(window.innerWidth - 20, 400);
+        const cellSize = (containerWidth - (gap * (cols - 1))) / cols;
+        const fontSize = Math.max(cellSize * 0.55, 16); // 55% of cell, min 16px
+        
         // Create cells - let CSS grid handle sizing
         for (let i = 0; i < board.length; i++) {
           const cell = $('<div></div>')
@@ -3456,7 +3519,8 @@
             .addClass(type === 'player' ? 'player-cell' : 'opponent-cell')
             .css({
               'width': '100%',
-              'height': '100%'
+              'height': '100%',
+              'font-size': `${fontSize}px`
             })
             .html(board[i])
             .data('index', i);
