@@ -1039,6 +1039,14 @@ transform:translate3d(-50%, 0, 0);
         pointer-events: auto !important;
     }
     
+    .board-cell.tutorial-win-demo {
+        background: linear-gradient(135deg, var(--gold), var(--neon-orange)) !important;
+        box-shadow: 0 0 30px rgba(255, 215, 0, 0.9), 0 0 60px rgba(255, 107, 53, 0.6) !important;
+        border-color: rgba(255, 255, 255, 0.9) !important;
+        animation: selectedGlow 1.5s ease-in-out infinite !important;
+        z-index: 10001 !important;
+    }
+    
     /* Tutorial Mode - Dim everything except highlighted element */
     body.tutorial-active #game { overflow: visible !important; }
     body.tutorial-active #slide-container { overflow: visible !important; }
@@ -1959,6 +1967,15 @@ transform:translate3d(-50%, 0, 0);
       </div>
       
       <div class="settings-section">
+        <h4>🤖 Opponent Settings</h4>
+        <div class="settings-toggle" id="toggle-opponent-forfeit" data-setting="opponentCanForfeit">
+          <span class="toggle-label">Opponent Can Forfeit</span>
+          <div class="toggle-switch"></div>
+        </div>
+        <p style="font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 8px; padding: 0 4px;">Only active after 10 rounds when rounds set to infinity</p>
+      </div>
+      
+      <div class="settings-section">
         <h4>🗑️ Data Management</h4>
         <p style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-bottom: 10px;">Delete individual difficulty stats:</p>
         <div class="delete-stats-grid">
@@ -2132,7 +2149,11 @@ transform:translate3d(-50%, 0, 0);
   </div>
   
   <script>
-    const defaultStats = { highScore: 0, longestStreak: 0, totalCheated: 0, roundsPlayed: 0, matchesPlayed: 0, lastPlayed: null };
+    const defaultStats = { 
+      highScore: 0, longestStreak: 0, totalCheated: 0, roundsPlayed: 0, matchesPlayed: 0, lastPlayed: null,
+      totalSquaresSelected: 0, totalLinesFound: 0, totalWins: 0, totalLosses: 0,
+      longestPlaySession: 0, totalPlaytime: 0, totalStarlitesEarned: 0, totalStarlitesSpent: 0
+    };
     const cheatPrices = { shuffle: 300, free: 400, swap: 900, shake: 1200, switch: 3000, splat: 1500, steal: 2000, shine: 4000, weaken: 2400 };
     
     // UPDATED THEME OBJECTS with environment colors
@@ -2207,10 +2228,15 @@ transform:translate3d(-50%, 0, 0);
       settings: { 
         theme: 'all', difficulty: 'normal', gridSize: '3x3', gameMode: 'classic', rowsSameEmoji: false,
         soundEnabled: true, musicEnabled: true, sfxEnabled: true, animationsEnabled: true,
-        opaqueBackground: false, noStars: false, reducedMode: false
+        opaqueBackground: false, noStars: false, reducedMode: false, opponentCanForfeit: false
       },
       stats: { all: {...defaultStats}, easy: {...defaultStats}, normal: {...defaultStats}, hard: {...defaultStats}, insane: {...defaultStats}, abysmal: {...defaultStats}, casual: {...defaultStats} },
-      mostPlayedDifficulty: 'normal', mostPlayedMode: '3x3'
+      mostPlayedDifficulty: 'normal', mostPlayedMode: '3x3',
+      globalStats: {
+        totalSquaresSelected: 0, totalLinesFound: 0, totalWins: 0, totalLosses: 0,
+        totalPlaytime: 0, totalStarlitesEarned: 0, totalStarlitesSpent: 0
+      },
+      currentSessionStart: null
     });
     if (!playerData.stats.casual) playerData.stats.casual = {...defaultStats};
     if (!playerData.stats.abysmal) playerData.stats.abysmal = {...defaultStats};
@@ -2222,6 +2248,22 @@ transform:translate3d(-50%, 0, 0);
     // Migration for emoji themes
     if (!playerData.ownedEmojiThemes) playerData.ownedEmojiThemes = ['all'];
     if (!playerData.equippedEmojiTheme) playerData.equippedEmojiTheme = 'all';
+    if (playerData.settings.opponentCanForfeit === undefined) playerData.settings.opponentCanForfeit = false;
+    if (!playerData.globalStats) playerData.globalStats = {
+      totalSquaresSelected: 0, totalLinesFound: 0, totalWins: 0, totalLosses: 0,
+      totalPlaytime: 0, totalStarlitesEarned: 0, totalStarlitesSpent: 0
+    };
+    if (!playerData.currentSessionStart) playerData.currentSessionStart = null;
+    for (const key in playerData.stats) {
+      if (!playerData.stats[key].totalSquaresSelected) playerData.stats[key].totalSquaresSelected = 0;
+      if (!playerData.stats[key].totalLinesFound) playerData.stats[key].totalLinesFound = 0;
+      if (!playerData.stats[key].totalWins) playerData.stats[key].totalWins = 0;
+      if (!playerData.stats[key].totalLosses) playerData.stats[key].totalLosses = 0;
+      if (!playerData.stats[key].longestPlaySession) playerData.stats[key].longestPlaySession = 0;
+      if (!playerData.stats[key].totalPlaytime) playerData.stats[key].totalPlaytime = 0;
+      if (!playerData.stats[key].totalStarlitesEarned) playerData.stats[key].totalStarlitesEarned = 0;
+      if (!playerData.stats[key].totalStarlitesSpent) playerData.stats[key].totalStarlitesSpent = 0;
+    }
     
     // Opponent names by difficulty
     const opponentNames = {
@@ -2419,6 +2461,7 @@ transform:translate3d(-50%, 0, 0);
       maxRounds: 0, // 0 = infinite
       playerRoundsWon: 0,
       opponentRoundsWon: 0,
+      opponentHasForfeited: false,
       // Weaken powerup
       playerWeakened: false,
       opponentWeakened: false,
@@ -2707,7 +2750,7 @@ transform:translate3d(-50%, 0, 0);
       { target: '#toggle-view', text: "👁️ Tap to view opponent's board! (Or check the mini-view)", position: 'bottom' },
       { target: '#player-cheats', text: "🔮 Power-ups! Buy more in Shop!", position: 'top' },
       { target: '.scoreboard', text: "📊 Track your score and streak!", position: 'top' },
-      { target: null, text: "🏆 Complete a line to win! Good luck!", position: 'center' }
+      { target: '#player-board', text: "🏆 These are winning patterns: Horizontal ➡️, Vertical ⬇️, Diagonal ↘️. Good luck!", position: 'top', showWinPatterns: true }
     ];
     
     function startInteractiveTutorial() { 
@@ -2722,15 +2765,39 @@ transform:translate3d(-50%, 0, 0);
       if (step >= tutorialSteps.length) { endTutorial(); return; }
       const data = tutorialSteps[step], tt = $('#tutorial-tooltip');
       
-      // Remove all previous highlights
       $('.tutorial-highlight').removeClass('tutorial-highlight');
+      $('.tutorial-win-demo').removeClass('tutorial-win-demo');
       
       $('#tooltip-text').text(data.text);
+      
+      if (data.showWinPatterns) {
+        const board = $('#player-board .board-cell');
+        if (gameState.rows === 3 && gameState.cols === 3) {
+          board.eq(0).addClass('tutorial-win-demo');
+          board.eq(1).addClass('tutorial-win-demo');
+          board.eq(2).addClass('tutorial-win-demo');
+          
+          setTimeout(() => {
+            board.removeClass('tutorial-win-demo');
+            board.eq(0).addClass('tutorial-win-demo');
+            board.eq(3).addClass('tutorial-win-demo');
+            board.eq(6).addClass('tutorial-win-demo');
+          }, 1500);
+          
+          setTimeout(() => {
+            board.removeClass('tutorial-win-demo');
+            board.eq(0).addClass('tutorial-win-demo');
+            board.eq(4).addClass('tutorial-win-demo');
+            board.eq(8).addClass('tutorial-win-demo');
+          }, 3000);
+        }
+      }
+      
       if (data.target) {
         const t = $(data.target);
         if (t.length) {
           t.addClass('tutorial-highlight'); 
-          t[0].offsetHeight; // Force reflow
+          t[0].offsetHeight;
           const rect = t[0].getBoundingClientRect();
           tt.removeClass('arrow-up arrow-down arrow-left arrow-right');
           let top, left;
@@ -2859,6 +2926,7 @@ transform:translate3d(-50%, 0, 0);
             animateStarliteSubtraction(price);
             
             playerData.starlites -= price; 
+            playerData.globalStats.totalStarlitesSpent += price;
             playerData.ownedCheats.push(id); 
             savePlayerData(); 
             
@@ -2883,6 +2951,7 @@ transform:translate3d(-50%, 0, 0);
             animateStarliteSubtraction(th.price);
             
             playerData.starlites -= th.price;
+            playerData.globalStats.totalStarlitesSpent += th.price;
             playerData.ownedThemes.push(id); 
             savePlayerData();
             
@@ -2918,6 +2987,7 @@ transform:translate3d(-50%, 0, 0);
         animateStarliteSubtraction(et.price);
         
         playerData.starlites -= et.price;
+        playerData.globalStats.totalStarlitesSpent += et.price;
         playerData.ownedEmojiThemes.push(id);
         savePlayerData();
         
@@ -3207,6 +3277,11 @@ transform:translate3d(-50%, 0, 0);
       gameState.opponentCheated = 0; 
       gameState.roundLocked = false; 
       gameState.isPaused = false;
+      
+      if (!playerData.currentSessionStart) {
+        playerData.currentSessionStart = Date.now();
+      }
+      
       gameState.matchCheatsUsed = { shuffle: false, free: false, swap: false, shake: false, switch: false, splat: false, steal: false, shine: false, weaken: false };
       gameState.opponentMatchCheatsUsed = { shuffle: false, free: false, swap: false, shake: false, switch: false, splat: false, steal: false, weaken: false };
       gameState.roundCheatsUsed = false;
@@ -3632,15 +3707,29 @@ transform:translate3d(-50%, 0, 0);
     }
     
     function scheduleOpponentTurn() {
-      // Don't schedule if paused or game is locked
       if (gameState.isPaused || gameState.roundLocked || !gameState.isPlaying) return;
       
-      // Clear any existing opponent timeout
       if (gameState.opponentTimeout) clearTimeout(gameState.opponentTimeout);
       
-      // Speeds: Abysmal gets old Insane speed, everything else slows down slightly
-      const base = { easy: 2800, normal: 2400, hard: 1400, insane: 1100, abysmal: 750 };
-      const ranges = { easy: 1400, normal: 1200, hard: 600, insane: 300, abysmal: 200 };
+      if (playerData.settings.opponentCanForfeit && gameState.maxRounds === 0) {
+        const totalRounds = gameState.playerRoundsWon + gameState.opponentRoundsWon;
+        if (totalRounds >= 10 && !gameState.opponentHasForfeited) {
+          const forfeitChance = 0.02;
+          if (Math.random() < forfeitChance) {
+            gameState.opponentHasForfeited = true;
+            gameState.roundLocked = true;
+            if (gameState.rowsTimer) clearInterval(gameState.rowsTimer);
+            showNotification(`💬 ${gameState.opponentName}: "I forfeit this match!"`, 'info');
+            setTimeout(() => {
+              showForfeitScoreboard(true);
+            }, 2000);
+            return;
+          }
+        }
+      }
+      
+      const base = { easy: 2800, normal: 2400, hard: 1000, insane: 900, abysmal: 750 };
+      const ranges = { easy: 1400, normal: 1200, hard: 400, insane: 250, abysmal: 200 };
       let delay = base[gameState.difficulty] + Math.random() * ranges[gameState.difficulty] + (Math.random() < 0.3 ? Math.random() * 500 : 0);
       
       if (gameState.isRowMode) {
@@ -3672,6 +3761,10 @@ transform:translate3d(-50%, 0, 0);
     function handlePlayerClick(index) {
       if (gameState.roundLocked || gameState.playerSelected[index] || gameState.isPaused) return;
       if (gameState.playerBoard[index] !== gameState.currentCall) return;
+      
+      const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
+      playerData.stats[statKey].totalSquaresSelected++;
+      playerData.globalStats.totalSquaresSelected++;
       
       if (gameState.gameMode === 'casual') {
         gameState.playerSelected[index] = true; gameState.casualPlayerSelected = true;
@@ -4020,32 +4113,51 @@ transform:translate3d(-50%, 0, 0);
         if (selected[index]) $(this).addClass('winning');
       });
 
-      // Track round wins
-      if (winner === 'player') gameState.playerRoundsWon++;
-      else gameState.opponentRoundsWon++;
+      if (winner === 'player') {
+        gameState.playerRoundsWon++;
+      } else if (winner === 'opponent') {
+        gameState.opponentRoundsWon++;
+      }
 
-      // Base scoring with difficulty and grid multipliers
       let basePoints = 1000;
+      let squareBonus = 0;
       let streakBonus = 0;
       
-      // Difficulty multipliers (higher = more points)
-      const difficultyMultipliers = { easy: 1, normal: 1.5, hard: 2.5, insane: 4, abysmal: 6 };
-      const diffMultiplier = difficultyMultipliers[gameState.difficulty] || 1;
+      const starliteMultipliers = { easy: 0.5, normal: 1.0, hard: 1.2, insane: 1.5, abysmal: 2.0 };
+      const diffMultiplier = starliteMultipliers[gameState.difficulty] || 1.0;
       
-      // Grid size multipliers (larger = more points)
       const gridSize = gameState.rows * gameState.cols;
-      const gridMultiplier = 1 + (gridSize - 9) * 0.08; // 3x3=1x, 4x4=1.56x, 5x5=2.28x, etc.
+      const gridMultiplier = 1 + (gridSize - 9) * 0.08;
       
       if (winner === 'player') {
           gameState.playerStreak++; 
-          gameState.opponentStreak = 0; 
+          gameState.opponentStreak = 0;
+          
+          if (gameState.playerStreak % 5 === 0 && gameState.playerStreak > 0) {
+            const availablePowerups = ['shuffle', 'free', 'swap', 'shake', 'switch', 'splat', 'steal', 'weaken'];
+            const locked = availablePowerups.filter(p => !gameState.opponentUnlockedCheats.includes(p));
+            if (locked.length > 0) {
+              const newPowerup = locked[Math.floor(Math.random() * locked.length)];
+              gameState.opponentUnlockedCheats.push(newPowerup);
+              const powerupNames = { shuffle: 'Shuffle', free: 'Free Spot', swap: 'Swap', shake: 'Shake', switch: 'Switch', splat: 'Splat', steal: 'Steal', weaken: 'Weaken' };
+              showNotification(`⚠️ ${gameState.opponentName} unlocked: ${powerupNames[newPowerup]}!`, 'info');
+            }
+          }
+          
+          for (let i = 0; i < gameState.playerSelected.length; i++) {
+            if (gameState.playerSelected[i] && !gameState.opponentSelected[i]) {
+              squareBonus += 100;
+            }
+          }
+          
           streakBonus = (gameState.playerStreak * 200);
-          basePoints += streakBonus;
           
-          // Apply multipliers
-          let roundPoints = Math.floor(basePoints * diffMultiplier * gridMultiplier);
+          let roundPoints = basePoints + squareBonus + streakBonus;
           
-          if (gameState.isRowMode) roundPoints = Math.floor(roundPoints * 0.5);
+          if (!gameState.isRowMode) {
+            roundPoints = Math.floor(roundPoints * diffMultiplier * gridMultiplier);
+          }
+          
           if (gameState.roundCheatsUsed) roundPoints = Math.floor(roundPoints * 0.5);
 
           gameState.playerScore += roundPoints;
@@ -4054,23 +4166,32 @@ transform:translate3d(-50%, 0, 0);
           
           updateScoreboard();
           
-          // Calculate starlites with improved formula for higher difficulties
-          const starliteMultiplier = { easy: 0.01, normal: 0.015, hard: 0.025, insane: 0.04, abysmal: 0.06 };
-          let starlitesEarned = Math.floor(roundPoints * (starliteMultiplier[gameState.difficulty] || 0.01));
+          let starlitesEarned = Math.floor(roundPoints * (diffMultiplier / 100));
           
-          // Check if starlite bonus square is in winning line
           if (gameState.starliteBonusIndex !== null && isSquareInWinningLine(gameState.starliteBonusIndex, 'player')) {
             starlitesEarned *= 2;
             showNotification('⭐ DOUBLE STARLITES! Bonus square in winning line!', 'player');
           }
           
+          const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
+          playerData.stats[statKey].totalLinesFound++;
+          playerData.stats[statKey].totalWins++;
+          playerData.stats[statKey].totalStarlitesEarned += starlitesEarned;
+          playerData.globalStats.totalLinesFound++;
+          playerData.globalStats.totalWins++;
+          playerData.globalStats.totalStarlitesEarned += starlitesEarned;
+          
           playerData.starlites += starlitesEarned;
           updateStarlitesDisplay();
           
-          // Show win modal
           showWinModal(winner, roundPoints, streakBonus, starlitesEarned);
           
       } else {
+          const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
+          playerData.stats[statKey].totalLosses++;
+          playerData.stats[statKey].totalLinesFound++;
+          playerData.globalStats.totalLosses++;
+          playerData.globalStats.totalLinesFound++;
           gameState.opponentStreak++;
           gameState.playerStreak = 0;
           let roundPoints = basePoints + (gameState.opponentStreak * 200);
@@ -4282,18 +4403,16 @@ transform:translate3d(-50%, 0, 0);
       $('#opponent-cheated').text(String(gameState.opponentCheated).padStart(3, '0'));
     }
     
-    $('#mini-opponent-preview').click(function() {
+    $('#mini-opponent-preview, #toggle-view').click(function() {
       AudioSystem.playClick();
       gameState.viewingOpponent = !gameState.viewingOpponent;
       
-      // Pause/unpause game when viewing opponent's board
       if (gameState.viewingOpponent) {
         gameState.isPaused = true;
         clearTimeout(gameState.opponentTimeout);
         if (gameState.rowsTimer) clearInterval(gameState.rowsTimer);
       } else {
         gameState.isPaused = false;
-        // Resume opponent turn and timer if not round locked
         if (!gameState.roundLocked && gameState.isPlaying) {
           if (gameState.gameMode !== 'casual') scheduleOpponentTurn();
           if (gameState.isRowMode && gameState.rowsTimeLeft > 0) startRowsTimer(gameState.rowsTimeLeft);
@@ -4640,19 +4759,32 @@ transform:translate3d(-50%, 0, 0);
       }
     });
     
-    function showForfeitScoreboard() {
+    function showForfeitScoreboard(opponentForfeited = false) {
       const winModal = $('#win-modal');
       const winOverlay = $('#win-overlay');
       
       winModal.removeClass('opponent-win match-complete').addClass('forfeit-modal');
       
-      // Set mode info
       const gridSize = `${gameState.rows}x${gameState.cols}`;
       const modeText = gameState.gameMode === 'casual' ? 'Casual' : gameState.difficulty.charAt(0).toUpperCase() + gameState.difficulty.slice(1);
       $('#win-mode-info').text(`${gridSize} • ${modeText}`);
       
-      $('#win-icon').text('🏳️');
-      $('#win-title').text('MATCH FORFEITED');
+      if (opponentForfeited) {
+        $('#win-icon').text('🎉');
+        $('#win-title').text('OPPONENT FORFEITED');
+        $('#win-round-pts').text(gameState.playerScore);
+        $('#win-streak-bonus').text(gameState.playerStreak);
+        $('#win-total-score-val').text(gameState.playerScore);
+        const finalMsg = `${gameState.opponentName} has forfeited! You win ${gameState.playerRoundsWon}-${gameState.opponentRoundsWon}!`;
+        $('#win-match-result').text(finalMsg).show();
+      } else {
+        $('#win-icon').text('🏳️');
+        $('#win-title').text('MATCH FORFEITED');
+        $('#win-round-pts').text(gameState.playerScore);
+        $('#win-streak-bonus').text(gameState.playerStreak);
+        $('#win-total-score-val').text(gameState.playerScore);
+        $('#win-match-result').hide();
+      }
       $('#win-round-pts').text(gameState.playerScore);
       $('#win-streak-bonus').text(gameState.playerStreak);
       $('#win-total-score-val').text(gameState.playerScore);
@@ -4745,6 +4877,15 @@ transform:translate3d(-50%, 0, 0);
       if (gameState.playerSplatTimer) clearInterval(gameState.playerSplatTimer);
       if (gameState.opponentSplatTimer) clearInterval(gameState.opponentSplatTimer);
       
+      if (playerData.currentSessionStart) {
+        const sessionDuration = Math.floor((Date.now() - playerData.currentSessionStart) / 1000);
+        const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
+        playerData.stats[statKey].totalPlaytime += sessionDuration;
+        playerData.stats[statKey].longestPlaySession = Math.max(playerData.stats[statKey].longestPlaySession || 0, sessionDuration);
+        playerData.globalStats.totalPlaytime += sessionDuration;
+        playerData.currentSessionStart = null;
+      }
+      
       const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
       playerData.stats[statKey].matchesPlayed++;
       playerData.stats[statKey].highScore = Math.max(playerData.stats[statKey].highScore, gameState.playerScore);
@@ -4809,7 +4950,7 @@ transform:translate3d(-50%, 0, 0);
               if (window.innerWidth >= 1024) setupDesktopLayout();
               
           } 
-      }, 100);
+      }, 100); 
     });
   </script>
 </body>
