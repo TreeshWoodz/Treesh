@@ -1793,6 +1793,10 @@ transform:translate3d(-50%, 0, 0);
         <i class="fas fa-sliders-h"></i>
         <span>CUSTOM MODE</span>
       </button>
+      <button type="button" class="home-btn" id="mirror-mode-btn" style="display: none; background: linear-gradient(135deg, #00d4ff, #0099ff); margin-top: 10px;">
+        <i class="fas fa-clone"></i>
+        <span>MIRROR MODE</span>
+      </button>
       <div class="home-btn-row">
         <button type="button" class="home-btn small-btn" id="shop-btn">
           <i class="fas fa-store"></i>
@@ -2385,6 +2389,7 @@ transform:translate3d(-50%, 0, 0);
       playedBefore: false,
       nickname: '',
       customModeUnlocked: false,
+      mirrorModeUnlocked: false, // New Mirror Mode unlock
       customModeSettings: {
         speed: 'normal',
         difficulty: 'normal',
@@ -2393,6 +2398,18 @@ transform:translate3d(-50%, 0, 0);
         horizontal: true,
         vertical: true,
         diagonal: true
+      },
+      adminSettings: {
+        isAdmin: false, // Admin mode activated
+        opponentSpeeds: { // Custom opponent speeds per difficulty
+          easy: { base: 2800, range: 1400 },
+          normal: { base: 2400, range: 1200 },
+          hard: { base: 1000, range: 400 },
+          insane: { base: 900, range: 250 },
+          abysmal: { base: 750, range: 200 }
+        },
+        customGridSize: null, // Custom grid size like "12x12"
+        customStarlites: null // Temporary starlites override
       },
       settings: { 
         theme: 'all', difficulty: 'normal', gridSize: '3x3', gameMode: 'classic', rowsSameEmoji: false,
@@ -2637,6 +2654,10 @@ transform:translate3d(-50%, 0, 0);
       maxPowerupsPerMatch: 3,
       powerupCooldownTime: 5, // Default cooldown time in seconds
       opponentSplatCooldown: 0,
+      // Mirror Mode tracking
+      isMirrorMode: false,
+      mirrorModePlayerSelectionTimes: [], // Track player's selection times
+      mirrorModeAverageSpeed: 0, // Average speed to match
       // Round limit system
       maxRounds: 0, // 0 = infinite
       playerRoundsWon: 0,
@@ -3051,6 +3072,8 @@ transform:translate3d(-50%, 0, 0);
       }
       
       const gmc = $('#gamemode-shop-items').empty();
+      
+      // Custom Mode
       const customModeOwned = playerData.customModeUnlocked;
       const customModePrice = 6000;
       const canAffordCustom = playerData.starlites >= customModePrice;
@@ -3068,6 +3091,25 @@ transform:translate3d(-50%, 0, 0);
         });
       }
       gmc.append(customItem);
+      
+      // Mirror Mode
+      const mirrorModeOwned = playerData.mirrorModeUnlocked;
+      const mirrorModePrice = 16000;
+      const canAffordMirror = playerData.starlites >= mirrorModePrice;
+      const mirrorItem = $(`<div class="shop-item ${mirrorModeOwned ? 'owned' : ''}">
+        <div class="item-icon">🪞</div>
+        <div class="item-name">Mirror Mode</div>
+        <div class="item-price">${mirrorModeOwned ? 'Unlocked' : mirrorModePrice + ' ⭐'}</div>
+        <button ${mirrorModeOwned || !canAffordMirror ? 'disabled' : ''} class="${mirrorModeOwned ? 'owned-btn' : ''}" data-gamemode="mirror">${mirrorModeOwned ? '✓ Unlocked' : 'Purchase'}</button>
+      </div>`);
+      if (!mirrorModeOwned) {
+        mirrorItem.find('button').click(function(e) {
+          e.stopPropagation();
+          AudioSystem.playClick();
+          purchaseMirrorMode();
+        });
+      }
+      gmc.append(mirrorItem);
       
       const tc = $('#theme-shop-items').empty();
       for (const th of colorThemes) {
@@ -3220,6 +3262,29 @@ transform:translate3d(-50%, 0, 0);
           renderShop();
           updateStarlitesDisplay();
           $('#custom-mode-btn').fadeIn();
+        }, 500);
+      }
+    }
+    
+    function purchaseMirrorMode() {
+      const price = 16000;
+      if (playerData.starlites >= price && !playerData.mirrorModeUnlocked) {
+        const shopItem = $(`.shop-item button[data-gamemode="mirror"]`).closest('.shop-item');
+        shopItem.addClass('purchasing');
+        animateStarliteSubtraction(price);
+        
+        playerData.starlites -= price;
+        playerData.globalStats.totalStarlitesSpent += price;
+        playerData.mirrorModeUnlocked = true;
+        savePlayerData();
+        
+        AudioSystem.playPowerup();
+        showNotification('🪞 Mirror Mode Unlocked!', 'player');
+        
+        setTimeout(() => {
+          renderShop();
+          updateStarlitesDisplay();
+          $('#mirror-mode-btn').fadeIn();
         }, 500);
       }
     }
@@ -3515,8 +3580,17 @@ transform:translate3d(-50%, 0, 0);
       showCustomModePopup();
     });
     
+    $('#mirror-mode-btn').click(() => {
+      AudioSystem.playClick();
+      initGame(false, true); // Start game in mirror mode
+    });
+    
     if (playerData.customModeUnlocked) {
       $('#custom-mode-btn').show();
+    }
+    
+    if (playerData.mirrorModeUnlocked) {
+      $('#mirror-mode-btn').show();
     }
     
     function showCustomModePopup() {
@@ -3600,13 +3674,21 @@ transform:translate3d(-50%, 0, 0);
     });
     
     
-    function initGame(isTutorial = false, isCustomMode = false) {
+    function initGame(isTutorial = false, isCustomMode = false, isMirrorMode = false) {
       // Ensure rows/cols are synced with settings before starting
       const sizeStr = playerData.settings.gridSize || '3x3';
       const [r, c] = sizeStr.split('x').map(Number);
       gameState.rows = r;
       gameState.cols = c;
       gameState.isRowMode = r === 1; // Auto-detect row mode
+      gameState.isMirrorMode = isMirrorMode;
+      gameState.mirrorModePlayerSelectionTimes = [];
+      gameState.mirrorModeAverageSpeed = 400; // Start with default 400ms
+      
+      // Mirror Mode uses Easy difficulty but adapts speed
+      if (isMirrorMode) {
+        gameState.difficulty = 'easy';
+      }
       
       const total = gameState.rows * gameState.cols;
       if (gameState.isRowMode && !gameState.rowsSameEmoji) {
@@ -3683,7 +3765,10 @@ transform:translate3d(-50%, 0, 0);
       const names = opponentNames[gameState.difficulty] || opponentNames.normal;
       gameState.opponentName = names[Math.floor(Math.random() * names.length)];
       
-      if (isCustomMode && gameState.customModeSettings) {
+      if (isMirrorMode) {
+        // Mirror Mode: opponent has ALL powerups that player has unlocked
+        gameState.opponentUnlockedCheats = [...playerData.ownedCheats];
+      } else if (isCustomMode && gameState.customModeSettings) {
         if (gameState.customModeSettings.allPowerups) {
           gameState.opponentUnlockedCheats = ['shuffle', 'free', 'shake', 'swap', 'switch', 'splat', 'steal', 'weaken'];
         } else {
@@ -4094,6 +4179,11 @@ transform:translate3d(-50%, 0, 0);
       // Add to history
       gameState.calledEmojisHistory.push(gameState.currentCall);
       
+      // Mirror Mode: Track call timestamp for speed calculation
+      if (gameState.isMirrorMode) {
+        gameState.mirrorModeCallTimestamp = Date.now();
+      }
+      
       // Update ALL called emoji displays (mobile + desktop)
       $('[id="called-emoji"]').text(gameState.currentCall);
       gsap.fromTo('[id="called-emoji"]', { scale: 0, rotation: -180 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(1.7)' });
@@ -4131,7 +4221,12 @@ transform:translate3d(-50%, 0, 0);
       
       let base, ranges;
       
-      if (gameState.isCustomMode && gameState.customModeSettings) {
+      // Mirror Mode: Match player's speed
+      if (gameState.isMirrorMode) {
+        const avgSpeed = gameState.mirrorModeAverageSpeed || 400;
+        base = avgSpeed;
+        ranges = avgSpeed * 0.3; // +/- 30% variation
+      } else if (gameState.isCustomMode && gameState.customModeSettings) {
         const speedMap = {
           slow: { base: 3500, range: 1500 },
           normal: { base: 2400, range: 1200 },
@@ -4206,6 +4301,12 @@ transform:translate3d(-50%, 0, 0);
     function handlePlayerClick(index) {
       if (gameState.roundLocked || gameState.playerSelected[index] || gameState.isPaused) return;
       if (gameState.playerBoard[index] !== gameState.currentCall) return;
+      
+      // Mirror Mode: Track selection speed
+      if (gameState.isMirrorMode && gameState.mirrorModeCallTimestamp) {
+        const selectionTime = Date.now() - gameState.mirrorModeCallTimestamp;
+        gameState.mirrorModePlayerSelectionTimes.push(selectionTime);
+      }
       
       const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
       playerData.stats[statKey].totalSquaresSelected++;
@@ -4849,6 +4950,14 @@ transform:translate3d(-50%, 0, 0);
       gameState.roundUsedAnyPowerup = false; // Reset powerup flag for new round
       $('#round-number').text(gameState.round);
       const total = gameState.rows * gameState.cols;
+      
+      // Mirror Mode: Calculate average player speed from last round
+      if (gameState.isMirrorMode && gameState.mirrorModePlayerSelectionTimes.length > 0) {
+        const sum = gameState.mirrorModePlayerSelectionTimes.reduce((a, b) => a + b, 0);
+        gameState.mirrorModeAverageSpeed = Math.floor(sum / gameState.mirrorModePlayerSelectionTimes.length);
+        // Reset for new round
+        gameState.mirrorModePlayerSelectionTimes = [];
+      }
       
       if (gameState.isRowMode && !gameState.rowsSameEmoji) {
         gameState.playerEmojis = getUniqueEmojis(total, gameState.theme);
