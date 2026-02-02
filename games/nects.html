@@ -1187,11 +1187,93 @@ transform:translate3d(-50%, 0, 0);
     .steal-overlay.active { display: flex; }
     .steal-overlay h2 { font-family: var(--display-font); font-size: 1.3rem; color: var(--neon-pink); text-align: center; }
     .steal-board-preview { max-width: 300px; max-height: 300px; }
-    .steal-cancel-btn { background: rgba(255,255,255,0.1); color: white; border: 2px solid rgba(255,255,255,0.3); padding: 12px 30px; border-radius: 25px; font-weight: 700; cursor: pointer; }
+    .steal-cancel-btn { background: rgba(255,255,255,0.1); color: white; border: 2px solid rgba(255,255,255,0.3); padding: 12px 30px; border-radius: 25px; font-weight: 700; cursor: pointer; transition: all 0.3s; }
+    .steal-cancel-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
     
-    /* Called Emojis History */
-    .called-history-grid { display: flex; flex-wrap: wrap; gap: 10px; max-width: 400px; max-height: 400px; overflow-y: auto; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 15px; justify-content: center; }
-    .called-history-emoji { font-size: 2.5rem; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: rgba(178, 79, 243, 0.2); border: 2px solid var(--primary-accent); border-radius: 12px; }
+    /* Called Emojis History - Beautiful animated overlay */
+    #called-history-overlay { 
+      position: fixed; 
+      top: 0; left: 0; right: 0; bottom: 0; 
+      background: rgba(0, 0, 0, 0); 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      z-index: 900; 
+      flex-direction: column; 
+      gap: 20px; 
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s ease;
+    }
+    #called-history-overlay.active { 
+      background: rgba(0, 0, 0, 0.95);
+      opacity: 1;
+      pointer-events: all;
+    }
+    #called-history-overlay h2 { 
+      font-family: var(--display-font); 
+      font-size: 1.5rem; 
+      background: linear-gradient(135deg, var(--gold), var(--primary-accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+      margin: 0;
+      transform: translateY(-20px);
+      opacity: 0;
+      transition: all 0.4s ease 0.1s;
+    }
+    #called-history-overlay.active h2 {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .called-history-grid { 
+      display: flex; 
+      flex-wrap: wrap; 
+      gap: 12px; 
+      max-width: 450px; 
+      max-height: 450px; 
+      overflow-y: auto; 
+      padding: 25px; 
+      background: linear-gradient(135deg, rgba(178, 79, 243, 0.15), rgba(0, 255, 255, 0.1));
+      border: 2px solid var(--primary-accent);
+      border-radius: 20px; 
+      justify-content: center;
+      box-shadow: 0 0 40px rgba(178, 79, 243, 0.5), inset 0 0 30px rgba(178, 79, 243, 0.1);
+      transform: scale(0.8);
+      opacity: 0;
+      transition: all 0.4s ease 0.2s;
+    }
+    #called-history-overlay.active .called-history-grid {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .called-history-emoji { 
+      font-size: 2.5rem; 
+      width: 65px; 
+      height: 65px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      background: linear-gradient(135deg, rgba(178, 79, 243, 0.3), rgba(0, 255, 255, 0.2));
+      border: 2px solid var(--secondary-accent);
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0, 255, 255, 0.3);
+      transition: all 0.3s;
+      animation: popIn 0.4s ease backwards;
+    }
+    .called-history-emoji:nth-child(1) { animation-delay: 0.05s; }
+    .called-history-emoji:nth-child(2) { animation-delay: 0.1s; }
+    .called-history-emoji:nth-child(3) { animation-delay: 0.15s; }
+    .called-history-emoji:nth-child(4) { animation-delay: 0.2s; }
+    .called-history-emoji:nth-child(5) { animation-delay: 0.25s; }
+    .called-history-emoji:nth-child(6) { animation-delay: 0.3s; }
+    .called-history-emoji:hover {
+      transform: scale(1.15);
+      box-shadow: 0 6px 25px rgba(0, 255, 255, 0.6);
+      border-color: var(--gold);
+    }
     #called-emoji { cursor: pointer; transition: transform 0.2s; }
     #called-emoji:hover { transform: scale(1.1); }
     
@@ -3730,6 +3812,28 @@ transform:translate3d(-50%, 0, 0);
       } else { 
           cc.removeClass('hidden abysmal-hidden');
           
+          // Reorder powerups - unlocked first, then locked
+          const buttons = cc.find('button').not('[id$="-timer"]').get();
+          const unlockedButtons = [];
+          const lockedButtons = [];
+          
+          buttons.forEach(btn => {
+            const id = $(btn).data('cheat');
+            const owned = playerData.ownedCheats.includes(id);
+            if (owned) {
+              unlockedButtons.push(btn);
+            } else {
+              lockedButtons.push(btn);
+            }
+          });
+          
+          // Detach all buttons
+          buttons.forEach(btn => $(btn).detach());
+          
+          // Re-append in order: unlocked first, then locked
+          unlockedButtons.forEach(btn => cc.prepend(btn));
+          lockedButtons.forEach(btn => cc.append(btn));
+          
           // Setup Player Cheats with usage limits and cooldowns
           cc.find('button').each(function() { 
               const id = $(this).data('cheat');
@@ -4850,7 +4954,7 @@ transform:translate3d(-50%, 0, 0);
     }
     
     // Cheat Usage Helper
-    function markCheatUsed(btn, id) {
+    function markCheatUsed(btn, id, skipResume = false) {
         // Track usage for match limits
         gameState.roundCheatsUsed[id] = (gameState.roundCheatsUsed[id] || 0) + 1;
         gameState.playerCheated++;
@@ -4884,7 +4988,8 @@ transform:translate3d(-50%, 0, 0);
         setupCheatsUI();
         
         // Resume opponent turn after using a powerup (if not in special state)
-        if (!gameState.roundLocked && gameState.isPlaying && !gameState.isPaused) {
+        // Skip if the powerup handles its own resume logic (like steal)
+        if (!skipResume && !gameState.roundLocked && gameState.isPlaying && !gameState.isPaused) {
           setTimeout(() => {
             if (gameState.gameMode !== 'casual' && !gameState.roundLocked) {
               scheduleOpponentTurn();
@@ -5082,19 +5187,24 @@ transform:translate3d(-50%, 0, 0);
       renderBoard('opponent');
       updateMiniPreview();
       
-      markCheatUsed('#steal-btn', 'steal');
+      markCheatUsed('#steal-btn', 'steal', true); // skipResume = true, we handle it below
       showNotification('🫳 Stolen! Square added to your board!', 'player');
-      
-      // Resume game
-      gameState.isPaused = false;
-      if (!gameState.roundLocked && gameState.isPlaying) {
-        if (gameState.gameMode !== 'casual') scheduleOpponentTurn();
-        if (gameState.isRowMode && gameState.rowsTimeLeft > 0) startRowsTimer(gameState.rowsTimeLeft);
-      }
       
       // Check for win after steal
       if (checkWin('player')) {
         handleRoundWin('player');
+        return;
+      }
+      
+      // Resume game - unpause and continue
+      gameState.isPaused = false;
+      if (gameState.isPlaying && !gameState.roundLocked) {
+        if (gameState.gameMode !== 'casual') {
+          scheduleOpponentTurn();
+        }
+        if (gameState.isRowMode && gameState.rowsTimeLeft > 0) {
+          startRowsTimer(gameState.rowsTimeLeft);
+        }
       }
     }
     
@@ -5135,9 +5245,25 @@ transform:translate3d(-50%, 0, 0);
     $('#called-history-close').click(function() {
       $('#called-history-overlay').removeClass('active');
       gameState.isPaused = false;
-      if (!gameState.roundLocked && gameState.isPlaying) {
-        if (gameState.gameMode !== 'casual') scheduleOpponentTurn();
-        if (gameState.isRowMode && gameState.rowsTimeLeft > 0) startRowsTimer(gameState.rowsTimeLeft);
+      if (gameState.isPlaying) {
+        // Check if opponent already selected and round is locked - if so, proceed to next call
+        if (gameState.roundLocked && gameState.gameMode !== 'casual') {
+          const idx = gameState.opponentBoard.indexOf(gameState.currentCall);
+          if (idx !== -1 && gameState.opponentSelected[idx]) {
+            // Opponent already selected while we were viewing history, proceed to next call
+            setTimeout(() => {
+              if (checkWin('opponent')) {
+                handleRoundWin('opponent');
+              } else {
+                makeCall();
+              }
+            }, 800);
+          }
+        } else if (!gameState.roundLocked) {
+          // Round not locked yet, resume opponent turn scheduling
+          if (gameState.gameMode !== 'casual') scheduleOpponentTurn();
+          if (gameState.isRowMode && gameState.rowsTimeLeft > 0) startRowsTimer(gameState.rowsTimeLeft);
+        }
       }
     });
     
