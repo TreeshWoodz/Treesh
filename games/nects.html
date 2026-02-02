@@ -1081,7 +1081,7 @@ transform:translate3d(-50%, 0, 0);
     .scoreboard p { font-size: 0.65rem; font-family: var(--info-font); font-weight: 600; background: linear-gradient(135deg, rgba(30, 58, 138, 0.5), rgba(107, 63, 160, 0.5)); padding: 5px 8px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.15); flex: 1; text-align: center; }
     .scoreboard span { color: var(--gold); font-size: 0.85rem; display: block; margin-top: 2px; }
     
-    .cheats { white-space:nowrap; margin-bottom: 6px; width:100%; overflow:hidden; overflow-x:auto;}
+    .cheats { display: flex; flex-wrap: nowrap; margin-bottom: 6px; width:100%; overflow:hidden; overflow-x:auto;}
     .cheats:after {
       content:"";
       display:table;
@@ -2313,7 +2313,7 @@ transform:translate3d(-50%, 0, 0);
       totalSquaresSelected: 0, totalLinesFound: 0, totalWins: 0, totalLosses: 0,
       longestPlaySession: 0, totalPlaytime: 0, totalStarlitesEarned: 0, totalStarlitesSpent: 0
     };
-    const cheatPrices = { shuffle: 300, free: 400, swap: 900, shake: 1200, switch: 3000, splat: 1500, steal: 2000, shine: 4000, weaken: 2400 };
+    const cheatPrices = { shuffle: 10000, free: 10000, swap: 10000, shake: 10000, switch: 10000, splat: 10000, steal: 10000, shine: 10000, weaken: 10000 };
     
     // UPDATED THEME OBJECTS with environment colors
     const colorThemes = [
@@ -2328,7 +2328,7 @@ transform:translate3d(-50%, 0, 0);
       { 
         id: 'ocean', 
         name: 'Ocean Blue', 
-        price: 500, 
+        price: 6000, 
         colors: ['#0077b6', '#023e8a', '#00b4d8'],
         bgInner: '#001233', bgOuter: '#000814',
         accent1: '#00b4d8', accent2: '#90e0ef' 
@@ -2336,7 +2336,7 @@ transform:translate3d(-50%, 0, 0);
       { 
         id: 'forest', 
         name: 'Forest Green', 
-        price: 500, 
+        price: 6000, 
         colors: ['#2d6a4f', '#1b4332', '#40916c'],
         bgInner: '#081c15', bgOuter: '#040d0a',
         accent1: '#52b788', accent2: '#d8f3dc'
@@ -2344,7 +2344,7 @@ transform:translate3d(-50%, 0, 0);
       { 
         id: 'sunset', 
         name: 'Sunset Orange', 
-        price: 700, 
+        price: 6000, 
         colors: ['#e85d04', '#9d0208', '#f48c06'],
         bgInner: '#370617', bgOuter: '#03071e',
         accent1: '#ffba08', accent2: '#d00000'
@@ -2352,7 +2352,7 @@ transform:translate3d(-50%, 0, 0);
       { 
         id: 'neon', 
         name: 'Neon Pink', 
-        price: 1000, 
+        price: 6000, 
         colors: ['#ff006e', '#8338ec', '#ff00ff'],
         bgInner: '#240046', bgOuter: '#10002b',
         accent1: '#ff006e', accent2: '#3a86ff'
@@ -2360,7 +2360,7 @@ transform:translate3d(-50%, 0, 0);
       { 
         id: 'gold', 
         name: 'Royal Gold', 
-        price: 2000, 
+        price: 6000, 
         colors: ['#ffd700', '#b8860b', '#daa520'],
         bgInner: '#1f1a05', bgOuter: '#000000',
         accent1: '#ffd700', accent2: '#ffffff'
@@ -2370,10 +2370,10 @@ transform:translate3d(-50%, 0, 0);
     // Emoji themes for shop
     const emojiThemes = [
       { id: 'all', name: 'Random', emoji: '🎲', price: 0 },
-      { id: 'Smileys & Emotion', name: 'Smileys', emoji: '😀', price: 600 },
-      { id: 'Animals & Nature', name: 'Animals', emoji: '🐶', price: 600 },
-      { id: 'Food & Drink', name: 'Food', emoji: '🍕', price: 600 },
-      { id: 'Activities & Sports', name: 'Sports', emoji: '⚽', price: 600 }
+      { id: 'Smileys & Emotion', name: 'Smileys', emoji: '😀', price: 6000 },
+      { id: 'Animals & Nature', name: 'Animals', emoji: '🐶', price: 6000 },
+      { id: 'Food & Drink', name: 'Food', emoji: '🍕', price: 6000 },
+      { id: 'Activities & Sports', name: 'Sports', emoji: '⚽', price: 6000 }
     ];
     
     function loadFromStorage(key, def) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } catch { return def; } }
@@ -2625,6 +2625,7 @@ transform:translate3d(-50%, 0, 0);
       powerupCooldowns: { shuffle: 0, free: 0, swap: 0, shake: 0, switch: 0, splat: 0, steal: 0, weaken: 0 }, // Track cooldown timers
       roundUsedAnyPowerup: false, // Flag if any powerup used this round (for voiding multipliers)
       starliteShineUses: 0,
+      starliteShineActive: false, // Flag if shine powerup is active (all squares bonus)
       starliteBonusIndex: null,
       freeSpotActive: false, freeSpotIndex: null, isPlaying: false, isPaused: false, roundLocked: false,
       inTutorial: false, tutorialStep: 0, rows: 3, cols: 3, isRowMode: false, opponentCheatCooldown: 0, viewingOpponent: false,
@@ -3812,27 +3813,13 @@ transform:translate3d(-50%, 0, 0);
       } else { 
           cc.removeClass('hidden abysmal-hidden');
           
-          // Reorder powerups - unlocked first, then locked
-          const buttons = cc.find('button').not('[id$="-timer"]').get();
-          const unlockedButtons = [];
-          const lockedButtons = [];
-          
-          buttons.forEach(btn => {
-            const id = $(btn).data('cheat');
+          // Reorder powerups using CSS order - unlocked first, then locked (no visual glitch)
+          cc.find('button').each(function() {
+            const id = $(this).data('cheat');
             const owned = playerData.ownedCheats.includes(id);
-            if (owned) {
-              unlockedButtons.push(btn);
-            } else {
-              lockedButtons.push(btn);
-            }
+            // Unlocked get order 0-99, locked get order 100+
+            $(this).css('order', owned ? '0' : '100');
           });
-          
-          // Detach all buttons
-          buttons.forEach(btn => $(btn).detach());
-          
-          // Re-append in order: unlocked first, then locked
-          unlockedButtons.forEach(btn => cc.prepend(btn));
-          lockedButtons.forEach(btn => cc.append(btn));
           
           // Setup Player Cheats with usage limits and cooldowns
           cc.find('button').each(function() { 
@@ -3948,6 +3935,12 @@ transform:translate3d(-50%, 0, 0);
           if (type === 'player' && gameState.freeSpotIndex === i && gameState.freeSpotActive) cell.addClass('free-spot-marked');
           if (type === 'player' && gameState.playerSplatted) cell.addClass('splatted');
           if (type === 'opponent' && gameState.opponentSplatted) cell.addClass('splatted');
+          // Starlite bonus: show on all unselected squares if shine active AND grid is 5x5+
+          const gridSize = gameState.rows * gameState.cols;
+          if (type === 'player' && gameState.starliteShineActive && gridSize >= 25 && !selected[i]) {
+            cell.addClass('starlite-bonus');
+          }
+          // Legacy single-square bonus (kept for backwards compatibility)
           if (type === 'player' && gameState.starliteBonusIndex === i) cell.addClass('starlite-bonus');
           
           if (type === 'player') {
@@ -3999,6 +3992,12 @@ transform:translate3d(-50%, 0, 0);
           if (type === 'player' && gameState.freeSpotIndex === i && gameState.freeSpotActive) cell.addClass('free-spot-marked');
           if (type === 'player' && gameState.playerSplatted) cell.addClass('splatted');
           if (type === 'opponent' && gameState.opponentSplatted) cell.addClass('splatted');
+          // Starlite bonus: show on all unselected squares if shine active AND grid is 5x5+
+          const gridSizeCell = gameState.rows * gameState.cols;
+          if (type === 'player' && gameState.starliteShineActive && gridSizeCell >= 25 && !selected[i]) {
+            cell.addClass('starlite-bonus');
+          }
+          // Legacy single-square bonus (kept for backwards compatibility)
           if (type === 'player' && gameState.starliteBonusIndex === i) cell.addClass('starlite-bonus');
           
           if (type === 'player') {
@@ -4868,6 +4867,7 @@ transform:translate3d(-50%, 0, 0);
       gameState.opponentSelected = new Array(total).fill(false);
       gameState.roundLocked = false;
       gameState.calledEmojisHistory = []; // Clear history for new round
+      gameState.starliteShineActive = false; // Clear shine active flag for new round
       
       // Random starlite bonus square (30% chance each round)
       if (Math.random() < 0.3) {
@@ -5267,7 +5267,7 @@ transform:translate3d(-50%, 0, 0);
       }
     });
     
-    // STARLITE SHINE POWERUP - Transform any square to bonus square (3 uses per match)
+    // STARLITE SHINE POWERUP - Make ALL squares starlite bonus (3 uses per match)
     let shineState = { active: false };
     
     $('#shine-btn').click(function() {
@@ -5277,43 +5277,34 @@ transform:translate3d(-50%, 0, 0);
         return;
       }
       
-      showNotification('✨ Tap an unselected square to make it a Starlite Bonus!', 'player');
-      shineState.active = true;
+      const gridSize = gameState.rows * gameState.cols;
       
-      $('#player-board').on('click.shine', '.board-cell', function(e) {
-        if (!shineState.active) return;
-        const cell = $(e.target).closest('.board-cell');
-        if (!cell.length || !cell.hasClass('player-cell')) return;
-        const index = cell.data('index');
-        
-        if (gameState.playerSelected[index]) { 
-          showNotification('❌ Cannot set bonus on already selected square!', 'info'); 
-          return; 
-        }
-        
-        // Set this square as the starlite bonus
-        gameState.starliteBonusIndex = index;
-        gameState.starliteShineUses++;
-        
-        // Update board to show the new bonus square
-        renderBoard('player');
-        
-        // Update button visual if 3 uses reached
-        if (gameState.starliteShineUses >= 3) {
-          $('#shine-btn').addClass('used').prop('disabled', true);
-        }
-        
-        gameState.playerCheated++;
-        gameState.roundUsedAnyPowerup = true; // Flag that powerup was used (voids starlite multipliers)
-        updateScoreboard();
-        const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
-        playerData.stats[statKey].totalCheated++;
-        savePlayerData();
-        
-        shineState.active = false;
-        $('#player-board').off('click.shine');
-        showNotification('✨ Starlite Bonus square set! Win with it for 2x starlites!', 'player');
-      });
+      // Mark ALL unselected squares as starlite bonus
+      gameState.starliteShineActive = true; // Flag that shine is active for all squares
+      gameState.starliteShineUses++;
+      
+      // Update board to show all squares with bonus
+      renderBoard('player');
+      
+      // Update button visual if 3 uses reached
+      if (gameState.starliteShineUses >= 3) {
+        $('#shine-btn').addClass('used').prop('disabled', true);
+      }
+      
+      gameState.playerCheated++;
+      gameState.roundUsedAnyPowerup = true; // Flag that powerup was used (voids starlite multipliers)
+      updateScoreboard();
+      const statKey = gameState.gameMode === 'casual' ? 'casual' : gameState.difficulty;
+      playerData.stats[statKey].totalCheated++;
+      savePlayerData();
+      setupCheatsUI();
+      
+      // Only show bonus effect for 5x5+ grids
+      if (gridSize >= 25) {
+        showNotification('✨ ALL squares are now Starlite Bonus! Win with any for 2x starlites!', 'player');
+      } else {
+        showNotification('✨ Shine activated! (Bonus only applies to 5x5+ grids)', 'player');
+      }
     });
     
     // WEAKEN - Block opponent's powerups for 30 seconds
