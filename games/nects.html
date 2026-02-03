@@ -267,6 +267,7 @@
       font-size: 1.4rem;
       font-family: var(--display-font);
       font-weight: 800;
+      white-space:nowrap;
       text-transform: uppercase;
       letter-spacing: 4px;
       color: white;
@@ -302,6 +303,11 @@
     @keyframes btnShine {
       0% { left: -100%; }
       50%, 100% { left: 100%; }
+    }
+
+    #custom-mode-btn,
+    #mirror-mode-btn {
+      font-size:0.9em;
     }
     
     /* BUTTON ROWS */
@@ -1290,7 +1296,7 @@ transform:translate3d(-50%, 0, 0);
     .tutorial-tooltip button.skip-btn { background: rgba(100, 100, 100, 0.85); }
     
     /* Generic Popup */
-    .popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
+    .popup-overlay { position: fixed;  top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
     .popup-overlay.active { display: flex; }
     .popup-box { background: linear-gradient(135deg, var(--bg-gradient-inner), var(--bg-gradient-outer)); border: 3px solid var(--primary-accent); border-radius: 20px; padding: 30px; max-width: 450px; width: 100%; text-align: center; box-shadow: 0 0 50px var(--primary-accent); }
     .popup-box h2 { font-family: var(--title-font); font-size: 1.8rem; color: var(--gold); margin-bottom: 15px; }
@@ -1789,11 +1795,11 @@ transform:translate3d(-50%, 0, 0);
         <i class="fas fa-play"></i>
         <span>PLAY</span>
       </button>
-      <button type="button" class="home-btn" id="custom-mode-btn" style="display: none; background: linear-gradient(135deg, #ff6b35, #f7931e); margin-top: 10px;">
+      <button type="button" class="home-btn primary-btn" id="custom-mode-btn" style="display: none; background: linear-gradient(135deg, #ff6b35, #f7931e); margin-top: 10px;">
         <i class="fas fa-sliders-h"></i>
         <span>CUSTOM MODE</span>
       </button>
-      <button type="button" class="home-btn" id="mirror-mode-btn" style="display: none; background: linear-gradient(135deg, #00d4ff, #0099ff); margin-top: 10px;">
+      <button type="button" class="home-btn primary-btn" id="mirror-mode-btn" style="display: none; background: linear-gradient(135deg, #00d4ff, #0099ff); margin-top: 10px;">
         <i class="fas fa-clone"></i>
         <span>MIRROR MODE</span>
       </button>
@@ -2684,6 +2690,31 @@ transform:translate3d(-50%, 0, 0);
     function shuffleArray(arr) { const s = [...arr]; for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } return s; }
     function getUniqueEmojis(count, cat) { const d = emojiDatabase.find(c => c.category === cat); return shuffleArray(d ? [...d.emojis] : []).slice(0, count); }
     
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+const isTodayOrYesterday = key => {
+  const stored = localStorage.getItem(key);
+  if (!stored) return false;
+
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  return stored === todayStr() || stored === yesterday.toISOString().slice(0, 10);
+};
+
+const giveDailyReward = () => {
+  playerData.globalStats.totalStarlitesEarned += 1000;
+  playerData.starlites += 1000;
+  showNotification('⭐ Daily reward received', 'player');
+  updateStarlitesDisplay();
+  savePlayerData();
+  localStorage.setItem("Starlites received", "true");
+};
+    
+
+
     // --- EPIC INTRO ANIMATION ---
     let introReady = false;
     function initIntro() {
@@ -2719,7 +2750,19 @@ transform:translate3d(-50%, 0, 0);
                   opacity: 0, 
                   duration: 0.8, 
                   delay: 0.4,
-                  onComplete: () => $('#intro-screen').remove() 
+                  onComplete: () => { 
+                    $('#intro-screen').remove();
+                    
+const hasReceived = localStorage.getItem("Starlites received") === "true";
+
+if (!isTodayOrYesterday("lastVisit")) {
+  localStorage.setItem("Starlites received", "false");
+}
+
+if (!hasReceived) {
+  giveDailyReward();
+}
+                    }
               });
           } 
       });
