@@ -313,7 +313,7 @@ body.overflow {
     text-shadow:0 1px 1px rgba(0, 0, 0, 0.5);
     font-weight:800;
     padding-bottom:300px;
-    padding-top:60px;
+    padding-top:100px;
   }
   
 #tools {
@@ -428,6 +428,9 @@ body.overflow {
   #tools .bottom {
     height:50px;
     margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
   }
   
   #tools .top button:last-child {
@@ -439,15 +442,40 @@ body.overflow {
     vertical-align:middle;
     line-height:0px;
     margin:0px;
+    font-size:0.75rem;
   }
   
   #tools .bottom button i {
     font-size:60%;
   }
   
+  #tools .bottom button {
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  
+  #tools .bottom button:not(#next-line) {
+    margin:0px !important;
+  }
+  
+  #tools .bottom button span {
+    font-size:0.75rem;
+    line-height:20px;
+    display:inline-block;
+    vertical-align:middle;
+  }
+  
+  #tools .bottom button span i {
+    display:inline-block;
+    vertical-align:middle;
+  }
+  
+  #tools .bottom button:before {
+    displaY:none !important;
+  }
+  
   #tools .bottom button:first-child, 
    #tools .bottom button:last-child  {
-     width:70px !important;
      line-height:0px !important;
      padding:0px !important;
   }
@@ -1227,26 +1255,18 @@ body.overflow {
   
   
   #rhymes {
-    max-width:300px;
-    border-radius:30px;
-    border:1px solid rgba(255, 255, 255, 0.2);
-    box-shadow:0 10px 10px rgba(0, 0, 0, 0.3);
     margin:0px;
-    height:50px !important;
-    width:100%;
+    height:0px;
+    width:110%;
+    left:-5%;
     display:block;
-    background:rgba(0, 0, 0, 0.8);
     opacity:0;
-    z-index:100;
     white-space:nowrap;
-    position:fixed;
+    position:relative;
     overflow:hidden;
-    transform: translate3d(0, 0, 0);
-  transition:
-    opacity 0.25s ease,
-    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
   will-change: transform, opacity;
+    z-index:2;
   }
 
   #rhymes:before {
@@ -1254,17 +1274,15 @@ body.overflow {
   }
   
   #rhymes.go {
-    opacity:1 !important;
     pointer-events:auto;
   }
   
   #rhymes .contain {
-    height:100%;
+    height:auto;
     width:100%;
     overflow:auto;
     overflow-y:hidden;
     position:relative;
-    padding:10px 10px;
     z-index:200;
   }
   
@@ -1277,6 +1295,7 @@ body.overflow {
     display:inline-block;
     background:transparent;
     font-size:1rem;
+    width:auto;
     color:white;
     z-index:332 !important;
     position:relative;
@@ -1289,6 +1308,14 @@ body.overflow {
     border-radius:30px;
     height:auto !important;
     margin-right:5px;
+  }
+  
+  #rhymes button:first-child {
+    margin-left:25px;
+  }
+  
+  #rhymes button:last-child {
+    margin-right:25px;
   }
   
   #rhymes button:hover {
@@ -1371,6 +1398,8 @@ body.overflow {
     
     <button type="button" id="play" data-file="none" style="display:none;">Play</button>
     <audio id="player" controls></audio>
+        
+         <div id="rhymes"><div class="contain"></div></div> 
   
   <div id="metadata">
     <div class="btns">
@@ -1392,9 +1421,9 @@ body.overflow {
   
   
   <div class="bottom section"> 
-    <button type="button" id="audio-btn" data-status="upload"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
+    <button type="button" id="audio-btn" data-status="upload"><i class="fa-solid fa-arrow-up-from-bracket"></i> <span>Upload Audio</span></button>
     <button type="button" id="next-line" data-status="record" for="lyrics" class="inactive"><i class="fa-solid fa-circle"></i> <span>Record</span></button>
-    <button type="button" id="next" class="inactive" data-status="next"><i class="fa-solid fa-arrow-right"></i></button>
+    <button type="button" id="next" class="inactive" data-status="next"><span>Studio</span> <i class="fa-solid fa-arrow-right"></i></button>
   </div>
     
   <div class="top section">
@@ -1411,8 +1440,6 @@ body.overflow {
       <div id="container">
         
         <form id="text" class="main">
-          <div id="rhymes"><div class="contain"></div></div> 
-          
        <textarea id="input" placeholder="Write your lyrics here or copy and paste what you have." autocorrect="off" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea>
         </form>
         
@@ -1432,100 +1459,28 @@ body.overflow {
   TextPlugin
 );
        
+ 
+          let defaultTL = gsap.timeline({paused: true});
           
-/*
-           gsap.to("#next-line", {
+           defaultTL.to("#next-line", {
   display: "none"
-});
-    
-          gsap.to("#audio-btn, #next", {
-  display: "none"
-});
-*/
+}).to("#audio-btn, #next", {
+  width: "45%",
+             maxWidth: "48%",
+             minWidth: "48%"
+}, "<")
+.to ("#tools .top button", {
+             y: 20,
+             opacity: 0,
+             scale: 0.8
+           }, "<")
+.to("#tools .top", {
+             height: 0
+           }, "<");
           
-const $rhymes = $("#rhymes");
-const $text = $("#text");
-const $input = $("#input");
-const padding = 30;
-let repositionTimeout;
-let latestCoords = { x: 0, y: 0 };
+          defaultTL.play();
 
-function showRhymesAt(x, y, smooth = true) {
-  latestCoords = { x, y };
-  const popupWidth = $rhymes.outerWidth();
-  const popupHeight = $rhymes.outerHeight() || 50;
-  const vv = window.visualViewport;
-
-  clearTimeout(repositionTimeout);
-  $rhymes.removeClass("go");
-  $rhymes.find(".contain").scrollLeft(0);
-
-  repositionTimeout = setTimeout(() => {
-    const viewportOffsetY = vv ? vv.offsetTop : 0;
-    const viewportHeight = vv ? vv.height : window.innerHeight;
-    const viewportWidth = vv ? vv.width : window.innerWidth;
-
-    let left = x - popupWidth / 2;
-    let top = y - popupHeight - padding - viewportOffsetY;
-
-    const bottomLimit = viewportHeight - popupHeight - padding;
-    if (top > bottomLimit) top = bottomLimit;
-    if (top < padding) top = padding;
-
-    if (left < padding) left = padding;
-    if (left + popupWidth > viewportWidth - padding)
-      left = viewportWidth - popupWidth - padding;
-
-    // use transform for smoother repositioning
-    const transform = `translate3d(${left}px, ${top}px, 0)`;
-    $rhymes.css({
-      transform,
-      transition: smooth
-        ? "opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)"
-        : "none"
-    });
-
-    requestAnimationFrame(() => $rhymes.addClass("go"));
-  }, 350);
-}
-
-// block reposition clicks inside rhymes
-$rhymes.on("click touchstart", (e) => e.stopPropagation());
-
-// handle clicks/touches inside parent container
-$text.on("click touchstart", function (e) {
-  if (!$(e.target).is("#input")) return;
-  const x = e.pageX || e.originalEvent.touches[0].pageX;
-  const y = e.pageY || e.originalEvent.touches[0].pageY;
-  showRhymesAt(x, y); 
-});
-
-$input.on("focus", function () {
-  const rect = this.getBoundingClientRect();
-  showRhymesAt(rect.left + 20, rect.top - 60);
-});
-
-$input.on("blur", () => $rhymes.removeClass("go"));
-
-// handle viewport changes (keyboard open/close)
-if (window.visualViewport) {
-  let resizeTimer;
-  visualViewport.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      if ($rhymes.hasClass("go")) {
-        const rect = $input[0].getBoundingClientRect();
-        showRhymesAt(rect.left + 20, rect.top - 60);
-      }
-    }, 150);
-  });
-}
         });
-      </script>
-
-      
-
-<script>
   
   
 function saveMetadata() {
@@ -1637,7 +1592,6 @@ if (savedLyricsData) {
 
 
 
-    // save lyrics + classes + span content + <br>
     function saveLyrics() {
   const text = $("#input").val();
   const lines = text.split("\n");
@@ -1666,13 +1620,11 @@ if (savedLyricsData) {
       if (!timestamp.startsWith("[")) timestamp = "[" + timestamp + "]";
     }
 
-    // push the same shape your old function used
     const classes = isSet ? "set" : "";
     const html = "<span>" + (timestamp || "") + "</span> " + body;
     lyricsData.push({ type: "p", text: html, classes: classes });
   });
 
-  // debug — check console to confirm saved payload
   console.log("saving lyricsData", lyricsData);
   localStorage.setItem("lyricsData", JSON.stringify(lyricsData));
 }
@@ -2062,9 +2014,53 @@ $("#lyrics").attr("data-status", "normal");
 });
 
  
+    
+    let studioTL = gsap.timeline({paused: true});
+          
+    studioTL.fromTo("#next-line", {
+  display: "none",
+      width: 0,
+      opacity: 0,
+      margin: 0
+}, {
+      display: "inline-block",
+      width: "100%",
+      opacity: 1,
+      duration: 0.3,
+      margin: "0px 10px",
+      ease: "power1.in"
+    })
+    .to("#tools .bottom button:not(#next-line) span", {
+      width: 0,
+      duration: 0.3,
+      ease: "power1.in", 
+      opacity: 0,
+      position:"absolute"
+    }, "<")
+.to("#audio-btn, #next", {
+  width: "50px",
+             maxWidth: "50px", 
+             minWidth: "50px",
+      duration: 0.3,
+      ease: "power1.in"
+}, "<")
+.to("#tools .top", {
+      height: "auto",
+      duration: 0.3,
+      ease: "power1.in"
+           }, "<")
+.to("#tools .top button", {
+             y: 0,
+             opacity: 1,
+      scale: 1,
+             stagger: 0.05,
+            duration: 0.3,
+            ease: "power1.in"
+           }, "<");
+    
 
     $("#new").click(function() { 
-        $("#lyrics").empty(); 
+      $("#lyrics").empty(); 
 $("#player").removeAttr("src");
       $("#lyrics").hide();
       $("#lyrics").attr("data-status", "normal");
@@ -2117,14 +2113,74 @@ $("#player").removeAttr("src");
 });
     
     
+    function getRhymesForCaret() {
+  const $input = $("#input");
+  const word = getWordAtCaret($input);
+  if (!word) {
+    $("#rhymes .contain").empty();
+    return;
+  }
+
+  $.getJSON("https://rhymebrain.com/talk?function=getRhymes&word=" + encodeURIComponent(word))
+    .done(function(data) {
+      const list = data
+        .slice(0, 30)
+        .map(item => "<button type='button' class='rhyme-btn'>" + item.word + "</button>")
+        .join("");
+      $("#rhymes .contain").html(list);
+    })
+    .fail(() => console.log("Rhyme API request failed"));
+}
+    
+    
+     let rhymesTl = gsap.timeline({paused: true});
+    
+    function showRhymes() {
+      $("#rhymes .contain").scrollLeft(0);
+      $("#rhymes").addClass("go");
+      rhymesTl.play();
+    }
+    
+    function hideRhymes() {
+      $("#rhymes").removeClass("go");
+      rhymesTl.reverse();
+    }
+    
+    
+   rhymesTl.fromTo(
+    () => gsap.utils.toArray("#rhymes button").filter(el => {
+      const r = el.getBoundingClientRect();
+      return r.top < window.innerHeight && r.bottom > 0;
+    }),
+    {
+      y: 20,
+      scale: 0.8,
+      opacity: 0
+    },
+    {
+      y: 0,
+      scale: 1,
+      opacity: 1,
+      duration: 0.25,
+      ease: "power1.out"
+    }
+  )
+.to("#rhymes", {
+        height: "50px",
+        opacity: 1,
+        duration: 0.3,
+        ease: "power1.in"
+      }); 
+    
   
  $("#next").click(function() {
    if ( !$(this).hasClass("inactive") ) {
    if ( $("#rhymes").hasClass("go") ) {
-   $("#rhymes").removeClass("go");
+   hideRhymes();
 }
    
     if ($(this).attr("data-status") === "next") {
+      studioTL.play();
       
         $("#text").hide();
         $("#lyrics").show(); 
@@ -2138,7 +2194,8 @@ $("#player").removeAttr("src");
       $("#refresh").removeClass("inactive");
     }
       
-        $(this).html('<i class="fa-solid fa-arrow-left"></i>').attr("data-status", "back");
+        $(this).find("i").removeClass().addClass('fa-solid fa-arrow-left');
+      $(this).attr("data-status", "back");
 
         var lines = $("#input").val().split("\n");
  
@@ -2230,11 +2287,12 @@ $("#player").removeAttr("src");
   if (contentt === "") {
     $(this).addClass("no-lyrics");
   } else {
-    $(this).removeClass("no-lyrics"); /
+    $(this).removeClass("no-lyrics"); 
   }
 });
 
     } else {
+      studioTL.reverse();
       $("#refresh, #set").addClass("inactive");
       $("#container").removeClass("lyrics");
       $("#next-line").removeClass("go").attr("data-status", "record").addClass("inactive").find("span").text("Record");
@@ -2243,7 +2301,8 @@ $("#player").removeAttr("src");
       $("#lyrics p").removeClass("clicked").removeClass("no").removeClass("selected").removeClass("sync");
 $("#text").show();
 $("#lyrics").hide();
-        $(this).html('<i class="fa-solid fa-arrow-right"></i>').attr("data-status", "next");
+      $(this).attr("data-status", "next");
+        $(this).find("i").removeClass().addClass('fa-solid fa-arrow-right');
 $("button[for='lyrics']").addClass("inactive");
 
 var inputText = "";
@@ -2322,8 +2381,10 @@ function scheduleGetRhymes() {
   clearTimeout(timeout);
   timeout = setTimeout(getRhymesForCaret, 200);
 }
+
+   
+    
 $("#input").on("input keyup mouseup", function() {
-  // rebuild visible lyrics like before
   var lines = $(this).val().split("\n");
   var $lyrics = $("#lyrics");
   $lyrics.empty();
@@ -2336,9 +2397,13 @@ $("#input").on("input keyup mouseup", function() {
   }
 
   if ( $(this).val().trim() !== "" ) {
-    if ( !$("#rhymes").hasClass("go") ) $("#rhymes").addClass("go");
+    if ( !$("#rhymes").hasClass("go") ) {
+      
+     showRhymes();
+      
+    }
   } else {
-    $("#rhymes").removeClass("go");
+    hideRhymes();
   }
 
   lines.forEach(function(line) {
@@ -2372,27 +2437,7 @@ $("#input").on("input keyup mouseup", function() {
   saveLyrics();
 });
 
-function getRhymesForCaret() {
-  const $input = $("#input");
-  const word = getWordAtCaret($input);
-  if (!word) {
-    $("#rhymes .contain").empty();
-    return;
-  }
 
-  $.getJSON("https://rhymebrain.com/talk?function=getRhymes&word=" + encodeURIComponent(word))
-    .done(function(data) {
-      const list = data
-        .slice(0, 30)
-        .map(item => "<button type='button' class='rhyme-btn'>" + item.word + "</button>")
-        .join("");
-      $("#rhymes .contain").html(list);
-    })
-    .fail(() => console.log("Rhyme API request failed"));
-}
-
-
-// insert the rhyme at caret (on same line) — DO NOT replace whole word
 $("#rhymes").on("click", "button", function() {
   const $input = $("#input");
   const word = $(this).text();
@@ -2402,24 +2447,20 @@ $("#rhymes").on("click", "button", function() {
   const before = text.substring(0, pos);
   const after = text.substring(pos);
 
-  // detect if caret is inside a word
-  const beforeWordMatch = before.match(/(\S+)$/); // last word before caret
-  const afterWordMatch = after.match(/^(\S+)/);   // first word after caret
+  const beforeWordMatch = before.match(/(\S+)$/); 
+  const afterWordMatch = after.match(/^(\S+)/);   
 
   let newText, cursorPos;
 
   if (beforeWordMatch && afterWordMatch) {
-    // inside a word → replace that word
     const fullWordStart = pos - beforeWordMatch[1].length;
     const fullWordEnd = pos + afterWordMatch[1].length;
     newText = text.substring(0, fullWordStart) + word + " " + text.substring(fullWordEnd);
     cursorPos = fullWordStart + word.length + 1;
   } else if (beforeWordMatch && /\S$/.test(before)) {
-    // end of a word (cursor right after one) → add new word
     newText = before + " " + word + " " + after;
     cursorPos = before.length + word.length + 2;
   } else {
-    // otherwise just insert
     newText = before + word + " " + after;
     cursorPos = before.length + word.length + 1;
   } 
@@ -2428,7 +2469,6 @@ $("#rhymes").on("click", "button", function() {
   inputEl.selectionStart = inputEl.selectionEnd = cursorPos;
   $input.focus();
 
-  // sync with #lyrics
   const lines = newText.split("\n");
   const $lyrics = $("#lyrics").empty();
   lines.forEach(line => {
@@ -2447,35 +2487,68 @@ $("#rhymes").on("click", "button", function() {
   const before = val[pos - 1] || "";
   const after = val[pos] || "";
 
-  // check if caret is next to or inside a word
   const isInWord = /\w/.test(before) || /\w/.test(after);
 
   if (isInWord) {
-    $("#rhymes").addClass("go");
+   showRhymes();
   } else {
-    $("#rhymes").removeClass("go");
+    hideRhymes();
   }
 });
 
 
     
+              
+          
+const $rhymes = $("#rhymes");
+const $text = $("#text");
+const $input = $("#input");
+const padding = 30;
+let repositionTimeout;
+let latestCoords = { x: 0, y: 0 };
 
-    
-    $("#input").on("keydown", function(e) {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault(); // stop default big newline
-    const start = this.selectionStart;
-    const end = this.selectionEnd;
-    const value = $(this).val();
-    
+function showRhymesAt(x, y, smooth = true) {
+  latestCoords = { x, y };
+  const popupWidth = $rhymes.outerWidth();
+  const popupHeight = $rhymes.outerHeight() || 50;
+  const vv = window.visualViewport;
 
-    // insert single newline manually
-    $(this).val(value.substring(0, start) + "\n" + value.substring(end));
+  clearTimeout(repositionTimeout);
+  $rhymes.find(".contain").scrollLeft(0);
 
-    // move cursor correctly 
-    this.selectionStart = this.selectionEnd = start + 1;
-  }
-      
+  repositionTimeout = setTimeout(() => {
+    const viewportOffsetY = vv ? vv.offsetTop : 0;
+    const viewportHeight = vv ? vv.height : window.innerHeight;
+    const viewportWidth = vv ? vv.width : window.innerWidth;
+
+    let left = x - popupWidth / 2;
+    let top = y - popupHeight - padding - viewportOffsetY;
+
+    const bottomLimit = viewportHeight - popupHeight - padding;
+    if (top > bottomLimit) top = bottomLimit;
+    if (top < padding) top = padding;
+
+    if (left < padding) left = padding;
+    if (left + popupWidth > viewportWidth - padding)
+      left = viewportWidth - popupWidth - padding;
+
+    // use transform for smoother repositioning
+    const transform = `translate3d(${left}px, ${top}px, 0)`;
+    $rhymes.css({
+      transform,
+      transition: smooth
+        ? "opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)"
+        : "none"
+    });
+
+    requestAnimationFrame(() => $rhymes.addClass("go"));
+  }, 350);
+}
+
+$rhymes.on("click touchstart", (e) => e.stopPropagation());
+
+$input.on("blur", () => {
+  hideRhymes();
 });
 
     
@@ -2818,11 +2891,6 @@ $("#rhymes").on("click", "button", function() {
     }
   }); // end lyrics ajax
 });
-
-
-
-
-
 
 
           
