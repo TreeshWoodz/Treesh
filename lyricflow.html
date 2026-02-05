@@ -91,7 +91,7 @@ canvas#visualizer.on { opacity:0.35; }
 #container { position:relative; width:100%; height:100%; z-index:2; }
 #container .main { position:absolute; inset:0; }
 #text { max-width:600px; margin:0 auto; width:100%; height:100%; position:relative; }
-#input { width:100%; height:100%; display:block; padding:80px 24px 280px; font-family:var(--type-font); font-size:1.3rem; line-height:3rem; background:transparent; border:none; color:var(--text); font-weight:400; resize:none; caret-color:var(--accent); text-shadow:0 1px 2px rgba(0,0,0,0.2); outline:none; }
+#input { width:100%; height:100%; display:block; padding:120px 24px 280px; font-family:var(--type-font); font-size:1.3rem; line-height:3rem; background:transparent; border:none; color:var(--text); font-weight:400; resize:none; caret-color:var(--accent); text-shadow:0 1px 2px rgba(0,0,0,0.2); outline:none; }
 #input::placeholder { color:var(--text-3); }
 #input:focus { color:white; }
 
@@ -121,7 +121,8 @@ canvas#visualizer.on { opacity:0.35; }
 #tools { position:fixed; bottom:0; left:0; right:0; z-index:15; padding:0 12px 20px; pointer-events:none; display:flex; flex-direction:column; align-items:center; gap:8px; }
 #tools > * { pointer-events:auto; }
 
-#rhymes-bar { width:100%; max-width:560px; height:0; opacity:0; overflow:hidden; white-space:nowrap; transition:height 0.4s var(--ease), opacity 0.3s ease; }
+#rhymes-bar { position:fixed; width:100%; max-width:560px; height:0; opacity:0; overflow:hidden; white-space:nowrap; transition:height 0.4s var(--ease), opacity 0.3s ease; top: calc(58px + 15px);
+  left: 16px; z-index:3; }
 #rhymes-bar.on { height:44px; opacity:1; }
 #rhymes-bar .rhymes-scroll { width:100%; overflow-x:auto; overflow-y:hidden; padding:4px 0; display:flex; gap:6px; scrollbar-width:none; }
 #rhymes-bar .rhymes-scroll::-webkit-scrollbar { display:none; }
@@ -225,6 +226,7 @@ button { position:relative; }
 <div id="progress-bar"><div class="fill"></div></div>
 <div id="time-badge">0:00 / 0:00</div>
 <div id="stats-float"><div class="s"><i class="fa-solid fa-align-left"></i><span id="st-lines">0</span> lines</div><div class="s"><i class="fa-solid fa-font"></i><span id="st-words">0</span> words</div></div>
+  <div id="rhymes-bar"><div class="rhymes-scroll"></div></div>
 
 <nav id="nav">
   <div class="brand"><img src="https://64.media.tumblr.com/499cf277a8ec8e981054d12a605fb876/97d6aeb0d1a038c3-51/s1280x1920/b1821ea521f05d66eb2bcb4c725cb57a6bd6e65b.png" alt="Treesh"><span>LyricFlow</span></div>
@@ -252,7 +254,6 @@ button { position:relative; }
 <audio id="player" controls></audio>
 
 <form id="tools" onsubmit="return false;">
-  <div id="rhymes-bar"><div class="rhymes-scroll"></div></div>
   <div id="toolbar">
     <div class="bar-main">
       <button type="button" class="tool-btn" id="audio-btn" data-status="upload"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
@@ -260,6 +261,15 @@ button { position:relative; }
       <button type="button" class="tool-btn" id="next" disabled data-status="next"><i class="fa-solid fa-arrow-right"></i> <span>Studio</span></button>
       <button type="button" class="tool-btn" id="menu-toggle"><i class="fa-solid fa-sliders"></i></button>
     </div>
+    
+    <div id="studio-controls" style="height:0px; opacity:0;"><div class="panel-label">Studio</div>
+        <div class="studio-row">
+          <button type="button" class="studio-btn inactive" id="refresh"><i class="fa-solid fa-arrows-rotate"></i> <span>Refresh</span></button>
+          <button type="button" class="studio-btn inactive" id="clear-time"><i class="fa-solid fa-eraser"></i> <span>Clear</span></button>
+          <button type="button" class="studio-btn inactive" id="set"><i class="fa-solid fa-lock"></i> <span>Set</span></button>
+        </div>
+      </div>
+    
     <div id="panel">
       <div class="panel-section"><div class="panel-label">Metadata</div>
         <input type="text" class="meta-field" id="meta_track" placeholder="Song title">
@@ -296,13 +306,6 @@ button { position:relative; }
           <button class="font-chip" data-font="Instrument Serif" style="font-family:'Instrument Serif'">Serif</button>
           <button class="font-chip" data-font="Cormorant Garamond" style="font-family:'Cormorant Garamond'">Garamond</button>
           <button class="font-chip" data-font="Libre Baskerville" style="font-family:'Libre Baskerville'">Baskerville</button>
-        </div>
-      </div>
-      <div class="panel-section" id="studio-controls" style="display:none;"><div class="panel-label">Studio</div>
-        <div class="studio-row">
-          <button type="button" class="studio-btn inactive" id="refresh"><i class="fa-solid fa-arrows-rotate"></i> <span>Refresh</span></button>
-          <button type="button" class="studio-btn inactive" id="clear-time"><i class="fa-solid fa-eraser"></i> <span>Clear</span></button>
-          <button type="button" class="studio-btn inactive" id="set"><i class="fa-solid fa-lock"></i> <span>Set</span></button>
         </div>
       </div>
     </div>
@@ -362,11 +365,255 @@ $("#progress-bar").click(function(e){if(!player.duration)return;player.currentTi
 $("#audio-btn").click(function(){var s=$(this).attr("data-status");if(s==="upload"){$("#audioUploader").click()}else if(s==="play"){playAudio()}else{player.pause();$(this).attr("data-status","play").html('<i class="fa-solid fa-play"></i>');$("#visualizer").removeClass("on");$("#lyrics").attr("data-status","normal");$("#lyrics p").removeClass("no sync");$("#next-line").removeClass("rec-on").attr("data-status","record").find("span").text("Record");disableBtn("#refresh");disableBtn("#clear-time")}});
 $("#upload-btn").click(function(){$("#audioUploader").click()});
 
-$("#menu-toggle").click(function(){var $p=$("#panel");if($p.hasClass("open")){$p.removeClass("open");$(this).removeClass("menu-on")}else{$p.addClass("open");$(this).addClass("menu-on");gsap.fromTo("#panel .panel-section",{y:15,opacity:0},{y:0,opacity:1,stagger:0.06,duration:0.4,ease:"power3.out"})}});
+$("#menu-toggle").click(function () {
+  const $panel = $("#panel");
+  const $toggle = $(this);
+  const isOpen = $panel.hasClass("open");
+
+  if (isOpen) {
+    $panel.removeClass("open");
+    $toggle.removeClass("menu-on");
+    
+    if ($("#lyrics").css("display") !== "none") {
+    gsap.to("#studio-controls", {
+    height: "auto",
+    duration: 0.3,
+    opacity: 1,
+      delay: 0.3,
+    ease:"power1.in"
+  });
+    }
+    
+    return;
+  }
+
+  $panel.addClass("open");
+  $toggle.addClass("menu-on");
+  
+  if ($("#lyrics").css("display") !== "none") {
+    gsap.to("#studio-controls", {
+    height: 9,
+    duration: 0.3,
+    opacity: 0,
+      delay: 0.3,
+    ease:"power1.in"
+  });
+    }
+
+  gsap.fromTo(
+    "#panel .panel-section",
+    { y: 15, opacity: 0 },
+    {
+      y: 0,
+      opacity: 1,
+      stagger: 0.06,
+      duration: 0.4,
+      ease: "power3.out"
+    }
+  );
+});
+
 
 function addDurations(){$(".line-dur").remove();var $ps=$("#lyrics p:not(.no-lyrics)");$ps.each(function(i){var t1=getTP($(this));if(isNaN(t1))return;var $n=$ps.eq(i+1);if($n.length){var t2=getTP($n);if(!isNaN(t2))$(this).append('<span class="line-dur">'+(t2-t1).toFixed(1)+'s</span>')}})}
 
-$("#next").click(function(){if($(this).prop("disabled"))return;if($(this).attr("data-status")==="next"){inStudio=true;$("#text").hide();$("#lyrics").show();$(this).attr("data-status","back").find("i").removeClass().addClass("fa-solid fa-arrow-left");$(this).find("span").text("Back");$("#studio-controls").show();if(player.src&&player.src!=="")enableBtn("#next-line");if($("#lyrics p.set, #lyrics p.selected, #lyrics p.clicked").length)enableBtn("#refresh");var lines=$("#input").val().split("\n"),$ex=$("#lyrics p, #lyrics br"),eL=$ex.length;$ex.each(function(i){var line=lines[i]?lines[i].trim():"",isSet=false;if(line.startsWith("*")){isSet=true;line=line.slice(1).trim()}if(line===""){if(this.tagName==="P")$(this).replaceWith("<br>");return}var match=line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/),ts="",txt=line;if(match){ts=match[1];txt=match[2].trim();if(!ts.startsWith("["))ts="["+ts+"]"}if(this.tagName==="P"){$(this).html("<span>"+(ts||"")+"</span> "+txt);if(isSet)$(this).addClass("set")}else if(this.tagName==="BR"&&line!==""){var $p=$("<p>").html("<span>"+(ts||"")+"</span> "+txt);if(isSet)$p.addClass("set");$(this).replaceWith($p)}});if(lines.length>eL){for(var i=eL;i<lines.length;i++){var line=lines[i].trim(),isSet=false;if(line.startsWith("*")){isSet=true;line=line.slice(1).trim()}if(line===""){$("#lyrics").append("<br>");continue}var match=line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/),ts="",txt=line;if(match){ts=match[1];txt=match[2].trim();if(!ts.startsWith("["))ts="["+ts+"]"}var $p=$("<p>").html("<span>"+(ts||"")+"</span> "+txt);if(isSet)$p.addClass("set");$("#lyrics").append($p)}}$("#lyrics p").each(function(){var sp=$(this).find("span").first().text();if(!sp||sp.trim()==="")$(this).addClass("no-time");else $(this).removeClass("no-time");var ct=$(this).clone().children("span").remove().end().text().trim();if(ct==="")$(this).addClass("no-lyrics");else $(this).removeClass("no-lyrics")});addDurations();gsap.fromTo("#lyrics p:not(.no-lyrics)",{y:25,opacity:0,scale:0.92},{y:0,opacity:1,scale:0.96,stagger:0.035,duration:0.45,ease:"power3.out"})}else{inStudio=false;$("#studio-controls").hide();$("#lyrics p").removeClass("clicked no selected sync");$("#lyrics").attr("data-status","normal");var inputText="";$("#lyrics").contents().each(function(){if(this.nodeType===1){if(this.tagName==="P"){var $p=$(this),sp=$p.find("span").first().text().trim(),lt=$p.clone().children("span").remove().end().text().trim(),lo="";if($p.hasClass("set"))lo+="*";if(sp)lo+=sp+" ";lo+=lt;inputText+=lo+"\n"}else if(this.tagName==="BR")inputText+="\n"}});$("#input").val(inputText);$("#text").show();$("#lyrics").hide();$(this).attr("data-status","next").find("i").removeClass().addClass("fa-solid fa-arrow-right");$(this).find("span").text("Studio");disableBtn("#next-line");$("#next-line").removeClass("rec-on").attr("data-status","record").find("span").text("Record");disableBtn("#refresh");disableBtn("#set");disableBtn("#clear-time")}});
+$("#next").click(function () {
+  if ($(this).prop("disabled")) return;
+
+  const $btn = $(this);
+  const isNext = $btn.attr("data-status") === "next";
+
+  if (isNext) {
+    enterStudio($btn);
+  } else {
+    exitStudio($btn);
+  }
+});
+
+function enterStudio($btn) {
+  inStudio = true;
+
+  // UI state
+  $("#text").hide();
+  $("#lyrics").show();
+  
+  gsap.to("#studio-controls", {
+    height: "auto",
+    duration: 0.3,
+    opacity: 1,
+    ease:"power1.in"
+  });
+
+  $btn
+    .attr("data-status", "back")
+    .find("i").removeClass().addClass("fa-solid fa-arrow-left");
+  $btn.find("span").text("Back");
+
+  if (player.src) enableBtn("#next-line");
+  if ($("#lyrics p.set, #lyrics p.selected, #lyrics p.clicked").length) {
+    enableBtn("#refresh");
+  }
+
+  const lines = $("#input").val().split("\n");
+  const $existing = $("#lyrics p, #lyrics br");
+  const existingLen = $existing.length;
+
+  // Update existing elements
+  $existing.each(function (i) {
+    updateLyricsNode(this, lines[i] || "");
+  });
+
+  // Append new lines if needed
+  for (let i = existingLen; i < lines.length; i++) {
+    appendLyricsLine(lines[i]);
+  }
+
+  // Mark empty time / lyrics
+  $("#lyrics p").each(function () {
+    const $p = $(this);
+    const time = $p.find("span").first().text().trim();
+    const text = $p.clone().children("span").remove().end().text().trim();
+
+    $p.toggleClass("no-time", !time);
+    $p.toggleClass("no-lyrics", !text);
+  });
+
+  addDurations();
+
+  gsap.fromTo(
+    "#lyrics p:not(.no-lyrics)",
+    { y: 25, opacity: 0, scale: 0.92 },
+    {
+      y: 0,
+      opacity: 1,
+      scale: 0.96,
+      stagger: 0.035,
+      duration: 0.45,
+      ease: "power3.out"
+    }
+  );
+}
+
+function exitStudio($btn) {
+  inStudio = false;
+
+  gsap.to("#studio-controls", {
+    height: 0,
+    duration: 0.3,
+    opacity: 0,
+    ease:"power1.in"
+  });
+  
+  $("#lyrics")
+    .attr("data-status", "normal")
+    .find("p")
+    .removeClass("clicked no selected sync");
+
+  let inputText = "";
+
+  $("#lyrics").contents().each(function () {
+    if (this.nodeType !== 1) return;
+
+    if (this.tagName === "P") {
+      const $p = $(this);
+      const time = $p.find("span").first().text().trim();
+      const text = $p.clone().children("span").remove().end().text().trim();
+
+      let line = "";
+      if ($p.hasClass("set")) line += "*";
+      if (time) line += time + " ";
+      line += text;
+
+      inputText += line + "\n";
+    }
+
+    if (this.tagName === "BR") {
+      inputText += "\n";
+    }
+  });
+
+  $("#input").val(inputText);
+  $("#text").show();
+  $("#lyrics").hide();
+
+  $btn
+    .attr("data-status", "next")
+    .find("i").removeClass().addClass("fa-solid fa-arrow-right");
+  $btn.find("span").text("Studio");
+
+  disableBtn("#next-line");
+  $("#next-line")
+    .removeClass("rec-on")
+    .attr("data-status", "record")
+    .find("span").text("Record");
+
+  disableBtn("#refresh");
+  disableBtn("#set");
+  disableBtn("#clear-time");
+}
+
+function updateLyricsNode(node, rawLine) {
+  let line = rawLine.trim();
+  let isSet = false;
+
+  if (line.startsWith("*")) {
+    isSet = true;
+    line = line.slice(1).trim();
+  }
+
+  if (!line) {
+    if (node.tagName === "P") $(node).replaceWith("<br>");
+    return;
+  }
+
+  const { time, text } = parseLine(line);
+
+  if (node.tagName === "P") {
+    $(node).html(`<span>${time}</span> ${text}`);
+    if (isSet) $(node).addClass("set");
+  } else if (node.tagName === "BR") {
+    const $p = $(`<p><span>${time}</span> ${text}</p>`);
+    if (isSet) $p.addClass("set");
+    $(node).replaceWith($p);
+  }
+}
+
+function appendLyricsLine(rawLine) {
+  let line = rawLine.trim();
+  let isSet = false;
+
+  if (line.startsWith("*")) {
+    isSet = true;
+    line = line.slice(1).trim();
+  }
+
+  if (!line) {
+    $("#lyrics").append("<br>");
+    return;
+  }
+
+  const { time, text } = parseLine(line);
+  const $p = $(`<p><span>${time}</span> ${text}</p>`);
+  if (isSet) $p.addClass("set");
+
+  $("#lyrics").append($p);
+}
+
+function parseLine(line) {
+  const match = line.match(/^(\[?\d{2}:\d{2}\.\d{2}\]?)(.*)/);
+
+  if (!match) {
+    return { time: "", text: line };
+  }
+
+  let time = match[1];
+  if (!time.startsWith("[")) time = `[${time}]`;
+
+  return {
+    time,
+    text: match[2].trim()
+  };
+}
+
 
 $("#lyrics").on("click","p",function(){var $t=$(this);if($t.hasClass("set")){$("#set span").text("Unset");$("#set i").removeClass().addClass("fa-solid fa-lock-open");$("#lyrics p").removeClass("selected")}else{if($t.find("span").first().text().trim()!==""){$("#set span").text("Set");$("#set i").removeClass().addClass("fa-solid fa-lock");$t.toggleClass("selected").siblings("p").removeClass("selected")}}if($t.hasClass("clicked")){$t.removeClass("clicked");if(!$t.hasClass("no-time")){$("#set span").text("Set");$("#set i").removeClass().addClass("fa-solid fa-lock")}if(!$("#lyrics p").hasClass("clicked")&&!$t.hasClass("selected")){disableBtn("#set");disableBtn("#clear-time")}else{enableBtn("#set");enableBtn("#clear-time")}}else{if(!$t.hasClass("no-time"))enableBtn("#set");if($t.find("span").first().text().trim()!==""&&!$t.hasClass("set"))enableBtn("#clear-time");$t.addClass("clicked")}if($("#lyrics p.set, #lyrics p.clicked").length)enableBtn("#refresh");else disableBtn("#refresh")});
 $("#lyrics").on("click",function(e){if(e.target!==this)return;$("#lyrics p").removeClass("selected clicked");disableBtn("#set");disableBtn("#clear-time");if(!$("#lyrics p.set").length)disableBtn("#refresh")});
