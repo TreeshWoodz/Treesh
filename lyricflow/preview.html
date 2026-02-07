@@ -3824,7 +3824,18 @@ button { position: relative; }
 
 <div id="song-list" class="modal-overlay">
   <div class="modal-inner">
-    <div class="modal-head"><span>Import from Treesh</span><button id="sl-close">Cancel</button></div>
+    <div class="modal-head">
+      <span>Import from Treesh</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="sl-multi-toggle" class="nav-btn" style="width:auto;padding:0 12px;font-size:0.7rem;height:30px" title="Toggle multi-select">
+          <i class="fa-solid fa-check-double"></i> Multi
+        </button>
+        <button id="sl-import-selected" class="nav-btn" style="width:auto;padding:0 14px;font-size:0.7rem;height:30px;background:var(--accent);color:white;border-color:var(--accent);display:none">
+          <i class="fa-solid fa-folder-open"></i> Import <span id="sl-count">0</span>
+        </button>
+        <button id="sl-close">Cancel</button>
+      </div>
+    </div>
     <div class="search-wrap" id="treesh-search-wrap">
       <i class="fa-solid fa-magnifying-glass search-icon"></i>
       <input type="text" id="treesh-search" placeholder="Search songs...">
@@ -6309,33 +6320,45 @@ function enterStudio($btn) {
   else disableBtn("#next-line");
   if ($("#lyrics p.set, #lyrics p.selected, #lyrics p.clicked").length) enableBtn("#refresh");
 
+  // FIX: Use getInputHTML() to preserve rich formatting (bold, italic, explanations, etc.)
+  // Then split by <br> tags while maintaining HTML structure within each line
   var srcHtml = getInputHTML();
   var lines = srcHtml.split(/<br\s*\/?>/gi);
   var $l = $("#lyrics").empty();
 
   lines.forEach(function(line) {
+    // Extract plain text for parsing timestamps and checking if empty
     var tmpDiv = document.createElement("div");
     tmpDiv.innerHTML = line;
     var stripped = tmpDiv.textContent.replace(/&nbsp;/g, " ").trim();
-    if (!stripped) { $l.append("<br>"); return; }
+    
+    if (!stripped) { 
+      $l.append("<br>"); 
+      return; 
+    }
 
+    // Check for set marker (*)
     var isSet = false;
-    if (stripped.startsWith("*")) { isSet = true; stripped = stripped.slice(1).trim(); }
+    if (stripped.startsWith("*")) { 
+      isSet = true; 
+      stripped = stripped.slice(1).trim(); 
+    }
 
+    // Parse timestamp from plain text
     var tsMatch = stripped.match(/^\[?(\d{2}:\d{2}\.\d{2,3})\]?\s*(.*)/);
-    var ts = "", txt = stripped;
-    if (tsMatch) { ts = "[" + tsMatch[1] + "]"; txt = tsMatch[2]; }
+    var ts = "";
+    if (tsMatch) { 
+      ts = "[" + tsMatch[1] + "]";
+    }
 
-    var richLine = line.replace(/^\*/, "").trim();
-    richLine = richLine.replace(/^\[?\d{1,2}:\d{2}(\.\d{2,3})?\]?\s*/, "");
-    var cleanRich = richLine.replace(/<span[^>]*data-explain[^>]*>/gi, "\x00EXSTART\x00").replace(/<\/span>/gi, function(m, offset) {
-      var before = richLine.substring(0, offset);
-      if (before.indexOf("\x00EXSTART\x00") > before.lastIndexOf("</span>")) return "\x00EXEND\x00";
-      return m;
-    });
-    richLine = line.replace(/^\*/, "").trim();
+    // Preserve rich HTML formatting while removing set marker and timestamp
+    var richLine = line;
+    // Remove * marker if present
+    richLine = richLine.replace(/^\*\s*/, "");
+    // Remove timestamp pattern from the beginning
     richLine = richLine.replace(/^\[?\d{1,2}:\d{2}(\.\d{2,3})?\]?\s*/, "");
 
+    // Create lyric line with preserved formatting
     var $p = $("<p>").html("<span>" + (ts || "") + "</span> " + richLine);
     if (isSet) $p.addClass("set");
     if (ts) $p.addClass("clicked");
@@ -7208,9 +7231,10 @@ function doTreeshImport() {
 
         $sc.append(
           '<div class="item" data-artist="' + ar.trim() + '" data-track="' + tr.trim() + '" style="display:flex;align-items:center">' +
+            '<input type="checkbox" class="treesh-check" style="width:18px;height:18px;margin-right:10px;display:none;cursor:pointer">' +
             coverHtml +
             '<div style="flex:1"><p class="artist">' + ar + '</p><p class="name">' + tr + '</p></div>' +
-            '<div><button type="button">Choose</button></div>' +
+            '<div><button type="button" class="treesh-choose-btn">Choose</button></div>' +
           '</div>'
         );
       });
@@ -7235,15 +7259,88 @@ function doTreeshImport() {
   });
 }
 
-$("#sl-close").click(function () { $("#song-list").removeClass("go"); });
+$("#sl-close").click(function () { 
+  $("#song-list").removeClass("go"); 
+  // Reset multi-select state
+  $("#song-list .treesh-check").prop("checked", false).hide();
+  $("#song-list .treesh-choose-btn").show();
+  $("#sl-multi-toggle").removeClass("active");
+  $("#sl-import-selected").hide();
+  $("#sl-count").text("0");
+});
+
 $("#song-list").on("click", function (e) { if (e.target === this) $(this).removeClass("go"); });
 
-$("#song-list").on("click", ".item button", function () {
+// Multi-select toggle
+var treeshMultiMode = false;
+$("#sl-multi-toggle").click(function() {
+  treeshMultiMode = !treeshMultiMode;
+  $(this).toggleClass("active", treeshMultiMode);
+  if (treeshMultiMode) {
+    $("#song-list .treesh-check").show();
+    $("#song-list .treesh-choose-btn").hide();
+    $("#sl-import-selected").show();
+    toast("Multi-select enabled - check songs to import", "check-double");
+  } else {
+    $("#song-list .treesh-check").prop("checked", false).hide();
+    $("#song-list .treesh-choose-btn").show();
+    $("#sl-import-selected").hide();
+    $("#sl-count").text("0");
+  }
+});
+
+// Update count when checkboxes change
+$("#song-list").on("change", ".treesh-check", function() {
+  var count = $("#song-list .treesh-check:checked").length;
+  $("#sl-count").text(count);
+});
+
+// Import selected songs
+$("#sl-import-selected").click(function() {
+  var $checked = $("#song-list .treesh-check:checked");
+  if (!$checked.length) {
+    toast("No songs selected", "xmark");
+    return;
+  }
+  
+  var songsToImport = [];
+  $checked.each(function() {
+    var $it = $(this).closest(".item");
+    songsToImport.push({
+      artist: $it.data("artist") || $it.find(".artist").text().trim(),
+      track: $it.data("track") || $it.find(".name").text().trim()
+    });
+  });
+  
+  importTreeshSongsInTabs(songsToImport);
+  $("#song-list").removeClass("go");
+  
+  // Reset state
+  treeshMultiMode = false;
+  $("#sl-multi-toggle").removeClass("active");
+  $("#song-list .treesh-check").prop("checked", false).hide();
+  $("#song-list .treesh-choose-btn").show();
+  $("#sl-import-selected").hide();
+  $("#sl-count").text("0");
+});
+
+// Single import (existing functionality)
+$("#song-list").on("click", ".treesh-choose-btn", function () {
   var $it = $(this).closest(".item");
   var ar = $it.data("artist") || $it.find(".artist").text().trim();
   var tr = $it.data("track") || $it.find(".name").text().trim();
+  importTreeshSong(ar, tr, false); // false = replace current tab
+});
+
+// Function to import a single Treesh song
+function importTreeshSong(ar, tr, createNewTab) {
   var arLower = ar.toLowerCase();
   var trLower = tr.toLowerCase();
+
+  if (createNewTab) {
+    saveCurrentTabState();
+    createTab({ title: tr, artist: ar, content: "" });
+  }
 
   $("#meta_artist").val(ar);
   $("#meta_track").val(tr);
@@ -7283,7 +7380,7 @@ $("#song-list").on("click", ".item button", function () {
       });
 
       if (inStudio) $("#next").click();
-      $("#song-list").removeClass("go");
+      if (!createNewTab) $("#song-list").removeClass("go");
 
       var hasHtml = lines.some(function(l) { return l.indexOf("<") >= 0; });
       if (hasHtml) {
@@ -7295,6 +7392,39 @@ $("#song-list").on("click", ".item button", function () {
       updateStats();
       enableBtn("#next");
       markDirty();
+      
+      if (!createNewTab) {
+        toast("Imported: " + tr, "download");
+      }
+    } else {
+      toast("Lyrics not found for " + tr, "xmark");
+    }
+  }).fail(function() {
+    toast("Failed to import " + tr, "xmark");
+  });
+}
+
+// Function to import multiple songs in new tabs
+function importTreeshSongsInTabs(songs) {
+  toast("Importing " + songs.length + " songs...", "download");
+  
+  var importNext = function(index) {
+    if (index >= songs.length) {
+      toast("All songs imported!", "check");
+      return;
+    }
+    
+    var song = songs[index];
+    var isFirst = index === 0;
+    
+    setTimeout(function() {
+      importTreeshSong(song.artist, song.track, !isFirst); // Create new tab for all except first
+      importNext(index + 1);
+    }, isFirst ? 0 : 300); // Small delay between imports
+  };
+  
+  importNext(0);
+}
 
       $.get("https://treesh.life/content/songs.html", function (songsData) {
         var $m = $("<div>").html(songsData);
