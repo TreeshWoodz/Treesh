@@ -6811,19 +6811,42 @@ $("#input").on("click", "[data-explain]", function (e) {
 
 function doTreeshImport() {
 
-  // 1️⃣ Load cover art map first
+  function normalize(str) {
+    return (str || "")
+      .toLowerCase()
+      .replace(/\(.*?\)/g, "")                 // remove (feat. …)
+      .replace(/\bfeat\.?\b.*$/g, "")          // feat.
+      .replace(/\bft\.?\b.*$/g, "")            // ft.
+      .replace(/\bfeaturing\b.*$/g, "")        // featuring
+      .replace(/\s+[x×&]\s+.*$/g, "")          // "Bran x Nova", "Bran & Nova"
+      .replace(/[^a-z0-9\s]/g, "")              // punctuation
+      .replace(/\s+/g, " ")                     // collapse spaces
+      .trim();
+  }
+
+  // 1️⃣ Load songs.html → build cover map
   $.get("https://treesh.life/content/songs.html").done(function (songsData) {
 
     var coverMap = {};
     var $songs = $("<div>").html(songsData);
 
     $songs.find("[data-artist][data-track][data-coverart]").each(function () {
-      var ar = $(this).attr("data-artist").trim().toLowerCase();
-      var tr = $(this).attr("data-track").trim().toLowerCase();
-      coverMap[ar + "||" + tr] = $(this).attr("data-coverart");
+      var ar = normalize($(this).attr("data-artist"));
+      var tr = normalize($(this).attr("data-track"));
+      var cover = $(this).attr("data-coverart");
+
+      if (!tr || !cover) return;
+
+      // strict key
+      coverMap[ar + "||" + tr] = cover;
+
+      // track-only fallback (CRITICAL)
+      if (!coverMap["*||" + tr]) {
+        coverMap["*||" + tr] = cover;
+      }
     });
 
-    // 2️⃣ THEN load lyrics.html (your original logic)
+    // 2️⃣ Load lyrics.html → render list
     $.get("https://treesh.life/content/lyrics.html").done(function (data) {
 
       var $html = $("<div>").html(data);
@@ -6838,25 +6861,30 @@ function doTreeshImport() {
         if (!ar.trim() && $(this).attr("data-artist")) ar = $(this).attr("data-artist");
         if (!tr.trim() && $(this).attr("data-track")) tr = $(this).attr("data-track");
 
-        if (ar.trim() && tr.trim()) {
-          cnt++;
+        if (!ar.trim() || !tr.trim()) return;
 
-          // 🔑 lookup cover from songs.html
-          var key = ar.trim().toLowerCase() + "||" + tr.trim().toLowerCase();
-          var coverSrc = coverMap[key] || "";
+        cnt++;
 
-          var coverHtml = coverSrc
-            ? '<img src="' + coverSrc + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;margin-right:8px">'
-            : '<div style="width:40px;height:40px;border-radius:8px;background:var(--surface-2);flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-music" style="opacity:0.3"></i></div>';
+        var arKey = normalize(ar);
+        var trKey = normalize(tr);
 
-          $sc.append(
-            '<div class="item" data-artist="' + ar.trim() + '" data-track="' + tr.trim() + '" style="display:flex;align-items:center">' +
-              coverHtml +
-              '<div style="flex:1"><p class="artist">' + ar + '</p><p class="name">' + tr + '</p></div>' +
-              '<div><button type="button">Choose</button></div>' +
-            '</div>'
-          );
-        }
+        // 🔐 failproof lookup chain
+        var coverSrc =
+          coverMap[arKey + "||" + trKey] || // exact artist + track
+          coverMap["*||" + trKey] ||        // track-only fallback
+          "";
+
+        var coverHtml = coverSrc
+          ? '<img src="' + coverSrc + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;margin-right:8px">'
+          : '<div style="width:40px;height:40px;border-radius:8px;background:var(--surface-2);flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-music" style="opacity:0.3"></i></div>';
+
+        $sc.append(
+          '<div class="item" data-artist="' + ar.trim() + '" data-track="' + tr.trim() + '" style="display:flex;align-items:center">' +
+            coverHtml +
+            '<div style="flex:1"><p class="artist">' + ar + '</p><p class="name">' + tr + '</p></div>' +
+            '<div><button type="button">Choose</button></div>' +
+          '</div>'
+        );
       });
 
       if (!cnt) {
