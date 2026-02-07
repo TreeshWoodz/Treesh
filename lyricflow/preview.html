@@ -6810,21 +6810,47 @@ $("#input").on("click", "[data-explain]", function (e) {
    ═══════════════════════════════════════ */
 
 function doTreeshImport() {
-  $.get("https://treesh.life/content/lyrics.html").done(function (data) {
-    var $html = $("<div>").html(data);
+// 1. Load songs.html first and build a cover lookup
+$.get("https://treesh.life/content/songs.html").done(function (songsData) {
+  var $songsHtml = $("<div>").html(songsData);
+  var coverMap = {};
+
+  $songsHtml.find(".song").each(function () {
+    var artist = $(this).attr("data-artist") || "";
+    var track  = $(this).attr("data-track") || "";
+    var cover  = $(this).attr("data-coverart") || "";
+
+    if (artist.trim() && track.trim() && cover) {
+      var key = artist.trim().toLowerCase() + "|||" + track.trim().toLowerCase();
+      coverMap[key] = cover;
+    }
+  });
+
+  // 2. Now load lyrics.html
+  $.get("https://treesh.life/content/lyrics.html").done(function (lyricsData) {
+    var $html = $("<div>").html(lyricsData);
     var $sc = $("#song-list .contain").empty();
     var cnt = 0;
 
-    $html.find(".lyric").addBack(".lyric").each(function () {
+    $html.find(".lyric").each(function () {
       var $m = $(this).find(".metadata");
       var ar = $m.find(".artist").text();
       var tr = $m.find(".track").text();
+
       if (!ar.trim() && $(this).attr("data-artist")) ar = $(this).attr("data-artist");
       if (!tr.trim() && $(this).attr("data-track")) tr = $(this).attr("data-track");
+
       if (ar.trim() && tr.trim()) {
         cnt++;
-        var coverSrc = $(this).attr("data-coverart") || "";
-        var coverHtml = coverSrc ? '<img src="' + coverSrc + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;margin-right:8px">' : '<div style="width:40px;height:40px;border-radius:8px;background:var(--surface-2);flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-music" style="opacity:0.3"></i></div>';
+
+        // 3. Pull cover art from songs.html lookup
+        var key = ar.trim().toLowerCase() + "|||" + tr.trim().toLowerCase();
+        var coverSrc = coverMap[key] || "";
+
+        var coverHtml = coverSrc
+          ? '<img src="' + coverSrc + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;margin-right:8px">'
+          : '<div style="width:40px;height:40px;border-radius:8px;background:var(--surface-2);flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-music" style="opacity:0.3"></i></div>';
+
         $sc.append(
           '<div class="item" data-artist="' + ar.trim() + '" data-track="' + tr.trim() + '" style="display:flex;align-items:center">' +
             coverHtml +
@@ -6834,6 +6860,8 @@ function doTreeshImport() {
         );
       }
     });
+  });
+});
 
     if (!cnt) $sc.html('<p style="padding:20px;text-align:center;color:var(--text-3)">No songs found</p>');
 
