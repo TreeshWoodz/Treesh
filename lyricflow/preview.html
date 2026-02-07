@@ -1283,6 +1283,7 @@ canvas#visualizer.on {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overflow-x: hidden;
 }
 [data-theme="light"] #karaoke-view { background: #f5f3ef; }
 
@@ -1348,6 +1349,7 @@ canvas#visualizer.on {
 #karaoke-lines {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 40px 24px 160px;
   position: relative;
   z-index: 2;
@@ -1363,11 +1365,14 @@ canvas#visualizer.on {
 
 #karaoke-lines .k-line {
   font-size: 1.25rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 94%;
+  box-sizing: border-box;
   font-weight: 700;
   text-align: center;
   color: rgba(255,255,255,0.1);
   padding: 12px 24px;
-  max-width: 90%;
   line-height: 1.6;
   border-radius: 16px;
   will-change: transform, opacity;
@@ -3070,6 +3075,325 @@ body { -webkit-touch-callout: none; }
 }
 .option-box .cancel-row button:hover { color: var(--text-2); background: transparent; border: none; transform: none; }
 
+.autosave-indicator {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: var(--glass-2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.autosave-indicator i { font-size: 0.55rem; animation: autosaveSpin 0.8s linear infinite; }
+@keyframes autosaveSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+#faq-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#faq-modal.go { opacity: 1; pointer-events: auto; }
+.faq-inner {
+  width: 520px;
+  max-width: 94vw;
+  max-height: 85vh;
+  background: var(--glass-2);
+  backdrop-filter: blur(60px);
+  -webkit-backdrop-filter: blur(60px);
+  border: 1px solid var(--border-2);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 40px 120px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.faq-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.faq-head h2 {
+  font-family: var(--brand-font);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  color: var(--accent);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.faq-head h2 i { font-size: 0.85rem; }
+.faq-head-btns { display: flex; gap: 6px; }
+.faq-head-btns button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-2);
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--main-font);
+}
+.faq-head-btns button:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.faq-head-btns button.faq-close-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.75rem;
+}
+.faq-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+}
+.faq-body::-webkit-scrollbar { width: 4px; }
+.faq-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.faq-item {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+.faq-item:hover { border-color: var(--accent-soft); }
+.faq-item.open { border-color: var(--accent); }
+.faq-q {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: background 0.2s ease;
+  user-select: none;
+}
+.faq-q:hover { background: var(--accent-dim); }
+.faq-q i.faq-icon { color: var(--accent); font-size: 0.7rem; width: 18px; text-align: center; flex-shrink: 0; }
+.faq-q i.faq-chevron { margin-left: auto; font-size: 0.55rem; color: var(--text-3); transition: transform 0.25s ease; }
+.faq-item.open .faq-q i.faq-chevron { transform: rotate(180deg); color: var(--accent); }
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, padding 0.35s ease;
+  padding: 0 16px;
+  font-size: 0.7rem;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+.faq-item.open .faq-a { max-height: 500px; padding: 0 16px 14px; }
+
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+}
+.tutorial-overlay.active { pointer-events: auto; }
+.tutorial-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 9997;
+  transition: opacity 0.3s ease;
+}
+.tutorial-highlight-ring {
+  position: fixed;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 0 0 4000px rgba(0,0,0,0.6), 0 0 30px var(--accent-glow);
+  z-index: 9998;
+  pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tutorial-tooltip {
+  position: fixed;
+  z-index: 9999;
+  width: 280px;
+  max-width: 85vw;
+  background: var(--glass-2);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+  padding: 16px 18px 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 20px var(--accent-dim);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tutorial-tooltip h4 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+.tutorial-tooltip p {
+  font-size: 0.68rem;
+  line-height: 1.55;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+.tutorial-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tutorial-dots {
+  display: flex;
+  gap: 4px;
+}
+.tutorial-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s;
+}
+.tutorial-dot.active { background: var(--accent); }
+.tutorial-nav button {
+  padding: 5px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.62rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--main-font);
+  transition: all 0.2s ease;
+}
+.tutorial-nav button:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.tutorial-nav button.tutorial-next-btn { background: var(--accent); color: white; border-color: var(--accent); }
+.tutorial-nav button.tutorial-next-btn:hover { filter: brightness(1.15); }
+.tutorial-nav button.tutorial-skip { background: transparent; border: none; color: var(--text-3); font-size: 0.58rem; }
+.tutorial-nav button.tutorial-skip:hover { color: var(--text-2); background: transparent; border: none; }
+.tutorial-step-counter { font-size: 0.55rem; color: var(--text-3); font-weight: 600; }
+
+.explain-move-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 16px 16px;
+}
+.explain-move-header {
+  text-align: center;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+.explain-move-header h3 {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.explain-move-header p { font-size: 0.65rem; color: var(--text-3); }
+.explain-move-lines {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 600px;
+  padding: 8px;
+}
+.explain-move-line {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.5;
+  transition: all 0.2s ease;
+}
+.explain-move-line:hover { border-color: var(--accent); background: var(--accent-dim); }
+.explain-move-line [data-explain] { border-bottom: 2px dotted var(--accent); cursor: pointer; }
+.explain-move-line .emw { display: inline; cursor: pointer; padding: 1px 0; border-radius: 2px; transition: all 0.15s ease; }
+.explain-move-line .emw:hover { background: var(--accent); color: white; }
+.explain-move-cancel {
+  margin-top: 12px;
+  padding: 8px 24px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--main-font);
+}
+.explain-move-cancel:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+.option-box .opt-menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.option-box .opt-menu-grid button {
+  aspect-ratio: 1 / 1;
+  height: auto;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  font-size: 0.68rem;
+}
+.option-box .opt-menu-grid button i { font-size: 1rem; opacity: 0.85; }
+.option-box .opt-top-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.option-box .opt-top-row button {
+  flex: 1;
+  height: 34px;
+  font-size: 0.62rem;
+  border-radius: 8px;
+  gap: 5px;
+}
+.option-box .opt-top-row button i { font-size: 0.65rem; }
+
 
 /* Shortcuts modal */
 #shortcuts-modal {
@@ -3282,6 +3606,7 @@ button { position: relative; }
     <span>LyricFlow</span>
   </div>
   <div class="nav-right">
+    <button class="nav-btn" id="btn-faq" title="Help & FAQs"><i class="fa-solid fa-circle-question"></i></button>
     <button class="nav-btn" id="btn-shortcuts" title="Shortcuts"><i class="fa-solid fa-keyboard"></i></button>
     <button class="nav-btn" id="btn-fullscreen" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
   </div>
@@ -3637,6 +3962,39 @@ button { position: relative; }
 </form>
 
 
+<div id="faq-modal">
+  <div class="faq-inner">
+    <div class="faq-head">
+      <h2><i class="fa-solid fa-circle-question"></i> FAQs & Help</h2>
+      <div class="faq-head-btns">
+        <button id="faq-tutorial-btn"><i class="fa-solid fa-graduation-cap"></i> Tutorial</button>
+        <button class="faq-close-btn" id="faq-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+    <div class="faq-body" id="faq-body"></div>
+  </div>
+</div>
+
+<div class="tutorial-overlay" id="tutorial-overlay">
+  <div class="tutorial-backdrop" id="tutorial-backdrop"></div>
+  <div class="tutorial-highlight-ring" id="tutorial-ring"></div>
+  <div class="tutorial-tooltip" id="tutorial-tooltip">
+    <h4 id="tutorial-title"></h4>
+    <p id="tutorial-desc"></p>
+    <div class="tutorial-nav">
+      <button class="tutorial-skip" id="tutorial-skip">Skip</button>
+      <div class="tutorial-dots" id="tutorial-dots"></div>
+      <div style="display:flex;gap:6px">
+        <button id="tutorial-prev"><i class="fa-solid fa-arrow-left"></i></button>
+        <button class="tutorial-next-btn" id="tutorial-next">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="explain-move-overlay" id="explain-move-overlay" style="display:none"></div>
+
+
 <!-- ═══════════════════════════════════════
      JAVASCRIPT
      ═══════════════════════════════════════ -->
@@ -3738,19 +4096,35 @@ rvz();
 addEventListener("resize", rvz);
 
 function connectViz() {
-  if (vizConnected) return;
+  if (vizConnected && analyser) {
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    return;
+  }
   var p = document.getElementById("player");
   try {
-    audioCtx = new (AudioContext || webkitAudioContext);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    vizSource = audioCtx.createMediaElementSource(p);
-    vizSource.connect(analyser);
-    analyser.connect(audioCtx.destination);
+    if (!audioCtx) {
+      audioCtx = new (AudioContext || webkitAudioContext)();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    if (!analyser) {
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+    }
+    if (!vizSource) {
+      vizSource = audioCtx.createMediaElementSource(p);
+      vizSource.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }
     vizData = new Uint8Array(analyser.frequencyBinCount);
     vizConnected = true;
     drawViz();
-  } catch (e) {}
+  } catch (e) {
+    if (e.name === "InvalidStateError" && audioCtx && analyser) {
+      vizData = new Uint8Array(analyser.frequencyBinCount);
+      vizConnected = true;
+      drawViz();
+    }
+  }
 }
 
 function drawViz() {
@@ -3912,25 +4286,54 @@ $("#confirm-no, #confirm-overlay").click(function (e) {
   }
 });
 
-function showOptions(title, options, onCancel) {
+function showOptions(title, options, onCancel, layout) {
   $("#option-title").text(title);
   var $btns = $("#option-buttons").empty();
-  var useGrid = options.length >= 2 && options.length <= 6;
-  if (useGrid) $btns.addClass("opt-grid");
-  else $btns.removeClass("opt-grid");
-  if (options.length > 6 || options.length === 1) $btns.addClass("single-col");
-  else $btns.removeClass("single-col");
-  options.forEach(function (opt) {
-    var cls = "";
-    if (opt.accent) cls = " opt-accent";
-    if (opt.danger) cls = " opt-danger";
-    var $b = $('<button type="button" class="' + cls + '"><i class="fa-solid fa-' + (opt.icon || "circle") + '"></i> ' + opt.label + '</button>');
-    $b.click(function () {
-      $("#option-overlay").removeClass("show");
-      if (opt.action) opt.action();
+  $btns.removeClass("opt-grid single-col");
+
+  if (layout === "menu") {
+    var topOpts = options.filter(function(o) { return o.top; });
+    var gridOpts = options.filter(function(o) { return !o.top; });
+    if (topOpts.length) {
+      var $top = $('<div class="opt-top-row"></div>');
+      topOpts.forEach(function(opt) {
+        var cls = "";
+        if (opt.accent) cls = " opt-accent";
+        if (opt.danger) cls = " opt-danger";
+        var $b = $('<button type="button" class="' + cls + '"><i class="fa-solid fa-' + (opt.icon || "circle") + '"></i> ' + opt.label + '</button>');
+        $b.click(function() { $("#option-overlay").removeClass("show"); if (opt.action) opt.action(); });
+        $top.append($b);
+      });
+      $btns.append($top);
+    }
+    if (gridOpts.length) {
+      var $grid = $('<div class="opt-menu-grid"></div>');
+      gridOpts.forEach(function(opt) {
+        var cls = "";
+        if (opt.accent) cls = " opt-accent";
+        if (opt.danger) cls = " opt-danger";
+        var $b = $('<button type="button" class="' + cls + '"><i class="fa-solid fa-' + (opt.icon || "circle") + '"></i> ' + opt.label + '</button>');
+        $b.click(function() { $("#option-overlay").removeClass("show"); if (opt.action) opt.action(); });
+        $grid.append($b);
+      });
+      $btns.append($grid);
+    }
+  } else {
+    var useGrid = options.length >= 2 && options.length <= 6;
+    if (useGrid) $btns.addClass("opt-grid");
+    if (options.length > 6 || options.length === 1) $btns.addClass("single-col");
+    options.forEach(function (opt) {
+      var cls = "";
+      if (opt.accent) cls = " opt-accent";
+      if (opt.danger) cls = " opt-danger";
+      var $b = $('<button type="button" class="' + cls + '"><i class="fa-solid fa-' + (opt.icon || "circle") + '"></i> ' + opt.label + '</button>');
+      $b.click(function () {
+        $("#option-overlay").removeClass("show");
+        if (opt.action) opt.action();
+      });
+      $btns.append($b);
     });
-    $btns.append($b);
-  });
+  }
   $("#option-overlay").addClass("show");
   gsap.fromTo(".option-box", { scale: 0.92, opacity: 0, y: 12 }, { scale: 1, opacity: 1, y: 0, duration: 0.3, ease: "power3.out" });
   gsap.fromTo("#option-buttons button", { y: 8, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.03, duration: 0.25, ease: "power2.out", delay: 0.1 });
@@ -4090,10 +4493,6 @@ function switchTab(id) {
   player.pause();
   player.removeAttribute("src");
   player.load();
-  vizConnected = false;
-  audioCtx = null;
-  analyser = null;
-  vizSource = null;
   $("#audio-btn").attr("data-status", "upload").html('<i class="fa-solid fa-arrow-up-from-bracket"></i>');
   $("#progress-bar, #time-badge").removeClass("on");
   $("#visualizer").removeClass("on");
@@ -4176,6 +4575,7 @@ function saveCurrentTabState() {
 
   if (player.src && player.src !== location.href) {
     if (!tab.audioKey) tab.audioKey = "audio_" + tab.id;
+    saveTabAudioBlob(tab.id);
   }
 }
 
@@ -4241,12 +4641,23 @@ function scheduleAutosave() {
   }, 2000);
 }
 
+function showAutosaveIndicator() {
+  $(".autosave-indicator").remove();
+  var $ind = $('<div class="autosave-indicator"><i class="fa-solid fa-spinner"></i> Saving</div>');
+  $("body").append($ind);
+  gsap.fromTo($ind[0], { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
+  setTimeout(function() {
+    gsap.to($ind[0], { opacity: 0, y: -8, duration: 0.3, ease: "power2.in", onComplete: function() { $ind.remove(); } });
+  }, 1200);
+}
+
 function doAutosave() {
   if (!activeTabId || !db) return;
   saveCurrentTabState();
   var tab = tabs.find(function (t) { return t.id === activeTabId; });
   if (!tab) return;
 
+  showAutosaveIndicator();
   $(".tab-item[data-id='" + tab.id + "']").addClass("tab-saving");
 
   var songData = {
@@ -4466,7 +4877,8 @@ $("#save").click(function () {
   showOptions("Save", [
     {
       icon: "floppy-disk",
-      label: "Save Current File",
+      label: "Save",
+      top: true,
       action: function () {
         saveCurrentTabState();
         saveLyrics();
@@ -4479,7 +4891,8 @@ $("#save").click(function () {
     },
     {
       icon: "layer-group",
-      label: "Save All Open Tabs",
+      label: "Save All",
+      top: true,
       action: function () {
         saveCurrentTabState();
         if (db) {
@@ -4595,7 +5008,7 @@ $("#save").click(function () {
         ]);
       }
     }
-  ]);
+  ], null, "menu");
 });
 
 function downloadFile(content, filename, type) {
@@ -4763,11 +5176,11 @@ function buildLRCOutput() {
 
 $("#open-btn").click(function () {
   showOptions("Open", [
-    { icon: "book", label: "Library", action: function() { openLibrary(); } },
-    { icon: "cloud-arrow-down", label: "Import from Treesh", action: function() { doTreeshImport(); } },
+    { icon: "book", label: "Library", top: true, action: function() { openLibrary(); } },
+    { icon: "cloud-arrow-down", label: "Treesh", top: true, action: function() { doTreeshImport(); } },
     { icon: "upload", label: "Restore Backup", action: function() { $("#restoreInput").click(); } },
-    { icon: "file-import", label: "Open Text File", action: function() { $("#openFileInput").click(); } }
-  ]);
+    { icon: "file-import", label: "Text File", action: function() { $("#openFileInput").click(); } }
+  ], null, "menu");
 });
 
 var pendingOpenFile = null;
@@ -4852,7 +5265,7 @@ $("#new").click(function () {
     },
     {
       icon: "eraser",
-      label: "New Lyrics (Clear Current)",
+      label: "Clear Lyrics",
       action: function () {
         showConfirm("Erase all lyrics in this file? This cannot be undone.", function () {
           setInputHTML("");
@@ -4864,14 +5277,13 @@ $("#new").click(function () {
         }, "Erase", "Cancel");
       }
     }
-  ]);
+  ], null, "menu");
 });
 
 function resetEditorState() {
   $("#lyrics").empty();
   player.removeAttribute("src");
   player.load();
-  vizConnected = false; audioCtx = null; analyser = null; vizSource = null;
   $("#lyrics").hide().attr("data-status", "normal");
   $("#text").show();
   disableBtn("#next"); disableBtn("#next-line");
@@ -4895,18 +5307,17 @@ $("#upload-btn").click(function () {
   var hasAudio = player.src && player.src !== location.href;
   if (hasAudio) {
     showOptions("Audio", [
-      { icon: "play", label: "Play / Pause", action: function() { $("#audio-btn").click(); } },
-      { icon: "microphone-lines", label: "Karaoke Mode", action: function() {
+      { icon: "play", label: "Play", top: true, action: function() { $("#audio-btn").click(); } },
+      { icon: "microphone-lines", label: "Karaoke", top: true, action: function() {
         var tab = tabs.find(function(t) { return t.id === activeTabId; });
         if (!tab || !tab.completed) { toast("Mark file as completed first", "xmark"); return; }
         if (!inStudio) { enterStudio($("#next")); }
         setTimeout(function() { startKaraoke(); }, 300);
       }},
       { icon: "arrow-up-from-bracket", label: "Replace Audio", action: function() { $("#audioUploader").click(); } },
-      { icon: "trash", label: "Remove Audio", action: function() {
+      { icon: "trash", label: "Remove Audio", danger: true, action: function() {
         showConfirm("Remove audio from this tab?", function() {
           player.removeAttribute("src"); player.load();
-          vizConnected = false; audioCtx = null; analyser = null; vizSource = null;
           var tab = tabs.find(function(t) { return t.id === activeTabId; });
           if (tab && tab.audioKey && db) {
             try { db.transaction("audio","readwrite").objectStore("audio").delete(tab.audioKey); } catch(ex){}
@@ -4919,7 +5330,7 @@ $("#upload-btn").click(function () {
           toast("Audio removed", "trash");
         }, "Remove", "Cancel");
       }}
-    ]);
+    ], null, "menu");
   } else {
     $("#audioUploader").click();
   }
@@ -5334,7 +5745,6 @@ document.getElementById("audioUploader").addEventListener("change", function (e)
   if (!f) return;
 
   var oldUrl = player.src;
-  vizConnected = false; audioCtx = null; analyser = null; vizSource = null;
 
   player.src = URL.createObjectURL(f);
 
@@ -5404,6 +5814,29 @@ player.addEventListener("timeupdate", function () {
   var isRec = $("#next-line").hasClass("rec-on");
   $("#lyrics p").removeClass("sync");
 
+  if (isRec) {
+    var $selRec = $("#lyrics p.selected");
+    if ($selRec.length && !$selRec.hasClass("set")) {
+      $selRec.find("span").first().html("[" + fmtLRC(cur) + "]");
+      $selRec.addClass("sync");
+    }
+    var $setLines = $("#lyrics p").filter(function () {
+      var t = $(this).clone().children("span").remove().end().text().trim();
+      return !/^\s*\[.*?\]\s*$/.test(t) && !isNaN(getTP($(this)));
+    });
+    $setLines.each(function (idx) {
+      var $t = $(this);
+      var s = getTP($t);
+      var nx = $setLines.eq(idx + 1);
+      var e = nx.length ? getTP(nx) : Infinity;
+      if (cur >= s && cur < e) {
+        $t.addClass("sync");
+        return false;
+      }
+    });
+    return;
+  }
+
   var $vl = $("#lyrics p").filter(function () {
     var t = $(this).clone().children("span").remove().end().text().trim();
     return !/^\s*\[.*?\]\s*$/.test(t) && !isNaN(getTP($(this)));
@@ -5417,13 +5850,10 @@ player.addEventListener("timeupdate", function () {
 
     if (cur >= s && cur < e) {
       $t.addClass("sync");
-      if (!isRec && idx !== $vl.length - 1) {
-        var tgt = $t[0].offsetTop - 30;
-        gsap.to("#lyrics", { scrollTop: tgt, duration: 0.4, ease: "power2.out" });
-      }
-      if (isRec && $t.hasClass("selected") && !$t.hasClass("set")) {
-        $t.find("span").first().html("[" + fmtLRC(cur) + "]");
-      }
+      var lyricsEl = document.getElementById("lyrics");
+      var tgt = $t[0].offsetTop - lyricsEl.clientHeight / 2 + $t[0].clientHeight / 2;
+      tgt = Math.max(0, tgt - 30);
+      gsap.to(lyricsEl, { scrollTop: tgt, duration: 0.4, ease: "power2.out" });
       return false;
     }
   });
@@ -5782,7 +6212,8 @@ $("#next-line").click(function () {
     }
     if ($sel.find("span").length === 0) $sel.prepend("<span></span> ");
     var lyricsEl = document.getElementById("lyrics");
-    var scrollTarget = $sel[0].offsetTop - 30;
+    var scrollTarget = $sel[0].offsetTop - lyricsEl.clientHeight / 2 + $sel[0].clientHeight / 2;
+    scrollTarget = Math.max(0, scrollTarget - 30);
     gsap.to(lyricsEl, { scrollTop: scrollTarget, duration: 0.4, ease: "power2.out" });
   } else {
     if (!$sel.length) {
@@ -6043,12 +6474,14 @@ function applyFontSize(key, val) {
     applyFontSize(key, val);
     localStorage.setItem("lfSize_" + key, val);
   });
-  $("#size-" + key).on("focus touchstart", function () {
-    gsap.to("#tools", { opacity: 0.1, duration: 0.3, ease: "power2.out" });
-  });
-  $("#size-" + key).on("blur touchend", function () {
-    gsap.to("#tools", { opacity: 1, duration: 0.4, ease: "power2.inOut", delay: 0.1 });
-  });
+  if (key === "input" || key === "lyrics") {
+    $("#size-" + key).on("focus touchstart", function () {
+      gsap.to("#tools", { opacity: 0.1, duration: 0.3, ease: "power2.out" });
+    });
+    $("#size-" + key).on("blur touchend", function () {
+      gsap.to("#tools", { opacity: 1, duration: 0.4, ease: "power2.inOut", delay: 0.1 });
+    });
+  }
 });
 
 function updateSliderStates() {
@@ -6238,6 +6671,7 @@ $("#rt-explain").on("mousedown", function (e) {
     $("#explain-delete").show();
   } else {
     explainTargetNode = null;
+    window._explainSavedRange = range.cloneRange();
     $("#explain-selected").text(sel.toString());
     $("#explain-text").val("");
     $("#explain-delete").hide();
@@ -6255,10 +6689,11 @@ $("#explain-save").click(function () {
 
   if (explainTargetNode) {
     explainTargetNode.setAttribute("data-explain", explanation);
-  } else {
-    restoreSelection();
+  } else if (window._explainSavedRange) {
     var sel = window.getSelection();
-    if (sel && sel.rangeCount) {
+    sel.removeAllRanges();
+    try { sel.addRange(window._explainSavedRange); } catch(ex) {}
+    if (sel.rangeCount) {
       var range = sel.getRangeAt(0);
       var span = document.createElement("span");
       span.setAttribute("data-explain", explanation);
@@ -6273,6 +6708,8 @@ $("#explain-save").click(function () {
     }
   }
 
+  window._explainSavedRange = null;
+  savedRange = null;
   $("#explain-modal").removeClass("go");
   $("#input").trigger("input");
   toast("Explanation saved", "comment-dots");
@@ -6295,35 +6732,7 @@ $("#explain-modal").on("click", function (e) { if (e.target === this) $(this).re
 
 setTimeout(function() { if (typeof updateExplainBtnVisibility === "function") updateExplainBtnVisibility(); }, 100);
 
-$(document).on("click", "#input, #lyrics p", function(e) {
-  if (window._pendingExplainMove) {
-    var move = window._pendingExplainMove;
-    window._pendingExplainMove = null;
-    var sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-    var range = sel.getRangeAt(0);
-    var span = document.createElement("span");
-    span.setAttribute("data-explain", move.text);
-    span.style.borderBottom = "2px dotted";
-    span.style.borderColor = "var(--accent)";
-    span.style.cursor = "help";
-    var word = sel.toString().trim();
-    if (!word) {
-      toast("Select text first to move explanation to", "xmark");
-      return;
-    }
-    try { range.surroundContents(span); } catch(ex) {
-      var content = range.extractContents();
-      span.appendChild(content);
-      range.insertNode(span);
-    }
-    if (move.sourceEl && move.sourceEl.parentNode) {
-      $(move.sourceEl).removeAttr("data-explain").css({ borderBottom: "", borderColor: "", cursor: "" });
-    }
-    toast("Explanation moved", "check");
-    if (typeof updateExplainBtnVisibility === "function") updateExplainBtnVisibility();
-  }
-});
+
 
 $("#input").on("click", "[data-explain]", function (e) {
   explainTargetNode = this;
@@ -6444,7 +6853,6 @@ $("#song-list").on("click", ".item button", function () {
           if (mp3) {
             if (!mp3.startsWith("http")) mp3 = "https://treesh.life/" + mp3.replace(/^\//, "");
 
-            vizConnected = false; audioCtx = null; analyser = null; vizSource = null;
             player.src = mp3;
             player.crossOrigin = "anonymous";
             localStorage.setItem("audioReady", "true");
@@ -7126,14 +7534,87 @@ $(document).on("click", ".eg-lyric-up, .eg-lyric-down", function() {
   var els = getExplainElements();
   if (!els[idx]) return;
   var el = els[idx];
-  var parent = el.parentNode;
-  if (isUp && el.previousSibling) {
-    parent.insertBefore(el, el.previousSibling);
-  } else if (!isUp && el.nextSibling) {
-    parent.insertBefore(el.nextSibling, el);
+  var $line;
+  if (inStudio) {
+    $line = $(el).closest("p");
+  } else {
+    $line = $(el).closest("div, p");
+    if (!$line.length || $line[0] === document.getElementById("input")) {
+      var inputEl = document.getElementById("input");
+      var lineNodes = [];
+      var currentLine = [];
+      inputEl.childNodes.forEach(function(n) {
+        if (n.nodeType === 1 && n.tagName === "BR") {
+          lineNodes.push(currentLine.slice());
+          currentLine = [];
+        } else {
+          currentLine.push(n);
+        }
+      });
+      if (currentLine.length) lineNodes.push(currentLine);
+      var targetLineIdx = -1;
+      lineNodes.forEach(function(nodes, li) {
+        nodes.forEach(function(n) {
+          if (n === el || n.contains(el)) targetLineIdx = li;
+        });
+      });
+      if (targetLineIdx >= 0) {
+        if (isUp && targetLineIdx > 0) {
+          var prevLine = lineNodes[targetLineIdx - 1];
+          var curLine = lineNodes[targetLineIdx];
+          var refNode = prevLine[0];
+          curLine.forEach(function(n) { inputEl.insertBefore(n, refNode); });
+          var br = document.createElement("br");
+          inputEl.insertBefore(br, refNode);
+          var oldBr = refNode.previousSibling;
+          if (oldBr && oldBr.tagName === "BR") oldBr.remove();
+        } else if (!isUp && targetLineIdx < lineNodes.length - 1) {
+          var nextLine = lineNodes[targetLineIdx + 1];
+          var curLine2 = lineNodes[targetLineIdx];
+          var afterNode = nextLine[nextLine.length - 1].nextSibling;
+          curLine2.forEach(function(n) { inputEl.insertBefore(n, afterNode); });
+          var br2 = document.createElement("br");
+          inputEl.insertBefore(br2, curLine2[0]);
+        }
+        $("#input").trigger("input");
+        openExplainGallery();
+        return;
+      }
+    }
+  }
+  if ($line.length && $line[0].parentNode) {
+    var $parent = $line.parent();
+    if (isUp) {
+      var $prev = $line.prev("p");
+      if ($prev.length) $prev.before($line);
+    } else {
+      var $next = $line.next("p");
+      if ($next.length) $next.after($line);
+    }
+    if (inStudio) rebuildInputFromStudio();
+    else $("#input").trigger("input");
   }
   openExplainGallery();
 });
+
+function rebuildInputFromStudio() {
+  var parts = [];
+  $("#lyrics p").each(function() {
+    var $p = $(this);
+    var time = $p.find("span").first().text().trim();
+    var $cl = $p.clone();
+    $cl.find("span:first").remove();
+    $cl.find(".line-dur").remove();
+    var richContent = $cl.html().trim();
+    var line = "";
+    if ($p.hasClass("set")) line += "*";
+    if (time) line += time + " ";
+    line += richContent;
+    parts.push(line);
+  });
+  var tab = tabs.find(function(t) { return t.id === activeTabId; });
+  if (tab) tab.content = parts.join("<br>");
+}
 
 $(document).on("click", ".eg-ex-fav", function() {
   var idx = $(this).closest(".eg-pair").data("eg-idx");
@@ -7171,10 +7652,131 @@ $(document).on("click", ".eg-ex-move", function() {
   var idx = $(this).closest(".eg-pair").data("eg-idx");
   var els = getExplainElements();
   if (!els[idx]) return;
-  toast("Tap a lyric line in the editor to move this explanation there", "arrows-up-down");
+  var explainText = $(els[idx]).attr("data-explain");
+  var sourceEl = els[idx];
   $("#explain-gallery").removeClass("go");
-  window._pendingExplainMove = { text: $(els[idx]).attr("data-explain"), sourceEl: els[idx] };
+  openExplainMoveOverlay(explainText, sourceEl);
 });
+
+function openExplainMoveOverlay(explainText, sourceEl) {
+  var $ov = $("#explain-move-overlay").empty().show();
+  var headerHtml = '<div class="explain-move-header"><h3><i class="fa-solid fa-arrows-up-down"></i> Move Explanation</h3><p>Click any word below to attach the explanation there</p></div>';
+  var linesHtml = '<div class="explain-move-lines">';
+  var source = inStudio ? "#lyrics p" : "#input";
+  var lines = [];
+  if (inStudio) {
+    $("#lyrics p").each(function() {
+      var $cl = $(this).clone();
+      $cl.find("span:first").remove();
+      $cl.find(".line-dur").remove();
+      var txt = $cl.text().trim();
+      if (txt) lines.push({ el: this, text: txt });
+    });
+  } else {
+    var raw = getInputText().split("\n");
+    raw.forEach(function(line) {
+      var txt = line.trim();
+      if (txt) lines.push({ text: txt });
+    });
+  }
+  lines.forEach(function(ln, li) {
+    var words = ln.text.split(/\s+/);
+    var wordSpans = words.map(function(w, wi) {
+      return '<span class="emw" data-line="' + li + '" data-word="' + wi + '">' + w + '</span>';
+    }).join(' ');
+    linesHtml += '<div class="explain-move-line" data-line="' + li + '">' + wordSpans + '</div>';
+  });
+  linesHtml += '</div>';
+  var cancelHtml = '<button class="explain-move-cancel" id="explain-move-cancel"><i class="fa-solid fa-xmark"></i> Cancel</button>';
+  $ov.html(headerHtml + linesHtml + cancelHtml);
+  gsap.fromTo($ov[0], { opacity: 0 }, { opacity: 1, duration: 0.3 });
+
+  $ov.on("click", ".emw", function() {
+    var word = $(this).text();
+    var lineIdx = parseInt($(this).data("line"));
+    var wordIdx = parseInt($(this).data("word"));
+    if (inStudio) {
+      var $targetLine = $("#lyrics p").eq(lineIdx);
+      var lineText = $targetLine.clone().find("span:first").remove().end().find(".line-dur").remove().end().text().trim();
+      var $cl2 = $targetLine.clone();
+      $cl2.find("span:first").remove();
+      $cl2.find(".line-dur").remove();
+    }
+    var targetSource = inStudio ? "#lyrics" : "#input";
+    var container = $(targetSource)[0];
+    var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    var wordCount = 0;
+    var globalWordTarget = 0;
+    var lc = 0;
+    if (inStudio) {
+      $("#lyrics p").each(function(pi) {
+        if (pi < lineIdx) {
+          var $cl3 = $(this).clone();
+          $cl3.find("span:first").remove();
+          $cl3.find(".line-dur").remove();
+          globalWordTarget += $cl3.text().trim().split(/\s+/).filter(function(w){return w;}).length;
+        }
+      });
+      globalWordTarget += wordIdx;
+    } else {
+      var allLines = getInputText().split("\n");
+      for (var ai = 0; ai < lineIdx; ai++) {
+        var lt = allLines[ai] ? allLines[ai].trim() : "";
+        if (lt) globalWordTarget += lt.split(/\s+/).filter(function(w){return w;}).length;
+      }
+      globalWordTarget += wordIdx;
+    }
+    var found = false;
+    var node;
+    while (node = walker.nextNode()) {
+      var words2 = node.textContent.split(/\s+/);
+      for (var wi = 0; wi < words2.length; wi++) {
+        if (!words2[wi]) continue;
+        if (wordCount === globalWordTarget) {
+          var offset = 0;
+          for (var oi = 0; oi < wi; oi++) offset = node.textContent.indexOf(words2[oi], offset) + words2[oi].length;
+          var start = node.textContent.indexOf(words2[wi], offset);
+          if (start < 0) start = 0;
+          var range = document.createRange();
+          range.setStart(node, start);
+          range.setEnd(node, start + words2[wi].length);
+          var span = document.createElement("span");
+          span.setAttribute("data-explain", explainText);
+          span.style.borderBottom = "2px dotted";
+          span.style.borderColor = "var(--accent)";
+          span.style.cursor = "help";
+          try { range.surroundContents(span); } catch(ex) {
+            var content = range.extractContents();
+            span.appendChild(content);
+            range.insertNode(span);
+          }
+          found = true;
+          break;
+        }
+        wordCount++;
+      }
+      if (found) break;
+    }
+    if (found && sourceEl && sourceEl.parentNode) {
+      $(sourceEl).removeAttr("data-explain").css({ borderBottom: "", borderColor: "", cursor: "" });
+    }
+    $ov.hide().empty();
+    $ov.off("click");
+    if (found) {
+      toast("Explanation moved", "check");
+      if (typeof updateExplainBtnVisibility === "function") updateExplainBtnVisibility();
+      $("#input").trigger("input");
+    } else {
+      toast("Could not move explanation", "xmark");
+    }
+  });
+
+  $ov.on("click", "#explain-move-cancel", function() {
+    $ov.hide().empty();
+    $ov.off("click");
+    openExplainGallery();
+  });
+}
 
 $(document).on("click", ".eg-ex-delete", function() {
   var idx = $(this).closest(".eg-pair").data("eg-idx");
@@ -7222,6 +7824,158 @@ function saveTabAudioBlob(tabId) {
 }
 
 
+
+
+/* ═══════════════════════════════════════
+   FAQ MODAL & TUTORIAL
+   ═══════════════════════════════════════ */
+
+var faqData = [
+  { icon: "pen-to-square", q: "How do I start writing lyrics?", a: "Just start typing in the editor area. Each line becomes a separate lyric line. You can format text using the toolbar that appears when you select text — bold, italic, colors, and more." },
+  { icon: "forward", q: "How do I enter Studio mode?", a: "Click the Studio button (arrow icon) at the bottom of the editor. Studio mode converts your lyrics into individual timestampable lines for syncing with audio." },
+  { icon: "music", q: "How do I add audio to my lyrics?", a: "Click the Audio button (upload icon) to select an audio file from your device. Once loaded, you can play, pause, and sync timestamps with your lyrics." },
+  { icon: "clock", q: "How do I timestamp / sync lyrics?", a: "In Studio mode with audio loaded, click the Record button. It will start playing the audio. Press Next (or the down arrow key) each time a new lyric line begins. Each line gets a timestamp. Click Set to lock timestamps in place." },
+  { icon: "microphone-lines", q: "What is Karaoke mode?", a: "Karaoke mode plays your lyrics with a letter-by-letter glow animation synced to your timestamps. To use it, mark your file as completed, enter Studio, then activate Karaoke from the Audio menu." },
+  { icon: "lightbulb", q: "How do Explanations work?", a: "Select any text in the editor, then tap the lightbulb icon in the formatting toolbar. Add your explanation for the selected words. View all explanations from the Explanations button in the Actions panel." },
+  { icon: "folder", q: "How do Library Folders work?", a: "Create folders from the Save menu or the + chip in the Library. Assign songs to folders for organization. Shift-click a folder chip to rename or delete it." },
+  { icon: "arrows-up-down", q: "Can I move explanations to different words?", a: "Yes! In the Explanations gallery, click the Move button on any explanation. A word picker overlay will appear — click the word you want to attach the explanation to." },
+  { icon: "floppy-disk", q: "How does saving work?", a: "LyricFlow autosaves every 2 seconds after changes. You can also manually save from the Save menu. Backups can be exported as JSON files and restored later." },
+  { icon: "layer-group", q: "Can I work on multiple songs at once?", a: "Yes! Use tabs at the top of the screen. Click the + button to add new tabs. Each tab maintains its own lyrics, metadata, and audio independently." },
+  { icon: "palette", q: "How do I change the theme or accent color?", a: "Open the menu panel (hamburger icon) and go to the Theme section. Pick from preset accent colors or choose a custom one. Toggle between dark and light modes with the theme switch." },
+  { icon: "cloud-arrow-down", q: "What is Treesh import?", a: "Treesh is an online lyrics platform. Use Open > Import from Treesh to search and import lyrics (with optional audio) directly into LyricFlow." },
+  { icon: "download", q: "How do I export my lyrics?", a: "From the Save menu, choose Copy Lyrics (plain text, markdown, or LRC format) or Download to save as a file. You can also backup individual or all files as JSON." },
+  { icon: "text-height", q: "Can I adjust font sizes?", a: "Yes! In the menu panel under Font Size, use the sliders to independently control Input text, Studio lyrics, Buttons, and Labels sizes." },
+  { icon: "keyboard", q: "Are there keyboard shortcuts?", a: "Press ? to view all shortcuts. Key ones: Ctrl+S to save, Down Arrow to advance recording, Ctrl+Enter to toggle Studio, and Escape to close modals." }
+];
+
+function renderFAQ() {
+  var $body = $("#faq-body").empty();
+  faqData.forEach(function(item, idx) {
+    var $item = $('<div class="faq-item" data-faq-idx="' + idx + '">' +
+      '<div class="faq-q"><i class="fa-solid fa-' + item.icon + ' faq-icon"></i><span>' + item.q + '</span><i class="fa-solid fa-chevron-down faq-chevron"></i></div>' +
+      '<div class="faq-a">' + item.a + '</div>' +
+    '</div>');
+    $body.append($item);
+  });
+}
+
+$(document).on("click", ".faq-q", function() {
+  var $item = $(this).closest(".faq-item");
+  var wasOpen = $item.hasClass("open");
+  $(".faq-item").removeClass("open");
+  if (!wasOpen) $item.addClass("open");
+});
+
+$("#btn-faq").click(function() {
+  renderFAQ();
+  $("#faq-modal").addClass("go");
+  gsap.fromTo(".faq-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" });
+  gsap.fromTo(".faq-item", { y: 10, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.025, duration: 0.25, delay: 0.15, ease: "power2.out" });
+});
+
+$("#faq-close").click(function() { $("#faq-modal").removeClass("go"); });
+$("#faq-modal").on("click", function(e) { if (e.target === this) $(this).removeClass("go"); });
+
+var tutorialSteps = [
+  { target: ".brand", title: "Welcome to LyricFlow", desc: "Your premium lyric writing & syncing workspace. Let\u2019s walk through the key features." },
+  { target: "#input", title: "Lyrics Editor", desc: "This is where you write your lyrics. Each line of text becomes a lyric line. Select text to see formatting options like bold, italic, color, and explanations." },
+  { target: "#new", title: "New", desc: "Create a new blank file or clear the current lyrics. Each new file opens in its own tab." },
+  { target: "#open-btn", title: "Open", desc: "Open your Library of saved songs, import from Treesh, restore backups, or open text files." },
+  { target: "#save", title: "Save", desc: "Save your work, backup files, copy lyrics in various formats, or download as text/LRC files." },
+  { target: "#upload-btn", title: "Audio", desc: "Upload audio files to sync with your lyrics. Once loaded, access playback controls, Karaoke mode, and more." },
+  { target: "#next", title: "Studio", desc: "Enter Studio mode to see your lyrics as individual lines. This is where you timestamp and sync lyrics to audio." },
+  { target: "#tab-bar", title: "Tabs", desc: "Work on multiple songs simultaneously. Each tab has its own lyrics, audio, and metadata. Click + to add tabs." },
+  { target: "#menu-toggle", title: "Menu Panel", desc: "Access theme settings, accent colors, font sizes, typography options, and app actions from the side panel." },
+  { target: "#meta_track", title: "Metadata", desc: "Set the track title, artist name, and album for your song. This info is saved with each file and shown in the Library." },
+  { target: "#btn-faq", title: "Help & FAQs", desc: "You\u2019re here! Come back anytime for answers to common questions or to re-run this tutorial." }
+];
+
+var tutorialIdx = 0;
+var tutorialActive = false;
+
+function startTutorial() {
+  $("#faq-modal").removeClass("go");
+  tutorialIdx = 0;
+  tutorialActive = true;
+  if (inStudio) {
+    $("#next").click();
+    setTimeout(function() { showTutorialStep(); }, 400);
+  } else {
+    showTutorialStep();
+  }
+}
+
+function showTutorialStep() {
+  if (!tutorialActive || tutorialIdx >= tutorialSteps.length) { endTutorial(); return; }
+  var step = tutorialSteps[tutorialIdx];
+  var $overlay = $("#tutorial-overlay").addClass("active");
+  var $ring = $("#tutorial-ring");
+  var $tooltip = $("#tutorial-tooltip");
+  var $target = $(step.target).first();
+
+  if (!$target.length || !$target.is(":visible")) {
+    tutorialIdx++;
+    showTutorialStep();
+    return;
+  }
+
+  var rect = $target[0].getBoundingClientRect();
+  var pad = 8;
+  gsap.to($ring[0], {
+    left: rect.left - pad,
+    top: rect.top - pad,
+    width: rect.width + pad * 2,
+    height: rect.height + pad * 2,
+    duration: 0.4,
+    ease: "power2.out"
+  });
+
+  $("#tutorial-title").text(step.title);
+  $("#tutorial-desc").text(step.desc);
+
+  var dotsHtml = "";
+  for (var d = 0; d < tutorialSteps.length; d++) {
+    dotsHtml += '<div class="tutorial-dot' + (d === tutorialIdx ? " active" : "") + '"></div>';
+  }
+  $("#tutorial-dots").html(dotsHtml);
+
+  $("#tutorial-next").text(tutorialIdx === tutorialSteps.length - 1 ? "Done" : "Next");
+  $("#tutorial-prev").toggle(tutorialIdx > 0);
+
+  var tipTop = rect.bottom + 16;
+  var tipLeft = rect.left + rect.width / 2 - 140;
+  if (tipTop + 180 > window.innerHeight) tipTop = rect.top - 180;
+  tipLeft = Math.max(12, Math.min(tipLeft, window.innerWidth - 300));
+  tipTop = Math.max(12, tipTop);
+
+  gsap.to($tooltip[0], { left: tipLeft, top: tipTop, duration: 0.4, ease: "power2.out" });
+  gsap.fromTo($tooltip[0], { opacity: 0, scale: 0.95 }, { opacity: 1, scale: 1, duration: 0.3, delay: 0.1, ease: "power2.out" });
+}
+
+function endTutorial() {
+  tutorialActive = false;
+  var $overlay = $("#tutorial-overlay").removeClass("active");
+  gsap.to("#tutorial-tooltip", { opacity: 0, duration: 0.2 });
+  gsap.to("#tutorial-ring", { opacity: 0, duration: 0.2 });
+  setTimeout(function() {
+    gsap.set("#tutorial-ring", { opacity: 1 });
+  }, 300);
+}
+
+$("#tutorial-next").click(function() {
+  if (tutorialIdx >= tutorialSteps.length - 1) { endTutorial(); return; }
+  tutorialIdx++;
+  showTutorialStep();
+});
+
+$("#tutorial-prev").click(function() {
+  if (tutorialIdx > 0) { tutorialIdx--; showTutorialStep(); }
+});
+
+$("#tutorial-skip").click(function() { endTutorial(); });
+$("#tutorial-backdrop").click(function() { endTutorial(); });
+$("#faq-tutorial-btn").click(function() { startTutorial(); });
+
 /* ═══════════════════════════════════════
    NAV & KEYBOARD SHORTCUTS
    ═══════════════════════════════════════ */
@@ -7254,6 +8008,8 @@ $(document).on("keydown", function (e) {
   if (e.key === "?" && !isEditing) { e.preventDefault(); $("#btn-shortcuts").click(); }
   if (e.key === "Escape") {
     $("#shortcuts-modal").removeClass("on");
+    $("#faq-modal").removeClass("go");
+    if (tutorialActive) endTutorial();
     $("#panel").removeClass("open");
     $("#menu-toggle").removeClass("menu-on");
     $("#song-list, #library, #explain-modal").removeClass("go");
