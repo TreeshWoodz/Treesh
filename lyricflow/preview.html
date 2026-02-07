@@ -2032,9 +2032,9 @@ body { -webkit-touch-callout: none; }
   height: 36px;
   padding: 0 14px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border-2) !important;
-  background: var(--surface-2) !important;
-  color: var(--text) !important;
+  border: 1px solid var(--border-2);
+  background: var(--surface-2);
+  color: var(--text);
   font-family: var(--main-font);
   font-size: 0.75rem;
   font-weight: 600;
@@ -2047,26 +2047,14 @@ body { -webkit-touch-callout: none; }
   justify-content: center;
 }
 
- [data-theme="dark"] .theme-chip,
- [data-theme="default"] .theme-chip {
-   color:white !important;
-   }
-   
-   [data-theme="light"] .theme-chip {
-   color: #121212 !important;
-   background: rgba(0,0,0,0.07) !important;
-   border: 1px solid rgba(0,0,0,0.18) !important;
-   }
-
-
 .theme-chip::after,
 .theme-chip::before { display: none !important; }
-.theme-chip:hover { background: var(--surface-3) !important; }
+.theme-chip:hover { background: var(--surface-3); }
 
 .theme-chip.active {
-  background: var(--accent-soft) !important;
-  color: var(--accent) !important;
-  border-color: var(--accent) !important;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 
@@ -2078,15 +2066,15 @@ body { -webkit-touch-callout: none; }
   border: 1px solid rgba(128,128,128,0.3);
 }
 
-.theme-chip[data-theme="light"] .theme-dot {
+.theme-chip[data-pick="light"] .theme-dot {
   background: #f4f3f0;
 }
 
-.theme-chip[data-theme="default"] .theme-dot {
+.theme-chip[data-pick="default"] .theme-dot {
   background: linear-gradient(135deg, #06060c 50%, #2a2a3a 50%);
 }
 
-.theme-chip[data-theme="dark"] .theme-dot {
+.theme-chip[data-pick="dark"] .theme-dot {
   background: #000000;
 }
 
@@ -2931,9 +2919,9 @@ button { position: relative; }
       <div class="panel-section">
         <div class="panel-label">Theme</div>
         <div class="panel-row">
-          <button class="theme-chip" data-theme="light"><span class="theme-dot"></span> Light</button>
-          <button class="theme-chip active" data-theme="default"><span class="theme-dot"></span> Default</button>
-          <button class="theme-chip" data-theme="dark"><span class="theme-dot"></span> Dark</button>
+          <button class="theme-chip" data-pick="light"><span class="theme-dot"></span> Light</button>
+          <button class="theme-chip active" data-pick="default"><span class="theme-dot"></span> Default</button>
+          <button class="theme-chip" data-pick="dark"><span class="theme-dot"></span> Dark</button>
         </div>
       </div>
 
@@ -3400,6 +3388,24 @@ function renderTabs() {
   });
 }
 
+function loadTabAudioGlobal(tabId, key) {
+  if (!key || !db) return;
+  try {
+    var atx = db.transaction("audio", "readonly");
+    var areq = atx.objectStore("audio").get(key);
+    areq.onsuccess = function (e) {
+      if (e.target.result && activeTabId === tabId) {
+        var url = URL.createObjectURL(e.target.result);
+        player.src = url;
+        $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
+        $("#progress-bar, #time-badge").addClass("on");
+        if (inStudio) enableBtn("#next-line");
+      }
+    };
+    areq.onerror = function() {};
+  } catch(ex) {}
+}
+
 function switchTab(id) {
   if (activeTabId === id) return;
   saveCurrentTabState();
@@ -3428,37 +3434,40 @@ function switchTab(id) {
   $("#progress-bar, #time-badge").removeClass("on");
   $("#visualizer").removeClass("on");
 
-  function loadTabAudio(key) {
-    if (!key || !db) return;
-    try {
-      var atx = db.transaction("audio", "readonly");
-      var areq = atx.objectStore("audio").get(key);
-      areq.onsuccess = function (e) {
-        if (e.target.result && activeTabId === id) {
-          var url = URL.createObjectURL(e.target.result);
-          player.src = url;
-          $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
-          $("#progress-bar, #time-badge").addClass("on");
-          if (inStudio) enableBtn("#next-line");
-        }
-      };
-    } catch(ex) {}
-  }
-
-  if (tab.audioKey) {
-    loadTabAudio(tab.audioKey);
+  if (tab.audioKey && db) {
+    setTimeout(function() {
+      if (activeTabId !== id) return;
+      try {
+        var atx = db.transaction("audio", "readonly");
+        var areq = atx.objectStore("audio").get(tab.audioKey);
+        areq.onsuccess = function(e) {
+          if (e.target.result && activeTabId === id) {
+            player.src = URL.createObjectURL(e.target.result);
+            $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
+            $("#progress-bar, #time-badge").addClass("on");
+            if (inStudio) enableBtn("#next-line");
+          }
+        };
+      } catch(ex) {}
+    }, 50);
   } else if (db) {
-    try {
-      var checkTx = db.transaction("audio", "readonly");
-      var checkReq = checkTx.objectStore("audio").get("audio_" + tab.id);
-      checkReq.onsuccess = function(e) {
-        if (e.target.result && activeTabId === id) {
-          tab.audioKey = "audio_" + tab.id;
-          loadTabAudio(tab.audioKey);
-        }
-      };
-      checkReq.onerror = function() {};
-    } catch(ex) {}
+    setTimeout(function() {
+      if (activeTabId !== id) return;
+      var fallbackKey = "audio_" + tab.id;
+      try {
+        var atx = db.transaction("audio", "readonly");
+        var areq = atx.objectStore("audio").get(fallbackKey);
+        areq.onsuccess = function(e) {
+          if (e.target.result && activeTabId === id) {
+            tab.audioKey = fallbackKey;
+            player.src = URL.createObjectURL(e.target.result);
+            $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
+            $("#progress-bar, #time-badge").addClass("on");
+            if (inStudio) enableBtn("#next-line");
+          }
+        };
+      } catch(ex) {}
+    }, 50);
   }
 
   renderTabs();
@@ -3500,8 +3509,9 @@ function saveCurrentTabState() {
   tab.title = $("#meta_track").val().trim() || "Untitled";
   tab.artist = $("#meta_artist").val().trim();
   tab.album = $("#meta_album").val().trim();
-  if (player.src && player.src !== location.href && !tab.audioKey) {
-    tab.audioKey = "audio_" + tab.id;
+
+  if (player.src && player.src !== location.href) {
+    if (!tab.audioKey) tab.audioKey = "audio_" + tab.id;
   }
 }
 
@@ -3715,7 +3725,7 @@ function loadSavedState() {
   var savedTheme = localStorage.getItem("lfTheme");
   if (savedTheme) {
     $("html").attr("data-theme", savedTheme);
-    $(".theme-chip").removeClass("active").filter("[data-theme='" + savedTheme + "']").addClass("active");
+    $(".theme-chip").removeClass("active").filter("[data-pick='" + savedTheme + "']").addClass("active");
   }
 
   var savedFont = localStorage.getItem("lyricFont");
@@ -4073,6 +4083,8 @@ $("#open-btn").click(function () {
   ]);
 });
 
+var pendingOpenFile = null;
+
 $("#openFileInput").on("change", function (e) {
   var f = e.target.files[0];
   if (!f) return;
@@ -4080,14 +4092,37 @@ $("#openFileInput").on("change", function (e) {
   reader.onload = function (ev) {
     var text = ev.target.result;
     text = text.replace(/<[^>]+>/g, "");
-    saveCurrentTabState();
-    createTab({ title: f.name.replace(/\.[^.]+$/, ""), content: "" });
-    setInputText(text);
-    saveCurrentTabState();
-    updateStats();
-    enableBtn("#next");
-    markDirty();
-    toast("File opened", "file-import");
+    var fname = f.name.replace(/\.[^.]+$/, "");
+    showOptions("Open \"" + fname + "\"", [
+      { icon: "folder-open", label: "Open in New Tab", action: function() {
+        saveCurrentTabState();
+        createTab({ title: fname, content: "" });
+        setInputText(text);
+        saveCurrentTabState();
+        updateStats();
+        enableBtn("#next");
+        markDirty();
+        toast("Opened in new tab", "file-import");
+      }},
+      { icon: "file-pen", label: "Open in Current Tab", action: function() {
+        showConfirm("Any unsaved work in the current tab will be replaced. Continue?", function() {
+          var tab = tabs.find(function(t) { return t.id === activeTabId; });
+          if (tab) {
+            tab.title = fname;
+            tab.content = "";
+            tab.dirty = false;
+            $("#meta_track").val(fname);
+          }
+          setInputText(text);
+          saveCurrentTabState();
+          updateStats();
+          renderTabs();
+          enableBtn("#next");
+          markDirty();
+          toast("File opened", "file-import");
+        }, "Replace & Open", "Cancel");
+      }}
+    ]);
   };
   reader.readAsText(f);
   $(this).val("");
@@ -4518,9 +4553,8 @@ function initLibSwipe() {
     if (!db) return;
 
     var openTabId = (saveType === "auto") ? String(originalId) : String(id);
-    var existingTab = tabs.find(function (t) { return t.id === openTabId; });
 
-    function doOpen() {
+    function doOpenInNewTab() {
       var tx2 = db.transaction("songs", "readonly");
       var req2 = tx2.objectStore("songs").get(id);
       req2.onsuccess = function (ev) {
@@ -4532,14 +4566,57 @@ function initLibSwipe() {
           favorite: song.favorite, created: song.created
         });
         $("#library").removeClass("go");
+        toast("Opened in new tab: " + song.title, "book");
+      };
+    }
+
+    function doOpenInCurrent() {
+      var tx2 = db.transaction("songs", "readonly");
+      var req2 = tx2.objectStore("songs").get(id);
+      req2.onsuccess = function (ev) {
+        var song = ev.target.result;
+        if (!song) return;
+        var tab = tabs.find(function(t) { return t.id === activeTabId; });
+        if (tab) {
+          tab.title = song.title || "Untitled";
+          tab.artist = song.artist || "";
+          tab.album = song.album || "";
+          tab.content = song.content || "";
+          tab.audioKey = song.audioKey || null;
+          tab.completed = song.completed || false;
+          tab.favorite = song.favorite || false;
+          tab.dirty = false;
+          setInputHTML(tab.content);
+          $("#meta_track").val(tab.title);
+          $("#meta_artist").val(tab.artist);
+          $("#meta_album").val(tab.album);
+          if (tab.audioKey) loadTabAudioGlobal(tab.id, tab.audioKey);
+          renderTabs();
+          updateStats();
+          rebuildLyrics();
+          if (getInputText().trim()) enableBtn("#next");
+          else disableBtn("#next");
+        }
+        $("#library").removeClass("go");
         toast("Opened: " + song.title, "book");
       };
     }
 
-    if (existingTab) {
-      showConfirm("This tab is already open. Reopening will erase any unsaved progress.", function () { doOpen(); }, "Open Anyways", "Cancel");
-    } else {
-      doOpen();
+    showOptions("Open File", [
+      { icon: "folder-open", label: "Open in New Tab", action: function() {
+        var existingTab = tabs.find(function(t) { return t.id === openTabId; });
+        if (existingTab) {
+          showConfirm("This file is already open in a tab. Reopening will refresh it with the saved version.", function() { doOpenInNewTab(); }, "Open Anyways", "Cancel");
+        } else {
+          doOpenInNewTab();
+        }
+      }},
+      { icon: "file-pen", label: "Open in Current Tab", action: function() {
+        showConfirm("Any unsaved work in the current tab will be replaced. Continue?", function() { doOpenInCurrent(); }, "Replace & Open", "Cancel");
+      }}
+    ]);
+    return;
+    if (false) {
     }
   });
 }
@@ -4558,11 +4635,17 @@ document.getElementById("audioUploader").addEventListener("change", function (e)
 
   player.src = URL.createObjectURL(f);
 
+  var tab = tabs.find(function(t) { return t.id === activeTabId; });
   if (db && activeTabId) {
     var key = "audio_" + activeTabId;
     var tx = db.transaction("audio", "readwrite");
     tx.objectStore("audio").put(f, key);
-    var tab = tabs.find(function(t) { return t.id === activeTabId; });
+    tx.oncomplete = function() {
+      if (tab) tab.audioKey = key;
+    };
+    tx.onerror = function() {
+      if (tab) tab.audioKey = key;
+    };
     if (tab) tab.audioKey = key;
   }
 
@@ -4803,6 +4886,7 @@ function enterStudio($btn) {
   }
 
   gsap.fromTo("#lyrics p:not(.no-lyrics)", { y: 25, opacity: 0, scale: 0.92 }, { y: 0, opacity: 1, scale: 0.96, stagger: 0.035, duration: 0.45, ease: "power3.out" });
+  if (typeof updateLyricsSliderState === "function") updateLyricsSliderState();
 }
 
 function exitStudio($btn) {
@@ -4850,6 +4934,7 @@ function exitStudio($btn) {
   disableBtn("#refresh");
   disableBtn("#set");
   disableBtn("#clear-time");
+  if (typeof updateLyricsSliderState === "function") updateLyricsSliderState();
 }
 
 
@@ -5218,7 +5303,7 @@ $("#replace-all").click(function () {
    ═══════════════════════════════════════ */
 
 $(".theme-chip").click(function () {
-  var theme = $(this).data("theme");
+  var theme = $(this).data("pick");
   $("html").attr("data-theme", theme);
   $(this).addClass("active").siblings().removeClass("active");
   localStorage.setItem("lfTheme", theme);
@@ -5259,6 +5344,17 @@ function applyFontSize(key, val) {
     gsap.to("#tools", { opacity: 1, duration: 0.4, ease: "power2.inOut", delay: 0.1 });
   });
 });
+
+function updateLyricsSliderState() {
+  if (inStudio) {
+    $("#size-lyrics").prop("disabled", false).css("opacity", 1);
+    $("#size-lyrics").closest(".size-control").css("opacity", 1);
+  } else {
+    $("#size-lyrics").prop("disabled", true).css("opacity", 0.35);
+    $("#size-lyrics").closest(".size-control").css("opacity", 0.45);
+  }
+}
+updateLyricsSliderState();
 
 
 /* ═══════════════════════════════════════
