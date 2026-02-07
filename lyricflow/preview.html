@@ -41,6 +41,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
 
 
 /* ═══════════════════════════════════════
@@ -754,17 +755,78 @@ canvas#visualizer.on {
   cursor: pointer;
 }
 
-.lib-toolbar {
+.lib-tabs {
   display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  position: relative;
+}
+
+.lib-tab-btn {
+  flex: 1;
+  padding: 11px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-family: var(--main-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.lib-tab-btn:hover { color: var(--text-2); }
+
+.lib-tab-btn.active { color: var(--accent); }
+
+.lib-tab-btn::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transition: transform 0.3s var(--ease);
+}
+
+.lib-tab-btn.active::after { transform: scaleX(1); }
+
+.lib-tab-count {
+  background: var(--surface-2);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.lib-tab-btn.active .lib-tab-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.lib-toolbar {
+  display: none;
   gap: 6px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
+  align-items: center;
 }
 
+.lib-toolbar.visible { display: flex; }
+
 .lib-toolbar button {
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-2);
@@ -773,11 +835,14 @@ canvas#visualizer.on {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  transition: all 0.2s;
 }
 
 .lib-toolbar button:hover { background: var(--surface-2); color: var(--text); }
 .lib-toolbar .danger-btn { border-color: rgba(220,40,40,0.3); color: rgb(220,40,40); }
+.lib-toolbar .danger-btn:hover { background: rgba(220,40,40,0.1); }
+.lib-toolbar .cancel-btn { margin-left: auto; }
 
 #library .lib-item {
   padding: 12px 16px;
@@ -929,23 +994,80 @@ canvas#visualizer.on {
   max-width: 100vw;
 }
 
-/* ═══ FIX: Rich toolbar no overflow ═══ */
+/* ═══ FIX: Rich toolbar compact ═══ */
 #rich-toolbar {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   max-width: calc(100vw - 20px);
-  left: 10px !important;
-  right: auto;
   box-sizing: border-box;
+  gap: 3px;
+  padding: 3px 5px;
 }
 #rt-color-presets {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-  flex-wrap: nowrap;
-  max-width: 100%;
-  scrollbar-width: none;
+  display: none;
 }
-#rt-color-presets::-webkit-scrollbar { display: none; }
+
+#rt-color-popup {
+  position: fixed;
+  z-index: 30;
+  display: none;
+  padding: 8px;
+  background: var(--glass-2);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+#rt-color-popup.visible { display: flex; }
+
+#rt-color-popup .cp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 28px);
+  gap: 5px;
+}
+
+#rt-color-popup .cp-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(128,128,128,0.25);
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  padding: 0;
+  background: none;
+}
+
+#rt-color-popup .cp-swatch:hover {
+  transform: scale(1.15);
+  border-color: white;
+}
+
+#rt-color-popup .cp-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+#rt-color-popup .cp-custom-row input[type="color"] {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(128,128,128,0.25);
+  padding: 1px;
+  cursor: pointer;
+  background: none;
+}
+
+#rt-color-popup .cp-custom-row span {
+  font-size: 0.65rem;
+  color: var(--text-2);
+  font-family: var(--main-font);
+}
 
 
 
@@ -1156,100 +1278,125 @@ canvas#visualizer.on {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: #000;
+  background: #050508;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
+[data-theme="light"] #karaoke-view { background: #f0ede8; }
+
 #karaoke-bg {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 30%, rgba(241,64,64,0.12) 0%, transparent 70%),
-              radial-gradient(ellipse at 20% 80%, rgba(100,50,200,0.08) 0%, transparent 60%),
-              radial-gradient(ellipse at 80% 60%, rgba(0,150,255,0.06) 0%, transparent 50%);
-  animation: karaokePulse 8s ease-in-out infinite alternate;
-}
-
-@keyframes karaokePulse {
-  0% { opacity: 0.6; transform: scale(1); }
-  100% { opacity: 1; transform: scale(1.05); }
+  background: radial-gradient(ellipse at 50% 20%, var(--accent-glow) 0%, transparent 60%),
+              radial-gradient(ellipse at 20% 80%, rgba(100,50,200,0.1) 0%, transparent 50%),
+              radial-gradient(ellipse at 85% 50%, rgba(0,150,255,0.08) 0%, transparent 50%);
+  opacity: 0.7;
 }
 
 #karaoke-glow {
   position: absolute;
-  top: 30%;
+  top: 25%;
   left: 50%;
-  width: 300px;
-  height: 300px;
+  width: 400px;
+  height: 400px;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-  filter: blur(60px);
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 65%);
+  filter: blur(80px);
   pointer-events: none;
-  animation: glowFloat 6s ease-in-out infinite alternate;
+  opacity: 0.5;
 }
 
-@keyframes glowFloat {
-  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.4; }
-  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
-}
-
-#karaoke-title {
+#karaoke-title-area {
   position: relative;
   z-index: 2;
   text-align: center;
-  padding: 40px 20px 10px;
+  padding: max(40px, env(safe-area-inset-top, 40px)) 20px 8px;
+  flex-shrink: 0;
+}
+
+#karaoke-song-title {
   font-family: var(--brand-font);
-  font-size: 0.7rem;
+  font-size: 1.1rem;
   text-transform: uppercase;
   letter-spacing: 2px;
+  color: white;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+}
+
+[data-theme="light"] #karaoke-song-title { color: #111; text-shadow: none; }
+
+#karaoke-song-artist {
+  font-family: var(--main-font);
+  font-size: 0.75rem;
   color: var(--accent);
-  opacity: 0.8;
+  margin-top: 4px;
+  letter-spacing: 1px;
+  opacity: 0.9;
 }
 
 #karaoke-lines {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px 120px;
+  padding: 30px 20px 140px;
   position: relative;
   z-index: 2;
-  scroll-behavior: smooth;
   -ms-overflow-style: none;
   scrollbar-width: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 4px;
 }
 
 #karaoke-lines::-webkit-scrollbar { display: none; }
 
 #karaoke-lines .k-line {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 700;
   text-align: center;
-  color: rgba(255,255,255,0.18);
-  padding: 8px 16px;
-  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-  max-width: 90%;
-  line-height: 1.4;
-  border-radius: 8px;
+  color: rgba(255,255,255,0.12);
+  padding: 10px 20px;
+  max-width: 92%;
+  line-height: 1.5;
+  border-radius: 12px;
+  will-change: transform, opacity, font-size;
+  transform: translateZ(0);
 }
+
+[data-theme="light"] #karaoke-lines .k-line { color: rgba(0,0,0,0.12); }
 
 #karaoke-lines .k-line.active {
   color: white;
-  font-size: 2rem;
-  text-shadow: 0 0 30px var(--accent-glow), 0 0 60px rgba(241,64,64,0.15);
-  transform: scale(1.05);
-  background: rgba(255,255,255,0.04);
+  font-size: 1.9rem;
+  text-shadow: 0 0 40px var(--accent-glow), 0 0 80px var(--accent-dim);
+  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+[data-theme="light"] #karaoke-lines .k-line.active {
+  color: #111;
+  text-shadow: none;
+  background: linear-gradient(135deg, rgba(0,0,0,0.05), rgba(0,0,0,0.02));
+  border-color: rgba(0,0,0,0.08);
 }
 
 #karaoke-lines .k-line.past {
-  color: rgba(255,255,255,0.35);
-  font-size: 1.2rem;
-  opacity: 0.6;
+  color: rgba(255,255,255,0.28);
+  font-size: 1.1rem;
 }
+
+[data-theme="light"] #karaoke-lines .k-line.past { color: rgba(0,0,0,0.25); }
+
+#karaoke-lines .k-line.upcoming {
+  opacity: 0.5;
+}
+
+#karaoke-lines .k-line b { font-weight: 800; }
+#karaoke-lines .k-line i { font-style: italic; }
+#karaoke-lines .k-line s { text-decoration: line-through; }
 
 #karaoke-controls {
   position: absolute;
@@ -1262,58 +1409,74 @@ canvas#visualizer.on {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.9) 40%);
+  background: linear-gradient(transparent, rgba(0,0,0,0.92) 40%);
+}
+
+[data-theme="light"] #karaoke-controls {
+  background: linear-gradient(transparent, rgba(240,237,232,0.95) 40%);
 }
 
 #karaoke-controls button {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: none;
   background: var(--accent);
   color: white;
-  font-size: 1rem;
+  font-size: 1.05rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: transform 0.2s;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 20px var(--accent-glow);
 }
 
 #karaoke-controls button:hover { transform: scale(1.08); }
+#karaoke-controls button:active { transform: scale(0.95); }
+
 #karaoke-controls button#karaoke-close {
   background: rgba(255,255,255,0.1);
   font-size: 0.85rem;
+  box-shadow: none;
+}
+
+[data-theme="light"] #karaoke-controls button#karaoke-close {
+  background: rgba(0,0,0,0.08);
+  color: #333;
 }
 
 #karaoke-progress {
   flex: 1;
-  height: 4px;
-  background: rgba(255,255,255,0.12);
-  border-radius: 4px;
+  height: 5px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 5px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
 }
 
+[data-theme="light"] #karaoke-progress { background: rgba(0,0,0,0.1); }
+
 #karaoke-fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 4px;
+  border-radius: 5px;
   width: 0;
-  transition: width 0.3s linear;
-  box-shadow: 0 0 8px var(--accent-glow);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 #karaoke-time {
-  font-size: 0.7rem;
-  color: rgba(255,255,255,0.5);
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.45);
   font-family: 'Fira Code', monospace;
   white-space: nowrap;
-  min-width: 80px;
+  min-width: 82px;
   text-align: right;
 }
+
+[data-theme="light"] #karaoke-time { color: rgba(0,0,0,0.4); }
 
 /* ═══ FIX: Disable double-tap zoom ═══ */
 * { touch-action: manipulation; }
@@ -1380,26 +1543,7 @@ body { -webkit-touch-callout: none; }
   margin: 0 2px;
 }
 
-#rich-toolbar .rt-size,
-#rich-toolbar .rt-color {
-  height: 30px;
-  padding: 0 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-family: var(--main-font);
-  font-size: 0.7rem;
-  cursor: pointer;
-  outline: none;
-}
 
-#rich-toolbar .rt-color {
-  width: 30px;
-  padding: 2px;
-  border-radius: 8px;
-  cursor: pointer;
-}
 
 
 /* ═══════════════════════════════════════
@@ -1521,15 +1665,21 @@ body { -webkit-touch-callout: none; }
 }
 
 #lyrics p:not(.no-lyrics).selected {
-  background: rgba(0,0,0,0.35);
-  border-color: var(--accent);
-  box-shadow: 0 0 50px var(--accent-glow);
-  animation: selPulse 2.5s ease-in-out infinite;
+  background: linear-gradient(135deg, var(--accent-dim), rgba(0,0,0,0.3));
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 40px var(--accent-glow), inset 0 0 30px var(--accent-dim);
+  transform: scale(1) !important;
+  animation: selPulse 2s ease-in-out infinite;
 }
 
 @keyframes selPulse {
-  0%, 100% { box-shadow: 0 0 30px var(--accent-soft); }
-  50% { box-shadow: 0 0 50px var(--accent-glow); }
+  0%, 100% { box-shadow: 0 0 25px var(--accent-glow), inset 0 0 20px var(--accent-dim); }
+  50% { box-shadow: 0 0 50px var(--accent-glow), 0 0 80px var(--accent-dim), inset 0 0 30px var(--accent-dim); }
+}
+
+[data-theme="light"] #lyrics p:not(.no-lyrics).selected {
+  background: linear-gradient(135deg, var(--accent-soft), rgba(255,255,255,0.8));
+  box-shadow: 0 0 30px var(--accent-glow), inset 0 0 20px var(--accent-dim);
 }
 
 #lyrics p:not(.no-lyrics).clicked {
@@ -1904,6 +2054,8 @@ body { -webkit-touch-callout: none; }
    
    [data-theme="light"] .theme-chip {
    color: #121212 !important;
+   background: rgba(0,0,0,0.07) !important;
+   border: 1px solid rgba(0,0,0,0.18) !important;
    }
 
 
@@ -2546,6 +2698,10 @@ button { position: relative; }
       <span>Library</span>
       <button id="lib-close">Close</button>
     </div>
+    <div class="lib-tabs">
+      <button class="lib-tab-btn active" data-lib-tab="saved"><i class="fa-solid fa-bookmark"></i> Saved <span class="lib-tab-count" id="lib-count-saved">0</span></button>
+      <button class="lib-tab-btn" data-lib-tab="auto"><i class="fa-solid fa-clock-rotate-left"></i> Autosaved <span class="lib-tab-count" id="lib-count-auto">0</span></button>
+    </div>
     <div class="lib-filters">
       <select id="lib-sort">
         <option value="updated-desc">Recently Updated</option>
@@ -2557,19 +2713,17 @@ button { position: relative; }
         <option value="completed">Completed First</option>
       </select>
       <select id="lib-filter">
-        <option value="all">All Files</option>
-        <option value="saved">Saved Only</option>
-        <option value="auto">Autosaved Only</option>
+        <option value="all">All</option>
         <option value="completed">Completed</option>
         <option value="favorites">Favorites</option>
       </select>
       <button type="button" id="lib-select-toggle"><i class="fa-solid fa-check-double"></i></button>
     </div>
-    <div class="lib-toolbar" style="display:none">
+    <div class="lib-toolbar">
       <button type="button" id="lib-select-all"><i class="fa-solid fa-check-circle"></i> All</button>
       <button type="button" id="lib-open-selected"><i class="fa-solid fa-folder-open"></i> Open</button>
       <button type="button" id="lib-delete-selected" class="danger-btn"><i class="fa-solid fa-trash"></i> Delete</button>
-      <button type="button" id="lib-cancel-select"><i class="fa-solid fa-xmark"></i> Cancel</button>
+      <button type="button" id="lib-cancel-select" class="cancel-btn"><i class="fa-solid fa-xmark"></i> Cancel</button>
     </div>
     <div class="lib-list"></div>
   </div>
@@ -2615,39 +2769,40 @@ button { position: relative; }
   <button id="rt-italic" title="Italic"><i class="fa-solid fa-italic"></i></button>
   <button id="rt-strike" title="Strikethrough"><i class="fa-solid fa-strikethrough"></i></button>
   <div class="rt-sep"></div>
-  <button id="rt-cut" title="Cut"><i class="fa-solid fa-scissors"></i></button>
-  <button id="rt-copy" title="Copy"><i class="fa-solid fa-copy"></i></button>
-  <button id="rt-paste" title="Paste"><i class="fa-solid fa-paste"></i></button>
+  <button id="rt-color-toggle" title="Text Color"><i class="fa-solid fa-palette"></i></button>
   <div class="rt-sep"></div>
-  <select class="rt-size" id="rt-fontsize" title="Font Size">
-    <option value="">Size</option>
-    <option value="1">8px</option>
-    <option value="2">10px</option>
-    <option value="3">12px</option>
-    <option value="4">14px</option>
-    <option value="5">18px</option>
-    <option value="6">24px</option>
-    <option value="7">36px</option>
-  </select>
-  <input type="color" class="rt-color" id="rt-color" value="#ffffff" title="Text Color">
-  <div id="rt-color-presets">
-    <button class="rt-preset" data-color="#ff0000" style="background:#ff0000" title="Red"></button>
-    <button class="rt-preset" data-color="#ff8800" style="background:#ff8800" title="Orange"></button>
-    <button class="rt-preset" data-color="#ffdd00" style="background:#ffdd00" title="Yellow"></button>
-    <button class="rt-preset" data-color="#00cc44" style="background:#00cc44" title="Green"></button>
-    <button class="rt-preset" data-color="#0099ff" style="background:#0099ff" title="Blue"></button>
-    <button class="rt-preset" data-color="#8833ff" style="background:#8833ff" title="Purple"></button>
-    <button class="rt-preset" data-color="#ff69b4" style="background:#ff69b4" title="Pink"></button>
-    <button class="rt-preset" data-color="#ffd700" style="background:#ffd700" title="Gold"></button>
-    <button class="rt-preset" data-color="#000000" style="background:#000000" title="Black"></button>
-    <button class="rt-preset" data-color="#888888" style="background:#888888" title="Gray"></button>
-    <button class="rt-preset" data-color="#ffffff" style="background:#ffffff" title="White"></button>
-  </div>
+  <button id="rt-fontsize-toggle" title="Font Size"><i class="fa-solid fa-text-height"></i></button>
   <div class="rt-sep"></div>
   <button id="rt-explain" title="Add Explanation"><i class="fa-solid fa-comment-dots"></i></button>
   <div class="rt-sep"></div>
-  <button id="rt-clear-sel" title="Clear Formatting (Selection)"><i class="fa-solid fa-eraser"></i></button>
-  <button id="rt-clear-all" title="Clear All Formatting"><i class="fa-solid fa-broom"></i></button>
+  <button id="rt-clear-sel" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
+</div>
+
+<div id="rt-color-popup">
+  <div class="cp-grid">
+    <button class="cp-swatch" data-color="#ff0000" style="background:#ff0000"></button>
+    <button class="cp-swatch" data-color="#ff8800" style="background:#ff8800"></button>
+    <button class="cp-swatch" data-color="#ffdd00" style="background:#ffdd00"></button>
+    <button class="cp-swatch" data-color="#00cc44" style="background:#00cc44"></button>
+    <button class="cp-swatch" data-color="#0099ff" style="background:#0099ff"></button>
+    <button class="cp-swatch" data-color="#8833ff" style="background:#8833ff"></button>
+    <button class="cp-swatch" data-color="#ff69b4" style="background:#ff69b4"></button>
+    <button class="cp-swatch" data-color="#ffffff" style="background:#ffffff"></button>
+  </div>
+  <div class="cp-custom-row">
+    <input type="color" id="rt-color-custom" value="#ffffff">
+    <span>Custom</span>
+  </div>
+</div>
+
+<div id="rt-size-popup" style="display:none;position:fixed;z-index:30;padding:6px;background:var(--glass-2);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--border-2);border-radius:var(--radius-sm);box-shadow:0 8px 30px rgba(0,0,0,0.35);gap:3px;flex-direction:column;">
+  <button class="rt-size-opt" data-size="1" style="padding:4px 12px;border:none;background:transparent;color:var(--text-2);font-size:0.6rem;cursor:pointer;border-radius:6px;font-family:var(--main-font);text-align:left;">8px Tiny</button>
+  <button class="rt-size-opt" data-size="2" style="padding:4px 12px;border:none;background:transparent;color:var(--text-2);font-size:0.65rem;cursor:pointer;border-radius:6px;font-family:var(--main-font);text-align:left;">10px Small</button>
+  <button class="rt-size-opt" data-size="3" style="padding:4px 12px;border:none;background:transparent;color:var(--text-2);font-size:0.72rem;cursor:pointer;border-radius:6px;font-family:var(--main-font);text-align:left;">12px Normal</button>
+  <button class="rt-size-opt" data-size="4" style="padding:4px 12px;border:none;background:transparent;color:var(--text-2);font-size:0.82rem;cursor:pointer;border-radius:6px;font-family:var(--main-font);text-align:left;">14px Medium</button>
+  <button class="rt-size-opt" data-size="5" style="padding:4px 12px;border:none;background:transparent;color:var(--text-2);font-size:0.95rem;cursor:pointer;border-radius:6px;font-family:var(--main-font);text-align:left;">18px Large</button>
+  <button class="rt-size-opt" data-size="6" style="padding:4px 12px;border:none;background:transparent;color:var(--text-2);font-size:1.1rem;cursor:pointer;border-radius:6px;font-family:var(--main-font);text-align:left;">24px XL</button>
+  <button class="rt-size-opt" data-size="7" style="padding:4px 12px;border:none;background:transparent;color:var(--text-2);font-size:1.3rem;cursor:pointer;border-radius:6px;font-family:var(--main-font);text-align:left;">36px XXL</button>
 </div>
 
 
@@ -2812,6 +2967,7 @@ button { position: relative; }
           <button class="font-chip" data-font="Fira Code" style="font-family:'Fira Code'">Fira Code</button>
           <button class="font-chip" data-font="Crimson Pro" style="font-family:'Crimson Pro'">Crimson</button>
           <button class="font-chip" data-font="Outfit" style="font-family:'Outfit'">Outfit</button>
+          <button class="font-chip" data-font="Lexend" style="font-family:'Lexend'">Lexend</button>
         </div>
       </div>
 
@@ -3805,12 +3961,10 @@ function buildMarkdownLyrics() {
   var title = $("#meta_track").val().trim();
   var artist = $("#meta_artist").val().trim();
   var album = $("#meta_album").val().trim();
-
-  out += '<div class="metadata">\n';
-  if (title) out += '  <p class="song_title">[Song Title: ' + title + ']</p>\n';
-  if (artist) out += '  <p class="artist_name">[Artist: ' + artist + ']</p>\n';
-  if (album) out += '  <p class="album_name">[Album: ' + album + ']</p>\n';
-  out += '</div>\n\n';
+  if (title) out += "# " + title + "\n";
+  if (artist) out += "**" + artist + "**\n";
+  if (album) out += "_" + album + "_\n";
+  if (title || artist || album) out += "\n---\n\n";
 
   var explanations = [];
   var srcHtml = getInputHTML();
@@ -3857,10 +4011,13 @@ function buildLRCOutput() {
   var title = $("#meta_track").val().trim();
   var artist = $("#meta_artist").val().trim();
   var album = $("#meta_album").val().trim();
-  if (title) out += title + "\n";
-  if (artist) out += artist + "\n";
-  if (album) out += album + "\n";
-  if (title || artist || album) out += "\n";
+  if (title || artist || album) {
+    out += '<div class="metadata">\n';
+    if (title) out += '  <p class="song_title">' + title + '</p>\n';
+    if (artist) out += '  <p class="artist_name">' + artist + '</p>\n';
+    if (album) out += '  <p class="album_name">' + album + '</p>\n';
+    out += '</div>\n\n';
+  }
 
   var explanations = [];
   var lastBR = false;
@@ -4076,20 +4233,24 @@ $("#nuke-btn").click(function () {
 var libSelectMode = false;
 var libSelected = [];
 
+var currentLibTab = "saved";
+
 function openLibrary() {
   if (!db) { toast("Database not ready", "xmark"); return; }
   libSelectMode = false;
   libSelected = [];
   $("#library .lib-list").removeClass("lib-selecting");
-  $(".lib-toolbar").hide();
-  $("#lib-select-toggle").removeClass("active");
-  $(".lib-toolbar button").not("#lib-select-toggle").hide();
+  $(".lib-toolbar").removeClass("visible");
   $("#lib-select-toggle").show();
 
   var tx = db.transaction("songs", "readonly");
   var req = tx.objectStore("songs").getAll();
   req.onsuccess = function (e) {
     var songs = e.target.result || [];
+    var savedCount = songs.filter(function(s) { return s.saveType !== "auto"; }).length;
+    var autoCount = songs.filter(function(s) { return s.saveType === "auto"; }).length;
+    $("#lib-count-saved").text(savedCount);
+    $("#lib-count-auto").text(autoCount);
     renderLibrary(songs);
     $("#library").addClass("go");
     gsap.fromTo("#library .modal-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" });
@@ -4101,8 +4262,8 @@ function renderLibrary(songs) {
   var sort = $("#lib-sort").val() || "updated-desc";
 
   var filtered = songs.filter(function(s) {
-    if (filter === "saved") return s.saveType === "manual";
-    if (filter === "auto") return s.saveType === "auto";
+    if (currentLibTab === "saved" && s.saveType === "auto") return false;
+    if (currentLibTab === "auto" && s.saveType !== "auto") return false;
     if (filter === "completed") return s.completed;
     if (filter === "favorites") return s.favorite;
     return true;
@@ -4168,12 +4329,28 @@ $("#lib-sort, #lib-filter").on("change", function() {
   req.onsuccess = function(e) { renderLibrary(e.target.result || []); };
 });
 
+$(document).on("click", ".lib-tab-btn", function() {
+  $(".lib-tab-btn").removeClass("active");
+  $(this).addClass("active");
+  currentLibTab = $(this).data("lib-tab");
+  if (!db) return;
+  libSelectMode = false;
+  libSelected = [];
+  $("#library .lib-list").removeClass("lib-selecting");
+  $(".lib-toolbar").removeClass("visible");
+  $("#lib-select-toggle").show();
+  var tx = db.transaction("songs", "readonly");
+  var req = tx.objectStore("songs").getAll();
+  req.onsuccess = function(e) { renderLibrary(e.target.result || []); };
+});
+
 $("#lib-select-toggle").click(function() {
   libSelectMode = true;
   libSelected = [];
   $("#library .lib-list").addClass("lib-selecting");
   $(this).hide();
-  $("#lib-select-all, #lib-open-selected, #lib-delete-selected, #lib-cancel-select").show();
+  $(".lib-toolbar").addClass("visible");
+  gsap.fromTo(".lib-toolbar", { opacity: 0, y: -5 }, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" });
 });
 
 $("#lib-cancel-select").click(function() {
@@ -4181,8 +4358,7 @@ $("#lib-cancel-select").click(function() {
   libSelected = [];
   $("#library .lib-list").removeClass("lib-selecting");
   $(".lib-check").removeClass("checked");
-  $(this).hide();
-  $("#lib-select-all, #lib-open-selected, #lib-delete-selected").hide();
+  $(".lib-toolbar").removeClass("visible");
   $("#lib-select-toggle").show();
 });
 
@@ -4434,10 +4610,7 @@ player.addEventListener("timeupdate", function () {
     $("#time-badge").text(fmtTime(player.currentTime) + " / " + fmtTime(player.duration));
   }
 
-  if (inKaraoke) {
-    updateKaraoke();
-    return;
-  }
+  if (inKaraoke) return;
 
   if ($("#text").css("display") !== "none") return;
 
@@ -4459,8 +4632,8 @@ player.addEventListener("timeupdate", function () {
     if (cur >= s && cur < e) {
       $t.addClass("sync");
       if (!isRec && idx !== $vl.length - 1) {
-        var tgt = $t.position().top - 5 + $("#lyrics").scrollTop() - $("#lyrics").height() / 2;
-        gsap.to("#lyrics", { scrollTop: tgt, duration: 0.5, ease: "power2.out" });
+        var tgt = $t[0].offsetTop - 30;
+        gsap.to("#lyrics", { scrollTop: tgt, duration: 0.4, ease: "power2.out" });
       }
       if (isRec && $t.hasClass("selected") && !$t.hasClass("set")) {
         $t.find("span").first().html("[" + fmtLRC(cur) + "]");
@@ -4584,7 +4757,9 @@ function enterStudio($btn) {
   var $l = $("#lyrics").empty();
 
   lines.forEach(function(line) {
-    var stripped = line.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+    var tmpDiv = document.createElement("div");
+    tmpDiv.innerHTML = line;
+    var stripped = tmpDiv.textContent.replace(/&nbsp;/g, " ").trim();
     if (!stripped) { $l.append("<br>"); return; }
 
     var isSet = false;
@@ -4595,6 +4770,13 @@ function enterStudio($btn) {
     if (tsMatch) { ts = "[" + tsMatch[1] + "]"; txt = tsMatch[2]; }
 
     var richLine = line.replace(/^\*/, "").trim();
+    richLine = richLine.replace(/^\[?\d{1,2}:\d{2}(\.\d{2,3})?\]?\s*/, "");
+    var cleanRich = richLine.replace(/<span[^>]*data-explain[^>]*>/gi, "\x00EXSTART\x00").replace(/<\/span>/gi, function(m, offset) {
+      var before = richLine.substring(0, offset);
+      if (before.indexOf("\x00EXSTART\x00") > before.lastIndexOf("</span>")) return "\x00EXEND\x00";
+      return m;
+    });
+    richLine = line.replace(/^\*/, "").trim();
     richLine = richLine.replace(/^\[?\d{1,2}:\d{2}(\.\d{2,3})?\]?\s*/, "");
 
     var $p = $("<p>").html("<span>" + (ts || "") + "</span> " + richLine);
@@ -4812,8 +4994,9 @@ $("#next-line").click(function () {
       else { $("#set span").text("Unset"); $("#set i").removeClass().addClass("fa-solid fa-lock-open"); }
     }
     if ($sel.find("span").length === 0) $sel.prepend("<span></span> ");
+    var lyricsEl = document.getElementById("lyrics");
     var scrollTarget = $sel[0].offsetTop - 30;
-    gsap.to("#lyrics", { scrollTop: scrollTarget, duration: 0.4, ease: "power2.out" });
+    gsap.to(lyricsEl, { scrollTop: scrollTarget, duration: 0.4, ease: "power2.out" });
   } else {
     if (!$sel.length) {
       $("#lyrics").scrollTop(0);
@@ -5069,6 +5252,12 @@ function applyFontSize(key, val) {
     applyFontSize(key, val);
     localStorage.setItem("lfSize_" + key, val);
   });
+  $("#size-" + key).on("focus touchstart", function () {
+    gsap.to("#tools", { opacity: 0.1, duration: 0.3, ease: "power2.out" });
+  });
+  $("#size-" + key).on("blur touchend", function () {
+    gsap.to("#tools", { opacity: 1, duration: 0.4, ease: "power2.inOut", delay: 0.1 });
+  });
 });
 
 
@@ -5079,12 +5268,26 @@ function applyFontSize(key, val) {
 var rtVisible = false;
 var savedRange = null;
 
-$("#input").on("mouseup keyup", function (e) {
+var rtTouchActive = false;
+
+$("#input").on("touchstart", function() { rtTouchActive = true; });
+$("#input").on("touchend", function() {
+  rtTouchActive = false;
   setTimeout(function() {
     var sel = window.getSelection();
     if (sel && sel.toString().trim().length > 0 && document.activeElement === document.getElementById("input")) {
       showRichToolbar();
-    } else if (!$(document.activeElement).closest("#rich-toolbar").length) {
+    }
+  }, 80);
+});
+
+$("#input").on("mouseup keyup", function (e) {
+  if (e.type === "mouseup" && rtTouchActive) return;
+  setTimeout(function() {
+    var sel = window.getSelection();
+    if (sel && sel.toString().trim().length > 0 && document.activeElement === document.getElementById("input")) {
+      showRichToolbar();
+    } else if (!$(document.activeElement).closest("#rich-toolbar, #rt-color-popup, #rt-size-popup").length) {
       hideRichToolbar();
     }
   }, 10);
@@ -5095,19 +5298,24 @@ function showRichToolbar() {
   if (!sel || !sel.rangeCount || sel.toString().trim().length === 0) { hideRichToolbar(); return; }
   savedRange = sel.getRangeAt(0).cloneRange();
   var rect = sel.getRangeAt(0).getBoundingClientRect();
-  var tbW = Math.min(window.innerWidth - 20, 420);
-  var top = rect.top - 55;
+  var tb = document.getElementById("rich-toolbar");
+  $("#rich-toolbar").addClass("visible");
+  var tbW = tb.offsetWidth || 200;
+  var tbH = tb.offsetHeight || 40;
+  var top = rect.bottom + 8;
   var left = rect.left + (rect.width / 2) - (tbW / 2);
-  if (top < 10) top = rect.bottom + 10;
-  top = Math.max(10, Math.min(top, window.innerHeight - 80));
-  left = Math.max(10, Math.min(left, window.innerWidth - tbW - 10));
-  $("#rich-toolbar").css({ top: top + "px", left: left + "px" }).addClass("visible");
+  if (top + tbH > window.innerHeight - 20) top = rect.top - tbH - 8;
+  top = Math.max(8, Math.min(top, window.innerHeight - tbH - 8));
+  left = Math.max(8, Math.min(left, window.innerWidth - tbW - 8));
+  $("#rich-toolbar").css({ top: top + "px", left: left + "px" });
   rtVisible = true;
 }
 
 function hideRichToolbar() {
   if (!rtVisible) return;
   $("#rich-toolbar").removeClass("visible");
+  $("#rt-color-popup").removeClass("visible");
+  $("#rt-size-popup").hide();
   rtVisible = false;
 }
 
@@ -5127,54 +5335,73 @@ $("#rt-bold").on("mousedown", function (e) { e.preventDefault(); restoreSelectio
 $("#rt-italic").on("mousedown", function (e) { e.preventDefault(); restoreSelection(); document.execCommand("italic"); });
 $("#rt-strike").on("mousedown", function (e) { e.preventDefault(); restoreSelection(); document.execCommand("strikeThrough"); });
 
-$("#rt-cut").on("mousedown", function(e) { e.preventDefault(); restoreSelection(); document.execCommand("cut"); hideRichToolbar(); });
-$("#rt-copy").on("mousedown", function(e) { e.preventDefault(); restoreSelection(); document.execCommand("copy"); toast("Copied","copy"); });
-$("#rt-paste").on("mousedown", function(e) {
+$("#rt-color-toggle").on("mousedown", function(e) {
   e.preventDefault();
-  restoreSelection();
-  navigator.clipboard.readText().then(function(text) {
-    document.execCommand("insertText", false, text);
-  }).catch(function() { toast("Paste not available", "xmark"); });
+  e.stopPropagation();
+  var $popup = $("#rt-color-popup");
+  if ($popup.hasClass("visible")) { $popup.removeClass("visible"); return; }
+  $("#rt-size-popup").hide();
+  var tb = document.getElementById("rich-toolbar");
+  var tbRect = tb.getBoundingClientRect();
+  var pTop = tbRect.bottom + 6;
+  var pLeft = tbRect.left;
+  if (pTop + 180 > window.innerHeight) pTop = tbRect.top - 186;
+  pLeft = Math.max(8, Math.min(pLeft, window.innerWidth - 160));
+  $popup.css({ top: pTop + "px", left: pLeft + "px" }).addClass("visible");
+  gsap.fromTo("#rt-color-popup", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" });
 });
 
-$("#rt-fontsize").on("mousedown", function(e) { e.preventDefault(); });
-$("#rt-fontsize").on("change", function () {
-  var size = $(this).val();
-  if (!size) return;
-  restoreSelection();
-  document.execCommand("fontSize", false, size);
-  $(this).val("");
-});
-
-$("#rt-color").on("mousedown", function(e) { e.stopPropagation(); });
-$("#rt-color").on("input change", function () {
-  var color = $(this).val();
-  restoreSelection();
-  document.execCommand("foreColor", false, color);
-});
-
-$(document).on("mousedown touchstart", ".rt-preset", function(e) {
+$(document).on("mousedown touchstart", ".cp-swatch", function(e) {
   e.preventDefault();
   e.stopPropagation();
   var color = $(this).data("color");
   restoreSelection();
   document.execCommand("foreColor", false, color);
+  $("#rt-color-popup").removeClass("visible");
+});
+
+$("#rt-color-custom").on("input", function() {
+  restoreSelection();
+  document.execCommand("foreColor", false, $(this).val());
+});
+
+$("#rt-fontsize-toggle").on("mousedown", function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  var $popup = $("#rt-size-popup");
+  if ($popup.css("display") === "flex") { $popup.hide(); return; }
+  $("#rt-color-popup").removeClass("visible");
+  var tb = document.getElementById("rich-toolbar");
+  var tbRect = tb.getBoundingClientRect();
+  var pTop = tbRect.bottom + 6;
+  var pLeft = tbRect.left + tbRect.width / 2 - 60;
+  if (pTop + 250 > window.innerHeight) pTop = tbRect.top - 256;
+  pLeft = Math.max(8, Math.min(pLeft, window.innerWidth - 130));
+  $popup.css({ top: pTop + "px", left: pLeft + "px", display: "flex" });
+  gsap.fromTo("#rt-size-popup", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" });
+});
+
+$(document).on("mousedown touchstart", ".rt-size-opt", function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  var size = $(this).data("size");
+  restoreSelection();
+  document.execCommand("fontSize", false, size);
+  $("#rt-size-popup").hide();
 });
 
 $("#rt-clear-sel").on("mousedown", function(e) {
   e.preventDefault();
   restoreSelection();
   document.execCommand("removeFormat");
+  hideRichToolbar();
   toast("Formatting cleared", "eraser");
 });
 
-$("#rt-clear-all").on("mousedown", function(e) {
-  e.preventDefault();
-  var text = getInputText();
-  setInputText(text);
-  $("#input").trigger("input");
-  hideRichToolbar();
-  toast("All formatting cleared", "broom");
+$(document).on("mousedown touchstart", function(e) {
+  if (!$(e.target).closest("#rich-toolbar, #rt-color-popup, #rt-size-popup, #input").length) {
+    hideRichToolbar();
+  }
 });
 
 
@@ -5394,10 +5621,16 @@ $("#song-list").on("click", ".item button", function () {
    KARAOKE MODE
    ═══════════════════════════════════════ */
 
+var karaokeRAF = null;
+var karaokeTimes = [];
+var karaokeLastIdx = -1;
+
 function startKaraoke() {
   if (!player.src || player.src === location.href) { toast("No audio loaded", "xmark"); return; }
 
   inKaraoke = true;
+  karaokeLastIdx = -1;
+  karaokeTimes = [];
   var $kl = $("#karaoke-lines").empty();
   var title = $("#meta_track").val().trim();
   var artist = $("#meta_artist").val().trim();
@@ -5406,47 +5639,76 @@ function startKaraoke() {
 
   $("#lyrics p").each(function () {
     var $p = $(this);
-    var time = $p.find("span").first().text().trim();
-    var text = $p.clone().children("span:first").remove().end().text().trim();
-    if (!text) return;
+    var $sp = $p.find("span").first();
+    var time = $sp.text().trim();
+    var $clone = $p.clone();
+    $clone.find("span:first").remove();
+    $clone.find(".line-dur").remove();
+    $clone.find("[data-explain]").each(function() { $(this).replaceWith($(this).html()); });
+    var richHtml = $clone.html().trim();
+    if (!richHtml || !richHtml.replace(/<[^>]*>/g, "").trim()) return;
     var ts = time ? parseTS(time) : -1;
-    $kl.append('<div class="k-line" data-time="' + ts + '">' + text + '</div>');
+    karaokeTimes.push(ts);
+    $kl.append('<div class="k-line" data-time="' + ts + '">' + richHtml + '</div>');
   });
 
   $("#karaoke-view").css("display", "flex");
-  gsap.fromTo("#karaoke-view", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power2.out" });
-  gsap.fromTo("#karaoke-title-area", { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, delay: 0.2 });
-  gsap.fromTo(".k-line", { y: 40, opacity: 0 }, { y: 0, opacity: 0.18, stagger: 0.04, duration: 0.5, delay: 0.3, ease: "power3.out" });
+  gsap.fromTo("#karaoke-view", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" });
+  gsap.fromTo("#karaoke-title-area", { y: -15, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, delay: 0.15 });
+
+  var $klines = $(".k-line");
+  gsap.set($klines, { opacity: 0, y: 20 });
+  gsap.to($klines, { opacity: 1, y: 0, stagger: 0.03, duration: 0.35, delay: 0.25, ease: "power3.out",
+    onComplete: function() {
+      $klines.not(".active").not(".past").css("opacity", "");
+    }
+  });
 
   player.currentTime = 0;
   player.play().catch(function(){});
   $("#karaoke-play i").removeClass().addClass("fa-solid fa-pause");
+  karaokeLoop();
+}
+
+function karaokeLoop() {
+  if (!inKaraoke) return;
+  updateKaraoke();
+  karaokeRAF = requestAnimationFrame(karaokeLoop);
 }
 
 function updateKaraoke() {
   var cur = player.currentTime;
-  if (player.duration) {
-    $("#karaoke-fill").css("width", (cur / player.duration * 100) + "%");
-    $("#karaoke-time").text(fmtTime(cur) + " / " + fmtTime(player.duration));
+  var dur = player.duration;
+  if (dur) {
+    document.getElementById("karaoke-fill").style.width = (cur / dur * 100) + "%";
+    $("#karaoke-time").text(fmtTime(cur) + " / " + fmtTime(dur));
   }
 
-  var $lines = $(".k-line");
   var activeIdx = -1;
-  $lines.each(function(i) {
-    var t = parseFloat($(this).data("time"));
-    if (t >= 0 && cur >= t) activeIdx = i;
-  });
+  for (var i = 0; i < karaokeTimes.length; i++) {
+    if (karaokeTimes[i] >= 0 && cur >= karaokeTimes[i]) activeIdx = i;
+  }
 
-  $lines.removeClass("active past upcoming");
-  if (activeIdx >= 0) {
-    $lines.eq(activeIdx).addClass("active");
-    $lines.slice(0, activeIdx).addClass("past");
-    $lines.slice(activeIdx + 1).addClass("upcoming");
+  if (activeIdx === karaokeLastIdx) return;
+  karaokeLastIdx = activeIdx;
 
-    var $active = $lines.eq(activeIdx);
+  var lines = document.querySelectorAll(".k-line");
+  for (var j = 0; j < lines.length; j++) {
+    lines[j].classList.remove("active", "past", "upcoming");
+    if (activeIdx >= 0) {
+      if (j === activeIdx) lines[j].classList.add("active");
+      else if (j < activeIdx) lines[j].classList.add("past");
+      else lines[j].classList.add("upcoming");
+    }
+  }
+
+  if (activeIdx >= 0 && lines[activeIdx]) {
     var container = document.getElementById("karaoke-lines");
-    var scrollTarget = $active[0].offsetTop - container.clientHeight / 2 + $active[0].clientHeight / 2;
-    gsap.to(container, { scrollTop: scrollTarget, duration: 0.6, ease: "power2.out" });
+    var el = lines[activeIdx];
+    var target = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
+    gsap.to(container, { scrollTop: target, duration: 0.5, ease: "power2.out", overwrite: true });
+
+    gsap.fromTo(el, { scale: 0.95 }, { scale: 1, duration: 0.35, ease: "back.out(1.4)" });
   }
 }
 
@@ -5454,19 +5716,23 @@ $("#karaoke-play").click(function () {
   if (player.paused) {
     player.play().catch(function(){});
     $(this).find("i").removeClass().addClass("fa-solid fa-pause");
+    if (inKaraoke && !karaokeRAF) karaokeLoop();
   } else {
     player.pause();
     $(this).find("i").removeClass().addClass("fa-solid fa-play");
+    if (karaokeRAF) { cancelAnimationFrame(karaokeRAF); karaokeRAF = null; }
   }
 });
 
 $("#karaoke-progress").click(function (e) {
   if (!player.duration) return;
   player.currentTime = (e.offsetX / $(this).width()) * player.duration;
+  karaokeLastIdx = -1;
 });
 
 $("#karaoke-close").click(function () {
   inKaraoke = false;
+  if (karaokeRAF) { cancelAnimationFrame(karaokeRAF); karaokeRAF = null; }
   player.pause();
   gsap.to("#karaoke-view", { opacity: 0, duration: 0.3, onComplete: function() {
     $("#karaoke-view").hide().css("opacity", "");
