@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html data-theme="default">
 <head>
@@ -833,7 +834,14 @@ canvas#visualizer.on {
 /* Karaoke CSS moved to fix block */
 
 /* Library redesign */
-.lib-modal { max-width: 550px; }
+.lib-modal {
+  /* ensure the library modal stretches vertically so its list can scroll
+     Without this the flex children collapse and the list height becomes tiny. */
+  max-width: 550px;
+  display: flex;
+  flex-direction: column;
+  max-height: 75vh;
+}
 
 .lib-header-actions {
   display: flex;
@@ -1272,8 +1280,17 @@ canvas#visualizer.on {
 }
 .lib-modal .modal-head button::after,
 .lib-modal .modal-head button::before { display: none !important; }
+/*
+ * Allow the list of files to fill available space inside the modal and scroll.
+ * Rather than fixing the height via calc(), make it flex:1 so it naturally
+ * occupies remaining vertical space. min-height:0 prevents the list from
+ * contributing a minimum height that squeezes it to a few pixels when the
+ * modal uses flexbox. overflow-y: auto enables scrolling. A background is
+ * retained to ensure contrast with the modal backdrop.
+ */
 .lib-modal .lib-list {
-  max-height: calc(75vh - 150px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   background: var(--bg-2);
 }
@@ -1491,6 +1508,16 @@ canvas#visualizer.on {
   hyphens: auto;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  /*
+   * Ensure karaoke lyrics wrap within their container. Without
+   * explicitly resetting white-space the text may remain inline and
+   * overflow. Using overflow-wrap:anywhere allows very long words to
+   * break mid-word if necessary, preventing overflow. We retain
+   * break-word and hyphens above for proper wrapping behaviour.
+   */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 [data-theme="light"] #karaoke-lines .k-line { color: rgba(0,0,0,0.08); }
 
@@ -4241,6 +4268,7 @@ button { position: relative; }
     <div class="lib-tabs">
       <button class="lib-tab-btn active" data-lib-tab="saved"><i class="fa-solid fa-bookmark"></i> Saved <span class="lib-tab-count" id="lib-count-saved">0</span></button>
       <button class="lib-tab-btn" data-lib-tab="auto"><i class="fa-solid fa-clock-rotate-left"></i> Autosaved <span class="lib-tab-count" id="lib-count-auto">0</span></button>
+      <button class="lib-tab-btn" data-lib-tab="deleted"><i class="fa-solid fa-trash"></i> Deleted <span class="lib-tab-count" id="lib-count-deleted">0</span></button>
     </div>
     <div class="search-wrap" id="lib-search-wrap">
       <i class="fa-solid fa-magnifying-glass search-icon"></i>
@@ -5378,6 +5406,8 @@ function cleanOldAutosaves() {
   req.onsuccess = function(e) {
     var songs = e.target.result || [];
     var cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    // Remove autosaves older than cutoff OR exceeding the maximum autosave count.
+    // First, delete autosaves older than the 30-day cutoff.
     songs.forEach(function(song) {
       if (song.saveType === "auto" && song.modified && song.modified < cutoff) {
         store.delete(song.id);
@@ -5386,6 +5416,18 @@ function cleanOldAutosaves() {
         }
       }
     });
+    // Enforce a hard limit of 15 autosaves. Sort the remaining autosaves by
+    // modification time (newest first) and delete any beyond the first 15.
+    var autos = songs.filter(function(s) { return s.saveType === "auto"; });
+    autos.sort(function(a, b) { return (b.modified || 0) - (a.modified || 0); });
+    if (autos.length > 15) {
+      autos.slice(15).forEach(function(oldSong) {
+        store.delete(oldSong.id);
+        if (oldSong.audioKey) {
+          try { db.transaction("audio","readwrite").objectStore("audio").delete(oldSong.audioKey); } catch(ex){}
+        }
+      });
+    }
   };
 }
 
@@ -5478,6 +5520,22 @@ function rememberLastTabAudio(tab) {
 
 function switchTab(id) {
   if (activeTabId === id) return;
+  // When switching tabs, ensure we exit studio mode. Without this the
+  // interface can remain stuck in Studio view when opening or switching
+  // tabs, leading to confusing UI states. By calling exitStudio() when
+  // inStudio is true we return to the normal #input view. After
+  // exiting we reset the Studio toggle button (#next) back to its
+  // default "Studio" state.
+  if (typeof inStudio !== 'undefined' && inStudio) {
+    var $studioBtn = $("#next");
+    if ($studioBtn.length && typeof exitStudio === 'function') {
+      exitStudio($studioBtn);
+      // reset button label and status to default
+      $studioBtn.attr("data-status", "next");
+      $studioBtn.find("i").removeClass().addClass("fa-solid fa-play");
+      $studioBtn.find("span").text("Studio");
+    }
+  }
   saveCurrentTabState();
 
   if (activeTabId && player.src && !player.paused) {
@@ -5716,7 +5774,19 @@ function closeTab(id) {
   };
 
   if (tab.dirty) {
-    showConfirm("Close this tab? Unsaved changes will be lost.\n\nAutosaved files are deleted after 30 days if not manually saved.", doClose, "Close", "Keep");
+    // Prompt the user to save unsaved changes before closing. Selecting
+    // "Save" will perform a manual save then close the tab. Selecting
+    // "Don't Save" will close the tab without saving.
+    showConfirm(
+      "Save changes before closing this tab? Unsaved changes will be lost if you don't save.",
+      function() {
+        // On confirm: perform a manual save then close
+        doManualSave();
+        doClose();
+      },
+      "Save",
+      "Don't Save"
+    );
   } else {
     doClose();
   }
@@ -6326,6 +6396,11 @@ function buildHTMLOutput() {
     });
   }
 
+  // Post-process the generated HTML to satisfy export requirements.
+  // Replace any data-minutes attribute used for timestamps with data-timestamp.
+  out = out.replace(/data-minutes=/g, 'data-timestamp=');
+  // For blank lines, insert a <br> so that empty paragraphs are preserved.
+  out = out.replace(/<p>\s*<\/p>/g, '<p><br></p>');
   return out.trim();
 }
 
@@ -6682,12 +6757,14 @@ function openLibrary() {
   var req = tx.objectStore("songs").getAll();
   req.onsuccess = function (e) {
     var songs = e.target.result || [];
-    var savedCount = songs.filter(function(s) { return s.saveType !== "auto"; }).length;
-    var autoCount = songs.filter(function(s) { return s.saveType === "auto"; }).length;
+    var savedCount = songs.filter(function(s) { return !s.deleted && s.saveType !== "auto"; }).length;
+    var autoCount = songs.filter(function(s) { return !s.deleted && s.saveType === "auto"; }).length;
+    var deletedCount = songs.filter(function(s) { return s.deleted; }).length;
     $("#lib-count-saved").text(savedCount);
     $("#lib-count-auto").text(autoCount);
+    $("#lib-count-deleted").text(deletedCount);
     renderLibrary(songs);
-    if (currentLibTab !== "auto") renderFolderBar();
+    if (currentLibTab !== "auto" && currentLibTab !== "deleted") renderFolderBar();
     else $("#lib-folder-bar").empty();
     setTimeout(filterLibByFolder, 50);
     $("#lib-search").val("");
@@ -6705,9 +6782,17 @@ function renderLibrary(songs) {
   });
 
   var filtered = songs.filter(function(s) {
+    // If viewing deleted tab, only include deleted songs and skip other filters
+    if (currentLibTab === "deleted") return !!s.deleted;
+    // Exclude deleted songs from other tabs
+    if (s.deleted) return false;
+    // Saved tab excludes autosaves
     if (currentLibTab === "saved" && s.saveType === "auto") return false;
+    // In saved tab, hide auto versions when a manual version exists
     if (currentLibTab !== "auto" && s.saveType === "auto" && manualIds[String(s.originalId || s.id)]) return false;
+    // Autosaved tab only shows autosaved
     if (currentLibTab === "auto" && s.saveType !== "auto") return false;
+    // Apply filter for completed or favorites only on non-auto/deleted
     if (filter === "completed") return s.completed;
     if (filter === "favorites") return s.favorite;
     return true;
@@ -6808,7 +6893,7 @@ $(document).on("click", ".lib-tab-btn", function() {
   req.onsuccess = function(e) { 
     renderLibrary(e.target.result || []); 
     // Render folder bar for saved tab, hide for auto tab
-    if (currentLibTab !== "auto") {
+    if (currentLibTab !== "auto" && currentLibTab !== "deleted") {
       renderFolderBar();
     } else {
       $("#lib-folder-bar").empty();
@@ -6862,28 +6947,36 @@ $("#lib-open-selected").click(function() {
 
 $("#lib-delete-selected").click(function() {
   if (!libSelected.length) return;
-  showConfirm("Delete " + libSelected.length + " selected file(s)? This cannot be undone.", function() {
-    var tx = db.transaction(["songs","audio"], "readwrite");
+  showConfirm("Move " + libSelected.length + " selected file(s) to Deleted folder?", function() {
+    // Soft-delete selected songs by marking them as deleted rather than permanently
+    // removing them. They can later be purged after 15 days or manually.
+    var tx = db.transaction(["songs"], "readwrite");
     var songStore = tx.objectStore("songs");
-    var audioStore = tx.objectStore("audio");
     libSelected.forEach(function(id) {
       var req = songStore.get(id);
       req.onsuccess = function(e) {
         var song = e.target.result;
-        if (song && song.audioKey) { try { audioStore.delete(song.audioKey); } catch(ex){} }
-        songStore.delete(id);
+        if (song) {
+          song.deleted = true;
+          song.deletedAt = Date.now();
+          song.saveType = song.saveType || "manual";
+          songStore.put(song);
+        }
       };
     });
     tx.oncomplete = function() {
+      // Close tabs corresponding to deleted songs
       libSelected.forEach(function(sid) {
         var activeTab = tabs.find(function(t) { return t.id === activeTabId; });
-        if (activeTab && String(activeTab.id) === String(sid)) { closeTab(activeTab.id); }
+        if (activeTab && String(activeTab.id) === String(sid)) {
+          closeTab(activeTab.id);
+        }
       });
       libSelected = [];
       openLibrary();
-      toast("Deleted", "trash");
+      toast("Moved to Deleted", "trash");
     };
-  }, "Delete All", "Cancel");
+  }, "Delete", "Cancel");
 });
 
 $("#lib-close").click(function () { $("#library").removeClass("go"); });
