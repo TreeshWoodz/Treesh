@@ -3984,6 +3984,8 @@ button { position: relative; }
 
 /* Undo/Redo buttons */
 #undo-btn, #redo-btn { width: 44px; }
+body.studio-mode #undo-btn,
+body.studio-mode #redo-btn { display: none !important; }
 
 /* Library grid revamp */
 #library .lib-thumb {
@@ -4310,6 +4312,7 @@ button { position: relative; }
     </div>
     <div class="eg-body" id="eg-body"></div>
   </div>
+</div>
 
 <div id="lyric-selector-modal">
   <div class="ls-inner">
@@ -4371,7 +4374,6 @@ button { position: relative; }
       <button type="button" id="backup-select-confirm">Backup</button>
     </div>
   </div>
-</div>
 </div>
 
 <div id="karaoke-view" style="display:none">
@@ -4797,26 +4799,66 @@ function getInputHTML() {
 function setInputHTML(html) {
   document.getElementById("input").innerHTML = html;
 }
+function collectInputLines(el) {
+  if (!el) return [];
+
+  function isBlock(tag) {
+    return /^(DIV|P|LI|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|PRE)$/.test(tag);
+  }
+
+  function collect(nodes) {
+    var lines = [];
+    var currentHtml = "";
+    var currentNodes = [];
+
+    function push(force) {
+      if (currentHtml !== "" || currentNodes.length || force || lines.length === 0) {
+        lines.push({ html: currentHtml, nodes: currentNodes.slice() });
+        currentHtml = "";
+        currentNodes = [];
+      }
+    }
+
+    nodes.forEach(function(n) {
+      if (n.nodeType === 3) {
+        currentHtml += n.textContent;
+        currentNodes.push(n);
+        return;
+      }
+      if (n.nodeType !== 1) return;
+
+      var tag = n.tagName;
+      if (tag === "BR") {
+        push(true);
+        return;
+      }
+
+      if (isBlock(tag)) {
+        if (currentHtml !== "" || currentNodes.length) push(false);
+        var innerLines = collect(Array.from(n.childNodes));
+        if (!innerLines.length) innerLines = [{ html: "", nodes: [] }];
+        innerLines.forEach(function(item) { lines.push(item); });
+        currentHtml = "";
+        currentNodes = [];
+        return;
+      }
+
+      currentHtml += n.outerHTML;
+      currentNodes.push(n);
+    });
+
+    if (currentHtml !== "" || currentNodes.length || lines.length === 0) {
+      lines.push({ html: currentHtml, nodes: currentNodes.slice() });
+    }
+    return lines;
+  }
+
+  return collect(Array.from(el.childNodes));
+}
+
 function getInputLinesHtml() {
   var el = document.getElementById("input");
-  if (!el) return [];
-  var lines = [];
-  var current = "";
-  function pushLine() { lines.push(current); current = ""; }
-  Array.from(el.childNodes).forEach(function(n) {
-    if (n.nodeType === 1 && n.tagName === "BR") {
-      pushLine();
-    } else if (n.nodeType === 1 && (n.tagName === "DIV" || n.tagName === "P")) {
-      if (current !== "") pushLine();
-      lines.push(n.innerHTML);
-    } else if (n.nodeType === 3) {
-      current += n.textContent;
-    } else if (n.nodeType === 1) {
-      current += n.outerHTML;
-    }
-  });
-  if (current !== "" || lines.length === 0) lines.push(current);
-  return lines;
+  return collectInputLines(el).map(function(item) { return item.html; });
 }
 
 function setInputLinesHtml(lines) {
@@ -4900,29 +4942,15 @@ function removeExplainFromLineHtml(lineHtml, srcText, srcExplain) {
 function getInputLineIndexByNode(node) {
   var el = document.getElementById("input");
   if (!el || !node) return -1;
-  var lines = [];
-  var current = [];
-  Array.from(el.childNodes).forEach(function(n) {
-    if (n.nodeType === 1 && n.tagName === "BR") {
-      lines.push(current.slice());
-      current = [];
-    } else if (n.nodeType === 1 && (n.tagName === "DIV" || n.tagName === "P")) {
-      if (current.length) { lines.push(current.slice()); current = []; }
-      lines.push([n]);
-    } else {
-      current.push(n);
-    }
-  });
-  if (current.length) lines.push(current.slice());
-  var idx = -1;
-  lines.some(function(nodes, i) {
+  var lines = collectInputLines(el);
+  for (var i = 0; i < lines.length; i++) {
+    var nodes = lines[i].nodes || [];
     for (var j = 0; j < nodes.length; j++) {
       var n = nodes[j];
-      if (n === node || (n.contains && n.contains(node))) { idx = i; return true; }
+      if (n === node || (n.contains && n.contains(node)) || (node.contains && node.contains(n))) return i;
     }
-    return false;
-  });
-  return idx;
+  }
+  return -1;
 }
 
 function syncInputFromStudio() {
@@ -5095,6 +5123,7 @@ $("#option-cancel, #option-overlay").click(function (e) {
    ═══════════════════════════════════════ */
 
 var inStudio = false;
+  document.body.classList.remove("studio-mode");
 var inKaraoke = false;
 var karaokeCharData = [];
 var player = document.getElementById("player");
@@ -6334,6 +6363,7 @@ function resetEditorState() {
   $("#progress-bar, #time-badge").removeClass("on");
   $("#visualizer").removeClass("on");
   inStudio = false;
+  document.body.classList.remove("studio-mode");
   updateStats();
 }
 
@@ -7076,6 +7106,7 @@ $("#next").click(function () {
 function enterStudio($btn) {
   hideRichToolbar();
   inStudio = true;
+  document.body.classList.add("studio-mode");
   $("#text").hide();
   $("#lyrics").show();
   $("#rhymes-bar").removeClass("on"); // Hide rhymes in Studio
@@ -7145,6 +7176,7 @@ function enterStudio($btn) {
 
 function exitStudio($btn) {
   inStudio = false;
+  document.body.classList.remove("studio-mode");
 
   gsap.to("#studio-controls", { height: 0, duration: 0.3, opacity: 0, ease: "power1.in" });
 
@@ -9664,3 +9696,48 @@ function animateAppEntry() {
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
