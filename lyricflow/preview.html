@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html data-theme="default">
 <head>
@@ -4159,33 +4158,6 @@ button { position: relative; }
 
 /* Studio padding fix */
 #lyrics { padding: 30px 0 300px; }
-/* Custom overrides and fixes */
-/* Ensure the library modal stretches vertically and the list fills available space */
-.lib-modal {
-  display: flex;
-  flex-direction: column;
-  max-height: 75vh;
-}
-/*
- * Allow the library list to fully expand within the modal and scroll on
- * overflow. When using flexbox, the inner list should grow to fill
- * available vertical space. We explicitly unset any max-height set by
- * earlier styles so that the list isn’t constrained and can scroll
- * properly. Without overriding max-height the list would be limited to
- * calc(75vh - 150px) and shrink unexpectedly when more elements are
- * added.
- */
-.lib-modal .lib-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: unset;
-  overflow-y: auto;
-}
-/* Fix karaoke lyrics overflowing: allow wrapping and breaking long words */
-#karaoke-lines .k-line {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
 </style>
 <base target="_blank">
 </head>
@@ -4269,8 +4241,6 @@ button { position: relative; }
     <div class="lib-tabs">
       <button class="lib-tab-btn active" data-lib-tab="saved"><i class="fa-solid fa-bookmark"></i> Saved <span class="lib-tab-count" id="lib-count-saved">0</span></button>
       <button class="lib-tab-btn" data-lib-tab="auto"><i class="fa-solid fa-clock-rotate-left"></i> Autosaved <span class="lib-tab-count" id="lib-count-auto">0</span></button>
-      <!-- New Deleted tab shows soft-deleted files. Files in this tab can be permanently removed. -->
-      <button class="lib-tab-btn" data-lib-tab="deleted"><i class="fa-solid fa-trash"></i> Deleted <span class="lib-tab-count" id="lib-count-deleted">0</span></button>
     </div>
     <div class="search-wrap" id="lib-search-wrap">
       <i class="fa-solid fa-magnifying-glass search-icon"></i>
@@ -4305,8 +4275,6 @@ button { position: relative; }
       <button type="button" id="lib-select-all"><i class="fa-solid fa-check-circle"></i> All</button>
       <button type="button" id="lib-open-selected"><i class="fa-solid fa-folder-open"></i> Open</button>
       <button type="button" id="lib-delete-selected" class="danger-btn"><i class="fa-solid fa-trash"></i> Delete</button>
-      <!-- Permanently delete all files in the current tab -->
-      <button type="button" id="lib-delete-all" class="danger-btn"><i class="fa-solid fa-trash-can"></i> Delete All</button>
       <button type="button" id="lib-cancel-select" class="cancel-btn"><i class="fa-solid fa-xmark"></i> Cancel</button>
     </div>
     <div class="lib-list"></div>
@@ -5512,22 +5480,6 @@ function switchTab(id) {
   if (activeTabId === id) return;
   saveCurrentTabState();
 
-  // When switching tabs, ensure we exit Studio mode and return to the
-  // default input view. Without this, the interface may remain in
-  // studio mode when opening or switching tabs, which can confuse
-  // users. Reset the Studio toggle button (#next) to its default
-  // state after exiting.
-  if (typeof inStudio !== 'undefined' && inStudio) {
-    var $studioBtn = $("#next");
-    if ($studioBtn.length && typeof exitStudio === 'function') {
-      exitStudio($studioBtn);
-      $studioBtn.attr("data-status", "next");
-      // Reset the button to its default arrow-right icon and "Studio" label when leaving studio
-      $studioBtn.find("i").removeClass().addClass("fa-solid fa-arrow-right");
-      $studioBtn.find("span").text("Studio");
-    }
-  }
-
   if (activeTabId && player.src && !player.paused) {
     player.pause();
   }
@@ -5764,17 +5716,7 @@ function closeTab(id) {
   };
 
   if (tab.dirty) {
-    // Prompt the user to save or discard changes. Use a one-time handler on the
-    // cancel button to handle the discard option since showConfirm only
-    // supports a single callback. After the confirm modal closes this handler
-    // removes itself.
-    showConfirm("You have unsaved changes. Save before closing?", function() {
-      doManualSave();
-      doClose();
-    }, "Save", "Don't Save");
-    $("#confirm-no").one("click.closeTabDiscard", function() {
-      doClose();
-    });
+    showConfirm("Close this tab? Unsaved changes will be lost.\n\nAutosaved files are deleted after 30 days if not manually saved.", doClose, "Close", "Keep");
   } else {
     doClose();
   }
@@ -5852,26 +5794,6 @@ function doAutosave() {
       renderTabs();
   }, 600);
   };
-
-  // After writing the autosave, prune old autosaves for this tab to keep only the most recent 15.
-  try {
-    var pruneTx = db.transaction(["songs"], "readwrite");
-    var store = pruneTx.objectStore("songs");
-    var getAllReq = store.getAll();
-    getAllReq.onsuccess = function(e) {
-      var items = e.target.result || [];
-      // Identify autosaves for the same original tab
-      var autos = items.filter(function(s) {
-        return s.saveType === "auto" && ((s.originalId && String(s.originalId) === String(tab.id)) || String(s.id) === "auto_" + String(tab.id));
-      });
-      if (autos.length > 15) {
-        // sort ascending by modified date; delete oldest beyond 15
-        autos.sort(function(a,b){ return (a.modified || a.created || 0) - (b.modified || b.created || 0); });
-        var toDelete = autos.slice(0, autos.length - 15);
-        toDelete.forEach(function(item) { store.delete(item.id); });
-      }
-    };
-  } catch (ex) {}
 }
 
 function doManualSave() {
@@ -6404,9 +6326,6 @@ function buildHTMLOutput() {
     });
   }
 
-  // Post-process HTML output: convert timestamp attribute and preserve blank lines.
-  out = out.replace(/data-minutes=/g, 'data-timestamp=');
-  out = out.replace(/<p>\s*<\/p>/g, '<p><br></p>');
   return out.trim();
 }
 
@@ -6763,24 +6682,12 @@ function openLibrary() {
   var req = tx.objectStore("songs").getAll();
   req.onsuccess = function (e) {
     var songs = e.target.result || [];
-    // Filter out any soft-deleted songs that are expired (>15 days) and remove them
-    var now = Date.now();
-    var expired = songs.filter(function(s) { return s.deleted && s.deletedAt && (now - s.deletedAt) > (15 * 24 * 60 * 60 * 1000); });
-    if (expired.length) {
-      var txExp = db.transaction(["songs"], "readwrite");
-      var storeExp = txExp.objectStore("songs");
-      expired.forEach(function(s) { storeExp.delete(s.id); });
-    }
-    // After purging, filter the songs array to exclude expired items
-    songs = songs.filter(function(s) { return !expired.find(function(e) { return e.id === s.id; }); });
-    var savedCount = songs.filter(function(s) { return !s.deleted && s.saveType !== "auto"; }).length;
-    var autoCount = songs.filter(function(s) { return !s.deleted && s.saveType === "auto"; }).length;
-    var deletedCount = songs.filter(function(s) { return s.deleted; }).length;
+    var savedCount = songs.filter(function(s) { return s.saveType !== "auto"; }).length;
+    var autoCount = songs.filter(function(s) { return s.saveType === "auto"; }).length;
     $("#lib-count-saved").text(savedCount);
     $("#lib-count-auto").text(autoCount);
-    $("#lib-count-deleted").text(deletedCount);
     renderLibrary(songs);
-    if (currentLibTab !== "auto" && currentLibTab !== "deleted") renderFolderBar();
+    if (currentLibTab !== "auto") renderFolderBar();
     else $("#lib-folder-bar").empty();
     setTimeout(filterLibByFolder, 50);
     $("#lib-search").val("");
@@ -6798,13 +6705,6 @@ function renderLibrary(songs) {
   });
 
   var filtered = songs.filter(function(s) {
-    // Soft-deleted songs are only visible in the Deleted tab
-    if (currentLibTab === "deleted") {
-      return s.deleted;
-    }
-    // In all other tabs, exclude deleted files entirely
-    if (s.deleted) return false;
-    // Saved tab excludes auto saves; auto tab only shows autos
     if (currentLibTab === "saved" && s.saveType === "auto") return false;
     if (currentLibTab !== "auto" && s.saveType === "auto" && manualIds[String(s.originalId || s.id)]) return false;
     if (currentLibTab === "auto" && s.saveType !== "auto") return false;
@@ -6907,8 +6807,8 @@ $(document).on("click", ".lib-tab-btn", function() {
   var req = tx.objectStore("songs").getAll();
   req.onsuccess = function(e) { 
     renderLibrary(e.target.result || []); 
-    // Render folder bar for saved tab, hide for auto or deleted tabs
-    if (currentLibTab !== "auto" && currentLibTab !== "deleted") {
+    // Render folder bar for saved tab, hide for auto tab
+    if (currentLibTab !== "auto") {
       renderFolderBar();
     } else {
       $("#lib-folder-bar").empty();
@@ -6962,93 +6862,28 @@ $("#lib-open-selected").click(function() {
 
 $("#lib-delete-selected").click(function() {
   if (!libSelected.length) return;
-  // If we're in the Deleted tab, permanently remove selected songs from the database
-  if (currentLibTab === "deleted") {
-    showConfirm("Permanently delete " + libSelected.length + " selected file(s)?", function() {
-      var tx = db.transaction(["songs"], "readwrite");
-      var store = tx.objectStore("songs");
-      libSelected.forEach(function(id) { store.delete(id); });
-      tx.oncomplete = function() {
-        libSelected.forEach(function(sid) {
-          if (String(activeTabId) === String(sid)) {
-            closeTab(sid);
-          }
-        });
-        libSelected = [];
-        openLibrary();
-        toast("Deleted", "trash");
-      };
-    }, "Delete", "Cancel");
-    return;
-  }
-  // Otherwise perform a soft delete by marking songs as deleted
-  showConfirm("Move " + libSelected.length + " selected file(s) to Deleted folder?", function() {
-    var tx = db.transaction(["songs"], "readwrite");
+  showConfirm("Delete " + libSelected.length + " selected file(s)? This cannot be undone.", function() {
+    var tx = db.transaction(["songs","audio"], "readwrite");
     var songStore = tx.objectStore("songs");
+    var audioStore = tx.objectStore("audio");
     libSelected.forEach(function(id) {
       var req = songStore.get(id);
       req.onsuccess = function(e) {
         var song = e.target.result;
-        if (song) {
-          song.deleted = true;
-          song.deletedAt = Date.now();
-          song.saveType = song.saveType || "manual";
-          songStore.put(song);
-        }
+        if (song && song.audioKey) { try { audioStore.delete(song.audioKey); } catch(ex){} }
+        songStore.delete(id);
       };
     });
     tx.oncomplete = function() {
-      // Close tabs for deleted songs
       libSelected.forEach(function(sid) {
-        if (String(activeTabId) === String(sid)) {
-          closeTab(sid);
-        }
+        var activeTab = tabs.find(function(t) { return t.id === activeTabId; });
+        if (activeTab && String(activeTab.id) === String(sid)) { closeTab(activeTab.id); }
       });
       libSelected = [];
       openLibrary();
-      toast("Moved to Deleted", "trash");
-    };
-  }, "Delete", "Cancel");
-});
-
-// Permanently delete all files within the current library tab. This action
-// cannot be undone and is gated behind a confirmation dialog. When
-// triggered from the Deleted tab it will purge all soft-deleted files.
-$("#lib-delete-all").click(function() {
-  // Determine a human-readable label for the current tab
-  var tabLabel = currentLibTab === "deleted" ? "deleted" : currentLibTab === "auto" ? "autosaved" : "saved";
-  showConfirm("Permanently delete all " + tabLabel + " files?", function() {
-    if (!db) return;
-    var tx = db.transaction(["songs"], "readwrite");
-    var store = tx.objectStore("songs");
-    var getAllReq = store.getAll();
-    getAllReq.onsuccess = function(e) {
-      var items = e.target.result || [];
-      items.forEach(function(item) {
-        // Decide which items to delete based on tab
-        if (currentLibTab === "deleted" && item.deleted) {
-          store.delete(item.id);
-        } else if (currentLibTab === "auto" && !item.deleted && item.saveType === "auto") {
-          store.delete(item.id);
-        } else if (currentLibTab === "saved" && !item.deleted && item.saveType !== "auto") {
-          store.delete(item.id);
-        }
-      });
-    };
-    tx.oncomplete = function() {
-      // Close any open tabs that belonged to deleted songs
-      var idsToClose = [];
-      if (!tabs) return;
-      tabs.forEach(function(t) {
-        if (currentLibTab === "deleted" && t.deleted) idsToClose.push(t.id);
-        else if (currentLibTab === "auto" && !t.deleted && t.saveType === "auto") idsToClose.push(t.id);
-        else if (currentLibTab === "saved" && !t.deleted && t.saveType !== "auto") idsToClose.push(t.id);
-      });
-      idsToClose.forEach(function(tid) { closeTab(tid); });
-      openLibrary();
       toast("Deleted", "trash");
     };
-  }, "Delete", "Cancel");
+  }, "Delete All", "Cancel");
 });
 
 $("#lib-close").click(function () { $("#library").removeClass("go"); });
@@ -10157,86 +9992,3 @@ function animateAppEntry() {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
