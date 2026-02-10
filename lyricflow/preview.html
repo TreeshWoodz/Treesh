@@ -475,11 +475,11 @@ canvas#visualizer.on {
 
 #top_gradient {
   width: 100%;
-  height: 120px;
+  height: 200px;
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 8;
+  z-index: 3;
   background: linear-gradient(to bottom, var(--bg), transparent);
   pointer-events: none;
   transition: background 0.5s ease;
@@ -683,6 +683,7 @@ canvas#visualizer.on {
     justify-content:space-between;
   height:0px;
     margin-bottom:0px;
+    padding:0px 10px;
     width:100%;
     overflow:hidden;
   }
@@ -744,7 +745,7 @@ canvas#visualizer.on {
   position: fixed;
   top: 94px;
   left: 16px;
-  z-index: 19;
+  z-index: 4;
   display: flex;
   gap: 10px;
   font-size: 0.58rem;
@@ -2441,7 +2442,7 @@ body { -webkit-touch-callout: none; }
   transition: height 0.4s var(--ease), opacity 0.3s ease;
   top: calc(94px + 15px);
   left: 16px;
-  z-index: 3;
+  z-index: 4;
 }
 
 #rhymes-bar.on { height: 44px; opacity: 1; }
@@ -4492,9 +4493,9 @@ button { position: relative; }
      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 
 <div id="container">
-  <form id="text" class="main" onsubmit="return false">
+     <div id="text" class="main">
     <div id="input" contenteditable="true" data-placeholder="Write your lyrics here..." spellcheck="false"></div>
-  </form>
+  </div>
   <div id="lyrics" class="main" style="display:none;"></div>
 </div>
 
@@ -5986,6 +5987,7 @@ $("#tab-bar").on("click", ".tab-item", function (e) {
 });
 
 $("#tab-add-btn").click(function () {
+  exitStudio();
   saveCurrentTabState();
   createTab({});
 });
@@ -7476,7 +7478,10 @@ gsap.to("#tools .bar-timeline", {
       height: "auto",
   marginBottom: 10,
       duration: 0.3,
-      ease: "power1.in"
+      ease: "power1.in",
+      onStart: () => {
+        $("#tools .bar-timeline").addClass("on");
+      }
     });
   $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
   localStorage.setItem("audioReady", "true");
@@ -7490,6 +7495,18 @@ function playAudio() {
 
   if (audioCtx && audioCtx.state === "suspended") {
     audioCtx.resume();
+  }
+
+  if ( !$("#tools .bar-timeline").hasClass("on") ) {
+    gsap.to("#tools .bar-timeline", {
+      height: "auto",
+  marginBottom: 10,
+      duration: 0.3,
+      ease: "power1.in",
+      onStart: () => {
+        $("#tools .bar-timeline").addClass("on");
+      }
+    });
   }
 
   connectViz();
@@ -7822,8 +7839,7 @@ toolbarTL.restart();
     text.length >= 2 &&
     text.charAt(0) === "[" &&
     text.charAt(text.length - 1) === "]";
-  $p.addClass("no-time");
-  $p.toggleClass("no-lyrics", isFullyBracketed);
+  $p.toggleClass("no-lyrics no-time", isFullyBracketed);
 });
 
 
@@ -9016,21 +9032,21 @@ $("#input").on("click", "[data-explain]", function (e) {
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 function doTreeshImport() {
+  exitStudio();
 
   function normalize(str) {
     return (str || "")
       .toLowerCase()
-      .replace(/\(.*?\)/g, "")                 // remove (feat. â€¦)
-      .replace(/\bfeat\.?\b.*$/g, "")          // feat.
-      .replace(/\bft\.?\b.*$/g, "")            // ft.
-      .replace(/\bfeaturing\b.*$/g, "")        // featuring
-      .replace(/\s+[xÃ—&]\s+.*$/g, "")          // "Bran x Nova", "Bran & Nova"
-      .replace(/[^a-z0-9\s]/g, "")              // punctuation
-      .replace(/\s+/g, " ")                     // collapse spaces
+      .replace(/\(.*?\)/g, "")                 
+      .replace(/\bfeat\.?\b.*$/g, "")         
+      .replace(/\bft\.?\b.*$/g, "")           
+      .replace(/\bfeaturing\b.*$/g, "")        
+      .replace(/\s+[xÃ—&]\s+.*$/g, "")         
+      .replace(/[^a-z0-9\s]/g, "")             
+      .replace(/\s+/g, " ")                     
       .trim();
   }
 
-  // 1ï¸âƒ£ Load songs.html â†’ build cover map
   $.get("https://treesh.life/content/songs.html").done(function (songsData) {
 
     var coverMap = {};
