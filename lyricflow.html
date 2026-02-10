@@ -2853,6 +2853,7 @@ body { -webkit-touch-callout: none; }
       align-items:center;
       justify-content:space-evenly;
       white-space:nowrap;
+    overflow:hidden;
       text-align:center;
     border-radius:30px;
     }
@@ -3721,6 +3722,18 @@ body { -webkit-touch-callout: none; }
 #replace-section button::after,
 #replace-section button::before { display: none !important; }
 #replace-section button:hover { background: var(--accent-soft); color: var(--accent); }
+  
+  /* highlights */
+#input .find-hit{
+  background: rgba(255, 230, 0, 0.45);
+  border-radius: 4px;
+  padding: 0 1px;
+}
+
+#input .find-hit.active{
+  background: rgba(0, 180, 255, 0.55);
+}
+
 
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -7435,27 +7448,29 @@ function enterStudio($btn) {
   overflow: "hidden",
   margin: 0,
     duration: 0.3,
-    ease: "power2.out",
+    ease: "power4.in",
   "flex": "0 0 auto"
-}).to("#tools .bar-studio", { 
+}, "<").to("#tools .bar-studio", { 
     opacity: 1,
     width: "100%",
     duration: 0.3,
-    ease: "power2.out",
-  "flex": "1 1 auto"
+    ease: "power4.in",
+  "flex": "1 1 auto",
+      onComplete: () => {
+        $btn.attr("data-status", "back").find("i").removeClass().addClass("fa-solid fa-feather");
+  $btn.find("span").text("Edit");
+      }
   }, "<"
 ).to("#tools .bar-studio button", { 
     opacity: 1,
   y: 0,
   scale:1,
+      delay:0.15,
   stagger: 0.05,
     duration: 0.3,
     ease: "power2.out"
-  }
+  }, "<"
 );
-
-  $btn.attr("data-status", "back").find("i").removeClass().addClass("fa-solid fa-feather");
-  $btn.find("span").text("Edit");
 
   if (player.src && player.src !== location.href) enableBtn("#next-line");
   else disableBtn("#next-line");
@@ -7530,25 +7545,30 @@ function exitStudio($btn) {
   overflow: "hidden",
   margin: 0,
     duration: 0.3,
-    ease: "power2.out",
+    ease: "power2.in",
   "flex": "0 0 auto"
-}).to("#tools .bar-home", { 
+}, "<").to("#tools .bar-home", { 
     opacity: 1,
         width:"120px",
     minWidth:"120px",
     maxWidth:"120px",
     duration: 0.3,
-    ease: "power2.out",
-  "flex": "1 1 auto"
+    ease: "power2.in",
+  "flex": "1 1 auto",
+      onComplete: () => {
+  $btn.attr("data-status", "next").find("i").removeClass().addClass("fa-solid fa-bars-progress");
+  $btn.find("span").text("Studio");
+      }
   }, "<"
 ).to("#tools .bar-home button", {
   opacity:1,
   scale:1,
   y: 0,
+      delay:0.15,
   stagger: 0.05,
     duration: 0.3,
     ease: "power2.out"
-});
+}, "<");
 
   $("#lyrics").attr("data-status", "normal").find("p").removeClass("no selected sync");
 
@@ -7576,8 +7596,6 @@ function exitStudio($btn) {
   $("#text").show();
   $("#lyrics").hide();
 
-  $btn.attr("data-status", "next").find("i").removeClass().addClass("fa-solid fa-bars-progress");
-  $btn.find("span").text("Studio");
 
   disableBtn("#next-line");
   $("#next-line").removeClass("rec-on").attr("data-status", "record").find("span").text("Record");
@@ -7955,7 +7973,6 @@ $(".meta-field").on("change input", function () {
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    FIND & REPLACE
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-
 var findMatches = [];
 var findMatchIndex = -1;
 var findIndexCache = null;
@@ -7963,29 +7980,37 @@ var findIndexCache = null;
 function escapeRegex(str) {
   return (str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
 function buildFindIndex() {
   var el = document.getElementById("input");
   var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
   var nodes = [];
   var text = "";
   var node;
+
   while (node = walker.nextNode()) {
-    var t = node.textContent || "";
+    var t = node.nodeValue || "";
+    if (!t.length) continue;
+
     var start = text.length;
     nodes.push({ node: node, start: start, end: start + t.length });
     text += t;
   }
+
   return { text: text, nodes: nodes };
 }
 
 function buildFindRegex() {
   var find = $("#find-input").val();
   if (!find) return null;
+
   var isRegex = $("#find-regex").prop("checked");
   var isWhole = $("#find-word").prop("checked");
   var isCase = $("#find-case").prop("checked");
+
   var pattern = isRegex ? find : escapeRegex(find);
   if (isWhole) pattern = "\\b" + pattern + "\\b";
+
   try {
     return new RegExp(pattern, isCase ? "g" : "gi");
   } catch (e) {
@@ -7999,78 +8024,290 @@ function updateFindCount() {
   else $("#find-count").text((findMatchIndex + 1) + "/" + findMatches.length);
 }
 
-function getRangeForMatch(match, index) {
-  var idx = index || findIndexCache;
-  if (!idx) return null;
+function isFindUiFocused() {
+  return $("#find-input").is(":focus") || $("#replace-input").is(":focus");
+}
+
+
+function unwrapNode(el) {
+  if (!el || !el.parentNode) return;
+  var p = el.parentNode;
+  while (el.firstChild) p.insertBefore(el.firstChild, el);
+  p.removeChild(el);
+  p.normalize();
+}
+
+function clearFindHighlights() {
+  var hits = document.querySelectorAll("#input .find-hit");
+  for (var i = hits.length - 1; i >= 0; i--) unwrapNode(hits[i]);
+}
+
+function getSegmentsForMatch(match, idx) {
   var nodes = idx.nodes;
-  var startNode = null, endNode = null, startOffset = 0, endOffset = 0;
+  var segs = [];
+  var s = match.start;
+  var e = match.end;
+
   for (var i = 0; i < nodes.length; i++) {
     var n = nodes[i];
-    if (startNode === null && match.start >= n.start && match.start <= n.end) {
-      startNode = n.node;
-      startOffset = match.start - n.start;
-    }
-    if (match.end >= n.start && match.end <= n.end) {
-      endNode = n.node;
-      endOffset = match.end - n.start;
-      break;
+    if (e <= n.start) break;
+    if (s >= n.end) continue;
+
+    var a = Math.max(s, n.start) - n.start;
+    var b = Math.min(e, n.end) - n.start;
+
+    if (b > a) {
+      segs.push({
+        node: n.node,
+        a: a,
+        b: b
+      });
     }
   }
-  if (!startNode || !endNode) return null;
-  var range = document.createRange();
-  range.setStart(startNode, startOffset);
-  range.setEnd(endNode, endOffset);
-  return range;
+
+  return segs;
 }
+
+function splitTextForSegment(textNode, a, b) {
+  var len = textNode.nodeValue.length;
+
+  if (b < len) textNode.splitText(b);
+  if (a > 0) textNode = textNode.splitText(a);
+
+  return textNode;
+}
+
+function wrapTextNode(textNode, matchIndex) {
+  var span = document.createElement("span");
+  span.className = "find-hit";
+  span.setAttribute("data-find-i", String(matchIndex));
+
+  var p = textNode.parentNode;
+  p.insertBefore(span, textNode);
+  span.appendChild(textNode);
+
+  return span;
+}
+
+function highlightAllMatches() {
+  clearFindHighlights();
+  if (!findMatches.length) return;
+
+  findIndexCache = buildFindIndex();
+
+  for (var i = findMatches.length - 1; i >= 0; i--) {
+    var segs = getSegmentsForMatch(findMatches[i], findIndexCache);
+
+    for (var s = segs.length - 1; s >= 0; s--) {
+      var seg = segs[s];
+      if (!seg.node || seg.node.nodeType !== 3) continue;
+
+      var exact = splitTextForSegment(seg.node, seg.a, seg.b);
+      wrapTextNode(exact, i);
+    }
+  }
+}
+
+function setActiveHighlight(i) {
+  $("#input .find-hit").removeClass("active");
+  $("#input .find-hit[data-find-i='" + i + "']").addClass("active");
+}
+
+function scrollActiveIntoView(i) {
+  var $hit = $("#input .find-hit[data-find-i='" + i + "']").first();
+  if ($hit.length && $hit[0].scrollIntoView) {
+    $hit[0].scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+}
+
 
 function selectMatch(idx) {
   if (!findMatches.length) return;
+
   if (idx < 0) idx = findMatches.length - 1;
   if (idx >= findMatches.length) idx = 0;
+
   findMatchIndex = idx;
-  var range = getRangeForMatch(findMatches[idx]);
-  if (range) {
-    var sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    var el = range.startContainer.parentElement;
-    if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" });
-  }
+  setActiveHighlight(findMatchIndex);
   updateFindCount();
+
+  if (isFindUiFocused()) {
+    scrollActiveIntoView(findMatchIndex);
+    return;
+  }
+
+  var hit = document.querySelector("#input .find-hit[data-find-i='" + findMatchIndex + "']");
+  if (!hit) return;
+
+  var r = document.createRange();
+  r.selectNodeContents(hit);
+
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
+
+  if (hit.scrollIntoView) hit.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
+
 function updateFindMatches() {
+  clearFindHighlights();
+
   var regex = buildFindRegex();
-  if (!regex) { findMatches = []; findMatchIndex = -1; updateFindCount(); return; }
+  if (!regex) {
+    findMatches = [];
+    findMatchIndex = -1;
+    findIndexCache = null;
+    updateFindCount();
+    return;
+  }
+
   findIndexCache = buildFindIndex();
+
   findMatches = [];
   var m;
+
   while ((m = regex.exec(findIndexCache.text)) !== null) {
     if (m[0] === "") { regex.lastIndex++; continue; }
     findMatches.push({ start: m.index, end: m.index + m[0].length, match: m[0] });
   }
+
   findMatchIndex = findMatches.length ? 0 : -1;
+
+  highlightAllMatches();
   updateFindCount();
-  if (findMatches.length) selectMatch(findMatchIndex);
+
+  if (findMatches.length) {
+    setActiveHighlight(findMatchIndex);
+    scrollActiveIntoView(findMatchIndex);
+    if (!isFindUiFocused()) selectMatch(findMatchIndex);
+  }
 }
 
 function getReplaceText(matchText) {
   var rep = $("#replace-input").val();
   if (!$("#find-regex").prop("checked")) return rep;
+
   var regex = buildFindRegex();
   if (!regex) return rep;
+
   var flags = regex.flags.replace("g", "");
   var re = new RegExp(regex.source, flags);
   return matchText.replace(re, rep);
 }
 
+
+function replaceCurrentMatch() {
+  updateFindMatches();
+  if (!findMatches.length) { toast("Not found", "xmark"); return; }
+
+  clearFindHighlights();
+  findIndexCache = buildFindIndex();
+
+  var idx = findMatchIndex >= 0 ? findMatchIndex : 0;
+  if (idx >= findMatches.length) idx = 0;
+
+  var match = findMatches[idx];
+  var segs = getSegmentsForMatch(match, findIndexCache);
+  if (!segs.length) { updateFindMatches(); toast("Not found", "xmark"); return; }
+
+  var replacement = getReplaceText(match.match);
+
+  for (var s = segs.length - 1; s >= 0; s--) {
+    var seg = segs[s];
+    if (!seg.node || seg.node.nodeType !== 3) continue;
+
+    var exact = splitTextForSegment(seg.node, seg.a, seg.b);
+
+    if (s === 0) {
+      exact.nodeValue = replacement;
+    } else {
+      if (exact.parentNode) exact.parentNode.removeChild(exact);
+    }
+  }
+
+  $("#input").trigger("input");
+  if (typeof pushHistorySnapshot === "function") pushHistorySnapshot();
+
+  updateFindMatches();
+  toast("Replaced", "check");
+}
+
+function replaceAllMatches() {
+  updateFindMatches();
+  if (!findMatches.length) { toast("Not found", "xmark"); return; }
+
+  clearFindHighlights();
+
+  var regex = buildFindRegex();
+  if (!regex) { updateFindMatches(); return; }
+
+  var idx = buildFindIndex();
+  var matches = [];
+  var m;
+
+  while ((m = regex.exec(idx.text)) !== null) {
+    if (m[0] === "") { regex.lastIndex++; continue; }
+    matches.push({ start: m.index, end: m.index + m[0].length, match: m[0] });
+  }
+
+  if (!matches.length) { updateFindMatches(); toast("Not found", "xmark"); return; }
+
+  for (var i = matches.length - 1; i >= 0; i--) {
+    var hit = matches[i];
+    var segs = getSegmentsForMatch(hit, idx);
+    if (!segs.length) continue;
+
+    var replacement = getReplaceText(hit.match);
+
+    for (var s = segs.length - 1; s >= 0; s--) {
+      var seg = segs[s];
+      if (!seg.node || seg.node.nodeType !== 3) continue;
+
+      var exact = splitTextForSegment(seg.node, seg.a, seg.b);
+
+      if (s === 0) exact.nodeValue = replacement;
+      else if (exact.parentNode) exact.parentNode.removeChild(exact);
+    }
+  }
+
+  $("#input").trigger("input");
+  if (typeof pushHistorySnapshot === "function") pushHistorySnapshot();
+
+  updateFindMatches();
+  toast("Replaced " + matches.length + " match(es)", "check");
+}
+
+/* ---------- events ---------- */
+
 $("#find-input, #find-case, #find-word, #find-regex").on("input change", function() {
   updateFindMatches();
 });
 
-function setToolsDim(on) { $("#tools").toggleClass("dim", !!on); }
-$("#find-input, #replace-input").on("focus input", function() { setToolsDim(true); });
-$("#find-input, #replace-input").on("blur", function() { setTimeout(function() { if (!$("#find-input").is(":focus") && !$("#replace-input").is(":focus")) setToolsDim(false); }, 120); });
+$("#replace-input").on("input", function() {});
+
+function setToolsDim(on) {
+  $("#tools").toggleClass("dim", !!on);
+}
+
+let toolDimTimeout;
+$("#find-input, #replace-input").on("focus input", function() {
+  setToolsDim(true);
+  clearTimeout(toolDimTimeout);
+  toolDimTimeout = setTimeout(function() {
+    setToolsDim(false);
+  }, 500);
+});
+
+$("#find-input, #replace-input").on("blur", function() {
+  setTimeout(function() {
+    if (!$("#find-input").is(":focus") && !$("#replace-input").is(":focus")) {
+      setToolsDim(false);
+    }
+  }, 120);
+});
+
+/* ---------- next/prev ---------- */
 
 $("#find-next").click(function () {
   if (!findMatches.length) { updateFindMatches(); return; }
@@ -8082,39 +8319,18 @@ $("#find-prev").click(function () {
   selectMatch(findMatchIndex - 1);
 });
 
+/* ---------- replace buttons ---------- */
+
 $("#replace-one").click(function () {
-  if (!findMatches.length) { updateFindMatches(); }
-  if (!findMatches.length) { toast("Not found", "xmark"); return; }
-  var idx = findMatchIndex >= 0 ? findMatchIndex : 0;
-  var match = findMatches[idx];
-  var range = getRangeForMatch(match);
-  if (!range) { toast("Not found", "xmark"); return; }
-  var replacement = getReplaceText(match.match);
-  range.deleteContents();
-  range.insertNode(document.createTextNode(replacement));
-  $("#input").trigger("input");
-  if (typeof pushHistorySnapshot === "function") pushHistorySnapshot();
-  updateFindMatches();
-  toast("Replaced", "check");
+  replaceCurrentMatch();
 });
 
 $("#replace-all").click(function () {
-  updateFindMatches();
-  if (!findMatches.length) { toast("Not found", "xmark"); return; }
-  var idx = buildFindIndex();
-  for (var i = findMatches.length - 1; i >= 0; i--) {
-    var m = findMatches[i];
-    var range = getRangeForMatch(m, idx);
-    if (!range) continue;
-    var replacement = getReplaceText(m.match);
-    range.deleteContents();
-    range.insertNode(document.createTextNode(replacement));
-  }
-  $("#input").trigger("input");
-  if (typeof pushHistorySnapshot === "function") pushHistorySnapshot();
-  updateFindMatches();
-  toast("Replaced " + findMatches.length + " match(es)", "check");
-});/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  replaceAllMatches();
+});
+
+  
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    THEME, COLOR, FONT, SIZE
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
