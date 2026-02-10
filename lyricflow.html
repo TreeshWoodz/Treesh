@@ -321,8 +321,7 @@ canvas#visualizer.on {
 #tutorial-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
-  z-index: 99999;
+  z-index: 10;
   display: none;
   pointer-events: none;
 }
@@ -351,13 +350,13 @@ canvas#visualizer.on {
   border-radius: var(--radius);
   padding: 20px;
   max-width: 400px;
-  z-index: 100001;
   box-shadow: 0 10px 50px rgba(0,0,0,0.5);
   display: none;
 }
 
 #tutorial-tooltip.active {
   display: block;
+  z-index: 100001;
 }
 
 #tutorial-tooltip h3 {
@@ -480,7 +479,7 @@ canvas#visualizer.on {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 19;
+  z-index: 8;
   background: linear-gradient(to bottom, var(--bg), transparent);
   pointer-events: none;
   transition: background 0.5s ease;
@@ -492,7 +491,7 @@ canvas#visualizer.on {
   left: 0;
   right: 0;
   height: 52px;
-  z-index: 20;
+  z-index: 9;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -570,7 +569,7 @@ canvas#visualizer.on {
   left: 0;
   right: 0;
   height: 36px;
-  z-index: 18;
+  z-index: 0;
   display: flex;
   align-items: center;
   padding: 0 16px;
@@ -2492,7 +2491,7 @@ body { -webkit-touch-callout: none; }
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 15;
+  z-index: 9;
   padding: 0 12px 20px;
   pointer-events: none;
   display: flex;
@@ -2856,17 +2855,46 @@ body { -webkit-touch-callout: none; }
     overflow:hidden;
       text-align:center;
     border-radius:30px;
+    flex:1;
+    align-self: stretch;
     }
   
   #tools .bar-home {
-    min-width:120px;
-    max-width:120px;
+    width:100% !important;
+    margin:auto;
   }
   
   #tools .bar-menu {
     width:auto;
   }
   
+  #tools .bar-tools .bar-tools-section {
+    position:absolute;
+      display:flex;
+      align-items:center;
+      justify-content:space-evenly;
+      white-space:nowrap;
+    top:0;
+    left:0;
+    align-self:center;
+    height:100%;
+    width:100%;
+  }
+  
+  
+  #tools .bar-tools {
+    align-self:stretch;
+    position:relative;
+    width:100%;
+  }
+  
+  #tools .bar-main-section.bar-menu {
+    flex-grow:2;
+  }
+  
+  #tools .bar-studio button {
+width:100%;
+  }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    STUDIO CONTROLS
@@ -4084,7 +4112,7 @@ button { position: relative; }
   overflow: hidden;
   flex: 0 0 46px;
 }
-#tools.dim { opacity: 0.1; }
+#tools.dim { opacity: 0.3; }
 #tools { transition: opacity 0.25s var(--ease); }
 
 /* Library list view fixes */
@@ -4538,14 +4566,19 @@ button { position: relative; }
       <button type="button" class="tool-btn" id="audio-btn" data-status="upload">
         <i class="fa-solid fa-arrow-up-from-bracket"></i>
       </button>
-      <div class="bar-main-section bar-home">
+      
+      <div class="bar-main-section">
+        <div class="bar-tools">
+      <div class="bar-tools-section bar-home">
       <button type="button" class="tool-btn" id="undo-btn" title="Undo"><i class="fa-solid fa-rotate-left"></i></button>
       <button type="button" class="tool-btn" id="redo-btn" title="Redo"><i class="fa-solid fa-rotate-right"></i></button>
       </div>
-      <div class="bar-main-section bar-studio">
+      <div class="bar-tools-section bar-studio">
       <button type="button" class="tool-btn primary" id="next-line" data-status="record" disabled>
         <i class="fa-solid fa-circle"></i> <span>Record</span>
       </button>
+          </div>
+      </div>
       </div>
       
       <div class="bar-main-section bar-menu">
@@ -7393,22 +7426,17 @@ function addDurations() {
   });
 }
 
+  var $btn;
 $("#next").click(function () {
   if ($(this).prop("disabled")) return;
-  var $btn = $(this);
+  $btn = $(this);
   var isNext = $btn.attr("data-status") === "next";
   if (isNext) enterStudio($btn);
   else exitStudio($btn);
 });
   
-  gsap.set("#tools .bar-studio", {
-  width: 0,
-  padding: 0,
-  border: "none",
-  opacity: 0,
-  overflow: "hidden",
-  margin: 0,
-  flex: "1 1 auto"
+  gsap.set("#tools .bar-main-section.bar-menu", {
+    flexGrow: 2
 });
   
   gsap.set("#tools .bar-studio button", { 
@@ -7419,6 +7447,63 @@ $("#next").click(function () {
   }
 );
   
+  gsap.set("#tools .bar-studio", {
+  zIndex: -10,
+  pointerEvents: "none"
+});
+  
+  
+  
+  var toolbarTL = gsap.timeline({ paused: true });
+
+toolbarTL
+  .to("#tools .bar-main-section.bar-menu", {
+    flexGrow: 1,
+    duration: 0.3,
+    ease: "power2.out"
+  }, "<")
+  .to("#tools .bar-main-section.bar-tool", {
+    flexGrow: 2,
+    duration: 0.3,
+    ease: "power2.out"
+  }, "<")
+  .to("#tools .bar-home button", {
+    opacity: 0,
+    scale: 0,
+    y: 20,
+    stagger: 0.05,
+    duration: 0.3,
+    ease: "power2.out"
+  }, "<")
+  .to("#tools .bar-home", {
+  zIndex: -10,
+  pointerEvents: "none"
+})
+  .to("#tools .bar-studio", {
+  zIndex:1,
+  pointerEvents: "auto"
+}, "<")
+  .to("#tools .bar-studio button", {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    delay: 0.15,
+    stagger: 0.05,
+    duration: 0.3,
+    ease: "power2.out"
+  }, "<");
+
+toolbarTL.eventCallback("onComplete", function() {
+  $btn.attr("data-status","back").find("i").removeClass().addClass("fa-solid fa-feather");
+  $btn.find("span").text("Edit");
+});
+
+toolbarTL.eventCallback("onReverseComplete", function() {
+  $btn.attr("data-status","next").find("i").removeClass().addClass("fa-solid fa-timeline");
+  $btn.find("span").text("Studio");
+});
+
+  
 
 function enterStudio($btn) {
   hideRichToolbar();
@@ -7428,49 +7513,8 @@ function enterStudio($btn) {
   $("#text").hide();
   $("#lyrics").show();
   $("#rhymes-bar").removeClass("on"); 
-
-    gsap.timeline()
-      .to("#tools .bar-home button", {
-  opacity:0,
-  scale:0,
-  y: 20,
-  stagger: 0.05,
-    duration: 0.3,
-    ease: "power2.out",
-  "flex": "0 0 auto",
-}).to("#tools .bar-home", {
-  width: 0,
-  minWidth: 0,
-  maxWidth:0,
-  padding: 0,
-  border: "none",
-  opacity: 0,
-  overflow: "hidden",
-  margin: 0,
-    duration: 0.3,
-    ease: "power4.in",
-  "flex": "0 0 auto"
-}, "<").to("#tools .bar-studio", { 
-    opacity: 1,
-    width: "100%",
-    duration: 0.3,
-    ease: "power4.in",
-  "flex": "1 1 auto",
-      onComplete: () => {
-        $btn.attr("data-status", "back").find("i").removeClass().addClass("fa-solid fa-feather");
-  $btn.find("span").text("Edit");
-      }
-  }, "<"
-).to("#tools .bar-studio button", { 
-    opacity: 1,
-  y: 0,
-  scale:1,
-      delay:0.15,
-  stagger: 0.05,
-    duration: 0.3,
-    ease: "power2.out"
-  }, "<"
-);
+  
+toolbarTL.restart();
 
   if (player.src && player.src !== location.href) enableBtn("#next-line");
   else disableBtn("#next-line");
@@ -7528,47 +7572,7 @@ function exitStudio($btn) {
   inStudio = false;
   document.body.classList.remove("studio-mode");
 
-      gsap.timeline()
-  .to("#tools .bar-studio button", { 
-    opacity: 0,
-  y: 20,
-  scale:0,
-  stagger: 0.05,
-    duration: 0.3,
-    ease: "power2.out"
-  }
-).to("#tools .bar-studio", {
-  width: 0,
-  padding: 0,
-  border: "none",
-  opacity: 0,
-  overflow: "hidden",
-  margin: 0,
-    duration: 0.3,
-    ease: "power2.in",
-  "flex": "0 0 auto"
-}, "<").to("#tools .bar-home", { 
-    opacity: 1,
-        width:"120px",
-    minWidth:"120px",
-    maxWidth:"120px",
-    duration: 0.3,
-    ease: "power2.in",
-  "flex": "1 1 auto",
-      onComplete: () => {
-  $btn.attr("data-status", "next").find("i").removeClass().addClass("fa-solid fa-bars-progress");
-  $btn.find("span").text("Studio");
-      }
-  }, "<"
-).to("#tools .bar-home button", {
-  opacity:1,
-  scale:1,
-  y: 0,
-      delay:0.15,
-  stagger: 0.05,
-    duration: 0.3,
-    ease: "power2.out"
-}, "<");
+      toolbarTL.reverse();
 
   $("#lyrics").attr("data-status", "normal").find("p").removeClass("no selected sync");
 
@@ -8291,12 +8295,12 @@ function setToolsDim(on) {
 }
 
 let toolDimTimeout;
-$("#find-input, #replace-input").on("focus input", function() {
+$("#find-input, #replace-input").on("input", function() {
   setToolsDim(true);
   clearTimeout(toolDimTimeout);
   toolDimTimeout = setTimeout(function() {
     setToolsDim(false);
-  }, 500);
+  }, 1000);
 });
 
 $("#find-input, #replace-input").on("blur", function() {
@@ -10010,6 +10014,10 @@ $(document).on("click", ".faq-q", function() {
 });
 
 $("#btn-faq").click(function() {
+  if ( $("#menu-toggle").hasClass("menu-on") ) {
+  $("#menu-toggle").click();
+  }
+   
   renderFAQ();
   $("#faq-modal").addClass("go");
   gsap.fromTo(".faq-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" });
@@ -10098,10 +10106,10 @@ $(document).on("keydown", function (e) {
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 var tutorialSteps = [
-  { selector: "#input", title: "Editor", text: "Write your lyrics here. Each line becomes a separate lyric line in Studio mode." },
-  { selector: "#toolbar", title: "Toolbar", text: "Audio controls, record controls, and Studio live here. Use it to play, record, and sync lines." },
+  { selector: "#text", title: "Editor", text: "Write your lyrics here. Each line becomes a separate lyric line in Studio mode.", onEnter: function() { exitStudio(); }},
+  { selector: "#tools", title: "Toolbar", text: "Audio controls, record controls, and Studio live here. Use it to play, record, and sync lines." },
   { selector: "#next", title: "Studio", text: "Enter Studio mode to timestamp each line and sync lyrics to audio." },
-  { selector: "#next-line", title: "Record / Next", text: "In Studio, press Record to start, then press Next as each line begins." },
+  { selector: "#next-line", title: "Record / Next", text: "In Studio, press Record to start, then press Next as each line begins.", onEnter: function() { enterStudio(); } },
   { selector: "#tab-bar", title: "Tabs", text: "Work on multiple songs at once. Each tab keeps its own lyrics, metadata, and audio." },
   { selector: "#menu-toggle", title: "Menu Panel", text: "Open the panel to access actions, metadata, find/replace, themes, and more.", onEnter: function() { openPanel(); } },
   { selector: "#meta-grid", title: "Metadata", text: "Set song title, artist, album, and other details here.", onEnter: function() { openPanel(); } },
@@ -10109,10 +10117,10 @@ var tutorialSteps = [
   { selector: "#explain-gallery-btn", title: "Explanations", text: "View, favorite, move, and edit explanations for your lyrics.", onEnter: function() { openPanel(); $("#explain-gallery-btn").show(); } },
   { selector: "#find-input", title: "Find & Replace", text: "Search with case, whole-word, or regex options and step through matches.", onEnter: function() { openPanel(); } },
   { selector: "#open-btn", title: "Library", text: "Open the Library to browse, filter, and manage saved files.", onEnter: function() { openPanel(); } },
-  { selector: "#library .modal-inner", title: "Library", text: "Your saved files live here, with grid/list views, filters, and folders.", onEnter: function() { openLibrary(); }, onExit: function() { $("#library").removeClass("go"); } },
+  { selector: "#library", title: "Library", text: "Your saved files live here, with grid/list views, filters, and folders.", onEnter: function() { openLibrary(); }, onExit: function() { $("#library").removeClass("go"); } },
   { selector: "#save", title: "Backup", text: "Use Backup to export settings, current file, selected files, or everything.", onEnter: function() { openPanel(); $("#backup-modal").addClass("go"); }, onExit: function() { $("#backup-modal").removeClass("go"); } },
   { selector: "#open-btn", title: "Restore", text: "Restore settings or files from a backup JSON.", onEnter: function() { openPanel(); $("#restore-modal").addClass("go"); }, onExit: function() { $("#restore-modal").removeClass("go"); } },
-  { selector: "#audio-btn", title: "Karaoke", text: "After timestamping, Karaoke mode plays your lyrics with glow timing." }
+  { selector: "#audio-btn", title: "Karaoke", text: "After timestamping, Karaoke mode plays your lyrics with glow timing.", onEnter: function() { exitStudio(); } }
 ];
 
 var currentTutorialStep = 0;
@@ -10129,26 +10137,6 @@ function closePanel() {
   $("#menu-toggle").removeClass("menu-on");
 }
 
-function positionTutorialTooltip() {
-  if (!currentTutorialTarget || !currentTutorialTarget.length) return;
-  var rect = currentTutorialTarget[0].getBoundingClientRect();
-  var $tooltip = $("#tutorial-tooltip");
-  var tooltipHeight = $tooltip.outerHeight();
-  var tooltipWidth = $tooltip.outerWidth();
-
-  var top = rect.bottom + 20;
-  var left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-
-  if (top + tooltipHeight > window.innerHeight) {
-    top = rect.top - tooltipHeight - 20;
-  }
-  if (left < 10) left = 10;
-  if (left + tooltipWidth > window.innerWidth - 10) {
-    left = window.innerWidth - tooltipWidth - 10;
-  }
-
-  $tooltip.css({ top: top + "px", left: left + "px" });
-}
 
 function startTutorial() {
   currentTutorialStep = 0;
@@ -10180,8 +10168,52 @@ function showTutorialStep() {
     }
 
     currentTutorialTarget = $element;
-    $(".tutorial-highlight").removeClass("tutorial-highlight");
-    $element.addClass("tutorial-highlight");
+    
+    if (currentTutorialStep === 0) {
+      $("#tutorial-prev").hide();
+    } else {
+      $("#tutorial-prev").show();
+    }
+    
+    $(".active-tut").css("opacity", 1).removeClass("active-tut");
+    $element.addClass("active-tut");
+    
+    $(".tutorial-highlight").remove();
+
+    setTimeout(function() {
+function cssImportant($el, styles) {
+  var el = $el[0];
+  for (var k in styles) {
+    el.style.setProperty(
+      k.replace(/[A-Z]/g, function(m){ return "-" + m.toLowerCase(); }),
+      styles[k],
+      "important"
+    );
+  }
+  return $el;
+}
+
+var $clone = $element.clone(false, false).addClass("tutorial-highlight").appendTo("body");
+
+var r = $element[0].getBoundingClientRect();
+
+cssImportant($clone, {
+  position: "fixed",
+  top: r.top + "px",
+  left: r.left + "px",
+  width: r.width + "px",
+  height: r.height + "px",
+  margin: "0",
+  boxSizing: "border-box",
+  zIndex: "999999",
+  pointerEvents: "none",
+  transform: "none"
+});
+      
+      $element.css("opacity", "0");
+    }, 600);
+
+
 
     $("#tutorial-title").text(step.title);
     $("#tutorial-text").text(step.text);
@@ -10190,16 +10222,80 @@ function showTutorialStep() {
     try { $element[0].scrollIntoView({ block: "center", behavior: "smooth" }); } catch (ex) {}
     positionTutorialTooltip();
 
-    $("#tutorial-prev").prop("disabled", currentTutorialStep === 0);
+    
     $("#tutorial-next").text(currentTutorialStep === tutorialSteps.length - 1 ? "Finish" : "Next");
   }, 60);
 }
+  
+  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+function positionTutorialTooltip() {
+  if (!currentTutorialTarget || !currentTutorialTarget.length) return;
+
+  var rect = currentTutorialTarget[0].getBoundingClientRect();
+  var $tooltip = $("#tutorial-tooltip");
+
+  gsap.set($tooltip, { display: "block", visibility: "hidden" });
+
+  var pad = 10;
+  var gap = 20;
+
+  var tooltipW = $tooltip.outerWidth();
+  var tooltipH = $tooltip.outerHeight();
+
+  gsap.set($tooltip, {
+    maxWidth: window.innerWidth - pad * 2,
+    maxHeight: window.innerHeight - pad * 2,
+  zIndex: 10000000,
+    overflowY: "auto"
+  });
+
+  tooltipW = $tooltip.outerWidth();
+  tooltipH = $tooltip.outerHeight();
+
+ var extraY =
+  currentTutorialStep === 3 ? -50 :
+  currentTutorialStep === 8 ? -100 :
+  currentTutorialStep === 9 ? -100 :
+  currentTutorialStep === 10 ? -100 :
+  currentTutorialStep === 11 ? 190 :
+  0;
+  
+  var top = rect.bottom + gap;
+
+  if (top + tooltipH > window.innerHeight - pad) {
+    top = rect.top - tooltipH - gap;
+  }
+ 
+     top = clamp(top, pad, window.innerHeight - tooltipH - pad);
+  
+
+  var left = rect.left + (rect.width / 2) - (tooltipW / 2);
+  left = clamp(left, pad, window.innerWidth - tooltipW - pad);
+
+  gsap.set($tooltip, { visibility: "visible" });
+
+  gsap.to($tooltip, {
+    top: top + extraY,
+    left: left,
+  zIndex: 10000000,
+    duration: 0.35,
+    ease: "power2.out",
+    overwrite: "auto"
+  });
+}
 
 function endTutorial() {
-  if (tutorialPrevStep && tutorialPrevStep.onExit) tutorialPrevStep.onExit();
+  if (tutorialPrevStep && tutorialPrevStep.onExit) {
+    tutorialPrevStep.onExit();
+  }
+  
   $("#tutorial-overlay").removeClass("active");
   $("#tutorial-tooltip").removeClass("active");
-  $(".tutorial-highlight").removeClass("tutorial-highlight");
+  gsap.set("#tutorial-tooltip", { display: "none", visibility: "hidden" });
+  $(".active-tut").css("opacity", 1).removeClass("active-tut");
+    $(".tutorial-highlight").remove();
+  $("#faq-modal").addClass("go");
   $("#backup-modal, #restore-modal, #library").removeClass("go");
   closePanel();
   currentTutorialStep = 0;
@@ -10326,4 +10422,4 @@ function animateAppEntry() {
 
 </script>
 </body>
-</html>cod
+</html>

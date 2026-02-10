@@ -321,8 +321,7 @@ canvas#visualizer.on {
 #tutorial-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
-  z-index: 99999;
+  z-index: 10;
   display: none;
   pointer-events: none;
 }
@@ -351,13 +350,13 @@ canvas#visualizer.on {
   border-radius: var(--radius);
   padding: 20px;
   max-width: 400px;
-  z-index: 100001;
   box-shadow: 0 10px 50px rgba(0,0,0,0.5);
   display: none;
 }
 
 #tutorial-tooltip.active {
   display: block;
+  z-index: 100001;
 }
 
 #tutorial-tooltip h3 {
@@ -480,7 +479,7 @@ canvas#visualizer.on {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 19;
+  z-index: 8;
   background: linear-gradient(to bottom, var(--bg), transparent);
   pointer-events: none;
   transition: background 0.5s ease;
@@ -492,7 +491,7 @@ canvas#visualizer.on {
   left: 0;
   right: 0;
   height: 52px;
-  z-index: 20;
+  z-index: 9;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -570,7 +569,7 @@ canvas#visualizer.on {
   left: 0;
   right: 0;
   height: 36px;
-  z-index: 18;
+  z-index: 0;
   display: flex;
   align-items: center;
   padding: 0 16px;
@@ -2492,7 +2491,7 @@ body { -webkit-touch-callout: none; }
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 15;
+  z-index: 9;
   padding: 0 12px 20px;
   pointer-events: none;
   display: flex;
@@ -2853,19 +2852,49 @@ body { -webkit-touch-callout: none; }
       align-items:center;
       justify-content:space-evenly;
       white-space:nowrap;
+    overflow:hidden;
       text-align:center;
     border-radius:30px;
+    flex:1;
+    align-self: stretch;
     }
   
   #tools .bar-home {
-    min-width:120px;
-    max-width:120px;
+    width:100% !important;
+    margin:auto;
   }
   
   #tools .bar-menu {
     width:auto;
   }
   
+  #tools .bar-tools .bar-tools-section {
+    position:absolute;
+      display:flex;
+      align-items:center;
+      justify-content:space-evenly;
+      white-space:nowrap;
+    top:0;
+    left:0;
+    align-self:center;
+    height:100%;
+    width:100%;
+  }
+  
+  
+  #tools .bar-tools {
+    align-self:stretch;
+    position:relative;
+    width:100%;
+  }
+  
+  #tools .bar-main-section.bar-menu {
+    flex-grow:2;
+  }
+  
+  #tools .bar-studio button {
+width:100%;
+  }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    STUDIO CONTROLS
@@ -2936,6 +2965,10 @@ body { -webkit-touch-callout: none; }
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
+
+#library .modal-inner {
+   height: 75vh;
+   }
 
 .modal-head {
   padding: 16px 20px;
@@ -3717,6 +3750,18 @@ body { -webkit-touch-callout: none; }
 #replace-section button::after,
 #replace-section button::before { display: none !important; }
 #replace-section button:hover { background: var(--accent-soft); color: var(--accent); }
+  
+  /* highlights */
+#input .find-hit{
+  background: rgba(255, 230, 0, 0.45);
+  border-radius: 4px;
+  padding: 0 1px;
+}
+
+#input .find-hit.active{
+  background: rgba(0, 180, 255, 0.55);
+}
+
 
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -4067,7 +4112,7 @@ button { position: relative; }
   overflow: hidden;
   flex: 0 0 46px;
 }
-#tools.dim { opacity: 0.1; }
+#tools.dim { opacity: 0.3; }
 #tools { transition: opacity 0.25s var(--ease); }
 
 /* Library list view fixes */
@@ -4521,14 +4566,19 @@ button { position: relative; }
       <button type="button" class="tool-btn" id="audio-btn" data-status="upload">
         <i class="fa-solid fa-arrow-up-from-bracket"></i>
       </button>
-      <div class="bar-main-section bar-home">
+      
+      <div class="bar-main-section">
+        <div class="bar-tools">
+      <div class="bar-tools-section bar-home">
       <button type="button" class="tool-btn" id="undo-btn" title="Undo"><i class="fa-solid fa-rotate-left"></i></button>
       <button type="button" class="tool-btn" id="redo-btn" title="Redo"><i class="fa-solid fa-rotate-right"></i></button>
       </div>
-      <div class="bar-main-section bar-studio">
+      <div class="bar-tools-section bar-studio">
       <button type="button" class="tool-btn primary" id="next-line" data-status="record" disabled>
         <i class="fa-solid fa-circle"></i> <span>Record</span>
       </button>
+          </div>
+      </div>
       </div>
       
       <div class="bar-main-section bar-menu">
@@ -7376,22 +7426,17 @@ function addDurations() {
   });
 }
 
+  var $btn;
 $("#next").click(function () {
   if ($(this).prop("disabled")) return;
-  var $btn = $(this);
+  $btn = $(this);
   var isNext = $btn.attr("data-status") === "next";
   if (isNext) enterStudio($btn);
   else exitStudio($btn);
 });
   
-  gsap.set("#tools .bar-studio", {
-  width: 0,
-  padding: 0,
-  border: "none",
-  opacity: 0,
-  overflow: "hidden",
-  margin: 0,
-  flex: "1 1 auto"
+  gsap.set("#tools .bar-main-section.bar-menu", {
+    flexGrow: 2
 });
   
   gsap.set("#tools .bar-studio button", { 
@@ -7402,6 +7447,63 @@ $("#next").click(function () {
   }
 );
   
+  gsap.set("#tools .bar-studio", {
+  zIndex: -10,
+  pointerEvents: "none"
+});
+  
+  
+  
+  var toolbarTL = gsap.timeline({ paused: true });
+
+toolbarTL
+  .to("#tools .bar-main-section.bar-menu", {
+    flexGrow: 1,
+    duration: 0.3,
+    ease: "power2.out"
+  }, "<")
+  .to("#tools .bar-main-section.bar-tool", {
+    flexGrow: 2,
+    duration: 0.3,
+    ease: "power2.out"
+  }, "<")
+  .to("#tools .bar-home button", {
+    opacity: 0,
+    scale: 0,
+    y: 20,
+    stagger: 0.05,
+    duration: 0.3,
+    ease: "power2.out"
+  }, "<")
+  .to("#tools .bar-home", {
+  zIndex: -10,
+  pointerEvents: "none"
+})
+  .to("#tools .bar-studio", {
+  zIndex:1,
+  pointerEvents: "auto"
+}, "<")
+  .to("#tools .bar-studio button", {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    delay: 0.15,
+    stagger: 0.05,
+    duration: 0.3,
+    ease: "power2.out"
+  }, "<");
+
+toolbarTL.eventCallback("onComplete", function() {
+  $btn.attr("data-status","back").find("i").removeClass().addClass("fa-solid fa-feather");
+  $btn.find("span").text("Edit");
+});
+
+toolbarTL.eventCallback("onReverseComplete", function() {
+  $btn.attr("data-status","next").find("i").removeClass().addClass("fa-solid fa-timeline");
+  $btn.find("span").text("Studio");
+});
+
+  
 
 function enterStudio($btn) {
   hideRichToolbar();
@@ -7411,47 +7513,8 @@ function enterStudio($btn) {
   $("#text").hide();
   $("#lyrics").show();
   $("#rhymes-bar").removeClass("on"); 
-
-    gsap.timeline()
-      .to("#tools .bar-home button", {
-  opacity:0,
-  scale:0,
-  y: 20,
-  stagger: 0.05,
-    duration: 0.3,
-    ease: "power2.out",
-  "flex": "0 0 auto",
-}).to("#tools .bar-home", {
-  width: 0,
-  minWidth: 0,
-  maxWidth:0,
-  padding: 0,
-  border: "none",
-  opacity: 0,
-  overflow: "hidden",
-  margin: 0,
-    duration: 0.3,
-    ease: "power2.out",
-  "flex": "0 0 auto"
-}).to("#tools .bar-studio", { 
-    opacity: 1,
-    width: "100%",
-    duration: 0.3,
-    ease: "power2.out",
-  "flex": "1 1 auto"
-  }, "<"
-).to("#tools .bar-studio button", { 
-    opacity: 1,
-  y: 0,
-  scale:1,
-  stagger: 0.05,
-    duration: 0.3,
-    ease: "power2.out"
-  }
-);
-
-  $btn.attr("data-status", "back").find("i").removeClass().addClass("fa-solid fa-feather");
-  $btn.find("span").text("Edit");
+  
+toolbarTL.restart();
 
   if (player.src && player.src !== location.href) enableBtn("#next-line");
   else disableBtn("#next-line");
@@ -7509,42 +7572,7 @@ function exitStudio($btn) {
   inStudio = false;
   document.body.classList.remove("studio-mode");
 
-      gsap.timeline()
-  .to("#tools .bar-studio button", { 
-    opacity: 0,
-  y: 20,
-  scale:0,
-  stagger: 0.05,
-    duration: 0.3,
-    ease: "power2.out"
-  }
-).to("#tools .bar-studio", {
-  width: 0,
-  padding: 0,
-  border: "none",
-  opacity: 0,
-  overflow: "hidden",
-  margin: 0,
-    duration: 0.3,
-    ease: "power2.out",
-  "flex": "0 0 auto"
-}).to("#tools .bar-home", { 
-    opacity: 1,
-        width:"120px",
-    minWidth:"120px",
-    maxWidth:"120px",
-    duration: 0.3,
-    ease: "power2.out",
-  "flex": "1 1 auto"
-  }, "<"
-).to("#tools .bar-home button", {
-  opacity:1,
-  scale:1,
-  y: 0,
-  stagger: 0.05,
-    duration: 0.3,
-    ease: "power2.out"
-});
+      toolbarTL.reverse();
 
   $("#lyrics").attr("data-status", "normal").find("p").removeClass("no selected sync");
 
@@ -7572,8 +7600,6 @@ function exitStudio($btn) {
   $("#text").show();
   $("#lyrics").hide();
 
-  $btn.attr("data-status", "next").find("i").removeClass().addClass("fa-solid fa-bars-progress");
-  $btn.find("span").text("Studio");
 
   disableBtn("#next-line");
   $("#next-line").removeClass("rec-on").attr("data-status", "record").find("span").text("Record");
@@ -7951,7 +7977,6 @@ $(".meta-field").on("change input", function () {
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    FIND & REPLACE
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-
 var findMatches = [];
 var findMatchIndex = -1;
 var findIndexCache = null;
@@ -7959,29 +7984,37 @@ var findIndexCache = null;
 function escapeRegex(str) {
   return (str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
 function buildFindIndex() {
   var el = document.getElementById("input");
   var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
   var nodes = [];
   var text = "";
   var node;
+
   while (node = walker.nextNode()) {
-    var t = node.textContent || "";
+    var t = node.nodeValue || "";
+    if (!t.length) continue;
+
     var start = text.length;
     nodes.push({ node: node, start: start, end: start + t.length });
     text += t;
   }
+
   return { text: text, nodes: nodes };
 }
 
 function buildFindRegex() {
   var find = $("#find-input").val();
   if (!find) return null;
+
   var isRegex = $("#find-regex").prop("checked");
   var isWhole = $("#find-word").prop("checked");
   var isCase = $("#find-case").prop("checked");
+
   var pattern = isRegex ? find : escapeRegex(find);
   if (isWhole) pattern = "\\b" + pattern + "\\b";
+
   try {
     return new RegExp(pattern, isCase ? "g" : "gi");
   } catch (e) {
@@ -7995,78 +8028,290 @@ function updateFindCount() {
   else $("#find-count").text((findMatchIndex + 1) + "/" + findMatches.length);
 }
 
-function getRangeForMatch(match, index) {
-  var idx = index || findIndexCache;
-  if (!idx) return null;
+function isFindUiFocused() {
+  return $("#find-input").is(":focus") || $("#replace-input").is(":focus");
+}
+
+
+function unwrapNode(el) {
+  if (!el || !el.parentNode) return;
+  var p = el.parentNode;
+  while (el.firstChild) p.insertBefore(el.firstChild, el);
+  p.removeChild(el);
+  p.normalize();
+}
+
+function clearFindHighlights() {
+  var hits = document.querySelectorAll("#input .find-hit");
+  for (var i = hits.length - 1; i >= 0; i--) unwrapNode(hits[i]);
+}
+
+function getSegmentsForMatch(match, idx) {
   var nodes = idx.nodes;
-  var startNode = null, endNode = null, startOffset = 0, endOffset = 0;
+  var segs = [];
+  var s = match.start;
+  var e = match.end;
+
   for (var i = 0; i < nodes.length; i++) {
     var n = nodes[i];
-    if (startNode === null && match.start >= n.start && match.start <= n.end) {
-      startNode = n.node;
-      startOffset = match.start - n.start;
-    }
-    if (match.end >= n.start && match.end <= n.end) {
-      endNode = n.node;
-      endOffset = match.end - n.start;
-      break;
+    if (e <= n.start) break;
+    if (s >= n.end) continue;
+
+    var a = Math.max(s, n.start) - n.start;
+    var b = Math.min(e, n.end) - n.start;
+
+    if (b > a) {
+      segs.push({
+        node: n.node,
+        a: a,
+        b: b
+      });
     }
   }
-  if (!startNode || !endNode) return null;
-  var range = document.createRange();
-  range.setStart(startNode, startOffset);
-  range.setEnd(endNode, endOffset);
-  return range;
+
+  return segs;
 }
+
+function splitTextForSegment(textNode, a, b) {
+  var len = textNode.nodeValue.length;
+
+  if (b < len) textNode.splitText(b);
+  if (a > 0) textNode = textNode.splitText(a);
+
+  return textNode;
+}
+
+function wrapTextNode(textNode, matchIndex) {
+  var span = document.createElement("span");
+  span.className = "find-hit";
+  span.setAttribute("data-find-i", String(matchIndex));
+
+  var p = textNode.parentNode;
+  p.insertBefore(span, textNode);
+  span.appendChild(textNode);
+
+  return span;
+}
+
+function highlightAllMatches() {
+  clearFindHighlights();
+  if (!findMatches.length) return;
+
+  findIndexCache = buildFindIndex();
+
+  for (var i = findMatches.length - 1; i >= 0; i--) {
+    var segs = getSegmentsForMatch(findMatches[i], findIndexCache);
+
+    for (var s = segs.length - 1; s >= 0; s--) {
+      var seg = segs[s];
+      if (!seg.node || seg.node.nodeType !== 3) continue;
+
+      var exact = splitTextForSegment(seg.node, seg.a, seg.b);
+      wrapTextNode(exact, i);
+    }
+  }
+}
+
+function setActiveHighlight(i) {
+  $("#input .find-hit").removeClass("active");
+  $("#input .find-hit[data-find-i='" + i + "']").addClass("active");
+}
+
+function scrollActiveIntoView(i) {
+  var $hit = $("#input .find-hit[data-find-i='" + i + "']").first();
+  if ($hit.length && $hit[0].scrollIntoView) {
+    $hit[0].scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+}
+
 
 function selectMatch(idx) {
   if (!findMatches.length) return;
+
   if (idx < 0) idx = findMatches.length - 1;
   if (idx >= findMatches.length) idx = 0;
+
   findMatchIndex = idx;
-  var range = getRangeForMatch(findMatches[idx]);
-  if (range) {
-    var sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    var el = range.startContainer.parentElement;
-    if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" });
-  }
+  setActiveHighlight(findMatchIndex);
   updateFindCount();
+
+  if (isFindUiFocused()) {
+    scrollActiveIntoView(findMatchIndex);
+    return;
+  }
+
+  var hit = document.querySelector("#input .find-hit[data-find-i='" + findMatchIndex + "']");
+  if (!hit) return;
+
+  var r = document.createRange();
+  r.selectNodeContents(hit);
+
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
+
+  if (hit.scrollIntoView) hit.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
+
 function updateFindMatches() {
+  clearFindHighlights();
+
   var regex = buildFindRegex();
-  if (!regex) { findMatches = []; findMatchIndex = -1; updateFindCount(); return; }
+  if (!regex) {
+    findMatches = [];
+    findMatchIndex = -1;
+    findIndexCache = null;
+    updateFindCount();
+    return;
+  }
+
   findIndexCache = buildFindIndex();
+
   findMatches = [];
   var m;
+
   while ((m = regex.exec(findIndexCache.text)) !== null) {
     if (m[0] === "") { regex.lastIndex++; continue; }
     findMatches.push({ start: m.index, end: m.index + m[0].length, match: m[0] });
   }
+
   findMatchIndex = findMatches.length ? 0 : -1;
+
+  highlightAllMatches();
   updateFindCount();
-  if (findMatches.length) selectMatch(findMatchIndex);
+
+  if (findMatches.length) {
+    setActiveHighlight(findMatchIndex);
+    scrollActiveIntoView(findMatchIndex);
+    if (!isFindUiFocused()) selectMatch(findMatchIndex);
+  }
 }
 
 function getReplaceText(matchText) {
   var rep = $("#replace-input").val();
   if (!$("#find-regex").prop("checked")) return rep;
+
   var regex = buildFindRegex();
   if (!regex) return rep;
+
   var flags = regex.flags.replace("g", "");
   var re = new RegExp(regex.source, flags);
   return matchText.replace(re, rep);
 }
 
+
+function replaceCurrentMatch() {
+  updateFindMatches();
+  if (!findMatches.length) { toast("Not found", "xmark"); return; }
+
+  clearFindHighlights();
+  findIndexCache = buildFindIndex();
+
+  var idx = findMatchIndex >= 0 ? findMatchIndex : 0;
+  if (idx >= findMatches.length) idx = 0;
+
+  var match = findMatches[idx];
+  var segs = getSegmentsForMatch(match, findIndexCache);
+  if (!segs.length) { updateFindMatches(); toast("Not found", "xmark"); return; }
+
+  var replacement = getReplaceText(match.match);
+
+  for (var s = segs.length - 1; s >= 0; s--) {
+    var seg = segs[s];
+    if (!seg.node || seg.node.nodeType !== 3) continue;
+
+    var exact = splitTextForSegment(seg.node, seg.a, seg.b);
+
+    if (s === 0) {
+      exact.nodeValue = replacement;
+    } else {
+      if (exact.parentNode) exact.parentNode.removeChild(exact);
+    }
+  }
+
+  $("#input").trigger("input");
+  if (typeof pushHistorySnapshot === "function") pushHistorySnapshot();
+
+  updateFindMatches();
+  toast("Replaced", "check");
+}
+
+function replaceAllMatches() {
+  updateFindMatches();
+  if (!findMatches.length) { toast("Not found", "xmark"); return; }
+
+  clearFindHighlights();
+
+  var regex = buildFindRegex();
+  if (!regex) { updateFindMatches(); return; }
+
+  var idx = buildFindIndex();
+  var matches = [];
+  var m;
+
+  while ((m = regex.exec(idx.text)) !== null) {
+    if (m[0] === "") { regex.lastIndex++; continue; }
+    matches.push({ start: m.index, end: m.index + m[0].length, match: m[0] });
+  }
+
+  if (!matches.length) { updateFindMatches(); toast("Not found", "xmark"); return; }
+
+  for (var i = matches.length - 1; i >= 0; i--) {
+    var hit = matches[i];
+    var segs = getSegmentsForMatch(hit, idx);
+    if (!segs.length) continue;
+
+    var replacement = getReplaceText(hit.match);
+
+    for (var s = segs.length - 1; s >= 0; s--) {
+      var seg = segs[s];
+      if (!seg.node || seg.node.nodeType !== 3) continue;
+
+      var exact = splitTextForSegment(seg.node, seg.a, seg.b);
+
+      if (s === 0) exact.nodeValue = replacement;
+      else if (exact.parentNode) exact.parentNode.removeChild(exact);
+    }
+  }
+
+  $("#input").trigger("input");
+  if (typeof pushHistorySnapshot === "function") pushHistorySnapshot();
+
+  updateFindMatches();
+  toast("Replaced " + matches.length + " match(es)", "check");
+}
+
+/* ---------- events ---------- */
+
 $("#find-input, #find-case, #find-word, #find-regex").on("input change", function() {
   updateFindMatches();
 });
 
-function setToolsDim(on) { $("#tools").toggleClass("dim", !!on); }
-$("#find-input, #replace-input").on("focus input", function() { setToolsDim(true); });
-$("#find-input, #replace-input").on("blur", function() { setTimeout(function() { if (!$("#find-input").is(":focus") && !$("#replace-input").is(":focus")) setToolsDim(false); }, 120); });
+$("#replace-input").on("input", function() {});
+
+function setToolsDim(on) {
+  $("#tools").toggleClass("dim", !!on);
+}
+
+let toolDimTimeout;
+$("#find-input, #replace-input").on("input", function() {
+  setToolsDim(true);
+  clearTimeout(toolDimTimeout);
+  toolDimTimeout = setTimeout(function() {
+    setToolsDim(false);
+  }, 1000);
+});
+
+$("#find-input, #replace-input").on("blur", function() {
+  setTimeout(function() {
+    if (!$("#find-input").is(":focus") && !$("#replace-input").is(":focus")) {
+      setToolsDim(false);
+    }
+  }, 120);
+});
+
+/* ---------- next/prev ---------- */
 
 $("#find-next").click(function () {
   if (!findMatches.length) { updateFindMatches(); return; }
@@ -8078,39 +8323,18 @@ $("#find-prev").click(function () {
   selectMatch(findMatchIndex - 1);
 });
 
+/* ---------- replace buttons ---------- */
+
 $("#replace-one").click(function () {
-  if (!findMatches.length) { updateFindMatches(); }
-  if (!findMatches.length) { toast("Not found", "xmark"); return; }
-  var idx = findMatchIndex >= 0 ? findMatchIndex : 0;
-  var match = findMatches[idx];
-  var range = getRangeForMatch(match);
-  if (!range) { toast("Not found", "xmark"); return; }
-  var replacement = getReplaceText(match.match);
-  range.deleteContents();
-  range.insertNode(document.createTextNode(replacement));
-  $("#input").trigger("input");
-  if (typeof pushHistorySnapshot === "function") pushHistorySnapshot();
-  updateFindMatches();
-  toast("Replaced", "check");
+  replaceCurrentMatch();
 });
 
 $("#replace-all").click(function () {
-  updateFindMatches();
-  if (!findMatches.length) { toast("Not found", "xmark"); return; }
-  var idx = buildFindIndex();
-  for (var i = findMatches.length - 1; i >= 0; i--) {
-    var m = findMatches[i];
-    var range = getRangeForMatch(m, idx);
-    if (!range) continue;
-    var replacement = getReplaceText(m.match);
-    range.deleteContents();
-    range.insertNode(document.createTextNode(replacement));
-  }
-  $("#input").trigger("input");
-  if (typeof pushHistorySnapshot === "function") pushHistorySnapshot();
-  updateFindMatches();
-  toast("Replaced " + findMatches.length + " match(es)", "check");
-});/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  replaceAllMatches();
+});
+
+  
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    THEME, COLOR, FONT, SIZE
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
@@ -9790,6 +10014,10 @@ $(document).on("click", ".faq-q", function() {
 });
 
 $("#btn-faq").click(function() {
+  if ( $("#menu-toggle").hasClass("menu-on") ) {
+  $("#menu-toggle").click();
+  }
+   
   renderFAQ();
   $("#faq-modal").addClass("go");
   gsap.fromTo(".faq-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" });
@@ -9878,10 +10106,10 @@ $(document).on("keydown", function (e) {
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 var tutorialSteps = [
-  { selector: "#input", title: "Editor", text: "Write your lyrics here. Each line becomes a separate lyric line in Studio mode." },
-  { selector: "#toolbar", title: "Toolbar", text: "Audio controls, record controls, and Studio live here. Use it to play, record, and sync lines." },
+  { selector: "#text", title: "Editor", text: "Write your lyrics here. Each line becomes a separate lyric line in Studio mode.", onEnter: function() { exitStudio(); }},
+  { selector: "#tools", title: "Toolbar", text: "Audio controls, record controls, and Studio live here. Use it to play, record, and sync lines." },
   { selector: "#next", title: "Studio", text: "Enter Studio mode to timestamp each line and sync lyrics to audio." },
-  { selector: "#next-line", title: "Record / Next", text: "In Studio, press Record to start, then press Next as each line begins." },
+  { selector: "#next-line", title: "Record / Next", text: "In Studio, press Record to start, then press Next as each line begins.", onEnter: function() { enterStudio(); } },
   { selector: "#tab-bar", title: "Tabs", text: "Work on multiple songs at once. Each tab keeps its own lyrics, metadata, and audio." },
   { selector: "#menu-toggle", title: "Menu Panel", text: "Open the panel to access actions, metadata, find/replace, themes, and more.", onEnter: function() { openPanel(); } },
   { selector: "#meta-grid", title: "Metadata", text: "Set song title, artist, album, and other details here.", onEnter: function() { openPanel(); } },
@@ -9889,10 +10117,10 @@ var tutorialSteps = [
   { selector: "#explain-gallery-btn", title: "Explanations", text: "View, favorite, move, and edit explanations for your lyrics.", onEnter: function() { openPanel(); $("#explain-gallery-btn").show(); } },
   { selector: "#find-input", title: "Find & Replace", text: "Search with case, whole-word, or regex options and step through matches.", onEnter: function() { openPanel(); } },
   { selector: "#open-btn", title: "Library", text: "Open the Library to browse, filter, and manage saved files.", onEnter: function() { openPanel(); } },
-  { selector: "#library .modal-inner", title: "Library", text: "Your saved files live here, with grid/list views, filters, and folders.", onEnter: function() { openLibrary(); }, onExit: function() { $("#library").removeClass("go"); } },
+  { selector: "#library", title: "Library", text: "Your saved files live here, with grid/list views, filters, and folders.", onEnter: function() { openLibrary(); }, onExit: function() { $("#library").removeClass("go"); } },
   { selector: "#save", title: "Backup", text: "Use Backup to export settings, current file, selected files, or everything.", onEnter: function() { openPanel(); $("#backup-modal").addClass("go"); }, onExit: function() { $("#backup-modal").removeClass("go"); } },
   { selector: "#open-btn", title: "Restore", text: "Restore settings or files from a backup JSON.", onEnter: function() { openPanel(); $("#restore-modal").addClass("go"); }, onExit: function() { $("#restore-modal").removeClass("go"); } },
-  { selector: "#audio-btn", title: "Karaoke", text: "After timestamping, Karaoke mode plays your lyrics with glow timing." }
+  { selector: "#audio-btn", title: "Karaoke", text: "After timestamping, Karaoke mode plays your lyrics with glow timing.", onEnter: function() { exitStudio(); } }
 ];
 
 var currentTutorialStep = 0;
@@ -9909,26 +10137,6 @@ function closePanel() {
   $("#menu-toggle").removeClass("menu-on");
 }
 
-function positionTutorialTooltip() {
-  if (!currentTutorialTarget || !currentTutorialTarget.length) return;
-  var rect = currentTutorialTarget[0].getBoundingClientRect();
-  var $tooltip = $("#tutorial-tooltip");
-  var tooltipHeight = $tooltip.outerHeight();
-  var tooltipWidth = $tooltip.outerWidth();
-
-  var top = rect.bottom + 20;
-  var left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-
-  if (top + tooltipHeight > window.innerHeight) {
-    top = rect.top - tooltipHeight - 20;
-  }
-  if (left < 10) left = 10;
-  if (left + tooltipWidth > window.innerWidth - 10) {
-    left = window.innerWidth - tooltipWidth - 10;
-  }
-
-  $tooltip.css({ top: top + "px", left: left + "px" });
-}
 
 function startTutorial() {
   currentTutorialStep = 0;
@@ -9960,8 +10168,52 @@ function showTutorialStep() {
     }
 
     currentTutorialTarget = $element;
-    $(".tutorial-highlight").removeClass("tutorial-highlight");
-    $element.addClass("tutorial-highlight");
+    
+    if (currentTutorialStep === 0) {
+      $("#tutorial-prev").hide();
+    } else {
+      $("#tutorial-prev").show();
+    }
+    
+    $(".active-tut").css("opacity", 1).removeClass("active-tut");
+    $element.addClass("active-tut");
+    
+    $(".tutorial-highlight").remove();
+
+    setTimeout(function() {
+function cssImportant($el, styles) {
+  var el = $el[0];
+  for (var k in styles) {
+    el.style.setProperty(
+      k.replace(/[A-Z]/g, function(m){ return "-" + m.toLowerCase(); }),
+      styles[k],
+      "important"
+    );
+  }
+  return $el;
+}
+
+var $clone = $element.clone(false, false).addClass("tutorial-highlight").appendTo("body");
+
+var r = $element[0].getBoundingClientRect();
+
+cssImportant($clone, {
+  position: "fixed",
+  top: r.top + "px",
+  left: r.left + "px",
+  width: r.width + "px",
+  height: r.height + "px",
+  margin: "0",
+  boxSizing: "border-box",
+  zIndex: "999999",
+  pointerEvents: "none",
+  transform: "none"
+});
+      
+      $element.css("opacity", "0");
+    }, 600);
+
+
 
     $("#tutorial-title").text(step.title);
     $("#tutorial-text").text(step.text);
@@ -9970,16 +10222,80 @@ function showTutorialStep() {
     try { $element[0].scrollIntoView({ block: "center", behavior: "smooth" }); } catch (ex) {}
     positionTutorialTooltip();
 
-    $("#tutorial-prev").prop("disabled", currentTutorialStep === 0);
+    
     $("#tutorial-next").text(currentTutorialStep === tutorialSteps.length - 1 ? "Finish" : "Next");
   }, 60);
 }
+  
+  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+function positionTutorialTooltip() {
+  if (!currentTutorialTarget || !currentTutorialTarget.length) return;
+
+  var rect = currentTutorialTarget[0].getBoundingClientRect();
+  var $tooltip = $("#tutorial-tooltip");
+
+  gsap.set($tooltip, { display: "block", visibility: "hidden" });
+
+  var pad = 10;
+  var gap = 20;
+
+  var tooltipW = $tooltip.outerWidth();
+  var tooltipH = $tooltip.outerHeight();
+
+  gsap.set($tooltip, {
+    maxWidth: window.innerWidth - pad * 2,
+    maxHeight: window.innerHeight - pad * 2,
+  zIndex: 10000000,
+    overflowY: "auto"
+  });
+
+  tooltipW = $tooltip.outerWidth();
+  tooltipH = $tooltip.outerHeight();
+
+ var extraY =
+  currentTutorialStep === 3 ? -50 :
+  currentTutorialStep === 8 ? -100 :
+  currentTutorialStep === 9 ? -100 :
+  currentTutorialStep === 10 ? -100 :
+  currentTutorialStep === 11 ? 190 :
+  0;
+  
+  var top = rect.bottom + gap;
+
+  if (top + tooltipH > window.innerHeight - pad) {
+    top = rect.top - tooltipH - gap;
+  }
+ 
+     top = clamp(top, pad, window.innerHeight - tooltipH - pad);
+  
+
+  var left = rect.left + (rect.width / 2) - (tooltipW / 2);
+  left = clamp(left, pad, window.innerWidth - tooltipW - pad);
+
+  gsap.set($tooltip, { visibility: "visible" });
+
+  gsap.to($tooltip, {
+    top: top + extraY,
+    left: left,
+  zIndex: 10000000,
+    duration: 0.35,
+    ease: "power2.out",
+    overwrite: "auto"
+  });
+}
 
 function endTutorial() {
-  if (tutorialPrevStep && tutorialPrevStep.onExit) tutorialPrevStep.onExit();
+  if (tutorialPrevStep && tutorialPrevStep.onExit) {
+    tutorialPrevStep.onExit();
+  }
+  
   $("#tutorial-overlay").removeClass("active");
   $("#tutorial-tooltip").removeClass("active");
-  $(".tutorial-highlight").removeClass("tutorial-highlight");
+  gsap.set("#tutorial-tooltip", { display: "none", visibility: "hidden" });
+  $(".active-tut").css("opacity", 1).removeClass("active-tut");
+    $(".tutorial-highlight").remove();
+  $("#faq-modal").addClass("go");
   $("#backup-modal, #restore-modal, #library").removeClass("go");
   closePanel();
   currentTutorialStep = 0;
