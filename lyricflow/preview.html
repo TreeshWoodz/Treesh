@@ -4770,6 +4770,11 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
 #lock-settings-modal{ display:none; }
 #lock-settings-modal.go{ display:flex; }
 
+#meta-more{ display:none; flex-direction:column; gap:5px; margin-top:6px; }
+#meta-more .meta-field{ width:100%; }
+#meta-more-toggle{ margin-top:6px; }
+
+#lock-settings-modal .modal-inner{ padding:18px; }
 </style>
 <base target="_blank">
 </head>
@@ -5214,12 +5219,18 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
             <input type="text" class="meta-field" id="meta_track" placeholder="Song title">
             <input type="text" class="meta-field" id="meta_artist" placeholder="Artist name">
             <input type="text" class="meta-field" id="meta_album" placeholder="Album name">
+
+            <button type="button" class="panel-btn" id="meta-more-toggle" style="width:100%;justify-content:center"><i class="fa-solid fa-chevron-down"></i> <span>Show More</span></button>
+            <div id="meta-more" style="display:none; overflow:hidden;">
+              <input type="text" class="meta-field" id="meta_writer" placeholder="Writer's Name">
+              <input type="datetime-local" class="meta-field" id="meta_datetime">
+              <input type="text" class="meta-field" id="meta_featuring" placeholder="Featuring Artist">
+              <input type="text" class="meta-field" id="meta_occasion" placeholder="Occasion">
+            </div>
+
           </div>
 
-      <button type="button" class="panel-btn" id="meta-more-toggle"><i class="fa-solid fa-chevron-down"></i> <span>Show More</span></button>
-      <div id="meta-more" style="display:none; overflow:hidden;">
-        <div class="meta-row"><label>Writer's Name</label><input type="text" id="meta_writer" placeholder="Writer's name"></div>
-        <div class="meta-row"><label>Date &amp; Time</label><input type="datetime-local" id="meta_datetime"></div>
+      <div class="meta-row"><label>Date &amp; Time</label><input type="datetime-local" id="meta_datetime"></div>
         <div class="meta-row"><label>Featuring Artist</label><input type="text" id="meta_featuring" placeholder="Featuring artist"></div>
         <div class="meta-row"><label>Occasion</label><input type="text" id="meta_occasion" placeholder="Occasion"></div>
       </div>
@@ -5586,6 +5597,7 @@ LF.maybeLockThen = function(done) {
 
   function unlock() {
     $("#lock-msg").text("");
+    if (!LF.isLitePlus()) { gsap.to(".lock-card",{opacity:0,scale:0.98,duration:0.18,ease:"power2.inOut",onComplete:function(){ $ls.removeClass("on"); $(".lock-card").css({opacity:"",transform:""}); if (typeof done === "function") done(); }}); return; }
     $ls.removeClass("on");
     if (typeof done === "function") done();
   }
@@ -5602,6 +5614,8 @@ LF.maybeLockThen = function(done) {
   $ls.addClass("on");
   renderDots();
   $("#lock-msg").text("");
+  if (!LF.isLitePlus()) gsap.fromTo(".lock-card",{scale:0.94,opacity:0,y:18},{scale:1,opacity:1,y:0,duration:0.45,ease:"power3.out"});
+
 
   $("#lock-pad").off("click.lock").on("click.lock", ".lock-key", function() {
     var k = $(this).data("k");
@@ -5638,6 +5652,7 @@ LF.maybeLockThen = function(done) {
 /* Apply stored lite mode as early as possible */
 $(function() {
   LF.applyLiteMode(LF.getLiteMode());
+  try { closePanelHard(); } catch(e) {}
 });
 
 
@@ -6530,6 +6545,7 @@ function switchTab(id) {
 
   setInputHTML(tab.content);
   normalizeInputBlocks();
+  try { setTimeout(updateInputPlaceholder, 0); } catch(e) {}
   $("#meta_track").val(tab.title || "");
   $("#meta_artist").val(tab.artist || "");
   $("#meta_album").val(tab.album || "");
@@ -7672,6 +7688,35 @@ $("#open-btn").off("click.open").on("click.open", function () {
     }
   } catch(e) {}
   openLibrary();
+});
+
+
+function openQuickModal(){
+  $("#open-quick").addClass("go");
+  if (!LF.isLitePlus()) gsap.fromTo("#open-quick .modal-inner",{scale:0.92,opacity:0,y:20},{scale:1,opacity:1,y:0,duration:0.35,ease:"power3.out"});
+}
+$(document).off("click.openquick", "#open-btn").on("click.openquick", "#open-btn", function(){
+  openQuickModal();
+});
+$(document).off("click.openquick", "#open-quick-close").on("click.openquick", "#open-quick-close", function(){
+  $("#open-quick").removeClass("go");
+});
+$(document).off("click.openquick", "#open-quick-library").on("click.openquick", "#open-quick-library", function(){
+  $("#open-quick").removeClass("go");
+  openLibrary();
+});
+$(document).off("click.openquick", "#open-quick-treesh").on("click.openquick", "#open-quick-treesh", function(){
+  $("#open-quick").removeClass("go");
+  doTreeshImport();
+});
+$(document).off("click.openquick", "#open-quick-restore").on("click.openquick", "#open-quick-restore", function(){
+  $("#open-quick").removeClass("go");
+  $("#restore-modal").addClass("go");
+  if (!LF.isLitePlus()) gsap.fromTo("#restore-modal .modal-inner",{scale:0.92,opacity:0,y:20},{scale:1,opacity:1,y:0,duration:0.35,ease:"power3.out"});
+});
+$(document).off("click.openquick", "#open-quick-text").on("click.openquick", "#open-quick-text", function(){
+  $("#open-quick").removeClass("go");
+  $("#openFileInput").click();
 });
 
 var pendingOpenFile = null;
@@ -8840,6 +8885,8 @@ $("#audio-btn").click(function () {
   });
 
 
+
+closePanelHard();
 $("#menu-toggle").click(function () {
   hideRichToolbar();
   var $panel = $("#panel");
@@ -8853,6 +8900,14 @@ $("#menu-toggle").click(function () {
   
    openPanel();
 });
+
+$(document).off("click.panelbg").on("click.panelbg", function(e){
+  var $p = $(e.target).closest("#toolbar");
+  if (!$p.length) return;
+  var insidePanel = $(e.target).closest("#panel, #menu-toggle").length;
+  if (!insidePanel && $("#panel").hasClass("open")) { closePanel(); }
+});
+
 
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -9237,6 +9292,50 @@ function choirSpeakLine(text, onDone){
   window.speechSynthesis.speak(u0);
 }
 
+
+var choirCancelToken = 0;
+
+function choirModeAllStrict(){
+  if (!("speechSynthesis" in window)) { toast("TTS not supported", "xmark"); return; }
+  if (!inStudio) { toast("Enter Studio first", "xmark"); return; }
+
+  var lines = [];
+  $("#lyrics p").each(function(){
+    var $p = $(this);
+    var $cl = $p.clone();
+    $cl.find(".line-dur").remove();
+    var first = $cl.find("span").first().text().trim();
+    if (/^\[\d{2}:\d{2}\.\d{2}\]$/.test(first)) $cl.find("span").first().remove();
+    var t = ($cl.text() || "").replace(/\u00a0/g," ").trim().replace(/^\s*\[\d{2}:\d{2}\.\d{2}\]\s*/,"");
+    if (t) lines.push(t);
+  });
+  if (!lines.length) { toast("No lyrics", "xmark"); return; }
+
+  choirCancelToken++;
+  var token = choirCancelToken;
+  var i = 0;
+
+  function speakNext(){
+    if (token !== choirCancelToken) return;
+    if (i >= lines.length) { $("#tts-stop").addClass("inactive"); toast("Choir finished", "check"); return; }
+
+    var text = lines[i++];
+    try { window.speechSynthesis.cancel(); } catch(e) {}
+    var u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.0;
+    u.pitch = 1.05;
+    u.volume = 0.95;
+
+    u.onstart = function(){ $("#tts-stop").removeClass("inactive"); };
+    u.onend = function(){ if (token !== choirCancelToken) return; setTimeout(speakNext, 90); };
+    u.onerror = function(){ if (token !== choirCancelToken) return; setTimeout(speakNext, 90); };
+
+    window.speechSynthesis.speak(u);
+  }
+
+  speakNext();
+}
+
 function choirModeAll(){
   if (!("speechSynthesis" in window)) { toast("TTS not supported", "xmark"); return; }
   if (!inStudio) { toast("Enter Studio first", "xmark"); return; }
@@ -9318,18 +9417,6 @@ $("#tts-line").click(function() {
   if (!inStudio) { toast("Enter Studio first", "xmark"); return; }
   speakText(getActiveLyricLineText(), { rate: 1.0, pitch: 1.0 });
 });
-
-$("#tts-choir").click(function() {
-  if (!inStudio) { toast("Enter Studio first", "xmark"); return; }
-  choirMode(getActiveLyricLineText());
-  toast("Choir Mode", "wand-magic-sparkles");
-});
-
-$("#tts-stop").click(function() {
-  try { window.speechSynthesis.cancel(); toast("Stopped", "stop"); } catch(e) {}
-});
-
-
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LYRICS NODE HELPERS
@@ -11831,6 +11918,19 @@ function closePanel() {
 }
 
 
+function closePanelHard() {
+  try { panelToggleTL && panelToggleTL.pause(0); } catch(e) {}
+  $("#panel").removeClass("open").css({
+    maxHeight: 0,
+    opacity: 0,
+    padding: "0 4px",
+    overflow: "hidden"
+  }).scrollTop(0);
+  $("#menu-toggle").removeClass("menu-on");
+}
+
+
+
 function startTutorial() {
   currentTutorialStep = 0;
   $("#tutorial-overlay").addClass("active");
@@ -12177,6 +12277,19 @@ function fmtBytes(n){
 })();
 
 </script>
+
+<div class="modal" id="open-quick">
+  <div class="modal-inner" style="padding:18px">
+    <div class="modal-head"><span>Open</span><button id="open-quick-close"><i class="fas fa-x"></i></button></div>
+    <div class="modal-body contain" style="display:flex;flex-direction:column;gap:10px">
+      <button type="button" class="panel-btn" id="open-quick-library"><i class="fa-solid fa-book"></i> Library</button>
+      <button type="button" class="panel-btn" id="open-quick-treesh"><i class="fa-solid fa-cloud-arrow-down"></i> Import from Treesh</button>
+      <button type="button" class="panel-btn" id="open-quick-restore"><i class="fa-solid fa-box-archive"></i> Restore</button>
+      <button type="button" class="panel-btn" id="open-quick-text"><i class="fa-solid fa-file-import"></i> Import Text File</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html
   } catch(e) {
