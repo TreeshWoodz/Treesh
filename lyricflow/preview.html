@@ -5215,6 +5215,14 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
             <input type="text" class="meta-field" id="meta_artist" placeholder="Artist name">
             <input type="text" class="meta-field" id="meta_album" placeholder="Album name">
           </div>
+
+      <button type="button" class="panel-btn" id="meta-more-toggle"><i class="fa-solid fa-chevron-down"></i> <span>Show More</span></button>
+      <div id="meta-more" style="display:none; overflow:hidden;">
+        <div class="meta-row"><label>Writer's Name</label><input type="text" id="meta_writer" placeholder="Writer's name"></div>
+        <div class="meta-row"><label>Date &amp; Time</label><input type="datetime-local" id="meta_datetime"></div>
+        <div class="meta-row"><label>Featuring Artist</label><input type="text" id="meta_featuring" placeholder="Featuring artist"></div>
+        <div class="meta-row"><label>Occasion</label><input type="text" id="meta_occasion" placeholder="Occasion"></div>
+      </div>
         </div>
       </div>
 
@@ -5822,6 +5830,8 @@ function getInputHTML() {
 
 function setInputHTML(html) {
   document.getElementById("input").innerHTML = html;
+
+  try { setTimeout(updateInputPlaceholder, 0); } catch(e) {}
 }
 
 function getCaretOffset(root) {
@@ -6578,6 +6588,45 @@ function switchTab(id) {
   else disableBtn("#next");
 }
 
+
+var metaMoreOpen = false;
+function setMetaMore(open){
+  metaMoreOpen = !!open;
+  var $wrap = $("#meta-more");
+  var $btn = $("#meta-more-toggle");
+  if (!$wrap.length) return;
+
+  if (metaMoreOpen) {
+    $btn.find("span").text("Show Less");
+    $btn.find("i").removeClass("fa-chevron-down").addClass("fa-chevron-up");
+    if (LF.isLitePlus()) { $wrap.show(); return; }
+    $wrap.show();
+    gsap.fromTo($wrap, { height: 0, opacity: 0 }, { height: $wrap[0].scrollHeight, opacity: 1, duration: 0.35, ease: "power3.out", onComplete: function(){ $wrap.css("height","auto"); }});
+  } else {
+    $btn.find("span").text("Show More");
+    $btn.find("i").removeClass("fa-chevron-up").addClass("fa-chevron-down");
+    if (LF.isLitePlus()) { $wrap.hide(); return; }
+    gsap.to($wrap, { height: 0, opacity: 0, duration: 0.28, ease: "power2.inOut", onComplete: function(){ $wrap.hide().css({height:"auto",opacity:1}); }});
+  }
+}
+$(document).off("click", "#meta-more-toggle").on("click", "#meta-more-toggle", function(){ setMetaMore(!metaMoreOpen); });
+
+// include extra meta in tab state
+function readExtraMetaIntoTab(tab){
+  if (!tab) return;
+  tab.writer = $("#meta_writer").val() || "";
+  tab.datetime = $("#meta_datetime").val() || "";
+  tab.featuring = $("#meta_featuring").val() || "";
+  tab.occasion = $("#meta_occasion").val() || "";
+}
+function writeExtraMetaFromTab(tab){
+  tab = tab || {};
+  $("#meta_writer").val(tab.writer || "");
+  $("#meta_datetime").val(tab.datetime || "");
+  $("#meta_featuring").val(tab.featuring || "");
+  $("#meta_occasion").val(tab.occasion || "");
+}
+
 function saveCurrentTabState() {
   if (!activeTabId) return;
   var tab = tabs.find(function (t) { return t.id === activeTabId; });
@@ -6803,6 +6852,10 @@ function doAutosave() {
     title: tab.title,
     artist: tab.artist,
     album: tab.album,
+      writer: tab.writer || "",
+      datetime: tab.datetime || "",
+      featuring: tab.featuring || "",
+      occasion: tab.occasion || "",
     content: tab.content,
     modified: Date.now(),
     created: tab.created || Date.now(),
@@ -6850,6 +6903,10 @@ function doManualSave(forceMode) {
       title: tab.title,
       artist: tab.artist,
       album: tab.album,
+      writer: tab.writer || "",
+      datetime: tab.datetime || "",
+      featuring: tab.featuring || "",
+      occasion: tab.occasion || "",
       content: tab.content,
       modified: Date.now(),
       created: createdOverride || tab.created || Date.now(),
@@ -7248,6 +7305,10 @@ $("#save").click(function () {
               store.put({
                 id: saveId,
                 title: tab.title, artist: tab.artist, album: tab.album,
+      writer: tab.writer || "",
+      datetime: tab.datetime || "",
+      featuring: tab.featuring || "",
+      occasion: tab.occasion || "",
                 content: tab.content, modified: Date.now(), created: createdOverride,
                 saveType: "manual", completed: tab.completed || false,
                 favorite: tab.favorite || false, audioKey: tab.audioKey || null,
@@ -7542,35 +7603,52 @@ function buildHTMLOutput() {
       out += "<p" + (ts ? ' data-timestamp="' + ts + '"' : "") + ">" + content + "</p>\n";
     });
   } else {
-    getInputLinesHtml().forEach(function(line) {
-      // move leading [mm:ss.xx] into data-timestamp
-      var ts = "";
-      var plainLine = (line || "").replace(/<[^>]+>/g,"").replace(/\u00a0/g," ").trim();
-      var mTs = plainLine.match(/^\s*\[(\d{2}:\d{2}\.\d{2})\]\s*/);
+      // export from #text blocks (preserve data-timestamp)
+  var el = document.getElementById("input");
+  var kids = el ? Array.prototype.slice.call(el.children || []) : [];
+  kids.forEach(function(node){
+    var tag = (node.tagName || "").toLowerCase();
+    if (tag !== "p" && tag !== "div") return;
+
+    var ts = node.getAttribute("data-timestamp") || "";
+    var htmlLine = (node.innerHTML || "").trim();
+
+    // treat empty as <br>
+    var plain = (node.textContent || "").replace(/\u00a0/g," ").trim();
+    if (!plain.length && htmlLine.replace(/<br\s*\/?>/gi,"").replace(/\s|&nbsp;/g,"").length===0) {
+      out += "<p" + (ts ? ' data-timestamp="' + ts + '"' : "") + "><br></p>\n";
+      return;
+    }
+
+    // also support leading [mm:ss.xx] if user typed it
+    if (!ts) {
+      var mTs = plain.match(/^\s*\[(\d{2}:\d{2}\.\d{2})\]\s*/);
       if (mTs) {
         ts = mTs[1];
-        line = (line || "").replace(/^\s*\[\d{2}:\d{2}\.\d{2}\]\s*/,"");
+        // strip from html
+        htmlLine = htmlLine.replace(/^\s*\[\d{2}:\d{2}\.\d{2}\]\s*/,"");
       }
+    } else {
+      htmlLine = htmlLine.replace(/^\s*\[\d{2}:\d{2}\.\d{2}\]\s*/,"");
+    }
 
-      var tmp = document.createElement("div");
-      tmp.innerHTML = line;
-      $(tmp).find("[data-explain]").each(function() {
-        var exp = $(this).attr("data-explain") || "";
-        var inner = $(this).html();
-        var date = $(this).attr("data-date") || $(this).attr("data-eg-date") || $(this).attr("data-eg-date-ex") || "";
-        var fav = ($(this).attr("data-fave") === "true" || $(this).attr("data-eg-fav") === "true" || $(this).attr("data-eg-fav-ex") === "true");
-        var attrs = ' data-explanation="' + exp.replace(/"/g, '&quot;') + '"';
-        if (date) attrs += ' data-date="' + date + '"';
-        if (fav) attrs += ' data-fave="true"';
-        $(this).replaceWith('<span' + attrs + '>' + inner + '</span>');
-      });
-      var content = tmp.innerHTML.trim();
-      var emptyCheck = content.replace(/<br\s*\/?>(\s*)/gi, "").replace(/&nbsp;/g, " ").replace(/<[^>]+>/g, "").trim();
-      if (!emptyCheck) content = "";
-      content = content.replace(/<s>(.*?)<\/s>/gi, '<strikethrough>$1</strikethrough>');
-      content = content.replace(/<strike>(.*?)<\/strike>/gi, '<strikethrough>$1</strikethrough>');
-      out += '<p>' + (content || "") + '</p>\n';
+    var tmp = document.createElement("div");
+    tmp.innerHTML = htmlLine;
+
+    // explain tags
+    tmp.querySelectorAll("[data-explain]").forEach(function(span){
+      var exp = span.getAttribute("data-explain") || "";
+      var inner = span.innerHTML;
+      var date = span.getAttribute("data-date") || span.getAttribute("data-eg-date") || span.getAttribute("data-eg-date-ex") || "";
+      var fav = (span.getAttribute("data-fave") === "true" || span.getAttribute("data-eg-fav") === "true" || span.getAttribute("data-eg-fav-ex") === "true");
+      span.outerHTML = '<span data-explanation="' + exp.replace(/"/g,'&quot;') + '"' + (date ? ' data-date="' + date + '"' : "") + (fav ? ' data-fave="true"' : "") + ">" + inner + "</span>";
     });
+
+    var clean = tmp.innerHTML;
+    clean = clean.replace(/<s>(.*?)<\/s>/gi, '<strikethrough>$1</strikethrough>');
+    clean = clean.replace(/<strike>(.*?)<\/strike>/gi, '<strikethrough>$1</strikethrough>');
+    out += "<p" + (ts ? ' data-timestamp="' + ts + '"' : "") + ">" + clean + "</p>\n";
+  });
   }
 
   return out.trim();
@@ -7581,13 +7659,19 @@ function buildHTMLOutput() {
    OPEN BUTTON OPTIONS
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-$("#open-btn").click(function () {
-  showOptions("Open", [
-    { icon: "book", label: "Library", top: true, action: function() { openLibrary(); } },
-    { icon: "cloud-arrow-down", label: "Treesh", top: true, action: function() { doTreeshImport(); } },
-    { icon: "box-archive", label: "Restore", action: function() { $("#restore-modal").addClass("go"); gsap.fromTo("#restore-modal .modal-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }); } },
-    { icon: "file-import", label: "Text File", action: function() { $("#openFileInput").click(); } }
-  ], null, "menu");
+$("#open-btn").off("click.open").on("click.open", function () {
+  try {
+    if (typeof showOptions === "function") {
+      showOptions("Open", [
+        { icon: "book", label: "Library", top: true, action: function() { openLibrary(); } },
+        { icon: "cloud-arrow-down", label: "Treesh", top: true, action: function() { doTreeshImport(); } },
+        { icon: "box-archive", label: "Restore", action: function() { $("#restore-modal").addClass("go"); if (!LF.isLitePlus()) gsap.fromTo("#restore-modal .modal-inner",{scale:0.92,opacity:0,y:20},{scale:1,opacity:1,y:0,duration:0.35,ease:"power3.out"}); } },
+        { icon: "file-import", label: "Text File", action: function() { $("#openFileInput").click(); } }
+      ], null, "menu");
+      return;
+    }
+  } catch(e) {}
+  openLibrary();
 });
 
 var pendingOpenFile = null;
@@ -8466,6 +8550,10 @@ $("#library .lib-item").on("click", ".lib-check", function(e) {
           tab.title = song.title || "Untitled";
           tab.artist = song.artist || "";
           tab.album = song.album || "";
+          tab.writer = song.writer || "";
+          tab.datetime = song.datetime || "";
+          tab.featuring = song.featuring || "";
+          tab.occasion = song.occasion || "";
           tab.content = song.content || "";
           tab.audioKey = song.audioKey || null;
           rememberLastTabAudio(tab);
@@ -8478,7 +8566,9 @@ $("#library .lib-item").on("click", ".lib-check", function(e) {
           $("#meta_track").val(tab.title);
           $("#meta_artist").val(tab.artist);
           $("#meta_album").val(tab.album);
-          if (typeof updateCoverartDisplay === "function") updateCoverartDisplay();
+          
+          try { writeExtraMetaFromTab(tab); } catch(e) {}
+if (typeof updateCoverartDisplay === "function") updateCoverartDisplay();
           if (tab.audioKey) loadTabAudioGlobal(tab.id, tab.audioKey);
           renderTabs();
           updateStats();
@@ -9084,11 +9174,94 @@ function choirMode(text) {
   }
 }
 
+function getAllStudioLyricLines(){
+  var lines = [];
+  $("#lyrics p").each(function(){
+    var $p = $(this);
+    var $cl = $p.clone();
+    $cl.find(".line-dur").remove();
+    // remove timestamp span if present
+    var first = $cl.find("span").first().text().trim();
+    if (/^\[\d{2}:\d{2}\.\d{2}\]$/.test(first)) $cl.find("span").first().remove();
+    var txt = ($cl.text() || "").replace(/\u00a0/g," ").trim();
+    txt = txt.replace(/^\s*\[\d{2}:\d{2}\.\d{2}\]\s*/,"");
+    if (txt) lines.push(txt);
+  });
+  return lines;
+}
+
+function choirSpeakLine(text, onDone){
+  if (!text) { if (onDone) onDone(); return; }
+  try { window.speechSynthesis.cancel(); } catch(e) {}
+  var overlays = [
+    { rate: 0.92, pitch: 0.90, delay: 0 },
+    { rate: 1.00, pitch: 1.05, delay: 80 },
+    { rate: 1.08, pitch: 1.20, delay: 160 },
+    { rate: 0.98, pitch: 0.78, delay: 220 }
+  ];
+
+  // main utterance controls sequencing
+  var u0 = new SpeechSynthesisUtterance(text);
+  u0.rate = overlays[1].rate;
+  u0.pitch = overlays[1].pitch;
+  u0.volume = 0.9;
+
+  var voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+  var vMain = voices.find(function(x){ return (x.lang || "").toLowerCase().indexOf("en") === 0; }) || voices[0] || null;
+  if (vMain) u0.voice = vMain;
+
+  u0.onstart = function(){
+    $("#tts-stop").removeClass("inactive");
+    // fire overlay voices
+    overlays.forEach(function(b, i){
+      if (i === 1) return;
+      setTimeout(function(){
+        try{
+          var u = new SpeechSynthesisUtterance(text);
+          u.rate = b.rate;
+          u.pitch = b.pitch;
+          u.volume = 0.75;
+          var vv = voices[i] || vMain;
+          if (vv) u.voice = vv;
+          window.speechSynthesis.speak(u);
+        }catch(e){}
+      }, b.delay);
+    });
+  };
+  u0.onend = function(){
+    $("#tts-stop").addClass("inactive");
+    if (onDone) onDone();
+  };
+  u0.onerror = function(){ $("#tts-stop").addClass("inactive"); if (onDone) onDone(); };
+
+  window.speechSynthesis.speak(u0);
+}
+
+function choirModeAll(){
+  if (!("speechSynthesis" in window)) { toast("TTS not supported", "xmark"); return; }
+  if (!inStudio) { toast("Enter Studio first", "xmark"); return; }
+  var lines = getAllStudioLyricLines();
+  if (!lines.length) { toast("No lyrics", "xmark"); return; }
+
+  var i = 0;
+  function next(){
+    if (i >= lines.length) { toast("Choir finished", "check"); return; }
+    var t = lines[i++];
+    choirSpeakLine(t, function(){
+      // tiny gap
+      setTimeout(next, 120);
+    });
+  }
+  next();
+}
+
+
+
 
 
 function audioIsLoaded(){
   try{
-    var p = (typeof player !== "undefined" && player) ? player : document.getElementById("audio");
+    var p = document.getElementById("player");
     if (!p) return false;
     var src = p.currentSrc || p.src || "";
     if (!src) return false;
@@ -10355,7 +10528,11 @@ $("#song-list").off("click.treeshChoose").on("click.treeshChoose", ".item button
   if (!ar || !tr) return;
 
   saveCurrentTabState();
-  createTab({ title: tr, artist: ar, album: "", content: "" });
+  createTab({ title: tr, artist: ar, album: "",
+    writer: "",
+    datetime: "",
+    featuring: "",
+    occasion: "", content: "" });
 
   $.get("https://treesh.life/content/lyrics.html", function (data) {
     var $h = $("<div>").html(data);
