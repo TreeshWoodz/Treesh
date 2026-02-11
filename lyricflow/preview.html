@@ -4775,6 +4775,36 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
 #meta-more-toggle{ margin-top:6px; }
 
 #lock-settings-modal .modal-inner{ padding:18px; }
+.lock-card{ position:relative; overflow:hidden; }
+.lock-card:before{
+  content:"";
+  position:absolute;
+  inset:-40%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), rgba(255,255,255,0) 45%),
+              radial-gradient(circle at 70% 60%, rgba(255,255,255,0.10), rgba(255,255,255,0) 55%);
+  transform: rotate(12deg);
+  pointer-events:none;
+}
+.lock-card:after{
+  content:"";
+  position:absolute;
+  top:-60%;
+  left:-60%;
+  width:220%;
+  height:220%;
+  background: linear-gradient(120deg, rgba(255,255,255,0) 35%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0) 65%);
+  transform: rotate(12deg);
+  opacity:0.75;
+  animation: lockshine 5.5s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes lockshine{
+  0%{ transform:translateX(-10%) rotate(12deg); opacity:0.35; }
+  50%{ transform:translateX(10%) rotate(12deg); opacity:0.85; }
+  100%{ transform:translateX(-10%) rotate(12deg); opacity:0.35; }
+}
+#lock-settings-modal .modal-inner{ padding:18px; }
+
 </style>
 <base target="_blank">
 </head>
@@ -5221,14 +5251,14 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
             <input type="text" class="meta-field" id="meta_album" placeholder="Album name">
 
             <button type="button" class="panel-btn" id="meta-more-toggle" style="width:100%;justify-content:center"><i class="fa-solid fa-chevron-down"></i> <span>Show More</span></button>
-            <div id="meta-more" style="display:none; overflow:hidden;">
+            <div id="meta-more">
               <input type="text" class="meta-field" id="meta_writer" placeholder="Writer's Name">
               <input type="datetime-local" class="meta-field" id="meta_datetime">
               <input type="text" class="meta-field" id="meta_featuring" placeholder="Featuring Artist">
               <input type="text" class="meta-field" id="meta_occasion" placeholder="Occasion">
             </div>
 
-          </div>
+</div>
 
       <div class="meta-row"><label>Date &amp; Time</label><input type="datetime-local" id="meta_datetime"></div>
         <div class="meta-row"><label>Featuring Artist</label><input type="text" id="meta_featuring" placeholder="Featuring artist"></div>
@@ -5598,6 +5628,7 @@ LF.maybeLockThen = function(done) {
   function unlock() {
     $("#lock-msg").text("");
     if (!LF.isLitePlus()) { gsap.to(".lock-card",{opacity:0,scale:0.98,duration:0.18,ease:"power2.inOut",onComplete:function(){ $ls.removeClass("on"); $(".lock-card").css({opacity:"",transform:""}); if (typeof done === "function") done(); }}); return; }
+    if (!LF.isLitePlus()) { gsap.to(".lock-card",{opacity:0,scale:0.98,duration:0.18,ease:"power2.inOut",onComplete:function(){ $ls.removeClass("on"); $(".lock-card").css({opacity:"",transform:""}); if (typeof done === "function") done(); }}); return; }
     $ls.removeClass("on");
     if (typeof done === "function") done();
   }
@@ -5614,6 +5645,8 @@ LF.maybeLockThen = function(done) {
   $ls.addClass("on");
   renderDots();
   $("#lock-msg").text("");
+  if (!LF.isLitePlus()) gsap.fromTo(".lock-card",{scale:0.94,opacity:0,y:18},{scale:1,opacity:1,y:0,duration:0.45,ease:"power3.out"});
+
   if (!LF.isLitePlus()) gsap.fromTo(".lock-card",{scale:0.94,opacity:0,y:18},{scale:1,opacity:1,y:0,duration:0.45,ease:"power3.out"});
 
 
@@ -6872,6 +6905,10 @@ function doAutosave() {
       datetime: tab.datetime || "",
       featuring: tab.featuring || "",
       occasion: tab.occasion || "",
+      writer: tab.writer || "",
+      datetime: tab.datetime || "",
+      featuring: tab.featuring || "",
+      occasion: tab.occasion || "",
     content: tab.content,
     modified: Date.now(),
     created: tab.created || Date.now(),
@@ -6919,6 +6956,10 @@ function doManualSave(forceMode) {
       title: tab.title,
       artist: tab.artist,
       album: tab.album,
+      writer: tab.writer || "",
+      datetime: tab.datetime || "",
+      featuring: tab.featuring || "",
+      occasion: tab.occasion || "",
       writer: tab.writer || "",
       datetime: tab.datetime || "",
       featuring: tab.featuring || "",
@@ -7321,6 +7362,10 @@ $("#save").click(function () {
               store.put({
                 id: saveId,
                 title: tab.title, artist: tab.artist, album: tab.album,
+      writer: tab.writer || "",
+      datetime: tab.datetime || "",
+      featuring: tab.featuring || "",
+      occasion: tab.occasion || "",
       writer: tab.writer || "",
       datetime: tab.datetime || "",
       featuring: tab.featuring || "",
@@ -8599,6 +8644,10 @@ $("#library .lib-item").on("click", ".lib-check", function(e) {
           tab.datetime = song.datetime || "";
           tab.featuring = song.featuring || "";
           tab.occasion = song.occasion || "";
+          tab.writer = song.writer || "";
+          tab.datetime = song.datetime || "";
+          tab.featuring = song.featuring || "";
+          tab.occasion = song.occasion || "";
           tab.content = song.content || "";
           tab.audioKey = song.audioKey || null;
           rememberLastTabAudio(tab);
@@ -8611,6 +8660,7 @@ $("#library .lib-item").on("click", ".lib-check", function(e) {
           $("#meta_track").val(tab.title);
           $("#meta_artist").val(tab.artist);
           $("#meta_album").val(tab.album);
+          try { writeExtraMetaFromTab(tab); } catch(e) {}
           
           try { writeExtraMetaFromTab(tab); } catch(e) {}
 if (typeof updateCoverartDisplay === "function") updateCoverartDisplay();
@@ -10574,7 +10624,7 @@ function doTreeshImport() {
   if (typeof inStudio !== "undefined" && inStudio && typeof exitStudio === "function") { exitStudio(); }
 
   var $modal = $("#song-list");
-  var $sc = $("#song-cards");
+  var $sc = $modal.find(".modal-body.contain").first();
   if (!$modal.length || !$sc.length) { toast("Treesh UI missing", "xmark"); return; }
 
   $sc.html('<p style="padding:20px;text-align:center;color:var(--text-3)">Loading…</p>');
