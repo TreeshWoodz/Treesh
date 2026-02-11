@@ -5430,7 +5430,7 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
 
     <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
       <input id="passcode-new" inputmode="numeric" maxlength="4" placeholder="4 digits" style="flex:1;padding:12px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-weight:800;letter-spacing:3px">
-      <button type="button" class="panel-btn" id="passcode-add" style="width:auto"><i class="fa-solid fa-plus"></i> Add</button>
+      <button type="button" class="panel-btn" id="passcode-add-btn" style="width:auto"><i class="fa-solid fa-plus"></i> Add</button>
     </div>
 
     <div class="passcode-list" id="passcode-list" style="margin-top:12px"></div>
@@ -5491,47 +5491,41 @@ LF.getPasscodes = function() {
     var raw = localStorage.getItem("lfPasscodes");
     var arr = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(arr)) arr = [];
-    return arr.map(function(x){ return (x || "").toString().replace(/\D/g,"").slice(0,4); }).filter(function(x){ return x.length === 4; });
-  } catch(e) { return []; }
+    return arr
+      .map(function(x){ return (x || "").toString().replace(/\D/g,"").slice(0,4); })
+      .filter(function(x){ return x.length === 4; });
+  } catch(e) {
+    return [];
+  }
 };
 
 LF.setPasscodes = function(arr) {
-  arr = (arr || []).map(function(x){ return (x || "").toString().replace(/\D/g,"").slice(0,4); }).filter(function(x){ return x.length === 4; });
-  // unique
-  var seen = {};
-  var out = [];
-  arr.forEach(function(c){ if (!seen[c]) { seen[c]=1; out.push(c); } });
-  localStorage.setItem("lfPasscodes", JSON.stringify(out));
-  // if none, auto disable lock
-  if (!out.length) localStorage.setItem("lfLockEnabled", "0");
+  try {
+    arr = Array.isArray(arr) ? arr : [];
+    arr = arr
+      .map(function(x){ return (x || "").toString().replace(/\D/g,"").slice(0,4); })
+      .filter(function(x){ return x.length === 4; });
+    localStorage.setItem("lfPasscodes", JSON.stringify(arr));
+  } catch(e) {}
 };
 
 LF.isLockEnabled = function() {
-  return localStorage.getItem("lfLockEnabled") === "1" && LF.getPasscodes().length > 0;
+  return (localStorage.getItem("lfLockEnabled") === "true");
 };
 
 LF.setLockEnabled = function(on) {
-  localStorage.setItem("lfLockEnabled", on ? "1" : "0");
+  localStorage.setItem("lfLockEnabled", on ? "true" : "false");
 };
 
-(function patchGSAPForLitePlus() {
+(function(){
   if (!window.gsap) return;
 
-  var _to = gsap.to;
-  var _from = gsap.from;
-  var _fromTo = gsap.fromTo;
-  var _timeline = gsap.timeline;
+  var _to = gsap.to, _from = gsap.from, _fromTo = gsap.fromTo, _timeline = gsap.timeline;
 
-  function immediate(targets, vars) {
-    if (!vars) vars = {};
-    var v = {};
-    for (var k in vars) {
-      if (k === "duration" || k === "delay" || k === "ease" || k === "overwrite") continue;
-      if (k === "onComplete" || k === "onUpdate" || k === "onStart") continue;
-      v[k] = vars[k];
-    }
-    gsap.set(targets, v);
-    if (typeof vars.onComplete === "function") vars.onComplete();
+  function immediate(targets, vars){
+    vars = vars || {};
+    try { gsap.set(targets, vars); } catch(e) {}
+    if (typeof vars.onComplete === "function") { try { vars.onComplete(); } catch(e) {} }
     return { kill: function(){} };
   }
 
@@ -5539,23 +5533,22 @@ LF.setLockEnabled = function(on) {
   gsap.from = function(t, v) { return LF.isLitePlus() ? immediate(t, v) : _from(t, v); };
   gsap.fromTo = function(t, f, v) {
     if (!LF.isLitePlus()) return _fromTo(t, f, v);
-    gsap.set(t, f || {});
+    try { gsap.set(t, f || {}); } catch(e) {}
     return immediate(t, v);
   };
   gsap.timeline = function(opts) {
     if (!LF.isLitePlus()) return _timeline(opts);
-    // Minimal timeline shim
     var obj = {
       to: function(t,v){ immediate(t,v); return obj; },
-      fromTo: function(t,f,v){ gsap.set(t,f||{}); immediate(t,v); return obj; },
+      fromTo: function(t,f,v){ try { gsap.set(t,f||{}); } catch(e) {} immediate(t,v); return obj; },
       from: function(t,v){ immediate(t,v); return obj; },
-      set: function(t,v){ gsap.set(t,v); return obj; },
+      set: function(t,v){ try { gsap.set(t,v); } catch(e) {} return obj; },
       add: function(){ return obj; },
       play: function(){ return obj; },
       reverse: function(){ return obj; },
       pause: function(){ return obj; }
     };
-    if (opts && typeof opts.onComplete === "function") setTimeout(opts.onComplete, 0);
+    if (opts && typeof opts.onComplete === "function") setTimeout(function(){ try { opts.onComplete(); } catch(e) {} }, 0);
     return obj;
   };
 })();
@@ -7035,114 +7028,106 @@ function loadSavedState(opts) {
     $(".theme-chip").removeClass("active").filter("[data-pick='" + savedTheme + "']").addClass("active");
   }
 
-  /* Lock + Lite settings init */
-  $("#lock-enabled").prop("checked", localStorage.getItem("lfLockEnabled") === "1");
+  
+/* Lock + Lite settings init */
+$("#lock-enabled").prop("checked", LF.isLockEnabled());
 
-  var lm = (localStorage.getItem("lfLiteMode") || "off").toLowerCase();
-  $("#lite-mode").val(lm);
+var lm = (localStorage.getItem("lfLiteMode") || "off").toLowerCase();
+if (lm !== "off" && lm !== "lite" && lm !== "liteplus") lm = "off";
+$("#lite-mode").val(lm);
+LF.applyLiteMode(lm);
 
-  function renderPasscodeList() {
-  $(document).off("click", "#passcode-add").on("click", "#passcode-add", function(){
-    var v = ($("#passcode-new").val() || "").replace(/\D/g,"").slice(0,4);
-    $("#passcode-new").val(v);
-    if (!/^\d{4}$/.test(v)) { toast("Enter 4 digits", "xmark"); return; }
-    var codes = LF.getPasscodes();
-    if (codes.indexOf(v) >= 0) { toast("Passcode already added", "xmark"); return; }
-    codes.push(v);
-    LF.setPasscodes(codes);
-    $("#passcode-new").val("");
-    renderPasscodeList();
-    toast("Passcode added", "lock");
-  });
-
-  $(document).off("click", "#passcode-done").on("click", "#passcode-done", function(){
-    $("#lock-settings-modal").removeClass("go");
-  });
-
-  $(document).off("click", "#lock-settings-close").on("click", "#lock-settings-close", function(){
-    $("#lock-settings-modal").removeClass("go");
-  });
-
-    var codes = LF.getPasscodes();
-    var $list = $("#passcode-list").empty();
-    if (!codes.length) {
-      $list.append('<div style="font-size:0.75rem;color:var(--text-3);padding:8px 2px">No passcodes set</div>');
-      return;
-    }
-    codes.forEach(function(c) {
-      var $row = $('<div class="passcode-pill"><div class="code">••••</div><button type="button"><i class="fa-solid fa-trash"></i></button></div>');
-      $row.find(".code").text(c);
-      $row.find("button").click(function() {
-        var next = LF.getPasscodes().filter(function(x){ return x !== c; });
-        LF.setPasscodes(next);
-        renderPasscodeList();
-        toast("Passcode removed", "trash");
-      });
-      $list.append($row);
-    });
+function renderPasscodeList() {
+  var codes = LF.getPasscodes();
+  var $list = $("#passcode-list").empty();
+  if (!codes.length) {
+    $list.append('<div style="font-size:0.75rem;color:var(--text-3);padding:8px 2px">No passcodes set</div>');
+    return;
   }
-
-  $("#lock-enabled").on("change", function() {
-    var on = $(this).prop("checked");
-    if (on && !LF.getPasscodes().length) {
-      // auto open manage if empty
-      LF.setLockEnabled(true);
-      $("#lock-settings-modal").addClass("go");
-      gsap.fromTo("#lock-settings-modal .modal-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "power3.out" });
+  codes.forEach(function(c) {
+    var $row = $('<div class="passcode-pill"><div class="code">••••</div><button type="button"><i class="fa-solid fa-trash"></i></button></div>');
+    $row.find(".code").text(c);
+    $row.find("button").off("click").on("click", function() {
+      var next = LF.getPasscodes().filter(function(x){ return x !== c; });
+      LF.setPasscodes(next);
       renderPasscodeList();
-      toast("Add at least 1 passcode", "key");
-      return;
-    }
-    LF.setLockEnabled(on);
-    toast(on ? "Lock screen enabled" : "Lock screen disabled", "lock");
+      toast("Passcode removed", "trash");
+      if (!next.length) {
+        LF.setLockEnabled(false);
+        $("#lock-enabled").prop("checked", false);
+      }
+    });
+    $list.append($row);
   });
+}
 
-  gsap.fromTo("#lock-settings-modal .modal-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "power3.out" });
+$(document).off("click.lockManage").on("click.lockManage", "#lock-manage", function(){
+  $("#lock-settings-modal").addClass("go");
+  renderPasscodeList();
+  $("#passcode-new").val("").focus();
+  if (!LF.isLitePlus()) gsap.fromTo("#lock-settings-modal .modal-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "power3.out" });
+});
+
+$(document).off("click.lockClose").on("click.lockClose", "#lock-settings-close, #passcode-done", function(){
+  $("#lock-settings-modal").removeClass("go");
+  if (!LF.getPasscodes().length) {
+    LF.setLockEnabled(false);
+    $("#lock-enabled").prop("checked", false);
+  }
+});
+
+$(document).off("click.lockAdd").on("click.lockAdd", "#passcode-add-btn", function(){
+  var v = ($("#passcode-new").val() || "").replace(/\D/g,"").slice(0,4);
+  $("#passcode-new").val(v);
+  if (!/^\d{4}$/.test(v)) { toast("Enter 4 digits", "xmark"); return; }
+  var codes = LF.getPasscodes();
+  if (codes.indexOf(v) >= 0) { toast("Already added", "xmark"); return; }
+  codes.push(v);
+  LF.setPasscodes(codes);
+  $("#passcode-new").val("").focus();
+  renderPasscodeList();
+  toast("Passcode added", "lock");
+});
+
+$(document).off("keydown.lockAdd").on("keydown.lockAdd", "#passcode-new", function(e){
+  if (e.key === "Enter") { e.preventDefault(); $("#passcode-add-btn").trigger("click"); }
+});
+
+$(document).off("click.lockClearAll").on("click.lockClearAll", "#passcode-clear-all", function(){
+  showConfirm("Remove all passcodes? Lock will be disabled.", function(){
+    LF.setPasscodes([]);
+    LF.setLockEnabled(false);
+    $("#lock-enabled").prop("checked", false);
     renderPasscodeList();
-    $("#passcode-new").val("").focus();
-  });
+    toast("Passcodes removed", "trash");
+  }, "Remove", "Cancel");
+});
 
-  $("#lock-settings-close, #passcode-done").click(function() {
-    $("#lock-settings-modal").removeClass("go");
-    // if no codes, force lock off
+$("#lock-enabled").off("change.lock").on("change.lock", function() {
+  var on = $(this).prop("checked");
+  if (on) {
     if (!LF.getPasscodes().length) {
       LF.setLockEnabled(false);
-      $("#lock-enabled").prop("checked", false);
-    }
-  });
-
-  $("#passcode-add-btn").click(function() {
-    var v = ($("#passcode-new").val() || "").replace(/\D/g, "").slice(0,4);
-    if (v.length !== 4) { toast("Need 4 digits", "xmark"); return; }
-    var codes = LF.getPasscodes();
-    codes.push(v);
-    LF.setPasscodes(codes);
-    $("#passcode-new").val("");
-    renderPasscodeList();
-    toast("Passcode added", "check");
-  });
-
-  $("#passcode-new").on("keydown", function(e) {
-    if (e.key === "Enter") { e.preventDefault(); $("#passcode-add-btn").click(); }
-  });
-
-  $("#passcode-clear-all").click(function() {
-    showConfirm("Remove all passcodes? Lock screen will be disabled.", function() {
-      LF.setPasscodes([]);
-      LF.setLockEnabled(false);
-      $("#lock-enabled").prop("checked", false);
+      $(this).prop("checked", false);
+      $("#lock-settings-modal").addClass("go");
       renderPasscodeList();
-      toast("Passcodes removed", "trash");
-    }, "Remove", "Cancel");
-  });
+      $("#passcode-new").val("").focus();
+      toast("Set a passcode first", "lock");
+    } else {
+      LF.setLockEnabled(true);
+    }
+  } else {
+    LF.setLockEnabled(false);
+  }
+});
 
-  $("#lite-mode").on("change", function() {
-    var mode = $(this).val();
-    LF.applyLiteMode(mode);
-    toast(mode === "off" ? "Performance: Off" : (mode === "lite" ? "Performance: Lite" : "Performance: Lite+"), "bolt");
-  });
+$("#lite-mode").off("change.lite").on("change.lite", function() {
+  var mode = $(this).val();
+  LF.applyLiteMode(mode);
+  toast(mode === "off" ? "Performance: Off" : (mode === "lite" ? "Performance: Lite" : "Performance: Lite+"), "bolt");
+});
 
-  var savedFont = localStorage.getItem("lyricFont");
+var savedFont = localStorage.getItem("lyricFont");
   if (savedFont) {
     $("#input").css("font-family", savedFont);
     $(".font-chip").removeClass("active").each(function () {
@@ -7556,7 +7541,7 @@ function buildHTMLOutput() {
 
       out += "<p" + (ts ? ' data-timestamp="' + ts + '"' : "") + ">" + content + "</p>\n";
     });
-  } else { else {
+  } else {
     getInputLinesHtml().forEach(function(line) {
       // move leading [mm:ss.xx] into data-timestamp
       var ts = "";
@@ -10321,209 +10306,95 @@ $("#input").on("click", "[data-explain]", function (e) {
   gsap.fromTo(".explain-box", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "power3.out" });
   setTimeout(function() { $("#explain-text").focus(); }, 200);
 });
-/* IMPORT FROM TREESH (with attributes)
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* IMPORT FROM TREESH (safe)
+   ───────────────────────── */
 
 function doTreeshImport() {
-  try {
   safeExitStudioBeforeFileOp();
   if (typeof inStudio !== "undefined" && inStudio && typeof exitStudio === "function") { exitStudio(); }
 
-  function normalize(str) {
-    return (str || "")
-      .toLowerCase()
-      .replace(/\(.*?\)/g, "")                 
-      .replace(/\bfeat\.?\b.*$/g, "")         
-      .replace(/\bft\.?\b.*$/g, "")           
-      .replace(/\bfeaturing\b.*$/g, "")        
-      .replace(/\s+[xÃ—&]\s+.*$/g, "")         
-      .replace(/[^a-z0-9\s]/g, "")             
-      .replace(/\s+/g, " ")                     
-      .trim();
-  }
+  var $modal = $("#song-list");
+  var $sc = $("#song-cards");
+  if (!$modal.length || !$sc.length) { toast("Treesh UI missing", "xmark"); return; }
 
-  $.get("https://treesh.life/content/songs.html").done(function (songsData) {
+  $sc.html('<p style="padding:20px;text-align:center;color:var(--text-3)">Loading…</p>');
+  $modal.addClass("go");
+  if (!LF.isLitePlus()) gsap.fromTo("#song-list .modal-inner", { scale: 0.92, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "power3.out" });
 
-    var coverMap = {};
-    var $songs = $("<div>").html(songsData);
+  $.get("https://treesh.life/content/songs.html", function (songsData) {
+    var $m = $("<div>").html(songsData);
+    var $songs = $m.find(".song");
+    if (!$songs.length) {
+      $sc.html('<p style="padding:20px;text-align:center;color:var(--text-3)">No songs found</p>');
+      return;
+    }
 
-    $songs.find("[data-artist][data-track][data-coverart]").each(function () {
-      var ar = normalize($(this).attr("data-artist"));
-      var tr = normalize($(this).attr("data-track"));
-      var cover = $(this).attr("data-coverart");
-
-      if (!tr || !cover) return;
-
-      // strict key
-      coverMap[ar + "||" + tr] = cover;
-
-      // track-only fallback (CRITICAL)
-      if (!coverMap["*||" + tr]) {
-        coverMap["*||" + tr] = cover;
-      }
+    var out = "";
+    $songs.each(function(){
+      var ar = ($(this).attr("data-artist") || $(this).find(".metadata .artist").text() || "").trim();
+      var tr = ($(this).attr("data-track") || $(this).find(".metadata .track").text() || "").trim();
+      if (!ar || !tr) return;
+      out += '<div class="item" data-artist="' + ar.replace(/"/g,'&quot;') + '" data-track="' + tr.replace(/"/g,'&quot;') + '" style="display:flex;align-items:center">';
+      out += '<div style="flex:1"><p class="artist">' + ar + '</p><p class="name">' + tr + '</p></div>';
+      out += '<div><button type="button">Choose</button></div></div>';
     });
-
-    // 2ï¸âƒ£ Load lyrics.html â†’ render list
-    $.get("https://treesh.life/content/lyrics.html").done(function (data) {
-
-      var $html = $("<div>").html(data);
-      var $sc = $("#song-list .contain").empty();
-      var cnt = 0;
-
-      $html.find(".lyric").each(function () {
-        var $m = $(this).find(".metadata");
-        var ar = $m.find(".artist").text();
-        var tr = $m.find(".track").text();
-
-        if (!ar.trim() && $(this).attr("data-artist")) ar = $(this).attr("data-artist");
-        if (!tr.trim() && $(this).attr("data-track")) tr = $(this).attr("data-track");
-
-        if (!ar.trim() || !tr.trim()) return;
-
-        cnt++;
-
-        var arKey = normalize(ar);
-        var trKey = normalize(tr);
-
-        // ðŸ” failproof lookup chain
-        var coverSrc =
-          coverMap[arKey + "||" + trKey] || // exact artist + track
-          coverMap["*||" + trKey] ||        // track-only fallback
-          "";
-
-        var coverHtml = coverSrc
-          ? '<img src="' + coverSrc + '" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;margin-right:8px">'
-          : '<div style="width:40px;height:40px;border-radius:8px;background:var(--surface-2);flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-music" style="opacity:0.3"></i></div>';
-        var coverAttr = coverSrc ? ' data-coverart="' + coverSrc + '"' : '';
-
-        $sc.append(
-          '<div class="item" data-artist="' + ar.trim() + '" data-track="' + tr.trim() + '"' + coverAttr + ' style="display:flex;align-items:center">' +
-            coverHtml +
-            '<div style="flex:1"><p class="artist">' + ar + '</p><p class="name">' + tr + '</p></div>' +
-            '<div><button type="button">Choose</button></div>' +
-          '</div>'
-        );
-      });
-
-      if (!cnt) {
-        $sc.html('<p style="padding:20px;text-align:center;color:var(--text-3)">No songs found</p>');
-      }
-
-      $("#song-list").addClass("go");
-      gsap.fromTo(
-        "#song-list .modal-inner",
-        { scale: 0.92, opacity: 0, y: 20 },
-        { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }
-      );
-
-    }).fail(function () {
-      toast("Failed to load lyrics", "xmark");
-    });
-
-  }).fail(function () {
-    toast("Failed to load songs", "xmark");
+    $sc.html(out);
+  }).fail(function(){
+    $sc.html('<p style="padding:20px;text-align:center;color:var(--text-3)">Failed to load songs</p>');
   });
 }
 window.doTreeshImport = doTreeshImport;
 
+$("#sl-close").off("click.treesh").on("click.treesh", function () { $("#song-list").removeClass("go"); });
+$("#song-list").off("click.treesh").on("click.treesh", function (e) { if (e.target === this) $(this).removeClass("go"); });
 
-$("#sl-close").click(function () { $("#song-list").removeClass("go"); });
-$("#song-list").on("click", function (e) { if (e.target === this) $(this).removeClass("go"); });
-
-$("#song-list").on("click", ".item button", function () {
+$("#song-list").off("click.treeshChoose").on("click.treeshChoose", ".item button", function () {
   var $it = $(this).closest(".item");
-  var ar = $it.data("artist") || $it.find(".artist").text().trim();
-  var tr = $it.data("track") || $it.find(".name").text().trim();
-  var arLower = ar.toLowerCase();
-  var trLower = tr.toLowerCase();
-  var coverSrc = $it.data("coverart") || "";
+  var ar = ($it.data("artist") || $it.find(".artist").text() || "").trim();
+  var tr = ($it.data("track") || $it.find(".name").text() || "").trim();
+  if (!ar || !tr) return;
 
   saveCurrentTabState();
-  var coverart = coverSrc ? { type: "image", data: coverSrc } : null;
-  createTab({ title: tr, artist: ar, album: "", content: "", coverart: coverart });
-  var tab = tabs.find(function(t) { return t.id === activeTabId; });
+  createTab({ title: tr, artist: ar, album: "", content: "" });
+
   $.get("https://treesh.life/content/lyrics.html", function (data) {
     var $h = $("<div>").html(data);
     var $ly = $h.find(".lyric").filter(function () {
-      var da = $(this).attr("data-artist") ? $(this).attr("data-artist").trim().toLowerCase() : "";
-      var dt = $(this).attr("data-track") ? $(this).attr("data-track").trim().toLowerCase() : "";
-      if (!da) da = $(this).find(".metadata .artist").text().trim().toLowerCase();
-      if (!dt) dt = $(this).find(".metadata .track").text().trim().toLowerCase();
-      return da.split(",").map(function (a) { return a.trim(); }).some(function (a) { return arLower.includes(a); }) && dt === trLower;
+      var da = ($(this).attr("data-artist") || $(this).find(".metadata .artist").text() || "").trim().toLowerCase();
+      var dt = ($(this).attr("data-track") || $(this).find(".metadata .track").text() || "").trim().toLowerCase();
+      return da === ar.toLowerCase() && dt === tr.toLowerCase();
+    }).first();
+
+    if (!$ly.length) { toast("Lyrics not found", "xmark"); return; }
+
+    var lines = [];
+    $ly.contents().each(function(){
+      if (this.nodeName === "P") {
+        var $p = $(this);
+        var mins = ($p.attr("data-minutes") || "").trim();
+        var text = ($p.text() || "").trim();
+        if (mins) {
+          if (!mins.startsWith("[")) mins = "[" + mins + "]";
+          lines.push(mins + " " + text);
+        } else {
+          lines.push(text);
+        }
+      } else if (this.nodeName === "BR") {
+        lines.push("");
+      }
     });
 
-    if ($ly.length) {
-      var lines = [];
-      $ly.contents().each(function () {
-        if (this.nodeName === "P") {
-          var $p = $(this);
-          var mins = $p.attr("data-minutes") || "";
-          var explain = $p.attr("data-explain") || $p.attr("data-explanation") || "";
-          var text = $p.text().trim();
-          var line = "";
-          if (mins) {
-            if (!mins.startsWith("[")) mins = "[" + mins + "]";
-            line += mins + " ";
-          }
-          if (explain && text) {
-            line += '<span data-explain="' + explain.replace(/"/g, '&quot;') + '" style="border-bottom:2px dotted;cursor:help">' + text + '</span>';
-          } else {
-            line += text;
-          }
-          lines.push(line);
-        }
-        else if (this.nodeName === "BR") lines.push("");
-      });
-
-      if (inStudio) $("#next").click();
-      $("#song-list").removeClass("go");
-
-      var hasHtml = lines.some(function(l) { return l.indexOf("<") >= 0; });
-      if (hasHtml) {
-        setInputLinesHtml(lines);
-      } else {
-        setInputText(lines.join("\n"));
-        normalizeInputBlocks();
-      }
-
-      updateStats();
-      enableBtn("#next");
-      markDirty();
-
-      $.get("https://treesh.life/content/songs.html", function (songsData) {
-        var $m = $("<div>").html(songsData);
-        var $sd = $m.find(".song").filter(function () {
-          var sa = $(this).attr("data-artist") ? $(this).attr("data-artist").trim().toLowerCase() : "";
-          var st = $(this).attr("data-track") ? $(this).attr("data-track").trim().toLowerCase() : "";
-          return sa.split(",").map(function (a) { return a.trim(); }).some(function (a) { return arLower.includes(a); }) && st === trLower;
-        });
-
-        if ($sd.length) {
-          var mp3 = $sd.attr("data-mp3");
-          if (mp3) {
-            if (!mp3.startsWith("http")) mp3 = "https://treesh.life/" + mp3.replace(/^\//, "");
-
-            player.src = mp3;
-            player.crossOrigin = "anonymous";
-            if (tab) {
-              if (!tab.audioKey) tab.audioKey = "audio_" + tab.id;
-              rememberLastTabAudio(tab);
-              saveTabAudioBlob(tab.id);
-            }
-            localStorage.setItem("audioReady", "true");
-            $("#audio-btn").attr("data-status", "play").html('<i class="fa-solid fa-play"></i>');
-            enableBtn("#next");
-            $("#progress-bar, #time-badge").addClass("on");
-            toast("Audio & lyrics imported", "cloud-arrow-down");
-          }
-        }
-      });
-    } else {
-      $it.addClass("error");
-    }
+    setInputText(lines.join("\n"));
+    normalizeInputBlocks();
+    updateStats();
+    enableBtn("#next");
+    markDirty();
+    $("#song-list").removeClass("go");
+    toast("Lyrics imported", "cloud-arrow-down");
+  }).fail(function(){
+    toast("Failed to load lyrics", "xmark");
   });
 });
-
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    KARAOKE MODE
@@ -12130,3 +12001,9 @@ function fmtBytes(n){
 
 </script>
 </body>
+</html
+  } catch(e) {
+    toast("Treesh import error", "xmark");
+    console.error(e);
+  }
+>
