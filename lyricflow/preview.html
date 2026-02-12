@@ -1872,36 +1872,6 @@ margin-top:10px;
 .folder-chip.active .folder-count { background: var(--accent-dim); color: var(--accent); }
 
 /* â•â•â• Enhanced Search â•â•â• */
-.search-wrap {
-  padding: 0 16px 16px 16px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  background: var(--bg-2);
-  position: relative;
-}
-.search-wrap input {
-  flex: 1;
-  height: 40px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  padding: 0 16px 0 40px;
-  font-size: 0.8rem;
-  font-family: var(--main-font);
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
-.search-wrap input::placeholder { color: var(--text-3); }
-.search-wrap .search-icon {
-  position: absolute;
-  left: 30px;
-  font-size: 0.75rem;
-  color: var(--text-3);
-  pointer-events: none;
-}
 .search-mode-toggle {
   height: 28px;
   padding: 0 10px;
@@ -2625,7 +2595,7 @@ body { -webkit-touch-callout: none; }
 
 #rhymes-bar {
   position: fixed;
-  width: 100%;
+  width: calc(100% - 32px);
   max-width: 560px;
   height: 0;
   opacity: 0;
@@ -2634,10 +2604,11 @@ body { -webkit-touch-callout: none; }
   transition: height 0.4s var(--ease), opacity 0.3s ease;
   top: calc(94px + 15px);
   left: 16px;
-  z-index: 4;
+  z-index: 12;
+  pointer-events: none;
 }
 
-#rhymes-bar.on { height: 44px; opacity: 1; }
+#rhymes-bar.on { height: 44px; opacity: 1; pointer-events: auto; }
 
 #rhymes-bar .rhymes-scroll {
   width: 100%;
@@ -3193,14 +3164,23 @@ width:100%;
   background: var(--modal-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  transition: opacity 0.3s ease;
-  pointer-events: none;
+  transition: opacity 0.3s ease, z-index 0s 0.3s;
 }
 
 .modal-overlay.go {
   z-index: 30;
   opacity: 1;
-  pointer-events: auto;
+  transition: opacity 0.3s ease, z-index 0s 0s;
+}
+
+.modal-overlay .modal-inner {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  transform: scale(1) translateY(0);
+}
+
+.modal-overlay.modal-closing .modal-inner {
+  transform: scale(0.92) translateY(12px);
+  opacity: 0;
 }
 
 .modal-inner {
@@ -3235,24 +3215,6 @@ width:100%;
   text-transform: uppercase;
 }
 
-.modal-head button {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.7);
-  color: var(--accent);
-  border: none;
-  font-family: var(--main-font);
-  font-weight: 700;
-  font-size: 0.75rem;
-  cursor: pointer;
-  position: relative;
-}
-
 .modal-head button::after,
 .modal-head button::before { display: none !important; }
 
@@ -3266,38 +3228,102 @@ width:100%;
 /* Song list modal */
 #song-list .modal-body { padding-bottom: 60px; box-sizing: border-box; }
 #song-list .item {
-  padding: 14px 18px;
+  padding: 10px 14px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
   transition: all 0.2s ease;
   cursor: pointer;
   color: var(--text);
 }
 
-#song-list .item:hover { background: var(--accent-soft); }
-#song-list .item.selected { background: var(--accent-soft); border-left: 3px solid var(--accent); }
-#song-list .item .artist { font-family: var(--brand-font); font-size: 0.75rem; color: var(--text-2); }
-#song-list .item .name { font-size: 0.85rem; font-weight: 600; }
-#song-list .item .name::before, #song-list .item .name::after { content: "\""; }
+#song-list .item:active { background: var(--accent-soft); }
+#song-list .item.treesh-selected { background: var(--accent-soft); border-left: 3px solid var(--accent); }
+#song-list .item .artist, #song-list .item .song-artist { font-family: var(--brand-font); font-size: 0.72rem; color: var(--text-2); }
+#song-list .item .name, #song-list .item .song-title { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#song-list .item .name::before, #song-list .item .name::after,
+#song-list .item .song-title::before, #song-list .item .song-title::after { content: "\""; }
 
-#song-list .item .choose-btn {
-  padding: 7px 16px;
+/* Treesh thumbnails */
+.treesh-thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: var(--surface-2); display: flex; align-items: center; justify-content: center; }
+.treesh-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.treesh-thumb-empty { color: var(--text-3); font-size: 0.85rem; }
+
+/* Choose button: hidden by default, visible only on selected item */
+.treesh-choose-wrap { flex-shrink: 0; }
+.treesh-choose-btn {
+  padding: 6px 14px;
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: white;
   border: none;
   font-family: var(--main-font);
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.9);
+  transition: all 0.2s ease;
   position: relative;
 }
-
-#song-list .item .choose-btn::after,
-#song-list .item .choose-btn::before { display: none !important; }
+.treesh-choose-btn::after, .treesh-choose-btn::before { display: none !important; }
+#song-list .item.treesh-selected .treesh-choose-btn { opacity: 1; pointer-events: auto; transform: scale(1); }
 #song-list .item.error { opacity: 0.3; }
+
+/* Search wrap fix */
+.search-wrap {
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--bg-2);
+  position: relative;
+}
+.search-wrap input {
+  flex: 1;
+  height: 36px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 14px 0 36px;
+  font-size: 0.75rem;
+  font-family: var(--main-font);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.search-wrap input::placeholder { color: var(--text-3); }
+.search-wrap .search-icon {
+  position: absolute;
+  left: 28px;
+  font-size: 0.65rem;
+  color: var(--text-3);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Close button 1:1 ratio and rounded */
+.modal-head button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  color: var(--accent);
+  border: none;
+  font-family: var(--main-font);
+  font-weight: 700;
+  font-size: 0.65rem;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 
 
 
@@ -5008,57 +5034,6 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
   </div>
 </div>
 
-<div id="import-options-modal" class="modal-overlay">
-  <div class="modal-inner" style="max-width:400px">
-    <div class="modal-head"><span>Import Options</span><button id="import-options-close"><i class="fas fa-x"></i></button></div>
-    <div class="modal-body" style="padding:20px">
-      <div style="font-size:0.85rem;color:var(--text-2);margin-bottom:16px">Choose what to import from this song:</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
-          <input type="checkbox" id="import-opt-lyrics" checked style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-          <div style="flex:1">
-            <div style="font-size:0.85rem;font-weight:600;color:var(--text)">Lyrics</div>
-            <div style="font-size:0.7rem;color:var(--text-3)">Import the song's lyrics</div>
-          </div>
-        </label>
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
-          <input type="checkbox" id="import-opt-audio" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-          <div style="flex:1">
-            <div style="font-size:0.85rem;font-weight:600;color:var(--text)">Audio</div>
-            <div style="font-size:0.7rem;color:var(--text-3)">Import the song's audio file</div>
-          </div>
-        </label>
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
-          <input type="checkbox" id="import-opt-metadata" checked style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-          <div style="flex:1">
-            <div style="font-size:0.85rem;font-weight:600;color:var(--text)">Metadata</div>
-            <div style="font-size:0.7rem;color:var(--text-3)">Import artist, title, etc.</div>
-          </div>
-        </label>
-      </div>
-      <button id="import-options-confirm" style="width:100%;margin-top:20px;padding:12px;background:var(--accent);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.85rem">Import Selected</button>
-    </div>
-  </div>
-</div>
-
-<div id="folder-select-modal" class="modal-overlay">
-  <div class="modal-inner" style="max-width:450px">
-    <div class="modal-head"><span>Add to Folders</span><button id="folder-select-close"><i class="fas fa-x"></i></button></div>
-    <div class="modal-body" style="padding:20px">
-      <div style="font-size:0.85rem;color:var(--text-2);margin-bottom:16px">Select folders to add this song to:</div>
-      <div id="folder-checkboxes-container" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;margin-bottom:16px">
-        <!-- Folder checkboxes will be inserted here -->
-      </div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button id="folder-create-new" style="flex:1;padding:12px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-weight:600;cursor:pointer;font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:8px">
-          <i class="fa-solid fa-plus"></i> Create New Folder
-        </button>
-      </div>
-      <button id="folder-select-confirm" style="width:100%;margin-top:16px;padding:12px;background:var(--accent);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.85rem">Add to Selected Folders</button>
-    </div>
-  </div>
-</div>
-
 <div id="library" class="modal-overlay">
   <div class="modal-inner lib-modal">
     <div class="modal-head">
@@ -5534,51 +5509,80 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
         <div class="panel-row" style="margin-bottom:8px">
           <div style="font-size:0.72rem;color:var(--text-2);font-weight:600;margin-bottom:6px">Speak Voice</div>
           <select id="voice-speak" class="meta-field" style="width:100%">
-            <option value="default">Default — Clear neutral narrator</option>
-            <option value="smooth">Velvet — Warm, smooth low tone</option>
-            <option value="bright">Spark — Bright, energetic delivery</option>
-            <option value="deep">Rumble — Deep resonant bass</option>
-            <option value="soft">Whisper — Gentle soft-spoken</option>
-            <option value="bold">Command — Authoritative and strong</option>
-            <option value="opera">Opera — Dramatic operatic performance</option>
-            <option value="robot">Robot — Mechanical synthesized</option>
-            <option value="alien">Alien — Otherworldly strange</option>
-            <option value="monster">Monster — Deep growling creature</option>
-            <option value="child">Child — Young innocent voice</option>
-            <option value="elderly">Elderly — Wise aged narrator</option>
-            <option value="fast">Fast — Hyper-speed delivery</option>
-            <option value="slow">Slow — Deliberate slow-mo</option>
-            <option value="dreamy">Dreamy — Ethereal floating</option>
-            <option value="angry">Angry — Intense forceful</option>
-            <option value="sad">Sad — Melancholic somber</option>
-            <option value="happy">Happy — Cheerful upbeat</option>
-            <option value="mysterious">Mysterious — Dark enigmatic</option>
-            <option value="announcer">Announcer — Radio broadcaster</option>
+            <option value="default">Default — Clear neutral</option>
+            <option value="smooth">Velvet — Warm smooth low</option>
+            <option value="bright">Spark — Bright energetic</option>
+            <option value="deep">Rumble — Deep bass</option>
+            <option value="soft">Whisper — Gentle breathy</option>
+            <option value="bold">Command — Authoritative</option>
+            <option value="alien">Alien — Otherworldly high</option>
+            <option value="opera">Opera Singer — Dramatic vibrato</option>
+            <option value="monster">Monster — Guttural growl</option>
+            <option value="robot">Robot — Flat monotone</option>
+            <option value="chipmunk">Chipmunk — Hyper squeaky</option>
+            <option value="ghost">Ghost — Eerie faint</option>
+            <option value="giant">Giant — Massive booming</option>
+            <option value="fairy">Fairy — Delicate sparkly</option>
+            <option value="villain">Villain — Sinister sneer</option>
+            <option value="cowboy">Cowboy — Drawling twang</option>
+            <option value="newscast">Newscaster — Crisp broadcast</option>
+            <option value="storyteller">Storyteller — Warm narrative</option>
+            <option value="drill">Drill Sergeant — Barking orders</option>
+            <option value="sleepy">Sleepy — Drowsy mumble</option>
+            <option value="hyper">Hyper — Caffeinated rush</option>
+            <option value="underwater">Underwater — Muffled deep</option>
+            <option value="demon">Demon — Abyssal rumble</option>
+            <option value="angel">Angel — Heavenly choir</option>
+            <option value="pirate">Pirate — Gruff sea dog</option>
+            <option value="sassy">Sassy — Attitude & flair</option>
+            <option value="asmr">ASMR — Ultra quiet tingle</option>
+            <option value="preacher">Preacher — Thunderous sermon</option>
+            <option value="baby">Baby — Tiny babble</option>
+            <option value="wizard">Wizard — Mystical elder</option>
+            <option value="surfer">Surfer — Chill dude</option>
+            <option value="helium">Helium — Balloon voice</option>
+            <option value="slow_mo">Slow-Mo — Dramatic crawl</option>
+            <option value="echo">Echo — Cavernous reverb</option>
           </select>
         </div>
         <div class="panel-row" style="margin-bottom:8px">
-          <div style="font-size:0.72rem;color:var(--text-2);font-weight:600;margin-bottom:6px">Choir Voices <span style="font-weight:400;color:var(--text-3)">(select multiple for custom blend, none for all random)</span></div>
+          <div style="font-size:0.72rem;color:var(--text-2);font-weight:600;margin-bottom:6px">Choir Voices <span style="font-weight:400;color:var(--text-3)">(select multiple)</span></div>
           <select id="voice-choir" class="meta-field" style="width:100%;min-height:120px" multiple>
-            <option value="default">Default — Clear neutral narrator</option>
-            <option value="smooth">Velvet — Warm, smooth low tone</option>
-            <option value="bright">Spark — Bright, energetic delivery</option>
-            <option value="deep">Rumble — Deep resonant bass</option>
-            <option value="soft">Whisper — Gentle soft-spoken</option>
-            <option value="bold">Command — Authoritative and strong</option>
-            <option value="opera">Opera — Dramatic operatic performance</option>
-            <option value="robot">Robot — Mechanical synthesized</option>
-            <option value="alien">Alien — Otherworldly strange</option>
-            <option value="monster">Monster — Deep growling creature</option>
-            <option value="child">Child — Young innocent voice</option>
-            <option value="elderly">Elderly — Wise aged narrator</option>
-            <option value="fast">Fast — Hyper-speed delivery</option>
-            <option value="slow">Slow — Deliberate slow-mo</option>
-            <option value="dreamy">Dreamy — Ethereal floating</option>
-            <option value="angry">Angry — Intense forceful</option>
-            <option value="sad">Sad — Melancholic somber</option>
-            <option value="happy">Happy — Cheerful upbeat</option>
-            <option value="mysterious">Mysterious — Dark enigmatic</option>
-            <option value="announcer">Announcer — Radio broadcaster</option>
+            <option value="random" selected>🎲 All Random (default)</option>
+            <option value="default">Default — Clear neutral</option>
+            <option value="smooth">Velvet — Warm smooth low</option>
+            <option value="bright">Spark — Bright energetic</option>
+            <option value="deep">Rumble — Deep bass</option>
+            <option value="soft">Whisper — Gentle breathy</option>
+            <option value="bold">Command — Authoritative</option>
+            <option value="alien">Alien — Otherworldly high</option>
+            <option value="opera">Opera Singer — Dramatic vibrato</option>
+            <option value="monster">Monster — Guttural growl</option>
+            <option value="robot">Robot — Flat monotone</option>
+            <option value="chipmunk">Chipmunk — Hyper squeaky</option>
+            <option value="ghost">Ghost — Eerie faint</option>
+            <option value="giant">Giant — Massive booming</option>
+            <option value="fairy">Fairy — Delicate sparkly</option>
+            <option value="villain">Villain — Sinister sneer</option>
+            <option value="cowboy">Cowboy — Drawling twang</option>
+            <option value="newscast">Newscaster — Crisp broadcast</option>
+            <option value="storyteller">Storyteller — Warm narrative</option>
+            <option value="drill">Drill Sergeant — Barking orders</option>
+            <option value="sleepy">Sleepy — Drowsy mumble</option>
+            <option value="hyper">Hyper — Caffeinated rush</option>
+            <option value="underwater">Underwater — Muffled deep</option>
+            <option value="demon">Demon — Abyssal rumble</option>
+            <option value="angel">Angel — Heavenly choir</option>
+            <option value="pirate">Pirate — Gruff sea dog</option>
+            <option value="sassy">Sassy — Attitude & flair</option>
+            <option value="asmr">ASMR — Ultra quiet tingle</option>
+            <option value="preacher">Preacher — Thunderous sermon</option>
+            <option value="baby">Baby — Tiny babble</option>
+            <option value="wizard">Wizard — Mystical elder</option>
+            <option value="surfer">Surfer — Chill dude</option>
+            <option value="helium">Helium — Balloon voice</option>
+            <option value="slow_mo">Slow-Mo — Dramatic crawl</option>
+            <option value="echo">Echo — Cavernous reverb</option>
           </select>
         </div>
         <div class="panel-row" style="margin-top:4px">
@@ -5777,8 +5781,23 @@ LF.applyLiteMode = function(mode) {
   if (mode !== "off" && mode !== "lite" && mode !== "liteplus") mode = "off";
   localStorage.setItem("lfLiteMode", mode);
 
-  document.body.classList.toggle("lite-mode", mode === "lite");
+  document.body.classList.toggle("lite-mode", mode === "lite" || mode === "liteplus");
   document.body.classList.toggle("lite-plus", mode === "liteplus");
+
+  // Actively stop canvas-based animations when entering lite modes
+  if (mode === "lite" || mode === "liteplus") {
+    // Stop particle canvas
+    try { if (window._particleRAF) { cancelAnimationFrame(window._particleRAF); window._particleRAF = null; } } catch(e) {}
+    // Stop visualizer canvas
+    try { if (window._visualizerRAF) { cancelAnimationFrame(window._visualizerRAF); window._visualizerRAF = null; } } catch(e) {}
+    // Clear canvases
+    try {
+      ["#particles", "#visualizer", "#karaoke-particles"].forEach(function(sel) {
+        var c = document.querySelector(sel);
+        if (c && c.getContext) { var ctx = c.getContext("2d"); ctx.clearRect(0, 0, c.width, c.height); }
+      });
+    } catch(e) {}
+  }
 };
 
 LF.isLite = function() { return LF.getLiteMode() === "lite"; };
@@ -5850,18 +5869,54 @@ LF.setLockEnabled = function(on) {
     if (!vars) return {};
     var out = {};
     for (var k in vars) {
-      if (k === "duration" || k === "ease" || k === "delay" || k === "stagger") continue;
+      // Remove duration, ease, delay, stagger but keep callbacks
+      if (k === "duration" || k === "ease" || k === "delay" || k === "stagger" || k === "yoyo" || k === "repeat" || k === "repeatDelay") continue;
       out[k] = vars[k];
     }
-    out.duration = 0;
+    out.duration = 0.01; // Use tiny duration instead of 0 to avoid edge case bugs
     return out;
+  }
+
+  // Complete fake tween that won't crash when any method is called
+  function fakeTween(vars) {
+    var obj = {
+      kill: function(){ return obj; },
+      progress: function(v){ if (typeof v !== "undefined") return obj; return 1; },
+      totalProgress: function(v){ if (typeof v !== "undefined") return obj; return 1; },
+      reverse: function(){ return obj; },
+      pause: function(){ return obj; },
+      play: function(){ return obj; },
+      resume: function(){ return obj; },
+      restart: function(){ return obj; },
+      time: function(v){ if (typeof v !== "undefined") return obj; return 0; },
+      totalTime: function(v){ if (typeof v !== "undefined") return obj; return 0; },
+      totalDuration: function(){ return 0; },
+      duration: function(v){ if (typeof v !== "undefined") return obj; return 0; },
+      invalidate: function(){ return obj; },
+      isActive: function(){ return false; },
+      then: function(cb){ if (typeof cb === "function") { try { cb(); } catch(e){} } return obj; },
+      eventCallback: function(){ return obj; },
+      seek: function(){ return obj; },
+      delay: function(){ return 0; },
+      repeat: function(){ return 0; },
+      iteration: function(){ return 1; },
+      yoyo: function(){ return false; },
+      timeScale: function(v){ if (typeof v !== "undefined") return obj; return 1; },
+      data: null,
+      vars: vars || {},
+      scrollTrigger: null
+    };
+    return obj;
   }
 
   function immediate(targets, vars){
     vars = vars || {};
     try { _to(targets, snapVars(vars)); } catch(e) {}
+    // Fire callbacks
+    if (typeof vars.onStart === "function") { try { vars.onStart(); } catch(e) {} }
+    if (typeof vars.onUpdate === "function") { try { vars.onUpdate(); } catch(e) {} }
     if (typeof vars.onComplete === "function") { try { vars.onComplete(); } catch(e) {} }
-    return { kill: function(){}, progress: function(){ return this; }, reverse: function(){ return this; }, pause: function(){ return this; }, play: function(){ return this; } };
+    return fakeTween(vars);
   }
 
   gsap.to = function(t, v) { return LF.isLitePlus() ? immediate(t, v) : _to(t, v); };
@@ -5874,18 +5929,19 @@ LF.setLockEnabled = function(on) {
   gsap.timeline = function(opts) {
     if (!LF.isLitePlus()) return _timeline(opts);
     opts = opts || {};
-    var onComp = opts.onComplete;
-    var obj = {
-      to: function(t,v){ immediate(t,v); return obj; },
-      fromTo: function(t,f,v){ try { gsap.set(t,f||{}); } catch(e) {} immediate(t,v); return obj; },
-      from: function(t,v){ immediate(t,v); return obj; },
-      set: function(t,v){ try { gsap.set(t,v); } catch(e) {} return obj; },
-      add: function(fn){ if (typeof fn === "function") { try { fn(); } catch(e) {} } return obj; },
-      play: function(){ return obj; },
-      reverse: function(){ return obj; },
-      pause: function(){ return obj; }
-    };
-    if (opts && typeof opts.onComplete === "function") setTimeout(function(){ try { opts.onComplete(); } catch(e) {} }, 0);
+    var obj = fakeTween(opts);
+    // Override timeline-specific methods
+    obj.to = function(t,v,pos){ immediate(t,v); return obj; };
+    obj.fromTo = function(t,f,v,pos){ try { gsap.set(t,f||{}); } catch(e) {} immediate(t,v); return obj; };
+    obj.from = function(t,v,pos){ immediate(t,v); return obj; };
+    obj.set = function(t,v,pos){ try { gsap.set(t,v); } catch(e) {} return obj; };
+    obj.add = function(fn,pos){ if (typeof fn === "function") { try { fn(); } catch(e) {} } return obj; };
+    obj.addLabel = function(){ return obj; };
+    obj.addPause = function(){ return obj; };
+    obj.call = function(fn){ if (typeof fn === "function") { try { fn(); } catch(e) {} } return obj; };
+    obj.clear = function(){ return obj; };
+    // Fire onComplete asynchronously to mimic timeline completion
+    if (opts && typeof opts.onComplete === "function") setTimeout(function(){ try { opts.onComplete(); } catch(e) {} }, 10);
     return obj;
   };
 })();
@@ -6644,6 +6700,21 @@ function fmtDate(ts) {
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    CONFIRM / OPTION DIALOGS
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* ═══════════════════════════════════════
+   MODAL CLOSE ANIMATION
+   ═══════════════════════════════════════ */
+
+function closeModalAnimated(selector, cb) {
+  var $m = $(selector);
+  if (!$m.hasClass("go")) { if (cb) cb(); return; }
+  $m.addClass("modal-closing");
+  setTimeout(function() {
+    $m.removeClass("go modal-closing");
+    $m.find(".modal-inner").css({ transform: "", opacity: "" });
+    if (cb) cb();
+  }, 300);
+}
 
 var confirmCallback = null;
 
@@ -7492,7 +7563,7 @@ $(document).off("click.lockManage").on("click.lockManage", "#lock-manage", funct
 });
 
 $(document).off("click.lockClose").on("click.lockClose", "#lock-settings-close, #passcode-done", function(){
-  $("#lock-settings-modal").removeClass("go");
+  closeModalAnimated("#lock-settings-modal");
   if (!LF.getPasscodes().length) {
     LF.setLockEnabled(false);
     $("#lock-enabled").prop("checked", false);
@@ -8050,23 +8121,23 @@ function openQuickModal(){
   if (!LF.isLitePlus()) gsap.fromTo("#open-quick .modal-inner",{scale:0.92,opacity:0,y:20},{scale:1,opacity:1,y:0,duration:0.35,ease:"power3.out"});
 }
 $(document).off("click.openquick", "#open-quick-close").on("click.openquick", "#open-quick-close", function(){
-  $("#open-quick").removeClass("go");
+  closeModalAnimated("#open-quick");
 });
 $(document).off("click.openquick", "#open-quick-library").on("click.openquick", "#open-quick-library", function(){
-  $("#open-quick").removeClass("go");
+  closeModalAnimated("#open-quick");
   openLibrary();
 });
 $(document).off("click.openquick", "#open-quick-treesh").on("click.openquick", "#open-quick-treesh", function(){
-  $("#open-quick").removeClass("go");
+  closeModalAnimated("#open-quick");
   doTreeshImport();
 });
 $(document).off("click.openquick", "#open-quick-restore").on("click.openquick", "#open-quick-restore", function(){
-  $("#open-quick").removeClass("go");
+  closeModalAnimated("#open-quick");
   $("#restore-modal").addClass("go");
   if (!LF.isLitePlus()) gsap.fromTo("#restore-modal .modal-inner",{scale:0.92,opacity:0,y:20},{scale:1,opacity:1,y:0,duration:0.35,ease:"power3.out"});
 });
 $(document).off("click.openquick", "#open-quick-text").on("click.openquick", "#open-quick-text", function(){
-  $("#open-quick").removeClass("go");
+  closeModalAnimated("#open-quick");
   $("#openFileInput").click();
 });
 
@@ -8163,7 +8234,7 @@ function openBackupSelect(songs, onConfirm) {
 
 $("#backup-modal [data-backup]").click(function() {
   var type = $(this).data("backup");
-  $("#backup-modal").removeClass("go");
+  closeModalAnimated("#backup-modal");
   var dateStr = new Date().toISOString().slice(0,10);
 
   if (type === "settings") {
@@ -8210,7 +8281,7 @@ $("#backup-modal [data-backup]").click(function() {
 
 $("#restore-modal [data-restore]").click(function() {
   var type = $(this).data("restore");
-  $("#restore-modal").removeClass("go");
+  closeModalAnimated("#restore-modal");
   if (type === "settings") $("#restoreSettingsInput").click();
   else if (type === "files") $("#restoreFilesInput").click();
 });
@@ -8219,16 +8290,16 @@ $("#backup-select-confirm").click(function() {
   var ids = [];
   $("#backup-select-list input:checked").each(function() { ids.push(String($(this).val())); });
   if (!ids.length) { toast("Select at least one file", "exclamation"); return; }
-  $("#backup-select-modal").removeClass("go");
+  closeModalAnimated("#backup-select-modal");
   if (backupSelectCallback) backupSelectCallback(ids);
 });
 
-$("#backup-select-cancel, #backup-select-close").click(function() { $("#backup-select-modal").removeClass("go"); });
-$("#backup-modal").on("click", function(e) { if (e.target === this) $(this).removeClass("go"); });
-$("#restore-modal").on("click", function(e) { if (e.target === this) $(this).removeClass("go"); });
-$("#backup-select-modal").on("click", function(e) { if (e.target === this) $(this).removeClass("go"); });
-$("#backup-close").click(function() { $("#backup-modal").removeClass("go"); });
-$("#restore-close").click(function() { $("#restore-modal").removeClass("go"); });
+$("#backup-select-cancel, #backup-select-close").click(function() { closeModalAnimated("#backup-select-modal"); });
+$("#backup-modal").on("click", function(e) { if (e.target === this) closeModalAnimated("#backup-modal"); });
+$("#restore-modal").on("click", function(e) { if (e.target === this) closeModalAnimated("#restore-modal"); });
+$("#backup-select-modal").on("click", function(e) { if (e.target === this) closeModalAnimated("#backup-select-modal"); });
+$("#backup-close").click(function() { closeModalAnimated("#backup-modal"); });
+$("#restore-close").click(function() { closeModalAnimated("#restore-modal"); });
 
 $("#restoreSettingsInput").on("change", function (e) {
   var f = e.target.files[0];
@@ -8649,7 +8720,7 @@ $("#lib-open-selected").click(function() {
       createTab({ id: openId, title: song.title, artist: song.artist, album: song.album, content: song.content, audioKey: song.audioKey, completed: song.completed, favorite: song.favorite, created: song.created, coverart: song.coverart || null, pinned: song.pinned || false });
     };
   });
-  $("#library").removeClass("go");
+  closeModalAnimated("#library");
   toast("Opened " + libSelected.length + " file(s)", "folder-open");
 });
 
@@ -8679,42 +8750,8 @@ $("#lib-delete-selected").click(function() {
   }, "Delete All", "Cancel");
 });
 
-$("#lib-close").click(function () { 
-  if (!LF.isLitePlus()) {
-    gsap.to("#library .modal-inner", { 
-      scale: 0.92, 
-      opacity: 0, 
-      y: 20, 
-      duration: 0.25, 
-      ease: "power2.in",
-      onComplete: function() {
-        $("#library").removeClass("go");
-        gsap.set("#library .modal-inner", { scale: 1, opacity: 1, y: 0 });
-      }
-    });
-  } else {
-    $("#library").removeClass("go");
-  }
-});
-$("#library").on("click", function (e) { 
-  if (e.target === this) {
-    if (!LF.isLitePlus()) {
-      gsap.to("#library .modal-inner", { 
-        scale: 0.92, 
-        opacity: 0, 
-        y: 20, 
-        duration: 0.25, 
-        ease: "power2.in",
-        onComplete: function() {
-          $(this).removeClass("go");
-          gsap.set("#library .modal-inner", { scale: 1, opacity: 1, y: 0 });
-        }.bind(this)
-      });
-    } else {
-      $(this).removeClass("go");
-    }
-  }
-});
+$("#lib-close").click(function () { closeModalAnimated("#library"); });
+$("#library").on("click", function (e) { if (e.target === this) closeModalAnimated("#library"); });
 
 var swipeStartX = 0;
 
@@ -8748,39 +8785,22 @@ function initLibSwipe() {
     var $item = $(this).closest(".lib-item");
     var id = String($item.data("id"));
     $item.removeClass("swiped");
-    
-    // Store the song ID globally for the modal
-    window.currentFolderSongId = id;
-    
-    // Build folder checkboxes
     var folders = getFolders();
-    var $container = $("#folder-checkboxes-container");
-    $container.empty();
-    
-    if (folders.length === 0) {
-      $container.html('<div style="padding:20px;text-align:center;color:var(--text-3);font-size:0.85rem">No folders yet. Create one below!</div>');
-    } else {
-      folders.forEach(function(folder) {
-        var isInFolder = folder.songs && folder.songs.indexOf(id) !== -1;
-        var $checkbox = $('<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">' +
-          '<input type="checkbox" class="folder-checkbox" data-folder-id="' + folder.id + '" ' + (isInFolder ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">' +
-          '<div style="flex:1">' +
-            '<div style="font-size:0.85rem;font-weight:600;color:var(--text)"><i class="fa-solid fa-folder" style="margin-right:6px;color:var(--accent)"></i>' + folder.name + '</div>' +
-            '<div style="font-size:0.7rem;color:var(--text-3)">' + (folder.songs ? folder.songs.length : 0) + ' song' + (folder.songs && folder.songs.length !== 1 ? 's' : '') + '</div>' +
-          '</div>' +
-        '</label>');
-        $container.append($checkbox);
-      });
+    if (!folders.length) {
+      var nm = prompt("Create a new folder:");
+      if (!nm || !nm.trim()) return;
+      var nf = { id: genId(), name: nm.trim(), songs: [id] };
+      folders.push(nf);
+      saveFolders(folders);
+      renderFolderBar();
+      toast("Added to new folder", "folder-plus");
+      return;
     }
-    
-    // Show modal
-    $("#folder-select-modal").addClass("go");
-    if (!LF.isLitePlus()) {
-      gsap.fromTo("#folder-select-modal .modal-inner", 
-        { scale: 0.92, opacity: 0, y: 20 }, 
-        { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }
-      );
-    }
+    var opts = [];
+    folders.forEach(function(ff) {
+      opts.push({ icon: "folder", label: ff.name, action: function() { addSongsToFolder([id], ff.id); } });
+    });
+    showOptions("Move to Folder", opts);
   });
 
   $("#library .lib-item").on("click touchend", ".lib-swipe-action[data-action=delete]", function (e) {
@@ -8985,7 +9005,7 @@ $("#library .lib-item").on("click", ".lib-check", function(e) {
           content: song.content, audioKey: song.audioKey, completed: song.completed,
           favorite: song.favorite, created: song.created, coverart: song.coverart || null, pinned: song.pinned || false
         });
-        $("#library").removeClass("go");
+        closeModalAnimated("#library");
         toast("Opened in new tab: " + song.title, "book");
       };
     }
@@ -9032,7 +9052,7 @@ if (typeof updateCoverartDisplay === "function") updateCoverartDisplay();
           if (getInputText().trim()) enableBtn("#next");
           else disableBtn("#next");
         }
-        $("#library").removeClass("go");
+        closeModalAnimated("#library");
         toast("Opened: " + song.title, "book");
       };
     }
@@ -9042,16 +9062,12 @@ if (typeof updateCoverartDisplay === "function") updateCoverartDisplay();
       folderOpts.push({ icon: "folder-minus", label: "Remove from Folder", action: function() {
         removeSongFromFolder(String(id), currentFolder);
       }});
-    } else {
-      var flds = getFolders();
-      if (flds.length) {
-        flds.forEach(function(ff) {
-          folderOpts.push({ icon: "folder", label: "Add to " + ff.name, action: function() {
-            addSongsToFolder([String(id)], ff.id);
-          }});
-        });
-      }
     }
+    // Always show "Add to Folder" option
+    folderOpts.push({ icon: "folder-plus", label: "Add to Folder", action: function() {
+      showFolderPicker([String(id)]);
+    }});
+
     var openOpts = [
       { icon: "folder-open", label: "Open in New Tab", action: function() {
         var existingTab = tabs.find(function(t) { return t.id === openTabId; });
@@ -9580,12 +9596,22 @@ function getLyricLineText($p) {
 function ttsPickVoice(opts) {
   opts = opts || {};
   var voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
-  var v = null;
+  if (!voices.length) return null;
+  var en = voices.filter(function(v){ return (v.lang || "").toLowerCase().indexOf("en") === 0; });
+  var pool = en.length ? en : voices;
 
-  if (opts.voiceName) v = voices.find(function(x){ return x.name === opts.voiceName; }) || null;
-  if (!v) v = voices.find(function(x){ return (x.lang || "").toLowerCase().indexOf("en") === 0; }) || voices[0] || null;
+  // If a specific voiceName was given, try to match it
+  if (opts.voiceName) {
+    var found = voices.find(function(x){ return x.name === opts.voiceName; });
+    if (found) return found;
+  }
 
-  return v;
+  // Pick a deterministic voice from the pool based on a seed index
+  if (typeof opts._voiceIndex === "number" && pool.length) {
+    return pool[opts._voiceIndex % pool.length];
+  }
+
+  return pool[0] || voices[0] || null;
 }
 
 function ttsSpeakQueue($lines, opts) {
@@ -9618,12 +9644,13 @@ function ttsSpeakQueue($lines, opts) {
     var u = new SpeechSynthesisUtterance(text);
     ttsCurrentUtt = u;
 
+    // Set voice FIRST, then rate/pitch/volume (some browsers reset params on voice change)
+    var v = ttsPickVoice(opts);
+    if (v) u.voice = v;
+
     u.rate = typeof opts.rate === "number" ? opts.rate : 1.0;
     u.pitch = typeof opts.pitch === "number" ? opts.pitch : 1.0;
     u.volume = typeof opts.volume === "number" ? opts.volume : 1.0;
-
-    var v = ttsPickVoice(opts);
-    if (v) u.voice = v;
 
     u.onstart = function() {
       if (runId !== ttsRunId || ttsStopped) return;
@@ -9698,24 +9725,29 @@ function choirSpeakLine(text, onDone){
   ttsCurrentUtt = u;
 
   var choirKeys = getChoirVoiceSettings();
-  
-  // If no voices selected, use ALL available voices randomly
-  var allVoiceKeys = ["default", "smooth", "bright", "deep", "soft", "bold", "opera", "robot", "alien", "monster", "child", "elderly", "fast", "slow", "dreamy", "angry", "sad", "happy", "mysterious", "announcer"];
-  var useKeys = (choirKeys && choirKeys.length > 0) ? choirKeys : allVoiceKeys;
-  
-  var picked = useKeys[Math.floor(Math.random() * useKeys.length)] || "default";
-  var preset = getVoicePreset(picked);
+  var isRandom = choirKeys.indexOf("random") >= 0;
 
-  u.rate = (preset.rate || 1.0) + (Math.random() * 0.08 - 0.04);
-  u.pitch = (preset.pitch || 1.0) + (Math.random() * 0.08 - 0.04);
-  u.volume = typeof preset.volume === "number" ? preset.volume : 0.95;
+  // If "random" is selected, pick from ALL preset keys randomly
+  var presetKey;
+  if (isRandom) {
+    var allKeys = Object.keys(LF_VOICE_PRESETS);
+    presetKey = allKeys[Math.floor(Math.random() * allKeys.length)];
+  } else {
+    presetKey = choirKeys[Math.floor(Math.random() * choirKeys.length)] || "default";
+  }
+  var preset = getVoicePreset(presetKey);
 
-  // Select a random voice from available system voices
+  // Pick voice from browser pool for additional variety
   var voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
   var en = voices.filter(function(v){ return (v.lang || "").toLowerCase().indexOf("en") === 0; });
   var pool = en.length ? en : voices;
   var v = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+
+  // Set voice FIRST, then params
   if (v) u.voice = v;
+  u.rate  = (preset.rate  || 1.0) + (Math.random() * 0.08 - 0.04);
+  u.pitch = (preset.pitch || 1.0) + (Math.random() * 0.08 - 0.04);
+  u.volume = typeof preset.volume === "number" ? preset.volume : 0.95;
 
   u.onstart = function(){
     if (ttsStopped || runId !== ttsRunId || token !== choirCancelToken) return;
@@ -9819,8 +9851,7 @@ function audioIsLoaded(){
 
 function updateTTSEnabled(){
   var supported = ("speechSynthesis" in window);
-  var ok = supported && audioIsLoaded();
-  if (ok) {
+  if (supported) {
     $("#tts-line, #tts-choir").removeClass("inactive");
     $("#tts-stop").addClass("inactive");
   } else {
@@ -9864,26 +9895,40 @@ function initTTSButtons(){
 // BUTTONS
 // =====================
 var LF_VOICE_PRESETS = {
-  "default": { rate: 1.0, pitch: 1.0 },
-  "smooth": { rate: 0.92, pitch: 0.85 },
-  "bright": { rate: 1.12, pitch: 1.25 },
-  "deep": { rate: 0.88, pitch: 0.6 },
-  "soft": { rate: 0.9, pitch: 1.1, volume: 0.7 },
-  "bold": { rate: 1.0, pitch: 0.75, volume: 1.0 },
-  "opera": { rate: 0.85, pitch: 1.45, volume: 0.95 },
-  "robot": { rate: 1.05, pitch: 0.5, volume: 0.9 },
-  "alien": { rate: 1.25, pitch: 1.8, volume: 0.85 },
-  "monster": { rate: 0.7, pitch: 0.35, volume: 1.0 },
-  "child": { rate: 1.15, pitch: 1.6, volume: 0.9 },
-  "elderly": { rate: 0.75, pitch: 0.7, volume: 0.85 },
-  "fast": { rate: 1.8, pitch: 1.1, volume: 1.0 },
-  "slow": { rate: 0.55, pitch: 0.9, volume: 0.95 },
-  "dreamy": { rate: 0.8, pitch: 1.2, volume: 0.75 },
-  "angry": { rate: 1.25, pitch: 0.65, volume: 1.0 },
-  "sad": { rate: 0.85, pitch: 0.8, volume: 0.75 },
-  "happy": { rate: 1.2, pitch: 1.3, volume: 0.95 },
-  "mysterious": { rate: 0.9, pitch: 0.7, volume: 0.8 },
-  "announcer": { rate: 1.0, pitch: 0.9, volume: 1.0 }
+  "default":    { rate: 1.0,  pitch: 1.0,  volume: 1.0,  label: "Default — Clear neutral" },
+  "smooth":     { rate: 0.92, pitch: 0.85, volume: 1.0,  label: "Velvet — Warm smooth low" },
+  "bright":     { rate: 1.12, pitch: 1.25, volume: 1.0,  label: "Spark — Bright energetic" },
+  "deep":       { rate: 0.78, pitch: 0.42, volume: 1.0,  label: "Rumble — Deep bass" },
+  "soft":       { rate: 0.85, pitch: 1.1,  volume: 0.55, label: "Whisper — Gentle breathy" },
+  "bold":       { rate: 1.0,  pitch: 0.7,  volume: 1.0,  label: "Command — Authoritative" },
+  "alien":      { rate: 0.65, pitch: 1.95, volume: 0.9,  label: "Alien — Otherworldly high" },
+  "opera":      { rate: 0.7,  pitch: 1.6,  volume: 1.0,  label: "Opera Singer — Dramatic vibrato" },
+  "monster":    { rate: 0.55, pitch: 0.25, volume: 1.0,  label: "Monster — Guttural growl" },
+  "robot":      { rate: 1.3,  pitch: 0.5,  volume: 1.0,  label: "Robot — Flat monotone" },
+  "chipmunk":   { rate: 1.6,  pitch: 2.0,  volume: 0.9,  label: "Chipmunk — Hyper squeaky" },
+  "ghost":      { rate: 0.6,  pitch: 1.4,  volume: 0.4,  label: "Ghost — Eerie faint" },
+  "giant":      { rate: 0.5,  pitch: 0.2,  volume: 1.0,  label: "Giant — Massive booming" },
+  "fairy":      { rate: 1.2,  pitch: 1.8,  volume: 0.7,  label: "Fairy — Delicate sparkly" },
+  "villain":    { rate: 0.8,  pitch: 0.55, volume: 1.0,  label: "Villain — Sinister sneer" },
+  "cowboy":     { rate: 0.95, pitch: 0.75, volume: 1.0,  label: "Cowboy — Drawling twang" },
+  "newscast":   { rate: 1.15, pitch: 0.9,  volume: 1.0,  label: "Newscaster — Crisp broadcast" },
+  "storyteller":{ rate: 0.88, pitch: 1.05, volume: 0.9,  label: "Storyteller — Warm narrative" },
+  "drill":      { rate: 1.4,  pitch: 0.65, volume: 1.0,  label: "Drill Sergeant — Barking orders" },
+  "sleepy":     { rate: 0.6,  pitch: 0.9,  volume: 0.45, label: "Sleepy — Drowsy mumble" },
+  "hyper":      { rate: 1.8,  pitch: 1.5,  volume: 1.0,  label: "Hyper — Caffeinated rush" },
+  "underwater": { rate: 0.7,  pitch: 0.65, volume: 0.6,  label: "Underwater — Muffled deep" },
+  "demon":      { rate: 0.45, pitch: 0.15, volume: 1.0,  label: "Demon — Abyssal rumble" },
+  "angel":      { rate: 0.9,  pitch: 1.7,  volume: 0.75, label: "Angel — Heavenly choir" },
+  "pirate":     { rate: 1.0,  pitch: 0.6,  volume: 1.0,  label: "Pirate — Gruff sea dog" },
+  "sassy":      { rate: 1.15, pitch: 1.3,  volume: 1.0,  label: "Sassy — Attitude & flair" },
+  "asmr":       { rate: 0.7,  pitch: 1.05, volume: 0.3,  label: "ASMR — Ultra quiet tingle" },
+  "preacher":   { rate: 0.85, pitch: 0.8,  volume: 1.0,  label: "Preacher — Thunderous sermon" },
+  "baby":       { rate: 1.4,  pitch: 2.0,  volume: 0.8,  label: "Baby — Tiny babble" },
+  "wizard":     { rate: 0.75, pitch: 0.95, volume: 0.85, label: "Wizard — Mystical elder" },
+  "surfer":     { rate: 1.1,  pitch: 1.15, volume: 1.0,  label: "Surfer — Chill dude" },
+  "helium":     { rate: 1.5,  pitch: 2.0,  volume: 1.0,  label: "Helium — Balloon voice" },
+  "slow_mo":    { rate: 0.35, pitch: 0.5,  volume: 1.0,  label: "Slow-Mo — Dramatic crawl" },
+  "echo":       { rate: 0.82, pitch: 1.0,  volume: 0.8,  label: "Echo — Cavernous reverb" }
 };
 
 function getVoicePreset(key) {
@@ -9899,7 +9944,7 @@ function getChoirVoiceSettings() {
     var raw = localStorage.getItem("lfVoiceChoir");
     if (raw) { var arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length) return arr; }
   } catch(e) {}
-  return []; // Empty array means use ALL voices randomly
+  return ["random"];
 }
 
 $(document).on("change", "#voice-speak", function() {
@@ -9915,7 +9960,7 @@ $(function() {
   var sv = getSpeakVoiceSetting();
   if (sv) $("#voice-speak").val(sv);
   var cv = getChoirVoiceSettings();
-  if (cv && cv.length) $("#voice-choir").val(cv);
+  if (cv.length) $("#voice-choir").val(cv);
 });
 
 $("#tts-line").off("click.tts").on("click.tts", function() {
@@ -10144,7 +10189,9 @@ function getWordAtCaret() {
 
 function getRhymes() {
   var w = getWordAtCaret();
-  if (!w) { $("#rhymes-bar .rhymes-scroll").empty(); $("#rhymes-bar").removeClass("on"); return; }
+  if (!w || w.length < 2) { $("#rhymes-bar .rhymes-scroll").empty(); $("#rhymes-bar").removeClass("on"); return; }
+  // Show bar immediately with loading indicator
+  $("#rhymes-bar").addClass("on");
   $.ajax({
     url: "https://rhymebrain.com/talk?function=getRhymes&word=" + encodeURIComponent(w),
     dataType: "jsonp",
@@ -10154,9 +10201,11 @@ function getRhymes() {
     if (!d || !d.length) { $("#rhymes-bar .rhymes-scroll").empty(); $("#rhymes-bar").removeClass("on"); return; }
     var h = d.slice(0, 25).map(function (i) { return "<button type='button'>" + i.word + "</button>"; }).join("");
     $("#rhymes-bar .rhymes-scroll").html(h);
-    if (h) $("#rhymes-bar").addClass("on");
-    gsap.fromTo("#rhymes-bar .rhymes-scroll button", { y: 10, opacity: 0, scale: 0.85 }, { y: 0, opacity: 1, scale: 1, stagger: 0.02, duration: 0.25, ease: "back.out(1.5)" });
-  }).fail(function () { $("#rhymes-bar").removeClass("on"); });
+    if (h) {
+      $("#rhymes-bar").addClass("on");
+      if (!LF.isLitePlus()) gsap.fromTo("#rhymes-bar .rhymes-scroll button", { y: 10, opacity: 0, scale: 0.85 }, { y: 0, opacity: 1, scale: 1, stagger: 0.02, duration: 0.25, ease: "back.out(1.5)" });
+    }
+  }).fail(function () { $("#rhymes-bar .rhymes-scroll").empty(); $("#rhymes-bar").removeClass("on"); });
 }
 
 var rhymeTO;
@@ -10188,7 +10237,7 @@ $("#input").on("input", function () {
 });
 
 $("#input").on("focus click touchstart", function () {
-  
+  schedRhymes();
 });
 
 function fetchRhymesForWord(word) {
@@ -10225,21 +10274,8 @@ $("#input").on("keyup click mouseup touchend", function () {
       var t = (node.nodeType === 3) ? node.textContent : "";
       var p = sel.getRangeAt(0).startOffset;
       var b = t[p - 1] || "", a = t[p] || "";
-      if (/\w/.test(b) || /\w/.test(a)) { 
-        // Force rhymes bar to show
-        $("#rhymes-bar").addClass("on"); 
-        schedRhymes(); 
-      }
-      else { 
-        $("#rhymes-bar").removeClass("on"); 
-      }
-    } else {
-      // No selection, try getting word from input
-      var word = getWordAtCaret();
-      if (word && word.length > 0) {
-        $("#rhymes-bar").addClass("on");
-        schedRhymes();
-      }
+      if (/\w/.test(b) || /\w/.test(a)) { $("#rhymes-bar").addClass("on"); schedRhymes(); }
+      else $("#rhymes-bar").removeClass("on");
     }
   }, 10);
 });
@@ -11088,7 +11124,7 @@ $("#explain-save").click(function () {
 
   window._explainSavedRange = null;
   savedRange = null;
-  $("#explain-modal").removeClass("go");
+  closeModalAnimated("#explain-modal");
   $("#input").trigger("input");
   markDirty();
   if (typeof scheduleAutosave === "function") scheduleAutosave();
@@ -11102,7 +11138,7 @@ $("#explain-delete").click(function () {
     var text = document.createTextNode(explainTargetNode.textContent);
     explainTargetNode.parentNode.replaceChild(text, explainTargetNode);
   }
-  $("#explain-modal").removeClass("go");
+  closeModalAnimated("#explain-modal");
   $("#input").trigger("input");
   markDirty();
   if (typeof scheduleAutosave === "function") scheduleAutosave();
@@ -11111,8 +11147,8 @@ $("#explain-delete").click(function () {
   if (typeof updateExplainBtnVisibility === "function") updateExplainBtnVisibility();
 });
 
-$("#explain-close").click(function () { $("#explain-modal").removeClass("go"); });
-$("#explain-modal").on("click", function (e) { if (e.target === this) $(this).removeClass("go"); });
+$("#explain-close").click(function () { closeModalAnimated("#explain-modal"); });
+$("#explain-modal").on("click", function (e) { if (e.target === this) closeModalAnimated("#explain-modal"); });
 
 setTimeout(function() { if (typeof updateExplainBtnVisibility === "function") updateExplainBtnVisibility(); }, 100);
 
@@ -11152,26 +11188,24 @@ function doTreeshImport() {
 
     var out = "";
     $songs.each(function(){
-      var ar = ($(this).attr("data-artist") || $(this).find(".metadata .artist").text() || "").trim();
-      var tr = ($(this).attr("data-track") || $(this).find(".metadata .track").text() || "").trim();
-      var thumb = ($(this).attr("data-thumb") || $(this).find("img").attr("src") || $(this).find(".cover img").attr("src") || "").trim();
+      var $s = $(this);
+      var ar = ($s.attr("data-artist") || $s.find(".metadata .artist").text() || "").trim();
+      var tr = ($s.attr("data-track") || $s.find(".metadata .track").text() || "").trim();
       if (!ar || !tr) return;
-      
-      out += '<div class="item" data-artist="' + ar.replace(/"/g,'&quot;') + '" data-track="' + tr.replace(/"/g,'&quot;') + '" style="display:flex;align-items:center;cursor:pointer;position:relative">';
-      
-      // Add thumbnail if available
-      if (thumb) {
-        out += '<div style="width:50px;height:50px;margin-right:12px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--surface)">';
-        out += '<img src="' + thumb + '" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'" />';
-        out += '</div>';
-      } else {
-        out += '<div style="width:50px;height:50px;margin-right:12px;border-radius:6px;background:var(--surface);flex-shrink:0;display:flex;align-items:center;justify-content:center">';
-        out += '<i class="fa-solid fa-music" style="font-size:1.2rem;color:var(--text-3)"></i>';
-        out += '</div>';
+      // Extract cover art from data attribute or img child
+      var cover = $s.attr("data-cover") || $s.attr("data-art") || $s.attr("data-image") || $s.attr("data-coverart") || "";
+      if (!cover) {
+        var $img = $s.find("img").first();
+        if ($img.length) cover = $img.attr("src") || "";
       }
-      
-      out += '<div style="flex:1"><p class="artist">' + ar + '</p><p class="name">' + tr + '</p></div>';
-      out += '<div class="choose-btn-wrap" style="opacity:0;transition:opacity 0.2s"><button type="button" class="choose-btn">Choose</button></div></div>';
+      var thumbHtml = cover
+        ? '<div class="treesh-thumb"><img src="' + cover.replace(/"/g,'&quot;') + '" alt="" loading="lazy"></div>'
+        : '<div class="treesh-thumb treesh-thumb-empty"><i class="fa-solid fa-music"></i></div>';
+
+      out += '<div class="item" data-artist="' + ar.replace(/"/g,'&quot;') + '" data-track="' + tr.replace(/"/g,'&quot;') + '" data-cover="' + (cover||"").replace(/"/g,'&quot;') + '">';
+      out += thumbHtml;
+      out += '<div style="flex:1;min-width:0"><p class="artist song-artist">' + ar + '</p><p class="name song-title">' + tr + '</p></div>';
+      out += '<div class="treesh-choose-wrap"><button type="button" class="treesh-choose-btn">Choose</button></div></div>';
     });
     $sc.html(out);
   }).fail(function(){
@@ -11180,100 +11214,61 @@ function doTreeshImport() {
 }
 window.doTreeshImport = doTreeshImport;
 
-// Handle item selection to show Choose button
-$(document).on("click", "#song-list .item", function(e) {
-  if ($(e.target).closest(".choose-btn").length) return; // Don't toggle if clicking button
-  
-  $("#song-list .item").removeClass("selected").find(".choose-btn-wrap").css("opacity", "0");
-  $(this).addClass("selected").find(".choose-btn-wrap").css("opacity", "1");
+$("#sl-close").off("click.treesh").on("click.treesh", function () { closeModalAnimated("#song-list"); });
+$("#song-list").off("click.treesh").on("click.treesh", function (e) { if (e.target === this) closeModalAnimated("#song-list"); });
+
+// Tap-to-select: clicking an item selects it and shows the choose button
+$("#song-list").off("click.treeshSelect").on("click.treeshSelect", ".item", function (e) {
+  // Don't trigger if they clicked the choose button itself
+  if ($(e.target).closest(".treesh-choose-btn").length) return;
+  var $it = $(this);
+  var wasSelected = $it.hasClass("treesh-selected");
+  // Deselect all others
+  $("#song-list .item").removeClass("treesh-selected");
+  if (!wasSelected) $it.addClass("treesh-selected");
 });
 
-// Import options modal handlers
-var selectedTreeshSong = null;
-
-$("#import-options-close").click(function() {
-  $("#import-options-modal").removeClass("go");
-});
-
-$("#import-options-modal").on("click", function(e) {
-  if (e.target === this) $(this).removeClass("go");
-});
-
-$("#sl-close").off("click.treesh").on("click.treesh", function () { 
-  if (!LF.isLitePlus()) {
-    gsap.to("#song-list .modal-inner", { 
-      scale: 0.92, 
-      opacity: 0, 
-      y: 20, 
-      duration: 0.25, 
-      ease: "power2.in",
-      onComplete: function() {
-        $("#song-list").removeClass("go");
-        gsap.set("#song-list .modal-inner", { scale: 1, opacity: 1, y: 0 });
-      }
-    });
-  } else {
-    $("#song-list").removeClass("go");
-  }
-});
-$("#song-list").off("click.treesh").on("click.treesh", function (e) { 
-  if (e.target === this) {
-    if (!LF.isLitePlus()) {
-      gsap.to("#song-list .modal-inner", { 
-        scale: 0.92, 
-        opacity: 0, 
-        y: 20, 
-        duration: 0.25, 
-        ease: "power2.in",
-        onComplete: function() {
-          $("#song-list").removeClass("go");
-          gsap.set("#song-list .modal-inner", { scale: 1, opacity: 1, y: 0 });
-        }
-      });
-    } else {
-      $(this).removeClass("go");
-    }
-  }
-});
-
-$("#song-list").off("click.treeshChoose").on("click.treeshChoose", ".choose-btn", function (e) {
-  e.stopPropagation();
+// Choose button click: show import options
+$("#song-list").off("click.treeshChoose").on("click.treeshChoose", ".treesh-choose-btn", function () {
   var $it = $(this).closest(".item");
   var ar = ($it.data("artist") || $it.find(".artist").text() || "").trim();
   var tr = ($it.data("track") || $it.find(".name").text() || "").trim();
+  var cover = ($it.data("cover") || "").toString().trim();
   if (!ar || !tr) return;
 
-  selectedTreeshSong = { artist: ar, track: tr };
-  
-  // Show import options modal
-  $("#import-options-modal").addClass("go");
-  if (!LF.isLitePlus()) {
-    gsap.fromTo("#import-options-modal .modal-inner", 
-      { scale: 0.92, opacity: 0, y: 20 }, 
-      { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }
-    );
-  }
+  // Show import options with multi-select
+  showOptions("Import Options", [
+    { icon: "align-left", label: "Lyrics", action: function() { treeshDoImport(ar, tr, cover, { lyrics: true }); }},
+    { icon: "music", label: "Audio", action: function() { treeshDoImport(ar, tr, cover, { audio: true }); }},
+    { icon: "tags", label: "Metadata", action: function() { treeshDoImport(ar, tr, cover, { metadata: true }); }},
+    { icon: "layer-group", label: "Lyrics + Audio", accent: true, action: function() { treeshDoImport(ar, tr, cover, { lyrics: true, audio: true }); }},
+    { icon: "download", label: "Everything", accent: true, action: function() { treeshDoImport(ar, tr, cover, { lyrics: true, audio: true, metadata: true }); }}
+  ]);
 });
 
-$("#import-options-confirm").click(function() {
-  if (!selectedTreeshSong) return;
-  
-  var importLyrics = $("#import-opt-lyrics").is(":checked");
-  var importAudio = $("#import-opt-audio").is(":checked");
-  var importMetadata = $("#import-opt-metadata").is(":checked");
-  
-  var ar = selectedTreeshSong.artist;
-  var tr = selectedTreeshSong.track;
-  
-  saveCurrentTabState();
-  
-  if (importMetadata) {
-    createTab({ title: tr, artist: ar, album: "", writer: "", datetime: "", featuring: "", occasion: "", content: "" });
-  } else {
-    createTab({ title: "", artist: "", album: "", writer: "", datetime: "", featuring: "", occasion: "", content: "" });
+function treeshDoImport(ar, tr, cover, opts) {
+  opts = opts || {};
+  if (opts.metadata || (opts.lyrics && !opts.audio && !opts.metadata)) {
+    // Need at least lyrics or metadata action
   }
 
-  if (importLyrics) {
+  // If only audio requested, we can't extract audio from Treesh (text-only source)
+  if (opts.audio && !opts.lyrics && !opts.metadata) {
+    toast("Audio not available from Treesh", "xmark");
+    return;
+  }
+
+  saveCurrentTabState();
+
+  // If metadata, create tab with artist/track info
+  if (opts.metadata) {
+    createTab({ title: tr, artist: ar, album: "", writer: "", datetime: "", featuring: "", occasion: "", content: "", coverart: cover || null });
+  } else if (opts.lyrics) {
+    // Create tab with just title info (minimal metadata)
+    createTab({ title: tr, artist: opts.metadata ? ar : "", album: "", writer: "", datetime: "", featuring: "", occasion: "", content: "" });
+  }
+
+  if (opts.lyrics) {
     $.get("https://treesh.life/content/lyrics.html", function (data) {
       var $h = $("<div>").html(data);
       var $ly = $h.find(".lyric").filter(function () {
@@ -11306,108 +11301,17 @@ $("#import-options-confirm").click(function() {
       updateStats();
       enableBtn("#next");
       markDirty();
-      
-      if (importAudio) {
-        // Try to load audio if available
-        var audioUrl = $ly.attr("data-audio") || $ly.find("audio").attr("src") || "";
-        if (audioUrl) {
-          $("#player").attr("src", audioUrl);
-        }
-      }
-      
-      $("#import-options-modal").removeClass("go");
-      $("#song-list").removeClass("go");
-      toast("Imported successfully", "cloud-arrow-down");
+      closeModalAnimated("#song-list");
+      toast("Imported: " + tr, "cloud-arrow-down");
     }).fail(function(){
       toast("Failed to load lyrics", "xmark");
     });
   } else {
-    if (importAudio) {
-      // Handle audio-only import
-      toast("Audio import not yet implemented", "info");
-    }
-    $("#import-options-modal").removeClass("go");
-    $("#song-list").removeClass("go");
+    // Metadata-only import
+    closeModalAnimated("#song-list");
+    toast("Metadata imported: " + tr, "cloud-arrow-down");
   }
-  
-  selectedTreeshSong = null;
-});
-
-// Folder selection modal handlers
-$("#folder-select-close").click(function() {
-  $("#folder-select-modal").removeClass("go");
-});
-
-$("#folder-select-modal").on("click", function(e) {
-  if (e.target === this) $(this).removeClass("go");
-});
-
-$("#folder-create-new").click(function() {
-  var nm = prompt("Enter new folder name:");
-  if (!nm || !nm.trim()) return;
-  
-  var folders = getFolders();
-  var nf = { id: genId(), name: nm.trim(), songs: [] };
-  folders.push(nf);
-  saveFolders(folders);
-  renderFolderBar();
-  
-  // Refresh the folder list in the modal
-  var $container = $("#folder-checkboxes-container");
-  var $checkbox = $('<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">' +
-    '<input type="checkbox" class="folder-checkbox" data-folder-id="' + nf.id + '" checked style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">' +
-    '<div style="flex:1">' +
-      '<div style="font-size:0.85rem;font-weight:600;color:var(--text)"><i class="fa-solid fa-folder" style="margin-right:6px;color:var(--accent)"></i>' + nf.name + '</div>' +
-      '<div style="font-size:0.7rem;color:var(--text-3)">0 songs</div>' +
-    '</div>' +
-  '</label>');
-  
-  if ($container.find("label").length === 0) {
-    $container.empty();
-  }
-  $container.append($checkbox);
-  
-  toast("Folder created", "folder-plus");
-});
-
-$("#folder-select-confirm").click(function() {
-  var songId = window.currentFolderSongId;
-  if (!songId) return;
-  
-  var folders = getFolders();
-  var selectedFolders = [];
-  
-  $(".folder-checkbox").each(function() {
-    var folderId = $(this).data("folder-id");
-    var isChecked = $(this).is(":checked");
-    var folder = folders.find(function(f) { return f.id === folderId; });
-    
-    if (folder) {
-      if (!folder.songs) folder.songs = [];
-      var idx = folder.songs.indexOf(songId);
-      
-      if (isChecked && idx === -1) {
-        folder.songs.push(songId);
-        selectedFolders.push(folder.name);
-      } else if (!isChecked && idx !== -1) {
-        folder.songs.splice(idx, 1);
-      }
-    }
-  });
-  
-  saveFolders(folders);
-  renderFolderBar();
-  
-  $("#folder-select-modal").removeClass("go");
-  
-  if (selectedFolders.length > 0) {
-    toast("Added to " + selectedFolders.length + " folder" + (selectedFolders.length !== 1 ? "s" : ""), "folder-plus");
-  } else {
-    toast("Folder membership updated", "check");
-  }
-  
-  window.currentFolderSongId = null;
-});
+}
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    KARAOKE MODE
@@ -11732,8 +11636,8 @@ $("#treesh-search").on("input", function() {
   var q = $(this).val().trim().toLowerCase();
   $("#song-list .modal-body .item").each(function() {
     if (!q) { $(this).show(); return; }
-    var title = $(this).find("b, .song-title, strong").text().toLowerCase();
-    var artist = $(this).find("small, .song-artist, em").text().toLowerCase();
+    var title = ($(this).find(".song-title, .name").text() || "").toLowerCase();
+    var artist = ($(this).find(".song-artist, .artist").text() || "").toLowerCase();
     var text = $(this).text().toLowerCase();
     var match = false;
     if (treeshSearchMode === "global") match = text.includes(q);
@@ -11854,6 +11758,97 @@ function refreshLibraryView() {
   req.onsuccess = function(e) { renderLibrary(e.target.result || []); setTimeout(filterLibByFolder, 50); };
 }
 
+function showFolderPicker(songIds) {
+  var folders = getFolders();
+  var html = '<div class="folder-picker-popup">';
+  html += '<div style="font-weight:700;font-size:0.85rem;color:var(--text);margin-bottom:12px">Add to Folder</div>';
+  if (!folders.length) {
+    html += '<div style="color:var(--text-3);font-size:0.78rem;padding:10px 0">No folders yet. Create one below.</div>';
+  } else {
+    folders.forEach(function(f) {
+      // Check if song is already in this folder
+      var alreadyIn = false;
+      songIds.forEach(function(sid) { if (f.songs && f.songs.indexOf(sid) >= 0) alreadyIn = true; });
+      html += '<label class="folder-pick-item" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s;margin-bottom:4px;background:' + (alreadyIn ? 'var(--accent-soft)' : 'var(--surface)') + '">';
+      html += '<input type="checkbox" value="' + f.id + '" ' + (alreadyIn ? 'checked' : '') + ' style="accent-color:var(--accent);width:18px;height:18px">';
+      html += '<i class="fa-solid fa-folder" style="color:var(--accent);font-size:0.8rem"></i>';
+      html += '<span style="font-size:0.8rem;font-weight:600;color:var(--text)">' + f.name + '</span>';
+      html += '<span style="font-size:0.65rem;color:var(--text-3);margin-left:auto">' + (f.songs ? f.songs.length : 0) + '</span>';
+      html += '</label>';
+    });
+  }
+  html += '<div style="margin-top:12px;display:flex;gap:8px">';
+  html += '<button type="button" class="folder-pick-new" style="flex:1;padding:8px;border-radius:10px;border:1px dashed var(--border-2);background:transparent;color:var(--accent);font-size:0.75rem;font-weight:700;cursor:pointer;font-family:var(--main-font)"><i class="fa-solid fa-plus"></i> New Folder</button>';
+  html += '</div>';
+  html += '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">';
+  html += '<button type="button" class="folder-pick-cancel" style="padding:8px 18px;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:0.75rem;font-weight:700;cursor:pointer;font-family:var(--main-font)">Cancel</button>';
+  html += '<button type="button" class="folder-pick-save" style="padding:8px 18px;border-radius:var(--radius-pill);border:none;background:var(--accent);color:white;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:var(--main-font)">Save</button>';
+  html += '</div></div>';
+
+  var $overlay = $('<div class="folder-picker-overlay" style="position:fixed;inset:0;z-index:110;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.25s"></div>');
+  var $box = $('<div style="width:85%;max-width:340px;background:var(--glass-2);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid var(--border-2);border-radius:var(--radius);padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-height:70vh;overflow-y:auto"></div>');
+  $box.html(html);
+  $overlay.append($box);
+  $("body").append($overlay);
+  setTimeout(function() { $overlay.css("opacity", "1"); }, 10);
+  gsap.fromTo($box[0], { scale: 0.92, y: 12 }, { scale: 1, y: 0, duration: 0.3, ease: "power3.out" });
+
+  function closePicker() {
+    $overlay.css("opacity", "0");
+    setTimeout(function() { $overlay.remove(); }, 250);
+  }
+
+  $overlay.on("click", function(e) { if (e.target === this) closePicker(); });
+  $overlay.on("click", ".folder-pick-cancel", closePicker);
+
+  $overlay.on("click", ".folder-pick-new", function() {
+    var nm = prompt("New folder name:");
+    if (!nm || !nm.trim()) return;
+    var flds = getFolders();
+    var nf = { id: genId(), name: nm.trim(), songs: [] };
+    flds.push(nf);
+    saveFolders(flds);
+    // Add checkbox for new folder
+    var newLabel = '<label class="folder-pick-item" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s;margin-bottom:4px;background:var(--accent-soft)">';
+    newLabel += '<input type="checkbox" value="' + nf.id + '" checked style="accent-color:var(--accent);width:18px;height:18px">';
+    newLabel += '<i class="fa-solid fa-folder" style="color:var(--accent);font-size:0.8rem"></i>';
+    newLabel += '<span style="font-size:0.8rem;font-weight:600;color:var(--text)">' + nf.name + '</span>';
+    newLabel += '<span style="font-size:0.65rem;color:var(--text-3);margin-left:auto">0</span>';
+    newLabel += '</label>';
+    $box.find(".folder-pick-new").closest("div").before(newLabel);
+    toast("Folder created", "folder-plus");
+  });
+
+  $overlay.on("click", ".folder-pick-save", function() {
+    var checkedIds = [];
+    $box.find("input[type=checkbox]:checked").each(function() { checkedIds.push($(this).val()); });
+    var uncheckedIds = [];
+    $box.find("input[type=checkbox]:not(:checked)").each(function() { uncheckedIds.push($(this).val()); });
+
+    var flds = getFolders();
+    // Add to checked folders
+    checkedIds.forEach(function(fid) {
+      var f = flds.find(function(x) { return x.id === fid; });
+      if (f) {
+        songIds.forEach(function(sid) {
+          if (f.songs.indexOf(sid) < 0) f.songs.push(sid);
+        });
+      }
+    });
+    // Remove from unchecked folders
+    uncheckedIds.forEach(function(fid) {
+      var f = flds.find(function(x) { return x.id === fid; });
+      if (f) {
+        f.songs = f.songs.filter(function(s) { return songIds.indexOf(s) < 0; });
+      }
+    });
+    saveFolders(flds);
+    renderFolderBar();
+    closePicker();
+    toast("Folders updated", "folder-open");
+  });
+}
+
 function addSongsToFolder(songIds, folderId) {
   var folders = getFolders();
   var f = folders.find(function(x) { return x.id === folderId; });
@@ -11923,7 +11918,7 @@ function doOpenSelectedLib() {
     };
   });
   tx.oncomplete = function() {
-    $("#library").removeClass("go");
+    closeModalAnimated("#library");
     toast(libSelected.length + " files opened", "folder-open");
     libSelected = [];
     libSelectMode = false;
@@ -12008,7 +12003,7 @@ $(document).on("click", ".eg-tab-btn", function() {
 });
 
 $(document).on("click", "#eg-add-new-btn", function() {
-  $("#explain-gallery").removeClass("go");
+  closeModalAnimated("#explain-gallery");
   var lines = buildSelectorLinesFromCurrent();
   openLyricSelector({
     mode: "word",
@@ -12245,7 +12240,7 @@ $(document).on("click", ".eg-lyric-up, .eg-lyric-down", function() {
   var lines = getCurrentLinesHtml();
   var sourceIdx = inStudio ? $("#lyrics p").index($(els[idx]).closest("p")) : getInputLineIndexByNode(els[idx]);
   if (sourceIdx < 0) return;
-  $("#explain-gallery").removeClass("go");
+  closeModalAnimated("#explain-gallery");
   openLyricSelector({
     mode: "line",
     title: "Move Lyric Line",
@@ -12317,7 +12312,7 @@ $(document).on("click", ".eg-ex-move", function() {
   if (!els[idx]) return;
   var sourceEl = els[idx];
   var explainText = $(sourceEl).attr("data-explain");
-  $("#explain-gallery").removeClass("go");
+  closeModalAnimated("#explain-gallery");
   openLyricSelector({
     mode: "word",
     title: "Move Explanation",
@@ -12362,8 +12357,8 @@ $(document).on("click", ".eg-ex-delete", function() {
   }, "Delete", "Cancel");
 });
 
-$("#eg-close").click(function() { $("#explain-gallery").removeClass("go"); });
-$("#explain-gallery").on("click", function(e) { if (e.target === this) $(this).removeClass("go"); });
+$("#eg-close").click(function() { closeModalAnimated("#explain-gallery"); });
+$("#explain-gallery").on("click", function(e) { if (e.target === this) closeModalAnimated("#explain-gallery"); });
 
 $("#explain-gallery-btn").click(function() { openExplainGallery(); });
 
@@ -12543,8 +12538,8 @@ $("#btn-faq").click(function() {
   gsap.fromTo(".faq-item", { y: 10, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.025, duration: 0.25, delay: 0.15, ease: "power2.out" });
 });
 
-$("#faq-close").click(function() { $("#faq-modal").removeClass("go"); });
-$("#faq-modal").on("click", function(e) { if (e.target === this) $(this).removeClass("go"); });
+$("#faq-close").click(function() { closeModalAnimated("#faq-modal"); });
+$("#faq-modal").on("click", function(e) { if (e.target === this) closeModalAnimated("#faq-modal"); });
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    NAV & KEYBOARD SHORTCUTS
@@ -12578,10 +12573,10 @@ $(document).on("keydown", function (e) {
   if (e.key === "?" && !isEditing) { e.preventDefault(); $("#btn-shortcuts").click(); }
   if (e.key === "Escape") {
     $("#shortcuts-modal").removeClass("on");
-    $("#faq-modal").removeClass("go");
+    closeModalAnimated("#faq-modal");
     $("#panel").removeClass("open");
     $("#menu-toggle").removeClass("menu-on");
-    $("#song-list, #library, #explain-modal").removeClass("go");
+    closeModalAnimated("#song-list"); closeModalAnimated("#library"); closeModalAnimated("#explain-modal");
     $(".confirm-dialog, .option-dialog").removeClass("show");
     hideRichToolbar();
   }
@@ -12614,7 +12609,7 @@ var tutorialSteps = [
   { selector: "#lite-mode", title: "Lite Modes", text: "Lite disables canvases. Lite+ disables everything animated.", onEnter: function() { } },
   { selector: "#lock-enabled", title: "Lock Screen", text: "Enable passcode lock right after splash.", onEnter: function() { } },
   { selector: "#open-btn", title: "Import", text: "Open Library, restore backup, or import from Treesh.", onEnter: function() { closePanel(); } },
-  { selector: "#save", title: "Backup", text: "Export settings or files to a JSON backup.", onEnter: function() { openPanel(); $("#backup-modal").addClass("go"); }, onExit: function() { $("#backup-modal").removeClass("go"); } }
+  { selector: "#save", title: "Backup", text: "Export settings or files to a JSON backup.", onEnter: function() { openPanel(); $("#backup-modal").addClass("go"); }, onExit: function() { closeModalAnimated("#backup-modal"); } }
 ];
 
 
@@ -12628,7 +12623,7 @@ function openPanel() {
   $("#menu-toggle").addClass("menu-on");
 panelToggleTL.play(0);
   
-  panelToggleTL.eventCallback("onComplete", function () {
+  panelToggleTL.eventCallback("onStart", function () {
       if ( $("#lyrics").is(":visible") && parseFloat($("#lyrics").css("opacity")) > 0 ) {
     gsap.to("#studio-controls", { height: 0, duration: 0.3, opacity: 0, delay: 0.3, ease: "power1.in" }, "<");
   }
@@ -12642,6 +12637,10 @@ function closePanel() {
       $("#menu-toggle").removeClass("menu-on");
       panelToggleTL.eventCallback("onReverseComplete", null);
      
+
+    });
+
+    panelToggleTL.eventCallback("onReverseStart", function () {
      if ($("#lyrics").is(":visible") && parseFloat($("#lyrics").css("opacity")) > 0) {
   gsap.to("#studio-controls", { height: "auto", duration: 0.3, opacity: 1, delay: 0.3, ease: "power1.in" });
 }
@@ -12670,7 +12669,7 @@ function startTutorial() {
   $("#tutorial-overlay").addClass("active");
   toast("Tutorial started", "graduation-cap");
   showTutorialStep();
-  $("#faq-modal").removeClass("go");
+  closeModalAnimated("#faq-modal");
 }
 
 function showTutorialStep() {
@@ -12825,7 +12824,7 @@ function endTutorial() {
   $(".active-tut").css("opacity", 1).removeClass("active-tut");
     $(".tutorial-highlight").remove();
   $("#faq-modal").addClass("go");
-  $("#backup-modal, #restore-modal, #library").removeClass("go");
+  closeModalAnimated("#backup-modal"); closeModalAnimated("#restore-modal"); closeModalAnimated("#library");
   closePanel();
   currentTutorialStep = 0;
 }
