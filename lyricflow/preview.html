@@ -2918,12 +2918,14 @@ body { -webkit-touch-callout: none; }
 }
 
   
-  #font-row {
+  #font-row,
+  #translation-row {
     flex-wrap:nowrap;
     overflow:auto;
   }
 
-.font-chip {
+.font-chip,
+  .translation-chip {
   height: 36px;
   padding: 0 14px;
   border-radius: var(--radius-pill);
@@ -2940,10 +2942,14 @@ body { -webkit-touch-callout: none; }
 }
 
 .font-chip::after,
-.font-chip::before { display: none !important; }
-.font-chip:hover { background: var(--surface-2); color: var(--text); }
+.font-chip::before,
+  .translation-chip:before,
+  .translation-chip:after { display: none !important; }
+.font-chip:hover,
+  .translate-chip:hover { background: var(--surface-2); color: var(--text); }
 
-.font-chip.active {
+.font-chip.active,
+  .translation-chip.active  {
   background: var(--accent-soft);
   color: var(--accent);
   border-color: var(--accent);
@@ -4932,6 +4938,9 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
     padding:5px 6px;
   }
 
+  #rt-translate.translated {
+    color:var(--accent) !important;
+  }
 </style>
 <base target="_blank">
 </head>
@@ -5128,6 +5137,8 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
   <button id="rt-fontsize-toggle" title="Font Size"><i class="fa-solid fa-text-height"></i></button>
   <div class="rt-sep"></div>
   <button id="rt-explain" title="Add Explanation"><i class="fa-solid fa-comment-dots"></i></button>
+  <div class="rt-sep"></div>
+  <button id="rt-translate" title="Translate"><i class="fa-solid fa-language"></i></button>
   <div class="rt-sep"></div>
   <button id="rt-clear-sel" title="Clear Formatting"><i class="fa-solid fa-eraser"></i></button>
 </div>
@@ -5505,6 +5516,22 @@ html[data-theme="juneteenth"]{ --bg:#060402; --surface:#120905; --surface-2:#1a0
       </div>
       
       <div class="panel-section">
+        <div class="panel-label">Translation</div>
+        
+        <div class="panel-row" id="translation-row">
+          <button class="translation-chip" data-translate="en">English</button>
+          <button class="translation-chip active" data-translate="es">Spanish</button>
+          <button class="translation-chip" data-translate="fr">French</button>
+          <button class="translation-chip" data-translate="de">German</button>
+          <button class="translation-chip" data-translate="pt">Portuguese</button>
+          <button class="translation-chip" data-translate="it">Italian</button>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text-3);line-height:1.35">
+            Default language to translate selected text when using the Translation tool.
+          </div>
+      </div>
+      
+      <div class="panel-section">
         <div class="panel-label">Voice Settings</div>
         <div class="panel-row" style="margin-bottom:8px">
           <div style="font-size:0.72rem;color:var(--text-2);font-weight:600;margin-bottom:6px">Speak Voice</div>
@@ -5807,6 +5834,11 @@ LF.isCanvasDisabled = function() { var m = LF.getLiteMode(); return m === "lite"
   /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    SPLASH SCREEN ANIMATION
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+  
+  gsap.set("#nav", { y: -50, opacity: 0, duration: 0.7, ease: "power3.out", delay: 0.1 });
+gsap.set("#tab-bar", { y: -30, opacity: 0, duration: 0.5, ease: "power3.out", delay: 0.2 });
+gsap.set("#toolbar", { y: 60, opacity: 0, duration: 0.7, ease: "power3.out", delay: 0.25 });
+gsap.set(".aura", { opacity: 0, duration: 2, ease: "power2.out" });
 
 (function () {
   var tl = gsap.timeline({
@@ -7620,6 +7652,13 @@ $("#lite-mode").off("change.lite").on("change.lite", function() {
   LF.applyLiteMode(mode);
   toast(mode === "off" ? "Performance: Off" : (mode === "lite" ? "Performance: Lite" : "Performance: Lite+"), "bolt");
 });
+  
+  var savedTranslation = localStorage.getItem("translationSelection");
+  if (savedTranslation) {
+    $(".translation-chip").removeClass("active").each(function () {
+      if ($(this).data("translate") === savedTranslation) $(this).addClass("active");
+    });
+  }
 
 var savedFont = localStorage.getItem("lyricFont");
   if (savedFont) {
@@ -9421,7 +9460,7 @@ toolbarTL
     duration: 0.3,
     ease: "power2.out"
   }, "<")
-  .to("#studio-controls", { height: "auto", duration: 0.3, opacity: 1, delay: 0.3, ease: "power1.in" }, "<")
+  .to("#studio-controls", { height: "auto", duration: 0.3, opacity: 1,  ease: "power1.in" }, "<")
   .to("#text", {
   opacity: 0,
     y: "100%",
@@ -9439,11 +9478,6 @@ toolbarTL
     duration: 0.6,
     ease: "power2.out"
 }, "<");
-
-toolbarTL.eventCallback("onComplete", function() {
-  
-});
-
 
   
 
@@ -10160,61 +10194,8 @@ $("#next-line").click(function () {
   setTimeout(function () { $all.each(function () { if (!$(this).hasClass("selected")) $(this).addClass("no"); }); }, 200);
   $all.filter(".selected").removeClass("no-time");
 });
-
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   RHYMES
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-
-function getWordAtCaret() {
-  var sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return "";
-  var range = sel.getRangeAt(0);
-  var node = range.startContainer;
-  var t, p;
-  if (node.nodeType === 3) {
-    t = node.textContent || "";
-    p = range.startOffset;
-  } else {
-    var child = node.childNodes[range.startOffset - 1] || node.childNodes[range.startOffset] || node;
-    t = (child.textContent || "");
-    p = t.length;
-  }
-  if (!t) return "";
-  var s = p, e = p;
-  while (s > 0 && !/\s/.test(t[s - 1])) s--;
-  while (e < t.length && !/\s/.test(t[e])) e++;
-  var w = t.slice(s, e);
-  return (w || "").replace(/[^\w]/g, "").toLowerCase();
-}
-
-function getRhymes() {
-  var w = getWordAtCaret();
-  if (!w || w.length < 2) { $("#rhymes-bar .rhymes-scroll").empty(); $("#rhymes-bar").removeClass("on"); return; }
-  // Show bar immediately with loading indicator
-  $("#rhymes-bar").addClass("on");
-  $.ajax({
-    url: "https://rhymebrain.com/talk?function=getRhymes&word=" + encodeURIComponent(w),
-    dataType: "jsonp",
-    jsonp: "jsonp",
-    timeout: 5000
-  }).done(function (d) {
-    if (!d || !d.length) { $("#rhymes-bar .rhymes-scroll").empty(); $("#rhymes-bar").removeClass("on"); return; }
-    var h = d.slice(0, 25).map(function (i) { return "<button type='button'>" + i.word + "</button>"; }).join("");
-    $("#rhymes-bar .rhymes-scroll").html(h);
-    if (h) {
-      $("#rhymes-bar").addClass("on");
-      if (!LF.isLitePlus()) gsap.fromTo("#rhymes-bar .rhymes-scroll button", { y: 10, opacity: 0, scale: 0.85 }, { y: 0, opacity: 1, scale: 1, stagger: 0.02, duration: 0.25, ease: "back.out(1.5)" });
-    }
-  }).fail(function () { $("#rhymes-bar .rhymes-scroll").empty(); $("#rhymes-bar").removeClass("on"); });
-}
-
-var rhymeTO;
-function schedRhymes() { clearTimeout(rhymeTO); rhymeTO = setTimeout(getRhymes, 250); }
-
-
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   INPUT EVENTS (contenteditable)
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+  
+  
 
 $("#container").click(function() {
    if ($("#panel").hasClass("open")) {
@@ -10222,173 +10203,241 @@ $("#container").click(function() {
    }
 });
 
-$("#input").on("input", function () {
-  var text = getInputText();
-  if (text.trim() === "") disableBtn("#next");
-  else enableBtn("#next");
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RHYMES
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+var rhymeTO = null;
+var rhymeReq = 0;
+var lastRhymeWord = "";
 
-  rebuildLyrics();
-  schedRhymes();
-  saveLyrics();
-  updateStats();
-  markDirty();
-  queueHistorySnapshot();
-    setTimeout(keepInputBottomSpacing, 0);
-});
+function cleanRhymeWord(w) {
+  return (w || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[^\w']/g, "")
+    .replace(/^'+|'+$/g, "")
+    .replace(/'/g, "")
+    .toLowerCase();
+}
 
-$("#input").on("focus click touchstart", function () {
-  schedRhymes();
-});
+function rhymesOff() {
+  $("#rhymes-bar .rhymes-scroll").empty();
+  $("#rhymes-bar").removeClass("on");
+}
+
+function rhymesOn() {
+  $("#rhymes-bar").addClass("on");
+}
+
+function selectionInsideInput() {
+  var sel = window.getSelection ? window.getSelection() : null;
+  if (!sel || !sel.rangeCount) return false;
+  var n = sel.anchorNode || sel.getRangeAt(0).startContainer;
+  if (!n) return false;
+  return $(n.nodeType === 1 ? n : n.parentNode).closest("#input").length > 0;
+}
+
+function getWordAtCaret() {
+  var sel = window.getSelection ? window.getSelection() : null;
+  if (!sel || !sel.rangeCount) return "";
+  if (!selectionInsideInput()) return "";
+
+  var selText = (sel.toString() || "").trim();
+  if (selText.length) {
+    var parts = selText.split(/\s+/);
+    return cleanRhymeWord(parts[parts.length - 1] || "");
+  }
+
+  var range = sel.getRangeAt(0);
+  var node = range.startContainer;
+  var offset = range.startOffset;
+
+  if (node && node.nodeType !== 3) {
+    var root = $("#input")[0];
+    if (!root) return "";
+
+    var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    var last = null, cur;
+    while (cur = tw.nextNode()) last = cur;
+
+    if (!last) return "";
+    node = last;
+    offset = (node.textContent || "").length;
+  }
+
+  if (!node || node.nodeType !== 3) return "";
+
+  var text = (node.textContent || "").replace(/\u00a0/g, " ");
+  if (!text) return "";
+
+  offset = Math.max(0, Math.min(offset, text.length));
+  if (offset > 0 && /\s/.test(text.charAt(offset)) && !/\s/.test(text.charAt(offset - 1))) offset--;
+
+  var s = offset, e = offset;
+  while (s > 0 && !/\s/.test(text.charAt(s - 1))) s--;
+  while (e < text.length && !/\s/.test(text.charAt(e))) e++;
+
+  return cleanRhymeWord(text.slice(s, e));
+}
+
+function renderRhymes(words) {
+  if (!words || !words.length) { rhymesOff(); return; }
+
+  var h = $.map(words.slice(0, 60), function (w) {
+    return "<button type='button'>" + w + "</button>";
+  }).join("");
+
+  if (!h) { rhymesOff(); return; }
+
+  $("#rhymes-bar .rhymes-scroll").html(h);
+  rhymesOn();
+  $("#rhymes-bar .rhymes-scroll").scrollLeft(0);
+
+  if (window.gsap && window.LF && typeof LF.isLitePlus === "function" && !LF.isLitePlus()) {
+    gsap.fromTo(
+      "#rhymes-bar .rhymes-scroll button",
+      { y: 10, opacity: 0, scale: 0.85 },
+      { y: 0, opacity: 1, scale: 1, stagger: 0.02, duration: 0.25, ease: "back.out(1.5)" }
+    );
+  }
+}
+
+function rhymeKey(w) {
+  w = cleanRhymeWord(w);
+  if (!w) return "";
+
+  w = w
+    .replace(/ph/g, "f")
+    .replace(/ght/g, "t")
+    .replace(/kn/g, "n")
+    .replace(/wr/g, "r")
+    .replace(/qu/g, "kw")
+    .replace(/ck/g, "k")
+    .replace(/c(?=[eiy])/g, "s")
+    .replace(/c/g, "k")
+    .replace(/x/g, "ks")
+    .replace(/dg/g, "j")
+    .replace(/tch/g, "ch");
+
+  w = w.replace(/([a-z])\1+/g, "$1");
+
+  var tail = w.slice(-6);
+  var v = tail.replace(/[^aeiouy]/g, "");
+
+  if (v.length < 2) return tail.slice(-4);
+
+  var m = tail.match(/[aeiouy][^aeiouy]*[aeiouy][a-z]*$/);
+  return m ? m[0] : tail;
+}
+
+function endsLike(word, key) {
+  word = (word || "").toLowerCase();
+  key = (key || "").toLowerCase();
+  if (!word || !key) return false;
+  return word.slice(-key.length) === key;
+}
 
 function fetchRhymesForWord(word) {
-  if (!word) return;
-  $("#rhymes-bar").addClass("on");
-  $(".rhymes-scroll").scrollLeft(0);
-  clearTimeout(rhymeTO);
-  rhymeTO = setTimeout(function() {
-    $.ajax({
-      url: "https://rhymebrain.com/talk?function=getRhymes&word=" + encodeURIComponent(word),
-      dataType: "jsonp",
-      jsonp: "jsonp",
-      timeout: 5000
-    }).done(function (d) {
-      if (!d || !d.length) { $("#rhymes-bar .rhymes-scroll").empty(); $("#rhymes-bar").removeClass("on"); return; }
-      var h = d.slice(0, 60).map(function (i) { return "<button type='button'>" + i.word + "</button>"; }).join("");
-      $("#rhymes-bar .rhymes-scroll").html(h);
-      if (h) gsap.fromTo("#rhymes-bar .rhymes-scroll button", { y: 10, opacity: 0, scale: 0.85 }, { y: 0, opacity: 1, scale: 1, stagger: 0.02, duration: 0.25, ease: "back.out(1.5)" });
-      else $("#rhymes-bar").removeClass("on");
-    }).fail(function() { $("#rhymes-bar").removeClass("on"); });
-  }, 80);
+  word = cleanRhymeWord(word);
+  if (!word || word.length < 2) { rhymesOff(); return; }
+
+  rhymesOn();
+
+  if (word === lastRhymeWord) return;
+  lastRhymeWord = word;
+
+  var my = ++rhymeReq;
+
+  $("#rhymes-bar .rhymes-scroll").html("<button type='button' style='opacity:.6;pointer-events:none'>Finding rhymes...</button>");
+
+  $.getJSON("https://api.datamuse.com/words", { rel_rhy: word, max: 60 })
+    .done(function (d) {
+      if (my !== rhymeReq) return;
+
+      var list = $.map(d || [], function (i) { return i && i.word ? i.word : ""; })
+        .filter(function (x) { return !!x; });
+
+      if (list.length) { renderRhymes(list); return; }
+
+      var key = rhymeKey(word);
+
+      $.getJSON("https://api.datamuse.com/words", { sl: word, max: 200 })
+        .done(function (d2) {
+          if (my !== rhymeReq) return;
+
+          var pool = $.map(d2 || [], function (i) { return i && i.word ? i.word : ""; })
+            .filter(function (x) { return !!x; });
+
+          var out = $.grep(pool, function (w) { return endsLike(cleanRhymeWord(w), key); });
+
+          if (!out.length) {
+            var tail3 = word.slice(-3);
+            out = $.grep(pool, function (w) { return cleanRhymeWord(w).slice(-3) === tail3; });
+          }
+
+          if (!out.length) out = pool.slice(0, 60);
+
+          renderRhymes(out.slice(0, 60));
+        })
+        .fail(function () {
+          if (my !== rhymeReq) return;
+          rhymesOff();
+        });
+    })
+    .fail(function () {
+      if (my !== rhymeReq) return;
+      rhymesOff();
+    });
 }
 
-$("#input").on("keyup click mouseup touchend", function () {
-   setTimeout(function() {
-    var sel = window.getSelection();
-    if (sel && sel.rangeCount) {
-      var selText = sel.toString().trim();
-      if (selText.length > 0) {
-        var lastWord = selText.split(/\s+/).pop().replace(/[^\w]/g, "");
-        if (lastWord) { fetchRhymesForWord(lastWord); return; }
-      }
-      var node = sel.getRangeAt(0).startContainer;
-      var t = (node.nodeType === 3) ? node.textContent : "";
-      var p = sel.getRangeAt(0).startOffset;
-      var b = t[p - 1] || "", a = t[p] || "";
-      if (/\w/.test(b) || /\w/.test(a)) { $("#rhymes-bar").addClass("on"); schedRhymes(); }
-      else $("#rhymes-bar").removeClass("on");
-    }
-  }, 10);
+function getRhymes() {
+  fetchRhymesForWord(getWordAtCaret());
+}
+
+function schedRhymes() {
+  clearTimeout(rhymeTO);
+  rhymeTO = setTimeout(getRhymes, 120);
+}
+
+$(document).off(".rhymesFix");
+
+$(document).on("input.rhymesFix", "#input", function () {
+  if (typeof rebuildLyrics === "function") rebuildLyrics();
+  schedRhymes();
+  if (typeof saveLyrics === "function") saveLyrics();
+  if (typeof updateStats === "function") updateStats();
+  if (typeof markDirty === "function") markDirty();
+  if (typeof queueHistorySnapshot === "function") queueHistorySnapshot();
+  if (typeof keepInputBottomSpacing === "function") setTimeout(keepInputBottomSpacing, 0);
 });
 
-document.addEventListener("selectionchange", function() {
-  if (document.activeElement !== document.getElementById("input")) return;
-  var sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return;
-  var selText = sel.toString().trim();
-  if (selText.length > 0) {
-    var lastWord = selText.split(/\s+/).pop().replace(/[^\w]/g, "");
-    if (lastWord) fetchRhymesForWord(lastWord);
-  }
+$(document).on("focus.rhymesFix click.rhymesFix keyup.rhymesFix mouseup.rhymesFix touchstart.rhymesFix touchend.rhymesFix", "#input", function () {
+  setTimeout(function () {
+    if (!selectionInsideInput()) return;
+    schedRhymes();
+  }, 0);
 });
 
-$("#input").on("blur", function () {
+$(document).on("selectionchange.rhymesFix", function () {
+  if (!selectionInsideInput()) return;
+  setTimeout(schedRhymes, 0);
+});
+
+$(document).on("blur.rhymesFix", "#input", function () {
   setTimeout(function () {
     if (document.activeElement && $(document.activeElement).closest("#rhymes-bar").length) return;
-    $("#rhymes-bar").removeClass("on");
-    if (!document.activeElement || !$(document.activeElement).closest("#rich-toolbar").length) {
-      setTimeout(hideRichToolbar, 150);
-    }
-  }, 300);
+    rhymesOff();
+  }, 250);
 });
 
-$("#input").on("paste", function (e) {
-  e.preventDefault();
-  var text = (e.originalEvent.clipboardData || window.clipboardData).getData("text/plain");
-  document.execCommand("insertText", false, text);
-  setTimeout(normalizeInputBlocks, 0);
-    setTimeout(keepInputBottomSpacing, 0);
-});
-  
-  var skipCaretRestoreOnce = false;
+$(document).on("click.rhymesFix", "#rhymes-bar button", function () {
+  var w = ($(this).text() || "").trim();
+  if (!w || w === "...") return;
 
-function setCaretToEndOfEl(el) {
-  var sel = window.getSelection();
-  if (!sel) return;
-
-  var range = document.createRange();
-  range.selectNodeContents(el);
-  range.collapse(false);
-
-  sel.removeAllRanges();
-  sel.addRange(range);
-}
-
-function setCaretToEndOfLastLine() {
   var el = document.getElementById("input");
-  if (!el) return;
+  if (el) el.focus();
 
-  var ps = el.getElementsByTagName("p");
-  var last = ps.length ? ps[ps.length - 1] : el;
-
-  setCaretToEndOfEl(last);
-}
-
-
-$("#input").on("keydown", function (e) {
-  if (e.key === "Enter") {
-    // let the browser handle the break. do not execCommand. do not preventDefault.
-    skipCaretRestoreOnce = true;
-
-    setTimeout(normalizeInputBlocks, 0);
-    setTimeout(keepInputBottomSpacing, 0);
-    return;
-  }
-
-  if (e.key === ">") {
-    setTimeout(function() {
-      var h = $("#input").html();
-      var changed = false;
-
-      h = h.replace(/&lt;b&gt;(.*?)&lt;\/b&gt;/gi, function(m,c) { changed=true; return "<b>"+c+"</b>"; });
-      h = h.replace(/&lt;i&gt;(.*?)&lt;\/i&gt;/gi, function(m,c) { changed=true; return "<i>"+c+"</i>"; });
-      h = h.replace(/&lt;s&gt;(.*?)&lt;\/s&gt;/gi, function(m,c) { changed=true; return "<s>"+c+"</s>"; });
-      h = h.replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/gi, function(m,c) { changed=true; return "<u>"+c+"</u>"; });
-      h = h.replace(/&lt;strong&gt;(.*?)&lt;\/strong&gt;/gi, function(m,c) { changed=true; return "<b>"+c+"</b>"; });
-      h = h.replace(/&lt;em&gt;(.*?)&lt;\/em&gt;/gi, function(m,c) { changed=true; return "<i>"+c+"</i>"; });
-
-      if (changed) {
-        var sel = window.getSelection();
-        var cursorAtEnd = false;
-        if (sel && sel.rangeCount) {
-          var r = sel.getRangeAt(0);
-          cursorAtEnd = r.startOffset >= (r.startContainer.textContent || "").length;
-        }
-
-        $("#input").html(h);
-
-        if (sel && sel.rangeCount) {
-          var el = document.getElementById("input");
-          if (cursorAtEnd) {
-            var range = document.createRange();
-            range.selectNodeContents(el);
-            range.collapse(false);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-        }
-      }
-    }, 10);
-  }
-});
-
-
-$("#rhymes-bar").on("click", "button", function () {
-  var w = $(this).text();
-  var el = document.getElementById("input");
-  el.focus();
   document.execCommand("insertText", false, w + " ");
   $("#input").trigger("input");
-  updateStats();
 });
 
 $(".meta-field").on("change input", function () {
@@ -10397,8 +10446,12 @@ $(".meta-field").on("change input", function () {
   var tab = tabs.find(function (t) { return t.id === activeTabId; });
   if (tab) {
     tab.title = $("#meta_track").val().trim() || "Untitled";
-    tab.artist = $("#meta_artist").val().trim();
+    tab.writer = $("#meta_artist").val().trim();
     tab.album = $("#meta_album").val().trim();
+    tab.artist = $("#meta_write").val().trim();
+    tab.featuring = $("#meta_featuring").val().trim();
+    tab.occasion = $("#meta_occasion").val().trim();
+    tab.datetime = $("#meta_datetime").val().trim();
     renderTabs();
   queueHistorySnapshot();
   }
@@ -10993,6 +11046,302 @@ $(document).on("mousedown touchstart", function(e) {
     hideRichToolbar();
   }
 });
+  
+ 
+  
+  /* ========= 
+  TRANSLATION
+========*/
+  
+  var translatedTexts = [];
+var translateTargetLang = $(".translation-chip.active").attr("data-translate");
+var translateTO = null;
+var errorTO = null;
+
+function showErr(msg) {
+  msg = (msg == null) ? "" : String(msg);
+  if ( !$(".toast").length ) {
+    toast("Error translating text to "+ $(".translation-chip.active").text() +"! Is it a real word?", "translation");
+  }
+}
+
+window.addEventListener("error", function (e) {
+  if (!e) return;
+  showErr(e.message || "error");
+}, true);
+
+window.addEventListener("unhandledrejection", function (e) {
+  var msg = (e && e.reason) ? (e.reason.message || String(e.reason)) : "promise error";
+  showErr(msg);
+}, true);
+
+$(document).off("click.translateLang").on("click.translateLang", "#translation-row .translation-chip", function (e) {
+  e.preventDefault();
+
+  $("#translation-row .translation-chip").removeClass("active");
+  $(this).addClass("active");
+
+  translateTargetLang = ($(this).attr("data-translate") || "es").toLowerCase();
+
+  $("#rt-translate").removeClass("translated");
+
+  localStorage.setItem("translationSelection", $(this).attr("data-translate"));
+});
+
+function cleanPhrase(s) {
+  return (s || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s']/g, "");
+}
+
+function normalizeLang(code) {
+  code = (code || "").toLowerCase();
+  if (code === "spanish") return "es";
+  if (code === "english") return "en";
+  if (code === "portuguese") return "pt";
+  if (code === "french") return "fr";
+  if (code === "german") return "de";
+  if (code === "italian") return "it";
+  return code;
+}
+
+function getSelectedTextInInput() {
+  var sel = window.getSelection ? window.getSelection() : null;
+  if (!sel || !sel.rangeCount) return "";
+  var n = sel.anchorNode || sel.getRangeAt(0).startContainer;
+  if (!n || !$(n.nodeType === 1 ? n : n.parentNode).closest("#input").length) return "";
+  return (sel.toString() || "");
+}
+
+function replaceSelectedTextPreserveExactOuterSpaces(repl) {
+  var sel = window.getSelection ? window.getSelection() : null;
+  if (!sel || !sel.rangeCount) return false;
+
+  var r = sel.getRangeAt(0);
+  if (r.collapsed) return false;
+
+  var picked = r.toString();
+  var lead = (picked.match(/^\s+/) || [""])[0];
+  var tail = (picked.match(/\s+$/) || [""])[0];
+
+  var out = (repl == null) ? "" : String(repl);
+  out = lead + out + tail;
+
+  r.deleteContents();
+  r.insertNode(document.createTextNode(out));
+
+  sel.removeAllRanges();
+  var nr = document.createRange();
+  nr.setStart(r.startContainer, r.startOffset);
+  nr.collapse(true);
+  sel.addRange(nr);
+
+  return true;
+}
+
+function isBadTranslation(src, out) {
+  var o = (out == null) ? "" : String(out);
+  o = o.replace(/\u00a0/g, " ").trim();
+
+  if (!o) return true;
+  if (/^[-–—]+$/.test(o)) return true;
+  if (/^[\.\,\!\?\:\;]+$/.test(o)) return true;
+  if (/^\*+$/.test(o)) return true;
+
+  if (/invalid source language/i.test(o)) return true;
+  if (/langpair\s*=\s*/i.test(o)) return true;
+  if (/no content/i.test(o)) return true;
+  if (/quota/i.test(o)) return true;
+  if (/too many/i.test(o)) return true;
+  if (/mymemory/i.test(o) && /error/i.test(o)) return true;
+
+  var srcClean = cleanPhrase(src);
+  var outClean = cleanPhrase(o);
+
+  if (!outClean) return true;
+  if (srcClean && outClean === srcClean) return true;
+
+  return false;
+}
+
+function translateFromTo(src, dst, text, done) {
+  $.ajax({
+    url: "https://api.mymemory.translated.net/get",
+    dataType: "json",
+    data: { q: text, langpair: src + "|" + dst }
+  }).done(function (res) {
+    var status = (res && res.responseStatus != null) ? Number(res.responseStatus) : 200;
+    var details = (res && res.responseDetails) ? String(res.responseDetails) : "";
+    var out = (res && res.responseData && res.responseData.translatedText) ? String(res.responseData.translatedText) : "";
+
+    out = out.replace(/\u00a0/g, " ").trim();
+
+    if (status !== 200) {
+      showErr(details || "translation failed");
+      done("");
+      return;
+    }
+
+    if (details && /invalid|error|no content|quota|too many/i.test(details)) {
+      showErr(details);
+      done("");
+      return;
+    }
+
+    if (!out || isBadTranslation(text, out)) {
+      if (details) showErr(details);
+      else showErr("translation failed");
+      done("");
+      return;
+    }
+
+    done(out);
+  }).fail(function (xhr, status, err) {
+    showErr(err || status || "translation failed");
+    done("");
+  });
+}
+
+function translateGuessTo(dst, text, done) {
+  var tries = ["en", "es", "fr", "de", "it", "pt"];
+  var i = 0;
+
+  function next() {
+    if (i >= tries.length) { showErr("no translation found"); done(""); return; }
+    var src = tries[i++];
+    translateFromTo(src, dst, text, function (out) {
+      if (!out || isBadTranslation(text, out)) next();
+      else done(out);
+    });
+  }
+
+  next();
+}
+
+function cacheGetByOriginal(originalClean, lang) {
+  for (var i = translatedTexts.length - 1; i >= 0; i--) {
+    var it = translatedTexts[i];
+    if (!it) continue;
+    if (it.lang === lang && it.originalClean === originalClean) return it;
+  }
+  return null;
+}
+
+function cacheGetByTranslated(translatedClean, lang) {
+  for (var i = translatedTexts.length - 1; i >= 0; i--) {
+    var it = translatedTexts[i];
+    if (!it) continue;
+    if (it.lang === lang && it.translatedClean === translatedClean) return it;
+  }
+  return null;
+}
+
+function cacheUpsert(entry) {
+  for (var i = translatedTexts.length - 1; i >= 0; i--) {
+    var it = translatedTexts[i];
+    if (it && it.lang === entry.lang && it.originalClean === entry.originalClean) {
+      translatedTexts[i] = entry;
+      return;
+    }
+  }
+  translatedTexts.push(entry);
+}
+
+function setTranslatedBtnState(on) {
+  if (on) $("#rt-translate").addClass("translated");
+  else $("#rt-translate").removeClass("translated");
+}
+
+function syncTranslateBtnToSelection() {
+  var selectedRaw = getSelectedTextInInput();
+  var selected = (selectedRaw || "").trim();
+  if (!selected) { setTranslatedBtnState(false); return; }
+
+  var lang = normalizeLang(translateTargetLang);
+  var selClean = cleanPhrase(selected);
+
+  var isTranslated = !!cacheGetByTranslated(selClean, lang);
+  var isOriginal = !!cacheGetByOriginal(selClean, lang);
+
+  if (isTranslated) setTranslatedBtnState(true);
+  else if (isOriginal) setTranslatedBtnState(false);
+  else setTranslatedBtnState(false);
+}
+
+$(document).off(".translateFix");
+
+$(document).on("selectionchange.translateFix", function () {
+  clearTimeout(translateTO);
+  translateTO = setTimeout(syncTranslateBtnToSelection, 40);
+});
+
+$(document).on("keyup.translateFix mouseup.translateFix touchend.translateFix click.translateFix", "#input", function () {
+  clearTimeout(translateTO);
+  translateTO = setTimeout(syncTranslateBtnToSelection, 40);
+});
+
+$("#rt-translate").off("mousedown.translateFix").on("mousedown.translateFix", function (e) {
+  e.preventDefault();
+
+  translateTargetLang = $(".translation-chip.active").data("translate");
+  var targetLang = normalizeLang(translateTargetLang);
+
+  var selectedRaw = getSelectedTextInInput();
+  var selected = (selectedRaw || "").trim();
+  if (!selected) { showErr("select text first"); return; }
+
+  var selClean = cleanPhrase(selected);
+
+  if ($("#rt-translate").hasClass("translated")) {
+    var hitBack = cacheGetByTranslated(selClean, targetLang) || cacheGetByOriginal(selClean, targetLang);
+    if (hitBack && hitBack.originalText) {
+      replaceSelectedTextPreserveExactOuterSpaces(hitBack.originalText);
+      setTranslatedBtnState(false);
+      if (typeof markDirty === "function") markDirty();
+      if (typeof queueHistorySnapshot === "function") queueHistorySnapshot();
+      $("#input").trigger("input");
+    } else {
+      setTranslatedBtnState(false);
+      showErr("no original cached");
+    }
+    return;
+  }
+
+  var hit = cacheGetByOriginal(selClean, targetLang);
+  if (hit && hit.translation && !isBadTranslation(selected, hit.translation)) {
+    replaceSelectedTextPreserveExactOuterSpaces(hit.translation);
+    setTranslatedBtnState(true);
+    if (typeof markDirty === "function") markDirty();
+    if (typeof queueHistorySnapshot === "function") queueHistorySnapshot();
+    $("#input").trigger("input");
+    return;
+  }
+
+  translateGuessTo(targetLang, selected, function (translated) {
+    if (!translated || isBadTranslation(selected, translated)) { showErr("translation failed"); return; }
+
+    cacheUpsert({
+      lang: targetLang,
+      originalText: selected,
+      translation: translated,
+      originalClean: selClean,
+      translatedClean: cleanPhrase(translated)
+    });
+
+    replaceSelectedTextPreserveExactOuterSpaces(translated);
+    setTranslatedBtnState(true);
+
+    if (typeof markDirty === "function") markDirty();
+    if (typeof queueHistorySnapshot === "function") queueHistorySnapshot();
+    $("#input").trigger("input");
+  });
+});
+
+
+
 
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -12625,30 +12974,36 @@ panelToggleTL.play(0);
   
   panelToggleTL.eventCallback("onStart", function () {
       if ( $("#lyrics").is(":visible") && parseFloat($("#lyrics").css("opacity")) > 0 ) {
-    gsap.to("#studio-controls", { height: 0, duration: 0.3, opacity: 0, delay: 0.3, ease: "power1.in" }, "<");
+    gsap.to("#studio-controls", { height: 0, duration: 0.3, opacity: 0, ease: "power1.in" }, "<");
   }
     });
 }
 
+var panelReverseStarted = false;
+
 function closePanel() {
-   panelToggleTL.eventCallback("onReverseComplete", function () {
-      $("#panel").removeClass("open");
-      $("#panel").scrollTop(0);
-      $("#menu-toggle").removeClass("menu-on");
-      panelToggleTL.eventCallback("onReverseComplete", null);
-     
+  panelReverseStarted = false;
 
-    });
+  panelToggleTL.eventCallback("onUpdate", function () {
+    if (!panelReverseStarted && panelToggleTL.reversed() && panelToggleTL.progress() < 1) {
+      panelReverseStarted = true;
 
-    panelToggleTL.eventCallback("onReverseStart", function () {
-     if ($("#lyrics").is(":visible") && parseFloat($("#lyrics").css("opacity")) > 0) {
-  gsap.to("#studio-controls", { height: "auto", duration: 0.3, opacity: 1, delay: 0.3, ease: "power1.in" });
+      if ($("#lyrics").is(":visible") && parseFloat($("#lyrics").css("opacity")) > 0) {
+        gsap.to("#studio-controls", { height: "auto", duration: 0.3, opacity: 1, ease: "power1.in" });
+      }
+    }
+  });
+
+  panelToggleTL.eventCallback("onReverseComplete", function () {
+    $("#panel").removeClass("open").scrollTop(0);
+    $("#menu-toggle").removeClass("menu-on");
+    panelToggleTL.eventCallback("onReverseComplete", null);
+    panelToggleTL.eventCallback("onUpdate", null);
+  });
+
+  panelToggleTL.reverse();
 }
 
-    });
-   
- panelToggleTL.reverse();
-}
 
 
 function closePanelHard() {
@@ -12854,10 +13209,6 @@ $("#tutorial-next").click(function() {
     endTutorial();
     toast("Tutorial completed!", "check-circle");
   }
-});
-
-$("#tutorial-overlay").click(function() {
-  // Clicking overlay does nothing - user must use buttons
 });
 
 $(window).on("resize.tutorial scroll.tutorial", function() {
