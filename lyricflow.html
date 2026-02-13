@@ -7453,9 +7453,21 @@ function saveLyrics() {
 
 function saveMetadata() {
   var m = {};
-  $(".meta-field").each(function () { m[this.id] = $(this).val().trim(); });
-  localStorage.setItem("metadata", JSON.stringify(m));
+  $(".meta-field").each(function () {
+    var id = this.id;
+    if (!id) return;
+
+    var v = $(this).val();
+    v = (v == null) ? "" : String(v);
+
+    m[id] = v.trim();
+  });
+
+  try {
+    localStorage.setItem("metadata", JSON.stringify(m));
+  } catch (e) {}
 }
+
 
 function saveAudioDB() {
   if (!player.src || player.src === location.href) return;
@@ -10448,7 +10460,7 @@ $(".meta-field").on("change input", function () {
     tab.title = $("#meta_track").val().trim() || "Untitled";
     tab.writer = $("#meta_artist").val().trim();
     tab.album = $("#meta_album").val().trim();
-    tab.artist = $("#meta_write").val().trim();
+    tab.artist = $("#meta_writer").val().trim();
     tab.featuring = $("#meta_featuring").val().trim();
     tab.occasion = $("#meta_occasion").val().trim();
     tab.datetime = $("#meta_datetime").val().trim();
@@ -11551,7 +11563,7 @@ function doTreeshImport() {
         ? '<div class="treesh-thumb"><img src="' + cover.replace(/"/g,'&quot;') + '" alt="" loading="lazy"></div>'
         : '<div class="treesh-thumb treesh-thumb-empty"><i class="fa-solid fa-music"></i></div>';
 
-      out += '<div class="item" data-artist="' + ar.replace(/"/g,'&quot;') + '" data-track="' + tr.replace(/"/g,'&quot;') + '" data-cover="' + (cover||"").replace(/"/g,'&quot;') + '">';
+      out += '<div class="item" data="'+ $s.attr("data-mp3") +'" data-artist="' + ar.replace(/"/g,'&quot;') + '" data-track="' + tr.replace(/"/g,'&quot;') + '" data-cover="' + (cover||"").replace(/"/g,'&quot;') + '">';
       out += thumbHtml;
       out += '<div style="flex:1;min-width:0"><p class="artist song-artist">' + ar + '</p><p class="name song-title">' + tr + '</p></div>';
       out += '<div class="treesh-choose-wrap"><button type="button" class="treesh-choose-btn">Choose</button></div></div>';
@@ -11580,12 +11592,14 @@ $("#song-list").off("click.treeshSelect").on("click.treeshSelect", ".item", func
 // Choose button click: show import options
 $("#song-list").off("click.treeshChoose").on("click.treeshChoose", ".treesh-choose-btn", function () {
   var $it = $(this).closest(".item");
+  var $audio = $it.data("data-mp3");
+  var au = $audio || "";
   var ar = ($it.data("artist") || $it.find(".artist").text() || "").trim();
   var tr = ($it.data("track") || $it.find(".name").text() || "").trim();
   var cover = ($it.data("cover") || "").toString().trim();
   if (!ar || !tr) return;
+  
 
-  // Show import options with multi-select
   showOptions("Import Options", [
     { icon: "align-left", label: "Lyrics", action: function() { treeshDoImport(ar, tr, cover, { lyrics: true }); }},
     { icon: "music", label: "Audio", action: function() { treeshDoImport(ar, tr, cover, { audio: true }); }},
@@ -11606,7 +11620,11 @@ function treeshDoImport(ar, tr, cover, opts) {
     toast("Audio not available from Treesh", "xmark");
     return;
   }
-
+  
+  
+player.pause();
+  player.src = $audio;
+  
   saveCurrentTabState();
 
   // If metadata, create tab with artist/track info
