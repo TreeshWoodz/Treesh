@@ -3,501 +3,447 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Treesh | Home</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <title>Treesh | Alien Ecosystem</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono&display=swap" rel="stylesheet">
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600&display=swap');
+        :root {
+            --pink-main: #ff1493;
+            --pink-glow: #ff00ff;
+            --pink-dark: #3a003a;
+            --bg-deep: #05000a;
+            --glass: rgba(10, 0, 15, 0.85);
+            --glass-border: rgba(255, 20, 147, 0.4);
+        }
 
-:root {
-    --primary-color: #c3ab69;
-    --sidebar-width: 280px;
-    --sidebar-collapsed-width: 80px;
-    --transition-speed: 0.3s;
-}
+        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
+        
+        body, html {
+            width: 100%; height: 100%; overflow: hidden;
+            background: var(--bg-deep); color: white;
+            font-family: 'Outfit', sans-serif;
+        }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+        #canvas-container { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; 
+            transition: filter 0.8s ease;
+        }
+        body.immersive-active #canvas-container { filter: blur(10px) brightness(0.3); }
 
-body {
-    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-    min-height: 100vh;
-  background:var(--primary-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    overflow: hidden;
-}
+        /* --- UI OVERLAY --- */
+        .ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between; padding: 2rem;
+            transition: opacity 0.5s;
+        }
+        body.immersive-active .ui-layer { opacity: 0; pointer-events: none; }
+        .ui-layer * { pointer-events: auto; }
 
-body:before {
-  content:"";
-  display:block;
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-    background: linear-gradient(135deg, transparent 0%, #121212 74%);
-}
+        header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        
+        .logo {
+            font-weight: 900; font-size: 2rem; letter-spacing: 6px; text-transform: uppercase;
+            color: #fff; text-shadow: 0 0 15px var(--pink-glow);
+            pointer-events: none;
+        }
 
-.container {
-    display: flex;
-    width: 90%;
-    height: 85vh;
-    position:relative;
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
-    border-radius: 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    overflow: hidden;
-    z-index:10;
-}
+        .btn-glass {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            color: white; padding: 12px 28px; border-radius: 12px;
+            font-family: 'Space Mono', monospace; font-size: 0.8rem; text-transform: uppercase;
+            letter-spacing: 2px; backdrop-filter: blur(10px); transition: 0.3s;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .btn-glass:hover { background: rgba(255, 20, 147, 0.2); border-color: var(--pink-main); box-shadow: 0 0 20px var(--pink-glow); }
 
-.sidebar {
-    width: var(--sidebar-width);
-    height: 100%;
-    padding: 30px 15px;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    display: flex;
-    flex-direction: column;
-    transition: width var(--transition-speed) ease;
-    position: relative;
-}
+        /* --- LEGEND --- */
+        .legend-container {
+            position: absolute; left: 2rem; top: 50%; transform: translateY(-50%);
+            background: var(--glass); border: 1px solid var(--glass-border);
+            padding: 1.5rem; border-radius: 20px; backdrop-filter: blur(15px);
+            display: flex; flex-direction: column; gap: 0.8rem; z-index: 20;
+            transition: transform 0.5s ease, opacity 0.5s;
+        }
+        body.immersive-active .legend-container { transform: translateY(-50%) translateX(-150%); opacity: 0; }
+        .legend-title {
+            font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--pink-main);
+            letter-spacing: 2px; text-transform: uppercase; margin-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;
+        }
+        .legend-item {
+            display: flex; align-items: center; gap: 12px; cursor: pointer;
+            padding: 10px; border-radius: 10px; transition: 0.2s;
+        }
+        .legend-item:hover { background: rgba(255, 255, 255, 0.05); }
+        .legend-item.active { background: rgba(255, 20, 147, 0.2); border: 1px solid var(--pink-main); }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 10px currentColor; }
+        .legend-text { font-weight: 600; font-size: 0.9rem; }
 
-.logo {
-    text-align: center;
-    margin-bottom: 40px;
-}
+        /* --- DATA PANEL (PREVIEW BOX) --- */
+        .data-panel {
+            position: absolute; right: -450px; top: 50%; transform: translateY(-50%);
+            width: 380px; background: var(--glass); border: 1px solid var(--glass-border);
+            padding: 2.5rem; border-radius: 24px; backdrop-filter: blur(25px);
+            box-shadow: -20px 0 50px rgba(0,0,0,0.5); z-index: 30;
+            transition: right 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s;
+        }
+        .data-panel.active { right: 2rem; }
+        body.immersive-active .data-panel { opacity: 0; pointer-events: none; }
+        .panel-close {
+            position: absolute; top: 1.5rem; right: 1.5rem; background: none; border: none;
+            color: white; font-size: 1.8rem; cursor: pointer; opacity: 0.6; transition: 0.3s;
+        }
+        .panel-close:hover { opacity: 1; color: var(--pink-main); }
 
-.logo i {
-    font-size: 36px;
-    color: #fff;
-    opacity: 0.9;
-}
+        .data-title { font-size: 2.5rem; font-weight: 900; margin-bottom: 0.5rem; line-height: 1; }
+        .data-subtitle { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--pink-main); text-transform: uppercase; margin-bottom: 1.5rem; letter-spacing: 2px; }
+        .data-desc { font-size: 1rem; line-height: 1.6; opacity: 0.8; margin-bottom: 2rem; }
+        
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+        .stat-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+        .stat-box span { display: block; font-family: 'Space Mono', monospace; font-size: 0.6rem; text-transform: uppercase; color: var(--pink-main); margin-bottom: 4px; }
+        .stat-box strong { font-size: 1.2rem; font-weight: 700; }
 
-.menu ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
+        /* --- FULLSCREEN IMMERSIVE VIEW --- */
+        #immersive-view {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 200; display: none; background: radial-gradient(circle at center, rgba(15,0,25,0.8), var(--bg-deep));
+            padding: 4rem; overflow-y: auto; backdrop-filter: blur(20px);
+        }
+        #immersive-view.active { display: block; }
 
-.menu li {
-    margin-bottom: 8px;
-    border-radius: 16px;
-    transition: all 0.2s ease;
-    position: relative;
-}
+        .immersive-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1.5fr 1fr; gap: 4rem; align-items: start; }
+        .imm-header { margin-bottom: 3rem; }
+        .imm-tag { font-family: 'Space Mono', monospace; color: var(--pink-main); font-size: 1rem; letter-spacing: 4px; display: block; margin-bottom: 1rem; }
+        .imm-title { font-size: clamp(3rem, 8vw, 6rem); font-weight: 900; line-height: 0.9; margin-bottom: 2rem; text-transform: uppercase; }
+        .imm-body { font-size: 1.2rem; line-height: 1.8; opacity: 0.9; margin-bottom: 3rem; }
 
-.menu li:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
+        .imm-feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; }
+        .imm-card { background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 2rem; border-radius: 20px; transition: 0.3s; }
+        .imm-card:hover { border-color: var(--pink-main); background: rgba(255,20,147,0.05); }
+        .imm-card h4 { font-family: 'Space Mono', monospace; color: var(--pink-main); margin-bottom: 10px; }
 
-.menu li.active {
-    background: rgba(255, 255, 255, 0.25);
-}
+        .imm-close-btn { 
+            position: fixed; top: 2rem; right: 2rem; z-index: 210; 
+            background: white; color: black; border: none; font-weight: 900; 
+            padding: 1rem 2rem; border-radius: 50px; cursor: pointer; transition: 0.3s;
+        }
+        .imm-close-btn:hover { background: var(--pink-main); color: white; transform: rotate(-5deg) scale(1.1); }
 
-.menu li.active::before {
-    content: '';
-    position: absolute;
-    left: -15px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 20px;
-    background: var(--primary-color);
-    border-radius: 0 4px 4px 0;
-}
+        /* --- SITEMAP OVERLAY --- */
+        #sitemap-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 0, 10, 0.98); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: 0.4s;
+        }
+        #sitemap-overlay.active { opacity: 1; pointer-events: auto; }
+        .sitemap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; width: 90%; max-width: 1100px; }
+        .sitemap-card {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+            padding: 2rem; border-radius: 15px; cursor: pointer; transition: 0.3s;
+        }
+        .sitemap-card:hover { border-color: var(--pink-main); background: rgba(255,20,147,0.1); transform: translateY(-5px); }
 
-.menu a {
-    display: flex;
-    align-items: center;
-    color: #fff;
-    padding: 12px 16px;
-    text-decoration: none;
-    font-weight: 500;
-    letter-spacing: 0.3px;
-}
+        /* HUD Tracker */
+        #hud-coords {
+            position: fixed; bottom: 2rem; right: 2rem; font-family: 'Space Mono', monospace;
+            font-size: 0.7rem; color: var(--pink-main); opacity: 0.6; pointer-events: none; z-index: 5;
+        }
 
-.menu a i {
-    font-size: 20px;
-    margin-right: 14px;
-    min-width: 22px;
-    text-align: center;
-}
+        #tooltip {
+            position: fixed; background: var(--pink-main); color: black;
+            padding: 4px 10px; border-radius: 4px; font-family: 'Space Mono', monospace;
+            font-size: 0.7rem; font-weight: bold; pointer-events: none; opacity: 0; z-index: 1000;
+            transform: translate(15px, 15px); text-transform: uppercase;
+        }
 
-.profile {
-    margin-top: auto;
-    display: flex;
-    align-items: center;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.avatar {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    overflow: hidden;
-    margin-right: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-}
-
-.avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.user-info h3 {
-    font-size: 16px;
-    font-weight: 500;
-    margin-bottom: 2px;
-}
-
-.user-info p {
-    font-size: 12px;
-    opacity: 0.8;
-}
-
-.content {
-    flex: 1;
-    padding: 40px;
-    overflow-y: auto;
-}
-
-header {
-    margin-bottom: 30px;
-}
-
-header h1 {
-    font-size: 32px;
-    font-weight: 600;
-    margin-bottom: 8px;
-}
-
-header p {
-    font-size: 16px;
-    opacity: 0.8;
-}
-
-.card-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 24px;
-    margin-top: 30px;
-}
-
-.card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 24px;
-    display: flex;
-    align-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-#games .card {
-  padding:10px;
-}
-
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-}
-
-.card img {
-  width:100%;
-  border-radius:20px;
-}
-
-.card-icon {
-    width: 50px;
-    height: 50px;
-    background: var(--primary-color);
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 16px;
-}
-
-.card-icon i {
-    font-size: 22px;
-}
-
-.card-info h3 {
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 4px;
-}
-
-.card-info p {
-    font-size: 14px;
-    opacity: 0.8;
-}
-
-/* Apple-style liquid effects */
-.menu li::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: 16px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0);
-    transition: box-shadow 0.3s ease;
-}
-
-.menu li:hover::after {
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
-}
-
-@media (max-width: 1024px) {
-    .sidebar {
-        width: var(--sidebar-collapsed-width);
-    }
-    
-    .menu a span, 
-    .user-info {
-        display: none;
-    }
-    
-    .profile {
-        justify-content: center;
-    }
-    
-    .avatar {
-        margin-right: 0;
-    }
-    
-    .content {
-        padding: 30px;
-    }
-    
-    .card-container {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .container {
-        width: 95%;
-        height: 90vh;
-    }
-    
-    .card-container {
-        grid-template-columns: 1fr;
-    }
-}
-</script>
+        @media (max-width: 768px) {
+            #immersive-view { padding: 2rem; }
+            .immersive-content { grid-template-columns: 1fr; gap: 2rem; }
+            .imm-feature-grid { grid-template-columns: 1fr; }
+            .legend-container { top: auto; bottom: 2rem; left: 50%; transform: translateX(-50%); flex-direction: row; max-width: 95vw; overflow-x: auto; }
+            .legend-text { display: none; }
+            .data-panel { right: 0; width: 100%; top: auto; bottom: -100%; border-radius: 30px 30px 0 0; }
+            .data-panel.active { bottom: 0; }
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <aside class="sidebar">
-            <div class="logo">
-              <img src="https://64.media.tumblr.com/ba62443b4e168f21a0600e4a5e7093ae/5473b49f1a26646d-75/s2048x3072/ff5797a757ab502aa76650083546ebe5a9560dc5.png" alt="Treesh" style="width:100%; max-width:100px;" />
-            </div>
-            <nav class="menu">
-                <ul>
-                    <li class="active">
-                        <a href="#">
-                            <i class="fas fa-home" data-for="home"></i>
-                            <span>Home</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" data-for="explore">
-                            <i class="fas fa-compass"></i>
-                            <span>Explore</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" data-for="music">
-                            <i class="fas fa-music"></i>
-                            <span>Music</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" data-for="games">
-                            <i class="fas fa-dice"></i>
-                            <span>Games</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" data-for="models">
-                            <i class="fas fa-camera"></i>
-                            <span>Models</span>
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-            <div class="profile">
-                <div class="avatar">
-                    <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80" alt="Profile">
-                </div>
-                <div class="user-info">
-                    <h3 class="nickname">Friend</h3>
-                    <p>Your Profile</p>
-                </div>
-            </div>
-        </aside>
-      
-        <main id="home" class="content">
-            <header>
-              <h1>Welcome Back, <span class="nickname">Friend</span></h1>
-                <p>Check out what's new from Treesh</p>
-            </header>
-          
-            <div class="card-container">
-                <div class="card">
-                    <div class="card-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="card-info">
-                        <h3>12</h3>
-                        <p>Completed Tasks</p>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-icon">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <div class="card-info">
-                        <h3>5</h3>
-                        <p>Pending Tasks</p>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="card-info">
-                        <h3>7</h3>
-                        <p>Active Projects</p>
-                    </div>
-                </div>
-            </div>
-          
-          
-          
-        <div id="games" class="card-container">
-                <div class="card">
-                    <div class="card-info">
-                        <img src="https://64.media.tumblr.com/8f76f6a4a3919c70ea1b714b26bddfc5/eabcbcc5297143f6-ef/s1280x1920/dff21cef99ec6d1cd757bf29340260bb0f685a01.png" alt="Chainz" />
-                    </div>
-                </div>
-      </div>
-        </main>
-      
+
+    <div id="tooltip">NODE DETECTED</div>
+    <div id="hud-coords">SEC_X: 000 | SEC_Y: 000</div>
+    <div id="canvas-container"></div>
+
+    <div class="ui-layer">
+        <header>
+            <div class="logo">TREESH</div>
+            <button class="btn-glass" id="open-sitemap">Sitemap</button>
+        </header>
     </div>
 
+    <div class="legend-container" id="legend-box">
+        <div class="legend-title">Orbit Index</div>
+    </div>
+
+    <!-- The Box (Preview Mode) -->
+    <div class="data-panel" id="data-panel">
+        <button class="panel-close" id="close-panel">×</button>
+        <h1 class="data-title" id="node-title">Treesh Core</h1>
+        <div class="data-subtitle" id="node-sub">Frequency: 440Hz</div>
+        <p class="data-desc" id="node-desc">Core system status: Operational.</p>
+        <div class="stat-grid">
+            <div class="stat-box"><span>Node Status</span><strong id="node-status">Stable</strong></div>
+            <div class="stat-box"><span>Entity Load</span><strong id="node-load">1.2M</strong></div>
+        </div>
+        <button class="btn-glass" style="width: 100%;" id="expand-trigger">Initialize Connection</button>
+    </div>
+
+    <!-- The Fullscreen View (Expanded Mode) -->
+    <div id="immersive-view">
+        <button class="imm-close-btn" id="close-immersive">CLOSE [X]</button>
+        <div class="immersive-content">
+            <div class="imm-left">
+                <span class="imm-tag" id="imm-tag">SECTOR_01</span>
+                <h2 class="imm-title" id="imm-title">TREESH CORE</h2>
+                <div class="imm-body" id="imm-body">
+                    Deep dive into the neural architecture of the Treesh ecosystem. This node handles 90% of global data traffic, serving as the central uplink for all sub-sectors.
+                </div>
+                <div class="imm-feature-grid" id="imm-features">
+                    <div class="imm-card">
+                        <h4>Neural Network</h4>
+                        <p>Fully decentralized routing with zero-latency response times across all galactic nodes.</p>
+                    </div>
+                    <div class="imm-card">
+                        <h4>Quantum Encryption</h4>
+                        <p>End-to-end spectral hardening ensures your data remains invisible to non-native entities.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="imm-right">
+                <div class="stat-box" style="margin-bottom: 2rem;">
+                    <span>System Integrity</span>
+                    <div style="height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; margin: 10px 0; overflow: hidden;">
+                        <div style="width: 94%; height: 100%; background: var(--pink-main);"></div>
+                    </div>
+                    <strong>94.2% OPERATIONAL</strong>
+                </div>
+                <div class="stat-box">
+                    <span>Active Uplinks</span>
+                    <strong style="font-size: 3rem;" id="imm-load">1.2M</strong>
+                    <p style="font-size: 0.8rem; opacity: 0.5;">Real-time concurrent users connected to this sector.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sitemap-overlay">
+        <h2 style="font-size: 3rem; margin-bottom: 3rem; letter-spacing: 5px;">SYSTEM TOPOLOGY</h2>
+        <div class="sitemap-grid" id="sitemap-grid"></div>
+        <button class="btn-glass" style="margin-top: 3rem;" id="close-sitemap">Exit Map</button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
-        $(document).ready(function() {
-  
-  let nickname = localStorage.getItem("nickname") || "Jason";
-const $nickname = $(".nickname");
-$nickname.text(nickname);
-  
-  let color = localStorage.getItem("favColor") || "#c3ab69";
-  $(":root")[0].style.setProperty("--primary-color", color);
+        const SYSTEM_NODES = [
+            { id: 0, title: "Treesh Core", sub: "Central Command", color: "#ff1493", lat: 20, lon: 0, desc: "The neural backbone of the Treesh galaxy.", load: "1.2M", status: "Optimal", longDesc: "Treesh Core is the heart of the digital infrastructure. It manages high-level logic and synchronizes all other nodes. Built on a decentralized blockchain protocol, it ensures absolute uptime and security for every user." },
+            { id: 1, title: "Treesh Models", sub: "Visual Grid", color: "#ff00ff", lat: 45, lon: 70, desc: "A high-fidelity matrix of digital personalities.", load: "15.4K", status: "Active", longDesc: "The Models sector is dedicated to visual perfection. Using high-density photogrammetry and generative AI, we craft digital avatars and environments that push the boundaries of reality." },
+            { id: 2, title: "Treesh Music", sub: "Audio Uplink", color: "#00ffff", lat: -30, lon: 140, desc: "Global culture streaming and amplification.", load: "4.5M", status: "Online", longDesc: "Audio data pulses through the Music node. It serves as a global stage for artists, combining spatial audio technology with social listening experiences." },
+            { id: 3, title: "LyricFlow", sub: "Linguistic AI", color: "#00ff66", lat: -15, lon: -60, desc: "Advanced AI-driven lyric and rhyme engine.", load: "850K", status: "Standby", longDesc: "LyricFlow is our linguistic powerhouse. It leverages Large Language Models optimized specifically for creative writing, rhyme schemes, and poetic structures." },
+            { id: 4, title: "Treesh Games", sub: "Entertainment Zone", color: "#ff8c00", lat: 55, lon: -110, desc: "High-octane physics and simulated rewards.", load: "2.1M", status: "Healthy", longDesc: "The Games sector is a virtual playground. It integrates real-time physics with competitive play, offering players the chance to earn digital rewards in immersive environments." },
+            { id: 5, title: "Prum", sub: "Prompt Core", color: "#8a2be2", lat: -50, lon: -150, desc: "Intelligence directory for generative art.", load: "500K", status: "Syncing", longDesc: "Prum acts as a library for prompt engineers. It catalogs millions of successful prompt structures, helping creators achieve visual mastery with generative tools." }
+        ];
 
+        let scene, camera, renderer, controls, planetGroup, rings = [];
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let poiGroups = [];
+        let hoveredId = null;
+        let activeId = 0;
 
-    const $menuItems = $('.menu li');
-    const $cards = $('.card');
+        function init3D() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 15, 50);
 
-    $menuItems.on('click', function() {
-        $menuItems.removeClass('active');
-        $(this).addClass('active');
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        const $icon = $(this).find('i');
-        
-        gsap.killTweensOf($icon);
-        
-        gsap.to($icon, {
-            scale: 1.2,
-            duration: 0.2,
-            yoyo: true,
-            repeat: 1,
-            ease: "power1.out"
-        });
-    });
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
 
-    $menuItems.on('mouseenter', function(e) {
-        const $item = $(this);
-        
-        const $highlight = $('<div>').addClass('highlight').css({
-            position: 'absolute',
-            top: 0, left: 0, width: '100%', height: '100%',
-            borderRadius: '16px',
-            pointerEvents: 'none',
-            background: `radial-gradient(circle at ${e.offsetX}px ${e.offsetY}px, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%)`
-        });
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            const pLight = new THREE.PointLight(0xff1493, 2, 100);
+            pLight.position.set(20, 20, 20);
+            scene.add(pLight);
 
-        $item.append($highlight);
+            planetGroup = new THREE.Group();
+            scene.add(planetGroup);
 
-        gsap.to($highlight, {
-            opacity: 0,
-            duration: 0.3,
-            delay: 0.5,
-            onComplete: () => $highlight.remove()
-        });
-    });
-
-    $cards.each(function() {
-        const card = this;
-        
-        $(card).on('mousemove', function(e) {
-            const rect = card.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            const rotateY = (x / rect.width - 0.5) * 10;
-            const rotateX = (y / rect.height - 0.5) * -10;
-
-            gsap.to(card, {
-                duration: 0.5,
-                transformPerspective: 1000,
-                rotateX: rotateX,
-                rotateY: rotateY,
-                scale: 1.05,
-                ease: "power2.out",
-                overwrite: 'auto'
+            const planetGeo = new THREE.IcosahedronGeometry(12, 4);
+            const planetMat = new THREE.MeshPhongMaterial({
+                color: 0x05000a, emissive: 0x150015, specular: 0xff1493, shininess: 50, flatShading: true
             });
-        });
+            const planet = new THREE.Mesh(planetGeo, planetMat);
+            planetGroup.add(planet);
 
-        $(card).on('mouseleave', function() {
-            gsap.to(card, {
-                duration: 0.8,
-                rotateX: 0,
-                rotateY: 0,
-                scale: 1,
-                ease: "elastic.out(1, 0.5)",
-                overwrite: 'auto'
+            const shell = new THREE.Mesh(planetGeo, new THREE.MeshBasicMaterial({ color: 0xff1493, wireframe: true, transparent: true, opacity: 0.15 }));
+            planetGroup.add(shell);
+
+            const ringColors = [0xff1493, 0x00ffff, 0xff00ff];
+            for(let i=0; i<3; i++) {
+                const ringGeo = new THREE.RingGeometry(15 + i*3, 15.3 + i*3, 3);
+                const ringMat = new THREE.MeshBasicMaterial({ color: ringColors[i], side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
+                scene.add(ring);
+                rings.push({ mesh: ring, speed: 0.002 + (i*0.001) });
+            }
+
+            SYSTEM_NODES.forEach(node => {
+                const phi = (90 - node.lat) * (Math.PI / 180);
+                const theta = (node.lon + 180) * (Math.PI / 180);
+                const pos = new THREE.Vector3(-(12.3 * Math.sin(phi) * Math.cos(theta)), (12.3 * Math.cos(phi)), (12.3 * Math.sin(phi) * Math.sin(theta)));
+
+                const group = new THREE.Group();
+                group.position.copy(pos);
+                group.userData = node;
+
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshBasicMaterial({ color: node.color }));
+                group.add(dot);
+
+                const outer = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.1, 32), new THREE.MeshBasicMaterial({ color: node.color, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+                outer.lookAt(new THREE.Vector3(0,0,0));
+                group.add(outer);
+
+                planetGroup.add(group);
+                poiGroups.push(group);
             });
-        });
-    });
 
-});
-</script>
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            rings.forEach(r => r.mesh.rotation.z += r.speed);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(poiGroups, true);
+
+            if (intersects.length > 0 && !$("body").hasClass("immersive-active")) {
+                const target = intersects[0].object.parent;
+                if (hoveredId !== target.userData.id) {
+                    hoveredId = target.userData.id;
+                    document.body.style.cursor = 'pointer';
+                    $("#tooltip").text(target.userData.title).css({ opacity: 1, background: target.userData.color });
+                }
+            } else {
+                hoveredId = null;
+                document.body.style.cursor = 'default';
+                $("#tooltip").css({ opacity: 0 });
+            }
+
+            const scale = 1 + Math.sin(Date.now()*0.005)*0.2;
+            poiGroups.forEach(g => g.children[1].scale.set(scale, scale, scale));
+            renderer.render(scene, camera);
+        }
+
+        function focusNode(id, autoOpenImmersive = false) {
+            activeId = id;
+            const node = SYSTEM_NODES[id];
+            controls.autoRotate = false;
+
+            $("#node-title").text(node.title).css("color", node.color);
+            $("#node-sub").text(node.sub);
+            $("#node-desc").text(node.desc);
+            $("#node-load").text(node.load);
+            $("#node-status").text(node.status);
+            $("#data-panel").addClass("active");
+            $(".legend-item").removeClass("active");
+            $(`.legend-item[data-id="${id}"]`).addClass("active");
+
+            const phi = (90 - node.lat) * (Math.PI / 180);
+            const theta = (node.lon + 180) * (Math.PI / 180);
+            const radius = 35;
+            const targetX = radius * Math.sin(phi) * Math.cos(theta);
+            const targetY = radius * Math.cos(phi);
+            const targetZ = radius * Math.sin(phi) * Math.sin(theta);
+
+            gsap.to(camera.position, {
+                x: targetX, y: targetY, z: targetZ,
+                duration: 1.5,
+                ease: "power3.inOut",
+                onUpdate: () => camera.lookAt(0,0,0)
+            });
+
+            if (autoOpenImmersive) openImmersive(id);
+        }
+
+        function openImmersive(id) {
+            const node = SYSTEM_NODES[id];
+            activeId = id;
+
+            // Update Immersive Content
+            $("#imm-tag").text(`SECTOR_0${id + 1}`).css("color", node.color);
+            $("#imm-title").text(node.title).css("color", node.color);
+            $("#imm-body").text(node.longDesc);
+            $("#imm-load").text(node.load);
+            
+            $("body").addClass("immersive-active");
+            $("#immersive-view").fadeIn(500).addClass("active");
+        }
+
+        function closeImmersive() {
+            $("body").removeClass("immersive-active");
+            $("#immersive-view").fadeOut(500).removeClass("active");
+            controls.autoRotate = true;
+        }
+
+        $(document).mousemove(e => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            $("#tooltip").css({ left: e.clientX, top: e.clientY });
+            $("#hud-coords").text(`SEC_X: ${Math.round(e.clientX)} | SEC_Y: ${Math.round(e.clientY)}`);
+        });
+
+        $(document).click(() => {
+            if (hoveredId !== null) focusNode(hoveredId);
+        });
+
+        $(document).ready(() => {
+            init3D();
+            SYSTEM_NODES.forEach(n => {
+                $("#legend-box").append(`<div class="legend-item" data-id="${n.id}" onclick="focusNode(${n.id})"><div class="legend-dot" style="color:${n.color}; background:${n.color}"></div><div class="legend-text">${n.title}</div></div>`);
+                $("#sitemap-grid").append(`<div class="sitemap-card" onclick="focusNode(${n.id}, true); $('#sitemap-overlay').removeClass('active')"><h3 style="color:${n.color}">${n.title}</h3><p>${n.desc}</p></div>`);
+            });
+            
+            $("#open-sitemap").click(() => $("#sitemap-overlay").addClass("active"));
+            $("#close-sitemap").click(() => $("#sitemap-overlay").removeClass("active"));
+            $("#close-panel").click(() => $("#data-panel").removeClass("active"));
+            
+            $("#expand-trigger").click(() => openImmersive(activeId));
+            $("#close-immersive").click(closeImmersive);
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
-</html> 
+</html>
+
