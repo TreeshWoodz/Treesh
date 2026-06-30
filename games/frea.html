@@ -1,999 +1,886 @@
-Here is the completely redesigned, updated, and fully optimized single-file game code for **FREA**.
-
-All your requested changes have been implemented: a cute and vibrant new aesthetic, custom game modes (Classic & Zen with smooth scrolling camera and vast random worlds), selectable AI player counts (up to 8 for Classic, up to 20 for Zen), a 5-second countdown timer, an advanced sub-stepping physics engine to fully eliminate high-speed platform tunneling/glitching, and the updated millisecond-accurate scoring mechanics.
-
-Save the code below as an `.html` file (e.g., `frea.html`) and open it directly in any web browser to play!
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>FREA ✨</title>
+<title>FleaFall</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-body { background: #0a051b; overflow: hidden; font-family: 'Comic Sans MS', 'Chalkboard SE', Arial, sans-serif; touch-action: none; }
-canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+body{background:#000;overflow:hidden;font-family:Arial,sans-serif;touch-action:none}
+canvas{display:block;position:fixed;top:0;left:0;z-index:1}
 
-/* HUD Design */
-#hud { position: fixed; top: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: flex-start; padding: 15px; z-index: 20; pointer-events: none; }
-.hud-container { display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow-y: auto; background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 16px; backdrop-filter: blur(8px); border: 2px solid rgba(255, 255, 255, 0.2); }
-.sbox { background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 14px; text-align: center; min-width: 90px; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: all 0.2s; }
-.slbl { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.8); }
-.sval { font-size: 20px; font-weight: 900; line-height: 1.1; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-#tbox { background: linear-gradient(135deg, #ff758c, #ff7eb3); border: 2px solid #fff; border-radius: 15px; padding: 8px 18px; text-align: center; box-shadow: 0 6px 15px rgba(255,117,140,0.4); }
-#tval { font-size: 26px; font-weight: 900; color: #fff; line-height: 1.1; text-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+#hud{position:fixed;top:0;left:0;width:100%;display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px;z-index:20;pointer-events:none}
+.sbox{background:rgba(0,0,0,0.65);border:2px solid rgba(255,255,255,0.18);border-radius:12px;padding:5px 13px;text-align:center}
+.slbl{font-size:8px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px}
+.sval{font-size:21px;font-weight:900;line-height:1.1}
+#tbox{background:rgba(0,0,0,0.65);border:2px solid rgba(255,210,0,0.45);border-radius:12px;padding:5px 13px;text-align:center}
+#tval{font-size:21px;font-weight:900;color:#ffd700;line-height:1.1}
 
-#orbtxt { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); color: #ffe600; font-size: 28px; font-weight: 900; opacity: 0; pointer-events: none; z-index: 30; text-shadow: 0 0 20px #ff9d00, 0 4px 8px rgba(0,0,0,0.4); white-space: nowrap; font-family: sans-serif; }
-#countdown-overlay { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 120px; font-weight: 900; color: #fff; z-index: 25; pointer-events: none; text-shadow: 0 0 40px #ff007f, 0 8px 0px #b20059; display: none; text-align: center; animation: pulse 0.5s infinite alternate; }
+#orbtxt{position:fixed;top:26%;left:50%;transform:translateX(-50%);color:#ffd700;font-size:22px;font-weight:900;opacity:0;pointer-events:none;z-index:30;text-shadow:0 0 18px #ffd700;white-space:nowrap}
 
-@keyframes pulse { from { transform: translate(-50%, -50%) scale(0.95); } to { transform: translate(-50%, -50%) scale(1.05); } }
+#overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0d0020,#010d2e,#001520)}
+#overlay.gone{display:none}
 
-/* Beautiful UI Overlays */
-#overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, #2c1654 0%, #12072b 100%); transition: opacity 0.4s ease; padding: 20px; }
-#overlay.gone { display: none; }
+.logo{font-size:clamp(50px,13vw,88px);font-weight:900;letter-spacing:-2px;line-height:1;text-align:center;margin-bottom:6px}
+.logo span:nth-child(1){color:#ff4dff;text-shadow:0 0 28px #ff00ff}
+.logo span:nth-child(2){color:#00ffcc;text-shadow:0 0 28px #00ffcc}
+.logo span:nth-child(3){color:#ffd700;text-shadow:0 0 28px #ffd700}
+.logo span:nth-child(4){color:#ff6b35;text-shadow:0 0 28px #ff6b35}
+.logo span:nth-child(5){color:#4dffff;text-shadow:0 0 28px #4dffff}
+.logo span:nth-child(6){color:#ff4dff;text-shadow:0 0 28px #ff00ff}
+.logo span:nth-child(7){color:#00ffcc;text-shadow:0 0 28px #00ffcc}
+.logo span:nth-child(8){color:#ffd700;text-shadow:0 0 28px #ffd700}
+.tag{color:rgba(255,255,255,0.5);font-size:12px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
+.hint{color:rgba(255,255,255,0.32);font-size:12px;text-align:center;max-width:290px;line-height:1.8;margin-bottom:24px}
+.hint b{color:rgba(255,215,0,0.65)}
+.btn{background:linear-gradient(135deg,#ff00cc,#6600ff);border:none;color:#fff;font-size:18px;font-weight:900;letter-spacing:2px;padding:15px 36px;border-radius:50px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 28px rgba(255,0,200,0.4);margin:5px;display:block}
+.btn:active{opacity:0.85;transform:scale(0.96)}
+.btng{background:linear-gradient(135deg,#ffd700,#ff6b00)}
+.res{background:rgba(255,255,255,0.08)}
+.fleaico{font-size:clamp(38px,9vw,62px);margin-bottom:12px;animation:bob .65s ease-in-out infinite alternate}
+@keyframes bob{from{transform:translateY(0)}to{transform:translateY(-9px)}}
+.gtitle{font-size:clamp(28px,8vw,54px);font-weight:900;text-align:center;margin-bottom:9px}
+.gsub{color:rgba(255,255,255,0.45);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:24px}
+.stardiv{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
+.star{position:absolute;border-radius:50%;animation:twk linear infinite}
+@keyframes twk{0%,100%{opacity:.15}50%{opacity:.9}}
 
-.menu-card { background: rgba(255, 255, 255, 0.08); border: 3px solid rgba(255, 255, 255, 0.15); border-radius: 32px; padding: 30px; backdrop-filter: blur(20px); box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-width: 440px; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; }
-
-.logo { font-size: clamp(60px, 16vw, 100px); font-weight: 900; letter-spacing: -1px; line-height: 0.95; margin-bottom: 12px; font-family: 'Arial Black', sans-serif; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4)); }
-.logo span { display: inline-block; animation: bounce 0.6s ease-in-out infinite alternate; }
-.logo span:nth-child(1) { color: #ff60b5; text-shadow: 0 0 20px #ff007f; animation-delay: 0s; }
-.logo span:nth-child(2) { color: #4deeea; text-shadow: 0 0 20px #00f0ff; animation-delay: 0.1s; }
-.logo span:nth-child(3) { color: #ffe600; text-shadow: 0 0 20px #ffcc00; animation-delay: 0.2s; }
-.logo span:nth-child(4) { color: #ff764d; text-shadow: 0 0 20px #ff3c00; animation-delay: 0.3s; }
-
-@keyframes bounce { from { transform: translateY(0) rotate(-4deg); } to { transform: translateY(-12px) rotate(4deg); } }
-
-.tag { color: #e0b3ff; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold; margin-bottom: 15px; }
-.hint { color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.6; margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
-.hint b { color: #ffe600; }
-
-/* Control Configuration Settings */
-.setting-row { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 18px; text-align: left; }
-.setting-label { font-size: 12px; color: #dfb3ff; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-.mode-switch { display: flex; width: 100%; background: rgba(0,0,0,0.3); border-radius: 14px; padding: 4px; border: 1px solid rgba(255,255,255,0.1); }
-.mode-btn { flex: 1; background: transparent; border: none; color: rgba(255,255,255,0.6); padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 14px; }
-.mode-btn.active { background: linear-gradient(135deg, #ff60b5, #9c3fe4); color: white; box-shadow: 0 4px 12px rgba(255,96,181,0.3); }
-
-.slider-container { display: flex; align-items: center; width: 100%; gap: 12px; background: rgba(0,0,0,0.2); padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); }
-.slider-container input { flex: 1; accent-color: #ff60b5; cursor: pointer; }
-.slider-val { font-size: 16px; font-weight: 900; color: #4deeea; min-width: 24px; text-align: center; }
-
-/* Play Button Styling */
-.btn { background: linear-gradient(135deg, #00f0ff, #7000ff); border: none; color: #fff; font-size: 18px; font-weight: 900; letter-spacing: 1px; padding: 16px 40px; border-radius: 50px; cursor: pointer; text-transform: uppercase; box-shadow: 0 8px 25px rgba(112,0,255,0.4); width: 100%; transition: all 0.2s; border: 2px solid rgba(255,255,255,0.2); }
-.btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(112,0,255,0.6); }
-.btn:active { transform: translateY(1px) scale(0.98); }
-.btng { background: linear-gradient(135deg, #ffcc00, #ff4500); box-shadow: 0 8px 25px rgba(255,69,0,0.4); }
-.res { background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255,255,255,0.15); margin-top: 10px; box-shadow: none; }
-.res:hover { background: rgba(255, 255, 255, 0.15); }
-
-.fleaico { font-size: 55px; margin-bottom: 5px; animation: bob 0.8s ease-in-out infinite alternate; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.3)); }
-@keyframes bob { from { transform: translateY(0) scale(1); } to { transform: translateY(-12px) scale(1.05); } }
-
-/* Screens for Win / Lose Scenarios */
-.gtitle { font-size: clamp(36px, 10vw, 54px); font-weight: 900; text-align: center; margin-bottom: 5px; line-height: 1.1; font-family: 'Arial Black', sans-serif; }
-.gsub { color: rgba(255,255,255,0.5); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; font-weight: bold; }
-.sdisplay { background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 20px 40px; margin-bottom: 24px; text-align: center; width: 100%; backdrop-filter: blur(5px); }
-.sdisplay .n { font-size: 60px; font-weight: 900; color: #ffe600; text-shadow: 0 0 20px rgba(255,230,0,0.5); line-height: 1; margin-bottom: 4px; }
-.sdisplay .l { color: rgba(255,255,255,0.5); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold; }
-
-.stardiv { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
-.star { position: absolute; border-radius: 50%; animation: twk linear infinite; }
-@keyframes twk { 0%, 100% { opacity: .2; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
+/* Custom Selector Styles */
+select, input[type="text"] {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 8px;
+  font-size: 16px;
+  margin-top: 5px;
+  outline: none;
+}
+input[type="color"] {
+  width: 100%;
+  height: 40px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  margin-top: 5px;
+}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div id="hud" style="display:none">
-  <div class="hud-container" id="player-scores">
-    </div>
-  <div id="tbox"><div class="slbl" id="timer-lbl">Time</div><div id="tval">60</div></div>
+  <div class="sbox"><div class="slbl" id="lbl-pname">You</div><div class="sval" id="pscore" style="color:#00ffcc">0</div></div>
+  <div id="tbox"><div class="slbl">Time</div><div id="tval">60</div></div>
+  <div class="sbox"><div class="slbl" id="lbl-aname">CPU</div><div class="sval" id="ascore" style="color:#ff4dff">0</div></div>
 </div>
 
-<div id="countdown-overlay">5</div>
 <div id="orbtxt">⚡ ORB CAPTURED! ⚡</div>
 
 <div id="overlay">
   <div class="stardiv" id="stars1"></div>
   
-  <div id="title-view" class="menu-card">
-    <div class="fleaico">🌸</div>
-    <div class="logo"><span>F</span><span>R</span><span>E</span><span>A</span></div>
-    <div class="tag">The ultimate cute arena jump</div>
-    
-    <div class="hint">
-      <b>Drag your Frea</b> to pull back, aim &amp; slingshot!<br>
-      <b>Tap anywhere else</b> to spring-leap instantly.<br>
-      <span id="hint-mode-text">Grab ✨ <b>THE ORB</b> and retain it to achieve 100 points!</span>
+  <div id="title-view">
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div class="fleaico">🦟</div>
+      <div class="logo"><span>F</span><span>L</span><span>E</span><span>A</span><span>F</span><span>A</span><span>L</span><span>L</span></div>
+      <div class="tag">Compete for the ORB</div>
+      <div class="hint"><b>Drag your flea</b> to aim &amp; slingshot<br><b>Tap anywhere</b> to leap there instantly<br>Grab ✨ <b>THE ORB</b> — hold it for points!</div>
+      <button class="btn" id="playbtn">🦟 Play Now</button>
+      <button class="btn res" id="settingsbtn">⚙️ Flea Customizer</button>
     </div>
-
-    <div class="setting-row">
-      <div class="setting-label">Game Mode</div>
-      <div class="mode-switch">
-        <button class="mode-btn active" id="mode-classic">Classic Orb</button>
-        <button class="mode-btn" id="mode-zen">Zen Sandbox</button>
-      </div>
-    </div>
-
-    <div class="setting-row">
-      <div class="setting-label" id="ai-label">Opponent Fleas (AI)</div>
-      <div class="slider-container">
-        <input type="range" id="ai-count-slider" min="1" max="8" value="3">
-        <div class="slider-val" id="ai-count-val">3</div>
-      </div>
-    </div>
-
-    <button class="btn" id="playbtn">✨ Start Match ✨</button>
   </div>
 
-  <div id="end-view" class="menu-card" style="display:none;">
-    <div class="fleaico" id="endico">👑</div>
-    <div class="gtitle" id="endtitle">VICTORY!</div>
-    <div class="gsub" id="endsub">Round Complete</div>
-    <div class="sdisplay">
-      <div class="n" id="endscore">0</div>
-      <div class="l" id="score-status-lbl">Your Final Score</div>
+  <div id="settings-view" style="display:none;flex-direction:column;align-items:center;width:100%;max-width:340px;background:rgba(0,0,0,0.8);padding:20px;border-radius:16px;border:2px solid rgba(255,255,255,0.1);z-index:60;">
+    <div class="gtitle" style="font-size:24px;margin-bottom:15px;">Flea Profiles</div>
+    
+    <div style="width:100%;margin-bottom:12px;">
+      <div class="slbl">Select Profile</div>
+      <select id="flea-select"></select>
     </div>
+
+    <div style="width:100%;margin-bottom:12px;">
+      <div class="slbl">Flea Name</div>
+      <input type="text" id="flea-name-input" maxlength="12">
+    </div>
+
+    <div style="width:100%;margin-bottom:16px;">
+      <div class="slbl">Flea Color</div>
+      <input type="color" id="flea-color-input">
+    </div>
+
+    <div style="display:flex;width:100%;gap:8px;margin-bottom:12px;">
+      <button class="btn btng" id="save-flea-btn" style="flex:1;font-size:12px;padding:10px 5px;margin:0;">Save</button>
+      <button class="btn" id="new-flea-btn" style="flex:1;font-size:12px;padding:10px 5px;margin:0;background:linear-gradient(135deg,#00ffcc,#0099ff)">+ New</button>
+    </div>
+    <button class="btn res" id="delete-flea-btn" style="width:100%;font-size:12px;padding:10px;margin:0;margin-bottom:12px;background:rgba(255,0,0,0.2);color:#ff4444;border:1px solid rgba(255,0,0,0.3)">Delete Profile</button>
+    
+    <button class="btn" id="close-settings-btn" style="width:100%;font-size:14px;padding:12px;margin:0;">Back to Menu</button>
+  </div>
+
+  <div id="end-view" style="display:none;flex-direction:column;align-items:center">
+    <div class="fleaico" id="endico">🏆</div>
+    <div class="gtitle" id="endtitle">YOU WIN!</div>
+    <div class="gsub">Round Complete</div>
+    
+    <div id="winner-display" style="background:rgba(255,255,255,0.06);border:2px solid rgba(255,215,0,0.3);border-radius:14px;padding:16px 40px;margin-bottom:26px;text-align:center;min-width:200px;">
+      <div id="winner-avatar" style="font-size:48px;margin-bottom:5px;filter:drop-shadow(0 0 10px currentColor);">🦟</div>
+      <div class="slbl" style="margin-bottom:2px;">Champion</div>
+      <div id="winner-name" style="font-size:22px;font-weight:900;color:#ffd700;">Flea Name</div>
+    </div>
+
     <button class="btn btng" id="againbtn">🔄 Play Again</button>
-    <button class="btn res" id="menubtn">Main Menu</button>
+    <button class="btn res" id="menubtn">Menu</button>
   </div>
 </div>
 
 <script>
 (function(){
-  var C = document.getElementById('c'), ctx = C.getContext('2d');
-  var W, H;
-  var WORLD_W, WORLD_H; // Scalable bounding geometry for Zen vs Classic maps
-  
-  function rsz() {
-    W = C.width = window.innerWidth;
-    H = C.height = window.innerHeight;
-    updateWorldBounds();
-  }
-  
-  var GRAV = 0.4, MAX_DRAG = 140;
-  var STATE = 'title'; // title, countdown, play, gameover
-  var gameMode = 'classic'; // classic, zen
-  var configAiCount = 3;
-  
-  var countdownTimer = 5.0; 
-  var lastCountdownInteger = 5;
-  
-  var parts = [], sparks = [];
-  var platforms = [], fleas = [], player = null, orb = null;
-  var orbHolder = null, orbTimer = 0;
-  var sling = { on: false, sx: 0, sy: 0, cx: 0, cy: 0 };
-  var runTgt = null;
-  
-  var camera = { x: 0, y: 0 };
-
-  var LC = [
-    { p: '#ff60b5', b1: '#1a0b2e', b2: '#0b0314', a: '#ff00aa', platformGlow: '#ff00a0' },
-    { p: '#4deeea', b1: '#051c24', b2: '#020b10', a: '#00f0ff', platformGlow: '#00e5ff' },
-    { p: '#ffe600', b1: '#242005', b2: '#100e02', a: '#ffcc00', platformGlow: '#ffd000' },
-    { p: '#baff66', b1: '#0e2405', b2: '#051002', a: '#7fff00', platformGlow: '#80ff00' }
-  ];
-  var currentPalette = LC[0];
-
-  function updateWorldBounds() {
-    if (gameMode === 'zen') {
-      WORLD_W = W * 3;
-      WORLD_H = H * 3;
-    } else {
-      WORLD_W = W;
-      WORLD_H = H;
-    }
-  }
-
+  var C=document.getElementById('c'),ctx=C.getContext('2d');
+  var W,H;
+  function rsz(){W=C.width=window.innerWidth;H=C.height=window.innerHeight}
   rsz();
-  window.addEventListener('resize', function() {
-    rsz();
-    if (STATE === 'play' || STATE === 'countdown') {
-      buildLevel();
-    }
-  });
+  window.addEventListener('resize',function(){rsz();if(STATE==='play'){bgG=null;buildLevel()}});
 
-  // Mode Selection Elements
-  var modeClassicBtn = document.getElementById('mode-classic');
-  var modeZenBtn = document.getElementById('mode-zen');
-  var aiSlider = document.getElementById('ai-count-slider');
-  var aiVal = document.getElementById('ai-count-val');
-  var aiLabel = document.getElementById('ai-label');
-  var hintModeText = document.getElementById('hint-mode-text');
+  var GRAV=0.45,MAX_DRAG=130;
+  var STATE='title';
+  
+  var ps=0,as=0,sec=60,tInt=null,fid=null,lt=0;
+  var parts=[],sparks=[];
+  var lvl=1,bgG=null;
+  var platforms=[],player=null,aiPlayer=null,orb=null;
+  var orbHolder=null,orbTimer=0;
+  var sling={on:false,sx:0,sy:0,cx:0,cy:0};
+  var runTgt=null;
+  var topPlat=null;
 
-  modeClassicBtn.addEventListener('click', function() {
-    gameMode = 'classic';
-    modeClassicBtn.classList.add('active');
-    modeZenBtn.classList.remove('active');
-    aiSlider.max = 8;
-    if (parseInt(aiSlider.value) > 8) aiSlider.value = 8;
-    aiVal.textContent = aiSlider.value;
-    aiLabel.textContent = "Opponent Fleas (AI)";
-    hintModeText.innerHTML = "Grab ✨ <b>THE ORB</b> and retain it to achieve 100 points!";
-    updateWorldBounds();
-  });
+  // Flea Profile Systems Setup
+  var savedFleas = [
+    { id: 'f1', name: 'Alpha Flea', color: '#00ffcc' },
+    { id: 'f2', name: 'Leap Bug', color: '#ffd700' }
+  ];
+  var currentFleaId = 'f1';
+  var aiName = "CPU Flea";
+  var aiColor = "#ff4dff";
 
-  modeZenBtn.addEventListener('click', function() {
-    gameMode = 'zen';
-    modeZenBtn.classList.add('active');
-    modeClassicBtn.classList.remove('active');
-    aiSlider.max = 20;
-    aiVal.textContent = aiSlider.value;
-    aiLabel.textContent = "Passive Fleas (AI)";
-    hintModeText.innerHTML = "No score pressures or orbs! Explore a <b>vast, scrolling sandbox environment</b>.";
-    updateWorldBounds();
-  });
+  var LC=[
+    {p:'#1a3a6e',b1:'#04001a',b2:'#091430',a:'#00ffcc'},
+    {p:'#3a1a5e',b1:'#0f000f',b2:'#1e002e',a:'#ff4dff'},
+    {p:'#1a4a2e',b1:'#000f07',b2:'#001e12',a:'#00ff88'},
+    {p:'#4a2a1a',b1:'#0f0700',b2:'#1e1300',a:'#ffaa00'},
+    {p:'#1a2a5e',b1:'#000813',b2:'#000e23',a:'#4dffff'}
+  ];
 
-  aiSlider.addEventListener('input', function() {
-    aiVal.textContent = aiSlider.value;
-    configAiCount = parseInt(aiSlider.value);
-  });
-
-  /* Structured Object Paradigms */
-  function Platform(x, y, w, h, col) {
-    this.x = x; this.y = y; this.w = w; this.h = h; this.col = col;
+  function Platform(x,y,w,h,col){
+    this.x=x;this.y=y;this.w=w;this.h=h;this.col=col;
   }
-  Platform.prototype.draw = function() {
+  Platform.prototype.draw=function(){
     ctx.save();
-    ctx.shadowColor = currentPalette.platformGlow;
-    ctx.shadowBlur = 10;
-    ctx.fillStyle = this.col;
-    ctx.beginPath();
-    ctx.roundRect(this.x - camera.x, this.y - camera.y, this.w, this.h, 6);
-    ctx.fill();
+    ctx.shadowColor=this.col;ctx.shadowBlur=12;
+    ctx.fillStyle=this.col;
+    ctx.fillRect(this.x,this.y,this.w,this.h);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(255,255,255,0.12)';
+    ctx.fillRect(this.x+3,this.y+2,this.w-6,4);
     ctx.restore();
   };
 
-  function Flea(x, y, isP, name, col) {
-    this.x = x; this.y = y; this.vx = 0; this.vy = 0;
-    this.isP = isP; this.name = name; this.col = col;
-    this.onG = true; this.stuck = true;
-    this.face = isP ? 1 : (Math.random() > 0.5 ? 1 : -1);
-    this.w = 26; this.h = 24;
-    this.score = 0;
-    this.la = Math.random() * 100;
-    this.ea = Math.random() * 100;
-    this.hasOrb = false;
-    this.sq = 1;
-    this.ait = Math.random() * 20 | 0;
-    this.zenTargetX = Math.random() * WORLD_W;
+  function Flea(x,y,isP){
+    this.x=x;this.y=y;this.vx=0;this.vy=0;
+    this.isP=isP;this.onG=true;this.stuck=true;
+    this.face=isP?1:-1;
+    this.jcd=0;this.jc=0;this.maxJ=2;
+    this.col=isP?'#00ffcc':'#ff4dff';
+    this.name=isP?'Player':aiName;
+    this.la=0;this.ea=0;this.hasOrb=false;
+    this.w=26;this.h=26;
+    this.sq=1;
+    this.ait=0;
   }
-  Object.defineProperty(Flea.prototype, 'cx', { get: function() { return this.x + this.w / 2; } });
-  Object.defineProperty(Flea.prototype, 'cy', { get: function() { return this.y + this.h / 2; } });
+  Object.defineProperty(Flea.prototype,'cx',{get:function(){return this.x+this.w/2}});
+  Object.defineProperty(Flea.prototype,'cy',{get:function(){return this.y+this.h/2}});
+  Object.defineProperty(Flea.prototype,'feet',{get:function(){return this.y+this.h}});
 
-  Flea.prototype.update = function(dt) {
-    this.la += dt * 0.012; 
-    this.ea += dt * 0.005;
-    this.sq += (1 - this.sq) * 0.15;
+  Flea.prototype.update=function(dt){
+    this.la+=dt*0.012;this.ea+=dt*0.005;
+    if(this.jcd>0)this.jcd-=dt;
+    this.sq+=(1-this.sq)*0.2;
     
-    if (STATE === 'countdown') {
-      this.vx = 0; this.vy = 0;
-      return;
-    }
-
-    if (!this.stuck) {
-      this.vy += GRAV;
-      
-      // Strict Maximum Speed Threshold Caps (Ensures blistering speed without physics engine frame breakdown)
-      var MAX_SPD = 32;
-      var currentSpd = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-      if (currentSpd > MAX_SPD) {
-        this.vx = (this.vx / currentSpd) * MAX_SPD;
-        this.vy = (this.vy / currentSpd) * MAX_SPD;
-      }
-
-      // SUB-STEPPING INTERPOLATION ENGINE (Solves tunneling/glitching completely through platforms at high speeds)
-      var steps = Math.ceil(Math.max(Math.abs(this.vx), Math.abs(this.vy)) / 4);
-      for (var s = 0; s < steps; s++) {
-        this.x += this.vx / steps;
-        this.y += this.vy / steps;
-        if (this.collide()) {
-          break; 
-        }
-      }
-      
-      this.vx *= 0.985;
-      this.vy *= 0.985;
+    if(!this.stuck){
+      this.vy+=GRAV;
+      this.x+=this.vx;this.y+=this.vy;
+      this.vx*=0.99;
+      this.vy*=0.99;
+      this.collide();
       this.bounds();
     } else {
-      this.vx = 0;
-      this.vy = 0;
+      this.vx=0;
+      this.vy=0;
     }
   };
 
-  Flea.prototype.collide = function() {
-    this.onG = false;
-    var fx = this.x, fy = this.y, fw = this.w, fh = this.h;
+  // Improved Collision Engine: Fleas stay securely stuck to ANY surface they strike
+  Flea.prototype.collide=function(){
+    this.onG=false;
+    var fx=this.x, fy=this.y, fw=this.w, fh=this.h;
     
-    for (var i = 0; i < platforms.length; i++) {
-      var p = platforms[i];
-      if (fx + fw > p.x && fx < p.x + p.w && fy + fh > p.y && fy < p.y + p.h) {
-        var overlapX = Math.min(fx + fw - p.x, p.x + p.w - fx);
-        var overlapY = Math.min(fy + fh - p.y, p.y + p.h - fy);
+    for(var i=0;i<platforms.length;i++){
+      var p=platforms[i];
+      if(fx+fw>p.x && fx<p.x+p.w && fy+fh>p.y && fy<p.y+p.h){
+        var overlapX = Math.min(fx+fw-p.x, p.x+p.w-fx);
+        var overlapY = Math.min(fy+fh-p.y, p.y+p.h-fy);
         
-        if (overlapX < overlapY) {
-          if (fx + fw / 2 < p.x + p.w / 2) {
+        if(overlapX < overlapY){
+          if(fx+fw/2 < p.x+p.w/2){
             this.x = p.x - fw;
           } else {
             this.x = p.x + p.w;
           }
-          this.vx = -this.vx * 0.2;
         } else {
-          if (fy + fh / 2 < p.y + p.h / 2) {
+          if(fy+fh/2 < p.y+p.h/2){
             this.y = p.y - fh;
-            this.stuck = true;
-            this.onG = true;
+            this.onG=true; // Flat platform top landing
           } else {
-            this.y = p.y + p.h;
-            this.vy = 0;
+            this.y = p.y + p.h; // Ceiling underside contact
           }
         }
-        if (this.stuck) {
-          this.vx = 0; this.vy = 0;
-          if (this.sq < 0.75) this.sq = 0.65;
-        }
-        return true;
+        this.vx=0;this.vy=0;
+        this.stuck=true;this.jc=0;
+        if(this.sq<0.72)this.sq=0.65;
+        return;
       }
     }
-    return false;
   };
 
-  Flea.prototype.bounds = function() {
-    if (this.x < 0) { this.x = 0; this.vx = 0; this.stuck = true; }
-    if (this.x + this.w > WORLD_W) { this.x = WORLD_W - this.w; this.vx = 0; this.stuck = true; }
-    if (this.y < 0) { this.y = 0; this.vy = 0; this.stuck = true; }
-    if (this.y + this.h > WORLD_H) {
-      // Respawn logic securely bounded inside game bounds if deep out-of-bounds error triggers
-      this.y = WORLD_H - 180 - this.h;
-      this.vy = 0; this.vx = 0;
-      this.x = WORLD_W / 2 + (Math.random() - .5) * 100;
-      this.stuck = true;
+  Flea.prototype.bounds=function(){
+    if(this.x<0){this.x=0;this.vx=0;this.vy=0;this.stuck=true;this.jc=0}
+    if(this.x+this.w>W){this.x=W-this.w;this.vx=0;this.vy=0;this.stuck=true;this.jc=0}
+    if(this.y<0){this.y=0;this.vx=0;this.vy=0;this.stuck=true;this.jc=0}
+    if(this.y+this.h>H){
+      this.y=H-150-this.h;this.vy=0;this.vx=0;
+      this.x=W/2+(Math.random()-.5)*80;
+      this.stuck=true;this.jc=0;
     }
   };
 
-  Flea.prototype.launch = function(dvx, dvy) {
-    this.vx = dvx; this.vy = dvy;
-    this.stuck = false;
-    this.onG = false;
-    this.sq = 0.5;
-    jpfx(this.cx, this.cy, this.col);
+  Flea.prototype.launch=function(dvx,dvy){
+    this.vx=dvx;this.vy=dvy;
+    this.stuck=false;
+    this.onG=false;
+    this.sq=0.5;
+    jpfx(this.cx,this.cy,this.col);
   };
 
-  Flea.prototype.aiUpdate = function() {
-    if (STATE !== 'play') return;
+  // Smart AI Jump Engine: Computes arc adjustments and path variation to never get stuck jumping under boxes
+  Flea.prototype.aiUpdate=function(){
+    if(!orb)return;
     this.ait--;
-    if (this.ait <= 0) {
-      this.ait = 20 + Math.random() * 30 | 0;
-      
-      if (this.stuck || this.onG) {
-        if (gameMode === 'classic' && orb) {
-          // Classic Mode Aggression Engine
-          var dx = orb.x - this.cx;
-          var dy = orb.y - this.cy;
-          var dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 20) {
-            var jumpSpeed = 15 + Math.random() * 8;
-            this.launch((dx / dist) * jumpSpeed, ((dy / dist) * jumpSpeed) - 3);
-            this.face = dx > 0 ? 1 : -1;
-          }
+    if(this.ait<=0){
+      this.ait=14+Math.random()*18|0;
+      if(this.stuck || this.onG){
+        var dx=orb.x-this.cx;
+        var dy=orb.y-this.cy;
+        var dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist>15){
+          var aispeed=16+Math.min(lvl,5);
+          var launchVx = (dx/dist)*aispeed;
+          var launchVy = ((dy/dist)*aispeed)-3.0;
+          
+          // Compensate if orb is high vertically to prevent ceiling clipping issues
+          if(dy < -60) launchVy -= 3.5;
+          // Add micro variations to prevent structural infinite loops
+          launchVx += (Math.random() - 0.5) * 3;
+          
+          this.launch(launchVx, launchVy);
+          this.face=dx>0?1:-1;
+        }
+      }
+    }
+  };
+
+  Flea.prototype.draw=function(){
+    ctx.save();
+    ctx.translate(this.cx,this.cy);
+    if(this.face<0)ctx.scale(-1,1);
+    var sy=this.sq,sx=2-this.sq;
+    ctx.scale(sx,sy);
+    ctx.shadowColor=this.col;ctx.shadowBlur=this.hasOrb?22:9;
+    ctx.fillStyle=this.col;
+    ctx.beginPath();ctx.ellipse(0,0,13,11,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.beginPath();ctx.ellipse(0,2,10,8,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=this.col;
+    ctx.beginPath();ctx.ellipse(0,-1,13,11,0,0,Math.PI*2);ctx.fill();
+    if(this.hasOrb){
+      ctx.strokeStyle='rgba(255,215,0,0.6)';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(0,0,18,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.fillStyle='rgba(255,255,255,0.92)';
+    ctx.beginPath();ctx.ellipse(4.5,-2.5,3.8,3.8,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.55)';
+    ctx.beginPath();ctx.ellipse(8,-4,1.6,1.6,0,0,Math.PI*2);ctx.fill();
+    var ep=Math.sin(this.ea*.7)*1.1;
+    ctx.fillStyle='#000';ctx.beginPath();ctx.arc(4.5+ep,-2.5,2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.9)';ctx.beginPath();ctx.arc(5+ep,-3,.7,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=this.col;ctx.lineWidth=2.2;ctx.lineCap='round';
+    var legs=[[-7,7],[-3.5,9],[0,9],[3.5,9],[7,7]];
+    for(var i=0;i<legs.length;i++){
+      var lx=legs[i][0],ly=legs[i][1];
+      var sw=Math.sin(this.la*3+i*1.3)*(this.onG?3.5:1.5);
+      ctx.beginPath();ctx.moveTo(lx,ly-1);ctx.lineTo(lx+(i%2===0?-4.5:4.5),ly+5.5+sw);ctx.stroke();
+    }
+    ctx.strokeStyle='rgba(255,255,255,0.42)';ctx.lineWidth=1.8;
+    var aL=Math.sin(this.la*1.5)*7;
+    ctx.beginPath();ctx.moveTo(-2.5,-11);ctx.quadraticCurveTo(-11,-21+aL,-7.5,-26);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(2.5,-11);ctx.quadraticCurveTo(11,-21-aL,7.5,-26);ctx.stroke();
+    ctx.restore();
+  };
+
+  function Orb(x,y){
+    this.x=x;this.y=y;this.vx=(Math.random()-.5)*2;this.vy=-4;
+    this.r=15;this.an=Math.random()*Math.PI*2;this.pu=0;
+    ofx(this.x,this.y);
+  }
+  Orb.prototype.update=function(dt){
+    this.an+=dt*.004;this.pu+=dt*.008;
+    if(orbHolder)return;
+    this.vy+=GRAV*.68;this.x+=this.vx;this.y+=this.vy;this.vx*=.97;
+    for(var i=0;i<platforms.length;i++){
+      var p=platforms[i];
+      if(this.x+this.r>p.x&&this.x-this.r<p.x+p.w){
+        var prev=this.y-this.vy;
+        if(prev+this.r<=p.y+1&&this.y+this.r>=p.y&&this.vy>=0){
+          this.y=p.y-this.r;this.vy*=-.4;this.vx*=.65;
+          if(Math.abs(this.vy)<.5)this.vy=0;
+        }
+        if(this.y-this.r<p.y+p.h&&this.y+this.r>p.y&&this.vy<0){
+          this.y=p.y+p.h+this.r;this.vy=Math.abs(this.vy)*.25;
+        }
+      }
+    }
+    if(this.x-this.r<0){this.x=this.r;this.vx=Math.abs(this.vx)}
+    if(this.x+this.r>W){this.x=W-this.r;this.vx=-Math.abs(this.vx)}
+    if(this.y+this.r>H-130){
+      snapOrbToTopPlat();
+    }
+    if(Math.random()<.035){
+      sparks.push({x:this.x+(Math.random()-.5)*14,y:this.y+(Math.random()-.5)*14,
+        vx:(Math.random()-.5)*1.4,vy:-1-Math.random()*1.3,l:1,c:'#ffd700'});
+    }
+  };
+  Orb.prototype.draw=function(){
+    var r=this.r+Math.sin(this.an)*1.6;
+    ctx.save();
+    ctx.shadowColor='#ffd700';ctx.shadowBlur=22+Math.sin(this.pu)*5;
+    var g=ctx.createRadialGradient(this.x-3.5,this.y-3.5,1.5,this.x,this.y,r);
+    g.addColorStop(0,'#fff7b0');g.addColorStop(.3,'#ffd700');
+    g.addColorStop(.7,'#ff9500');g.addColorStop(1,'#ff4f00');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(this.x,this.y,r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.65)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.82)';ctx.beginPath();ctx.arc(this.x-4.5,this.y-4.5,3.5,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    for(var i=1;i<=3;i++){
+      ctx.strokeStyle='rgba(255,215,0,'+(0.14-i*.03)+')';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(this.x,this.y,r+i*9+Math.sin(this.an+i)*2.5,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  function jpfx(x,y,col){
+    for(var i=0;i<7;i++){
+      var a=Math.random()*Math.PI*2,sp=1.5+Math.random()*3.2;
+      parts.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,l:1,r:2+Math.random()*3,c:col});
+    }
+  }
+  function ofx(x,y){
+    for(var i=0;i<14;i++){
+      var a=Math.random()*Math.PI*2,sp=2+Math.random()*4.5;
+      parts.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2.5,l:1,r:3+Math.random()*3.5,c:'#ffd700'});
+      sparks.push({x:x,y:y,vx:Math.cos(a)*sp*1.3,vy:Math.sin(a)*sp*1.3-3.5,l:1,c:'#fff'});
+    }
+  }
+
+  function drawParts(){
+    for(var i=parts.length-1;i>=0;i--){
+      var p=parts[i];
+      ctx.globalAlpha=p.l;ctx.fillStyle=p.c;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.l,0,Math.PI*2);ctx.fill();
+      p.x+=p.vx;p.y+=p.vy;p.vy+=.14;p.l-=.04;
+      if(p.l<=0)parts.splice(i,1);
+    }
+    for(var i=sparks.length-1;i>=0;i--){
+      var s=sparks[i];
+      ctx.globalAlpha=s.l;ctx.fillStyle=s.c;
+      ctx.beginPath();ctx.arc(s.x,s.y,2*s.l,0,Math.PI*2);ctx.fill();
+      s.x+=s.vx;s.y+=s.vy;s.vy+=.09;s.vx*=.93;s.l-=.026;
+      if(s.l<=0)sparks.splice(i,1);
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // Multi-Mode Level Architect: Generates structural Vertical, Horizontal, and Box environments guaranteeing open pathways
+  function buildLevel(){
+    bgG=null;
+    var lc=LC[(lvl-1)%LC.length];
+    platforms=[];
+    
+    // Always create base safety floor
+    platforms.push(new Platform(0,H-150,W,20,lc.p));
+    
+    var modes = ['vertical', 'horizontal', 'box'];
+    var currentMode = modes[(lvl-1) % modes.length];
+    
+    if(currentMode === 'vertical') {
+      var rows = 4;
+      for(var r=1; r<=rows; r++) {
+        var py = H - 150 - (r * (H - 240) / rows);
+        if(py < 70) continue;
+        if(r % 2 === 1) {
+          platforms.push(new Platform(0, py, W * 0.32, 14, lc.p));
+          platforms.push(new Platform(W * 0.68, py, W * 0.32, 14, lc.p));
         } else {
-          // Zen Mode Sandbox Autonomy Engine
-          if (Math.random() < 0.6) {
-            var jumpAngle = -Math.PI/4 - Math.random() * Math.PI/2;
-            var force = 10 + Math.random() * 12;
-            this.launch(Math.cos(jumpAngle) * force, Math.sin(jumpAngle) * force);
-            this.face = this.vx > 0 ? 1 : -1;
-          } else {
-            this.face = Math.random() > 0.5 ? 1 : -1;
-          }
+          platforms.push(new Platform(W * 0.22, py, W * 0.56, 14, lc.p));
         }
       }
+    } 
+    else if(currentMode === 'horizontal') {
+      var steps = 4;
+      for(var s=0; s<steps; s++) {
+        var pw = W / steps - 35;
+        var px = (s * (W / steps)) + 15;
+        var py = H - 200 - (s % 2 === 0 ? 90 : 180);
+        platforms.push(new Platform(px, py, pw, 14, lc.p));
+      }
+    } 
+    else if(currentMode === 'box') {
+      // Side structured floating shelves
+      platforms.push(new Platform(0, H - 260, W * 0.24, 14, lc.p));
+      platforms.push(new Platform(W * 0.76, H - 260, W * 0.24, 14, lc.p));
+      platforms.push(new Platform(0, H - 400, W * 0.24, 14, lc.p));
+      platforms.push(new Platform(W * 0.76, H - 400, W * 0.24, 14, lc.p));
+      // Inner centerpiece platform block
+      platforms.push(new Platform(W * 0.32, H - 330, W * 0.36, 14, lc.p));
     }
-  };
 
-  Flea.prototype.draw = function() {
-    var renderX = this.cx - camera.x;
-    var renderY = this.cy - camera.y;
-
-    ctx.save();
-    ctx.translate(renderX, renderY);
-    if (this.face < 0) ctx.scale(-1, 1);
-    
-    var sy = this.sq, sx = 2 - this.sq;
-    ctx.scale(sx, sy);
-    
-    // Aesthetic Styling Parameters
-    ctx.shadowColor = this.col;
-    ctx.shadowBlur = this.hasOrb ? 25 : 8;
-    ctx.fillStyle = this.col;
-    
-    // Main Body Segment Shape
-    ctx.beginPath(); ctx.ellipse(0, 0, 14, 11, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    ctx.beginPath(); ctx.ellipse(0, 2, 11, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = this.col;
-    ctx.beginPath(); ctx.ellipse(0, -1, 14, 11, 0, 0, Math.PI * 2); ctx.fill();
-    
-    if (this.hasOrb) {
-      ctx.strokeStyle = '#ffe600'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.stroke();
-    }
-    
-    // Large Cheerful Eyes
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.ellipse(5, -3, 4.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#000';
-    var ep = Math.sin(this.ea * 0.6) * 1.2;
-    ctx.beginPath(); ctx.arc(5 + ep, -3, 2.2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(6 + ep, -4, 0.8, 0, Math.PI * 2); ctx.fill();
-    
-    // Bouncy Procedural Insect Appendages
-    ctx.strokeStyle = this.col; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-    var legs = [[-8, 6], [-4, 8], [0, 8], [4, 8], [8, 6]];
-    for (var i = 0; i < legs.length; i++) {
-      var lx = legs[i][0], ly = legs[i][1];
-      var sw = Math.sin(this.la * 3.5 + i * 1.2) * (this.onG ? 1 : 4);
-      ctx.beginPath(); ctx.moveTo(lx, ly - 1);
-      ctx.lineTo(lx + (i % 2 === 0 ? -5 : 5), ly + 6 + sw);
-      ctx.stroke();
-    }
-    
-    // Expressive Antennas
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
-    var aL = Math.sin(this.la * 1.2) * 5;
-    ctx.beginPath(); ctx.moveTo(-2, -11); ctx.quadraticCurveTo(-10, -20 + aL, -6, -25); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(2, -11); ctx.quadraticCurveTo(10, -20 - aL, 6, -25); ctx.stroke();
-    
-    ctx.restore();
-    
-    // Tag Name Labels Above Heads
-    ctx.fillStyle = this.isP ? '#4deeea' : 'rgba(255,255,255,0.7)';
-    ctx.font = 'bold 10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(this.name, this.cx - camera.x, this.y - camera.y - 12);
-  };
-
-  function Orb(x, y) {
-    this.x = x; this.y = y; this.vx = (Math.random() - .5) * 4; this.vy = -6;
-    this.r = 16; this.an = 0; this.pu = 0;
-    ofx(this.x, this.y);
-  }
-  Orb.prototype.update = function(dt) {
-    this.an += dt * 0.005; this.pu += dt * 0.01;
-    if (orbHolder) return;
-    
-    this.vy += GRAV * 0.6;
-    this.x += this.vx; this.y += this.vy;
-    this.vx *= 0.98;
-    
-    for (var i = 0; i < platforms.length; i++) {
-      var p = platforms[i];
-      if (this.x + this.r > p.x && this.x - this.r < p.x + p.w) {
-        var prevY = this.y - this.vy;
-        if (prevY + this.r <= p.y + 2 && this.y + this.r >= p.y && this.vy >= 0) {
-          this.y = p.y - this.r; this.vy *= -0.5; this.vx *= 0.7;
-          if (Math.abs(this.vy) < 0.5) this.vy = 0;
-        }
-        if (this.y - this.r < p.y + p.h && this.y + this.r > p.y && this.vy < 0) {
-          this.y = p.y + p.h + this.r; this.vy = Math.abs(this.vy) * 0.3;
-        }
+    // Identify the extreme highest platform row to position the golden orb
+    topPlat = null;
+    for(var i=0; i<platforms.length; i++) {
+      if(platforms[i].w >= W - 10 && platforms[i].y > H - 160) continue; 
+      if(!topPlat || platforms[i].y < topPlat.y) {
+        topPlat = platforms[i];
       }
     }
-    if (this.x - this.r < 0) { this.x = this.r; this.vx = Math.abs(this.vx); }
-    if (this.x + this.r > WORLD_W) { this.x = WORLD_W - this.r; this.vx = -Math.abs(this.vx); }
-    if (this.y + this.r > WORLD_H - 120) {
-      this.y = 100 + Math.random() * 150; this.x = 100 + Math.random() * (WORLD_W - 200);
-      this.vy = -8; this.vx = (Math.random() - .5) * 5; ofx(this.x, this.y);
-    }
-  };
-  Orb.prototype.draw = function() {
-    var renderX = this.x - camera.x;
-    var renderY = this.y - camera.y;
-    var r = this.r + Math.sin(this.an) * 2;
-    
-    ctx.save();
-    ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 25 + Math.sin(this.pu) * 6;
-    var g = ctx.createRadialGradient(renderX - 4, renderY - 4, 2, renderX, renderY, r);
-    g.addColorStop(0, '#fffdf0'); g.addColorStop(0.3, '#ffe600');
-    g.addColorStop(0.8, '#ff6c00'); g.addColorStop(1, '#ff2200');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(renderX, renderY, r, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  };
-
-  /* Visual Special FX Generators */
-  function jpfx(x, y, col) {
-    for (var i = 0; i < 8; i++) {
-      var a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 4;
-      parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, l: 1, r: 2 + Math.random() * 3, c: col });
-    }
-  }
-  function ofx(x, y) {
-    for (var i = 0; i < 15; i++) {
-      var a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 5;
-      parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, l: 1, r: 3 + Math.random() * 3, c: '#ffe600' });
-      sparks.push({ x: x, y: y, vx: Math.cos(a) * sp * 1.2, vy: Math.sin(a) * sp * 1.2 - 2, l: 1, c: '#fff' });
-    }
   }
 
-  function drawEffects() {
-    for (var i = parts.length - 1; i >= 0; i--) {
-      var p = parts[i];
-      ctx.save(); ctx.globalAlpha = p.l; ctx.fillStyle = p.c;
-      ctx.beginPath(); ctx.arc(p.x - camera.x, p.y - camera.y, p.r * p.l, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.l -= 0.035;
-      if (p.l <= 0) parts.splice(i, 1);
-    }
-    for (var i = sparks.length - 1; i >= 0; i--) {
-      var s = sparks[i];
-      ctx.save(); ctx.globalAlpha = s.l; ctx.fillStyle = s.c;
-      ctx.beginPath(); ctx.arc(s.x - camera.x, s.y - camera.y, 2.5 * s.l, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      s.x += s.vx; s.y += s.vy; s.vy += 0.08; s.vx *= 0.94; s.l -= 0.025;
-      if (s.l <= 0) sparks.splice(i, 1);
-    }
-  }
-
-  /* Procedural Map Generator Engine */
-  function buildLevel() {
-    platforms = [];
-    currentPalette = LC[Math.floor(Math.random() * LC.length)];
-    
-    // Permanent Safe Floor Anchor Base Platform
-    platforms.push(new Platform(0, WORLD_H - 60, WORLD_W, 60, currentPalette.p));
-    
-    if (gameMode === 'classic') {
-      var rows = Math.max(3, Math.floor((WORLD_H - 220) / 110));
-      var count = 6 + Math.random() * 4 | 0;
-      var used = {};
-      for (var i = 0; i < count; i++) {
-        for (var att = 0; att < 50; att++) {
-          var row = 1 + Math.random() * (rows - 1) | 0;
-          var col = Math.random() * 3 | 0;
-          var key = row * 10 + col;
-          if (used[key]) continue;
-          used[key] = 1;
-          var pw = 90 + Math.random() * 80;
-          var px = Math.max(10, (col * (WORLD_W / 3)) + (Math.random() * (WORLD_W / 3 - pw - 20)));
-          var py = WORLD_H - 120 - (row * (WORLD_H - 240) / rows);
-          platforms.push(new Platform(Math.min(px, WORLD_W - pw - 10), py, pw, 16, currentPalette.p));
-          break;
-        }
-      }
-      // Top High-Tier Competitive Slabs
-      platforms.push(new Platform(0, WORLD_H * 0.35, 60, 16, currentPalette.p));
-      platforms.push(new Platform(WORLD_W - 60, WORLD_H * 0.35, 60, 16, currentPalette.p));
-      platforms.push(new Platform(WORLD_W / 2 - 75, WORLD_H * 0.22, 150, 16, currentPalette.p));
+  // Ensures the golden orb always attaches directly to the center of the highest platform
+  function snapOrbToTopPlat() {
+    if(topPlat) {
+      orb.x = topPlat.x + topPlat.w / 2;
+      orb.y = topPlat.y - orb.r - 8;
     } else {
-      // Vast Multi-Directional Zen Platform Clusters Grid
-      var densityX = Math.floor(WORLD_W / 260);
-      var densityY = Math.floor(WORLD_H / 160);
-      for (var rx = 0; rx < densityX; rx++) {
-        for (var ry = 1; ry < densityY; ry++) {
-          if (Math.random() < 0.7) {
-            var px = rx * 260 + Math.random() * 100 + 20;
-            var py = WORLD_H - (ry * 160) + (Math.random() * 40 - 20);
-            var pw = 80 + Math.random() * 120;
-            if (px + pw > WORLD_W) px = WORLD_W - pw - 20;
-            if (py < 100) continue;
-            platforms.push(new Platform(px, py, pw, 16, currentPalette.p));
-          }
-        }
+      orb.x = W / 2;
+      orb.y = H * 0.25;
+    }
+    orb.vx = 0; orb.vy = 0;
+  }
+
+  function spawnOrb(){
+    orb=new Orb(W/2, H*0.3);
+    snapOrbToTopPlat();
+    orbHolder=null;orbTimer=0;
+  }
+
+  function checkPickup(){
+    if(!orb)return;
+    var fl=[player,aiPlayer];
+    for(var i=0;i<fl.length;i++){
+      var f=fl[i];
+      if(!f||orbHolder===f)continue;
+      var dx=f.cx-orb.x,dy=f.cy-orb.y;
+      if(Math.sqrt(dx*dx+dy*dy)<f.w/2+orb.r){
+        orbHolder=f;f.hasOrb=true;ofx(orb.x,orb.y);
+        if(f===player){ps+=5;updUI();flashOrb()}else{as+=5;updUI()}
       }
     }
   }
-
-  function checkPickup() {
-    if (!orb || orbHolder) return;
-    for (var i = 0; i < fleas.length; i++) {
-      var f = fleas[i];
-      var dx = f.cx - orb.x, dy = f.cy - orb.y;
-      if (Math.sqrt(dx * dx + dy * dy) < f.w / 2 + orb.r) {
-        orbHolder = f; f.hasOrb = true;
-        ofx(orb.x, orb.y);
-        flashOrbNotice(f.name + " SEIZED THE ORB!");
-        break;
-      }
+  function checkSteal(){
+    if(!orbHolder||!orb)return;
+    var thief=orbHolder===player?aiPlayer:player;
+    if(!thief)return;
+    var dx=thief.cx-orb.x,dy=thief.cy-orb.y;
+    if(Math.sqrt(dx*dx+dy*dy)<thief.w/2+orb.r+4){
+      orbHolder.hasOrb=false;orbHolder=thief;thief.hasOrb=true;ofx(orb.x,orb.y);
+      if(thief===player){ps+=3;updUI();flashOrb()}else{as+=3;updUI()}
     }
   }
-
-  function checkSteal() {
-    if (!orbHolder || !orb) return;
-    for (var i = 0; i < fleas.length; i++) {
-      var f = fleas[i];
-      if (f === orbHolder) continue;
-      var dx = f.cx - orb.x, dy = f.cy - orb.y;
-      if (Math.sqrt(dx * dx + dy * dy) < f.w / 2 + orb.r + 5) {
-        orbHolder.hasOrb = false;
-        orbHolder = f;
-        f.hasOrb = true;
-        ofx(orb.x, orb.y);
-        flashOrbNotice(f.name + " STOLE THE ORB!");
-        break;
-      }
-    }
-  }
-
-  // Exact 0.05s (50 Milliseconds) Incremental Score Accumulation Loop Logic
-  function holdTick(dt) {
-    if (!orbHolder || !orb || gameMode !== 'classic') return;
-    orb.x = orbHolder.cx; 
-    orb.y = orbHolder.y - orb.r - 4;
-    
-    orbTimer += dt;
-    if (orbTimer >= 50) { 
-      orbTimer -= 50;
-      orbHolder.score++;
-      updScoreboard();
-      if (orbHolder.score >= 100) {
-        endGame(orbHolder === player);
-      }
-    }
-  }
-
-  function flashOrbNotice(txt) {
-    var el = document.getElementById('orbtxt');
-    el.textContent = "⚡ " + txt + " ⚡";
-    el.style.transition = 'none'; el.style.opacity = '1'; el.style.transform = 'translateX(-50%) translateY(0)';
-    setTimeout(function() {
-      el.style.transition = 'all 0.8s ease'; el.style.opacity = '0'; el.style.transform = 'translateX(-50%) translateY(-30px)';
-    }, 600);
-  }
-
-  function updScoreboard() {
-    var container = document.getElementById('player-scores');
-    container.innerHTML = '';
-    
-    // Sort scores descendingly for proper competitive mapping layout UI
-    var sorted = fleas.slice().sort(function(a, b) { return b.score - a.score; });
-    
-    for (var i = 0; i < sorted.length; i++) {
-      var f = sorted[i];
-      var div = document.createElement('div');
-      div.className = 'sbox';
-      if (f.isP) div.style.border = '2px solid #4deeea';
-      if (f.hasOrb) div.style.background = 'linear-gradient(135deg, rgba(255,230,0,0.35), rgba(255,108,0,0.25))';
+  
+  // Flea vs Flea Rigid Collision Physics Handler
+  function resolveFleaToFleaCollisions() {
+    if(!player || !aiPlayer) return;
+    var f1 = player, f2 = aiPlayer;
+    if(f1.x + f1.w > f2.x && f1.x < f2.x + f2.w && f1.y + f1.h > f2.y && f1.y < f2.y + f2.h) {
+      var overlapX = Math.min(f1.x + f1.w - f2.x, f2.x + f2.w - f1.x);
+      var overlapY = Math.min(f1.y + f1.h - f2.y, f2.y + f2.h - f1.y);
       
-      div.innerHTML = '<div class="slbl" style="color:' + f.col + '">' + f.name + (f.hasOrb ? ' 👑' : '') + '</div>' +
-                      '<div class="sval" style="color:' + (f.isP ? '#4deeea' : '#fff') + '">' + f.score + '</div>';
-      container.appendChild(div);
+      if(overlapX < overlapY) {
+        var dir = f1.cx < f2.cx ? -1 : 1;
+        f1.x += (dir * overlapX / 2);
+        f2.x -= (dir * overlapX / 2);
+        // Elastic momentum recoil swap
+        var vTmp = f1.vx; f1.vx = f2.vx * 0.85; f2.vx = vTmp * 0.85;
+      } else {
+        var dir = f1.cy < f2.cy ? -1 : 1;
+        f1.y += (dir * overlapY / 2);
+        f2.y -= (dir * overlapY / 2);
+        var vTmp = f1.vy; f1.vy = f2.vy * 0.85; f2.vy = vTmp * 0.85;
+      }
+      f1.stuck = false; f2.stuck = false;
     }
   }
 
-  function drawBG() {
-    ctx.fillStyle = currentPalette.b1;
-    ctx.fillRect(0, 0, W, H);
-    
-    // Grid alignment adjusted neatly via Camera offsets
-    ctx.strokeStyle = currentPalette.a + '13'; ctx.lineWidth = 1;
-    var startX = -camera.x % 60;
-    var startY = -camera.y % 60;
-    for (var x = startX; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-    for (var y = startY; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  function holdTick(dt){
+    if(!orbHolder||!orb)return;
+    orb.x=orbHolder.cx;orb.y=orbHolder.y-orb.r-5;
+    orbTimer+=dt;
+    if(orbTimer>=16){
+      orbTimer=0;
+      if(orbHolder===player)ps++;else as++;
+      updUI();
+      if(ps>=100||as>=100)endGame();
+    }
   }
 
-  function drawSling() {
-    if (!sling.on || !player) return;
-    var px = player.cx - camera.x, py = player.cy - camera.y;
-    var dx = sling.sx - sling.cx, dy = sling.sy - sling.cy;
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    var cl = Math.min(dist, MAX_DRAG);
-    if (dist > 0) { dx = dx / dist * cl; dy = dy / dist * cl; }
-    var pow = cl / MAX_DRAG;
-    var lvx = dx * 0.58, lvy = dy * 0.58;
+  function flashOrb(){
+    var el=document.getElementById('orbtxt');
+    el.style.transition='none';el.style.opacity='1';el.style.transform='translateX(-50%) translateY(0)';
+    setTimeout(function(){
+      el.style.transition='all 1.1s ease';el.style.opacity='0';el.style.transform='translateX(-50%) translateY(-45px)';
+    },50);
+  }
+  function updUI(){
+    document.getElementById('pscore').textContent=ps;
+    document.getElementById('ascore').textContent=as;
+  }
+
+  function drawBG(){
+    var lc=LC[(lvl-1)%LC.length];
+    if(!bgG){
+      bgG=ctx.createLinearGradient(0,0,0,H);
+      bgG.addColorStop(0,lc.b1);bgG.addColorStop(1,lc.b2);
+    }
+    ctx.fillStyle=bgG;ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle=lc.a+'0d';ctx.lineWidth=1;
+    for(var x=0;x<W;x+=52){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+    for(var y=0;y<H;y+=52){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  }
+
+  function drawSling(){
+    if(!sling.on||!player)return;
+    var px=player.cx,py=player.cy;
+    var dx=sling.sx-sling.cx,dy=sling.sy-sling.cy;
+    var dist=Math.sqrt(dx*dx+dy*dy);
+    var cl=Math.min(dist,MAX_DRAG);
+    if(dist>0){dx=dx/dist*cl;dy=dy/dist*cl}
+    var pow=cl/MAX_DRAG;
+    var lvx=dx*0.65,lvy=dy*0.65;
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2.5;
-    ctx.setLineDash([5, 6]);
-    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sling.cx - camera.x, sling.cy - camera.y); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=2;
+    ctx.setLineDash([5,7]);
+    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(sling.cx,sling.cy);ctx.stroke();
     ctx.setLineDash([]);
 
-    // Simulated Predictor Trajectory Path
-    var tx = player.cx, ty = player.cy, tvx = lvx, tvy = lvy;
-    for (var i = 0; i < 28; i++) {
-      tvx *= 0.985; tvy += GRAV; tx += tvx; ty += tvy;
-      var t = i / 28, al = 0.8 * (1 - t), dr = 5 * (1 - t * 0.5);
-      ctx.fillStyle = pow > 0.7 ? 'rgba(255,70,120,' + al + ')' : 'rgba(77,238,234,' + al + ')';
-      ctx.beginPath(); ctx.arc(tx - camera.x, ty - camera.y, dr, 0, Math.PI * 2); ctx.fill();
-      if (tx < 0 || tx > WORLD_W || ty > WORLD_H) break;
+    var tx=px,ty=py,tvx=lvx,tvy=lvy;
+    for(var i=0;i<24;i++){
+      tvx*=0.99;tvy+=GRAV;tx+=tvx;ty+=tvy;
+      var t=i/24,al=0.72*(1-t),dr=4.5*(1-t*.55);
+      var col=pow>.6?'rgba(255,70,70,'+al+')':'rgba(255,215,0,'+al+')';
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(tx,ty,dr,0,Math.PI*2);ctx.fill();
+      if(tx<0||tx>W||ty>H)break;
+      var hit=false;
+      for(var pi=0;pi<platforms.length;pi++){
+        var p=platforms[pi];
+        if(tx>p.x&&tx<p.x+p.w&&ty>p.y&&ty<p.y+p.h){hit=true;break}
+      }
+      if(hit)break;
     }
+
+    var gr=ctx.createRadialGradient(sling.cx,sling.cy,1,sling.cx,sling.cy,10+pow*14);
+    gr.addColorStop(0,'rgba(255,255,255,0.9)');
+    gr.addColorStop(.4,pow>.6?'rgba(255,60,60,0.7)':'rgba(255,215,0,0.7)');
+    gr.addColorStop(1,'rgba(255,120,0,0)');
+    ctx.shadowColor=pow>.6?'#ff4040':'#ffd700';ctx.shadowBlur=18;
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(sling.cx,sling.cy,10+pow*14,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+
+    var bw=58,bh=7,bx=px-bw/2,by=py-46;
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(bx,by,bw,bh);
+    ctx.fillStyle=pow>.6?'#ff4444':'#ffd700';
+    ctx.shadowColor=pow>.6?'#ff4444':'#ffd700';ctx.shadowBlur=7;
+    ctx.fillRect(bx,by,bw*pow,bh);
+    ctx.shadowBlur=0;
     ctx.restore();
   }
 
-  function drawRunTarget() {
-    if (!runTgt || !player) return;
-    var t = (Date.now() % 600) / 600;
-    ctx.save();
-    ctx.globalAlpha = 0.6 * (1 - t);
-    ctx.strokeStyle = '#4deeea'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(runTgt.x - camera.x, runTgt.y - camera.y, 10 + t * 15, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#4deeea'; ctx.beginPath(); ctx.arc(runTgt.x - camera.x, runTgt.y - camera.y, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+  function nearPlayer(x,y){
+    if(!player)return false;
+    var dx=x-player.cx,dy=y-player.cy;
+    return Math.sqrt(dx*dx+dy*dy)<60;
   }
 
-  function nearPlayer(x, y) {
-    if (!player) return false;
-    var dx = (x + camera.x) - player.cx, dy = (y + camera.y) - player.cy;
-    return Math.sqrt(dx * dx + dy * dy) < 65;
+  // Instant Target Precision leap: Replaces buggy constant jumping loops with a clean safe instant leap
+  function triggerInstantLeap(tx, ty) {
+    if(!player) return;
+    player.x = tx - player.w / 2;
+    player.y = ty - player.h / 2;
+    player.vx = 0; player.vy = 0;
+    player.stuck = true;
+    player.collide(); // Automatically securely snaps to surfaces if landing directly inside a layer
+    jpfx(player.cx, player.cy, player.col);
   }
 
-  /* Comprehensive Multi-Platform Input Handlers (Translates Screen -> Camera World Matrix space) */
-  C.addEventListener('touchstart', function(e) {
-    e.preventDefault(); if (STATE !== 'play') return;
-    var t = e.changedTouches[0];
-    var tx = t.clientX, ty = t.clientY;
-    if (nearPlayer(tx, ty)) {
-      sling.on = true; sling.sx = tx + camera.x; sling.sy = ty + camera.y; sling.cx = tx + camera.x; sling.cy = ty + camera.y;
-      runTgt = null;
-    } else {
-      runTgt = { x: tx + camera.x, y: ty + camera.y }; sling.on = false;
+  C.addEventListener('touchstart',function(e){
+    e.preventDefault();
+    if(STATE!=='play')return;
+    var t=e.changedTouches[0];
+    var tx=t.clientX,ty=t.clientY;
+    if(nearPlayer(tx,ty)){
+      sling.on=true;sling.sx=tx;sling.sy=ty;sling.cx=tx;sling.cy=ty;
+    }else{
+      triggerInstantLeap(tx, ty);
     }
-  }, { passive: false });
+  },{passive:false});
 
-  C.addEventListener('touchmove', function(e) {
-    e.preventDefault(); if (STATE !== 'play' || !sling.on) return;
-    var t = e.changedTouches[0];
-    sling.cx = t.clientX + camera.x; sling.cy = t.clientY + camera.y;
-  }, { passive: false });
+  C.addEventListener('touchmove',function(e){
+    e.preventDefault();
+    if(STATE!=='play'||!sling.on)return;
+    var t=e.changedTouches[0];
+    sling.cx=t.clientX;sling.cy=t.clientY;
+  },{passive:false});
 
-  C.addEventListener('touchend', function(e) {
-    e.preventDefault(); if (STATE !== 'play' || !sling.on) return;
-    var dx = sling.sx - sling.cx, dy = sling.sy - sling.cy;
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 8) {
-      var cl = Math.min(dist, MAX_DRAG);
-      dx = dx / dist * cl; dy = dy / dist * cl;
-      player.launch(dx * 0.58, dy * 0.58);
-      player.face = dx > 0 ? 1 : -1;
+  C.addEventListener('touchend',function(e){
+    e.preventDefault();
+    if(STATE!=='play'||!sling.on)return;
+    var dx=sling.sx-sling.cx,dy=sling.sy-sling.cy;
+    var dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>8){
+      var cl=Math.min(dist,MAX_DRAG);
+      dx=dx/dist*cl;dy=dy/dist*cl;
+      player.launch(dx*0.65,dy*0.65);
+      player.face=dx>0?1:-1;
     }
-    sling.on = false;
-  }, { passive: false });
+    sling.on=false;
+  },{passive:false});
 
-  C.addEventListener('mousedown', function(e) {
-    if (STATE !== 'play') return;
-    var tx = e.clientX, ty = e.clientY;
-    if (nearPlayer(tx, ty)) {
-      sling.on = true; sling.sx = tx + camera.x; sling.sy = ty + camera.y; sling.cx = tx + camera.x; sling.cy = ty + camera.y;
-      runTgt = null;
-    } else {
-      runTgt = { x: tx + camera.x, y: ty + camera.y }; sling.on = false;
-    }
-  });
-
-  window.addEventListener('mousemove', function(e) {
-    if (sling.on) { sling.cx = e.clientX + camera.x; sling.cy = e.clientY + camera.y; }
-  });
-
-  window.addEventListener('mouseup', function(e) {
-    if (!sling.on) return;
-    var dx = sling.sx - sling.cx, dy = sling.sy - sling.cy;
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 8) {
-      var cl = Math.min(dist, MAX_DRAG);
-      dx = dx / dist * cl; dy = dy / dist * cl;
-      player.launch(dx * 0.58, dy * 0.58);
-      player.face = dx > 0 ? 1 : -1;
-    }
-    sling.on = false;
-  });
-
-  document.addEventListener('keydown', function(e) {
-    if (STATE !== 'play') return;
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') { player.stuck = false; player.vx = -11; player.face = -1; }
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') { player.stuck = false; player.vx = 11; player.face = 1; }
-    if ((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW')) {
-      player.launch(player.vx, -14); e.preventDefault();
+  C.addEventListener('mousedown',function(e){
+    if(STATE!=='play')return;
+    if(nearPlayer(e.clientX,e.clientY)){
+      sling.on=true;sling.sx=e.clientX;sling.sy=e.clientY;sling.cx=e.clientX;sling.cy=e.clientY;
+    }else{
+      triggerInstantLeap(e.clientX, e.clientY);
     }
   });
 
-  /* Main Core Tick Logic Cycle */
-  var lt = 0, fid = null;
-  function loop(ts) {
-    var dt = Math.min(ts - lt, 50); lt = ts;
-    
-    if (STATE === 'countdown') {
-      countdownTimer -= dt / 1000;
-      var curInt = Math.ceil(countdownTimer);
-      var cdOverlay = document.getElementById('countdown-overlay');
-      
-      if (curInt !== lastCountdownInteger) {
-        lastCountdownInteger = curInt;
-        if (curInt > 0) {
-          cdOverlay.textContent = curInt;
-        }
-      }
-      if (countdownTimer <= 0) {
-        STATE = 'play';
-        cdOverlay.textContent = "GO!";
-        setTimeout(function() { cdOverlay.style.display = 'none'; }, 800);
-      }
+  window.addEventListener('mousemove',function(e){if(sling.on){sling.cx=e.clientX;sling.cy=e.clientY}});
+  window.addEventListener('mouseup',function(e){
+    if(!sling.on)return;
+    var dx=sling.sx-sling.cx,dy=sling.sy-sling.cy;
+    var dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>8){
+      var cl=Math.min(dist,MAX_DRAG);
+      dx=dx/dist*cl;dy=dy/dist*cl;
+      player.launch(dx*0.65,dy*0.65);
+      player.face=dx>0?1:-1;
     }
+    sling.on=false;
+  });
 
-    ctx.clearRect(0, 0, W, H);
-    
-    // Tracking Camera Matrix Focus Vector Updates (Locks onto center of player coordinates dynamically inside Zen spaces)
-    if (gameMode === 'zen' && player) {
-      camera.x += (player.cx - W / 2 - camera.x) * 0.08;
-      camera.y += (player.cy - H / 2 - camera.y) * 0.08;
-      camera.x = Math.max(0, Math.min(WORLD_W - W, camera.x));
-      camera.y = Math.max(0, Math.min(WORLD_H - H, camera.y));
-    } else {
-      camera.x = 0; camera.y = 0;
+  document.addEventListener('keydown',function(e){
+    if(STATE!=='play')return;
+    if(e.code==='ArrowLeft'||e.code==='KeyA'){player.stuck=false;player.vx=-12;player.face=-1}
+    if(e.code==='ArrowRight'||e.code==='KeyD'){player.stuck=false;player.vx=12;player.face=1}
+    if((e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW')&&!e.repeat){
+      player.launch(player.vx,-16);e.preventDefault();
     }
+  });
 
+  function loop(ts){
+    var dt=Math.min(ts-lt,48);lt=ts;
+    if(STATE!=='play')return;
+    ctx.clearRect(0,0,W,H);
     drawBG();
-    for (var i = 0; i < platforms.length; i++) platforms[i].draw();
+    for(var i=0;i<platforms.length;i++)platforms[i].draw();
 
-    // Instant Automated Spring-Leaping Processing
-    if (runTgt && player && STATE === 'play') {
-      var rdx = runTgt.x - player.cx, rdy = runTgt.y - player.cy;
-      var rdist = Math.sqrt(rdx * rdx + rdy * rdy);
-      if (player.stuck || player.onG) {
-        if (rdist > 6) {
-          player.launch((rdx / rdist) * 22, (rdy / rdist) * 22);
-          player.face = rdx > 0 ? 1 : -1;
-        }
-      }
-      if (rdist < 30) runTgt = null;
-    }
-
-    // Entity State Loop Processes
-    for (var i = 0; i < fleas.length; i++) {
-      if (!fleas[i].isP) fleas[i].aiUpdate();
-      fleas[i].update(dt);
-    }
-
-    if (gameMode === 'classic') {
-      if (orb) orb.update(dt);
-      holdTick(dt); checkPickup(); checkSteal();
-    }
-
-    drawRunTarget();
-    if (gameMode === 'classic' && orb) orb.draw();
-    drawSling();
+    player.update(dt);
+    aiPlayer.aiUpdate();aiPlayer.update(dt);
     
-    for (var i = 0; i < fleas.length; i++) fleas[i].draw();
-    drawEffects();
+    // Process Flea and Orb updates
+    resolveFleaToFleaCollisions();
+    if(orb)orb.update(dt);
+    holdTick(dt);checkPickup();checkSteal();
 
-    fid = requestAnimationFrame(loop);
+    if(orb)orb.draw();
+    drawSling();
+    player.draw();aiPlayer.draw();
+    drawParts();
+
+    fid=requestAnimationFrame(loop);
   }
 
-  function startGame() {
-    updateWorldBounds();
+  function startGame(){
+    bgG=null;ps=0;as=0;sec=60;orbHolder=null;orbTimer=0;
+    parts=[];sparks=[];sling.on=false;runTgt=null;
     buildLevel();
     
-    fleas = [];
-    parts = []; sparks = [];
-    orbHolder = null; orbTimer = 0;
-    sling.on = false; runTgt = null;
-    countdownTimer = 5.0; lastCountdownInteger = 5;
+    var activeFlea = savedFleas.find(function(f){return f.id === currentFleaId}) || savedFleas[0];
     
-    var totalFleasCount = 1 + configAiCount;
-    var bottomY = WORLD_H - 60;
-    
-    // Spreads player and all selected AIs perfectly evenly apart along the floor base coordinates at startup
-    var segmentWidth = WORLD_W / (totalFleasCount + 1);
-    
-    player = new Flea(segmentWidth - 13, bottomY - 30, true, "You (Frea)", '#4deeea');
-    fleas.push(player);
-    
-    var aiNames = ["Pochi", "Tama", "Mochi", "Koko", "Lulu", "Mimi", "Piko", "Yuki", "Chibi", "Rini", "Hana", "Kira", "Taro", "Jiro", "Sora", "Haru", "Minto", "Momo", "Niko", "Uni"];
-    for (var i = 0; i < configAiCount; i++) {
-      var name = aiNames[i % aiNames.length];
-      var spawnX = segmentWidth * (i + 2) - 13;
-      var col = 'hsl(' + ((i * (360 / configAiCount)) + 280) % 360 + ', 100%, 70%)';
-      fleas.push(new Flea(spawnX, bottomY - 30, false, name, col));
-    }
+    player=new Flea(W*.25,H-150-40,true);
+    player.col = activeFlea.color;
+    player.name = activeFlea.name;
 
-    if (gameMode === 'classic') {
-      orb = new Orb(WORLD_W / 2, 100);
-      document.getElementById('timer-lbl').textContent = "Time";
-      document.getElementById('tval').textContent = "60";
-    } else {
-      orb = null;
-      document.getElementById('timer-lbl').textContent = "Sandbox";
-      document.getElementById('tval').textContent = "Zen";
-    }
+    aiPlayer=new Flea(W*.75,H-150-40,false);
+    aiPlayer.col = aiColor;
+    aiPlayer.name = aiName;
 
+    spawnOrb();
     document.getElementById('overlay').classList.add('gone');
-    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('hud').style.display='flex';
     
-    var cdOverlay = document.getElementById('countdown-overlay');
-    cdOverlay.style.display = 'block';
-    cdOverlay.textContent = "5";
+    // Personalize HUD Labels
+    document.getElementById('lbl-pname').textContent = player.name;
+    document.getElementById('lbl-pname').style.color = player.col;
+    document.getElementById('lbl-aname').textContent = aiPlayer.name;
+    document.getElementById('lbl-aname').style.color = aiPlayer.col;
     
-    STATE = 'countdown';
-    updScoreboard();
-
-    // Secondary countdown clock backup for UI ticker element compatibility
-    var classicSecondsLeft = 60;
-    if (window.gameInterval) clearInterval(window.gameInterval);
-    window.gameInterval = setInterval(function() {
-      if (STATE !== 'play') return;
-      if (gameMode === 'classic') {
-        classicSecondsLeft--;
-        document.getElementById('tval').textContent = classicSecondsLeft;
-        if (classicSecondsLeft <= 0) {
-          // Time expired; determine winner based on maximum acquired score rank
-          var winnerIsPlayer = true;
-          var topScore = player.score;
-          for (var i = 0; i < fleas.length; i++) {
-            if (fleas[i].score > topScore) {
-              topScore = fleas[i].score;
-              winnerIsPlayer = fleas[i].isP;
-            }
-          }
-          endGame(winnerIsPlayer);
-        }
-      }
-    }, 1000);
-
-    lt = performance.now();
-    if (fid) cancelAnimationFrame(fid);
-    fid = requestAnimationFrame(loop);
+    updUI();
+    document.getElementById('tval').textContent=sec;
+    STATE='play';
+    if(tInt)clearInterval(tInt);
+    tInt=setInterval(function(){
+      if(STATE!=='play')return;
+      sec--;document.getElementById('tval').textContent=sec;
+      if(sec<=0)endGame();
+    },1000);
+    if(fid)cancelAnimationFrame(fid);
+    lt=performance.now();
+    fid=requestAnimationFrame(loop);
   }
 
-  function endGame(isPlayerWin) {
-    STATE = 'gameover';
-    if (window.gameInterval) clearInterval(window.gameInterval);
+  function endGame(){
+    STATE='gameover';
+    clearInterval(tInt);if(fid)cancelAnimationFrame(fid);
+    var won=ps>=as;
+    document.getElementById('hud').style.display='none';
+    document.getElementById('endico').textContent=won?'🏆':'🦟';
+    document.getElementById('endtitle').textContent=won?'🏆 YOU WIN!':'😔 YOU LOSE';
+    document.getElementById('endtitle').style.color=won?'#ffd700':'#ff6666';
     
-    document.getElementById('hud').style.display = 'none';
-    document.getElementById('title-view').style.display = 'none';
-    document.getElementById('end-view').style.display = 'flex';
-    document.getElementById('overlay').classList.remove('gone');
-    
-    var endIco = document.getElementById('endico');
-    var endTitle = document.getElementById('endtitle');
-    var endScore = document.getElementById('endscore');
-    var scoreStatusLbl = document.getElementById('score-status-lbl');
-    var endSub = document.getElementById('endsub');
+    // Assign winner identity to display cleanly on the menu view
+    var winnerName = won ? player.name : aiPlayer.name;
+    var winnerColor = won ? player.col : aiPlayer.col;
+    document.getElementById('winner-name').textContent = winnerName;
+    document.getElementById('winner-avatar').style.color = winnerColor;
 
-    if (gameMode === 'classic') {
-      endScore.textContent = player.score;
-      scoreStatusLbl.textContent = "Your Final Score";
-      endSub.textContent = "Match Complete";
-      if (isPlayerWin) {
-        endIco.textContent = "👑";
-        endTitle.textContent = "VICTORY!";
-        endTitle.style.color = '#ffe600';
-      } else {
-        endIco.textContent = "😭";
-        endTitle.textContent = "DEFEAT";
-        endTitle.style.color = '#ff4d79';
-      }
+    document.getElementById('title-view').style.display='none';
+    document.getElementById('settings-view').style.display='none';
+    document.getElementById('end-view').style.display='flex';
+    document.getElementById('overlay').classList.remove('gone');
+    if(won)lvl++;
+  }
+
+  // Profile Interface Sync Engine
+  function updateProfilesUI() {
+    var selectEl = document.getElementById('flea-select');
+    selectEl.innerHTML = '';
+    savedFleas.forEach(function(flea) {
+      var opt = document.createElement('option');
+      opt.value = flea.id;
+      opt.textContent = flea.name;
+      if(flea.id === currentFleaId) opt.selected = true;
+      selectEl.appendChild(opt);
+    });
+
+    var active = savedFleas.find(function(f){return f.id === currentFleaId}) || savedFleas[0];
+    document.getElementById('flea-name-input').value = active.name;
+    document.getElementById('flea-color-input').value = active.color;
+
+    // Toggle Delete visibility based on safe profiles count limit constraint rules
+    if(savedFleas.length > 1) {
+      document.getElementById('delete-flea-btn').style.display = 'block';
     } else {
-      // Custom graceful screen outputs for voluntary exits from Sandbox environments
-      endIco.textContent = "🌸";
-      endTitle.textContent = "ZEN OVER";
-      endTitle.style.color = '#4deeea';
-      endSub.textContent = "Sandbox Session Ended";
-      endScore.textContent = "✨";
-      scoreStatusLbl.textContent = "Peaceful jumping explored!";
+      document.getElementById('delete-flea-btn').style.display = 'none';
     }
   }
 
-  function mkStars(id) {
-    var el = document.getElementById(id); if (!el) return; el.innerHTML = '';
-    for (var i = 0; i < 65; i++) {
-      var s = document.createElement('div'); s.className = 'star';
-      var sz = 1.2 + Math.random() * 2.5;
-      s.style.cssText = 'width:' + sz + 'px;height:' + sz + 'px;background:#fff;left:' + (Math.random() * 100) + '%;top:' + (Math.random() * 100) + '%;animation-duration:' + (2 + Math.random() * 3) + 's;animation-delay:' + (Math.random() * 3) + 's;opacity:' + (0.3 + Math.random() * 0.7);
+  function mkStars(id){
+    var el=document.getElementById(id);if(!el)return;el.innerHTML='';
+    for(var i=0;i<75;i++){
+      var s=document.createElement('div');s.className='star';
+      var sz=1+Math.random()*2.8;
+      s.style.cssText='width:'+sz+'px;height:'+sz+'px;background:#fff;left:'+(Math.random()*100)+'%;top:'+(Math.random()*100)+'%;animation-duration:'+(2+Math.random()*4)+'s;animation-delay:'+(Math.random()*4)+'s;opacity:'+(0.3+Math.random()*.7);
       el.appendChild(s);
     }
   }
   mkStars('stars1');
 
-  document.getElementById('playbtn').addEventListener('click', startGame);
-  document.getElementById('againbtn').addEventListener('click', startGame);
-  document.getElementById('menubtn').addEventListener('click', function() {
-    STATE = 'title';
-    document.getElementById('end-view').style.display = 'none';
+  // Interactive View Listeners
+  document.getElementById('playbtn').addEventListener('click',function(){lvl=1;startGame()});
+  document.getElementById('againbtn').addEventListener('click',startGame);
+  document.getElementById('menubtn').addEventListener('click',function(){
+    STATE='title';
+    document.getElementById('end-view').style.display='none';
+    document.getElementById('title-view').style.display='block';
+    document.getElementById('overlay').classList.remove('gone');
+  });
+
+  document.getElementById('settingsbtn').addEventListener('click', function(){
+    document.getElementById('title-view').style.display = 'none';
+    document.getElementById('settings-view').style.display = 'flex';
+    updateProfilesUI();
+  });
+
+  document.getElementById('close-settings-btn').addEventListener('click', function(){
+    document.getElementById('settings-view').style.display = 'none';
     document.getElementById('title-view').style.display = 'flex';
   });
+
+  document.getElementById('flea-select').addEventListener('change', function(){
+    currentFleaId = this.value;
+    updateProfilesUI();
+  });
+
+  document.getElementById('save-flea-btn').addEventListener('click', function(){
+    var active = savedFleas.find(function(f){return f.id === currentFleaId});
+    if(active) {
+      active.name = document.getElementById('flea-name-input').value.trim() || "Unnamed";
+      active.color = document.getElementById('flea-color-input').value;
+      updateProfilesUI();
+    }
+  });
+
+  document.getElementById('new-flea-btn').addEventListener('click', function(){
+    var newId = 'flea_' + Date.now();
+    var newProfile = {
+      id: newId,
+      name: "Flea " + (savedFleas.length + 1),
+      color: "#00ffcc"
+    };
+    savedFleas.push(newProfile);
+    currentFleaId = newId;
+    updateProfilesUI();
+  });
+
+  document.getElementById('delete-flea-btn').addEventListener('click', function(){
+    if(savedFleas.length > 1) {
+      savedFleas = savedFleas.filter(function(f){return f.id !== currentFleaId});
+      currentFleaId = savedFleas[0].id;
+      updateProfilesUI();
+    }
+  });
+
+  ctx.fillStyle='#04001a';ctx.fillRect(0,0,W,H);
 })();
 </script>
 </body>
 </html>
-
-```
