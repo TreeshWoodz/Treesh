@@ -1,76 +1,107 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>FREA ✨</title>
+<title>FREA - Arena Slingshot Jump</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-body { background: #0a051b; overflow: hidden; font-family: 'Comic Sans MS', 'Chalkboard SE', Arial, sans-serif; touch-action: none; }
+body { background: #0a051b; overflow: hidden; font-family: 'Comic Sans MS', 'Chalkboard SE', Arial, sans-serif; touch-action: none; color: #fff; }
 canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
 
-/* HUD Design */
-#hud { position: fixed; top: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: flex-start; padding: 15px; z-index: 20; pointer-events: none; }
-.hud-container { display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow-y: auto; background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 16px; backdrop-filter: blur(8px); border: 2px solid rgba(255, 255, 255, 0.2); }
-.sbox { background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 14px; text-align: center; min-width: 90px; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: all 0.2s; }
-.slbl { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.8); }
-.sval { font-size: 20px; font-weight: 900; line-height: 1.1; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-#tbox { background: linear-gradient(135deg, #ff758c, #ff7eb3); border: 2px solid #fff; border-radius: 15px; padding: 8px 18px; text-align: center; box-shadow: 0 6px 15px rgba(255,117,140,0.4); }
-#tval { font-size: 26px; font-weight: 900; color: #fff; line-height: 1.1; text-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+/* Horizontal, Low-Profile HUD (Prevents Blocking Gameplay Touch Areas) */
+#hud { position: fixed; top: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 12px; z-index: 20; pointer-events: none; }
+.hud-container { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; background: rgba(255, 255, 255, 0.08); padding: 6px 12px; border-radius: 20px; backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: auto; max-width: 60%; }
 
-#orbtxt { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); color: #ffe600; font-size: 28px; font-weight: 900; opacity: 0; pointer-events: none; z-index: 30; text-shadow: 0 0 20px #ff9d00, 0 4px 8px rgba(0,0,0,0.4); white-space: nowrap; font-family: sans-serif; }
+.sbox { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 4px 10px; text-align: center; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+.slbl { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.8); }
+.sval { font-size: 14px; font-weight: 900; color: #fff; }
+
+.hud-actions { display: flex; gap: 6px; pointer-events: auto; align-items: center; }
+.hud-btn { background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 12px; padding: 6px 12px; font-weight: bold; color: #fff; cursor: pointer; backdrop-filter: blur(8px); transition: all 0.2s; font-size: 11px; }
+.hud-btn:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-1px); }
+.hud-btn:active { transform: translateY(1px); }
+
+#tbox { background: linear-gradient(135deg, #ff758c, #ff7eb3); border: 1.5px solid #fff; border-radius: 14px; padding: 6px 14px; text-align: center; box-shadow: 0 4px 10px rgba(255,117,140,0.3); pointer-events: auto; }
+#tval { font-size: 18px; font-weight: 900; color: #fff; line-height: 1.1; }
+
+#orbtxt { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); color: #ffe600; font-size: 24px; font-weight: 900; opacity: 0; pointer-events: none; z-index: 30; text-shadow: 0 0 20px #ff9d00, 0 4px 8px rgba(0,0,0,0.4); white-space: nowrap; font-family: sans-serif; }
 #countdown-overlay { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 120px; font-weight: 900; color: #fff; z-index: 25; pointer-events: none; text-shadow: 0 0 40px #ff007f, 0 8px 0px #b20059; display: none; text-align: center; animation: pulse 0.5s infinite alternate; }
 
 @keyframes pulse { from { transform: translate(-50%, -50%) scale(0.95); } to { transform: translate(-50%, -50%) scale(1.05); } }
 
-/* Beautiful UI Overlays */
-#overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, #2c1654 0%, #12072b 100%); transition: opacity 0.4s ease; padding: 20px; }
+/* Screen Overlays */
+#overlay, #pause-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, #140b2b 0%, #060212 100%); transition: opacity 0.3s ease; padding: 20px; overflow-y: auto; }
 #overlay.gone { display: none; }
+#pause-overlay { background: rgba(6, 2, 18, 0.88); backdrop-filter: blur(12px); z-index: 45; display: none; }
 
-.menu-card { background: rgba(255, 255, 255, 0.08); border: 3px solid rgba(255, 255, 255, 0.15); border-radius: 32px; padding: 30px; backdrop-filter: blur(20px); box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-width: 440px; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.menu-card { background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 20px; backdrop-filter: blur(20px); box-shadow: 0 15px 40px rgba(0,0,0,0.5); max-width: 440px; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; margin: auto; }
 
-.logo { font-size: clamp(60px, 16vw, 100px); font-weight: 900; letter-spacing: -1px; line-height: 0.95; margin-bottom: 12px; font-family: 'Arial Black', sans-serif; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4)); }
+.logo { font-size: clamp(36px, 8vw, 55px); font-weight: 900; letter-spacing: -1px; line-height: 0.95; margin-bottom: 4px; font-family: 'Arial Black', sans-serif; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
 .logo span { display: inline-block; animation: bounce 0.6s ease-in-out infinite alternate; }
-.logo span:nth-child(1) { color: #ff60b5; text-shadow: 0 0 20px #ff007f; animation-delay: 0s; }
-.logo span:nth-child(2) { color: #4deeea; text-shadow: 0 0 20px #00f0ff; animation-delay: 0.1s; }
-.logo span:nth-child(3) { color: #ffe600; text-shadow: 0 0 20px #ffcc00; animation-delay: 0.2s; }
-.logo span:nth-child(4) { color: #ff764d; text-shadow: 0 0 20px #ff3c00; animation-delay: 0.3s; }
+.logo span:nth-child(1) { color: #ff60b5; text-shadow: 0 0 15px #ff007f; animation-delay: 0s; }
+.logo span:nth-child(2) { color: #4deeea; text-shadow: 0 0 15px #00f0ff; animation-delay: 0.1s; }
+.logo span:nth-child(3) { color: #ffe600; text-shadow: 0 0 15px #ffcc00; animation-delay: 0.2s; }
+.logo span:nth-child(4) { color: #ff764d; text-shadow: 0 0 15px #ff3c00; animation-delay: 0.3s; }
 
-@keyframes bounce { from { transform: translateY(0) rotate(-4deg); } to { transform: translateY(-12px) rotate(4deg); } }
+@keyframes bounce { from { transform: translateY(0) rotate(-3deg); } to { transform: translateY(-6px) rotate(3deg); } }
 
-.tag { color: #e0b3ff; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold; margin-bottom: 15px; }
-.hint { color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.6; margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
-.hint b { color: #ffe600; }
+.tag { color: #e0b3ff; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold; margin-bottom: 12px; }
 
-/* Control Configuration Settings */
-.setting-row { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 18px; text-align: left; }
-.setting-label { font-size: 12px; color: #dfb3ff; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-.mode-switch { display: flex; width: 100%; background: rgba(0,0,0,0.3); border-radius: 14px; padding: 4px; border: 1px solid rgba(255,255,255,0.1); }
-.mode-btn { flex: 1; background: transparent; border: none; color: rgba(255,255,255,0.6); padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 14px; }
-.mode-btn.active { background: linear-gradient(135deg, #ff60b5, #9c3fe4); color: white; box-shadow: 0 4px 12px rgba(255,96,181,0.3); }
+/* Toggleable Designer Box */
+.customizer-box { background: rgba(0, 0, 0, 0.3); border-radius: 16px; border: 1px dashed rgba(255, 255, 255, 0.15); width: 100%; padding: 12px; margin-bottom: 12px; display: none; flex-direction: column; gap: 10px; animation: slideDown 0.25s ease-out forwards; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
-.slider-container { display: flex; align-items: center; width: 100%; gap: 12px; background: rgba(0,0,0,0.2); padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); }
+.flea-selector-row { display: flex; width: 100%; gap: 6px; align-items: center; }
+.flea-select { flex: 1; background: #0f0724; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 6px; color: #fff; font-size: 12px; font-weight: bold; outline: none; cursor: pointer; }
+.flea-select:focus { border-color: #4deeea; }
+.icon-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 6px 12px; font-size: 11px; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-weight: bold; }
+.icon-btn:hover { background: rgba(255,255,255,0.15); transform: translateY(-1px); }
+.icon-btn.danger { background: rgba(255, 50, 100, 0.15); border-color: rgba(255,50,100,0.3); }
+.icon-btn.danger:hover { background: rgba(255, 50, 100, 0.25); }
+
+.editor-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; background: rgba(255,255,255,0.02); border-radius: 10px; padding: 8px; }
+.editor-field { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.editor-field label { font-size: 8px; text-transform: uppercase; color: #cfb3ff; letter-spacing: 0.5px; font-weight: bold; }
+.editor-input { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px; color: #fff; font-size: 11px; width: 100%; outline: none; }
+.editor-input:focus { border-color: #4deeea; }
+.color-picker-container { display: flex; align-items: center; gap: 6px; }
+.color-swatch { width: 24px; height: 24px; border-radius: 4px; border: 1px solid #fff; cursor: pointer; padding: 0; background: none; }
+
+/* Grid settings */
+.settings-grid { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.setting-row { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; }
+.setting-label { font-size: 9px; color: #dfb3ff; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+
+.mode-switch { display: flex; width: 100%; background: rgba(0,0,0,0.25); border-radius: 10px; padding: 2px; border: 1px solid rgba(255,255,255,0.08); }
+.mode-btn { flex: 1; background: transparent; border: none; color: rgba(255,255,255,0.6); padding: 6px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 11px; text-align: center; }
+.mode-btn.active { background: linear-gradient(135deg, #ff60b5, #9c3fe4); color: white; box-shadow: 0 2px 8px rgba(255,96,181,0.2); }
+
+.slider-container { display: flex; align-items: center; width: 100%; gap: 10px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
 .slider-container input { flex: 1; accent-color: #ff60b5; cursor: pointer; }
-.slider-val { font-size: 16px; font-weight: 900; color: #4deeea; min-width: 24px; text-align: center; }
+.slider-val { font-size: 12px; font-weight: 900; color: #4deeea; min-width: 20px; text-align: center; }
 
-/* Play Button Styling */
-.btn { background: linear-gradient(135deg, #00f0ff, #7000ff); border: none; color: #fff; font-size: 18px; font-weight: 900; letter-spacing: 1px; padding: 16px 40px; border-radius: 50px; cursor: pointer; text-transform: uppercase; box-shadow: 0 8px 25px rgba(112,0,255,0.4); width: 100%; transition: all 0.2s; border: 2px solid rgba(255,255,255,0.2); }
-.btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(112,0,255,0.6); }
-.btn:active { transform: translateY(1px) scale(0.98); }
-.btng { background: linear-gradient(135deg, #ffcc00, #ff4500); box-shadow: 0 8px 25px rgba(255,69,0,0.4); }
-.res { background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255,255,255,0.15); margin-top: 10px; box-shadow: none; }
-.res:hover { background: rgba(255, 255, 255, 0.15); }
+/* Buttons */
+.btn { background: linear-gradient(135deg, #00f0ff, #7000ff); border: none; color: #fff; font-size: 14px; font-weight: 900; letter-spacing: 1px; padding: 11px 22px; border-radius: 50px; cursor: pointer; text-transform: uppercase; box-shadow: 0 4px 15px rgba(112,0,255,0.3); width: 100%; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.15); }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(112,0,255,0.4); }
+.btn:active { transform: translateY(1px) scale(0.99); }
+.btng { background: linear-gradient(135deg, #ffcc00, #ff4500); box-shadow: 0 4px 15px rgba(255,69,0,0.3); }
+.res { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255,255,255,0.12); margin-top: 6px; box-shadow: none; }
+.res:hover { background: rgba(255, 255, 255, 0.12); }
 
-.fleaico { font-size: 55px; margin-bottom: 5px; animation: bob 0.8s ease-in-out infinite alternate; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.3)); }
-@keyframes bob { from { transform: translateY(0) scale(1); } to { transform: translateY(-12px) scale(1.05); } }
+/* Customizer reveal button styling */
+.designer-toggle-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); margin-bottom: 12px; color: #ffe600; text-transform: none; font-size: 12px; padding: 8px 16px; border-radius: 14px; }
+.designer-toggle-btn:hover { background: rgba(255,255,255,0.1); }
 
-/* Screens for Win / Lose Scenarios */
-.gtitle { font-size: clamp(36px, 10vw, 54px); font-weight: 900; text-align: center; margin-bottom: 5px; line-height: 1.1; font-family: 'Arial Black', sans-serif; }
-.gsub { color: rgba(255,255,255,0.5); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; font-weight: bold; }
-.sdisplay { background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 20px 40px; margin-bottom: 24px; text-align: center; width: 100%; backdrop-filter: blur(5px); }
-.sdisplay .n { font-size: 60px; font-weight: 900; color: #ffe600; text-shadow: 0 0 20px rgba(255,230,0,0.5); line-height: 1; margin-bottom: 4px; }
-.sdisplay .l { color: rgba(255,255,255,0.5); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold; }
+/* Victory Stage Styling */
+.win-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 15px; margin: 10px 0; width: 100%; position: relative; overflow: hidden; backdrop-filter: blur(10px); }
+.win-canvas-wrapper { width: 120px; height: 120px; position: relative; z-index: 2; }
+#win-flea-canvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 10px rgba(255, 230, 0, 0.3)); }
+.winner-tag { color: #ffe600; font-size: 20px; font-weight: 900; text-shadow: 0 0 8px rgba(255,230,0,0.3); margin-top: 2px; font-family: 'Arial Black', sans-serif; }
+.winner-title { color: #e0b3ff; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; font-weight: 900; opacity: 0.8; }
+
+.gtitle { font-size: clamp(24px, 5vw, 36px); font-weight: 900; text-align: center; margin-bottom: 1px; line-height: 1.1; font-family: 'Arial Black', sans-serif; }
+.gsub { color: rgba(255,255,255,0.5); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; font-weight: bold; }
 
 .stardiv { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
 .star { position: absolute; border-radius: 50%; animation: twk linear infinite; }
@@ -80,58 +111,153 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
 <body>
 <canvas id="c"></canvas>
 
+<!-- Horizontal HUD Panel -->
 <div id="hud" style="display:none">
-  <div class="hud-container" id="player-scores">
+  <div class="hud-container" id="player-scores"></div>
+  <div style="display: flex; gap: 6px; align-items: center;">
+    <div id="tbox">
+      <div id="tval">90</div>
     </div>
-  <div id="tbox"><div class="slbl" id="timer-lbl">Time</div><div id="tval">60</div></div>
+    <div class="hud-actions">
+      <button class="hud-btn" id="add-flea-btn" style="display:none;">Add Flea</button>
+      <button class="hud-btn" id="pause-btn">Pause</button>
+    </div>
+  </div>
 </div>
 
 <div id="countdown-overlay">5</div>
 <div id="orbtxt">⚡ ORB CAPTURED! ⚡</div>
 
+<!-- Overlay Menus -->
 <div id="overlay">
   <div class="stardiv" id="stars1"></div>
   
+  <!-- Simplified Start/Lobby View -->
   <div id="title-view" class="menu-card">
-    <div class="fleaico">🌸</div>
     <div class="logo"><span>F</span><span>R</span><span>E</span><span>A</span></div>
-    <div class="tag">The ultimate cute arena jump</div>
-    
-    <div class="hint">
-      <b>Drag your Frea</b> to pull back, aim &amp; slingshot!<br>
-      <b>Tap anywhere else</b> to spring-leap instantly.<br>
-      <span id="hint-mode-text">Grab ✨ <b>THE ORB</b> and retain it to achieve 100 points!</span>
-    </div>
+    <div class="tag">Arena Slingshot Jump</div>
 
-    <div class="setting-row">
-      <div class="setting-label">Game Mode</div>
-      <div class="mode-switch">
-        <button class="mode-btn active" id="mode-classic">Classic Orb</button>
-        <button class="mode-btn" id="mode-zen">Zen Sandbox</button>
+    <!-- Toggleable customizer trigger -->
+    <button class="btn designer-toggle-btn" id="toggle-designer-btn">🎨 Customize My Frea</button>
+
+    <!-- Hidden visual creator -->
+    <div class="customizer-box" id="creator-box">
+      <div class="flea-selector-row">
+        <select id="flea-select" class="flea-select"></select>
+        <button id="flea-new-btn" class="icon-btn" title="Create New Frea">New</button>
+        <button id="flea-delete-btn" class="icon-btn danger" title="Delete Selected Frea">Delete</button>
+      </div>
+
+      <div class="editor-panel">
+        <div class="editor-field">
+          <label>Frea Name</label>
+          <input type="text" id="edit-name" class="editor-input" placeholder="Name your Frea">
+        </div>
+        <div class="editor-field">
+          <label>Body Color</label>
+          <div class="color-picker-container">
+            <input type="color" id="edit-body-color" class="color-swatch" value="#4deeea">
+            <span id="body-color-hex" style="font-size:10px; opacity:0.8;">#4deeea</span>
+          </div>
+        </div>
+        <div class="editor-field">
+          <label>Eye Expression</label>
+          <select id="edit-eye-style" class="editor-input">
+            <option value="normal">Normal</option>
+            <option value="cute">Cute Sparkles</option>
+            <option value="cool">Cool Shades</option>
+            <option value="sleepy">Sleepy</option>
+          </select>
+        </div>
+        <div class="editor-field">
+          <label>Antenna Style</label>
+          <select id="edit-antenna-style" class="editor-input">
+            <option value="curly">Curly Loop</option>
+            <option value="long">Long Feather</option>
+            <option value="bulbous">Bulbous Beads</option>
+          </select>
+        </div>
+        <div class="editor-field" style="grid-column: span 2;">
+          <label>Leg Segment Styling</label>
+          <select id="edit-leg-style" class="editor-input">
+            <option value="matching">Match Body Color</option>
+            <option value="pink">Electric Pink Legs</option>
+            <option value="yellow">Neon Yellow Legs</option>
+            <option value="pastel">Pastel Violet Legs</option>
+          </select>
+        </div>
       </div>
     </div>
 
-    <div class="setting-row">
-      <div class="setting-label" id="ai-label">Opponent Fleas (AI)</div>
-      <div class="slider-container">
-        <input type="range" id="ai-count-slider" min="1" max="8" value="3">
-        <div class="slider-val" id="ai-count-val">3</div>
+    <!-- Match Configuration Settings -->
+    <div class="settings-grid">
+      <div class="setting-row">
+        <div class="setting-label">Game Mode</div>
+        <div class="mode-switch">
+          <button class="mode-btn active" id="mode-classic">Classic Orb</button>
+          <button class="mode-btn" id="mode-zen">Zen Sandbox</button>
+        </div>
+      </div>
+
+      <!-- Match Timer Slider Selector (classic mode only) -->
+      <div class="setting-row" id="timer-config-row">
+        <div class="setting-label">Match Duration</div>
+        <div class="slider-container">
+          <input type="range" id="timer-slider" min="30" max="210" step="30" value="90">
+          <div class="slider-val" id="timer-val">90s</div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label">Arena Layout</div>
+        <div class="mode-switch">
+          <button class="mode-btn active" id="layout-random">Random</button>
+          <button class="mode-btn" id="layout-horiz">Horizontal</button>
+          <button class="mode-btn" id="layout-vert">Vertical</button>
+          <button class="mode-btn" id="layout-box">Box Room</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-label" id="ai-label">Opponent Fleas</div>
+        <div class="slider-container">
+          <input type="range" id="ai-count-slider" min="1" max="8" value="3">
+          <div class="slider-val" id="ai-count-val">3</div>
+        </div>
       </div>
     </div>
 
-    <button class="btn" id="playbtn">✨ Start Match ✨</button>
+    <button class="btn" id="playbtn">Enter Arena</button>
   </div>
 
+  <!-- Game Win / Lose Results View -->
   <div id="end-view" class="menu-card" style="display:none;">
-    <div class="fleaico" id="endico">👑</div>
     <div class="gtitle" id="endtitle">VICTORY!</div>
-    <div class="gsub" id="endsub">Round Complete</div>
-    <div class="sdisplay">
-      <div class="n" id="endscore">0</div>
-      <div class="l" id="score-status-lbl">Your Final Score</div>
+    <div class="gsub" id="endsub">Arena Round Concluded</div>
+    
+    <!-- Dynamic Winner Stage -->
+    <div class="win-stage">
+      <div class="winner-title" id="winner-role-title">Winner of the Match</div>
+      <div class="win-canvas-wrapper">
+        <canvas id="win-flea-canvas" width="150" height="150"></canvas>
+      </div>
+      <div class="winner-tag" id="winner-name-lbl">Tama</div>
     </div>
-    <button class="btn btng" id="againbtn">🔄 Play Again</button>
-    <button class="btn res" id="menubtn">Main Menu</button>
+
+    <button class="btn btng" id="againbtn">Restart Match</button>
+    <button class="btn res" id="menubtn">Return to Lobby</button>
+  </div>
+</div>
+
+<!-- Pause Overlay Menu -->
+<div id="pause-overlay">
+  <div class="menu-card">
+    <div class="gtitle" style="color: #ff60b5; text-shadow: 0 0 15px rgba(255,96,181,0.4);">GAME PAUSED</div>
+    <div class="gsub" style="margin-bottom: 20px;">Ready to bounce back?</div>
+    
+    <button class="btn" id="resume-btn" style="margin-bottom: 10px;">Resume Play</button>
+    <button class="btn btng" id="pause-restart-btn" style="margin-bottom: 10px;">Restart Match</button>
+    <button class="btn res" id="pause-lobby-btn">Return to Lobby</button>
   </div>
 </div>
 
@@ -139,7 +265,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
 (function(){
   var C = document.getElementById('c'), ctx = C.getContext('2d');
   var W, H;
-  var WORLD_W, WORLD_H; // Scalable bounding geometry for Zen vs Classic maps
+  var WORLD_W, WORLD_H;
   
   function rsz() {
     W = C.width = window.innerWidth;
@@ -150,7 +276,11 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
   var GRAV = 0.4, MAX_DRAG = 140;
   var STATE = 'title'; // title, countdown, play, gameover
   var gameMode = 'classic'; // classic, zen
+  var arenaLayout = 'random'; // random, horiz, vert, box
+  var activeLayout = 'horiz'; // dynamically chosen layout
   var configAiCount = 3;
+  var isPaused = false;
+  var customTimerLimit = 90; // Default match duration
   
   var countdownTimer = 5.0; 
   var lastCountdownInteger = 5;
@@ -171,13 +301,191 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
   ];
   var currentPalette = LC[0];
 
-  function updateWorldBounds() {
-    if (gameMode === 'zen') {
-      WORLD_W = W * 3;
-      WORLD_H = H * 3;
+  // Saved Custom Fleas State Manager
+  var savedFleas = [];
+  var activeFleaId = "";
+
+  var defaultFreaPresets = [
+    { id: "f1", name: "Frea", bodyColor: "#4deeea", eyeStyle: "cute", antennaStyle: "curly", legStyle: "pink" },
+    { id: "f2", name: "Bubbles", bodyColor: "#ff60b5", eyeStyle: "normal", antennaStyle: "bulbous", legStyle: "matching" },
+    { id: "f3", name: "Slash", bodyColor: "#ffe600", eyeStyle: "cool", antennaStyle: "long", legStyle: "yellow" }
+  ];
+
+  // Sparing & Varied Conversations
+  var fleaChatterTimer = 0;
+  var lastFleaSpeaker = null;
+  var bubblePhrases = [
+    "Catch me if you can!",
+    "Bouncing high today!",
+    "I love this room!",
+    "Whoa! Look at that jump!",
+    "Hey! Up here!",
+    "This ceiling is comfortable.",
+    "Flinging around is awesome!",
+    "Need to pause and relax.",
+    "Just catching my breath.",
+    "Nice color palette today!",
+    "Let's stick together!",
+    "The view is beautiful from up here.",
+    "Where is everyone bouncing?",
+    "That was a close call!",
+    "Bouncing is good exercise.",
+    "This sandbox is huge!",
+    "Who needs wings when you can leap?",
+    "Check out this spin!",
+    "Are you enjoying the zen room?",
+    "Look out below!"
+  ];
+
+  function loadFreaSettings() {
+    try {
+      var stored = localStorage.getItem('frea_saved_profiles');
+      var active = localStorage.getItem('frea_active_id');
+      if (stored) {
+        savedFleas = JSON.parse(stored);
+      } else {
+        savedFleas = JSON.parse(JSON.stringify(defaultFreaPresets));
+        localStorage.setItem('frea_saved_profiles', JSON.stringify(savedFleas));
+      }
+      
+      if (active && savedFleas.some(f => f.id === active)) {
+        activeFleaId = active;
+      } else {
+        activeFleaId = savedFleas[0].id;
+        localStorage.setItem('frea_active_id', activeFleaId);
+      }
+    } catch(e) {
+      savedFleas = JSON.parse(JSON.stringify(defaultFreaPresets));
+      activeFleaId = savedFleas[0].id;
+    }
+    repopulateCustomizerDropdown();
+    applyActiveFleaToCustomizerUI();
+  }
+
+  function saveFreaSettings() {
+    try {
+      localStorage.setItem('frea_saved_profiles', JSON.stringify(savedFleas));
+      localStorage.setItem('frea_active_id', activeFleaId);
+    } catch(e) {
+      console.warn("Local storage access restricted.", e);
+    }
+  }
+
+  function repopulateCustomizerDropdown() {
+    var select = document.getElementById('flea-select');
+    select.innerHTML = '';
+    savedFleas.forEach(function(f) {
+      var opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.name;
+      if (f.id === activeFleaId) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+
+  function applyActiveFleaToCustomizerUI() {
+    var current = savedFleas.find(f => f.id === activeFleaId);
+    if (!current) return;
+    document.getElementById('edit-name').value = current.name;
+    document.getElementById('edit-body-color').value = current.bodyColor;
+    document.getElementById('body-color-hex').textContent = current.bodyColor;
+    document.getElementById('edit-eye-style').value = current.eyeStyle;
+    document.getElementById('edit-antenna-style').value = current.antennaStyle;
+    document.getElementById('edit-leg-style').value = current.legStyle;
+  }
+
+  function updateSelectedFreaFromUI() {
+    var current = savedFleas.find(f => f.id === activeFleaId);
+    if (!current) return;
+    current.name = document.getElementById('edit-name').value.trim() || "Frea";
+    current.bodyColor = document.getElementById('edit-body-color').value;
+    current.eyeStyle = document.getElementById('edit-eye-style').value;
+    current.antennaStyle = document.getElementById('edit-antenna-style').value;
+    current.legStyle = document.getElementById('edit-leg-style').value;
+    
+    document.getElementById('body-color-hex').textContent = current.bodyColor;
+    
+    var select = document.getElementById('flea-select');
+    var option = select.querySelector(`option[value="${activeFleaId}"]`);
+    if (option) option.textContent = current.name;
+    
+    saveFreaSettings();
+  }
+
+  // Lobby Toggles & Expanders
+  var toggleDesignerBtn = document.getElementById('toggle-designer-btn');
+  var creatorBox = document.getElementById('creator-box');
+  
+  toggleDesignerBtn.addEventListener('click', function() {
+    if (creatorBox.style.display === 'flex') {
+      creatorBox.style.display = 'none';
+      toggleDesignerBtn.textContent = "🎨 Customize My Frea";
     } else {
-      WORLD_W = W;
-      WORLD_H = H;
+      creatorBox.style.display = 'flex';
+      toggleDesignerBtn.textContent = "Close Customizer";
+    }
+  });
+
+  // Live Fields
+  document.getElementById('edit-name').addEventListener('input', updateSelectedFreaFromUI);
+  document.getElementById('edit-body-color').addEventListener('input', updateSelectedFreaFromUI);
+  document.getElementById('edit-eye-style').addEventListener('change', updateSelectedFreaFromUI);
+  document.getElementById('edit-antenna-style').addEventListener('change', updateSelectedFreaFromUI);
+  document.getElementById('edit-leg-style').addEventListener('change', updateSelectedFreaFromUI);
+
+  document.getElementById('flea-select').addEventListener('change', function(e) {
+    activeFleaId = e.target.value;
+    saveFreaSettings();
+    applyActiveFleaToCustomizerUI();
+  });
+
+  document.getElementById('flea-new-btn').addEventListener('click', function() {
+    var newId = "f_" + Date.now();
+    var newFlea = {
+      id: newId,
+      name: "Neo Frea " + (savedFleas.length + 1),
+      bodyColor: 'hsl(' + (Math.random() * 360) + ', 85%, 65%)',
+      eyeStyle: "cute",
+      antennaStyle: "curly",
+      legStyle: "matching"
+    };
+    savedFleas.push(newFlea);
+    activeFleaId = newId;
+    saveFreaSettings();
+    repopulateCustomizerDropdown();
+    applyActiveFleaToCustomizerUI();
+  });
+
+  document.getElementById('flea-delete-btn').addEventListener('click', function() {
+    if (savedFleas.length <= 1) return;
+    savedFleas = savedFleas.filter(f => f.id !== activeFleaId);
+    activeFleaId = savedFleas[0].id;
+    saveFreaSettings();
+    repopulateCustomizerDropdown();
+    applyActiveFleaToCustomizerUI();
+  });
+
+  function updateWorldBounds() {
+    var baseW = W, baseH = H;
+    if (baseW < 500) baseW = 500;
+    if (baseH < 400) baseH = 400;
+
+    if (arenaLayout === 'random') {
+      var options = ['horiz', 'vert', 'box'];
+      activeLayout = options[Math.floor(Math.random() * options.length)];
+    } else {
+      activeLayout = arenaLayout;
+    }
+
+    if (activeLayout === 'horiz') {
+      WORLD_W = baseW * 2.5;
+      WORLD_H = baseH;
+    } else if (activeLayout === 'vert') {
+      WORLD_W = baseW;
+      WORLD_H = baseH * 2.5;
+    } else {
+      WORLD_W = baseW * 2;
+      WORLD_H = baseH * 2;
     }
   }
 
@@ -195,7 +503,14 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
   var aiSlider = document.getElementById('ai-count-slider');
   var aiVal = document.getElementById('ai-count-val');
   var aiLabel = document.getElementById('ai-label');
-  var hintModeText = document.getElementById('hint-mode-text');
+  var timerSlider = document.getElementById('timer-slider');
+  var timerVal = document.getElementById('timer-val');
+  var timerConfigRow = document.getElementById('timer-config-row');
+
+  timerSlider.addEventListener('input', function() {
+    customTimerLimit = parseInt(timerSlider.value);
+    timerVal.textContent = customTimerLimit + "s";
+  });
 
   modeClassicBtn.addEventListener('click', function() {
     gameMode = 'classic';
@@ -204,8 +519,14 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     aiSlider.max = 8;
     if (parseInt(aiSlider.value) > 8) aiSlider.value = 8;
     aiVal.textContent = aiSlider.value;
-    aiLabel.textContent = "Opponent Fleas (AI)";
-    hintModeText.innerHTML = "Grab ✨ <b>THE ORB</b> and retain it to achieve 100 points!";
+    aiLabel.textContent = "Opponent Fleas";
+    timerConfigRow.style.display = 'flex';
+    document.getElementById('add-flea-btn').style.display = 'none';
+    
+    // Reset buttons back to regular match naming
+    document.getElementById('againbtn').textContent = "Restart Match";
+    document.getElementById('pause-restart-btn').textContent = "Restart Match";
+    
     updateWorldBounds();
   });
 
@@ -215,10 +536,38 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     modeClassicBtn.classList.remove('active');
     aiSlider.max = 20;
     aiVal.textContent = aiSlider.value;
-    aiLabel.textContent = "Passive Fleas (AI)";
-    hintModeText.innerHTML = "No score pressures or orbs! Explore a <b>vast, scrolling sandbox environment</b>.";
+    aiLabel.textContent = "Passive Fleas";
+    timerConfigRow.style.display = 'none';
+    if (STATE === 'play') {
+      document.getElementById('add-flea-btn').style.display = 'inline-block';
+    }
+    
+    // Transform match styling naming into peaceful room transform
+    document.getElementById('againbtn').textContent = "Transform Room";
+    document.getElementById('pause-restart-btn').textContent = "Transform Room";
+
     updateWorldBounds();
   });
+
+  var lRandomBtn = document.getElementById('layout-random');
+  var lHorizBtn = document.getElementById('layout-horiz');
+  var lVertBtn = document.getElementById('layout-vert');
+  var lBoxBtn = document.getElementById('layout-box');
+
+  function selectLayoutUI(layout) {
+    arenaLayout = layout;
+    [lRandomBtn, lHorizBtn, lVertBtn, lBoxBtn].forEach(b => b.classList.remove('active'));
+    if (layout === 'random') lRandomBtn.classList.add('active');
+    else if (layout === 'horiz') lHorizBtn.classList.add('active');
+    else if (layout === 'vert') lVertBtn.classList.add('active');
+    else if (layout === 'box') lBoxBtn.classList.add('active');
+    updateWorldBounds();
+  }
+
+  lRandomBtn.addEventListener('click', function() { selectLayoutUI('random'); });
+  lHorizBtn.addEventListener('click', function() { selectLayoutUI('horiz'); });
+  lVertBtn.addEventListener('click', function() { selectLayoutUI('vert'); });
+  lBoxBtn.addEventListener('click', function() { selectLayoutUI('box'); });
 
   aiSlider.addEventListener('input', function() {
     aiVal.textContent = aiSlider.value;
@@ -229,20 +578,26 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
   function Platform(x, y, w, h, col) {
     this.x = x; this.y = y; this.w = w; this.h = h; this.col = col;
   }
-  Platform.prototype.draw = function() {
-    ctx.save();
-    ctx.shadowColor = currentPalette.platformGlow;
-    ctx.shadowBlur = 10;
-    ctx.fillStyle = this.col;
-    ctx.beginPath();
-    ctx.roundRect(this.x - camera.x, this.y - camera.y, this.w, this.h, 6);
-    ctx.fill();
-    ctx.restore();
+  Platform.prototype.draw = function(cContext, camX, camY) {
+    cContext.save();
+    cContext.shadowColor = currentPalette.platformGlow;
+    cContext.shadowBlur = 10;
+    cContext.fillStyle = this.col;
+    cContext.beginPath();
+    cContext.roundRect(this.x - camX, this.y - camY, this.w, this.h, 6);
+    cContext.fill();
+    cContext.restore();
   };
 
-  function Flea(x, y, isP, name, col) {
+  function Flea(x, y, isP, name, specs) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
-    this.isP = isP; this.name = name; this.col = col;
+    this.isP = isP; this.name = name;
+    
+    this.col = specs.bodyColor || '#4deeea';
+    this.eyeStyle = specs.eyeStyle || 'normal';
+    this.antennaStyle = specs.antennaStyle || 'curly';
+    this.legStyle = specs.legStyle || 'matching';
+    
     this.onG = true; this.stuck = true;
     this.face = isP ? 1 : (Math.random() > 0.5 ? 1 : -1);
     this.w = 26; this.h = 24;
@@ -252,7 +607,15 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     this.hasOrb = false;
     this.sq = 1;
     this.ait = Math.random() * 20 | 0;
-    this.zenTargetX = Math.random() * WORLD_W;
+
+    // Smart Clinging & Shuffle Behavior
+    this.stickTimer = 0;
+    this.crawlDir = Math.random() > 0.5 ? 1 : -1;
+    this.surfaceAngle = 0; // 0=floor, PI=ceiling, PI/2=right wall, -PI/2=left wall
+
+    // Dialog Bubble State Matrix
+    this.bubbleText = "";
+    this.bubbleTimer = 0;
   }
   Object.defineProperty(Flea.prototype, 'cx', { get: function() { return this.x + this.w / 2; } });
   Object.defineProperty(Flea.prototype, 'cy', { get: function() { return this.y + this.h / 2; } });
@@ -261,6 +624,11 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     this.la += dt * 0.012; 
     this.ea += dt * 0.005;
     this.sq += (1 - this.sq) * 0.15;
+
+    if (this.bubbleTimer > 0) {
+      this.bubbleTimer -= dt;
+      if (this.bubbleTimer <= 0) this.bubbleText = "";
+    }
     
     if (STATE === 'countdown') {
       this.vx = 0; this.vy = 0;
@@ -270,15 +638,15 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     if (!this.stuck) {
       this.vy += GRAV;
       
-      // Strict Maximum Speed Threshold Caps (Ensures blistering speed without physics engine frame breakdown)
-      var MAX_SPD = 32;
+      // Increased Max Speed when flinged
+      var MAX_SPD = 38;
       var currentSpd = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
       if (currentSpd > MAX_SPD) {
         this.vx = (this.vx / currentSpd) * MAX_SPD;
         this.vy = (this.vy / currentSpd) * MAX_SPD;
       }
 
-      // SUB-STEPPING INTERPOLATION ENGINE (Solves tunneling/glitching completely through platforms at high speeds)
+      // SUB-STEPPING INTERPOLATION
       var steps = Math.ceil(Math.max(Math.abs(this.vx), Math.abs(this.vy)) / 4);
       for (var s = 0; s < steps; s++) {
         this.x += this.vx / steps;
@@ -294,6 +662,26 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     } else {
       this.vx = 0;
       this.vy = 0;
+
+      // Smart organic shuffling / crawling on surfaces while stuck
+      if (gameMode === 'zen' && !this.isP && Math.random() < 0.01) {
+        this.crawlDir *= -1;
+      }
+      if (!this.isP && Math.random() < 0.05) {
+        var crawlSpeed = 0.6;
+        if (this.surfaceAngle === 0) { // Floor
+          this.x += this.crawlDir * crawlSpeed;
+          this.face = this.crawlDir;
+        } else if (this.surfaceAngle === Math.PI) { // Ceiling
+          this.x -= this.crawlDir * crawlSpeed;
+          this.face = -this.crawlDir;
+        } else if (this.surfaceAngle === Math.PI/2) { // Right wall
+          this.y += this.crawlDir * crawlSpeed;
+        } else if (this.surfaceAngle === -Math.PI/2) { // Left wall
+          this.y -= this.crawlDir * crawlSpeed;
+        }
+        this.bounds();
+      }
     }
   };
 
@@ -310,22 +698,30 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
         if (overlapX < overlapY) {
           if (fx + fw / 2 < p.x + p.w / 2) {
             this.x = p.x - fw;
+            this.surfaceAngle = Math.PI/2; 
           } else {
             this.x = p.x + p.w;
+            this.surfaceAngle = -Math.PI/2; 
           }
-          this.vx = -this.vx * 0.2;
+          this.vx = 0;
+          this.vy = 0;
+          this.stuck = true; 
         } else {
           if (fy + fh / 2 < p.y + p.h / 2) {
             this.y = p.y - fh;
-            this.stuck = true;
             this.onG = true;
+            this.surfaceAngle = 0; 
           } else {
             this.y = p.y + p.h;
-            this.vy = 0;
+            this.surfaceAngle = Math.PI; 
           }
+          this.vx = 0;
+          this.vy = 0;
+          this.stuck = true; 
         }
+        
         if (this.stuck) {
-          this.vx = 0; this.vy = 0;
+          this.stickTimer = Date.now();
           if (this.sq < 0.75) this.sq = 0.65;
         }
         return true;
@@ -335,16 +731,19 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
   };
 
   Flea.prototype.bounds = function() {
-    if (this.x < 0) { this.x = 0; this.vx = 0; this.stuck = true; }
-    if (this.x + this.w > WORLD_W) { this.x = WORLD_W - this.w; this.vx = 0; this.stuck = true; }
-    if (this.y < 0) { this.y = 0; this.vy = 0; this.stuck = true; }
-    if (this.y + this.h > WORLD_H) {
-      // Respawn logic securely bounded inside game bounds if deep out-of-bounds error triggers
-      this.y = WORLD_H - 180 - this.h;
+    var pad = 4;
+    var hit = false;
+    if (this.x < pad) { this.x = pad; this.vx = 0; this.stuck = true; this.surfaceAngle = -Math.PI/2; hit = true; }
+    if (this.x + this.w > WORLD_W - pad) { this.x = WORLD_W - this.w - pad; this.vx = 0; this.stuck = true; this.surfaceAngle = Math.PI/2; hit = true; }
+    if (this.y < pad) { this.y = pad; this.vy = 0; this.stuck = true; this.surfaceAngle = Math.PI; hit = true; }
+    if (this.y + this.h > WORLD_H - pad) {
+      this.y = WORLD_H - this.h - pad;
       this.vy = 0; this.vx = 0;
-      this.x = WORLD_W / 2 + (Math.random() - .5) * 100;
       this.stuck = true;
+      this.surfaceAngle = 0;
+      hit = true;
     }
+    if (hit) this.stickTimer = Date.now();
   };
 
   Flea.prototype.launch = function(dvx, dvy) {
@@ -352,102 +751,260 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     this.stuck = false;
     this.onG = false;
     this.sq = 0.5;
+    this.surfaceAngle = 0;
     jpfx(this.cx, this.cy, this.col);
   };
 
+  // Physical Elastic Collisions Resolution
+  function resolveFleaCollisions() {
+    for (var i = 0; i < fleas.length; i++) {
+      for (var j = i + 1; j < fleas.length; j++) {
+        var f1 = fleas[i];
+        var f2 = fleas[j];
+        
+        var dx = f2.cx - f1.cx;
+        var dy = f2.cy - f1.cy;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var minDist = (f1.w + f2.w) * 0.45;
+        
+        if (dist < minDist) {
+          if (dist === 0) { dx = 1; dy = 0; dist = 1; }
+          var overlap = minDist - dist;
+          var nx = dx / dist;
+          var ny = dy / dist;
+          
+          f1.x -= nx * overlap * 0.5;
+          f1.y -= ny * overlap * 0.5;
+          f2.x += nx * overlap * 0.5;
+          f2.y += ny * overlap * 0.5;
+          
+          var kx = f1.vx - f2.vx;
+          var ky = f1.vy - f2.vy;
+          var p = (nx * kx + ny * ky);
+          
+          if (p > 0) {
+            f1.vx -= p * nx;
+            f1.vy -= p * ny;
+            f2.vx += p * nx;
+            f2.vy += p * ny;
+          }
+          
+          var totalImpulse = Math.abs(f1.vx) + Math.abs(f1.vy) + Math.abs(f2.vx) + Math.abs(f2.vy);
+          if (totalImpulse > 2) {
+            if (f1.stuck) { f1.stuck = false; f1.onG = false; }
+            if (f2.stuck) { f2.stuck = false; f2.onG = false; }
+          }
+        }
+      }
+    }
+  }
+
+  // Trajectory Solver Pathing
   Flea.prototype.aiUpdate = function() {
     if (STATE !== 'play') return;
     this.ait--;
     if (this.ait <= 0) {
-      this.ait = 20 + Math.random() * 30 | 0;
+      var baseDecisionDelay = (this.surfaceAngle !== 0) ? 12 : 35;
+      this.ait = baseDecisionDelay + Math.random() * 25 | 0;
       
-      if (this.stuck || this.onG) {
-        if (gameMode === 'classic' && orb) {
-          // Classic Mode Aggression Engine
-          var dx = orb.x - this.cx;
-          var dy = orb.y - this.cy;
-          var dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 20) {
-            var jumpSpeed = 15 + Math.random() * 8;
-            this.launch((dx / dist) * jumpSpeed, ((dy / dist) * jumpSpeed) - 3);
-            this.face = dx > 0 ? 1 : -1;
+      if (this.stuck) {
+        var stuckTime = Date.now() - this.stickTimer;
+        var modeClassicWanderChance = 0.15;
+        var decideJump = (stuckTime > 1500 && Math.random() < 0.8) || (Math.random() < 0.4);
+
+        if (gameMode === 'zen') {
+          if (Math.random() < 0.55) {
+            this.ait = 90 + Math.random() * 130 | 0; // Relax and chill out longer together
+            return;
           }
-        } else {
-          // Zen Mode Sandbox Autonomy Engine
-          if (Math.random() < 0.6) {
-            var jumpAngle = -Math.PI/4 - Math.random() * Math.PI/2;
-            var force = 10 + Math.random() * 12;
-            this.launch(Math.cos(jumpAngle) * force, Math.sin(jumpAngle) * force);
-            this.face = this.vx > 0 ? 1 : -1;
+        }
+
+        if (decideJump) {
+          var tx = this.cx, ty = this.cy;
+          
+          if (gameMode === 'classic' && orb) {
+            if (Math.random() > modeClassicWanderChance) {
+              tx = orb.x;
+              ty = orb.y;
+            } else {
+              var randomPlat = platforms[Math.floor(Math.random() * platforms.length)];
+              if (randomPlat) {
+                tx = randomPlat.x + randomPlat.w * Math.random();
+                ty = randomPlat.y - 10;
+              }
+            }
           } else {
-            this.face = Math.random() > 0.5 ? 1 : -1;
+            var randPlat = platforms[Math.floor(Math.random() * platforms.length)];
+            if (randPlat) {
+              tx = randPlat.x + randPlat.w * Math.random();
+              ty = randPlat.y - 10;
+            }
+          }
+          
+          var dx = tx - this.cx;
+          var dy = ty - this.cy;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist > 15) {
+            var timeOfFlight = dist / 15; 
+            var targetVx = dx / timeOfFlight;
+            var targetVy = (dy - 0.5 * GRAV * timeOfFlight * timeOfFlight) / timeOfFlight;
+            
+            var mSpd = 18;
+            var actualSpd = Math.sqrt(targetVx * targetVx + targetVy * targetVy);
+            if (actualSpd > mSpd) {
+              targetVx = (targetVx / actualSpd) * mSpd;
+              targetVy = (targetVy / actualSpd) * mSpd;
+            }
+            
+            targetVx += (Math.random() - 0.5) * 2;
+            targetVy += (Math.random() - 0.5) * 2 - 2; 
+            
+            this.launch(targetVx, targetVy);
+            this.face = targetVx > 0 ? 1 : -1;
           }
         }
       }
     }
   };
 
-  Flea.prototype.draw = function() {
-    var renderX = this.cx - camera.x;
-    var renderY = this.cy - camera.y;
+  Flea.prototype.draw = function(cContext, camX, camY) {
+    var renderX = this.cx - camX;
+    var renderY = this.cy - camY;
 
-    ctx.save();
-    ctx.translate(renderX, renderY);
-    if (this.face < 0) ctx.scale(-1, 1);
+    cContext.save();
+    cContext.translate(renderX, renderY);
+
+    if (this.stuck) {
+      cContext.rotate(this.surfaceAngle);
+    }
+
+    if (this.face < 0) cContext.scale(-1, 1);
     
     var sy = this.sq, sx = 2 - this.sq;
-    ctx.scale(sx, sy);
+    cContext.scale(sx, sy);
     
-    // Aesthetic Styling Parameters
-    ctx.shadowColor = this.col;
-    ctx.shadowBlur = this.hasOrb ? 25 : 8;
-    ctx.fillStyle = this.col;
+    cContext.shadowColor = this.col;
+    cContext.shadowBlur = this.hasOrb ? 25 : 8;
+    cContext.fillStyle = this.col;
     
-    // Main Body Segment Shape
-    ctx.beginPath(); ctx.ellipse(0, 0, 14, 11, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    ctx.beginPath(); ctx.ellipse(0, 2, 11, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = this.col;
-    ctx.beginPath(); ctx.ellipse(0, -1, 14, 11, 0, 0, Math.PI * 2); ctx.fill();
+    // Body Shape
+    cContext.beginPath(); cContext.ellipse(0, 0, 14, 11, 0, 0, Math.PI * 2); cContext.fill();
+    cContext.fillStyle = 'rgba(0,0,0,0.15)';
+    cContext.beginPath(); cContext.ellipse(0, 2, 11, 8, 0, 0, Math.PI * 2); cContext.fill();
+    cContext.fillStyle = this.col;
+    cContext.beginPath(); cContext.ellipse(0, -1, 14, 11, 0, 0, Math.PI * 2); cContext.fill();
     
     if (this.hasOrb) {
-      ctx.strokeStyle = '#ffe600'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.stroke();
+      cContext.strokeStyle = '#ffe600'; cContext.lineWidth = 3;
+      cContext.beginPath(); cContext.arc(0, 0, 20, 0, Math.PI * 2); cContext.stroke();
     }
     
-    // Large Cheerful Eyes
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.ellipse(5, -3, 4.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#000';
-    var ep = Math.sin(this.ea * 0.6) * 1.2;
-    ctx.beginPath(); ctx.arc(5 + ep, -3, 2.2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(6 + ep, -4, 0.8, 0, Math.PI * 2); ctx.fill();
+    // Eyes
+    cContext.fillStyle = '#fff';
+    if (this.eyeStyle === 'cool') {
+      cContext.fillStyle = '#111';
+      cContext.beginPath(); cContext.roundRect(1, -6, 12, 6, 2); cContext.fill();
+      cContext.strokeStyle = '#fff'; cContext.lineWidth = 1;
+      cContext.beginPath(); cContext.moveTo(1, -3); cContext.lineTo(13, -3); cContext.stroke();
+    } else if (this.eyeStyle === 'sleepy') {
+      cContext.strokeStyle = '#333'; cContext.lineWidth = 2.5; cContext.lineCap = 'round';
+      cContext.beginPath(); cContext.arc(6, -3, 4, 0, Math.PI, true); cContext.stroke();
+    } else if (this.eyeStyle === 'cute') {
+      cContext.beginPath(); cContext.ellipse(5, -3, 5, 5, 0, 0, Math.PI * 2); cContext.fill();
+      cContext.fillStyle = '#000';
+      cContext.beginPath(); cContext.arc(5, -3, 3, 0, Math.PI * 2); cContext.fill();
+      cContext.fillStyle = '#fff';
+      cContext.beginPath(); cContext.arc(3.8, -4.2, 1.2, 0, Math.PI * 2); cContext.fill();
+      cContext.beginPath(); cContext.arc(6.2, -1.8, 0.6, 0, Math.PI * 2); cContext.fill();
+    } else {
+      cContext.beginPath(); cContext.ellipse(5, -3, 4.5, 4.5, 0, 0, Math.PI * 2); cContext.fill();
+      cContext.fillStyle = '#000';
+      var ep = Math.sin(this.ea * 0.6) * 1.2;
+      cContext.beginPath(); cContext.arc(5 + ep, -3, 2.2, 0, Math.PI * 2); cContext.fill();
+      cContext.fillStyle = '#fff';
+      cContext.beginPath(); cContext.arc(6 + ep, -4, 0.8, 0, Math.PI * 2); cContext.fill();
+    }
     
-    // Bouncy Procedural Insect Appendages
-    ctx.strokeStyle = this.col; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    // Legs
+    var legColor = this.col;
+    if (this.legStyle === 'pink') legColor = '#ff60b5';
+    else if (this.legStyle === 'yellow') legColor = '#ffe600';
+    else if (this.legStyle === 'pastel') legColor = '#d3b3ff';
+    
+    cContext.strokeStyle = legColor; cContext.lineWidth = 2.5; cContext.lineCap = 'round';
     var legs = [[-8, 6], [-4, 8], [0, 8], [4, 8], [8, 6]];
     for (var i = 0; i < legs.length; i++) {
       var lx = legs[i][0], ly = legs[i][1];
-      var sw = Math.sin(this.la * 3.5 + i * 1.2) * (this.onG ? 1 : 4);
-      ctx.beginPath(); ctx.moveTo(lx, ly - 1);
-      ctx.lineTo(lx + (i % 2 === 0 ? -5 : 5), ly + 6 + sw);
-      ctx.stroke();
+      var sw = Math.sin(this.la * 3.5 + i * 1.2) * (this.stuck ? 1 : 4);
+      cContext.beginPath(); cContext.moveTo(lx, ly - 1);
+      cContext.lineTo(lx + (i % 2 === 0 ? -5 : 5), ly + 6 + sw);
+      cContext.stroke();
     }
     
-    // Expressive Antennas
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+    // Antennas
+    cContext.strokeStyle = 'rgba(255,255,255,0.7)'; cContext.lineWidth = 2;
     var aL = Math.sin(this.la * 1.2) * 5;
-    ctx.beginPath(); ctx.moveTo(-2, -11); ctx.quadraticCurveTo(-10, -20 + aL, -6, -25); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(2, -11); ctx.quadraticCurveTo(10, -20 - aL, 6, -25); ctx.stroke();
     
-    ctx.restore();
+    if (this.antennaStyle === 'long') {
+      cContext.beginPath(); cContext.moveTo(-2, -11); cContext.lineTo(-12, -26 + aL); cContext.stroke();
+      cContext.beginPath(); cContext.moveTo(2, -11); cContext.lineTo(12, -26 - aL); cContext.stroke();
+    } else if (this.antennaStyle === 'bulbous') {
+      cContext.beginPath(); cContext.moveTo(-2, -11); cContext.quadraticCurveTo(-8, -18 + aL, -5, -23); cContext.stroke();
+      cContext.beginPath(); cContext.moveTo(2, -11); cContext.quadraticCurveTo(8, -18 - aL, 5, -23); cContext.stroke();
+      cContext.fillStyle = '#ff60b5';
+      cContext.beginPath(); cContext.arc(-5, -23, 3, 0, Math.PI * 2); cContext.fill();
+      cContext.beginPath(); cContext.arc(5, -23, 3, 0, Math.PI * 2); cContext.fill();
+    } else {
+      cContext.beginPath(); cContext.moveTo(-2, -11); cContext.quadraticCurveTo(-10, -20 + aL, -6, -25); cContext.stroke();
+      cContext.beginPath(); cContext.moveTo(2, -11); cContext.quadraticCurveTo(10, -20 - aL, 6, -25); cContext.stroke();
+    }
     
-    // Tag Name Labels Above Heads
-    ctx.fillStyle = this.isP ? '#4deeea' : 'rgba(255,255,255,0.7)';
-    ctx.font = 'bold 10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(this.name, this.cx - camera.x, this.y - camera.y - 12);
+    cContext.restore();
+    
+    // Header labels
+    cContext.fillStyle = this.isP ? '#4deeea' : 'rgba(255,255,255,0.8)';
+    cContext.font = 'bold 11px sans-serif';
+    cContext.textAlign = 'center';
+    cContext.fillText(this.name, this.cx - camX, this.y - camY - 12);
+
+    if (this.bubbleText) {
+      this.drawSpeechBubble(cContext, camX, camY);
+    }
+  };
+
+  Flea.prototype.drawSpeechBubble = function(cContext, camX, camY) {
+    var bx = this.cx - camX;
+    var by = this.y - camY - 24;
+
+    cContext.save();
+    cContext.font = "bold 10px sans-serif";
+    var textWidth = cContext.measureText(this.bubbleText).width;
+    var padH = 8;
+    var bW = textWidth + padH * 2;
+    var bH = 18;
+
+    cContext.fillStyle = "rgba(10, 5, 27, 0.95)";
+    cContext.strokeStyle = "#4deeea";
+    cContext.lineWidth = 1.5;
+
+    cContext.beginPath();
+    cContext.roundRect(bx - bW/2, by - bH, bW, bH, 6);
+    cContext.fill();
+    cContext.stroke();
+
+    cContext.beginPath();
+    cContext.moveTo(bx - 4, by);
+    cContext.lineTo(bx + 4, by);
+    cContext.lineTo(bx, by + 4);
+    cContext.closePath();
+    cContext.fill();
+    cContext.stroke();
+
+    cContext.fillStyle = "#fff";
+    cContext.textAlign = "center";
+    cContext.fillText(this.bubbleText, bx, by - bH/2 + 3);
+    cContext.restore();
   };
 
   function Orb(x, y) {
@@ -478,10 +1035,29 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     }
     if (this.x - this.r < 0) { this.x = this.r; this.vx = Math.abs(this.vx); }
     if (this.x + this.r > WORLD_W) { this.x = WORLD_W - this.r; this.vx = -Math.abs(this.vx); }
-    if (this.y + this.r > WORLD_H - 120) {
-      this.y = 100 + Math.random() * 150; this.x = 100 + Math.random() * (WORLD_W - 200);
-      this.vy = -8; this.vx = (Math.random() - .5) * 5; ofx(this.x, this.y);
+    if (this.y + this.r > WORLD_H - 60) {
+      this.respawnAtPeak();
     }
+  };
+  Orb.prototype.respawnAtPeak = function() {
+    var highestY = WORLD_H;
+    var targetPlat = null;
+    for (var i = 0; i < platforms.length; i++) {
+      if (platforms[i].y < highestY) {
+        highestY = platforms[i].y;
+        targetPlat = platforms[i];
+      }
+    }
+    if (targetPlat) {
+      this.x = targetPlat.x + targetPlat.w / 2;
+      this.y = targetPlat.y - this.r - 10;
+    } else {
+      this.y = 100;
+      this.x = WORLD_W / 2;
+    }
+    this.vy = -4;
+    this.vx = (Math.random() - .5) * 3;
+    ofx(this.x, this.y);
   };
   Orb.prototype.draw = function() {
     var renderX = this.x - camera.x;
@@ -497,7 +1073,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     ctx.restore();
   };
 
-  /* Visual Special FX Generators */
+  /* Visual FX */
   function jpfx(x, y, col) {
     for (var i = 0; i < 8; i++) {
       var a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 4;
@@ -529,53 +1105,85 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     }
   }
 
-  /* Procedural Map Generator Engine */
+  /* Level Generation */
   function buildLevel() {
     platforms = [];
     currentPalette = LC[Math.floor(Math.random() * LC.length)];
     
-    // Permanent Safe Floor Anchor Base Platform
+    // Safe Bottom Anchor
     platforms.push(new Platform(0, WORLD_H - 60, WORLD_W, 60, currentPalette.p));
     
-    if (gameMode === 'classic') {
-      var rows = Math.max(3, Math.floor((WORLD_H - 220) / 110));
-      var count = 6 + Math.random() * 4 | 0;
-      var used = {};
-      for (var i = 0; i < count; i++) {
-        for (var att = 0; att < 50; att++) {
-          var row = 1 + Math.random() * (rows - 1) | 0;
-          var col = Math.random() * 3 | 0;
-          var key = row * 10 + col;
-          if (used[key]) continue;
-          used[key] = 1;
-          var pw = 90 + Math.random() * 80;
-          var px = Math.max(10, (col * (WORLD_W / 3)) + (Math.random() * (WORLD_W / 3 - pw - 20)));
-          var py = WORLD_H - 120 - (row * (WORLD_H - 240) / rows);
-          platforms.push(new Platform(Math.min(px, WORLD_W - pw - 10), py, pw, 16, currentPalette.p));
-          break;
-        }
+    // Boundaries
+    platforms.push(new Platform(0, 0, 15, WORLD_H, currentPalette.p));
+    platforms.push(new Platform(WORLD_W - 15, 0, 15, WORLD_H, currentPalette.p));
+
+    if (activeLayout === 'vert') {
+      var stepsY = Math.floor((WORLD_H - 200) / 120);
+      for (var k = 1; k <= stepsY; k++) {
+        var py = WORLD_H - 80 - (k * 120);
+        var pw = 125 + Math.random() * 90;
+        var px = (k % 2 === 0) ? (30 + Math.random() * 50) : (WORLD_W - pw - 30 - Math.random() * 50);
+        platforms.push(new Platform(px, py, pw, 18, currentPalette.p));
       }
-      // Top High-Tier Competitive Slabs
-      platforms.push(new Platform(0, WORLD_H * 0.35, 60, 16, currentPalette.p));
-      platforms.push(new Platform(WORLD_W - 60, WORLD_H * 0.35, 60, 16, currentPalette.p));
-      platforms.push(new Platform(WORLD_W / 2 - 75, WORLD_H * 0.22, 150, 16, currentPalette.p));
+    } else if (activeLayout === 'horiz') {
+      var stepsX = Math.floor((WORLD_W - 200) / 250);
+      for (var k = 0; k < stepsX; k++) {
+        var px = 150 + (k * 250) + Math.random() * 80;
+        var py = WORLD_H - 100 - (Math.random() * (WORLD_H - 260));
+        var pw = 110 + Math.random() * 100;
+        platforms.push(new Platform(px, py, pw, 18, currentPalette.p));
+      }
     } else {
-      // Vast Multi-Directional Zen Platform Clusters Grid
-      var densityX = Math.floor(WORLD_W / 260);
-      var densityY = Math.floor(WORLD_H / 160);
-      for (var rx = 0; rx < densityX; rx++) {
-        for (var ry = 1; ry < densityY; ry++) {
-          if (Math.random() < 0.7) {
-            var px = rx * 260 + Math.random() * 100 + 20;
-            var py = WORLD_H - (ry * 160) + (Math.random() * 40 - 20);
-            var pw = 80 + Math.random() * 120;
-            if (px + pw > WORLD_W) px = WORLD_W - pw - 20;
-            if (py < 100) continue;
-            platforms.push(new Platform(px, py, pw, 16, currentPalette.p));
+      var gridCols = Math.ceil(WORLD_W / 260);
+      var gridRows = Math.ceil(WORLD_H / 160);
+      for (var c = 0; c < gridCols; c++) {
+        for (var r = 1; r < gridRows; r++) {
+          if (Math.random() < 0.75) {
+            var px = c * 260 + Math.random() * 80 + 30;
+            var py = WORLD_H - (r * 160) + (Math.random() * 30 - 15);
+            var pw = 90 + Math.random() * 90;
+            if (px + pw > WORLD_W - 30) px = WORLD_W - pw - 30;
+            if (py < 80) continue; 
+            platforms.push(new Platform(px, py, pw, 18, currentPalette.p));
           }
         }
       }
     }
+  }
+
+  // Live Sandbox Environment Transform Option (Zen Sandbox Only)
+  function transformRoomEnvironment() {
+    isPaused = false;
+    buildLevel();
+    parts = [];
+    sparks = [];
+    
+    // Spread existing fleas safely onto base platforms
+    var bottomY = WORLD_H - 60;
+    var seg = WORLD_W / (fleas.length + 1);
+    for (var i = 0; i < fleas.length; i++) {
+      fleas[i].x = seg * (i + 1) - 13;
+      fleas[i].y = bottomY - 35;
+      fleas[i].vx = 0;
+      fleas[i].vy = 0;
+      fleas[i].stuck = true;
+      fleas[i].surfaceAngle = 0;
+      fleas[i].bubbleText = "Wow! Room transformed!";
+      fleas[i].bubbleTimer = 2200;
+    }
+    
+    updScoreboard();
+    document.getElementById('pause-overlay').style.display = 'none';
+    document.getElementById('end-view').style.display = 'none';
+    document.getElementById('overlay').classList.add('gone');
+    document.getElementById('hud').style.display = 'flex';
+    
+    STATE = 'play';
+    
+    var cdOverlay = document.getElementById('countdown-overlay');
+    cdOverlay.textContent = "SHIFTED!";
+    cdOverlay.style.display = 'block';
+    setTimeout(function() { cdOverlay.style.display = 'none'; }, 850);
   }
 
   function checkPickup() {
@@ -609,19 +1217,19 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     }
   }
 
-  // Exact 0.05s (50 Milliseconds) Incremental Score Accumulation Loop Logic
+  // Classic Score Tick: Exactly 0.5 Seconds
   function holdTick(dt) {
     if (!orbHolder || !orb || gameMode !== 'classic') return;
     orb.x = orbHolder.cx; 
     orb.y = orbHolder.y - orb.r - 4;
     
     orbTimer += dt;
-    if (orbTimer >= 50) { 
-      orbTimer -= 50;
+    if (orbTimer >= 500) { 
+      orbTimer -= 500;
       orbHolder.score++;
       updScoreboard();
       if (orbHolder.score >= 100) {
-        endGame(orbHolder === player);
+        endGame(orbHolder);
       }
     }
   }
@@ -639,14 +1247,23 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     var container = document.getElementById('player-scores');
     container.innerHTML = '';
     
-    // Sort scores descendingly for proper competitive mapping layout UI
-    var sorted = fleas.slice().sort(function(a, b) { return b.score - a.score; });
+    if (gameMode === 'zen') {
+      // Clean display of the number of fleas in Zen Sandbox Mode
+      var div = document.createElement('div');
+      div.className = 'sbox';
+      div.style.border = '1px solid #4deeea';
+      div.innerHTML = '<div class="slbl" style="color: #4deeea">Fleas in Room</div>' +
+                      '<div class="sval">' + fleas.length + '</div>';
+      container.appendChild(div);
+      return;
+    }
     
+    var sorted = fleas.slice().sort(function(a, b) { return b.score - a.score; });
     for (var i = 0; i < sorted.length; i++) {
       var f = sorted[i];
       var div = document.createElement('div');
       div.className = 'sbox';
-      if (f.isP) div.style.border = '2px solid #4deeea';
+      if (f.isP) div.style.border = '1.5px solid #4deeea';
       if (f.hasOrb) div.style.background = 'linear-gradient(135deg, rgba(255,230,0,0.35), rgba(255,108,0,0.25))';
       
       div.innerHTML = '<div class="slbl" style="color:' + f.col + '">' + f.name + (f.hasOrb ? ' 👑' : '') + '</div>' +
@@ -659,7 +1276,6 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     ctx.fillStyle = currentPalette.b1;
     ctx.fillRect(0, 0, W, H);
     
-    // Grid alignment adjusted neatly via Camera offsets
     ctx.strokeStyle = currentPalette.a + '13'; ctx.lineWidth = 1;
     var startX = -camera.x % 60;
     var startY = -camera.y % 60;
@@ -675,7 +1291,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     var cl = Math.min(dist, MAX_DRAG);
     if (dist > 0) { dx = dx / dist * cl; dy = dy / dist * cl; }
     var pow = cl / MAX_DRAG;
-    var lvx = dx * 0.58, lvy = dy * 0.58;
+    var lvx = dx * 0.85, lvy = dy * 0.85; 
 
     ctx.save();
     ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2.5;
@@ -683,7 +1299,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sling.cx - camera.x, sling.cy - camera.y); ctx.stroke();
     ctx.setLineDash([]);
 
-    // Simulated Predictor Trajectory Path
+    // Path Simulation
     var tx = player.cx, ty = player.cy, tvx = lvx, tvy = lvy;
     for (var i = 0; i < 28; i++) {
       tvx *= 0.985; tvy += GRAV; tx += tvx; ty += tvy;
@@ -712,46 +1328,47 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     return Math.sqrt(dx * dx + dy * dy) < 65;
   }
 
-  /* Comprehensive Multi-Platform Input Handlers (Translates Screen -> Camera World Matrix space) */
+  /* Multi-Platform Input Handlers */
   C.addEventListener('touchstart', function(e) {
-    e.preventDefault(); if (STATE !== 'play') return;
+    e.preventDefault(); 
+    if (STATE !== 'play' || isPaused) return;
     var t = e.changedTouches[0];
     var tx = t.clientX, ty = t.clientY;
     if (nearPlayer(tx, ty)) {
       sling.on = true; sling.sx = tx + camera.x; sling.sy = ty + camera.y; sling.cx = tx + camera.x; sling.cy = ty + camera.y;
       runTgt = null;
     } else {
-      runTgt = { x: tx + camera.x, y: ty + camera.y }; sling.on = false;
+      runTgt = { x: tx + camera.x, y: ty + camera.y }; 
+      sling.on = false;
+      triggerInstantSpringLeap();
     }
   }, { passive: false });
 
   C.addEventListener('touchmove', function(e) {
-    e.preventDefault(); if (STATE !== 'play' || !sling.on) return;
+    e.preventDefault(); 
+    if (STATE !== 'play' || isPaused || !sling.on) return;
     var t = e.changedTouches[0];
     sling.cx = t.clientX + camera.x; sling.cy = t.clientY + camera.y;
   }, { passive: false });
 
   C.addEventListener('touchend', function(e) {
-    e.preventDefault(); if (STATE !== 'play' || !sling.on) return;
-    var dx = sling.sx - sling.cx, dy = sling.sy - sling.cy;
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 8) {
-      var cl = Math.min(dist, MAX_DRAG);
-      dx = dx / dist * cl; dy = dy / dist * cl;
-      player.launch(dx * 0.58, dy * 0.58);
-      player.face = dx > 0 ? 1 : -1;
-    }
-    sling.on = false;
+    e.preventDefault(); 
+    if (STATE !== 'play' || isPaused || !sling.on) return;
+    executeSlingLaunch();
   }, { passive: false });
 
   C.addEventListener('mousedown', function(e) {
-    if (STATE !== 'play') return;
+    if (STATE !== 'play' || isPaused) return;
+    if (e.target.closest('.hud-btn') || e.target.closest('.hud-container')) return;
+
     var tx = e.clientX, ty = e.clientY;
     if (nearPlayer(tx, ty)) {
       sling.on = true; sling.sx = tx + camera.x; sling.sy = ty + camera.y; sling.cx = tx + camera.x; sling.cy = ty + camera.y;
       runTgt = null;
     } else {
-      runTgt = { x: tx + camera.x, y: ty + camera.y }; sling.on = false;
+      runTgt = { x: tx + camera.x, y: ty + camera.y }; 
+      sling.on = false;
+      triggerInstantSpringLeap();
     }
   });
 
@@ -761,19 +1378,37 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
 
   window.addEventListener('mouseup', function(e) {
     if (!sling.on) return;
+    executeSlingLaunch();
+  });
+
+  function triggerInstantSpringLeap() {
+    if (!runTgt || !player) return;
+    var rdx = runTgt.x - player.cx, rdy = runTgt.y - player.cy;
+    var rdist = Math.sqrt(rdx * rdx + rdy * rdy);
+    
+    if (rdist > 5) {
+      var hopScale = Math.min(20, rdist * 0.1); 
+      player.launch((rdx / rdist) * hopScale, (rdy / rdist) * hopScale);
+      player.face = rdx > 0 ? 1 : -1;
+    }
+    runTgt = null; 
+  }
+
+  function executeSlingLaunch() {
     var dx = sling.sx - sling.cx, dy = sling.sy - sling.cy;
     var dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 8) {
       var cl = Math.min(dist, MAX_DRAG);
       dx = dx / dist * cl; dy = dy / dist * cl;
-      player.launch(dx * 0.58, dy * 0.58);
+      
+      player.launch(dx * 0.85, dy * 0.85);
       player.face = dx > 0 ? 1 : -1;
     }
     sling.on = false;
-  });
+  }
 
   document.addEventListener('keydown', function(e) {
-    if (STATE !== 'play') return;
+    if (STATE !== 'play' || isPaused) return;
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') { player.stuck = false; player.vx = -11; player.face = -1; }
     if (e.code === 'ArrowRight' || e.code === 'KeyD') { player.stuck = false; player.vx = 11; player.face = 1; }
     if ((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW')) {
@@ -781,11 +1416,16 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     }
   });
 
-  /* Main Core Tick Logic Cycle */
+  /* Game Loop */
   var lt = 0, fid = null;
   function loop(ts) {
     var dt = Math.min(ts - lt, 50); lt = ts;
     
+    if (isPaused) {
+      fid = requestAnimationFrame(loop);
+      return;
+    }
+
     if (STATE === 'countdown') {
       countdownTimer -= dt / 1000;
       var curInt = Math.ceil(countdownTimer);
@@ -806,37 +1446,59 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
 
     ctx.clearRect(0, 0, W, H);
     
-    // Tracking Camera Matrix Focus Vector Updates (Locks onto center of player coordinates dynamically inside Zen spaces)
-    if (gameMode === 'zen' && player) {
-      camera.x += (player.cx - W / 2 - camera.x) * 0.08;
-      camera.y += (player.cy - H / 2 - camera.y) * 0.08;
+    // Smooth scrolling camera 
+    if (player) {
+      camera.x += (player.cx - W / 2 - camera.x) * 0.1;
+      camera.y += (player.cy - H / 2 - camera.y) * 0.1;
+      
       camera.x = Math.max(0, Math.min(WORLD_W - W, camera.x));
       camera.y = Math.max(0, Math.min(WORLD_H - H, camera.y));
-    } else {
-      camera.x = 0; camera.y = 0;
     }
 
     drawBG();
-    for (var i = 0; i < platforms.length; i++) platforms[i].draw();
+    for (var i = 0; i < platforms.length; i++) platforms[i].draw(ctx, camera.x, camera.y);
 
-    // Instant Automated Spring-Leaping Processing
-    if (runTgt && player && STATE === 'play') {
-      var rdx = runTgt.x - player.cx, rdy = runTgt.y - player.cy;
-      var rdist = Math.sqrt(rdx * rdx + rdy * rdy);
-      if (player.stuck || player.onG) {
-        if (rdist > 6) {
-          player.launch((rdx / rdist) * 22, (rdy / rdist) * 22);
-          player.face = rdx > 0 ? 1 : -1;
+    // Natural Global Conversation Manager (Sparing & Engaging)
+    if (gameMode === 'zen' && STATE === 'play') {
+      fleaChatterTimer += dt;
+      // Chatters occur naturally every 5 to 9 seconds
+      if (fleaChatterTimer > (5000 + Math.random() * 4000)) {
+        fleaChatterTimer = 0;
+        
+        var candidates = fleas.filter(f => !f.isP && f !== lastFleaSpeaker);
+        if (candidates.length > 0) {
+          var speaker = candidates[Math.floor(Math.random() * candidates.length)];
+          lastFleaSpeaker = speaker;
+          
+          var dx = player.cx - speaker.cx;
+          var dy = player.cy - speaker.cy;
+          var pDist = Math.sqrt(dx*dx + dy*dy);
+          
+          if (pDist < 130 && Math.random() < 0.75) {
+            var playerSpeech = [
+              "Frea! Watch me bounce!",
+              "You are super fast, Frea!",
+              "Hey Frea, jump up here!",
+              "Let's play together!",
+              "Awesome skills, Frea!",
+              "Nice landing, Frea!"
+            ];
+            speaker.bubbleText = playerSpeech[Math.floor(Math.random() * playerSpeech.length)];
+          } else {
+            speaker.bubbleText = bubblePhrases[Math.floor(Math.random() * bubblePhrases.length)];
+          }
+          speaker.bubbleTimer = 2200; 
         }
       }
-      if (rdist < 30) runTgt = null;
     }
 
-    // Entity State Loop Processes
+    // Entity States
     for (var i = 0; i < fleas.length; i++) {
       if (!fleas[i].isP) fleas[i].aiUpdate();
       fleas[i].update(dt);
     }
+
+    resolveFleaCollisions();
 
     if (gameMode === 'classic') {
       if (orb) orb.update(dt);
@@ -847,13 +1509,14 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     if (gameMode === 'classic' && orb) orb.draw();
     drawSling();
     
-    for (var i = 0; i < fleas.length; i++) fleas[i].draw();
+    for (var i = 0; i < fleas.length; i++) fleas[i].draw(ctx, camera.x, camera.y);
     drawEffects();
 
     fid = requestAnimationFrame(loop);
   }
 
   function startGame() {
+    isPaused = false;
     updateWorldBounds();
     buildLevel();
     
@@ -865,11 +1528,11 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     
     var totalFleasCount = 1 + configAiCount;
     var bottomY = WORLD_H - 60;
-    
-    // Spreads player and all selected AIs perfectly evenly apart along the floor base coordinates at startup
     var segmentWidth = WORLD_W / (totalFleasCount + 1);
     
-    player = new Flea(segmentWidth - 13, bottomY - 30, true, "You (Frea)", '#4deeea');
+    var currentCustom = savedFleas.find(f => f.id === activeFleaId) || savedFleas[0];
+    
+    player = new Flea(segmentWidth - 13, bottomY - 30, true, currentCustom.name, currentCustom);
     fleas.push(player);
     
     var aiNames = ["Pochi", "Tama", "Mochi", "Koko", "Lulu", "Mimi", "Piko", "Yuki", "Chibi", "Rini", "Hana", "Kira", "Taro", "Jiro", "Sora", "Haru", "Minto", "Momo", "Niko", "Uni"];
@@ -877,20 +1540,31 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
       var name = aiNames[i % aiNames.length];
       var spawnX = segmentWidth * (i + 2) - 13;
       var col = 'hsl(' + ((i * (360 / configAiCount)) + 280) % 360 + ', 100%, 70%)';
-      fleas.push(new Flea(spawnX, bottomY - 30, false, name, col));
+      
+      var aiSpecs = {
+        bodyColor: col,
+        eyeStyle: ['normal', 'cute', 'sleepy'][Math.floor(Math.random() * 3)],
+        antennaStyle: ['curly', 'long', 'bulbous'][Math.floor(Math.random() * 3)],
+        legStyle: ['matching', 'pink', 'yellow', 'pastel'][Math.floor(Math.random() * 4)]
+      };
+      fleas.push(new Flea(spawnX, bottomY - 30, false, name, aiSpecs));
     }
 
     if (gameMode === 'classic') {
       orb = new Orb(WORLD_W / 2, 100);
+      orb.respawnAtPeak(); 
       document.getElementById('timer-lbl').textContent = "Time";
-      document.getElementById('tval').textContent = "60";
+      document.getElementById('tval').textContent = customTimerLimit;
+      document.getElementById('add-flea-btn').style.display = 'none';
     } else {
       orb = null;
       document.getElementById('timer-lbl').textContent = "Sandbox";
       document.getElementById('tval').textContent = "Zen";
+      document.getElementById('add-flea-btn').style.display = 'inline-block';
     }
 
     document.getElementById('overlay').classList.add('gone');
+    document.getElementById('pause-overlay').style.display = 'none';
     document.getElementById('hud').style.display = 'flex';
     
     var cdOverlay = document.getElementById('countdown-overlay');
@@ -900,25 +1574,23 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     STATE = 'countdown';
     updScoreboard();
 
-    // Secondary countdown clock backup for UI ticker element compatibility
-    var classicSecondsLeft = 60;
+    var classicSecondsLeft = customTimerLimit;
     if (window.gameInterval) clearInterval(window.gameInterval);
     window.gameInterval = setInterval(function() {
-      if (STATE !== 'play') return;
+      if (STATE !== 'play' || isPaused) return;
       if (gameMode === 'classic') {
         classicSecondsLeft--;
         document.getElementById('tval').textContent = classicSecondsLeft;
         if (classicSecondsLeft <= 0) {
-          // Time expired; determine winner based on maximum acquired score rank
-          var winnerIsPlayer = true;
+          var winner = player;
           var topScore = player.score;
           for (var i = 0; i < fleas.length; i++) {
             if (fleas[i].score > topScore) {
               topScore = fleas[i].score;
-              winnerIsPlayer = fleas[i].isP;
+              winner = fleas[i];
             }
           }
-          endGame(winnerIsPlayer);
+          endGame(winner);
         }
       }
     }, 1000);
@@ -928,7 +1600,72 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     fid = requestAnimationFrame(loop);
   }
 
-  function endGame(isPlayerWin) {
+  // Active Spawning (Zen Mode Exclusive)
+  document.getElementById('add-flea-btn').addEventListener('click', function() {
+    if (fleas.length >= 20) return;
+    
+    var aiNames = ["Bouncy", "Zippy", "Dodo", "Jumper", "Luna", "Twinkle", "Noodle", "Pip", "Wobble", "Sparky"];
+    var name = aiNames[Math.floor(Math.random() * aiNames.length)];
+    
+    var plat = platforms[Math.floor(Math.random() * platforms.length)];
+    var spawnX = plat ? (plat.x + plat.w/2) : (WORLD_W / 2);
+    var spawnY = plat ? (plat.y - 40) : (WORLD_H - 100);
+    
+    var col = 'hsl(' + (Math.random() * 360) + ', 100%, 70%)';
+    var aiSpecs = {
+      bodyColor: col,
+      eyeStyle: ['normal', 'cute', 'sleepy'][Math.floor(Math.random() * 3)],
+      antennaStyle: ['curly', 'long', 'bulbous'][Math.floor(Math.random() * 3)],
+      legStyle: ['matching', 'pink', 'yellow', 'pastel'][Math.floor(Math.random() * 4)]
+    };
+    
+    var newFlea = new Flea(spawnX - 13, spawnY, false, name, aiSpecs);
+    newFlea.bubbleText = "Hey guys, I'm here!";
+    newFlea.bubbleTimer = 2200;
+    
+    fleas.push(newFlea);
+    updScoreboard();
+  });
+
+  // Pause Controls Events
+  document.getElementById('pause-btn').addEventListener('click', function() {
+    if (STATE !== 'play') return;
+    isPaused = true;
+    document.getElementById('pause-overlay').style.display = 'flex';
+  });
+
+  document.getElementById('resume-btn').addEventListener('click', function() {
+    isPaused = false;
+    document.getElementById('pause-overlay').style.display = 'none';
+  });
+
+  document.getElementById('pause-restart-btn').addEventListener('click', function() {
+    if (gameMode === 'zen') {
+      transformRoomEnvironment();
+    } else {
+      document.getElementById('pause-overlay').style.display = 'none';
+      startGame();
+    }
+  });
+
+  document.getElementById('pause-lobby-btn').addEventListener('click', function() {
+    document.getElementById('pause-overlay').style.display = 'none';
+    returnToLobby();
+  });
+
+  function returnToLobby() {
+    isPaused = false;
+    STATE = 'title';
+    if (window.gameInterval) clearInterval(window.gameInterval);
+    if (window.winRenderInterval) clearInterval(window.winRenderInterval);
+    
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('end-view').style.display = 'none';
+    document.getElementById('title-view').style.display = 'flex';
+    document.getElementById('overlay').classList.remove('gone');
+  }
+
+  function endGame(winnerFlea) {
     STATE = 'gameover';
     if (window.gameInterval) clearInterval(window.gameInterval);
     
@@ -937,34 +1674,87 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
     document.getElementById('end-view').style.display = 'flex';
     document.getElementById('overlay').classList.remove('gone');
     
-    var endIco = document.getElementById('endico');
     var endTitle = document.getElementById('endtitle');
-    var endScore = document.getElementById('endscore');
-    var scoreStatusLbl = document.getElementById('score-status-lbl');
     var endSub = document.getElementById('endsub');
+    var winnerNameLbl = document.getElementById('winner-name-lbl');
+    var roleTitle = document.getElementById('winner-role-title');
 
     if (gameMode === 'classic') {
-      endScore.textContent = player.score;
-      scoreStatusLbl.textContent = "Your Final Score";
       endSub.textContent = "Match Complete";
-      if (isPlayerWin) {
-        endIco.textContent = "👑";
+      winnerNameLbl.textContent = winnerFlea.name;
+      
+      if (winnerFlea.isP) {
         endTitle.textContent = "VICTORY!";
         endTitle.style.color = '#ffe600';
+        roleTitle.textContent = "Your Frea Won the Match!";
       } else {
-        endIco.textContent = "😭";
         endTitle.textContent = "DEFEAT";
         endTitle.style.color = '#ff4d79';
+        roleTitle.textContent = "Frea Champion Winner:";
       }
+      
+      drawWinnerStageFlea(winnerFlea);
     } else {
-      // Custom graceful screen outputs for voluntary exits from Sandbox environments
-      endIco.textContent = "🌸";
       endTitle.textContent = "ZEN OVER";
       endTitle.style.color = '#4deeea';
       endSub.textContent = "Sandbox Session Ended";
-      endScore.textContent = "✨";
-      scoreStatusLbl.textContent = "Peaceful jumping explored!";
+      roleTitle.textContent = "Your Active Frea:";
+      winnerNameLbl.textContent = player.name;
+      drawWinnerStageFlea(player);
     }
+  }
+
+  // Stable Spotlight Render
+  function drawWinnerStageFlea(flea) {
+    var winCanvas = document.getElementById('win-flea-canvas');
+    var wCtx = winCanvas.getContext('2d');
+    
+    var tempFlea = new Flea(45, 60, flea.isP, "", {
+      bodyColor: flea.col,
+      eyeStyle: flea.eyeStyle,
+      antennaStyle: flea.antennaStyle,
+      legStyle: flea.legStyle
+    });
+    
+    tempFlea.w = 55;
+    tempFlea.h = 45;
+    tempFlea.stuck = true;
+    tempFlea.face = 1;
+    tempFlea.surfaceAngle = 0;
+    
+    if (window.winRenderInterval) clearInterval(window.winRenderInterval);
+    
+    var frameCounter = 0;
+    window.winRenderInterval = setInterval(function() {
+      wCtx.clearRect(0, 0, winCanvas.width, winCanvas.height);
+      frameCounter += 0.15;
+      
+      tempFlea.la = frameCounter;
+      tempFlea.ea = frameCounter * 0.4;
+      tempFlea.sq = 1 + Math.sin(frameCounter * 0.7) * 0.08;
+      
+      tempFlea.draw(wCtx, 0, 0);
+      
+      // Royal Crown
+      wCtx.save();
+      wCtx.fillStyle = '#ffe600';
+      wCtx.strokeStyle = '#fff';
+      wCtx.lineWidth = 1.5;
+      wCtx.shadowColor = '#ffe600';
+      wCtx.shadowBlur = 10;
+      wCtx.beginPath();
+      wCtx.moveTo(winCanvas.width/2 - 20, 26 + Math.sin(frameCounter * 0.7) * 4);
+      wCtx.lineTo(winCanvas.width/2 - 25, 10 + Math.sin(frameCounter * 0.7) * 4);
+      wCtx.lineTo(winCanvas.width/2 - 10, 18 + Math.sin(frameCounter * 0.7) * 4);
+      wCtx.lineTo(winCanvas.width/2, 6 + Math.sin(frameCounter * 0.7) * 4);
+      wCtx.lineTo(winCanvas.width/2 + 10, 18 + Math.sin(frameCounter * 0.7) * 4);
+      wCtx.lineTo(winCanvas.width/2 + 25, 10 + Math.sin(frameCounter * 0.7) * 4);
+      wCtx.lineTo(winCanvas.width/2 + 20, 26 + Math.sin(frameCounter * 0.7) * 4);
+      wCtx.closePath();
+      wCtx.fill();
+      wCtx.stroke();
+      wCtx.restore();
+    }, 40);
   }
 
   function mkStars(id) {
@@ -978,16 +1768,18 @@ canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
   }
   mkStars('stars1');
 
+  loadFreaSettings();
+
   document.getElementById('playbtn').addEventListener('click', startGame);
-  document.getElementById('againbtn').addEventListener('click', startGame);
-  document.getElementById('menubtn').addEventListener('click', function() {
-    STATE = 'title';
-    document.getElementById('end-view').style.display = 'none';
-    document.getElementById('title-view').style.display = 'flex';
+  document.getElementById('againbtn').addEventListener('click', function() {
+    if (gameMode === 'zen') {
+      transformRoomEnvironment();
+    } else {
+      startGame();
+    }
   });
+  document.getElementById('menubtn').addEventListener('click', returnToLobby);
 })();
 </script>
 </body>
 </html>
-
-```
