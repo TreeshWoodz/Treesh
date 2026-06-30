@@ -1,1856 +1,393 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>FREA - Arena Slingshot Jump</title>
-<!-- Modern Playful & High-Tech Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Outfit:wght@500;800;900&display=swap" rel="stylesheet">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+<title>FREA — Arena Slingshot Jump</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-body { background: #070313; overflow: hidden; font-family: 'Fredoka', 'Outfit', sans-serif; touch-action: none; color: #fff; }
-canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
-
-/* Scrollbar styling for customizer panels */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
-
-/* Horizontal, Low-Profile HUD with premium styling */
-#hud { position: fixed; top: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px; z-index: 20; pointer-events: none; }
-.hud-container { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; background: rgba(13, 8, 36, 0.6); padding: 8px 16px; border-radius: 24px; backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); pointer-events: auto; max-width: 60%; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
-
-.sbox { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 6px 14px; text-align: center; display: flex; align-items: center; gap: 8px; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-.sbox:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.09); border-color: rgba(255,255,255,0.2); }
-.slbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.70); }
-.sval { font-size: 16px; font-weight: 900; color: #fff; font-family: 'Outfit', sans-serif; }
-
-.hud-actions { display: flex; gap: 8px; pointer-events: auto; align-items: center; }
-.hud-btn { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; padding: 8px 16px; font-weight: 700; color: #fff; cursor: pointer; backdrop-filter: blur(12px); transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); font-size: 12px; font-family: 'Fredoka', sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-.hud-btn:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
-.hud-btn:active { transform: translateY(1px); }
-
-#tbox { background: linear-gradient(135deg, #ff5e62, #ff9966); border: 1.5px solid rgba(255, 255, 255, 0.4); border-radius: 18px; padding: 8px 18px; text-align: center; box-shadow: 0 8px 24px rgba(255, 94, 98, 0.35); pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 75px; transition: all 0.3s; }
-#tbox:hover { transform: scale(1.05); }
-#timer-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255, 255, 255, 0.9); margin-bottom: 2px; }
-#tval { font-size: 20px; font-weight: 900; color: #fff; line-height: 1; font-family: 'Outfit', sans-serif; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-
-#orbtxt { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); color: #ffe600; font-size: 26px; font-weight: 900; opacity: 0; pointer-events: none; z-index: 30; text-shadow: 0 0 25px #ff9d00, 0 4px 12px rgba(0,0,0,0.5); white-space: nowrap; font-family: 'Outfit', sans-serif; letter-spacing: 1px; transition: all 0.5s; }
-#countdown-overlay { position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 130px; font-weight: 900; color: #fff; z-index: 25; pointer-events: none; font-family: 'Outfit', sans-serif; text-shadow: 0 0 40px rgba(255, 0, 127, 0.8), 0 8px 0px #b20059; display: none; text-align: center; animation: pulse 0.4s infinite alternate; }
-
-@keyframes pulse { from { transform: translate(-50%, -50%) scale(0.92); } to { transform: translate(-50%, -50%) scale(1.08); } }
-
-/* Screen Overlays & Glass Cards */
-#overlay, #pause-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, #110829 0%, #03010a 100%); transition: opacity 0.3s ease; padding: 24px; overflow-y: auto; }
-#overlay.gone { display: none; }
-#pause-overlay { background: rgba(5, 2, 16, 0.92); backdrop-filter: blur(20px); z-index: 45; display: none; }
-
-.menu-card { background: rgba(18, 12, 45, 0.6); border: 1.5px solid rgba(255, 255, 255, 0.08); border-radius: 28px; padding: 28px; backdrop-filter: blur(24px); box-shadow: 0 20px 50px rgba(0,0,0,0.6), inset 0 0 30px rgba(255,255,255,0.02); max-width: 480px; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; margin: auto; border-top: 1.5px solid rgba(255,255,255,0.15); }
-
-/* Premium Glowing Logo */
-.logo { font-size: clamp(48px, 10vw, 68px); font-weight: 900; letter-spacing: -2px; line-height: 0.9; margin-bottom: 6px; font-family: 'Outfit', sans-serif; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); }
-.logo span { display: inline-block; animation: bounce 0.6s ease-in-out infinite alternate; }
-.logo span:nth-child(1) { color: #ff60b5; text-shadow: 0 0 20px rgba(255,0,127,0.8); animation-delay: 0s; }
-.logo span:nth-child(2) { color: #4deeea; text-shadow: 0 0 20px rgba(0,240,255,0.8); animation-delay: 0.1s; }
-.logo span:nth-child(3) { color: #ffe600; text-shadow: 0 0 20px rgba(255,204,0,0.8); animation-delay: 0.2s; }
-.logo span:nth-child(4) { color: #ff764d; text-shadow: 0 0 20px rgba(255,60,0,0.8); animation-delay: 0.3s; }
-
-@keyframes bounce { from { transform: translateY(0) rotate(-4deg); } to { transform: translateY(-8px) rotate(4deg); } }
-
-.tag { color: #cfb5ff; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; font-weight: 700; margin-bottom: 20px; text-shadow: 0 2px 8px rgba(207,181,255,0.2); }
-
-/* Toggleable Designer Box (High-Tech Lab Look) */
-.customizer-box { background: rgba(0, 0, 0, 0.4); border-radius: 20px; border: 1.5px dashed rgba(255, 255, 255, 0.12); width: 100%; padding: 16px; margin-bottom: 16px; display: none; flex-direction: column; gap: 12px; animation: slideDown 0.3s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
-@keyframes slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
-
-.flea-selector-row { display: flex; width: 100%; gap: 8px; align-items: center; }
-.flea-select { flex: 1; background: #0c061d; border: 1.5px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 8px 12px; color: #fff; font-size: 13px; font-weight: 700; font-family: 'Fredoka', sans-serif; outline: none; cursor: pointer; transition: all 0.2s; }
-.flea-select:focus { border-color: #4deeea; box-shadow: 0 0 10px rgba(77,238,234,0.2); }
-
-.icon-btn { background: rgba(255,255,255,0.06); border: 1.5px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 8px 14px; font-size: 12px; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-weight: 700; font-family: 'Fredoka', sans-serif; }
-.icon-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.25); transform: translateY(-1px); }
-.icon-btn.danger { background: rgba(255, 60, 100, 0.12); border-color: rgba(255,60,100,0.25); color: #ff527b; }
-.icon-btn.danger:hover { background: rgba(255, 60, 100, 0.25); border-color: rgba(255,60,100,0.4); }
-
-/* Dynamic Multi-Panel Customizer */
-.creator-layout { display: flex; width: 100%; gap: 12px; align-items: stretch; }
-.preview-stage { width: 120px; background: rgba(0,0,0,0.5); border-radius: 16px; border: 1.5px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px; position: relative; }
-.preview-stage::after { content: "LIVE PREVIEW"; position: absolute; bottom: 6px; font-size: 7px; color: rgba(255,255,255,0.3); font-weight: 900; letter-spacing: 1px; }
-#customizer-preview-canvas { width: 100px; height: 100px; display: block; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
-
-.editor-panel { flex: 1; display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 180px; overflow-y: auto; padding-right: 4px; }
-.editor-field { display: flex; flex-direction: column; gap: 4px; text-align: left; }
-.editor-field label { font-size: 9px; text-transform: uppercase; color: #cfb3ff; letter-spacing: 0.8px; font-weight: 700; margin-left: 2px; }
-.editor-input { background: rgba(12, 6, 29, 0.8); border: 1.5px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 6px 10px; color: #fff; font-size: 12px; width: 100%; outline: none; font-family: 'Fredoka', sans-serif; transition: all 0.2s; }
-.editor-input:focus { border-color: #4deeea; }
-
-.color-picker-container { display: flex; align-items: center; gap: 8px; background: rgba(12,6,29,0.8); padding: 4px 10px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.12); }
-.color-swatch { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.3); cursor: pointer; padding: 0; background: none; }
-
-/* Settings Matrix Grid */
-.settings-grid { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-.setting-row { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; }
-.setting-label { font-size: 10px; color: #cbb3ff; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-left: 2px; }
-
-/* Sleek Sliders & Switches */
-.mode-switch { display: flex; width: 100%; background: rgba(0,0,0,0.35); border-radius: 14px; padding: 3px; border: 1px solid rgba(255,255,255,0.06); }
-.mode-btn { flex: 1; background: transparent; border: none; color: rgba(255,255,255,0.5); padding: 8px; border-radius: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 12px; text-align: center; font-family: 'Fredoka', sans-serif; }
-.mode-btn.active { background: linear-gradient(135deg, #ff60b5, #8a3fe4); color: white; box-shadow: 0 4px 12px rgba(255,96,181,0.25); }
-
-.slider-container { display: flex; align-items: center; width: 100%; gap: 12px; background: rgba(0,0,0,0.3); padding: 6px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); }
-.slider-container input { flex: 1; accent-color: #ff60b5; cursor: pointer; height: 6px; border-radius: 4px; }
-.slider-val { font-size: 13px; font-weight: 900; color: #4deeea; min-width: 25px; text-align: center; font-family: 'Outfit', sans-serif; }
-
-/* High-Energy Glow Buttons */
-.btn { background: linear-gradient(135deg, #00f0ff, #7000ff); border: none; color: #fff; font-size: 15px; font-weight: 900; letter-spacing: 1.5px; padding: 14px 28px; border-radius: 50px; cursor: pointer; text-transform: uppercase; box-shadow: 0 6px 20px rgba(112,0,255,0.35); width: 100%; transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1.5px solid rgba(255,255,255,0.2); font-family: 'Outfit', sans-serif; }
-.btn:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 25px rgba(112,0,255,0.5); border-color: rgba(255,255,255,0.3); }
-.btn:active { transform: translateY(1px) scale(0.98); }
-.btng { background: linear-gradient(135deg, #ffcc00, #ff4500); box-shadow: 0 6px 20px rgba(255,69,0,0.35); border-color: rgba(255,255,255,0.25); }
-.btng:hover { box-shadow: 0 10px 25px rgba(255,69,0,0.5); }
-.res { background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255,255,255,0.1); margin-top: 8px; box-shadow: none; color: rgba(255,255,255,0.8); }
-.res:hover { background: rgba(255, 255, 255, 0.1); color: #fff; box-shadow: 0 4px 15px rgba(255,255,255,0.05); }
-
-/* Designer Switch */
-.designer-toggle-btn { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.12); margin-bottom: 14px; color: #ffe600; text-transform: none; font-size: 13px; padding: 10px 20px; border-radius: 18px; letter-spacing: 0.5px; transition: all 0.3s; }
-.designer-toggle-btn:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); border-color: rgba(255,230,0,0.3); }
-
-/* Victory Stage Styling */
-.win-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 20px; margin: 12px 0; width: 100%; position: relative; overflow: hidden; backdrop-filter: blur(12px); }
-.win-canvas-wrapper { width: 130px; height: 130px; position: relative; z-index: 2; }
-#win-flea-canvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 12px rgba(255, 230, 0, 0.45)); }
-.winner-tag { color: #ffe600; font-size: 24px; font-weight: 900; text-shadow: 0 0 10px rgba(255,230,0,0.4); margin-top: 4px; font-family: 'Outfit', sans-serif; }
-.winner-title { color: #cfb5ff; font-size: 11px; text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; opacity: 0.8; }
-
-.gtitle { font-size: clamp(28px, 6vw, 42px); font-weight: 900; text-align: center; margin-bottom: 2px; line-height: 1.1; font-family: 'Outfit', sans-serif; text-shadow: 0 2px 10px rgba(0,0,0,0.4); }
-.gsub { color: rgba(255,255,255,0.5); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; font-weight: bold; }
-
-.stardiv { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
-.star { position: absolute; border-radius: 50%; animation: twk linear infinite; }
-@keyframes twk { 0%, 100% { opacity: .15; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.3); } }
+:root{--bg:#070313;--card:rgba(18,12,45,0.6);--glass:rgba(255,255,255,0.06);--accent:#4deeea;--accent2:#ff60b5;--gold:#ffe600}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:linear-gradient(180deg,#050210 0%, #0b0520 60%);font-family:'Fredoka', 'Outfit', sans-serif;color:#fff;overflow:hidden}
+canvas{position:fixed;left:0;top:0;width:100%;height:100%;z-index:1;display:block}
+/* Simple top HUD */
+#hud{position:fixed;left:50%;top:18px;transform:translateX(-50%);display:flex;gap:12px;align-items:center;z-index:40;pointer-events:none}
+.hcard{background:var(--card);padding:10px 14px;border-radius:14px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);display:flex;gap:12px;align-items:center}
+.hlabel{font-size:11px;color:rgba(255,255,255,0.8);text-transform:uppercase;font-weight:700}
+.hval{font-weight:900;font-size:18px;color:#fff;font-family:'Outfit',sans-serif}
+.hactions{pointer-events:auto}
+.btn{appearance:none;border:0;padding:8px 14px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#7000ff);color:#fff;font-weight:800;cursor:pointer}
+.btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+/* Center overlay simplified */
+#overlay{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;min-width:320px;max-width:720px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:26px;border-radius:18px;border:1px solid rgba(255,255,255,0.06);box-shadow:0 10px 40px rgba(0,0,0,0.6);backdrop-filter: blur(10px)}
+.logo{font-size:48px;font-weight:900;letter-spacing:-2px;text-align:center;margin-bottom:6px}
+.tag{color:rgba(255,255,255,0.6);text-align:center;margin-bottom:18px;font-weight:700}
+.controls{display:flex;gap:12px;justify-content:center;align-items:center}
+.settings{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+.control-compact{padding:8px 12px;border-radius:12px;background:var(--glass);border:1px solid rgba(255,255,255,0.04);min-width:120px;text-align:center}
+.small{font-size:12px;color:rgba(255,255,255,0.8)}
+.input{padding:8px;border-radius:10px;border:none;background:#0b0620;color:#fff}
+.slide{width:180px}
+.customize{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:12px}
+.color-swatch{width:28px;height:28px;border-radius:8px;border:2px solid rgba(255,255,255,0.06);cursor:pointer}
+#creator-box{display:flex;gap:10px;align-items:center}
+/* Pause / End Overlays */
+#pause-overlay,#end-overlay{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;display:none}
+/* Responsive tweaks */
+@media(max-width:540px){.card{padding:16px}.logo{font-size:36px}}
+/* Stars for a subtle background */
+.star{position:fixed;border-radius:50%;pointer-events:none;opacity:0.08}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-
-<!-- Horizontal HUD Panel -->
-<div id="hud" style="display:none">
-  <div class="hud-container" id="player-scores"></div>
-  <div style="display: flex; gap: 8px; align-items: center;">
-    <div id="tbox">
-      <div id="timer-lbl">Time</div>
-      <div id="tval">90</div>
-    </div>
-    <div class="hud-actions">
-      <button class="hud-btn" id="add-flea-btn" style="display:none;">Add Flea</button>
-      <button class="hud-btn" id="pause-btn">Pause</button>
-    </div>
-  </div>
+<div id="hud" aria-hidden="false">
+  <div class="hcard"><div class="hlabel">Time</div><div class="hval" id="tval">90</div></div>
+  <div class="hcard"><div class="hlabel">Orbs</div><div class="hval" id="orb-count">0</div></div>
+  <div class="hcard hactions" style="pointer-events:auto"><button class="btn secondary" id="pause-btn">Pause</button></div>
 </div>
 
-<div id="countdown-overlay">5</div>
-<div id="orbtxt">⚡ ORB CAPTURED! ⚡</div>
-
-<!-- Overlay Menus -->
 <div id="overlay">
-  <div class="stardiv" id="stars1"></div>
-  
-  <!-- Simplified Start/Lobby View -->
-  <div id="title-view" class="menu-card">
-    <div class="logo"><span>F</span><span>R</span><span>E</span><span>A</span></div>
-    <div class="tag">Arena Slingshot Jump</div>
-
-    <!-- Toggleable customizer trigger -->
-    <button class="btn designer-toggle-btn" id="toggle-designer-btn">🎨 Customize My Frea</button>
-
-    <!-- Hidden visual creator with dynamic previewer canvas -->
-    <div class="customizer-box" id="creator-box">
-      <div class="flea-selector-row">
-        <select id="flea-select" class="flea-select"></select>
-        <button id="flea-new-btn" class="icon-btn" title="Create New Frea">New</button>
-        <button id="flea-delete-btn" class="icon-btn danger" title="Delete Selected Frea">Delete</button>
+  <div class="card" id="title-card">
+    <div class="logo">FREA</div>
+    <div class="tag">Arena Slingshot Jump — simplified, polished, epic</div>
+    <div style="display:flex;justify-content:center;gap:12px;align-items:center;">
+      <div class="control-compact">
+        <div class="small">Game Mode</div>
+        <div style="margin-top:6px"><button class="btn" id="mode-classic">Classic</button></div>
       </div>
-
-      <div class="creator-layout">
-        <!-- Interactive Preview Screen -->
-        <div class="preview-stage">
-          <canvas id="customizer-preview-canvas"></canvas>
-        </div>
-
-        <div class="editor-panel">
-          <div class="editor-field">
-            <label>Frea Name</label>
-            <input type="text" id="edit-name" class="editor-input" placeholder="Name your Frea">
-          </div>
-          <div class="editor-field">
-            <label>Body Color</label>
-            <div class="color-picker-container">
-              <input type="color" id="edit-body-color" class="color-swatch" value="#4deeea">
-              <span id="body-color-hex" style="font-size:11px; font-weight:700; opacity:0.8; font-family:'Outfit', sans-serif;">#4deeea</span>
-            </div>
-          </div>
-          <div class="editor-field">
-            <label>Eye Expression</label>
-            <select id="edit-eye-style" class="editor-input">
-              <option value="normal">Normal</option>
-              <option value="cute">Cute Sparkles</option>
-              <option value="cool">Cool Shades</option>
-              <option value="sleepy">Sleepy</option>
-            </select>
-          </div>
-          <div class="editor-field">
-            <label>Antenna Style</label>
-            <select id="edit-antenna-style" class="editor-input">
-              <option value="curly">Curly Loop</option>
-              <option value="long">Long Feather</option>
-              <option value="bulbous">Bulbous Beads</option>
-            </select>
-          </div>
-          <div class="editor-field">
-            <label>Leg Segment Styling</label>
-            <select id="edit-leg-style" class="editor-input">
-              <option value="matching">Match Body Color</option>
-              <option value="pink">Electric Pink Legs</option>
-              <option value="yellow">Neon Yellow Legs</option>
-              <option value="pastel">Pastel Violet Legs</option>
-            </select>
-          </div>
-        </div>
+      <div class="control-compact">
+        <div class="small">Opponents</div>
+        <input type="range" id="ai-count-slider" class="slide" min="1" max="8" value="3">
+        <div class="small" id="ai-count-val">3</div>
       </div>
     </div>
 
-    <!-- Match Configuration Settings -->
-    <div class="settings-grid">
-      <div class="setting-row">
-        <div class="setting-label">Game Mode</div>
-        <div class="mode-switch">
-          <button class="mode-btn active" id="mode-classic">Classic Orb</button>
-          <button class="mode-btn" id="mode-zen">Zen Sandbox</button>
-        </div>
+    <div class="customize" style="margin-top:12px;">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="edit-name" class="input" placeholder="Frea name" value="Frea">
+        <input id="edit-body-color" type="color" value="#4deeea" title="Body color">
       </div>
-
-      <!-- Match Timer Slider Selector (classic mode only) -->
-      <div class="setting-row" id="timer-config-row">
-        <div class="setting-label">Match Duration</div>
-        <div class="slider-container">
-          <input type="range" id="timer-slider" min="30" max="210" step="30" value="90">
-          <div class="slider-val" id="timer-val">90s</div>
-        </div>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-label">Arena Layout</div>
-        <div class="mode-switch">
-          <button class="mode-btn active" id="layout-random">Random</button>
-          <button class="mode-btn" id="layout-horiz">Horizontal</button>
-          <button class="mode-btn" id="layout-vert">Vertical</button>
-          <button class="mode-btn" id="layout-box">Box Room</button>
-        </div>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-label" id="ai-label">Opponent Fleas</div>
-        <div class="slider-container">
-          <input type="range" id="ai-count-slider" min="1" max="8" value="3">
-          <div class="slider-val" id="ai-count-val">3</div>
-        </div>
+      <div>
+        <button class="btn" id="playbtn">Enter Arena</button>
       </div>
     </div>
 
-    <button class="btn" id="playbtn">Enter Arena</button>
-  </div>
-
-  <!-- Game Win / Lose Results View -->
-  <div id="end-view" class="menu-card" style="display:none;">
-    <div class="gtitle" id="endtitle">VICTORY!</div>
-    <div class="gsub" id="endsub">Arena Round Concluded</div>
-    
-    <!-- Dynamic Winner Stage -->
-    <div class="win-stage">
-      <div class="winner-title" id="winner-role-title">Winner of the Match</div>
-      <div class="win-canvas-wrapper">
-        <canvas id="win-flea-canvas" width="150" height="150"></canvas>
-      </div>
-      <div class="winner-tag" id="winner-name-lbl">Tama</div>
-    </div>
-
-    <button class="btn btng" id="againbtn">Restart Match</button>
-    <button class="btn res" id="menubtn">Return to Lobby</button>
   </div>
 </div>
 
-<!-- Pause Overlay Menu -->
 <div id="pause-overlay">
-  <div class="menu-card">
-    <div class="gtitle" style="color: #ff60b5; text-shadow: 0 0 15px rgba(255,96,181,0.4);">GAME PAUSED</div>
-    <div class="gsub" style="margin-bottom: 20px;">Ready to bounce back?</div>
-    
-    <button class="btn" id="resume-btn" style="margin-bottom: 10px;">Resume Play</button>
-    <button class="btn btng" id="pause-restart-btn" style="margin-bottom: 10px;">Restart Match</button>
-    <button class="btn res" id="pause-lobby-btn">Return to Lobby</button>
+  <div class="card">
+    <div style="text-align:center;font-size:28px;font-weight:900;color:var(--accent2)">Paused</div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
+      <button class="btn" id="resume-btn">Resume</button>
+      <button class="btn secondary" id="pause-restart-btn">Restart</button>
+      <button class="btn secondary" id="pause-lobby-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<div id="end-overlay">
+  <div class="card">
+    <div id="endtitle" style="text-align:center;font-size:28px;font-weight:900;color:var(--gold)">Victory!</div>
+    <div style="text-align:center;margin-top:8px;">Winner: <span id="winner-name">Tama</span></div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
+      <button class="btn" id="againbtn">Play Again</button>
+      <button class="btn secondary" id="menubtn">Lobby</button>
+    </div>
   </div>
 </div>
 
 <script>
+/* Small but complete refactor of the original: improved UI/UX and smarter AI movement when stuck
+   Key changes:
+   - Simplified, centered lobby UI with essential options
+   - HUD visible during play, pause and end overlays
+   - Flea AI: when stuck the flea will walk along its platform toward orb and then jump toward it
+   - Clean game loop, level building, and collision handling
+*/
 (function(){
-  var C = document.getElementById('c'), ctx = C.getContext('2d');
-  var W, H;
-  var WORLD_W, WORLD_H;
-  
-  function rsz() {
-    W = C.width = window.innerWidth;
-    H = C.height = window.innerHeight;
-    updateWorldBounds();
-  }
-  
-  var GRAV = 0.4, MAX_DRAG = 140;
-  var STATE = 'title'; // title, countdown, play, gameover
-  var gameMode = 'classic'; // classic, zen
-  var arenaLayout = 'random'; // random, horiz, vert, box
-  var activeLayout = 'horiz'; // dynamically chosen layout
-  var configAiCount = 3;
-  var isPaused = false;
-  var customTimerLimit = 90; // Default match duration
-  
-  var countdownTimer = 5.0; 
-  var lastCountdownInteger = 5;
-  
-  var parts = [], sparks = [];
-  var platforms = [], fleas = [], player = null, orb = null;
-  var orbHolder = null, orbTimer = 0;
-  var sling = { on: false, sx: 0, sy: 0, cx: 0, cy: 0 };
-  var runTgt = null;
-  
-  var camera = { x: 0, y: 0 };
+  const C = document.getElementById('c');
+  const ctx = C.getContext('2d');
+  let W = window.innerWidth, H = window.innerHeight;
+  let WORLD_W = W*1.8, WORLD_H = H*1.2;
 
-  var LC = [
-    { p: '#ff60b5', b1: '#12082b', b2: '#050210', a: '#ff00aa', platformGlow: '#ff00a0' },
-    { p: '#4deeea', b1: '#041624', b2: '#010610', a: '#00f0ff', platformGlow: '#00e5ff' },
-    { p: '#ffe600', b1: '#1b1a04', b2: '#080701', a: '#ffcc00', platformGlow: '#ffd000' },
-    { p: '#baff66', b1: '#0a1d04', b2: '#030a01', a: '#7fff00', platformGlow: '#80ff00' }
-  ];
-  var currentPalette = LC[0];
+  function resize(){ W = C.width = window.innerWidth; H = C.height = window.innerHeight; WORLD_W = Math.max(W,500)*1.8; WORLD_H = Math.max(H,400)*1.2; }
+  window.addEventListener('resize', resize); resize();
 
-  // Saved Custom Fleas State Manager
-  var savedFleas = [];
-  var activeFleaId = "";
+  // UI elements
+  const overlay = document.getElementById('overlay');
+  const titleCard = document.getElementById('title-card');
+  const playbtn = document.getElementById('playbtn');
+  const pauseBtn = document.getElementById('pause-btn');
+  const pauseOverlay = document.getElementById('pause-overlay');
+  const resumeBtn = document.getElementById('resume-btn');
+  const pauseRestartBtn = document.getElementById('pause-restart-btn');
+  const pauseLobbyBtn = document.getElementById('pause-lobby-btn');
+  const endOverlay = document.getElementById('end-overlay');
+  const againBtn = document.getElementById('againbtn');
+  const menubtn = document.getElementById('menubtn');
+  const tval = document.getElementById('tval');
+  const orbCountEl = document.getElementById('orb-count');
+  const aiSlider = document.getElementById('ai-count-slider');
+  const aiVal = document.getElementById('ai-count-val');
+  const editName = document.getElementById('edit-name');
+  const editColor = document.getElementById('edit-body-color');
 
-  var defaultFreaPresets = [
-    { id: "f1", name: "Frea", bodyColor: "#4deeea", eyeStyle: "cute", antennaStyle: "curly", legStyle: "pink" },
-    { id: "f2", name: "Bubbles", bodyColor: "#ff60b5", eyeStyle: "normal", antennaStyle: "bulbous", legStyle: "matching" },
-    { id: "f3", name: "Slash", bodyColor: "#ffe600", eyeStyle: "cool", antennaStyle: "long", legStyle: "yellow" }
-  ];
+  aiSlider.addEventListener('input', ()=>{ aiVal.textContent = aiSlider.value; });
 
-  // Sparing & Varied Conversations
-  var fleaChatterTimer = 0;
-  var lastFleaSpeaker = null;
-  var bubblePhrases = [
-    "Catch me if you can!",
-    "Bouncing high today!",
-    "I love this room!",
-    "Whoa! Look at that jump!",
-    "Hey! Up here!",
-    "This ceiling is comfortable.",
-    "Flinging around is awesome!",
-    "Need to pause and relax.",
-    "Just catching my breath.",
-    "Nice color palette today!",
-    "Let's stick together!",
-    "The view is beautiful from up here.",
-    "Where is everyone bouncing?",
-    "That was a close call!",
-    "Bouncing is good exercise.",
-    "This sandbox is huge!",
-    "Who needs wings when you can leap?",
-    "Check out this spin!",
-    "Are you enjoying the zen room?",
-    "Look out below!"
-  ];
-
-  function loadFreaSettings() {
-    try {
-      var stored = localStorage.getItem('frea_saved_profiles');
-      var active = localStorage.getItem('frea_active_id');
-      if (stored) {
-        savedFleas = JSON.parse(stored);
-      } else {
-        savedFleas = JSON.parse(JSON.stringify(defaultFreaPresets));
-        localStorage.setItem('frea_saved_profiles', JSON.stringify(savedFleas));
-      }
-      
-      if (active && savedFleas.some(f => f.id === active)) {
-        activeFleaId = active;
-      } else {
-        activeFleaId = savedFleas[0].id;
-        localStorage.setItem('frea_active_id', activeFleaId);
-      }
-    } catch(e) {
-      savedFleas = JSON.parse(JSON.stringify(defaultFreaPresets));
-      activeFleaId = savedFleas[0].id;
-    }
-    repopulateCustomizerDropdown();
-    applyActiveFleaToCustomizerUI();
-    initCreatorPreviewRenderer();
-  }
-
-  function saveFreaSettings() {
-    try {
-      localStorage.setItem('frea_saved_profiles', JSON.stringify(savedFleas));
-      localStorage.setItem('frea_active_id', activeFleaId);
-    } catch(e) {
-      console.warn("Local storage access restricted.", e);
-    }
-  }
-
-  function repopulateCustomizerDropdown() {
-    var select = document.getElementById('flea-select');
-    select.innerHTML = '';
-    savedFleas.forEach(function(f) {
-      var opt = document.createElement('option');
-      opt.value = f.id;
-      opt.textContent = f.name;
-      if (f.id === activeFleaId) opt.selected = true;
-      select.appendChild(opt);
-    });
-  }
-
-  function applyActiveFleaToCustomizerUI() {
-    var current = savedFleas.find(f => f.id === activeFleaId);
-    if (!current) return;
-    document.getElementById('edit-name').value = current.name;
-    document.getElementById('edit-body-color').value = current.bodyColor;
-    document.getElementById('body-color-hex').textContent = current.bodyColor;
-    document.getElementById('edit-eye-style').value = current.eyeStyle;
-    document.getElementById('edit-antenna-style').value = current.antennaStyle;
-    document.getElementById('edit-leg-style').value = current.legStyle;
-  }
-
-  function updateSelectedFreaFromUI() {
-    var current = savedFleas.find(f => f.id === activeFleaId);
-    if (!current) return;
-    current.name = document.getElementById('edit-name').value.trim() || "Frea";
-    current.bodyColor = document.getElementById('edit-body-color').value;
-    current.eyeStyle = document.getElementById('edit-eye-style').value;
-    current.antennaStyle = document.getElementById('edit-antenna-style').value;
-    current.legStyle = document.getElementById('edit-leg-style').value;
-    
-    document.getElementById('body-color-hex').textContent = current.bodyColor;
-    
-    var select = document.getElementById('flea-select');
-    var option = select.querySelector(`option[value="${activeFleaId}"]`);
-    if (option) option.textContent = current.name;
-    
-    saveFreaSettings();
-  }
-
-  // Lobby Toggles & Expanders
-  var toggleDesignerBtn = document.getElementById('toggle-designer-btn');
-  var creatorBox = document.getElementById('creator-box');
-  
-  toggleDesignerBtn.addEventListener('click', function() {
-    if (creatorBox.style.display === 'flex') {
-      creatorBox.style.display = 'none';
-      toggleDesignerBtn.textContent = "🎨 Customize My Frea";
-    } else {
-      creatorBox.style.display = 'flex';
-      toggleDesignerBtn.textContent = "Close Customizer";
-    }
-  });
-
-  // Live Fields
-  document.getElementById('edit-name').addEventListener('input', updateSelectedFreaFromUI);
-  document.getElementById('edit-body-color').addEventListener('input', updateSelectedFreaFromUI);
-  document.getElementById('edit-eye-style').addEventListener('change', updateSelectedFreaFromUI);
-  document.getElementById('edit-antenna-style').addEventListener('change', updateSelectedFreaFromUI);
-  document.getElementById('edit-leg-style').addEventListener('change', updateSelectedFreaFromUI);
-
-  document.getElementById('flea-select').addEventListener('change', function(e) {
-    activeFleaId = e.target.value;
-    saveFreaSettings();
-    applyActiveFleaToCustomizerUI();
-  });
-
-  document.getElementById('flea-new-btn').addEventListener('click', function() {
-    var newId = "f_" + Date.now();
-    var newFlea = {
-      id: newId,
-      name: "Neo Frea " + (savedFleas.length + 1),
-      bodyColor: 'hsl(' + (Math.random() * 360) + ', 85%, 65%)',
-      eyeStyle: "cute",
-      antennaStyle: "curly",
-      legStyle: "matching"
+  // Simple helper: rounded rect polyfill
+  if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+      if (typeof r === 'undefined') r = 6;
+      this.beginPath(); this.moveTo(x+r,y); this.arcTo(x+w,y,x+w,y+h,r); this.arcTo(x+w,y+h,x,y+h,r); this.arcTo(x,y+h,x,y,r); this.arcTo(x,y,x+w,y,r); this.closePath();
     };
-    savedFleas.push(newFlea);
-    activeFleaId = newId;
-    saveFreaSettings();
-    repopulateCustomizerDropdown();
-    applyActiveFleaToCustomizerUI();
-  });
-
-  document.getElementById('flea-delete-btn').addEventListener('click', function() {
-    if (savedFleas.length <= 1) return;
-    savedFleas = savedFleas.filter(f => f.id !== activeFleaId);
-    activeFleaId = savedFleas[0].id;
-    saveFreaSettings();
-    repopulateCustomizerDropdown();
-    applyActiveFleaToCustomizerUI();
-  });
-
-  function updateWorldBounds() {
-    var baseW = W, baseH = H;
-    if (baseW < 500) baseW = 500;
-    if (baseH < 400) baseH = 400;
-
-    if (arenaLayout === 'random') {
-      var options = ['horiz', 'vert', 'box'];
-      activeLayout = options[Math.floor(Math.random() * options.length)];
-    } else {
-      activeLayout = arenaLayout;
-    }
-
-    if (activeLayout === 'horiz') {
-      WORLD_W = baseW * 2.5;
-      WORLD_H = baseH;
-    } else if (activeLayout === 'vert') {
-      WORLD_W = baseW;
-      WORLD_H = baseH * 2.5;
-    } else {
-      WORLD_W = baseW * 2;
-      WORLD_H = baseH * 2;
-    }
   }
 
-  rsz();
-  window.addEventListener('resize', function() {
-    rsz();
-    if (STATE === 'play' || STATE === 'countdown') {
-      buildLevel();
-    }
-  });
+  // Game state
+  let STATE = 'title'; // title, countdown, play, paused, ended
+  let parts = [], sparks = [];
+  let platforms = [], fleas = [], orb = null;
+  let gravity = 0.45;
+  let gameTimer = 90; // seconds
+  let orbCount = 0;
+  let lastTime = performance.now();
 
-  // Mode Selection Elements
-  var modeClassicBtn = document.getElementById('mode-classic');
-  var modeZenBtn = document.getElementById('mode-zen');
-  var aiSlider = document.getElementById('ai-count-slider');
-  var aiVal = document.getElementById('ai-count-val');
-  var aiLabel = document.getElementById('ai-label');
-  var timerSlider = document.getElementById('timer-slider');
-  var timerVal = document.getElementById('timer-val');
-  var timerConfigRow = document.getElementById('timer-config-row');
-
-  timerSlider.addEventListener('input', function() {
-    customTimerLimit = parseInt(timerSlider.value);
-    timerVal.textContent = customTimerLimit + "s";
-  });
-
-  modeClassicBtn.addEventListener('click', function() {
-    gameMode = 'classic';
-    modeClassicBtn.classList.add('active');
-    modeZenBtn.classList.remove('active');
-    aiSlider.max = 8;
-    if (parseInt(aiSlider.value) > 8) aiSlider.value = 8;
-    aiVal.textContent = aiSlider.value;
-    aiLabel.textContent = "Opponent Fleas";
-    timerConfigRow.style.display = 'flex';
-    document.getElementById('add-flea-btn').style.display = 'none';
-    
-    // Reset buttons back to regular match naming
-    document.getElementById('againbtn').textContent = "Restart Match";
-    document.getElementById('pause-restart-btn').textContent = "Restart Match";
-    
-    updateWorldBounds();
-  });
-
-  modeZenBtn.addEventListener('click', function() {
-    gameMode = 'zen';
-    modeZenBtn.classList.add('active');
-    modeClassicBtn.classList.remove('active');
-    aiSlider.max = 20;
-    aiVal.textContent = aiSlider.value;
-    aiLabel.textContent = "Passive Fleas";
-    timerConfigRow.style.display = 'none';
-    if (STATE === 'play') {
-      document.getElementById('add-flea-btn').style.display = 'inline-block';
-    }
-    
-    // Transform match styling naming into peaceful room transform
-    document.getElementById('againbtn').textContent = "Transform Room";
-    document.getElementById('pause-restart-btn').textContent = "Transform Room";
-
-    updateWorldBounds();
-  });
-
-  var lRandomBtn = document.getElementById('layout-random');
-  var lHorizBtn = document.getElementById('layout-horiz');
-  var lVertBtn = document.getElementById('layout-vert');
-  var lBoxBtn = document.getElementById('layout-box');
-
-  function selectLayoutUI(layout) {
-    arenaLayout = layout;
-    [lRandomBtn, lHorizBtn, lVertBtn, lBoxBtn].forEach(b => b.classList.remove('active'));
-    if (layout === 'random') lRandomBtn.classList.add('active');
-    else if (layout === 'horiz') lHorizBtn.classList.add('active');
-    else if (layout === 'vert') lVertBtn.classList.add('active');
-    else if (layout === 'box') lBoxBtn.classList.add('active');
-    updateWorldBounds();
+  class Platform{ constructor(x,y,w,h,col){this.x=x;this.y=y;this.w=w;this.h=h;this.col=col||'rgba(255,255,255,0.03)'}
+    draw(){ ctx.save(); ctx.fillStyle=this.col; ctx.shadowColor='rgba(0,0,0,0.4)'; ctx.shadowBlur=8; ctx.beginPath(); ctx.roundRect(this.x, this.y, this.w, this.h,8); ctx.fill(); ctx.restore(); }
   }
 
-  lRandomBtn.addEventListener('click', function() { selectLayoutUI('random'); });
-  lHorizBtn.addEventListener('click', function() { selectLayoutUI('horiz'); });
-  lVertBtn.addEventListener('click', function() { selectLayoutUI('vert'); });
-  lBoxBtn.addEventListener('click', function() { selectLayoutUI('box'); });
-
-  aiSlider.addEventListener('input', function() {
-    aiVal.textContent = aiSlider.value;
-    configAiCount = parseInt(aiSlider.value);
-  });
-
-  /* Structured Object Paradigms */
-  function Platform(x, y, w, h, col) {
-    this.x = x; this.y = y; this.w = w; this.h = h; this.col = col;
+  class Orb{ constructor(x,y){this.x=x;this.y=y;this.r=8;}
+    draw(){ ctx.save(); ctx.shadowBlur=18; ctx.shadowColor='#ffe600'; ctx.fillStyle='#ffe600'; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
   }
-  Platform.prototype.draw = function(cContext, camX, camY) {
-    cContext.save();
-    cContext.shadowColor = currentPalette.platformGlow;
-    cContext.shadowBlur = 10;
-    cContext.fillStyle = this.col;
-    cContext.beginPath();
-    cContext.roundRect(this.x - camX, this.y - camY, this.w, this.h, 6);
-    cContext.fill();
-    cContext.restore();
-  };
 
-  function Flea(x, y, isP, name, specs) {
-    this.x = x; this.y = y; this.vx = 0; this.vy = 0;
-    this.isP = isP; this.name = name;
-    
-    this.col = specs.bodyColor || '#4deeea';
-    this.eyeStyle = specs.eyeStyle || 'normal';
-    this.antennaStyle = specs.antennaStyle || 'curly';
-    this.legStyle = specs.legStyle || 'matching';
-    
-    this.onG = true; this.stuck = true;
-    this.face = isP ? 1 : (Math.random() > 0.5 ? 1 : -1);
-    this.w = 26; this.h = 24;
-    this.score = 0;
-    this.la = Math.random() * 100;
-    this.ea = Math.random() * 100;
-    this.hasOrb = false;
-    this.sq = 1;
-    this.ait = Math.random() * 20 | 0;
-
-    // Smart Clinging & Shuffle Behavior
-    this.stickTimer = 0;
-    this.crawlDir = Math.random() > 0.5 ? 1 : -1;
-    this.surfaceAngle = 0; // 0=floor, PI=ceiling, PI/2=right wall, -PI/2=left wall
-
-    // Dialog Bubble State Matrix
-    this.bubbleText = "";
-    this.bubbleTimer = 0;
-  }
-  Object.defineProperty(Flea.prototype, 'cx', { get: function() { return this.x + this.w / 2; } });
-  Object.defineProperty(Flea.prototype, 'cy', { get: function() { return this.y + this.h / 2; } });
-
-  Flea.prototype.update = function(dt) {
-    this.la += dt * 0.012; 
-    this.ea += dt * 0.005;
-    this.sq += (1 - this.sq) * 0.15;
-
-    if (this.bubbleTimer > 0) {
-      this.bubbleTimer -= dt;
-      if (this.bubbleTimer <= 0) this.bubbleText = "";
+  class Flea{
+    constructor(x,y,isPlayer,name,color){
+      this.x=x;this.y=y;this.w=26;this.h=20;this.vx=0;this.vy=0;this.isP = !!isPlayer;this.name=name||'Frea';this.col=color||'#4deeea';
+      this.stuck = true; this.surfaceAngle = 0; this.stickTimer = performance.now(); this.face = 1; this.hasOrb = false; this.ait = Math.floor(Math.random()*40)+10;
     }
-    
-    if (STATE === 'countdown') {
-      this.vx = 0; this.vy = 0;
-      return;
-    }
-
-    if (!this.stuck) {
-      this.vy += GRAV;
-      
-      // Increased Max Speed when flinged
-      var MAX_SPD = 38;
-      var currentSpd = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-      if (currentSpd > MAX_SPD) {
-        this.vx = (this.vx / currentSpd) * MAX_SPD;
-        this.vy = (this.vy / currentSpd) * MAX_SPD;
-      }
-
-      // SUB-STEPPING INTERPOLATION
-      var steps = Math.ceil(Math.max(Math.abs(this.vx), Math.abs(this.vy)) / 4);
-      for (var s = 0; s < steps; s++) {
-        this.x += this.vx / steps;
-        this.y += this.vy / steps;
-        if (this.collide()) {
-          break; 
-        }
-      }
-      
-      this.vx *= 0.985;
-      this.vy *= 0.985;
+    get cx(){ return this.x + this.w/2 }
+    get cy(){ return this.y + this.h/2 }
+    update(dt){
+      if (STATE === 'countdown' || STATE==='title') return;
+      if (!this.stuck){ this.vy += gravity; }
+      this.x += this.vx; this.y += this.vy;
+      this.vx *= 0.995; this.vy *= 0.995;
       this.bounds();
-    } else {
-      this.vx = 0;
-      this.vy = 0;
-
-      // Smart organic shuffling / crawling on surfaces while stuck
-      if (gameMode === 'zen' && !this.isP && Math.random() < 0.01) {
-        this.crawlDir *= -1;
-      }
-      if (!this.isP && Math.random() < 0.05) {
-        var crawlSpeed = 0.6;
-        if (this.surfaceAngle === 0) { // Floor
-          this.x += this.crawlDir * crawlSpeed;
-          this.face = this.crawlDir;
-        } else if (this.surfaceAngle === Math.PI) { // Ceiling
-          this.x -= this.crawlDir * crawlSpeed;
-          this.face = -this.crawlDir;
-        } else if (this.surfaceAngle === Math.PI/2) { // Right wall
-          this.y += this.crawlDir * crawlSpeed;
-        } else if (this.surfaceAngle === -Math.PI/2) { // Left wall
-          this.y -= this.crawlDir * crawlSpeed;
+      if (this.stuck) this.vx = 0;
+      this.collidePlatforms();
+    }
+    bounds(){
+      if (this.x < 2) { this.x = 2; this.vx = 0; }
+      if (this.x + this.w > WORLD_W-2) { this.x = WORLD_W - this.w - 2; this.vx = 0; }
+      if (this.y < 2) { this.y = 2; this.vy = 0; }
+      if (this.y + this.h > WORLD_H-2){ this.y = WORLD_H - this.h - 2; this.vy = 0; this.stuck=true }
+    }
+    collidePlatforms(){
+      for (let p of platforms){
+        if (this.x + this.w > p.x && this.x < p.x + p.w && this.y + this.h > p.y && this.y < p.y + p.h){
+          // determine overlap
+          let overlapX = Math.min(this.x + this.w - p.x, p.x + p.w - this.x);
+          let overlapY = Math.min(this.y + this.h - p.y, p.y + p.h - this.y);
+          if (overlapY < overlapX){
+            // vertical collision
+            if (this.cy < p.y + p.h/2){ // landed on top
+              this.y = p.y - this.h; this.vy = 0; this.stuck = true; this.surfaceAngle = 0; this.stickTimer = performance.now();
+            } else { // hit from below
+              this.y = p.y + p.h; this.vy = 0; this.stuck = true; this.surfaceAngle = Math.PI; this.stickTimer = performance.now();
+            }
+          } else {
+            // horizontal collision
+            if (this.cx < p.x + p.w/2){ this.x = p.x - this.w; this.stuck = true; this.surfaceAngle = Math.PI/2; this.stickTimer = performance.now(); }
+            else { this.x = p.x + p.w; this.stuck = true; this.surfaceAngle = -Math.PI/2; this.stickTimer = performance.now(); }
+            this.vx = 0; this.vy = 0;
+          }
         }
-        this.bounds();
       }
     }
-  };
-
-  Flea.prototype.collide = function() {
-    this.onG = false;
-    var fx = this.x, fy = this.y, fw = this.w, fh = this.h;
-    
-    for (var i = 0; i < platforms.length; i++) {
-      var p = platforms[i];
-      if (fx + fw > p.x && fx < p.x + p.w && fy + fh > p.y && fy < p.y + p.h) {
-        var overlapX = Math.min(fx + fw - p.x, p.x + p.w - fx);
-        var overlapY = Math.min(fy + fh - p.y, p.y + p.h - fy);
-        
-        if (overlapX < overlapY) {
-          if (fx + fw / 2 < p.x + p.w / 2) {
-            this.x = p.x - fw;
-            this.surfaceAngle = Math.PI/2; 
+    launch(vx,vy){ this.vx=vx; this.vy=vy; this.stuck=false; this.hasOrb=false }
+    aiUpdate(){
+      if (this.isP || STATE !== 'play') return;
+      this.ait--; if (this.ait>0) return; this.ait = Math.floor(20 + Math.random()*40);
+      if (this.stuck){
+        // find platform under this flea
+        let p = platforms.find(pl=> this.x + this.w > pl.x && this.x < pl.x + pl.w && Math.abs((this.y+this.h) - pl.y) < 10);
+        if (p && orb){
+          // smart move: walk along the platform toward orb's x
+          let targetX = Math.max(p.x + 6, Math.min(orb.x - this.w/2, p.x + p.w - 6));
+          let centerX = this.cx;
+          let dx = targetX - centerX;
+          if (Math.abs(dx) > 6){
+            // move along platform
+            let dir = Math.sign(dx);
+            let speed = 0.9 + Math.random()*0.6;
+            this.x += dir * speed;
+            this.face = dir>=0?1:-1;
+            // clamp to platform bounds
+            this.x = Math.max(this.x, p.x+2);
+            this.x = Math.min(this.x, p.x + p.w - this.w - 2);
+            this.stickTimer = performance.now();
           } else {
-            this.x = p.x + p.w;
-            this.surfaceAngle = -Math.PI/2; 
+            // close enough -> try to jump toward orb
+            // compute simple ballistic velocity
+            let dx2 = orb.x - this.cx;
+            let dy2 = orb.y - this.cy;
+            let t = Math.max(0.6, Math.min(1.6, Math.abs(dx2)/200));
+            let vx = dx2 / t;
+            let vy = (dy2 - 0.5*gravity*t*t) / t;
+            // limit speed
+            let spd = Math.hypot(vx,vy);
+            let maxSpd = 26;
+            if (spd > maxSpd) { vx = vx/spd*maxSpd; vy = vy/spd*maxSpd; }
+            // add some randomness
+            vx += (Math.random()-0.5)*4; vy += (Math.random()-0.5)*2 - 2;
+            this.launch(vx,vy);
+            this.face = vx>0?1:-1;
           }
-          this.vx = 0;
-          this.vy = 0;
-          this.stuck = true; 
         } else {
-          if (fy + fh / 2 < p.y + p.h / 2) {
-            this.y = p.y - fh;
-            this.onG = true;
-            this.surfaceAngle = 0; 
-          } else {
-            this.y = p.y + p.h;
-            this.surfaceAngle = Math.PI; 
-          }
-          this.vx = 0;
-          this.vy = 0;
-          this.stuck = true; 
+          // no platform or no orb: random shuffle to avoid being idle
+          if (Math.random() < 0.4) this.x += (Math.random()>0.5?1:-1) * (0.6 + Math.random()*1.2);
+          // occasionally small jump to unstick
+          if (Math.random() < 0.08){ this.launch((Math.random()-0.5)*12, -10 - Math.random()*8); }
         }
-        
-        if (this.stuck) {
-          this.stickTimer = Date.now();
-          if (this.sq < 0.75) this.sq = 0.65;
-        }
-        return true;
-      }
-    }
-    return false;
-  };
-
-  Flea.prototype.bounds = function() {
-    var pad = 4;
-    var hit = false;
-    if (this.x < pad) { this.x = pad; this.vx = 0; this.stuck = true; this.surfaceAngle = -Math.PI/2; hit = true; }
-    if (this.x + this.w > WORLD_W - pad) { this.x = WORLD_W - this.w - pad; this.vx = 0; this.stuck = true; this.surfaceAngle = Math.PI/2; hit = true; }
-    if (this.y < pad) { this.y = pad; this.vy = 0; this.stuck = true; this.surfaceAngle = Math.PI; hit = true; }
-    if (this.y + this.h > WORLD_H - pad) {
-      this.y = WORLD_H - this.h - pad;
-      this.vy = 0; this.vx = 0;
-      this.stuck = true;
-      this.surfaceAngle = 0;
-      hit = true;
-    }
-    if (hit) this.stickTimer = Date.now();
-  };
-
-  Flea.prototype.launch = function(dvx, dvy) {
-    this.vx = dvx; this.vy = dvy;
-    this.stuck = false;
-    this.onG = false;
-    this.sq = 0.5;
-    this.surfaceAngle = 0;
-    jpfx(this.cx, this.cy, this.col);
-  };
-
-  // Physical Elastic Collisions Resolution
-  function resolveFleaCollisions() {
-    for (var i = 0; i < fleas.length; i++) {
-      for (var j = i + 1; j < fleas.length; j++) {
-        var f1 = fleas[i];
-        var f2 = fleas[j];
-        
-        var dx = f2.cx - f1.cx;
-        var dy = f2.cy - f1.cy;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        var minDist = (f1.w + f2.w) * 0.45;
-        
-        if (dist < minDist) {
-          if (dist === 0) { dx = 1; dy = 0; dist = 1; }
-          var overlap = minDist - dist;
-          var nx = dx / dist;
-          var ny = dy / dist;
-          
-          f1.x -= nx * overlap * 0.5;
-          f1.y -= ny * overlap * 0.5;
-          f2.x += nx * overlap * 0.5;
-          f2.y += ny * overlap * 0.5;
-          
-          var kx = f1.vx - f2.vx;
-          var ky = f1.vy - f2.vy;
-          var p = (nx * kx + ny * ky);
-          
-          if (p > 0) {
-            f1.vx -= p * nx;
-            f1.vy -= p * ny;
-            f2.vx += p * nx;
-            f2.vy += p * ny;
-          }
-          
-          var totalImpulse = Math.abs(f1.vx) + Math.abs(f1.vy) + Math.abs(f2.vx) + Math.abs(f2.vy);
-          if (totalImpulse > 2) {
-            if (f1.stuck) { f1.stuck = false; f1.onG = false; }
-            if (f2.stuck) { f2.stuck = false; f2.onG = false; }
-          }
-        }
-      }
-    }
-  }
-
-  // Trajectory Solver Pathing
-  Flea.prototype.aiUpdate = function() {
-    if (STATE !== 'play') return;
-    this.ait--;
-    if (this.ait <= 0) {
-      var baseDecisionDelay = (this.surfaceAngle !== 0) ? 12 : 35;
-      this.ait = baseDecisionDelay + Math.random() * 25 | 0;
-      
-      if (this.stuck) {
-        var stuckTime = Date.now() - this.stickTimer;
-        var modeClassicWanderChance = 0.15;
-        var decideJump = (stuckTime > 1500 && Math.random() < 0.8) || (Math.random() < 0.4);
-
-        if (gameMode === 'zen') {
-          if (Math.random() < 0.55) {
-            this.ait = 90 + Math.random() * 130 | 0; // Relax and chill out longer together
-            return;
-          }
-        }
-
-        if (decideJump) {
-          var tx = this.cx, ty = this.cy;
-          
-          if (gameMode === 'classic' && orb) {
-            if (Math.random() > modeClassicWanderChance) {
-              tx = orb.x;
-              ty = orb.y;
-            } else {
-              var randomPlat = platforms[Math.floor(Math.random() * platforms.length)];
-              if (randomPlat) {
-                tx = randomPlat.x + randomPlat.w * Math.random();
-                ty = randomPlat.y - 10;
-              }
-            }
-          } else {
-            var randPlat = platforms[Math.floor(Math.random() * platforms.length)];
-            if (randPlat) {
-              tx = randPlat.x + randPlat.w * Math.random();
-              ty = randPlat.y - 10;
-            }
-          }
-          
-          var dx = tx - this.cx;
-          var dy = ty - this.cy;
-          var dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist > 15) {
-            var timeOfFlight = dist / 15; 
-            var targetVx = dx / timeOfFlight;
-            var targetVy = (dy - 0.5 * GRAV * timeOfFlight * timeOfFlight) / timeOfFlight;
-            
-            var mSpd = 18;
-            var actualSpd = Math.sqrt(targetVx * targetVx + targetVy * targetVy);
-            if (actualSpd > mSpd) {
-              targetVx = (targetVx / actualSpd) * mSpd;
-              targetVy = (targetVy / actualSpd) * mSpd;
-            }
-            
-            targetVx += (Math.random() - 0.5) * 2;
-            targetVy += (Math.random() - 0.5) * 2 - 2; 
-            
-            this.launch(targetVx, targetVy);
-            this.face = targetVx > 0 ? 1 : -1;
-          }
-        }
-      }
-    }
-  };
-
-  Flea.prototype.draw = function(cContext, camX, camY) {
-    var renderX = this.cx - camX;
-    var renderY = this.cy - camY;
-
-    cContext.save();
-    cContext.translate(renderX, renderY);
-
-    if (this.stuck) {
-      cContext.rotate(this.surfaceAngle);
-    }
-
-    if (this.face < 0) cContext.scale(-1, 1);
-    
-    var sy = this.sq, sx = 2 - this.sq;
-    cContext.scale(sx, sy);
-    
-    cContext.shadowColor = this.col;
-    cContext.shadowBlur = this.hasOrb ? 25 : 8;
-    cContext.fillStyle = this.col;
-    
-    // Body Shape
-    cContext.beginPath(); cContext.ellipse(0, 0, 14, 11, 0, 0, Math.PI * 2); cContext.fill();
-    cContext.fillStyle = 'rgba(0,0,0,0.15)';
-    cContext.beginPath(); cContext.ellipse(0, 2, 11, 8, 0, 0, Math.PI * 2); cContext.fill();
-    cContext.fillStyle = this.col;
-    cContext.beginPath(); cContext.ellipse(0, -1, 14, 11, 0, 0, Math.PI * 2); cContext.fill();
-    
-    if (this.hasOrb) {
-      cContext.strokeStyle = '#ffe600'; cContext.lineWidth = 3;
-      cContext.beginPath(); cContext.arc(0, 0, 20, 0, Math.PI * 2); cContext.stroke();
-    }
-    
-    // Eyes
-    cContext.fillStyle = '#fff';
-    if (this.eyeStyle === 'cool') {
-      cContext.fillStyle = '#111';
-      cContext.beginPath(); cContext.roundRect(1, -6, 12, 6, 2); cContext.fill();
-      cContext.strokeStyle = '#fff'; cContext.lineWidth = 1;
-      cContext.beginPath(); cContext.moveTo(1, -3); cContext.lineTo(13, -3); cContext.stroke();
-    } else if (this.eyeStyle === 'sleepy') {
-      cContext.strokeStyle = '#333'; cContext.lineWidth = 2.5; cContext.lineCap = 'round';
-      cContext.beginPath(); cContext.arc(6, -3, 4, 0, Math.PI, true); cContext.stroke();
-    } else if (this.eyeStyle === 'cute') {
-      cContext.beginPath(); cContext.ellipse(5, -3, 5, 5, 0, 0, Math.PI * 2); cContext.fill();
-      cContext.fillStyle = '#000';
-      cContext.beginPath(); cContext.arc(5, -3, 3, 0, Math.PI * 2); cContext.fill();
-      cContext.fillStyle = '#fff';
-      cContext.beginPath(); cContext.arc(3.8, -4.2, 1.2, 0, Math.PI * 2); cContext.fill();
-      cContext.beginPath(); cContext.arc(6.2, -1.8, 0.6, 0, Math.PI * 2); cContext.fill();
-    } else {
-      cContext.beginPath(); cContext.ellipse(5, -3, 4.5, 4.5, 0, 0, Math.PI * 2); cContext.fill();
-      cContext.fillStyle = '#000';
-      var ep = Math.sin(this.ea * 0.6) * 1.2;
-      cContext.beginPath(); cContext.arc(5 + ep, -3, 2.2, 0, Math.PI * 2); cContext.fill();
-      cContext.fillStyle = '#fff';
-      cContext.beginPath(); cContext.arc(6 + ep, -4, 0.8, 0, Math.PI * 2); cContext.fill();
-    }
-    
-    // Legs
-    var legColor = this.col;
-    if (this.legStyle === 'pink') legColor = '#ff60b5';
-    else if (this.legStyle === 'yellow') legColor = '#ffe600';
-    else if (this.legStyle === 'pastel') legColor = '#d3b3ff';
-    
-    cContext.strokeStyle = legColor; cContext.lineWidth = 2.5; cContext.lineCap = 'round';
-    var legs = [[-8, 6], [-4, 8], [0, 8], [4, 8], [8, 6]];
-    for (var i = 0; i < legs.length; i++) {
-      var lx = legs[i][0], ly = legs[i][1];
-      var sw = Math.sin(this.la * 3.5 + i * 1.2) * (this.stuck ? 1 : 4);
-      cContext.beginPath(); cContext.moveTo(lx, ly - 1);
-      cContext.lineTo(lx + (i % 2 === 0 ? -5 : 5), ly + 6 + sw);
-      cContext.stroke();
-    }
-    
-    // Antennas
-    cContext.strokeStyle = 'rgba(255,255,255,0.7)'; cContext.lineWidth = 2;
-    var aL = Math.sin(this.la * 1.2) * 5;
-    
-    if (this.antennaStyle === 'long') {
-      cContext.beginPath(); cContext.moveTo(-2, -11); cContext.lineTo(-12, -26 + aL); cContext.stroke();
-      cContext.beginPath(); cContext.moveTo(2, -11); cContext.lineTo(12, -26 - aL); cContext.stroke();
-    } else if (this.antennaStyle === 'bulbous') {
-      cContext.beginPath(); cContext.moveTo(-2, -11); cContext.quadraticCurveTo(-8, -18 + aL, -5, -23); cContext.stroke();
-      cContext.beginPath(); cContext.moveTo(2, -11); cContext.quadraticCurveTo(8, -18 - aL, 5, -23); cContext.stroke();
-      cContext.fillStyle = '#ff60b5';
-      cContext.beginPath(); cContext.arc(-5, -23, 3, 0, Math.PI * 2); cContext.fill();
-      cContext.beginPath(); cContext.arc(5, -23, 3, 0, Math.PI * 2); cContext.fill();
-    } else {
-      cContext.beginPath(); cContext.moveTo(-2, -11); cContext.quadraticCurveTo(-10, -20 + aL, -6, -25); cContext.stroke();
-      cContext.beginPath(); cContext.moveTo(2, -11); cContext.quadraticCurveTo(10, -20 - aL, 6, -25); cContext.stroke();
-    }
-    
-    cContext.restore();
-    
-    // Header labels
-    cContext.fillStyle = this.isP ? '#4deeea' : 'rgba(255,255,255,0.8)';
-    cContext.font = 'bold 11px sans-serif';
-    cContext.textAlign = 'center';
-    cContext.fillText(this.name, this.cx - camX, this.y - camY - 12);
-
-    if (this.bubbleText) {
-      this.drawSpeechBubble(cContext, camX, camY);
-    }
-  };
-
-  Flea.prototype.drawSpeechBubble = function(cContext, camX, camY) {
-    var bx = this.cx - camX;
-    var by = this.y - camY - 24;
-
-    cContext.save();
-    cContext.font = "bold 10px sans-serif";
-    var textWidth = cContext.measureText(this.bubbleText).width;
-    var padH = 8;
-    var bW = textWidth + padH * 2;
-    var bH = 18;
-
-    cContext.fillStyle = "rgba(10, 5, 27, 0.95)";
-    cContext.strokeStyle = "#4deeea";
-    cContext.lineWidth = 1.5;
-
-    cContext.beginPath();
-    cContext.roundRect(bx - bW/2, by - bH, bW, bH, 6);
-    cContext.fill();
-    cContext.stroke();
-
-    cContext.beginPath();
-    cContext.moveTo(bx - 4, by);
-    cContext.lineTo(bx + 4, by);
-    cContext.lineTo(bx, by + 4);
-    cContext.closePath();
-    cContext.fill();
-    cContext.stroke();
-
-    cContext.fillStyle = "#fff";
-    cContext.textAlign = "center";
-    cContext.fillText(this.bubbleText, bx, by - bH/2 + 3);
-    cContext.restore();
-  };
-
-  function Orb(x, y) {
-    this.x = x; this.y = y; this.vx = (Math.random() - .5) * 4; this.vy = -6;
-    this.r = 16; this.an = 0; this.pu = 0;
-    ofx(this.x, this.y);
-  }
-  Orb.prototype.update = function(dt) {
-    this.an += dt * 0.005; this.pu += dt * 0.01;
-    if (orbHolder) return;
-    
-    this.vy += GRAV * 0.6;
-    this.x += this.vx; this.y += this.vy;
-    this.vx *= 0.98;
-    
-    for (var i = 0; i < platforms.length; i++) {
-      var p = platforms[i];
-      if (this.x + this.r > p.x && this.x - this.r < p.x + p.w) {
-        var prevY = this.y - this.vy;
-        if (prevY + this.r <= p.y + 2 && this.y + this.r >= p.y && this.vy >= 0) {
-          this.y = p.y - this.r; this.vy *= -0.5; this.vx *= 0.7;
-          if (Math.abs(this.vy) < 0.5) this.vy = 0;
-        }
-        if (this.y - this.r < p.y + p.h && this.y + this.r > p.y && this.vy < 0) {
-          this.y = p.y + p.h + this.r; this.vy = Math.abs(this.vy) * 0.3;
-        }
-      }
-    }
-    if (this.x - this.r < 0) { this.x = this.r; this.vx = Math.abs(this.vx); }
-    if (this.x + this.r > WORLD_W) { this.x = WORLD_W - this.r; this.vx = -Math.abs(this.vx); }
-    if (this.y + this.r > WORLD_H - 60) {
-      this.respawnAtPeak();
-    }
-  };
-  Orb.prototype.respawnAtPeak = function() {
-    var highestY = WORLD_H;
-    var targetPlat = null;
-    for (var i = 0; i < platforms.length; i++) {
-      if (platforms[i].y < highestY) {
-        highestY = platforms[i].y;
-        targetPlat = platforms[i];
-      }
-    }
-    if (targetPlat) {
-      this.x = targetPlat.x + targetPlat.w / 2;
-      this.y = targetPlat.y - this.r - 10;
-    } else {
-      this.y = 100;
-      this.x = WORLD_W / 2;
-    }
-    this.vy = -4;
-    this.vx = (Math.random() - .5) * 3;
-    ofx(this.x, this.y);
-  };
-  Orb.prototype.draw = function() {
-    var renderX = this.x - camera.x;
-    var renderY = this.y - camera.y;
-    var r = this.r + Math.sin(this.an) * 2;
-    
-    ctx.save();
-    ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 25 + Math.sin(this.pu) * 6;
-    var g = ctx.createRadialGradient(renderX - 4, renderY - 4, 2, renderX, renderY, r);
-    g.addColorStop(0, '#fffdf0'); g.addColorStop(0.3, '#ffe600');
-    g.addColorStop(0.8, '#ff6c00'); g.addColorStop(1, '#ff2200');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(renderX, renderY, r, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  };
-
-  /* Visual FX */
-  function jpfx(x, y, col) {
-    for (var i = 0; i < 8; i++) {
-      var a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 4;
-      parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, l: 1, r: 2 + Math.random() * 3, c: col });
-    }
-  }
-  function ofx(x, y) {
-    for (var i = 0; i < 15; i++) {
-      var a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 5;
-      parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, l: 1, r: 3 + Math.random() * 3, c: '#ffe600' });
-      sparks.push({ x: x, y: y, vx: Math.cos(a) * sp * 1.2, vy: Math.sin(a) * sp * 1.2 - 2, l: 1, c: '#fff' });
-    }
-  }
-
-  function drawEffects() {
-    for (var i = parts.length - 1; i >= 0; i--) {
-      var p = parts[i];
-      ctx.save(); ctx.globalAlpha = p.l; ctx.fillStyle = p.c;
-      ctx.beginPath(); ctx.arc(p.x - camera.x, p.y - camera.y, p.r * p.l, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.l -= 0.035;
-      if (p.l <= 0) parts.splice(i, 1);
-    }
-    for (var i = sparks.length - 1; i >= 0; i--) {
-      var s = sparks[i];
-      ctx.save(); ctx.globalAlpha = s.l; ctx.fillStyle = s.c;
-      ctx.beginPath(); ctx.arc(s.x - camera.x, s.y - camera.y, 2.5 * s.l, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      s.x += s.vx; s.y += s.vy; s.vy += 0.08; s.vx *= 0.94; s.l -= 0.025;
-      if (s.l <= 0) sparks.splice(i, 1);
-    }
-  }
-
-  /* Level Generation */
-  function buildLevel() {
-    platforms = [];
-    currentPalette = LC[Math.floor(Math.random() * LC.length)];
-    
-    // Safe Bottom Anchor
-    platforms.push(new Platform(0, WORLD_H - 60, WORLD_W, 60, currentPalette.p));
-    
-    // Boundaries
-    platforms.push(new Platform(0, 0, 15, WORLD_H, currentPalette.p));
-    platforms.push(new Platform(WORLD_W - 15, 0, 15, WORLD_H, currentPalette.p));
-
-    if (activeLayout === 'vert') {
-      var stepsY = Math.floor((WORLD_H - 200) / 120);
-      for (var k = 1; k <= stepsY; k++) {
-        var py = WORLD_H - 80 - (k * 120);
-        var pw = 125 + Math.random() * 90;
-        var px = (k % 2 === 0) ? (30 + Math.random() * 50) : (WORLD_W - pw - 30 - Math.random() * 50);
-        platforms.push(new Platform(px, py, pw, 18, currentPalette.p));
-      }
-    } else if (activeLayout === 'horiz') {
-      var stepsX = Math.floor((WORLD_W - 200) / 250);
-      for (var k = 0; k < stepsX; k++) {
-        var px = 150 + (k * 250) + Math.random() * 80;
-        var py = WORLD_H - 100 - (Math.random() * (WORLD_H - 260));
-        var pw = 110 + Math.random() * 100;
-        platforms.push(new Platform(px, py, pw, 18, currentPalette.p));
-      }
-    } else {
-      var gridCols = Math.ceil(WORLD_W / 260);
-      var gridRows = Math.ceil(WORLD_H / 160);
-      for (var c = 0; c < gridCols; c++) {
-        for (var r = 1; r < gridRows; r++) {
-          if (Math.random() < 0.75) {
-            var px = c * 260 + Math.random() * 80 + 30;
-            var py = WORLD_H - (r * 160) + (Math.random() * 30 - 15);
-            var pw = 90 + Math.random() * 90;
-            if (px + pw > WORLD_W - 30) px = WORLD_W - pw - 30;
-            if (py < 80) continue; 
-            platforms.push(new Platform(px, py, pw, 18, currentPalette.p));
-          }
-        }
-      }
-    }
-  }
-
-  // Live Sandbox Environment Transform Option (Zen Sandbox Only)
-  function transformRoomEnvironment() {
-    isPaused = false;
-    buildLevel();
-    parts = [];
-    sparks = [];
-    
-    // Spread existing fleas safely onto base platforms
-    var bottomY = WORLD_H - 60;
-    var seg = WORLD_W / (fleas.length + 1);
-    for (var i = 0; i < fleas.length; i++) {
-      fleas[i].x = seg * (i + 1) - 13;
-      fleas[i].y = bottomY - 35;
-      fleas[i].vx = 0;
-      fleas[i].vy = 0;
-      fleas[i].stuck = true;
-      fleas[i].surfaceAngle = 0;
-      fleas[i].bubbleText = "Wow! Room transformed!";
-      fleas[i].bubbleTimer = 2200;
-    }
-    
-    updScoreboard();
-    document.getElementById('pause-overlay').style.display = 'none';
-    document.getElementById('end-view').style.display = 'none';
-    document.getElementById('overlay').classList.add('gone');
-    document.getElementById('hud').style.display = 'flex';
-    
-    STATE = 'play';
-    
-    var cdOverlay = document.getElementById('countdown-overlay');
-    cdOverlay.textContent = "SHIFTED!";
-    cdOverlay.style.display = 'block';
-    setTimeout(function() { cdOverlay.style.display = 'none'; }, 850);
-  }
-
-  function checkPickup() {
-    if (!orb || orbHolder) return;
-    for (var i = 0; i < fleas.length; i++) {
-      var f = fleas[i];
-      var dx = f.cx - orb.x, dy = f.cy - orb.y;
-      if (Math.sqrt(dx * dx + dy * dy) < f.w / 2 + orb.r) {
-        orbHolder = f; f.hasOrb = true;
-        ofx(orb.x, orb.y);
-        flashOrbNotice(f.name + " SEIZED THE ORB!");
-        break;
-      }
-    }
-  }
-
-  function checkSteal() {
-    if (!orbHolder || !orb) return;
-    for (var i = 0; i < fleas.length; i++) {
-      var f = fleas[i];
-      if (f === orbHolder) continue;
-      var dx = f.cx - orb.x, dy = f.cy - orb.y;
-      if (Math.sqrt(dx * dx + dy * dy) < f.w / 2 + orb.r + 5) {
-        orbHolder.hasOrb = false;
-        orbHolder = f;
-        f.hasOrb = true;
-        ofx(orb.x, orb.y);
-        flashOrbNotice(f.name + " STOLE THE ORB!");
-        break;
-      }
-    }
-  }
-
-  // Classic Score Tick: Exactly 0.5 Seconds
-  function holdTick(dt) {
-    if (!orbHolder || !orb || gameMode !== 'classic') return;
-    orb.x = orbHolder.cx; 
-    orb.y = orbHolder.y - orb.r - 4;
-    
-    orbTimer += dt;
-    if (orbTimer >= 500) { 
-      orbTimer -= 500;
-      orbHolder.score++;
-      updScoreboard();
-      if (orbHolder.score >= 100) {
-        endGame(orbHolder);
-      }
-    }
-  }
-
-  function flashOrbNotice(txt) {
-    var el = document.getElementById('orbtxt');
-    el.textContent = "⚡ " + txt + " ⚡";
-    el.style.transition = 'none'; el.style.opacity = '1'; el.style.transform = 'translateX(-50%) translateY(0)';
-    setTimeout(function() {
-      el.style.transition = 'all 0.8s ease'; el.style.opacity = '0'; el.style.transform = 'translateX(-50%) translateY(-30px)';
-    }, 600);
-  }
-
-  function updScoreboard() {
-    var container = document.getElementById('player-scores');
-    container.innerHTML = '';
-    
-    if (gameMode === 'zen') {
-      var div = document.createElement('div');
-      div.className = 'sbox';
-      div.style.border = '1px solid #4deeea';
-      div.innerHTML = '<div class="slbl" style="color: #4deeea">Fleas in Room</div>' +
-                      '<div class="sval">' + fleas.length + '</div>';
-      container.appendChild(div);
-      return;
-    }
-    
-    var sorted = fleas.slice().sort(function(a, b) { return b.score - a.score; });
-    for (var i = 0; i < sorted.length; i++) {
-      var f = sorted[i];
-      var div = document.createElement('div');
-      div.className = 'sbox';
-      if (f.isP) div.style.border = '1.5px solid #4deeea';
-      if (f.hasOrb) div.style.background = 'linear-gradient(135deg, rgba(255,230,0,0.35), rgba(255,108,0,0.25))';
-      
-      div.innerHTML = '<div class="slbl" style="color:' + f.col + '">' + f.name + (f.hasOrb ? ' 👑' : '') + '</div>' +
-                      '<div class="sval" style="color:' + (f.isP ? '#4deeea' : '#fff') + '">' + f.score + '</div>';
-      container.appendChild(div);
-    }
-  }
-
-  function drawBG() {
-    ctx.fillStyle = currentPalette.b1;
-    ctx.fillRect(0, 0, W, H);
-    
-    ctx.strokeStyle = currentPalette.a + '13'; ctx.lineWidth = 1;
-    var startX = -camera.x % 60;
-    var startY = -camera.y % 60;
-    for (var x = startX; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-    for (var y = startY; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-  }
-
-  function drawSling() {
-    if (!sling.on || !player) return;
-    var px = player.cx - camera.x, py = player.cy - camera.y;
-    var dx = sling.sx - sling.cx, dy = sling.sy - sling.cy;
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    var cl = Math.min(dist, MAX_DRAG);
-    if (dist > 0) { dx = dx / dist * cl; dy = dy / dist * cl; }
-    var pow = cl / MAX_DRAG;
-    var lvx = dx * 0.85, lvy = dy * 0.85; 
-
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2.5;
-    ctx.setLineDash([5, 6]);
-    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sling.cx - camera.x, sling.cy - camera.y); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Path Simulation
-    var tx = player.cx, ty = player.cy, tvx = lvx, tvy = lvy;
-    for (var i = 0; i < 28; i++) {
-      tvx *= 0.985; tvy += GRAV; tx += tvx; ty += tvy;
-      var t = i / 28, al = 0.8 * (1 - t), dr = 5 * (1 - t * 0.5);
-      ctx.fillStyle = pow > 0.7 ? 'rgba(255,70,120,' + al + ')' : 'rgba(77,238,234,' + al + ')';
-      ctx.beginPath(); ctx.arc(tx - camera.x, ty - camera.y, dr, 0, Math.PI * 2); ctx.fill();
-      if (tx < 0 || tx > WORLD_W || ty > WORLD_H) break;
-    }
-    ctx.restore();
-  }
-
-  function drawRunTarget() {
-    if (!runTgt || !player) return;
-    var t = (Date.now() % 600) / 600;
-    ctx.save();
-    ctx.globalAlpha = 0.6 * (1 - t);
-    ctx.strokeStyle = '#4deeea'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(runTgt.x - camera.x, runTgt.y - camera.y, 10 + t * 15, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#4deeea'; ctx.beginPath(); ctx.arc(runTgt.x - camera.x, runTgt.y - camera.y, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-
-  function nearPlayer(x, y) {
-    if (!player) return false;
-    var dx = (x + camera.x) - player.cx, dy = (y + camera.y) - player.cy;
-    return Math.sqrt(dx * dx + dy * dy) < 65;
-  }
-
-  /* Multi-Platform Input Handlers */
-  C.addEventListener('touchstart', function(e) {
-    e.preventDefault(); 
-    if (STATE !== 'play' || isPaused) return;
-    var t = e.changedTouches[0];
-    var tx = t.clientX, ty = t.clientY;
-    if (nearPlayer(tx, ty)) {
-      sling.on = true; sling.sx = tx + camera.x; sling.sy = ty + camera.y; sling.cx = tx + camera.x; sling.cy = ty + camera.y;
-      runTgt = null;
-    } else {
-      runTgt = { x: tx + camera.x, y: ty + camera.y }; 
-      sling.on = false;
-      triggerInstantSpringLeap();
-    }
-  }, { passive: false });
-
-  C.addEventListener('touchmove', function(e) {
-    e.preventDefault(); 
-    if (STATE !== 'play' || isPaused || !sling.on) return;
-    var t = e.changedTouches[0];
-    sling.cx = t.clientX + camera.x; sling.cy = t.clientY + camera.y;
-  }, { passive: false });
-
-  C.addEventListener('touchend', function(e) {
-    e.preventDefault(); 
-    if (STATE !== 'play' || isPaused || !sling.on) return;
-    executeSlingLaunch();
-  }, { passive: false });
-
-  C.addEventListener('mousedown', function(e) {
-    if (STATE !== 'play' || isPaused) return;
-    if (e.target.closest('.hud-btn') || e.target.closest('.hud-container')) return;
-
-    var tx = e.clientX, ty = e.clientY;
-    if (nearPlayer(tx, ty)) {
-      sling.on = true; sling.sx = tx + camera.x; sling.sy = ty + camera.y; sling.cx = tx + camera.x; sling.cy = ty + camera.y;
-      runTgt = null;
-    } else {
-      runTgt = { x: tx + camera.x, y: ty + camera.y }; 
-      sling.on = false;
-      triggerInstantSpringLeap();
-    }
-  });
-
-  window.addEventListener('mousemove', function(e) {
-    if (sling.on) { sling.cx = e.clientX + camera.x; sling.cy = e.clientY + camera.y; }
-  });
-
-  window.addEventListener('mouseup', function(e) {
-    if (!sling.on) return;
-    executeSlingLaunch();
-  });
-
-  function triggerInstantSpringLeap() {
-    if (!runTgt || !player) return;
-    var rdx = runTgt.x - player.cx, rdy = runTgt.y - player.cy;
-    var rdist = Math.sqrt(rdx * rdx + rdy * rdy);
-    
-    if (rdist > 5) {
-      var hopScale = Math.min(20, rdist * 0.1); 
-      player.launch((rdx / rdist) * hopScale, (rdy / rdist) * hopScale);
-      player.face = rdx > 0 ? 1 : -1;
-    }
-    runTgt = null; 
-  }
-
-  function executeSlingLaunch() {
-    var dx = sling.sx - sling.cx, dy = sling.sy - sling.cy;
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 8) {
-      var cl = Math.min(dist, MAX_DRAG);
-      dx = dx / dist * cl; dy = dy / dist * cl;
-      
-      player.launch(dx * 0.85, dy * 0.85);
-      player.face = dx > 0 ? 1 : -1;
-    }
-    sling.on = false;
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (STATE !== 'play' || isPaused) return;
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') { player.stuck = false; player.vx = -11; player.face = -1; }
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') { player.stuck = false; player.vx = 11; player.face = 1; }
-    if ((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW')) {
-      player.launch(player.vx, -14); e.preventDefault();
-    }
-  });
-
-  /* Game Loop */
-  var lt = 0, fid = null;
-  function loop(ts) {
-    var dt = Math.min(ts - lt, 50); lt = ts;
-    
-    if (isPaused) {
-      fid = requestAnimationFrame(loop);
-      return;
-    }
-
-    if (STATE === 'countdown') {
-      countdownTimer -= dt / 1000;
-      var curInt = Math.ceil(countdownTimer);
-      var cdOverlay = document.getElementById('countdown-overlay');
-      
-      if (curInt !== lastCountdownInteger) {
-        lastCountdownInteger = curInt;
-        if (curInt > 0) {
-          cdOverlay.textContent = curInt;
-        }
-      }
-      if (countdownTimer <= 0) {
-        STATE = 'play';
-        cdOverlay.textContent = "GO!";
-        setTimeout(function() { cdOverlay.style.display = 'none'; }, 800);
-      }
-    }
-
-    ctx.clearRect(0, 0, W, H);
-    
-    // Smooth scrolling camera 
-    if (player) {
-      camera.x += (player.cx - W / 2 - camera.x) * 0.1;
-      camera.y += (player.cy - H / 2 - camera.y) * 0.1;
-      
-      camera.x = Math.max(0, Math.min(WORLD_W - W, camera.x));
-      camera.y = Math.max(0, Math.min(WORLD_H - H, camera.y));
-    }
-
-    drawBG();
-    for (var i = 0; i < platforms.length; i++) platforms[i].draw(ctx, camera.x, camera.y);
-
-    // Natural Global Conversation Manager (Sparing & Engaging)
-    if (gameMode === 'zen' && STATE === 'play') {
-      fleaChatterTimer += dt;
-      if (fleaChatterTimer > (5000 + Math.random() * 4000)) {
-        fleaChatterTimer = 0;
-        
-        var candidates = fleas.filter(f => !f.isP && f !== lastFleaSpeaker);
-        if (candidates.length > 0) {
-          var speaker = candidates[Math.floor(Math.random() * candidates.length)];
-          lastFleaSpeaker = speaker;
-          
-          var dx = player.cx - speaker.cx;
-          var dy = player.cy - speaker.cy;
-          var pDist = Math.sqrt(dx*dx + dy*dy);
-          
-          if (pDist < 130 && Math.random() < 0.75) {
-            var playerSpeech = [
-              "Frea! Watch me bounce!",
-              "You are super fast, Frea!",
-              "Hey Frea, jump up here!",
-              "Let's play together!",
-              "Awesome skills, Frea!",
-              "Nice landing, Frea!"
-            ];
-            speaker.bubbleText = playerSpeech[Math.floor(Math.random() * playerSpeech.length)];
-          } else {
-            speaker.bubbleText = bubblePhrases[Math.floor(Math.random() * bubblePhrases.length)];
-          }
-          speaker.bubbleTimer = 2200; 
-        }
-      }
-    }
-
-    // Entity States
-    for (var i = 0; i < fleas.length; i++) {
-      if (!fleas[i].isP) fleas[i].aiUpdate();
-      fleas[i].update(dt);
-    }
-
-    resolveFleaCollisions();
-
-    if (gameMode === 'classic') {
-      if (orb) orb.update(dt);
-      holdTick(dt); checkPickup(); checkSteal();
-    }
-
-    drawRunTarget();
-    if (gameMode === 'classic' && orb) orb.draw();
-    drawSling();
-    
-    for (var i = 0; i < fleas.length; i++) fleas[i].draw(ctx, camera.x, camera.y);
-    drawEffects();
-
-    fid = requestAnimationFrame(loop);
-  }
-
-  function startGame() {
-    isPaused = false;
-    updateWorldBounds();
-    buildLevel();
-    
-    fleas = [];
-    parts = []; sparks = [];
-    orbHolder = null; orbTimer = 0;
-    sling.on = false; runTgt = null;
-    countdownTimer = 5.0; lastCountdownInteger = 5;
-    
-    var totalFleasCount = 1 + configAiCount;
-    var bottomY = WORLD_H - 60;
-    var segmentWidth = WORLD_W / (totalFleasCount + 1);
-    
-    var currentCustom = savedFleas.find(f => f.id === activeFleaId) || savedFleas[0];
-    
-    player = new Flea(segmentWidth - 13, bottomY - 30, true, currentCustom.name, currentCustom);
-    fleas.push(player);
-    
-    var aiNames = ["Pochi", "Tama", "Mochi", "Koko", "Lulu", "Mimi", "Piko", "Yuki", "Chibi", "Rini", "Hana", "Kira", "Taro", "Jiro", "Sora", "Haru", "Minto", "Momo", "Niko", "Uni"];
-    for (var i = 0; i < configAiCount; i++) {
-      var name = aiNames[i % aiNames.length];
-      var spawnX = segmentWidth * (i + 2) - 13;
-      var col = 'hsl(' + ((i * (360 / configAiCount)) + 280) % 360 + ', 100%, 70%)';
-      
-      var aiSpecs = {
-        bodyColor: col,
-        eyeStyle: ['normal', 'cute', 'sleepy'][Math.floor(Math.random() * 3)],
-        antennaStyle: ['curly', 'long', 'bulbous'][Math.floor(Math.random() * 3)],
-        legStyle: ['matching', 'pink', 'yellow', 'pastel'][Math.floor(Math.random() * 4)]
-      };
-      fleas.push(new Flea(spawnX, bottomY - 30, false, name, aiSpecs));
-    }
-
-    var timerLbl = document.getElementById('timer-lbl');
-    if (gameMode === 'classic') {
-      orb = new Orb(WORLD_W / 2, 100);
-      orb.respawnAtPeak(); 
-      if (timerLbl) timerLbl.textContent = "Time";
-      document.getElementById('tval').textContent = customTimerLimit;
-      document.getElementById('add-flea-btn').style.display = 'none';
-    } else {
-      orb = null;
-      if (timerLbl) timerLbl.textContent = "Sandbox";
-      document.getElementById('tval').textContent = "Zen";
-      document.getElementById('add-flea-btn').style.display = 'inline-block';
-    }
-
-    document.getElementById('overlay').classList.add('gone');
-    document.getElementById('pause-overlay').style.display = 'none';
-    document.getElementById('hud').style.display = 'flex';
-    
-    var cdOverlay = document.getElementById('countdown-overlay');
-    cdOverlay.style.display = 'block';
-    cdOverlay.textContent = "5";
-    
-    STATE = 'countdown';
-    updScoreboard();
-
-    var classicSecondsLeft = customTimerLimit;
-    if (window.gameInterval) clearInterval(window.gameInterval);
-    window.gameInterval = setInterval(function() {
-      if (STATE !== 'play' || isPaused) return;
-      if (gameMode === 'classic') {
-        classicSecondsLeft--;
-        document.getElementById('tval').textContent = classicSecondsLeft;
-        if (classicSecondsLeft <= 0) {
-          var winner = player;
-          var topScore = player.score;
-          for (var i = 0; i < fleas.length; i++) {
-            if (fleas[i].score > topScore) {
-              topScore = fleas[i].score;
-              winner = fleas[i];
-            }
-          }
-          endGame(winner);
-        }
-      }
-    }, 1000);
-
-    lt = performance.now();
-    if (fid) cancelAnimationFrame(fid);
-    fid = requestAnimationFrame(loop);
-  }
-
-  // Active Spawning (Zen Mode Exclusive)
-  document.getElementById('add-flea-btn').addEventListener('click', function() {
-    if (fleas.length >= 20) return;
-    
-    var aiNames = ["Bouncy", "Zippy", "Dodo", "Jumper", "Luna", "Twinkle", "Noodle", "Pip", "Wobble", "Sparky"];
-    var name = aiNames[Math.floor(Math.random() * aiNames.length)];
-    
-    var plat = platforms[Math.floor(Math.random() * platforms.length)];
-    var spawnX = plat ? (plat.x + plat.w/2) : (WORLD_W / 2);
-    var spawnY = plat ? (plat.y - 40) : (WORLD_H - 100);
-    
-    var col = 'hsl(' + (Math.random() * 360) + ', 100%, 70%)';
-    var aiSpecs = {
-      bodyColor: col,
-      eyeStyle: ['normal', 'cute', 'sleepy'][Math.floor(Math.random() * 3)],
-      antennaStyle: ['curly', 'long', 'bulbous'][Math.floor(Math.random() * 3)],
-      legStyle: ['matching', 'pink', 'yellow', 'pastel'][Math.floor(Math.random() * 4)]
-    };
-    
-    var newFlea = new Flea(spawnX - 13, spawnY, false, name, aiSpecs);
-    newFlea.bubbleText = "Hey guys, I'm here!";
-    newFlea.bubbleTimer = 2200;
-    
-    fleas.push(newFlea);
-    updScoreboard();
-  });
-
-  // Pause Controls Events
-  document.getElementById('pause-btn').addEventListener('click', function() {
-    if (STATE !== 'play') return;
-    isPaused = true;
-    document.getElementById('pause-overlay').style.display = 'flex';
-  });
-
-  document.getElementById('resume-btn').addEventListener('click', function() {
-    isPaused = false;
-    document.getElementById('pause-overlay').style.display = 'none';
-  });
-
-  document.getElementById('pause-restart-btn').addEventListener('click', function() {
-    if (gameMode === 'zen') {
-      transformRoomEnvironment();
-    } else {
-      document.getElementById('pause-overlay').style.display = 'none';
-      startGame();
-    }
-  });
-
-  document.getElementById('pause-lobby-btn').addEventListener('click', function() {
-    document.getElementById('pause-overlay').style.display = 'none';
-    returnToLobby();
-  });
-
-  function returnToLobby() {
-    isPaused = false;
-    STATE = 'title';
-    if (window.gameInterval) clearInterval(window.gameInterval);
-    if (window.winRenderInterval) clearInterval(window.winRenderInterval);
-    
-    document.getElementById('hud').style.display = 'none';
-    document.getElementById('end-view').style.display = 'none';
-    document.getElementById('title-view').style.display = 'flex';
-    document.getElementById('overlay').classList.remove('gone');
-  }
-
-  function endGame(winnerFlea) {
-    STATE = 'gameover';
-    if (window.gameInterval) clearInterval(window.gameInterval);
-    
-    document.getElementById('hud').style.display = 'none';
-    document.getElementById('title-view').style.display = 'none';
-    document.getElementById('end-view').style.display = 'flex';
-    document.getElementById('overlay').classList.remove('gone');
-    
-    var endTitle = document.getElementById('endtitle');
-    var endSub = document.getElementById('endsub');
-    var winnerNameLbl = document.getElementById('winner-name-lbl');
-    var roleTitle = document.getElementById('winner-role-title');
-
-    if (gameMode === 'classic') {
-      endSub.textContent = "Match Complete";
-      winnerNameLbl.textContent = winnerFlea.name;
-      
-      if (winnerFlea.isP) {
-        endTitle.textContent = "VICTORY!";
-        endTitle.style.color = '#ffe600';
-        roleTitle.textContent = "Your Frea Won the Match!";
       } else {
-        endTitle.textContent = "DEFEAT";
-        endTitle.style.color = '#ff4d79';
-        roleTitle.textContent = "Frea Champion Winner:";
+        // airborne decisions: try to influence trajectory a bit toward orb
+        if (orb){
+          let steer = 0.06;
+          let dx = orb.x - this.cx;
+          this.vx += Math.sign(dx) * steer;
+        }
       }
-      
-      drawWinnerStageFlea(winnerFlea);
-    } else {
-      endTitle.textContent = "ZEN OVER";
-      endTitle.style.color = '#4deeea';
-      endSub.textContent = "Sandbox Session Ended";
-      roleTitle.textContent = "Your Active Frea:";
-      winnerNameLbl.textContent = player.name;
-      drawWinnerStageFlea(player);
+    }
+    draw(){
+      // draw body simple
+      ctx.save();
+      ctx.translate(this.cx, this.cy);
+      if (this.face < 0) ctx.scale(-1,1);
+      // body
+      ctx.fillStyle = this.col; ctx.shadowBlur = this.hasOrb?22:8; ctx.shadowColor = this.col;
+      ctx.beginPath(); ctx.ellipse(0,0,14,11,0,0,Math.PI*2); ctx.fill();
+      // eyes
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(5,-3,4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(6,-3,2,0,Math.PI*2); ctx.fill();
+      // legs
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8,8); ctx.lineTo(-12,14); ctx.moveTo(-2,8); ctx.lineTo(-2,15); ctx.moveTo(6,8); ctx.lineTo(10,14); ctx.stroke();
+      ctx.restore();
+      // name
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '700 11px sans-serif'; ctx.fillText(this.name, this.x, this.y - 8);
     }
   }
 
-  // Interactive Real-Time Preview Renderer Inside Creator Box
-  function initCreatorPreviewRenderer() {
-    var previewCanvas = document.getElementById('customizer-preview-canvas');
-    if (!previewCanvas) return;
-    var pCtx = previewCanvas.getContext('2d');
-    var frameCounter = 0;
-    
-    setInterval(function() {
-      // Only render if customizer box is visible
-      if (creatorBox.style.display !== 'flex') return;
-      
-      var currentFlea = savedFleas.find(f => f.id === activeFleaId);
-      if (!currentFlea) return;
-      
-      previewCanvas.width = 100;
-      previewCanvas.height = 100;
-      pCtx.clearRect(0, 0, 100, 100);
-      frameCounter += 0.12;
-      
-      var tempFlea = new Flea(25, 38, true, "", {
-        bodyColor: currentFlea.bodyColor,
-        eyeStyle: currentFlea.eyeStyle,
-        antennaStyle: currentFlea.antennaStyle,
-        legStyle: currentFlea.legStyle
-      });
-      
-      tempFlea.w = 50;
-      tempFlea.h = 40;
-      tempFlea.stuck = true;
-      tempFlea.face = 1;
-      tempFlea.surfaceAngle = 0;
-      
-      tempFlea.la = frameCounter;
-      tempFlea.ea = frameCounter * 0.4;
-      tempFlea.sq = 1 + Math.sin(frameCounter * 0.8) * 0.08;
-      
-      tempFlea.draw(pCtx, 0, 0);
-    }, 30);
+  function buildLevel(){
+    platforms.length = 0; fleas.length = 0; parts.length = 0; orb = null;
+    const pad = 40; let yBase = H*0.6;
+    // ground full width
+    platforms.push(new Platform(0, WORLD_H - 28, WORLD_W, 28, 'rgba(255,255,255,0.03)'));
+    // create 5 floating platforms at varying heights
+    let count = 5; for (let i=0;i<count;i++){
+      let w = 160 + Math.random()*220;
+      let x = pad + (WORLD_W - pad*2 - w) * (i/(count-1));
+      let y = yBase - i*80 - (Math.random()*40);
+      platforms.push(new Platform(x,y,w,16,'rgba(255,255,255,0.04)'));
+    }
+
+    // spawn fleas: player + AI
+    let playerF = new Flea(120, WORLD_H-200, true, editName.value || 'You', editColor.value);
+    fleas.push(playerF);
+    let aiCount = parseInt(aiSlider.value) || 3;
+    for (let i=0;i<aiCount;i++){
+      let p = platforms[1 + (i % (platforms.length-1))];
+      let fx = p.x + 16 + Math.random()*(p.w-32);
+      let fy = p.y - 24;
+      fleas.push(new Flea(fx,fy,false,'AI'+(i+1), randomPalette()));
+    }
+
+    // place orb on a random platform
+    let plat = platforms[Math.floor(1 + Math.random()*(platforms.length-1))];
+    orb = new Orb(plat.x + plat.w/2, plat.y - 12);
+    orbCount = 0; updateHUD();
+    camera = {x:0,y:0};
   }
 
-  // Stable Spotlight Render for Winner Stage
-  function drawWinnerStageFlea(flea) {
-    var winCanvas = document.getElementById('win-flea-canvas');
-    var wCtx = winCanvas.getContext('2d');
-    
-    var tempFlea = new Flea(45, 60, flea.isP, "", {
-      bodyColor: flea.col,
-      eyeStyle: flea.eyeStyle,
-      antennaStyle: flea.antennaStyle,
-      legStyle: flea.legStyle
-    });
-    
-    tempFlea.w = 55;
-    tempFlea.h = 45;
-    tempFlea.stuck = true;
-    tempFlea.face = 1;
-    tempFlea.surfaceAngle = 0;
-    
-    if (window.winRenderInterval) clearInterval(window.winRenderInterval);
-    
-    var frameCounter = 0;
-    window.winRenderInterval = setInterval(function() {
-      wCtx.clearRect(0, 0, winCanvas.width, winCanvas.height);
-      frameCounter += 0.15;
-      
-      tempFlea.la = frameCounter;
-      tempFlea.ea = frameCounter * 0.4;
-      tempFlea.sq = 1 + Math.sin(frameCounter * 0.7) * 0.08;
-      
-      tempFlea.draw(wCtx, 0, 0);
-      
-      // Royal Crown
-      wCtx.save();
-      wCtx.fillStyle = '#ffe600';
-      wCtx.strokeStyle = '#fff';
-      wCtx.lineWidth = 1.5;
-      wCtx.shadowColor = '#ffe600';
-      wCtx.shadowBlur = 10;
-      wCtx.beginPath();
-      wCtx.moveTo(winCanvas.width/2 - 20, 26 + Math.sin(frameCounter * 0.7) * 4);
-      wCtx.lineTo(winCanvas.width/2 - 25, 10 + Math.sin(frameCounter * 0.7) * 4);
-      wCtx.lineTo(winCanvas.width/2 - 10, 18 + Math.sin(frameCounter * 0.7) * 4);
-      wCtx.lineTo(winCanvas.width/2, 6 + Math.sin(frameCounter * 0.7) * 4);
-      wCtx.lineTo(winCanvas.width/2 + 10, 18 + Math.sin(frameCounter * 0.7) * 4);
-      wCtx.lineTo(winCanvas.width/2 + 25, 10 + Math.sin(frameCounter * 0.7) * 4);
-      wCtx.lineTo(winCanvas.width/2 + 20, 26 + Math.sin(frameCounter * 0.7) * 4);
-      wCtx.closePath();
-      wCtx.fill();
-      wCtx.stroke();
-      wCtx.restore();
-    }, 40);
+  function randomPalette(){ const colors = ['#4deeea','#ff60b5','#ffe600','#baff66']; return colors[Math.floor(Math.random()*colors.length)]; }
+
+  function updateHUD(){ tval.textContent = Math.max(0, Math.ceil(gameTimer)); orbCountEl.textContent = orbCount; }
+
+  let camera = {x:0,y:0};
+  function updateCamera(){ // center on player
+    let p = fleas[0]; if (!p) return;
+    camera.x = Math.max(0, Math.min(WORLD_W - W, p.cx - W/2));
+    camera.y = Math.max(0, Math.min(WORLD_H - H, p.cy - H/2));
   }
 
-  function mkStars(id) {
-    var el = document.getElementById(id); if (!el) return; el.innerHTML = '';
-    for (var i = 0; i < 65; i++) {
-      var s = document.createElement('div'); s.className = 'star';
-      var sz = 1.2 + Math.random() * 2.5;
-      s.style.cssText = 'width:' + sz + 'px;height:' + sz + 'px;background:#fff;left:' + (Math.random() * 100) + '%;top:' + (Math.random() * 100) + '%;animation-duration:' + (2 + Math.random() * 3) + 's;animation-delay:' + (Math.random() * 3) + 's;opacity:' + (0.3 + Math.random() * 0.7);
-      el.appendChild(s);
+  // simple collision when fleas touch orb
+  function checkOrbPickup(){
+    for (let f of fleas){ if (orb && Math.hypot(f.cx - orb.x, f.cy - orb.y) < 22){ orbCount++; f.hasOrb = true; orb = null; setTimeout(()=>{ placeOrbOnRandomPlatform(); }, 1200); } }
+  }
+  function placeOrbOnRandomPlatform(){ let p = platforms[1 + Math.floor(Math.random()*(platforms.length-1))]; orb = new Orb(p.x + p.w*Math.random(), p.y - 12); }
+
+  // main loop
+  function loop(ts){
+    let dt = Math.min(40, ts - lastTime); lastTime = ts;
+    if (STATE === 'play'){
+      gameTimer -= dt/1000;
+      if (gameTimer <= 0){ STATE = 'ended'; endOverlay.style.display = 'block'; }
+    }
+    // update fleas
+    for (let f of fleas){ f.update(dt); f.aiUpdate && f.aiUpdate(); }
+    // collisions: simple pair push
+    resolveFleaCollisions();
+    checkOrbPickup();
+    updateCamera();
+    render();
+    updateHUD();
+    requestAnimationFrame(loop);
+  }
+
+  function resolveFleaCollisions(){
+    for (let i=0;i<fleas.length;i++){
+      for (let j=i+1;j<fleas.length;j++){
+        let a=fleas[i], b=fleas[j]; let dx=b.cx-a.cx, dy=b.cy-a.cy; let dist=Math.hypot(dx,dy); let minDist=20;
+        if (dist < minDist && dist>0){ let overlap=(minDist-dist)/2; let nx=dx/dist, ny=dy/dist; a.x -= nx*overlap; a.y -= ny*overlap; b.x += nx*overlap; b.y += ny*overlap; }
+      }
     }
   }
-  mkStars('stars1');
 
-  loadFreaSettings();
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    // background subtle gradient and stars
+    // draw platforms relative to camera
+    ctx.save(); ctx.translate(-camera.x, -camera.y);
+    for (let p of platforms) p.draw();
+    if (orb) orb.draw();
+    for (let f of fleas) f.draw();
+    ctx.restore();
+    // HUD extras
+  }
 
-  document.getElementById('playbtn').addEventListener('click', startGame);
-  document.getElementById('againbtn').addEventListener('click', function() {
-    if (gameMode === 'zen') {
-      transformRoomEnvironment();
-    } else {
-      startGame();
-    }
+  // Input simple slingshot for player via mouse/touch
+  let pointer = {down:false, sx:0, sy:0};
+  C.addEventListener('pointerdown', e=>{
+    if (STATE !== 'play') return; pointer.down = true; pointer.sx = e.clientX + camera.x; pointer.sy = e.clientY + camera.y; });
+  C.addEventListener('pointerup', e=>{
+    if (STATE !== 'play' || !pointer.down) return; pointer.down = false; let ex = e.clientX + camera.x, ey = e.clientY + camera.y; let dx = (pointer.sx - ex)/8, dy = (pointer.sy - ey)/8; // fling scaling
+    // apply to player
+    let p = fleas[0]; if (p){ p.launch(dx,dy); p.face = dx>0?1:-1; }
   });
-  document.getElementById('menubtn').addEventListener('click', returnToLobby);
+
+  // UI actions
+  playbtn.addEventListener('click', ()=>{ overlay.style.display='none'; STATE='play'; gameTimer = 90; buildLevel(); lastTime = performance.now(); requestAnimationFrame(loop); });
+  pauseBtn.addEventListener('click', ()=>{ if (STATE==='play'){ STATE='paused'; pauseOverlay.style.display='block' } });
+  resumeBtn.addEventListener('click', ()=>{ if (STATE==='paused'){ STATE='play'; pauseOverlay.style.display='none' } });
+  pauseRestartBtn.addEventListener('click', ()=>{ pauseOverlay.style.display='none'; STATE='play'; buildLevel(); });
+  pauseLobbyBtn.addEventListener('click', ()=>{ pauseOverlay.style.display='none'; overlay.style.display='block'; STATE='title'; });
+  againBtn.addEventListener('click', ()=>{ endOverlay.style.display='none'; STATE='play'; buildLevel(); gameTimer=90; });
+  menubtn.addEventListener('click', ()=>{ endOverlay.style.display='none'; overlay.style.display='block'; STATE='title'; });
+
+  // Keep a small camera in the beginning while title
+  buildLevel(); render();
+
 })();
 </script>
 </body>
