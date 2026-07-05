@@ -1,16 +1,15 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { Play, Pause, Heart, Plus } from "lucide-react";
+import { Play, Pause, Heart } from "lucide-react";
 import { CoverArt } from "@/components/CoverArt";
+import { SongMenu } from "@/components/SongMenu";
 import { useAudioPlayer } from "@/context/AudioContext";
 import { useFavorites } from "@/context/FavoritesContext";
-import { usePlaylists } from "@/context/PlaylistsContext";
 import { cn } from "@/lib/utils";
 
 function SongCardBase({ song, list }) {
   const { playSong, currentSong, isPlaying, togglePlay } = useAudioPlayer();
   const { isFavorite, toggleFavorite } = useFavorites();
-  const { setAddTarget } = usePlaylists();
   const active = currentSong && currentSong.id === song.id;
   const fav = isFavorite(song.id);
 
@@ -83,14 +82,7 @@ function SongCardBase({ song, list }) {
         >
           <Heart size={16} className={cn(fav && "fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]")} />
         </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setAddTarget(song); }}
-          aria-label="Add to playlist"
-          data-testid={`song-card-add-to-playlist-button-${song.id}`}
-          className="grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10 transition-colors"
-        >
-          <Plus size={16} />
-        </button>
+        <SongMenu song={song} />
         {song.genre && (
           <span className="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">{song.genre}</span>
         )}

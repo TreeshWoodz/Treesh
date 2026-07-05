@@ -1,16 +1,15 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { Play, Pause, Heart, Plus, X } from "lucide-react";
+import { Play, Pause, Heart, X } from "lucide-react";
 import { CoverArt } from "@/components/CoverArt";
+import { SongMenu } from "@/components/SongMenu";
 import { useAudioPlayer } from "@/context/AudioContext";
 import { useFavorites } from "@/context/FavoritesContext";
-import { usePlaylists } from "@/context/PlaylistsContext";
 import { cn } from "@/lib/utils";
 
 function SongRowBase({ song, list, index, onRemove }) {
   const { playSong, currentSong, isPlaying, togglePlay } = useAudioPlayer();
   const { isFavorite, toggleFavorite } = useFavorites();
-  const { setAddTarget } = usePlaylists();
   const active = currentSong && currentSong.id === song.id;
   const fav = isFavorite(song.id);
 
@@ -66,9 +65,7 @@ function SongRowBase({ song, list, index, onRemove }) {
           <X size={16} />
         </button>
       ) : (
-        <button onClick={() => setAddTarget(song)} aria-label="Add to playlist" data-testid={`song-row-add-button-${song.id}`} className="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10 transition-colors">
-          <Plus size={16} />
-        </button>
+        <SongMenu song={song} className="text-white/60" />
       )}
     </motion.div>
   );

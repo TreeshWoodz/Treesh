@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
-  Heart, Volume2, VolumeX, Loader2, AlertCircle, Quote, ListMusic, Share2, ListPlus,
+  Heart, Volume2, VolumeX, Loader2, AlertCircle, Quote, ListMusic, Share2, ListPlus, Disc3,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { CoverArt } from "@/components/CoverArt";
 import { LyricsView } from "@/components/LyricsView";
+import { VinylPlayer } from "@/components/VinylPlayer";
 import { QueueDrawer } from "@/components/QueueDrawer";
 import { useAudioPlayer } from "@/context/AudioContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -28,9 +29,12 @@ export function NowPlayingView() {
 
   const [showLyrics, setShowLyrics] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [vinylMode, setVinylMode] = useState(() => localStorage.getItem("treesh_np_vinyl") === "1");
   const [palette, setPalette] = useState(null);
   const [lyrics, setLyrics] = useState([]);
   const [lyricsLoading, setLyricsLoading] = useState(false);
+
+  const toggleVinyl = () => setVinylMode((v) => { localStorage.setItem("treesh_np_vinyl", v ? "0" : "1"); return !v; });
 
   const song = currentSong;
   const fav = song && isFavorite(song.id);
@@ -112,6 +116,9 @@ export function NowPlayingView() {
         </ActionBtn>
         <ActionBtn active={showLyrics} onClick={() => setShowLyrics((s) => !s)} label="Lyrics" testid="now-playing-lyrics-toggle">
           <Quote size={18} />
+        </ActionBtn>
+        <ActionBtn active={vinylMode} onClick={toggleVinyl} label="Vinyl mode" testid="now-playing-vinyl-toggle">
+          <Disc3 size={18} />
         </ActionBtn>
         <ActionBtn onClick={() => setQueueOpen(true)} label="Queue" testid="now-playing-queue-button">
           <ListMusic size={18} />
@@ -219,15 +226,19 @@ export function NowPlayingView() {
                       transition={{ duration: 0.3 }}
                       className="flex flex-col items-center"
                     >
-                      <motion.div
-                        animate={{ scale: isPlaying ? 1 : 0.9 }}
-                        transition={{ type: "spring", stiffness: 200, damping: 22 }}
-                        className="aspect-square w-[min(78vw,340px)] overflow-hidden rounded-3xl sm:w-[min(60vw,400px)] lg:w-[420px]"
-                        style={{ boxShadow: `0 30px 80px ${rgbStr(c0, 0.5)}, 0 10px 30px rgba(0,0,0,0.5)` }}
-                        data-testid="now-playing-artwork"
-                      >
-                        <CoverArt src={song.coverArt} alt={song.title} className="h-full w-full object-cover" />
-                      </motion.div>
+                      {vinylMode ? (
+                        <VinylPlayer coverArt={song.coverArt} playing={isPlaying} glow={rgbStr(c0, 0.5)} />
+                      ) : (
+                        <motion.div
+                          animate={{ scale: isPlaying ? 1 : 0.9 }}
+                          transition={{ type: "spring", stiffness: 200, damping: 22 }}
+                          className="aspect-square w-[min(78vw,340px)] overflow-hidden rounded-3xl sm:w-[min(60vw,400px)] lg:w-[420px]"
+                          style={{ boxShadow: `0 30px 80px ${rgbStr(c0, 0.5)}, 0 10px 30px rgba(0,0,0,0.5)` }}
+                          data-testid="now-playing-artwork"
+                        >
+                          <CoverArt src={song.coverArt} alt={song.title} className="h-full w-full object-cover" />
+                        </motion.div>
+                      )}
 
                       <div className="mt-7 w-full max-w-[440px] text-center">
                         <div className="flex items-center justify-center gap-2">
