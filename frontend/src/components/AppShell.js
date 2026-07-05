@@ -1,5 +1,6 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { LibraryBig, Sparkles, Heart, ListMusic, Settings } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { StarfieldCanvas } from "@/components/StarfieldCanvas";
 import { TopHeader } from "@/components/TopHeader";
 import { MiniPlayerBar } from "@/components/MiniPlayerBar";
@@ -17,6 +18,8 @@ const NAV = [
 ];
 
 export function AppShell() {
+  const location = useLocation();
+  const topLevel = "/" + (location.pathname.split("/")[1] || "");
   return (
     <div className="relative min-h-[100dvh] overflow-x-hidden bg-[var(--treesh-bg-0)] text-white">
       <StarfieldCanvas />
@@ -50,7 +53,17 @@ export function AppShell() {
       <div className="relative z-10 lg:ml-[240px]">
         <TopHeader />
         <main className="mx-auto max-w-6xl px-4 pb-44 pt-5 sm:px-6 lg:px-8">
-          <Outlet />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={topLevel}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 

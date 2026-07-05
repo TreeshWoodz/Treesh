@@ -1,12 +1,11 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { Play, Pause, Heart, Plus, MoreHorizontal, X } from "lucide-react";
+import { Play, Pause, Heart, Plus, X } from "lucide-react";
 import { CoverArt } from "@/components/CoverArt";
 import { useAudioPlayer } from "@/context/AudioContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { usePlaylists } from "@/context/PlaylistsContext";
 import { cn } from "@/lib/utils";
-import { formatTime } from "@/lib/zodiac";
 
 function SongRowBase({ song, list, index, onRemove }) {
   const { playSong, currentSong, isPlaying, togglePlay } = useAudioPlayer();

@@ -7,6 +7,7 @@ export function VinylPlayer({ coverArt, playing, size = 300 }) {
       <div
         className={cn("vinyl h-full w-full", playing ? "spin" : "spin spin-paused")}
         style={{ animationDuration: "6s" }}
+        data-testid="now-playing-vinyl"
       >
         <div className="vinyl-label">
           <CoverArt src={coverArt} alt="Now playing cover" className="h-full w-full object-cover" />

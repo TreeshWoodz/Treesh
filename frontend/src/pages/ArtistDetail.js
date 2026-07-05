@@ -59,7 +59,7 @@ export default function ArtistDetail() {
           </motion.section>
 
           {artist.bio && (
-            <p className="max-w-2xl text-sm leading-relaxed text-white/70">{artist.bio}</p>
+            <p className="max-w-2xl text-sm leading-relaxed text-white/70" data-testid="artist-bio">{artist.bio}</p>
           )}
 
           {songs.length > 0 && (
@@ -67,7 +67,7 @@ export default function ArtistDetail() {
               <Button onClick={playAll} data-testid="artist-play-all-button" className="gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 hover:bg-[color:var(--treesh-purple)]/90 glow-purple">
                 <Play size={16} fill="white" /> Play
               </Button>
-              <Button onClick={shufflePlay} variant="outline" className="gap-2 rounded-full border-white/15 bg-white/5 hover:bg-white/10">
+              <Button onClick={shufflePlay} variant="outline" data-testid="artist-shuffle-button" className="gap-2 rounded-full border-white/15 bg-white/5 hover:bg-white/10">
                 <Shuffle size={16} /> Shuffle
               </Button>
             </div>

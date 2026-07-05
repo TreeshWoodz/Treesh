@@ -225,6 +225,22 @@ export function AudioProvider({ children }) {
     }
   }, [isPlaying]);
 
+  // ------- Keyboard shortcuts -------
+  useEffect(() => {
+    const onKey = (e) => {
+      const tag = (e.target && e.target.tagName) || "";
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag) || e.target?.isContentEditable) return;
+      if (!currentSong) return;
+      if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+      else if (e.code === "ArrowRight" && e.shiftKey) { next(true); }
+      else if (e.code === "ArrowLeft" && e.shiftKey) { prev(); }
+      else if (e.code === "ArrowRight") { seek(Math.min((audioRef.current?.currentTime || 0) + 5, duration)); }
+      else if (e.code === "ArrowLeft") { seek(Math.max((audioRef.current?.currentTime || 0) - 5, 0)); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [currentSong, togglePlay, next, prev, seek, duration]);
+
   const value = {
     currentSong, queue, currentIndex, isPlaying, duration, currentTime, buffered,
     volume, shuffle, repeat, nowPlayingOpen, loading, errorSongId,
