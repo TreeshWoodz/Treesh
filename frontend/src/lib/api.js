@@ -11,6 +11,7 @@ export const catalogApi = {
   getGenres: () => client.get("/catalog/genres").then((r) => r.data),
   getArtists: () => client.get("/catalog/artists").then((r) => r.data),
   getArtist: (id) => client.get(`/catalog/artists/${id}`).then((r) => r.data),
+  getLyrics: (id) => client.get(`/catalog/lyrics/${id}`).then((r) => r.data),
 };
 
 export const profileApi = {

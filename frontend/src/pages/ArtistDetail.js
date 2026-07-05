@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, Play, Shuffle } from "lucide-react";
+import { ArrowLeft, Play, Shuffle, DollarSign } from "lucide-react";
 import { catalogApi } from "@/lib/api";
 import { CoverArt } from "@/components/CoverArt";
 import { SongRow } from "@/components/SongRow";
@@ -60,6 +60,18 @@ export default function ArtistDetail() {
 
           {artist.bio && (
             <p className="max-w-2xl text-sm leading-relaxed text-white/70" data-testid="artist-bio">{artist.bio}</p>
+          )}
+
+          {artist.cashapp && (
+            <a
+              href={`https://cash.app/$${artist.cashapp}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="artist-cashapp-link"
+              className="inline-flex items-center gap-2 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-4 py-2 text-sm font-semibold text-[color:var(--treesh-gold)] transition-colors hover:bg-[color:var(--treesh-gold)]/20"
+            >
+              <DollarSign size={16} /> Support on Cash App &middot; ${artist.cashapp}
+            </a>
           )}
 
           {songs.length > 0 && (

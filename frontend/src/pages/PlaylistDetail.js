@@ -1,9 +1,10 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, Play, ListMusic } from "lucide-react";
+import { ArrowLeft, Play, ListMusic, Share2 } from "lucide-react";
 import { playlistsApi } from "@/lib/api";
 import { usePlaylists } from "@/context/PlaylistsContext";
+import { sharePlaylist } from "@/lib/share";
 import { SongRow } from "@/components/SongRow";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +42,10 @@ export default function PlaylistDetail() {
 
           {songs.length > 0 ? (
             <>
-              <Button onClick={() => playSong(songs[0], songs)} className="gap-2 rounded-full bg-[color:var(--treesh-purple)] hover:bg-[color:var(--treesh-purple)]/90 glow-purple"><Play size={16} fill="white" /> Play</Button>
+              <div className="flex items-center gap-3">
+                <Button onClick={() => playSong(songs[0], songs)} className="gap-2 rounded-full bg-[color:var(--treesh-purple)] hover:bg-[color:var(--treesh-purple)]/90 glow-purple"><Play size={16} fill="white" /> Play</Button>
+                <Button onClick={() => sharePlaylist(data)} variant="outline" data-testid="share-playlist-detail-button" className="gap-2 rounded-full border-white/15 bg-white/5 hover:bg-white/10"><Share2 size={16} /> Share</Button>
+              </div>
               <div className="space-y-1">
                 {songs.map((s, i) => <SongRow key={s.id} song={s} list={songs} index={i} onRemove={() => onRemove(s.id)} />)}
               </div>

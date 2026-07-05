@@ -70,6 +70,7 @@ class Artist(BaseModel):
     image: str = ""
     background: str = ""
     bgPos: str = "center center"
+    cashapp: str = ""
 
 
 class ProfileIn(BaseModel):
@@ -111,8 +112,14 @@ async def seed_database():
     with open(seed_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
+    seed_version = data.get("seedVersion", 1)
+    meta = await db.meta.find_one({"_id": "seed"})
+    current_version = meta.get("version") if meta else 0
+    force = seed_version != current_version
+
     # Artists
-    if await db.artists.count_documents({}) == 0:
+    if force or await db.artists.count_documents({}) == 0:
+        await db.artists.delete_many({})
         artists = []
         for a in data.get("artists", []):
             artists.append({
@@ -123,13 +130,15 @@ async def seed_database():
                 "image": a.get("image", ""),
                 "background": a.get("background", ""),
                 "bgPos": a.get("bgPos", "center center"),
+                "cashapp": a.get("cashapp", ""),
             })
         if artists:
             await db.artists.insert_many(artists)
             logger.info(f"Seeded {len(artists)} artists")
 
     # Songs
-    if await db.songs.count_documents({}) == 0:
+    if force or await db.songs.count_documents({}) == 0:
+        await db.songs.delete_many({})
         songs = []
         seen = set()
         for idx, s in enumerate(data.get("songs", [])):
@@ -158,10 +167,14 @@ async def seed_database():
                 "bio": s.get("bio", ""),
                 "explicit": bool(s.get("explicit", False)),
                 "treeshChoice": bool(s.get("treeshChoice", False)),
+                "lyrics": s.get("lyrics", []),
             })
         if songs:
             await db.songs.insert_many(songs)
             logger.info(f"Seeded {len(songs)} songs")
+
+    if force:
+        await db.meta.update_one({"_id": "seed"}, {"$set": {"version": seed_version}}, upsert=True)
 
 
 @app.on_event("startup")
@@ -195,8 +208,18 @@ async def get_songs(genre: Optional[str] = None, q: Optional[str] = None,
     if q:
         rx = {"$regex": re.escape(q), "$options": "i"}
         query["$or"] = [{"title": rx}, {"artist": rx}, {"writtenBy": rx}]
-    songs = await db.songs.find(query, {"_id": 0}).sort("order", 1).to_list(1000)
+    songs = await db.songs.find(query, {"_id": 0, "lyrics": 0}).sort("order", 1).to_list(1000)
     return songs
+
+
+@api_router.get("/catalog/lyrics/{song_id}")
+async def get_lyrics(song_id: str):
+    song = await db.songs.find_one({"id": song_id}, {"_id": 0, "lyrics": 1, "title": 1, "artist": 1})
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    lyrics = song.get("lyrics", [])
+    return {"songId": song_id, "title": song.get("title"), "artist": song.get("artist"),
+            "lyrics": lyrics, "synced": bool(lyrics)}
 
 
 @api_router.get("/catalog/songs/{song_id}", response_model=Song)

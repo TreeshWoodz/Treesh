@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ListMusic, Plus, Pencil, Trash2 } from "lucide-react";
+import { ListMusic, Plus, Pencil, Trash2, Share2 } from "lucide-react";
 import { usePlaylists } from "@/context/PlaylistsContext";
+import { sharePlaylist } from "@/lib/share";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -55,6 +56,7 @@ export default function Playlists() {
                 </div>
               </button>
               <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <button onClick={() => sharePlaylist(pl)} data-testid={`share-playlist-button-${pl.id}`} aria-label="Share" className="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><Share2 size={15} /></button>
                 <button onClick={() => { setRenameTarget(pl); setRenameVal(pl.name); }} data-testid={`rename-playlist-button-${pl.id}`} aria-label="Rename" className="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><Pencil size={15} /></button>
                 <button onClick={() => setDeleteTarget(pl)} data-testid={`delete-playlist-button-${pl.id}`} aria-label="Delete" className="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-red-300"><Trash2 size={15} /></button>
               </div>

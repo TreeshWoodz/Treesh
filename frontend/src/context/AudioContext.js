@@ -155,6 +155,47 @@ export function AudioProvider({ children }) {
     setRepeat((r) => (r === "off" ? "all" : r === "all" ? "one" : "off"));
   }, []);
 
+  // ------- queue management -------
+  const reorderQueue = useCallback((newList) => {
+    const cur = stateRef.current.queue[stateRef.current.currentIndex];
+    setQueue(newList);
+    stateRef.current.queue = newList;
+    baseQueueRef.current = newList;
+    if (cur) {
+      const ni = newList.findIndex((s) => s.id === cur.id);
+      if (ni >= 0) setCurrentIndex(ni);
+    }
+  }, []);
+
+  const removeFromQueue = useCallback((songId) => {
+    const { queue: q, currentIndex: ci } = stateRef.current;
+    const idx = q.findIndex((s) => s.id === songId);
+    if (idx < 0) return;
+    const newList = q.filter((s) => s.id !== songId);
+    baseQueueRef.current = newList;
+    setQueue(newList);
+    stateRef.current.queue = newList;
+    if (idx === ci) {
+      if (newList.length === 0) { audioRef.current && audioRef.current.pause(); setCurrentIndex(-1); return; }
+      loadIndex(Math.min(idx, newList.length - 1), newList, true);
+    } else {
+      setCurrentIndex(idx < ci ? ci - 1 : ci);
+    }
+  }, [loadIndex]);
+
+  const addToQueue = useCallback((song, playNext = false) => {
+    const { queue: q, currentIndex: ci } = stateRef.current;
+    if (!q.length) { playSong(song, [song]); return true; }
+    if (q.some((s) => s.id === song.id)) return false;
+    const newList = [...q];
+    if (playNext) newList.splice(ci + 1, 0, song);
+    else newList.push(song);
+    setQueue(newList);
+    stateRef.current.queue = newList;
+    baseQueueRef.current = newList;
+    return true;
+  }, [playSong]);
+
   // ------- attach audio element event listeners once -------
   useEffect(() => {
     const audio = audioRef.current;
@@ -245,6 +286,7 @@ export function AudioProvider({ children }) {
     currentSong, queue, currentIndex, isPlaying, duration, currentTime, buffered,
     volume, shuffle, repeat, nowPlayingOpen, loading, errorSongId,
     playSong, togglePlay, next, prev, seek, setVolume, toggleShuffle, cycleRepeat,
+    reorderQueue, removeFromQueue, addToQueue,
     setNowPlayingOpen, retry: () => currentSong && loadIndex(currentIndex, queue, true),
   };
 

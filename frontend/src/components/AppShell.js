@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
+import { useEffect } from "react";
 import { LibraryBig, Sparkles, Heart, ListMusic, Settings } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { StarfieldCanvas } from "@/components/StarfieldCanvas";
@@ -7,7 +8,33 @@ import { MiniPlayerBar } from "@/components/MiniPlayerBar";
 import { NowPlayingView } from "@/components/NowPlayingView";
 import { AddToPlaylistDialog } from "@/components/AddToPlaylistDialog";
 import { ProfileOnboarding } from "@/components/ProfileOnboarding";
+import { useAudioPlayer } from "@/context/AudioContext";
+import { catalogApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+// Handles shared track deep links: /?song={id}
+function DeepLinkHandler() {
+  const [params, setParams] = useSearchParams();
+  const { playSong, setNowPlayingOpen } = useAudioPlayer();
+  useEffect(() => {
+    const songId = params.get("song");
+    if (!songId) return;
+    let active = true;
+    catalogApi.getSongs().then((songs) => {
+      if (!active) return;
+      const target = songs.find((s) => s.id === songId);
+      if (target) {
+        playSong(target, songs);
+        setNowPlayingOpen(true);
+      }
+      params.delete("song");
+      setParams(params, { replace: true });
+    }).catch(() => {});
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
 
 const NAV = [
   { to: "/", label: "Library", icon: LibraryBig, end: true },
@@ -91,6 +118,7 @@ export function AppShell() {
       <NowPlayingView />
       <AddToPlaylistDialog />
       <ProfileOnboarding />
+      <DeepLinkHandler />
     </div>
   );
 }
