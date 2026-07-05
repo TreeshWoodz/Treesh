@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Treesh 3.0 — Music to Live For</title>
+<meta name="description" content="Treesh 3.0 — stream the underground. Music to Live For." />
+<meta name="theme-color" content="#0a0a0b" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Special+Gothic+Expanded+One&family=Doto:wght@100..900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: { fontFamily: {
+      display: ['"Special Gothic Expanded One"', 'sans-serif'],
+      sans: ['Manrope', 'system-ui', 'sans-serif'],
+      doto: ['Doto', 'monospace'],
+    } } }
+  };
+</script>
+<style>
+  :root{
+    --treesh-bg-0:#0a0a0b; --treesh-bg-1:#121214;
+    --treesh-purple:#9328ff; --treesh-purple-soft:rgba(147,40,255,0.22);
+    --treesh-gold:#c3ab69; --treesh-stroke:rgba(255,255,255,0.14);
+    --treesh-shadow:0 18px 60px rgba(0,0,0,0.55);
+    --treesh-glow-purple:0 0 0 1px rgba(147,40,255,0.28),0 0 28px rgba(147,40,255,0.24);
+    --treesh-glow-gold:0 0 0 1px rgba(195,171,105,0.24),0 0 26px rgba(195,171,105,0.2);
+  }
+  *{ -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; background:var(--treesh-bg-0); color:#fafafa; font-family:'Manrope',system-ui,sans-serif; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none; }
+  .font-display{ font-family:'Special Gothic Expanded One','Manrope',sans-serif; }
+  .font-doto{ font-family:'Doto','Manrope',monospace; }
+  .glass{ background:rgba(255,255,255,0.06); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid var(--treesh-stroke); }
+  .glass-strong{ background:rgba(255,255,255,0.09); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); border:1px solid var(--treesh-stroke); }
+  .glow-purple{ box-shadow:var(--treesh-glow-purple); }
+  .glow-gold{ box-shadow:var(--treesh-glow-gold); }
+  .no-scrollbar::-webkit-scrollbar{ display:none; } .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+  .soft-scroll::-webkit-scrollbar{ width:8px;height:8px; } .soft-scroll::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.14); border-radius:999px; } .soft-scroll::-webkit-scrollbar-track{ background:transparent; }
+  .clamp-1{ display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+  .clamp-2{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  ::selection{ background:var(--treesh-purple-soft); color:#fff; }
+
+  /* range sliders */
+  input[type=range].tr{ -webkit-appearance:none; appearance:none; height:6px; border-radius:999px; background:rgba(255,255,255,0.16); outline:none; cursor:pointer; width:100%; }
+  input[type=range].tr::-webkit-slider-thumb{ -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#fff; box-shadow:0 0 10px var(--treesh-purple); }
+  input[type=range].tr::-moz-range-thumb{ width:14px; height:14px; border:none; border-radius:50%; background:#fff; }
+
+  /* vinyl */
+  .vinyl{ border-radius:50%; position:relative;
+    background:repeating-radial-gradient(circle at center,rgba(255,255,255,0.045) 0px,rgba(255,255,255,0.045) 1px,rgba(0,0,0,0) 2px,rgba(0,0,0,0) 4px),radial-gradient(circle at 50% 50%,#1c1c20 0%,#0c0c0e 62%,#050506 100%);
+    box-shadow:0 30px 80px rgba(0,0,0,0.6),inset 0 0 60px rgba(0,0,0,0.8); }
+  .vinyl::after{ content:""; position:absolute; inset:8%; border-radius:50%; background:repeating-radial-gradient(circle at center,rgba(255,255,255,0.03) 0px,rgba(255,255,255,0.03) 1px,transparent 2px,transparent 5px); }
+  .vinyl-label{ position:absolute; inset:33%; border-radius:50%; overflow:hidden; box-shadow:0 0 0 4px rgba(0,0,0,0.55),0 0 0 6px var(--treesh-purple-soft); background:#111; }
+  .vinyl-hole{ position:absolute; top:50%; left:50%; width:10px; height:10px; border-radius:50%; background:#050506; transform:translate(-50%,-50%); box-shadow:0 0 0 2px rgba(255,255,255,0.15); z-index:3; }
+  .spin{ animation:tspin 6s linear infinite; } .spin-paused{ animation-play-state:paused; }
+  @keyframes tspin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+  /* equalizer */
+  .eq{ display:inline-flex; align-items:flex-end; gap:2px; height:14px; }
+  .eq span{ display:block; width:3px; height:100%; background:var(--treesh-purple); border-radius:2px; transform-origin:bottom; animation:teq .9s ease-in-out infinite; }
+  .eq span:nth-child(2){ animation-delay:.15s } .eq span:nth-child(3){ animation-delay:.3s } .eq span:nth-child(4){ animation-delay:.45s }
+  @keyframes teq{ 0%,100%{transform:scaleY(.3)} 50%{transform:scaleY(1)} }
+
+  .shimmer{ background:linear-gradient(100deg,#fff 20%,var(--treesh-gold) 40%,#fff 60%); background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:tshim 6s linear infinite; }
+  @keyframes tshim{ 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+
+  .voice-pulse::before,.voice-pulse::after{ content:""; position:absolute; inset:0; border-radius:50%; border:2px solid var(--treesh-purple); animation:tping 1.6s cubic-bezier(0,0,0.2,1) infinite; }
+  .voice-pulse::after{ animation-delay:.8s; }
+  @keyframes tping{ 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.2);opacity:0} }
+
+  /* ---------- motion system ---------- */
+  .fade-in{ animation:tfade .34s cubic-bezier(.22,1,.36,1) both; } @keyframes tfade{ from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+  .np-line{ transition:color .3s ease, transform .35s cubic-bezier(.22,1,.36,1), text-shadow .3s ease; }
+
+  /* page / view navigation */
+  .view-in{ animation:viewIn .42s cubic-bezier(.22,1,.36,1) both; } @keyframes viewIn{ from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+
+  /* now-playing sheet */
+  @keyframes npUp{ from{opacity:0;transform:translateY(7%)} to{opacity:1;transform:none} }
+  @keyframes npDown{ from{opacity:1;transform:none} to{opacity:0;transform:translateY(9%)} }
+  .np-entering{ animation:npUp .46s cubic-bezier(.22,1,.36,1) both; }
+  .np-leaving{ animation:npDown .34s cubic-bezier(.4,0,1,.6) both; }
+  @keyframes npContent{ from{opacity:0;transform:translateY(12px) scale(.99)} to{opacity:1;transform:none} }
+  .np-content-in{ animation:npContent .38s cubic-bezier(.22,1,.36,1) both; }
+
+  /* modal / popup */
+  @keyframes backdropIn{ from{opacity:0} to{opacity:1} }
+  @keyframes backdropOut{ from{opacity:1} to{opacity:0} }
+  @keyframes panelIn{ from{opacity:0;transform:translateY(16px) scale(.95)} to{opacity:1;transform:none} }
+  @keyframes panelOut{ from{opacity:1;transform:none} to{opacity:0;transform:translateY(10px) scale(.97)} }
+  .backdrop-in{ animation:backdropIn .26s ease both; }
+  .backdrop-out{ animation:backdropOut .2s ease both; }
+  .panel-in{ animation:panelIn .4s cubic-bezier(.22,1,.36,1) both; }
+  .panel-out{ animation:panelOut .2s cubic-bezier(.4,0,1,.6) both; }
+  @keyframes obStep{ from{opacity:0;transform:translateX(22px)} to{opacity:1;transform:none} }
+  .ob-step-in{ animation:obStep .34s cubic-bezier(.22,1,.36,1) both; }
+
+  /* queue drawer */
+  @keyframes drawerIn{ from{transform:translateX(100%)} to{transform:translateX(0)} }
+  @keyframes drawerOut{ from{transform:translateX(0)} to{transform:translateX(100%)} }
+  .drawer-in{ animation:drawerIn .42s cubic-bezier(.22,1,.36,1) both; }
+  .drawer-out{ animation:drawerOut .3s cubic-bezier(.4,0,1,.6) both; }
+
+  /* mini player */
+  @keyframes miniUp{ from{opacity:0;transform:translateY(130%)} to{opacity:1;transform:none} }
+  .mini-in{ animation:miniUp .5s cubic-bezier(.22,1,.36,1) both; }
+
+  /* toast */
+  @keyframes toastIn{ from{opacity:0;transform:translateY(-16px) scale(.95)} to{opacity:1;transform:none} }
+  @keyframes toastOut{ from{opacity:1;transform:none} to{opacity:0;transform:translateY(-10px) scale(.98)} }
+  .toast-in{ animation:toastIn .34s cubic-bezier(.22,1,.36,1) both; }
+  .toast-out{ animation:toastOut .28s ease both; }
+
+  /* micro interactions */
+  .card-lift{ transition:transform .24s cubic-bezier(.22,1,.36,1), box-shadow .24s ease, border-color .24s ease; will-change:transform; }
+  @media (hover:hover){ .card-lift:hover{ transform:translateY(-5px); } }
+  .press{ transition:transform .13s ease; } .press:active{ transform:scale(.93); }
+
+  @media (prefers-reduced-motion: reduce){
+    .spin,.eq span,.shimmer,.voice-pulse::before,.voice-pulse::after,
+    .fade-in,.view-in,.np-entering,.np-leaving,.np-content-in,
+    .backdrop-in,.backdrop-out,.panel-in,.panel-out,.ob-step-in,
+    .drawer-in,.drawer-out,.mini-in,.toast-in,.toast-out{ animation:none !important }
+    .card-lift:hover{ transform:none !important }
+  }
+  [data-lucide]{ width:1em; height:1em; }
+</style>
+</head>
+<body class="min-h-[100dvh] overflow-x-hidden">
+  <canvas id="stars" class="fixed inset-0 z-0 h-full w-full" aria-hidden="true"></canvas>
+  <div id="app" class="relative z-10"></div>
+  <div id="mini"></div>
+  <div id="np"></div>
+  <div id="queue"></div>
+  <div id="modal"></div>
+  <div id="toast" class="fixed left-1/2 top-4 z-[120] flex -translate-x-1/2 flex-col items-center gap-2"></div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+/* ============================================================
+   TREESH 3.0 — single-file build. Data embedded below.
+   User data (favorites, playlists, profile, theme) -> localStorage.
+   Audio + cover art stream from external hosts (free, CORS-enabled).
+   ============================================================ */
+/* ---------- utils ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const icons = () => { try { if (window.lucide) lucide.createIcons(); } catch(e){} };
+const esc = (s) => String(s==null?"":s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const slug = (t) => (t||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || Math.random().toString(36).slice(2,8);
+const FALLBACK = "data:image/svg+xml;utf8," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><rect width='100%' height='100%' fill='#161618'/><text x='50%' y='53%' font-size='120' text-anchor='middle' fill='#3a3a40' font-family='sans-serif'>\u266A</text></svg>");
+const img = (src, cls, extra="") => `<img src="${esc(src||FALLBACK)}" loading="lazy" onerror="this.src='${FALLBACK}'" class="${cls}" ${extra}>`;
+function fmt(sec){ if(!sec||isNaN(sec)||sec===Infinity) return "0:00"; const m=Math.floor(sec/60),s=Math.floor(sec%60); return m+":"+(s<10?"0":"")+s; }
+function zodiac(b){ if(!b) return ""; const p=String(b).split("-"); if(p.length<3) return ""; const mo=+p[1],d=+p[2]; if(!mo||!d) return ""; const z=[["Capricorn",1,19],["Aquarius",2,18],["Pisces",3,20],["Aries",4,19],["Taurus",5,20],["Gemini",6,20],["Cancer",7,22],["Leo",8,22],["Virgo",9,22],["Libra",10,22],["Scorpio",11,21],["Sagittarius",12,21],["Capricorn",12,31]]; for(const[s,m,dd]of z){ if(mo===m&&d<=dd) return s; } return "Capricorn"; }
+
+/* ============================================================
+   LIVE CATALOG LOADER
+   Data is fetched at runtime from same-origin content pages
+   (/content/songs, /content/icons, /content/lyrics), parsed from
+   HTML, normalized, and cached to localStorage. This keeps the app
+   in sync with the live Treesh catalog with zero backend.
+   ============================================================ */
+let SONGS = [], ARTISTS = [], GENRES = [], SONG_BY_ID = {}, ARTIST_BY_ID = {};
+
+const CONTENT_SOURCES = {
+  songs:  ["content/songs",  "/content/songs",  "https://treesh.app/content/songs"],
+  icons:  ["content/icons",  "/content/icons",  "https://treesh.app/content/icons"],
+  lyrics: ["content/lyrics", "/content/lyrics", "https://treesh.app/content/lyrics"],
+};
+const CATALOG_KEY = "treesh_catalog_v1";
+
+async function fetchFirst(urls){
+  let lastErr;
+  for(const u of urls){
+    try{
+      const ctrl = new AbortController(); const to = setTimeout(()=>ctrl.abort(), 15000);
+      const r = await fetch(u, { cache:"no-store", signal: ctrl.signal }); clearTimeout(to);
+      if(r.ok){ const t = await r.text(); if(t && t.trim().length > 40) return t; }
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error("Unable to load "+urls[0]);
+}
+const parseDoc = (str) => new DOMParser().parseFromString(str, "text/html");
+const attr = (el, name) => (el.getAttribute(name) || "").trim();
+const normKey = (s) => String(s==null?"":s).toLowerCase().replace(/[\u2018\u2019\u201c\u201d]/g,"'").replace(/[^a-z0-9]+/g,"");
+
+function parseSongs(doc){
+  const used = new Set(), out = [];
+  doc.querySelectorAll("ul.song").forEach((el, i) => {
+    const title = attr(el,"data-track"), audioUrl = attr(el,"data-mp3");
+    if(!title || !audioUrl) return; // skip template/empty rows
+    const artist = attr(el,"data-artist"), aid = attr(el,"data-artist-id");
+    let id = slug(artist + "-" + title) || ("track-" + i);
+    while(used.has(id)) id = id + "-" + i;
+    used.add(id);
+    out.push({
+      id, title, artist, artistIds: aid ? [aid] : [],
+      genre: attr(el,"data-genre"), mood: attr(el,"data-mood"),
+      creationDate: attr(el,"data-creation-date"), writtenBy: attr(el,"data-written-by"),
+      producer: attr(el,"data-producer"), mixer: attr(el,"data-mixer"),
+      videographer: attr(el,"data-videographer"), featuring: attr(el,"data-featuring"),
+      album: attr(el,"data-album"), label: attr(el,"data-label"),
+      coverArt: attr(el,"data-coverart"), audioUrl, videoId: attr(el,"data-video"),
+      bio: attr(el,"data-bio"),
+      explicit: el.hasAttribute("data-explicit"),
+      treeshChoice: el.hasAttribute("data-exclusive"),
+      lyrics: [],
+    });
+  });
+  return out;
+}
+
+function parseArtists(doc){
+  const out = [];
+  doc.querySelectorAll("article.artist").forEach(el => {
+    const id = attr(el,"data-artist-id"); if(!id) return;
+    const imgEl = el.querySelector("img.artist__image") || el.querySelector("img");
+    const roleEl = el.querySelector(".artist__label .capital");
+    const bg = attr(el,"data-bg");
+    out.push({
+      id, name: attr(el,"data-name"), bio: attr(el,"data-bio"),
+      background: bg, bgPos: attr(el,"data-bg-pos") || "center",
+      cashapp: attr(el,"data-cashapp"),
+      role: roleEl ? roleEl.textContent.trim() : "Music Artist",
+      image: (imgEl && imgEl.getAttribute("src")) || bg,
+    });
+  });
+  return out;
+}
+
+function parseTimecode(str){
+  if(!str) return 0;
+  const parts = String(str).split(":").map(x => parseFloat(x));
+  if(parts.some(isNaN)) return 0;
+  if(parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if(parts.length === 2) return parts[0]*60 + parts[1];
+  return parts[0] || 0;
+}
+function parseLyrics(doc){
+  const byKey = {}, byTitle = {};
+  doc.querySelectorAll("div.lyric").forEach(el => {
+    const track = attr(el,"data-track"), artist = attr(el,"data-artist");
+    const lines = [];
+    el.querySelectorAll("p[data-minutes],p[data-seconds]").forEach(p => {
+      const text = p.textContent.trim(); if(!text) return;
+      const dm = p.getAttribute("data-minutes"), ds = p.getAttribute("data-seconds");
+      const t = dm ? (dm.includes(":") ? parseTimecode(dm) : (parseFloat(dm)||0)) : (parseFloat(ds)||0);
+      lines.push({ t, text });
+    });
+    if(!lines.length) return;
+    lines.sort((a,b) => a.t - b.t);
+    byKey[normKey(track) + "|" + normKey(artist)] = lines;
+    if(!byTitle[normKey(track)]) byTitle[normKey(track)] = lines;
+  });
+  return { byKey, byTitle };
+}
+function attachLyrics(songs, lyr){
+  songs.forEach(s => { s.lyrics = lyr.byKey[normKey(s.title)+"|"+normKey(s.artist)] || lyr.byTitle[normKey(s.title)] || []; });
+}
+function indexCatalog(){
+  SONG_BY_ID = Object.fromEntries(SONGS.map(s => [s.id, s]));
+  ARTIST_BY_ID = Object.fromEntries(ARTISTS.map(a => [a.id, a]));
+  GENRES = [...new Set(SONGS.map(s => s.genre).filter(Boolean))].sort();
+}
+async function loadCatalog(){
+  const [songsHTML, iconsHTML, lyricsHTML] = await Promise.all([
+    fetchFirst(CONTENT_SOURCES.songs),
+    fetchFirst(CONTENT_SOURCES.icons),
+    fetchFirst(CONTENT_SOURCES.lyrics),
+  ]);
+  const songs = parseSongs(parseDoc(songsHTML));
+  const artists = parseArtists(parseDoc(iconsHTML));
+  attachLyrics(songs, parseLyrics(parseDoc(lyricsHTML)));
+  if(!songs.length) throw new Error("No songs found in catalog");
+  SONGS = songs; ARTISTS = artists; indexCatalog();
+  try{ localStorage.setItem(CATALOG_KEY, JSON.stringify({ songs: SONGS, artists: ARTISTS, ts: Date.now() })); }catch(e){}
+  return true;
+}
+function loadCatalogCache(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CATALOG_KEY) || "null");
+    if(c && Array.isArray(c.songs) && c.songs.length){ SONGS = c.songs; ARTISTS = c.artists || []; indexCatalog(); return c.ts || 0; }
+  }catch(e){}
+  return 0;
+}
+
+/* ---------- local storage ---------- */
+const LS = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} },
+};
+
+/* ---------- state ---------- */
+const state = {
+  view: "library", param: null,
+  genre: "all", query: "",
+  favorites: new Set(LS.get("treesh_favorites", [])),
+  playlists: LS.get("treesh_playlists", []),
+  profile: LS.get("treesh_profile", null),
+  accent: LS.get("treesh_accent", "#9328ff"),
+  contextList: [],
+  // player
+  audio: new Audio(),
+  queue: [], base: [], index: -1,
+  isPlaying: false, duration: 0, currentTime: 0, volume: 1,
+  shuffle: false, repeat: "off",
+  // now playing UI
+  npOpen: false, showLyrics: false, vinylMode: LS.get("treesh_vinyl", false), queueOpen: false,
+  palette: null, lyricLines: [],
+};
+
+/* ---------- theme ---------- */
+function hexToRgb(hex){ const c=hex.replace("#",""); const n=c.length===3?c.split("").map(x=>x+x).join(""):c; return {r:parseInt(n.slice(0,2),16),g:parseInt(n.slice(2,4),16),b:parseInt(n.slice(4,6),16)}; }
+function applyAccent(hex){ const {r,g,b}=hexToRgb(hex); const root=document.documentElement.style; root.setProperty("--treesh-purple",hex); root.setProperty("--treesh-purple-soft",`rgba(${r},${g},${b},0.22)`); root.setProperty("--treesh-glow-purple",`0 0 0 1px rgba(${r},${g},${b},0.28),0 0 28px rgba(${r},${g},${b},0.24)`); }
+
+/* ---------- toast ---------- */
+function toast(msg, sub){ const t=$("#toast"); const el=document.createElement("div"); el.className="glass-strong rounded-xl px-4 py-2.5 text-sm text-white shadow-[var(--treesh-shadow)] toast-in"; el.innerHTML=`<div class="font-semibold">${esc(msg)}</div>${sub?`<div class="text-xs text-white/60">${esc(sub)}</div>`:""}`; t.appendChild(el); while(t.children.length>3) t.removeChild(t.firstChild); setTimeout(()=>{ el.classList.remove("toast-in"); el.classList.add("toast-out"); setTimeout(()=>el.remove(),280); }, 2200); }
+
+/* ---------- favorites / playlists persistence ---------- */
+function saveFav(){ LS.set("treesh_favorites",[...state.favorites]); }
+function savePl(){ LS.set("treesh_playlists",state.playlists); }
+function isFav(id){ return state.favorites.has(id); }
+function toggleFav(id){ const s=SONG_BY_ID[id]; const was=isFav(id); if(was) state.favorites.delete(id); else state.favorites.add(id); saveFav(); toast(was?"Removed from Favorites":"Added to Favorites", s&&s.title); refreshDynamic(); }
+function favSongs(){ return [...state.favorites].map(id=>SONG_BY_ID[id]).filter(Boolean).reverse(); }
+function createPlaylist(name, songIds=[]){ const pl={id:"pl_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),name,songIds,createdAt:Date.now()}; state.playlists.unshift(pl); savePl(); toast("Playlist created",name); return pl; }
+function plById(id){ return state.playlists.find(p=>p.id===id); }
+
+/* ============================================================
+   AUDIO ENGINE
+   ============================================================ */
+const audio = state.audio; audio.preload="metadata";
+function shuffleKeepFirst(arr, i){ const rest=arr.filter((_,x)=>x!==i); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
+function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
+function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl) audio.src=song.audioUrl; audio.load(); if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } }
+function playSong(song, list){ const src=(list&&list.length)?list:[song]; state.base=src; let order=src, idx=Math.max(0,src.findIndex(s=>s.id===song.id)); if(state.shuffle){ order=shuffleKeepFirst(src,idx); idx=0; } state.queue=order; loadIndex(idx,order,true); state.npOpen=false; renderMini(); renderNP(); }
+function togglePlay(){ if(!curSong()) return; if(audio.paused){ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); } else audio.pause(); }
+function nextTrack(manual=false){ const q=state.queue; if(!q.length) return; if(state.repeat==="one"&&!manual){ loadIndex(state.index,q,true); return; } let n=state.index+1; if(n>=q.length){ if(state.repeat==="all"||manual) n=0; else { audio.pause(); return; } } loadIndex(n,q,true); }
+function prevTrack(){ const q=state.queue; if(!q.length) return; if(audio.currentTime>3){ audio.currentTime=0; return; } let p=state.index-1; if(p<0)p=q.length-1; loadIndex(p,q,true); }
+function seekTo(t){ if(!isNaN(t)) audio.currentTime=t; }
+function setVolume(v){ audio.volume=v; state.volume=v; }
+function toggleShuffle(){ state.shuffle=!state.shuffle; const cur=curSong(); if(state.base.length&&cur){ if(state.shuffle){ const i=state.base.findIndex(s=>s.id===cur.id); state.queue=shuffleKeepFirst(state.base,i>=0?i:0); state.index=0; } else { const i=state.base.findIndex(s=>s.id===cur.id); state.queue=state.base.slice(); state.index=i>=0?i:0; } } renderNP(); }
+function cycleRepeat(){ state.repeat=state.repeat==="off"?"all":state.repeat==="all"?"one":"off"; renderNP(); }
+function addToQueue(song, playNext=false){ if(!state.queue.length){ playSong(song,[song]); return true; } if(state.queue.some(s=>s.id===song.id)) return false; if(playNext) state.queue.splice(state.index+1,0,song); else state.queue.push(song); state.base=state.queue.slice(); return true; }
+function removeFromQueue(id){ const i=state.queue.findIndex(s=>s.id===id); if(i<0) return; const wasCur=i===state.index; state.queue.splice(i,1); state.base=state.queue.slice(); if(wasCur){ if(!state.queue.length){ audio.pause(); state.index=-1; } else loadIndex(Math.min(i,state.queue.length-1),state.queue,true); } else if(i<state.index){ state.index--; } renderQueue(); renderNP(); renderMini(); }
+function moveQueue(id, dir){ const i=state.queue.findIndex(s=>s.id===id); const j=i+dir; if(i<0||j<0||j>=state.queue.length) return; const cur=curSong(); [state.queue[i],state.queue[j]]=[state.queue[j],state.queue[i]]; state.base=state.queue.slice(); if(cur) state.index=state.queue.findIndex(s=>s.id===cur.id); renderQueue(); }
+
+audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="playing"; });
+audio.addEventListener("pause", ()=>{ state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
+audio.addEventListener("timeupdate", ()=>{ state.currentTime=audio.currentTime||0; updateProgress(); });
+audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); });
+audio.addEventListener("ended", ()=>nextTrack(false));
+audio.addEventListener("error", ()=>{ state.isPlaying=false; });
+
+/* ============================================================
+   COLOR EXTRACTION (ambient gradient)
+   ============================================================ */
+const paletteCache = new Map();
+function extractPalette(url){ return new Promise(res=>{ if(!url) return res(null); if(paletteCache.has(url)) return res(paletteCache.get(url)); const im=new Image(); im.crossOrigin="anonymous"; let done=false; const fin=v=>{ if(!done){done=true; paletteCache.set(url,v); res(v);} }; const to=setTimeout(()=>fin(null),6000); im.onload=()=>{ clearTimeout(to); try{ const s=36,cv=document.createElement("canvas"); cv.width=s; cv.height=s; const ctx=cv.getContext("2d",{willReadFrequently:true}); ctx.drawImage(im,0,0,s,s); const d=ctx.getImageData(0,0,s,s).data; const buk={}; for(let i=0;i<d.length;i+=4){ if(d[i+3]<125) continue; const r=d[i],g=d[i+1],b=d[i+2]; const mx=Math.max(r,g,b),mn=Math.min(r,g,b),light=(mx+mn)/2,sat=mx===mn?0:(mx-mn)/(255-Math.abs(mx+mn-255)+1e-6); const key=(r>>4)+"-"+(g>>4)+"-"+(b>>4); if(!buk[key]) buk[key]={r:0,g:0,b:0,n:0,s:0,l:0}; const k=buk[key]; k.r+=r;k.g+=g;k.b+=b;k.n++;k.s+=sat;k.l+=light; } let arr=Object.values(buk).map(k=>({r:Math.round(k.r/k.n),g:Math.round(k.g/k.n),b:Math.round(k.b/k.n),n:k.n,sat:k.s/k.n,light:k.l/k.n})); if(!arr.length) return fin(null); arr.forEach(c=>{ const lp=(c.light>230||c.light<22)?0.25:1; c.score=c.n*(0.35+c.sat)*lp; }); arr.sort((a,b)=>b.score-a.score); const pick=[]; for(const c of arr){ if(pick.every(p=>Math.abs(p.r-c.r)+Math.abs(p.g-c.g)+Math.abs(p.b-c.b)>60)) pick.push(c); if(pick.length>=3) break; } while(pick.length<2&&arr.length) pick.push(arr[pick.length]||arr[0]); fin(pick.map(c=>({r:c.r,g:c.g,b:c.b}))); }catch(e){ fin(null);} }; im.onerror=()=>{ clearTimeout(to); fin(null); }; im.src=url; }); }
+const rgb=(c,a=1)=> c?`rgba(${c.r},${c.g},${c.b},${a})`:`rgba(147,40,255,${a})`;
+
+/* ============================================================
+   SHARE
+   ============================================================ */
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch(e){ try{ const ta=document.createElement("textarea"); ta.value=t; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); return true; }catch(e2){ return false; } } }
+async function shareTrack(song){ const url=location.origin+location.pathname+"?song="+encodeURIComponent(song.id); const text=`\u{1F3B5} Listen to \u201C${song.title}\u201D by ${song.artist} on Treesh`; if(navigator.share){ try{ await navigator.share({title:song.title,text,url}); return; }catch(e){ if(e&&e.name==="AbortError") return; } } const ok=await copyText(text+"\n"+url); toast(ok?"Link copied to clipboard":"Could not copy", song.title); }
+async function sharePlaylist(pl){ const url=location.origin+location.pathname; const text=`\u{1F3A7} My Treesh playlist \u201C${pl.name}\u201D`; if(navigator.share){ try{ await navigator.share({title:pl.name,text,url}); return; }catch(e){ if(e&&e.name==="AbortError") return; } } const ok=await copyText(text+"\n"+url); toast(ok?"Link copied":"Could not copy", pl.name); }
+
+/* ============================================================
+   RENDER: SHELL
+   ============================================================ */
+const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["favorites","Favorites","heart"],["playlists","Playlists","list-music"],["settings","Settings","settings"]];
+function navItem(v,label,ic,mobile){ const active=state.view===v; if(mobile){ return `<button data-act="nav" data-view="${v}" data-testid="nav-mobile-${v}" class="flex flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors ${active?'text-[color:var(--treesh-purple)]':'text-white/55'}"><i data-lucide="${ic}" style="width:20px;height:20px"></i>${label}</button>`; }
+  return `<button data-act="nav" data-view="${v}" data-testid="nav-${v}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${active?'bg-white/10 text-white glow-purple':'text-white/60 hover:bg-white/5 hover:text-white'}"><i data-lucide="${ic}" style="width:18px;height:18px"></i>${label}</button>`; }
+
+function renderShell(){
+  const p=state.profile||{};
+  $("#app").innerHTML=`
+  <aside class="fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
+    <div class="px-6 py-6"><p class="font-display text-2xl uppercase tracking-[0.1em] text-white">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Music to Live For</p></div>
+    <nav class="flex flex-1 flex-col gap-1 px-3">${NAV.map(n=>navItem(n[0],n[1],n[2],false)).join("")}</nav>
+    <div class="px-6 py-5 text-[10px] text-white/30">&copy; 2025 Treesh Woodz</div>
+  </aside>
+  <div class="relative z-10 lg:ml-[240px]">
+    <header class="sticky top-0 z-30 px-4 pt-3 sm:px-6 lg:px-8">
+      <div class="mx-auto flex max-w-6xl items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5 backdrop-blur-2xl">
+        <span class="font-display text-lg uppercase tracking-[0.12em] text-white lg:hidden">Treesh</span>
+        <div class="relative ml-auto flex flex-1 items-center lg:ml-0">
+          <i data-lucide="search" class="pointer-events-none absolute left-3 text-white/40" style="width:16px;height:16px"></i>
+          <input id="search" data-testid="global-search-input" value="${esc(state.query)}" placeholder="Search songs, artists\u2026" class="h-11 w-full rounded-full border border-white/12 bg-white/5 pl-9 pr-9 text-sm text-white placeholder:text-white/40 outline-none transition-colors focus:border-white/25 focus:bg-white/[0.08]" />
+          <button data-act="clear-search" class="absolute right-3 text-white/40 hover:text-white ${state.query?'':'hidden'}"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+        </div>
+        <button data-act="voice-toggle" id="mic-btn" aria-label="Voice" data-testid="voice-mic-button" class="press grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="mic" style="width:18px;height:18px"></i></button>
+        <button data-act="open-profile" aria-label="Profile" data-testid="open-profile-button" class="press h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/15 bg-white/5">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center text-sm font-semibold text-white/70">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</button>
+      </div>
+    </header>
+    <main id="view" class="mx-auto max-w-6xl px-4 pb-44 pt-5 sm:px-6 lg:px-8"></main>
+  </div>
+  <nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-black/70 backdrop-blur-2xl lg:hidden">
+    <div class="flex items-center justify-around px-2 pb-[calc(env(safe-area-inset-bottom)+6px)] pt-2">${NAV.map(n=>navItem(n[0],n[1],n[2],true)).join("")}</div>
+  </nav>`;
+  icons();
+}
+
+/* ============================================================
+   RENDER: VIEWS
+   ============================================================ */
+function songCard(s){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id);
+  return `<div data-songcard="${s.id}" data-testid="song-card-${s.id}" class="card-lift group relative rounded-2xl border ${active?'border-white/25 glow-purple':'border-white/10 hover:border-white/25'} bg-white/5 backdrop-blur-xl p-2.5">
+    <div class="relative overflow-hidden rounded-xl">
+      <div class="aspect-square w-full">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',`alt="${esc(s.title)}"`)}</div>
+      ${s.treeshChoice?`<span class="absolute left-1.5 top-1.5 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--treesh-gold)] backdrop-blur glow-gold">Treesh\u2019s Pick</span>`:""}
+      ${s.explicit?`<span class="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-[4px] bg-white/15 text-[9px] font-bold text-white/80">E</span>`:""}
+      <button data-act="play" data-id="${s.id}" aria-label="Play" data-testid="song-card-play-button-${s.id}" class="press absolute bottom-2 right-2 grid h-11 w-11 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white shadow-lg opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-1 sm:group-hover:translate-y-0 glow-purple"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:18px;height:18px"></i></button>
+      ${active?`<div class="absolute bottom-2 left-2"><span class="eq"><span></span><span></span><span></span><span></span></span></div>`:""}
+    </div>
+    <div class="mt-2.5 min-w-0"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/60">${esc(s.artist)}</p></div>
+    <div class="mt-2 flex items-center gap-1">
+      <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-card-like-button-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="heart" class="${fav?'fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]':''}" style="width:16px;height:16px"></i></button>
+      <button data-act="songmenu" data-id="${s.id}" aria-label="More" data-testid="song-card-menu-button-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>
+      ${s.genre?`<span class="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}
+    </div>
+  </div>`; }
+
+function songRow(s, i, removable){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id);
+  return `<div class="group flex items-center gap-3 rounded-xl border ${active?'border-white/20 bg-white/[0.07]':'border-transparent hover:bg-white/5'} px-2.5 py-2 transition">
+    <button data-act="play" data-id="${s.id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
+    <div class="min-w-0 flex-1 cursor-pointer" data-act="play" data-id="${s.id}">
+      <div class="flex items-center gap-2"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p>${s.explicit?`<span class="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[3px] bg-white/15 text-[8px] font-bold text-white/70">E</span>`:""}${active?`<span class="eq scale-75"><span></span><span></span><span></span><span></span></span>`:""}</div>
+      <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
+    </div>
+    ${s.genre?`<span class="hidden md:inline rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45">${esc(s.genre)}</span>`:""}
+    <button data-act="like" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" class="${fav?'fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]':''}" style="width:16px;height:16px"></i></button>
+    ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>`}
+  </div>`; }
+
+function grid(list){ return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">${list.map(songCard).join("")}</div>`; }
+
+function viewLibrary(){
+  let list=SONGS.slice();
+  if(state.query){ const q=state.query.toLowerCase(); list=list.filter(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q)||(s.writtenBy||"").toLowerCase().includes(q)); }
+  else if(state.genre!=="all"){ list=list.filter(s=>s.genre===state.genre); }
+  state.contextList=list;
+  const browse=!state.query;
+  const picks=browse&&state.genre==="all"?list.filter(s=>s.treeshChoice):[];
+  const chips=["all",...GENRES].map(g=>`<button data-act="genre" data-genre="${g}" class="shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition ${state.genre===g?'border-white/25 bg-white/10 text-white glow-purple':'border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]'}">${g}</button>`).join("");
+  let html=`<div class="space-y-7">`;
+  if(browse){ html+=`<section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div><div class="relative"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh 3.0</p><h1 class="mt-2 max-w-lg text-3xl font-bold leading-tight sm:text-4xl">Music to <span class="shimmer">Live For</span></h1><p class="mt-2 max-w-md text-sm text-white/60">Stream the underground. ${SONGS.length} tracks from the Icons, ready to play.</p><button data-act="shuffle-all" class="mt-4 inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle all</button></div></section>`;
+    html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; }
+  if(state.query){ html+=`<div class="flex items-center gap-2 text-sm text-white/60"><i data-lucide="search" style="width:16px;height:16px"></i> Results for <span class="font-semibold text-white">\u201C${esc(state.query)}\u201D</span></div>`; }
+  if(!list.length){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><i data-lucide="search" class="text-white/30" style="width:40px;height:40px"></i><p class="text-lg font-semibold">No matches found</p><p class="text-sm text-white/50">Try a different search or genre.</p></div>`; }
+  else{ html+=`<div class="space-y-8">`; if(picks.length){ html+=`<section><h2 class="mb-3 flex items-center gap-2 text-lg font-bold"><span class="h-4 w-1 rounded-full" style="background:var(--treesh-gold)"></span>Treesh\u2019s Picks</h2>${grid(picks)}</section>`; } html+=`<section>${browse&&state.genre==="all"?'<h2 class="mb-3 text-lg font-bold">All Music</h2>':''}${grid(list)}</section></div>`; }
+  html+=`</div>`;
+  return html;
+}
+
+function viewArtists(){
+  return `<div class="space-y-6"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">The Collective</p><h1 class="mt-1 text-3xl font-bold">The Icons</h1><p class="mt-1 text-sm text-white/55">Meet the artists behind the sound.</p></div>
+  <div class="grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">${ARTISTS.slice().sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(a=>`
+    <button data-act="artist-open" data-id="${a.id}" class="group flex flex-col items-center gap-2">
+      <div class="relative rounded-full p-[3px] glow-purple transition group-hover:glow-gold" style="width:116px;height:116px"><div class="absolute inset-0 rounded-full border border-white/15"></div><div class="h-full w-full overflow-hidden rounded-full">${img(a.image,'h-full w-full object-cover',`alt="${esc(a.name)}"`)}</div></div>
+      <div class="text-center"><p class="clamp-1 max-w-[120px] text-sm font-semibold">${esc(a.name)}</p><p class="clamp-1 text-[10px] uppercase tracking-wide text-white/45">${esc(a.role||'Music Artist')}</p></div>
+    </button>`).join("")}</div></div>`;
+}
+
+function viewArtistDetail(){
+  const a=ARTIST_BY_ID[state.param]; if(!a) return `<p class="text-white/60">Artist not found.</p>`;
+  const songs=SONGS.filter(s=>(s.artistIds||[]).includes(a.id)); state.contextList=songs;
+  return `<div class="space-y-6"><button data-act="back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back</button>
+  <section class="relative overflow-hidden rounded-3xl border border-white/10"><div class="absolute inset-0">${img(a.background||a.image,'h-full w-full object-cover opacity-40',`style="object-position:${esc(a.bgPos||'center')}"`)}<div class="absolute inset-0" style="background:linear-gradient(to top,rgba(10,10,11,0.96),rgba(10,10,11,0.5))"></div></div>
+    <div class="relative flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-end sm:p-8"><div class="h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-xl sm:h-36 sm:w-36">${img(a.image,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">${esc(a.role||'Music Artist')}</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">${esc(a.name)}</h1><p class="mt-1 text-sm text-white/60">${songs.length} track${songs.length!==1?'s':''}</p></div></div></section>
+  ${a.bio?`<p class="max-w-2xl text-sm leading-relaxed text-white/70">${esc(a.bio)}</p>`:""}
+  ${a.cashapp?`<a href="https://cash.app/$${esc(a.cashapp)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-4 py-2 text-sm font-semibold text-[color:var(--treesh-gold)] hover:bg-[color:var(--treesh-gold)]/20"><i data-lucide="dollar-sign" style="width:16px;height:16px"></i> Support on Cash App \u00B7 $${esc(a.cashapp)}</a>`:""}
+  ${songs.length?`<div class="flex items-center gap-3"><button data-act="artist-playall" data-id="${a.id}" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button><button data-act="artist-shuffle" data-id="${a.id}" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle</button></div>`:""}
+  <div class="space-y-1">${songs.map((s,i)=>songRow(s,i,false)).join("")}</div></div>`;
+}
+
+function viewFavorites(){
+  const list=favSongs(); state.contextList=list;
+  return `<div class="space-y-6"><div class="flex items-end justify-between gap-4"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Your collection</p><h1 class="mt-1 flex items-center gap-2 text-3xl font-bold"><i data-lucide="heart" class="fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]" style="width:26px;height:26px"></i> Favorites</h1><p class="mt-1 text-sm text-white/55">${list.length} liked track${list.length!==1?'s':''}</p></div>${list.length?`<button data-act="playall-context" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button>`:""}</div>
+  ${list.length?`<div class="space-y-1">${list.map((s,i)=>songRow(s,i,false)).join("")}</div>`:`<div class="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><div class="eq scale-150"><span></span><span></span><span></span><span></span></div><p class="text-lg font-semibold">No favorites yet</p><p class="max-w-xs text-sm text-white/50">Tap the heart on any track to save it here.</p><button data-act="nav" data-view="library" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="music-2" style="width:16px;height:16px"></i> Browse Library</button></div>`}</div>`;
+}
+
+function viewPlaylists(){
+  const pls=state.playlists;
+  return `<div class="space-y-6"><div class="flex items-end justify-between gap-4"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Curated by you</p><h1 class="mt-1 text-3xl font-bold">Playlists</h1></div><button data-act="new-playlist" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i> New</button></div>
+  ${pls.length?`<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">${pls.map(pl=>`<div class="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/25"><button data-act="pl-open" data-id="${pl.id}" class="flex min-w-0 flex-1 items-center gap-3 text-left"><div class="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-white/10 bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:22px;height:22px"></i></div><div class="min-w-0"><p class="clamp-1 font-semibold">${esc(pl.name)}</p><p class="text-xs text-white/50">${(pl.songIds||[]).length} track${(pl.songIds||[]).length!==1?'s':''}</p></div></button><div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button data-act="pl-share" data-id="${pl.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="share-2" style="width:15px;height:15px"></i></button><button data-act="pl-rename" data-id="${pl.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="pl-delete" data-id="${pl.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div></div>`).join("")}</div>`:`<div class="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><i data-lucide="list-music" class="text-white/30" style="width:40px;height:40px"></i><p class="text-lg font-semibold">No playlists yet</p><p class="max-w-xs text-sm text-white/50">Create your first playlist and start adding tracks.</p><button data-act="new-playlist" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90"><i data-lucide="plus" style="width:16px;height:16px"></i> Create playlist</button></div>`}</div>`;
+}
+
+function viewPlaylistDetail(){
+  const pl=plById(state.param); if(!pl) return `<p class="text-white/60">Playlist not found.</p>`;
+  const songs=(pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean); state.contextList=songs;
+  return `<div class="space-y-6"><button data-act="nav" data-view="playlists" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back</button>
+  <section class="flex items-end gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-6"><div class="grid h-24 w-24 shrink-0 place-items-center rounded-2xl border border-white/10 bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:40px;height:40px"></i></div><div class="min-w-0"><p class="text-[10px] uppercase tracking-[0.25em] text-white/45">Playlist</p><h1 class="mt-1 clamp-2 text-3xl font-bold">${esc(pl.name)}</h1><p class="mt-1 text-sm text-white/55">${songs.length} track${songs.length!==1?'s':''}</p></div></section>
+  ${songs.length?`<div class="flex items-center gap-3"><button data-act="playall-context" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button><button data-act="pl-share" data-id="${pl.id}" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="share-2" style="width:16px;height:16px"></i> Share</button></div><div class="space-y-1" data-plid="${pl.id}">${songs.map((s,i)=>songRow(s,i,true)).join("")}</div>`:`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-14 text-center"><i data-lucide="list-music" class="text-white/30" style="width:36px;height:36px"></i><p class="font-semibold">This playlist is empty</p><p class="text-sm text-white/50">Add songs using the \u2022\u2022\u2022 menu on any track.</p><button data-act="nav" data-view="library" class="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10">Browse Library</button></div>`}</div>`;
+}
+
+const ACCENTS=[["#9328ff","Treesh Purple"],["#7a2cff","Deep Violet"],["#b58cff","Lavender"],["#c3ab69","Gold"],["#ff2d78","Hot Pink"],["#22d3ee","Cyan"]];
+const CMDS=["play","pause","next","previous","shuffle","repeat","search <name>","play <name>"];
+function viewSettings(){
+  const p=state.profile||{}; const z=zodiac(p.birthday);
+  return `<div class="space-y-8"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Make it yours</p><h1 class="mt-1 text-3xl font-bold">Settings</h1></div>
+  <section class="rounded-3xl border border-white/10 bg-white/[0.04] p-6"><h2 class="mb-4 flex items-center gap-2 text-lg font-bold"><i data-lucide="user" style="width:18px;height:18px"></i> Profile</h2>
+    <div class="flex flex-col gap-5 sm:flex-row"><div class="flex flex-col items-center gap-3"><div id="set-avatar" class="h-24 w-24 overflow-hidden rounded-full border border-white/15">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center text-2xl font-bold text-white/50">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div><label class="flex cursor-pointer items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"><i data-lucide="upload" style="width:13px;height:13px"></i> Change<input type="file" accept="image/*" class="hidden" id="set-avatar-input"></label></div>
+    <div class="flex-1 space-y-4"><div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Nickname</label><input id="set-nick" value="${esc(p.nickname||'')}" class="h-11 w-full rounded-lg border border-white/15 bg-white/5 px-3 text-sm outline-none focus:border-white/30"></div>
+    <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Birthday</label><div class="flex items-center gap-3"><input id="set-bday" type="date" value="${esc(p.birthday||'')}" class="h-11 rounded-lg border border-white/15 bg-white/5 px-3 text-sm outline-none focus:border-white/30"><span id="set-zodiac" class="shrink-0 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-3 py-1 text-xs text-[color:var(--treesh-gold)] ${z?'':'hidden'}">${esc(z)}</span></div></div>
+    <button data-act="save-profile" class="inline-flex items-center gap-2 rounded-lg bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold hover:opacity-90"><i data-lucide="check" style="width:16px;height:16px"></i> Save profile</button></div></div></section>
+  <section class="rounded-3xl border border-white/10 bg-white/[0.04] p-6"><h2 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="palette" style="width:18px;height:18px"></i> Accent color</h2><p class="mb-4 text-sm text-white/50">Personalize the app\u2019s glow.</p><div class="flex flex-wrap gap-3">${ACCENTS.map(([hex,name])=>`<button data-act="accent" data-hex="${hex}" title="${name}" class="relative h-12 w-12 rounded-full border-2 ${state.accent===hex?'border-white':'border-white/20'}" style="background:${hex};${state.accent===hex?`box-shadow:0 0 20px ${hex}`:''}">${state.accent===hex?`<span class="absolute inset-0 grid place-items-center text-white"><i data-lucide="check" style="width:18px;height:18px"></i></span>`:''}</button>`).join("")}</div></section>
+  <section class="rounded-3xl border border-white/10 bg-white/[0.04] p-6"><h2 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="mic" style="width:18px;height:18px"></i> Voice commands</h2><p class="mb-4 text-sm text-white/50">Tap the mic in the header, then say:</p><div class="flex flex-wrap gap-2">${CMDS.map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70">\u201C${c}\u201D</span>`).join("")}</div></section>
+  <section class="rounded-3xl border border-red-500/20 bg-red-500/[0.04] p-6"><h2 class="mb-1 flex items-center gap-2 text-lg font-bold text-red-200"><i data-lucide="trash-2" style="width:18px;height:18px"></i> Erase data</h2><p class="mb-4 text-sm text-white/50">Clears your local profile, favorites, playlists and theme on this device.</p><button data-act="erase-data" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/20">Erase everything</button></section></div>`;
+}
+
+function renderView(animate=false){
+  const v=$("#view"); if(!v) return;
+  let html="";
+  switch(state.view){
+    case "library": html=viewLibrary(); break;
+    case "artists": html=viewArtists(); break;
+    case "artist": html=viewArtistDetail(); break;
+    case "favorites": html=viewFavorites(); break;
+    case "playlists": html=viewPlaylists(); break;
+    case "playlist": html=viewPlaylistDetail(); break;
+    case "settings": html=viewSettings(); break;
+    default: html=viewLibrary();
+  }
+  v.innerHTML=html; icons();
+  state._renderedActiveId = curSong() && curSong().id;
+  if(animate){ v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); }
+  // wire settings live zodiac + avatar preview
+  const bday=$("#set-bday"); if(bday){ bday.addEventListener("input",()=>{ const z=zodiac(bday.value); const el=$("#set-zodiac"); if(el){ el.textContent=z; el.classList.toggle("hidden",!z); } }); }
+  const ai=$("#set-avatar-input"); if(ai){ ai.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ state._tmpAvatar=r.result; const av=$("#set-avatar"); if(av) av.innerHTML=img(r.result,'h-full w-full object-cover'); }; r.readAsDataURL(f); }); }
+}
+
+/* re-render pieces that show favorite/playing state without losing scroll on nav */
+function refreshDynamic(){ renderView(); renderMini(); renderNP(); renderShellProfile(); }
+function renderShellProfile(){ /* header avatar */ renderShellHeaderAvatar(); }
+function renderShellHeaderAvatar(){ /* handled on full shell render */ }
+
+/* ============================================================
+   RENDER: MINI PLAYER
+   ============================================================ */
+function renderMini(){
+  const s=curSong(); const c=$("#mini");
+  if(!s){ c.innerHTML=""; return; }
+  const wasShown = !!c.querySelector("[data-mini-root]");
+  c.innerHTML=`<div data-mini-root data-testid="mini-player" class="fixed bottom-[68px] left-0 right-0 z-40 px-3 lg:bottom-4 lg:pl-[264px] lg:pr-6 ${wasShown?'':'mini-in'}"><div class="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] backdrop-blur-2xl shadow-[var(--treesh-shadow)]"><div class="flex items-center gap-3 p-2.5">
+    <button data-act="mini-open" data-testid="mini-player-expand-button" class="flex min-w-0 flex-1 items-center gap-3 text-left"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></button>
+    <div class="flex items-center gap-1"><button data-act="toggle-play" id="mini-pp" data-testid="mini-player-play-pause-button" class="press grid h-10 w-10 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white glow-purple"><i data-lucide="${state.isPlaying?'pause':'play'}" style="width:18px;height:18px"></i></button><button data-act="next" data-testid="mini-player-next-button" class="hidden sm:grid h-10 w-10 place-items-center rounded-full text-white/75 hover:bg-white/10"><i data-lucide="skip-forward" style="width:18px;height:18px"></i></button><button data-act="mini-open" class="grid h-10 w-10 place-items-center rounded-full text-white/75 hover:bg-white/10"><i data-lucide="chevron-up" style="width:20px;height:20px"></i></button></div>
+  </div><div class="h-1 w-full bg-white/10"><div id="mini-prog" class="h-full bg-[color:var(--treesh-purple)] transition-[width] duration-200 ease-linear" style="width:${state.duration?(state.currentTime/state.duration*100):0}%"></div></div></div></div>`;
+  icons();
+}
+
+/* ============================================================
+   RENDER: NOW PLAYING
+   ============================================================ */
+function actionBtn(act,ic,active,label,id,testid){ return `<button data-act="${act}" ${id?`id="${id}"`:""} ${testid?`data-testid="${testid}"`:""} aria-label="${label}" class="press grid h-10 w-10 place-items-center rounded-full border transition sm:h-11 sm:w-11 ${active?'border-white/25 bg-white/15 text-white':'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${ic}" style="width:17px;height:17px"></i></button>`; }
+
+function renderNP(){
+  const c=$("#np"); const s=curSong();
+  if(!state.npOpen||!s){ c.innerHTML=""; return; }
+  const wasOpen = !!c.querySelector("[data-np-root]");
+  const npMode = state.showLyrics ? "lyrics" : (state.vinylMode ? "vinyl" : "art");
+  const modeChanged = wasOpen && state._npMode !== npMode;
+  state._npMode = npMode;
+  const pal=state.palette; const c0=pal&&pal[0],c1=pal&&(pal[1]||pal[0]),c2=pal&&(pal[2]||pal[1]||pal[0]);
+  const controls=`
+    <div class="flex items-center gap-3"><span id="np-cur" class="font-doto w-9 text-right text-[11px] text-white/70">${fmt(state.currentTime)}</span><input id="np-seek" data-testid="now-playing-seek-slider" class="tr flex-1" type="range" min="0" max="100" step="0.1" value="${state.duration?(state.currentTime/state.duration*100):0}"><span class="font-doto w-9 text-[11px] text-white/70">${fmt(state.duration)}</span></div>
+    <div class="mt-3 flex items-center justify-center gap-2 sm:mt-4 sm:gap-6">
+      <button data-act="shuffle" data-testid="now-playing-shuffle-button" class="press grid h-10 w-10 place-items-center rounded-full sm:h-11 sm:w-11 ${state.shuffle?'text-white bg-white/15':'text-white/60 hover:bg-white/10'}"><i data-lucide="shuffle" style="width:18px;height:18px"></i></button>
+      <button data-act="prev" data-testid="now-playing-prev-button" class="press grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10 sm:h-12 sm:w-12"><i data-lucide="skip-back" style="width:22px;height:22px" class="fill-current"></i></button>
+      <button data-act="toggle-play" id="np-pp" data-testid="now-playing-play-pause-button" class="press grid h-[58px] w-[58px] place-items-center rounded-full bg-white text-black shadow-[0_10px_40px_rgba(255,255,255,0.25)] sm:h-[68px] sm:w-[68px]"><i data-lucide="${state.isPlaying?'pause':'play'}" style="width:28px;height:28px" class="fill-current"></i></button>
+      <button data-act="next" data-testid="now-playing-next-button" class="press grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10 sm:h-12 sm:w-12"><i data-lucide="skip-forward" style="width:22px;height:22px" class="fill-current"></i></button>
+      <button data-act="repeat" data-testid="now-playing-repeat-button" class="press grid h-10 w-10 place-items-center rounded-full sm:h-11 sm:w-11 ${state.repeat!=='off'?'text-white bg-white/15':'text-white/60 hover:bg-white/10'}"><i data-lucide="${state.repeat==='one'?'repeat-1':'repeat'}" style="width:18px;height:18px"></i></button>
+    </div>
+    <div class="mt-3 flex items-center justify-center gap-1.5 sm:mt-5 sm:gap-3">
+      ${actionBtn('like',isFav(s.id)?'heart':'heart',false,'Like')}
+      ${actionBtn('toggle-lyrics','quote',state.showLyrics,'Lyrics',null,'now-playing-lyrics-tab')}
+      ${actionBtn('toggle-vinyl','disc-3',state.vinylMode,'Vinyl',null,'now-playing-vinyl-button')}
+      ${actionBtn('open-queue','list-music',false,'Queue',null,'now-playing-queue-button')}
+      ${actionBtn('np-add','list-plus',false,'Add to playlist')}
+      ${actionBtn('np-share','share-2',false,'Share')}
+    </div>
+    <div class="mt-3 hidden items-center gap-2 sm:flex"><button data-act="mute" class="text-white/60 hover:text-white"><i data-lucide="${state.volume>0?'volume-2':'volume-x'}" style="width:18px;height:18px"></i></button><input id="np-vol" class="tr max-w-[180px] flex-1" type="range" min="0" max="100" step="1" value="${state.volume*100}"></div>`;
+
+  let mainInner;
+  if(state.showLyrics){
+    const lines=(s.lyrics||[]);
+    mainInner=`<div class="flex min-h-0 flex-1 flex-col pt-3">
+      <button data-act="toggle-lyrics" class="mb-3 flex shrink-0 items-center gap-3 text-left"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg shadow-lg">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-base font-bold">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60">${esc(s.artist)}</p></div></button>
+      <div class="relative min-h-0 flex-1"><div id="np-lyrics" class="h-full overflow-y-auto no-scrollbar px-1 py-[30%]">${ lines.length ? lines.map((l,i)=>`<button data-act="lyric-seek" data-t="${l.t}" data-i="${i}" class="np-line block w-full text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70">${esc(l.text)}</button>`).join("") : `<div class="flex h-full flex-col items-center justify-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p></div>` }</div>
+      <div class="pointer-events-none absolute inset-x-0 top-0 h-12" style="background:linear-gradient(to bottom,rgba(8,8,10,0.6),transparent)"></div><div class="pointer-events-none absolute inset-x-0 bottom-0 h-12" style="background:linear-gradient(to top,rgba(8,8,10,0.6),transparent)"></div></div></div>`;
+  } else {
+    const artwork = state.vinylMode
+      ? `<div class="relative aspect-square w-[min(78vw,44vh,420px)] shrink-0"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
+      : `<div class="aspect-square w-[min(78vw,44vh,420px)] shrink-0 overflow-hidden rounded-3xl" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
+    const credits=(s.producer||s.creationDate)?`<p class="clamp-1 mt-1.5 text-xs text-white/40">${s.producer?'Prod. '+esc(s.producer):''}${s.producer&&s.creationDate?' \u00B7 ':''}${esc(s.creationDate||'')}</p>`:"";
+    mainInner=`<div class="flex min-h-full flex-col items-center justify-center py-3">${artwork}<div class="mt-5 w-full max-w-[440px] px-3 text-center sm:mt-6"><div class="flex items-center justify-center gap-2"><h1 class="clamp-2 text-xl font-bold leading-tight sm:text-[26px]">${esc(s.title)}</h1>${s.explicit?`<span class="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] bg-white/20 text-[9px] font-bold text-white/80">E</span>`:""}</div><p class="clamp-1 mt-1 text-base text-white/70 sm:text-lg">${esc(s.artist)}</p>${s.featuring?`<p class="clamp-1 text-sm text-white/45">feat. ${esc(s.featuring)}</p>`:""}${credits}</div></div>`;
+  }
+
+  c.innerHTML=`<div data-np-root data-testid="now-playing" class="fixed inset-0 z-[60] overflow-hidden bg-[#08080a] ${wasOpen?'':'np-entering'}">
+    <div class="absolute inset-0 overflow-hidden">${img(s.coverArt,'absolute inset-0 h-full w-full scale-150 object-cover opacity-40 blur-[80px] saturate-150')}
+      ${pal?`<div class="absolute -left-1/4 top-[-10%] h-[70vh] w-[70vh] rounded-full blur-[90px]" style="background:${rgb(c0,0.55)}"></div><div class="absolute right-[-15%] top-[20%] h-[60vh] w-[60vh] rounded-full blur-[90px]" style="background:${rgb(c1,0.5)}"></div><div class="absolute bottom-[-20%] left-[20%] h-[60vh] w-[60vh] rounded-full blur-[100px]" style="background:${rgb(c2,0.45)}"></div>`:''}
+      <div class="absolute inset-0" style="background:linear-gradient(to bottom,rgba(0,0,0,0.35),rgba(0,0,0,0.55) 55%,rgba(0,0,0,0.8))"></div></div>
+    <div class="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col px-4 pb-4 pt-3 sm:px-8 sm:pb-6 sm:pt-4">
+      <div class="flex shrink-0 items-center justify-between"><button data-act="np-close" aria-label="Close" data-testid="now-playing-close-button" class="press grid h-11 w-11 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85 hover:bg-white/10"><i data-lucide="chevron-down" style="width:22px;height:22px"></i></button><p class="font-display text-xs uppercase tracking-[0.25em] text-white/70">Now Playing</p><button data-act="np-share" aria-label="Share" class="press grid h-11 w-11 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85 hover:bg-white/10"><i data-lucide="share-2" style="width:18px;height:18px"></i></button></div>
+      <div class="min-h-0 flex-1 ${state.showLyrics?'flex flex-col overflow-hidden':'overflow-y-auto no-scrollbar'} ${modeChanged?'np-content-in':''}">${mainInner}</div>
+      <div class="w-full shrink-0 pt-2">${controls}</div>
+    </div></div>`;
+  icons();
+  // cache lyric line nodes + fill like icon
+  state.lyricLines=[...c.querySelectorAll('#np-lyrics [data-i]')];
+  const likeIcon=c.querySelector('[data-act="like"] i'); if(likeIcon&&isFav(s.id)) likeIcon.classList.add('fill-current','text-[color:var(--treesh-purple)]');
+  updateLyricHighlight();
+}
+function closeNP(){
+  const root=$("#np [data-np-root]");
+  state.npOpen=false; state.showLyrics=false; state._npMode=null;
+  if(!root){ $("#np").innerHTML=""; return; }
+  root.classList.remove("np-entering"); root.classList.add("np-leaving");
+  setTimeout(()=>{ if(!state.npOpen) $("#np").innerHTML=""; }, 330);
+}
+
+/* ============================================================
+   RENDER: QUEUE DRAWER
+   ============================================================ */
+function renderQueue(){
+  const c=$("#queue");
+  if(!state.queueOpen){ c.innerHTML=""; return; }
+  const cur=curSong();
+  const wasOpen = !!c.querySelector(".queue-panel");
+  c.innerHTML=`<div data-act="close-queue" class="queue-backdrop fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm ${wasOpen?'':'backdrop-in'}"></div>
+  <div class="queue-panel fixed right-0 top-0 z-[81] flex h-[100dvh] w-full max-w-md flex-col border-l border-white/12 bg-[#0c0c0e]/95 backdrop-blur-2xl ${wasOpen?'':'drawer-in'}">
+    <div class="flex items-center justify-between border-b border-white/10 px-5 py-4"><div class="flex items-center gap-2"><i data-lucide="list-music" class="text-[color:var(--treesh-purple)]" style="width:18px;height:18px"></i><h3 class="text-lg font-bold">Up Next</h3><span class="text-sm text-white/45">${state.queue.length}</span></div><button data-act="close-queue" class="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
+    <div class="min-h-0 flex-1 overflow-y-auto soft-scroll px-3 py-3 space-y-1">${ state.queue.length? state.queue.map((song,i)=>{ const active=cur&&cur.id===song.id; return `<div class="group flex items-center gap-2 rounded-xl border ${active?'border-white/20 bg-white/[0.08]':'border-transparent bg-white/[0.02] hover:bg-white/5'} px-2 py-2">
+      <div class="flex flex-col"><button data-act="q-up" data-id="${song.id}" class="text-white/30 hover:text-white ${i===0?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-up" style="width:14px;height:14px"></i></button><button data-act="q-down" data-id="${song.id}" class="text-white/30 hover:text-white ${i===state.queue.length-1?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-down" style="width:14px;height:14px"></i></button></div>
+      <button data-act="play" data-id="${song.id}" class="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(song.coverArt,'h-full w-full object-cover')}</button>
+      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(song.title)}</p><p class="clamp-1 text-xs text-white/50">${esc(song.artist)}</p></div>
+      ${active?`<span class="eq mr-1 scale-75"><span></span><span></span><span></span><span></span></span>`:''}
+      <button data-act="q-remove" data-id="${song.id}" class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>
+    </div>`; }).join("") : `<p class="py-16 text-center text-sm text-white/45">Queue is empty.</p>` }</div></div>`;
+  icons();
+}
+function closeQueue(){
+  const panel=$("#queue .queue-panel"); const bd=$("#queue .queue-backdrop");
+  state.queueOpen=false;
+  if(!panel){ $("#queue").innerHTML=""; return; }
+  panel.classList.remove("drawer-in"); panel.classList.add("drawer-out");
+  if(bd){ bd.classList.remove("backdrop-in"); bd.classList.add("backdrop-out"); }
+  setTimeout(()=>{ if(!state.queueOpen) $("#queue").innerHTML=""; }, 300);
+}
+
+/* ============================================================
+   RENDER: MODALS (onboarding, add-to-playlist, prompt, confirm, songmenu)
+   ============================================================ */
+function closeModal(){
+  const wrap = $("#modal > [data-act='modal-backdrop']");
+  if(!wrap){ $("#modal").innerHTML=""; return; }
+  const panel = wrap.querySelector("[data-act='modal-stop']");
+  wrap.classList.remove("backdrop-in"); wrap.classList.add("backdrop-out");
+  if(panel){ panel.classList.remove("panel-in"); panel.classList.add("panel-out"); }
+  setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); }, 210);
+}
+function modalWrap(inner, testid){ return `<div data-act="modal-backdrop" class="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-4 backdrop-blur-sm backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="glass-strong panel-in relative w-full max-w-md rounded-2xl border-white/15 p-5 text-white">${inner}</div></div>`; }
+
+let onboard={step:0,nick:"",bday:"",avatar:""};
+function renderOnboarding(){
+  const steps=[["Welcome to Treesh 3.0","Music to Live For"],["Give yourself a nickname",""],["When\u2019s your birthday?","We\u2019ll reveal your zodiac"],["Pick a profile picture","Upload or choose"]];
+  const z=zodiac(onboard.bday);
+  const PRESETS=["https://static.tumblr.com/9leohrr/04Hspf8x9/icon-crazy.png","https://static.tumblr.com/9leohrr/BCJspf9yo/londonllafareartist.png","https://static.tumblr.com/9leohrr/7eVspf9iu/chelly_banqz.jpg","https://static.tumblr.com/9leohrr/7L3spf9lt/pio_milano.jpg"];
+  let body="";
+  if(onboard.step===0) body=`<div class="flex flex-col items-center gap-3 py-4 text-center"><i data-lucide="sparkles" class="text-[color:var(--treesh-purple)]" style="width:44px;height:44px"></i><p class="max-w-sm text-sm text-white/70">Stream the underground. Build playlists. Vibe with the Icons. Let\u2019s set up your local profile \u2014 no signup needed.</p></div>`;
+  else if(onboard.step===1) body=`<div class="px-2"><input id="ob-nick" value="${esc(onboard.nick)}" placeholder="e.g. NightOwl" class="h-12 w-full rounded-lg border border-white/15 bg-white/5 text-center text-lg outline-none focus:border-white/30"></div>`;
+  else if(onboard.step===2) body=`<div class="flex flex-col items-center gap-3 px-2"><input id="ob-bday" type="date" value="${esc(onboard.bday)}" class="h-12 rounded-lg border border-white/15 bg-white/5 px-3 text-center outline-none focus:border-white/30">${z?`<span class="rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-4 py-1 text-sm text-[color:var(--treesh-gold)]">${z}</span>`:''}</div>`;
+  else body=`<div class="flex flex-col items-center gap-4"><div class="h-24 w-24 overflow-hidden rounded-full border border-white/15">${onboard.avatar?img(onboard.avatar,'h-full w-full object-cover'):`<div class="grid h-full w-full place-items-center bg-white/5 text-white/40">?</div>`}</div><div class="flex flex-wrap items-center justify-center gap-2">${PRESETS.map(a=>`<button data-act="ob-preset" data-src="${a}" class="h-12 w-12 overflow-hidden rounded-full border-2 ${onboard.avatar===a?'border-[color:var(--treesh-purple)]':'border-white/10'}">${img(a,'h-full w-full object-cover')}</button>`).join("")}<label class="grid h-12 w-12 cursor-pointer place-items-center rounded-full border border-dashed border-white/20 text-white/60 hover:bg-white/5"><i data-lucide="upload" style="width:16px;height:16px"></i><input type="file" accept="image/*" class="hidden" id="ob-file"></label></div></div>`;
+  const canNext = onboard.step===0 || (onboard.step===1&&onboard.nick.trim()) || (onboard.step===2&&onboard.bday) || onboard.step===3;
+  const inner=`<div class="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div>
+    <div class="relative py-2" data-ob-root><div class="mb-6 text-center"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh</p><h2 class="mt-2 text-2xl font-bold">${steps[onboard.step][0]}</h2>${steps[onboard.step][1]?`<p class="mt-1 text-sm text-white/55">${steps[onboard.step][1]}</p>`:''}</div>
+    <div class="min-h-[140px]">${body}</div>
+    <div class="mt-6 flex items-center justify-between gap-3"><button data-act="ob-skip" class="text-xs text-white/40 hover:text-white/70">Skip for now</button>${onboard.step<3?`<button data-act="ob-next" ${canNext?'':'disabled'} class="inline-flex items-center gap-2 rounded-lg bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold ${canNext?'hover:opacity-90':'opacity-40'}">Next <i data-lucide="arrow-right" style="width:16px;height:16px"></i></button>`:`<button data-act="ob-finish" class="inline-flex items-center gap-2 rounded-lg bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold hover:opacity-90"><i data-lucide="check" style="width:16px;height:16px"></i> Start listening</button>`}</div></div>`;
+  const obStepChange = !!$("#modal [data-ob-root]");
+  $("#modal").innerHTML=modalWrap(inner); icons();
+  if(obStepChange){ const p=$("#modal [data-act='modal-stop']"); if(p) p.classList.remove("panel-in"); const r=$("#modal [data-ob-root]"); if(r) r.classList.add("ob-step-in"); }
+  const nick=$("#ob-nick"); if(nick){ nick.focus(); nick.addEventListener("input",()=>{ onboard.nick=nick.value; const nb=$("#modal [data-act='ob-next']"); if(nb){ const ok=!!onboard.nick.trim(); nb.disabled=!ok; nb.classList.toggle("opacity-40",!ok); nb.classList.toggle("hover:opacity-90",ok); } }); nick.addEventListener("keydown",e=>{ if(e.key==="Enter"&&onboard.nick.trim()){ onboard.step=2; renderOnboarding(); } }); }
+  const bday=$("#ob-bday"); if(bday) bday.addEventListener("input",()=>{ onboard.bday=bday.value; renderOnboarding(); });
+  const file=$("#ob-file"); if(file) file.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ onboard.avatar=r.result; renderOnboarding(); }; r.readAsDataURL(f); });
+}
+
+function openSongMenu(id){ const s=SONG_BY_ID[id]; if(!s) return; const opt=(act,ic,label,extra="")=>`<button data-act="${act}" data-id="${id}" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-white/10">${extra}<i data-lucide="${ic}" style="width:16px;height:16px"></i> ${label}</button>`;
+  const inner=`<div class="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2"><div class="h-11 w-11 overflow-hidden rounded-md">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></div>
+  <div class="space-y-0.5">${opt('m-play-next','list-end','Play next')}${opt('m-add-queue','list-plus','Add to queue')}<div class="my-1 h-px bg-white/10"></div>${opt('m-add-pl','list-music','Add to playlist')}${opt('like','heart',isFav(id)?'Remove favorite':'Add to favorites')}<div class="my-1 h-px bg-white/10"></div>${opt('m-share','share-2','Share')}</div>`;
+  $("#modal").innerHTML=modalWrap(inner); icons();
+}
+
+function openAddToPlaylist(songId){ state._addSong=songId; const s=SONG_BY_ID[songId];
+  const list=state.playlists.map(pl=>`<button data-act="atp-add" data-pl="${pl.id}" class="flex w-full items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-left hover:bg-white/5 hover:border-white/10"><span class="flex items-center gap-2 text-sm"><i data-lucide="list-music" class="text-white/50" style="width:15px;height:15px"></i> ${esc(pl.name)}</span><i data-lucide="${(pl.songIds||[]).includes(songId)?'check':'plus'}" style="width:16px;height:16px" class="${(pl.songIds||[]).includes(songId)?'text-[color:var(--treesh-purple)]':'text-white/40'}"></i></button>`).join("");
+  const inner=`<h3 class="mb-2 flex items-center gap-2 text-lg font-bold"><i data-lucide="list-music" style="width:18px;height:18px"></i> Add to playlist</h3>
+  ${s?`<div class="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2"><div class="h-10 w-10 overflow-hidden rounded-md">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></div>`:''}
+  <button data-act="atp-new" class="mb-1 flex w-full items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-sm hover:bg-white/10"><i data-lucide="plus" style="width:16px;height:16px"></i> New playlist</button>
+  <div class="mt-1 max-h-64 space-y-1 overflow-y-auto soft-scroll">${list||'<p class="py-6 text-center text-sm text-white/50">No playlists yet. Create one above.</p>'}</div>`;
+  $("#modal").innerHTML=modalWrap(inner); icons();
+}
+
+function openPrompt(title, value, onOk){ state._promptCb=onOk; const inner=`<h3 class="mb-3 text-lg font-bold">${esc(title)}</h3><input id="prompt-input" value="${esc(value||'')}" class="h-11 w-full rounded-lg border border-white/15 bg-white/5 px-3 text-sm outline-none focus:border-white/30"><div class="mt-4 flex justify-end gap-2"><button data-act="modal-close" class="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm">Cancel</button><button data-act="prompt-ok" class="rounded-lg bg-[color:var(--treesh-purple)] px-4 py-2 text-sm font-semibold">Save</button></div>`; $("#modal").innerHTML=modalWrap(inner); icons(); const inp=$("#prompt-input"); inp.focus(); inp.select(); inp.addEventListener("keydown",e=>{ if(e.key==="Enter"){ const v=inp.value.trim(); if(v){ onOk(v); closeModal(); } } }); }
+function openConfirm(title, desc, onOk){ state._confirmCb=onOk; const inner=`<h3 class="mb-2 text-lg font-bold">${esc(title)}</h3><p class="mb-4 text-sm text-white/60">${esc(desc)}</p><div class="flex justify-end gap-2"><button data-act="modal-close" class="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm">Cancel</button><button data-act="confirm-ok" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold hover:bg-red-700">Confirm</button></div>`; $("#modal").innerHTML=modalWrap(inner); icons(); }
+
+/* ============================================================
+   PLAYER UI UPDATES
+   ============================================================ */
+function updatePlayIcons(){ const mp=$("#mini-pp i"); if(mp){ mp.setAttribute("data-lucide",state.isPlaying?"pause":"play"); } const np=$("#np-pp i"); if(np){ np.setAttribute("data-lucide",state.isPlaying?"pause":"play"); } // update playing card eq / icons cheaply by re-render view play buttons
+  // refresh play/pause glyphs
+  icons();
+  // re-render current song card/row play icon state (light: re-render view only if library-like)
+  syncCardPlayingState();
+  updateVinylSpin();
+}
+function updateVinylSpin(){ const v=$("#np .vinyl"); if(v){ v.classList.toggle("spin-paused",!state.isPlaying); } }
+function syncCardPlayingState(){
+  const curId = curSong() && curSong().id;
+  if(curId !== state._renderedActiveId){ renderView(); return; } // active track changed -> refresh highlights
+  // same track: only flip play/pause glyphs in the current view (no full re-render, no flicker)
+  $$('#view [data-act="play"]').forEach(btn=>{ const i=btn.querySelector('i'); if(i && btn.dataset.id===curId) i.setAttribute('data-lucide', state.isPlaying?'pause':'play'); });
+  icons();
+}
+function updateProgress(){ const s=curSong(); const d=state.duration||0,cur=state.currentTime||0; const pct=d?(cur/d*100):0;
+  const mp=$("#mini-prog"); if(mp) mp.style.width=pct+"%";
+  const seek=$("#np-seek"); if(seek && document.activeElement!==seek){ seek.value=pct; }
+  const curEl=$("#np-cur"); if(curEl) curEl.textContent=fmt(cur);
+  updateLyricHighlight();
+}
+function updateLyricHighlight(){ if(!state.showLyrics||!state.lyricLines.length) return; const t=state.currentTime; let idx=-1; const s=curSong(); const lines=s&&s.lyrics||[]; for(let i=0;i<lines.length;i++){ if(lines[i].t<=t+0.15) idx=i; else break; } state.lyricLines.forEach((el,i)=>{ const active=i===idx; el.classList.toggle("text-white",active); el.classList.toggle("text-white/40",!active&&i>idx); el.classList.toggle("text-white/35",!active&&i<idx); el.style.textShadow=active?"0 2px 30px rgba(255,255,255,0.25)":""; el.style.transform=active?"scale(1.02)":""; el.style.transformOrigin="left"; }); if(idx>=0){ const el=state.lyricLines[idx]; const cont=$("#np-lyrics"); if(el&&cont){ const target=el.offsetTop-cont.clientHeight/2+el.clientHeight/2; cont.scrollTo({top:Math.max(target,0),behavior:"smooth"}); } } }
+
+/* media session + palette on song change */
+function onSongChange(){ const s=curSong(); if(!s) return; if("mediaSession"in navigator){ try{ navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist,album:"Treesh",artwork:[{src:s.coverArt,sizes:"512x512",type:"image/jpeg"}]}); navigator.mediaSession.setActionHandler("play",()=>togglePlay()); navigator.mediaSession.setActionHandler("pause",()=>togglePlay()); navigator.mediaSession.setActionHandler("nexttrack",()=>nextTrack(true)); navigator.mediaSession.setActionHandler("previoustrack",()=>prevTrack()); }catch(e){} }
+  state.palette=null; extractPalette(s.coverArt).then(p=>{ state.palette=p; if(state.npOpen&&!state.showLyrics) renderNP(); });
+}
+let lastSongId=null;
+audio.addEventListener("loadstart",()=>{ const s=curSong(); if(s&&s.id!==lastSongId){ lastSongId=s.id; onSongChange(); } });
+
+/* ============================================================
+   VOICE CONTROL
+   ============================================================ */
+let recog=null, listening=false;
+function initVoice(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ recog=false; return; } recog=new SR(); recog.continuous=false; recog.interimResults=true; recog.lang="en-US"; recog.onresult=e=>{ let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript; const ov=$("#voice-text"); if(ov) ov.textContent=t||"Say play, pause, next\u2026"; if(e.results[e.results.length-1].isFinal) handleVoice(t.toLowerCase().trim()); }; recog.onend=()=>{ listening=false; hideVoice(); }; recog.onerror=e=>{ listening=false; hideVoice(); if(e.error==="not-allowed") toast("Microphone access denied"); }; }
+function toggleVoice(){ if(recog===null) initVoice(); if(!recog){ toast("Voice control not supported"); return; } if(listening){ recog.stop(); listening=false; hideVoice(); } else { try{ recog.start(); listening=true; showVoice(); }catch(e){} } }
+function showVoice(){ const el=document.createElement("div"); el.id="voice-ov"; el.className="fixed left-1/2 top-24 z-[110] -translate-x-1/2 fade-in"; el.innerHTML=`<div class="flex items-center gap-4 rounded-2xl border border-white/15 bg-black/70 px-6 py-4 backdrop-blur-2xl shadow-[var(--treesh-shadow)]"><div class="relative grid h-12 w-12 place-items-center"><span class="voice-pulse absolute inset-0"></span><span class="grid h-12 w-12 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white"><i data-lucide="mic" style="width:20px;height:20px"></i></span></div><div class="min-w-[160px]"><p class="text-xs uppercase tracking-widest text-white/50">Listening\u2026</p><p id="voice-text" class="clamp-1 text-sm text-white">Say play, pause, next\u2026</p></div></div>`; document.body.appendChild(el); icons(); }
+function hideVoice(){ const el=$("#voice-ov"); if(el){ el.style.opacity="0"; setTimeout(()=>el.remove(),200);} }
+function handleVoice(t){ if(!t) return; const say=m=>toast(m); if(/(^|\s)(pause|stop)(\s|$)/.test(t)){ if(state.isPlaying)togglePlay(); say("Paused"); } else if(/(next|skip)/.test(t)){ nextTrack(true); say("Next track"); } else if(/(previous|back|last)/.test(t)){ prevTrack(); say("Previous track"); } else if(/shuffle/.test(t)){ toggleShuffle(); say("Shuffle toggled"); } else if(/repeat/.test(t)){ cycleRepeat(); say("Repeat toggled"); } else if(/^(search|find)\s+(.+)/.test(t)){ const q=t.replace(/^(search|find)\s+/,""); state.query=q; state.view="library"; setHash("library"); renderShell(); renderView(); const si=$("#search"); if(si) si.value=q; say("Searching \u201C"+q+"\u201D"); } else if(/^play\s+(.+)/.test(t)){ const q=t.replace(/^play\s+/,""); const hit=SONGS.find(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q)); if(hit){ playSong(hit,SONGS); say("Playing "+hit.title); } else { state.query=q; state.view="library"; renderShell(); renderView(); say("Looking for \u201C"+q+"\u201D"); } } else if(/(^|\s)(play|resume)(\s|$)/.test(t)){ if(!state.isPlaying&&curSong())togglePlay(); say("Playing"); } else { toast("Didn\u2019t catch that","\u201C"+t+"\u201D"); } }
+
+/* ============================================================
+   ROUTING
+   ============================================================ */
+function setHash(view,param){ const h=param?`#/${view}/${param}`:`#/${view}`; if(location.hash!==h){ history.pushState(null,"",h); } }
+function navigate(view,param){ state.view=view; state.param=param||null; setHash(view,param); renderShell(); renderView(true); window.scrollTo(0,0); }
+function parseHash(){ const h=location.hash.replace(/^#\//,""); if(!h) return {view:"library"}; const parts=h.split("/"); return {view:parts[0]||"library",param:parts[1]?decodeURIComponent(parts[1]):null}; }
+window.addEventListener("hashchange",()=>{ const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
+window.addEventListener("popstate",()=>{ const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
+
+/* ============================================================
+   EVENT DELEGATION
+   ============================================================ */
+document.addEventListener("click", e=>{
+  const t=e.target.closest("[data-act]"); if(!t) return; const act=t.dataset.act; const id=t.dataset.id;
+  switch(act){
+    case "nav": navigate(t.dataset.view); break;
+    case "back": history.back(); break;
+    case "play": { const s=SONG_BY_ID[id]; if(s) playSong(s, state.contextList&&state.contextList.length?state.contextList:[s]); break; }
+    case "toggle-play": togglePlay(); break;
+    case "next": nextTrack(true); break;
+    case "prev": prevTrack(); break;
+    case "shuffle": toggleShuffle(); break;
+    case "repeat": cycleRepeat(); break;
+    case "mini-open": state.npOpen=true; renderNP(); break;
+    case "np-close": closeNP(); break;
+    case "toggle-lyrics": state.showLyrics=!state.showLyrics; renderNP(); break;
+    case "toggle-vinyl": state.vinylMode=!state.vinylMode; LS.set("treesh_vinyl",state.vinylMode); renderNP(); break;
+    case "open-queue": state.queueOpen=true; renderQueue(); break;
+    case "close-queue": closeQueue(); break;
+    case "q-up": moveQueue(id,-1); break;
+    case "q-down": moveQueue(id,1); break;
+    case "q-remove": removeFromQueue(id); break;
+    case "mute": setVolume(state.volume>0?0:1); renderNP(); break;
+    case "like": toggleFav(id); if($("#modal").innerHTML)closeModal(); break;
+    case "songmenu": openSongMenu(id); break;
+    case "np-add": { const s=curSong(); if(s) openAddToPlaylist(s.id); break; }
+    case "np-share": { const s=curSong(); if(s) shareTrack(s); break; }
+    case "m-play-next": { const s=SONG_BY_ID[id]; const ok=addToQueue(s,true); toast(ok===false?"Already in queue":"Playing next",s.title); closeModal(); break; }
+    case "m-add-queue": { const s=SONG_BY_ID[id]; const ok=addToQueue(s,false); toast(ok===false?"Already in queue":"Added to queue",s.title); closeModal(); break; }
+    case "m-add-pl": closeModal(); openAddToPlaylist(id); break;
+    case "m-share": { const s=SONG_BY_ID[id]; closeModal(); shareTrack(s); break; }
+    case "lyric-seek": seekTo(parseFloat(t.dataset.t)); break;
+    case "genre": state.genre=t.dataset.genre; renderView(); break;
+    case "clear-search": state.query=""; const si=$("#search"); if(si)si.value=""; renderView(); const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.add("hidden"); break;
+    case "shuffle-all": { if(!SONGS.length)break; state.shuffle=true; const r=SONGS[Math.floor(Math.random()*SONGS.length)]; playSong(r,SONGS); break; }
+    case "playall-context": { if(state.contextList.length) playSong(state.contextList[0],state.contextList); break; }
+    case "artist-open": navigate("artist",id); break;
+    case "artist-playall": { const songs=SONGS.filter(s=>(s.artistIds||[]).includes(id)); if(songs.length) playSong(songs[0],songs); break; }
+    case "artist-shuffle": { const songs=SONGS.filter(s=>(s.artistIds||[]).includes(id)); if(!songs.length)break; state.shuffle=true; playSong(songs[Math.floor(Math.random()*songs.length)],songs); break; }
+    case "new-playlist": openPrompt("New playlist","",(name)=>{ createPlaylist(name); renderView(); }); break;
+    case "pl-open": navigate("playlist",id); break;
+    case "pl-rename": { const pl=plById(id); openPrompt("Rename playlist",pl.name,(name)=>{ pl.name=name; savePl(); renderView(); }); break; }
+    case "pl-delete": { const pl=plById(id); openConfirm("Delete playlist?","\u201C"+pl.name+"\u201D will be permanently removed.",()=>{ state.playlists=state.playlists.filter(p=>p.id!==id); savePl(); closeModal(); renderView(); }); break; }
+    case "pl-share": { const pl=plById(id); if(pl) sharePlaylist(pl); break; }
+    case "pl-remove-song": { const plid=$("#view [data-plid]").dataset.plid; const pl=plById(plid); if(pl){ pl.songIds=pl.songIds.filter(x=>x!==id); savePl(); renderView(); } break; }
+    case "atp-new": openPrompt("New playlist","",(name)=>{ const pl=createPlaylist(name,[state._addSong]); toast("Added to playlist",pl.name); closeModal(); if(state.view==="playlists")renderView(); }); break;
+    case "atp-add": { const pl=plById(t.dataset.pl); if(pl&&!pl.songIds.includes(state._addSong)){ pl.songIds.push(state._addSong); savePl(); toast("Added to playlist",pl.name); } openAddToPlaylist(state._addSong); break; }
+    case "open-profile": onboard={step:0,nick:(state.profile&&state.profile.nickname)||"",bday:(state.profile&&state.profile.birthday)||"",avatar:(state.profile&&state.profile.avatar)||""}; renderOnboarding(); break;
+    case "ob-next": onboard.step++; renderOnboarding(); break;
+    case "ob-skip": closeModal(); if(!state.profile){ state.profile={nickname:"Treesh Fan"}; LS.set("treesh_profile",state.profile); } break;
+    case "ob-preset": onboard.avatar=t.dataset.src; renderOnboarding(); break;
+    case "ob-finish": { state.profile={nickname:onboard.nick.trim()||"Treesh Fan",birthday:onboard.bday,zodiac:zodiac(onboard.bday),avatar:onboard.avatar}; LS.set("treesh_profile",state.profile); closeModal(); renderShell(); renderView(); break; }
+    case "accent": { state.accent=t.dataset.hex; LS.set("treesh_accent",state.accent); applyAccent(state.accent); toast("Accent updated"); renderView(); break; }
+    case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const bday=$("#set-bday").value; const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; toast("Profile saved"); renderShell(); renderView(); break; }
+    case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists and theme on this device will be reset.",()=>{ ["treesh_favorites","treesh_playlists","treesh_profile","treesh_accent","treesh_vinyl"].forEach(k=>localStorage.removeItem(k)); location.reload(); }); break;
+    case "prompt-ok": { const v=$("#prompt-input").value.trim(); if(v&&state._promptCb){ state._promptCb(v); closeModal(); } break; }
+    case "confirm-ok": if(state._confirmCb) state._confirmCb(); break;
+    case "modal-close": closeModal(); break;
+    case "modal-stop": break;
+    case "modal-backdrop": closeModal(); break;
+    case "voice-toggle": toggleVoice(); break;
+    case "retry-load": retryLoad(); break;
+    case "refresh-catalog": { toast("Refreshing catalog\u2026"); loadCatalog().then(()=>{ softRefresh(); toast("Catalog updated", SONGS.length+" tracks"); }).catch(()=>toast("Couldn\u2019t refresh","Check your connection")); break; }
+  }
+});
+
+/* input handlers via delegation */
+document.addEventListener("input", e=>{
+  if(e.target.id==="search"){ state.query=e.target.value; const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.toggle("hidden",!state.query); renderView(); }
+  else if(e.target.id==="np-seek"){ if(state.duration) seekTo(e.target.value/100*state.duration); }
+  else if(e.target.id==="np-vol"){ setVolume(e.target.value/100); }
+});
+
+/* keyboard shortcuts */
+document.addEventListener("keydown", e=>{
+  const tag=(e.target.tagName||""); if(["INPUT","TEXTAREA","SELECT"].includes(tag)||e.target.isContentEditable) return;
+  if(e.key==="Escape"){ if($("#modal").innerHTML){ closeModal(); return; } if(state.queueOpen){ closeQueue(); return; } if(state.npOpen){ closeNP(); return; } }
+  if(!curSong()) return;
+  if(e.code==="Space"){ e.preventDefault(); togglePlay(); }
+  else if(e.code==="ArrowRight"&&e.shiftKey) nextTrack(true);
+  else if(e.code==="ArrowLeft"&&e.shiftKey) prevTrack();
+  else if(e.code==="ArrowRight") seekTo(Math.min(audio.currentTime+5,state.duration));
+  else if(e.code==="ArrowLeft") seekTo(Math.max(audio.currentTime-5,0));
+});
+
+/* ============================================================
+   STARFIELD
+   ============================================================ */
+function starfield(){ const cv=$("#stars"); if(!cv) return; const ctx=cv.getContext("2d"); const dpr=Math.min(window.devicePixelRatio||1,2); let w,h,stars=[],shoot=null,mx=0,my=0,raf; const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function resize(){ w=cv.clientWidth; h=cv.clientHeight; cv.width=w*dpr; cv.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); const n=w<700?110:220; stars=Array.from({length:n},()=>({x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.3+0.2,a:Math.random()*0.6+0.2,tw:Math.random()*0.02+0.004,dir:Math.random()>0.5?1:-1,purple:Math.random()>0.86,depth:Math.random()*0.6+0.2})); }
+  function draw(){ ctx.clearRect(0,0,w,h); const g=ctx.createRadialGradient(w/2,h*0.35,0,w/2,h*0.35,Math.max(w,h)*0.8); g.addColorStop(0,"rgba(147,40,255,0.05)"); g.addColorStop(1,"rgba(0,0,0,0)"); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); const ox=(mx-w/2)*0.006,oy=(my-h/2)*0.006; for(const s of stars){ if(!reduced){ s.a+=s.tw*s.dir; if(s.a>0.85)s.dir=-1; if(s.a<0.15)s.dir=1; } const px=s.x+ox*s.depth*12,py=s.y+oy*s.depth*12; ctx.beginPath(); ctx.arc(px,py,s.r,0,Math.PI*2); ctx.fillStyle=s.purple?`rgba(180,120,255,${s.a})`:`rgba(255,255,255,${s.a})`; ctx.fill(); }
+    if(!reduced&&!shoot&&Math.random()<0.006) shoot={x:Math.random()*w*0.6,y:Math.random()*h*0.3,len:0,life:0}; if(shoot){ shoot.life++; shoot.len=Math.min(shoot.len+14,160); const sx=shoot.x+shoot.life*6,sy=shoot.y+shoot.life*3; const g2=ctx.createLinearGradient(sx-shoot.len,sy-shoot.len*0.5,sx,sy); g2.addColorStop(0,"rgba(255,255,255,0)"); g2.addColorStop(1,"rgba(255,255,255,0.7)"); ctx.strokeStyle=g2; ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(sx-shoot.len,sy-shoot.len*0.5); ctx.lineTo(sx,sy); ctx.stroke(); if(shoot.life>40||sx>w||sy>h) shoot=null; }
+    raf=requestAnimationFrame(draw); }
+  resize(); draw(); addEventListener("resize",resize); addEventListener("pointermove",e=>{mx=e.clientX;my=e.clientY;}); document.addEventListener("visibilitychange",()=>{ if(document.hidden) cancelAnimationFrame(raf); else raf=requestAnimationFrame(draw); }); }
+
+/* ============================================================
+   INIT / BOOT
+   ============================================================ */
+function init(){
+  const {view,param}=parseHash(); state.view=view; state.param=param;
+  renderShell(); renderView(); renderMini();
+  // deep link ?song=
+  const sp=new URLSearchParams(location.search); const songId=sp.get("song"); if(songId&&SONG_BY_ID[songId]){ playSong(SONG_BY_ID[songId],SONGS); state.npOpen=true; renderNP(); history.replaceState(null,"",location.pathname+location.hash); }
+  // onboarding for new users
+  if(!state.profile){ onboard={step:0,nick:"",bday:"",avatar:""}; setTimeout(renderOnboarding,400); }
+}
+
+/* soft refresh after a background catalog update (keeps playback intact) */
+function softRefresh(){ renderShell(); renderView(); renderMini(); if(state.npOpen) renderNP(); }
+
+/* branded loading screen while the live catalog is fetched */
+function renderBootLoading(){
+  const card = (i)=>`<div class="rounded-2xl border border-white/10 bg-white/[0.03] p-2.5"><div class="aspect-square w-full animate-pulse rounded-xl bg-white/[0.06]" style="animation-delay:${i*60}ms"></div><div class="mt-2.5 h-3 w-3/4 animate-pulse rounded bg-white/[0.06]"></div><div class="mt-2 h-2.5 w-1/2 animate-pulse rounded bg-white/[0.05]"></div></div>`;
+  $("#app").innerHTML=`<div data-testid="boot-loading" class="relative mx-auto max-w-6xl px-4 pt-16 sm:px-6 lg:px-8">
+    <div class="flex flex-col items-center gap-4 text-center">
+      <div class="relative grid h-16 w-16 place-items-center">
+        <span class="absolute inset-0 rounded-full border-2 border-[color:var(--treesh-purple)]/40"></span>
+        <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[color:var(--treesh-purple)]"></span>
+        <i data-lucide="music" class="text-[color:var(--treesh-purple)]" style="width:22px;height:22px"></i>
+      </div>
+      <div><p class="font-display text-2xl uppercase tracking-[0.12em] text-white">Treesh</p><p class="mt-1 text-sm text-white/55">Tuning the underground\u2026</p></div>
+    </div>
+    <div class="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">${Array.from({length:10},(_,i)=>card(i)).join("")}</div>
+  </div>`;
+  icons();
+}
+
+/* error screen with retry when the catalog can't be reached and no cache exists */
+function renderBootError(){
+  $("#app").innerHTML=`<div data-testid="boot-error" class="mx-auto flex min-h-[70dvh] max-w-lg flex-col items-center justify-center gap-5 px-6 text-center">
+    <div class="grid h-16 w-16 place-items-center rounded-full border border-white/12 bg-white/5 text-[color:var(--treesh-gold)]"><i data-lucide="wifi-off" style="width:26px;height:26px"></i></div>
+    <div><h1 class="text-2xl font-bold">Couldn\u2019t load the catalog</h1><p class="mt-2 text-sm text-white/60">We couldn\u2019t reach the Treesh library. Check your connection and try again.</p></div>
+    <button data-act="retry-load" data-testid="retry-fetch-button" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-6 py-3 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="refresh-cw" style="width:16px;height:16px"></i> Retry</button>
+  </div>`;
+  icons();
+}
+async function retryLoad(){ renderBootLoading(); try{ await loadCatalog(); init(); }catch(e){ renderBootError(); } }
+
+async function boot(){
+  applyAccent(state.accent);
+  starfield();
+  const cachedTs = loadCatalogCache();
+  if(cachedTs){
+    init();                                  // instant boot from cache
+    loadCatalog().then(softRefresh).catch(()=>{}); // stale-while-revalidate
+  } else {
+    renderBootLoading();
+    try{ await loadCatalog(); init(); }
+    catch(e){ console.error("Catalog load failed:", e); renderBootError(); }
+  }
+}
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
+</script>
+</body>
+</html>

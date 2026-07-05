@@ -1,147 +1,106 @@
-# Treesh (FARM) Rebuild Plan — Updated (V1 Complete)
+# Treesh 3.0 — Single-File Static Rebuild Plan (Live Catalog)
 
 ## 1) Objectives
-- Rebuild Treesh 3.0 as a real **React + FastAPI + MongoDB** app, preserving the Treesh look/feel while making it **more lively, faster, and cleaner**. ✅ **Completed**
-- Use the **real Treesh catalog** (seeded from `/app/backend/seed_data.json`) with working playback of `audio.jukehost.co.uk` streams. ✅ **Completed**
-- Ship V1 with: **Player + Now Playing**, **Library w/ genres + search**, **Artists/Icons pages**, **Favorites + Playlists**, **Local profile onboarding**, **Themes/customization**, **Voice control**. ✅ **Completed**
-- Remove: **Games** and **Videos** sections. ✅ **Completed**
-
-**New objective (post-V1):**
-- Collect feedback, iterate on UX polish, and optionally add future features (lyrics sourcing, queue management UI, offline-friendly caching, social sharing) without introducing paid services.
+- Deliver **one self-contained `index.html`** (Vanilla JS + Tailwind CDN + Lucide) that can be deployed on **treesh.app (Netlify) / GitHub Pages**.
+- **Abandon React/FastAPI** entirely; all user data persists via **`localStorage`**.
+- Load the **live catalog at runtime** from same-origin HTML endpoints:
+  - `/content/songs`, `/content/icons`, `/content/lyrics`
+- Parse remote HTML via `DOMParser`, **normalize into the app’s DATA model**, cache results locally, then boot the UI.
+- Keep Treesh theme (near-black + **purple #9328ff** + **gold #c3ab69**) and make it feel **more lively** via polish/motion.
 
 ---
 
 ## 2) Implementation Steps
 
-### Phase 1 — Core Playback + Catalog POC (isolation; do not proceed until solid)
-**Goal:** prove the hardest workflow (streaming audio + queue state machine) is robust before building the full UI.
-
-**Status:** ✅ Completed (audio streams verified + playback verified live in browser)
+### Phase 1 — Core Data Integration POC (Isolation) ✅ *Do not proceed until stable*
+**Core risk:** runtime parsing + normalization of HTML catalog pages + same-origin fetch behavior.
 
 **User stories (POC)**
-1. As a user, I can press play and hear a track start quickly. ✅
-2. As a user, I can pause/resume without losing my position. ✅
-3. As a user, I can seek using a scrubber and playback resumes from that point. ✅
-4. As a user, I can go next/previous and the correct track loads. ✅
-5. As a user, shuffle/repeat behave predictably. ✅
+1. As a user, I can open the app and it loads songs/artists/lyrics from `/content/*` without manual setup.
+2. As a user, I can hit Play on any song and audio starts reliably.
+3. As a user, lyrics (when available) appear and highlight correctly as the song plays.
+4. As a user, the catalog loads fast on repeat visits due to local caching.
+5. As a user, if `/content/*` fails, I see a clear error and a retry button.
 
-**Implemented**
-- Robust `AudioProvider` with a single `Audio()` element
-- Playback events: `loadedmetadata`, `timeupdate`, `canplay`, `waiting`, `progress`, `ended`, `error`
-- Actions: play/pause, seek, next/prev, shuffle, repeat (off/all/one), volume
-- Media Session API integration
-- Verified multiple real streams (HTTP 200, CORS enabled, range requests)
+**Implementation**
+- Add a **bootstrap loader** before app init:
+  - Fetch (in order) `content/songs`, `/content/songs` (same for icons/lyrics), with timeout + retry.
+  - Parse HTML with `DOMParser`.
+  - Build normalized objects:
+    - **Song**: generate stable `id` from `(artistId|artist)+(track)` slug; map booleans: `data-explicit`, `data-exclusive`.
+    - **Artist**: map `data-artist-id -> id`, pull images/background/role/cashapp.
+    - **Lyrics**: parse `<p data-minutes="MM:SS.ss">` into seconds; match to songs primarily by `track` (fallback `track+artist`).
+  - Cache in `localStorage` with `seedVersion`/hash + timestamp; stale-while-revalidate optional.
+- Minimal POC UI: loading screen → list of songs → play → open NP lyrics to validate sync.
+- Create a small **local python script** to sanity-check parsing output counts (57/12/36) using downloaded HTML snapshots.
 
 **Exit criteria**
-- No console errors; playback works end-to-end across multiple tracks; seeking works; next/prev deterministic; Media Session controls work. ✅
+- Songs/artists render from live `/content/*`.
+- Playback works for multiple tracks.
+- Lyrics parse to seconds and highlight works.
+- Refresh uses cached data if remote is slow/unavailable.
 
 ---
 
-### Phase 2 — V1 App Development (ship the real Treesh experience)
-**Status:** ✅ Completed
+### Phase 2 — V1 App Development (Wire the Template to Live DATA)
+**Goal:** replace `__TREESH_DATA__` with the runtime loader output and ensure all existing features work end-to-end.
 
 **User stories (V1)**
-1. As a user, I can browse all songs and filter by genre and search by title/artist. ✅
-2. As a user, I can open Now Playing and see a lively record-player UI + track metadata. ✅
-3. As a user, I can like/unlike tracks and view my Favorites list. ✅
-4. As a user, I can create a playlist and add/remove songs. ✅
-5. As a user, I can open an Artist/Icon page to see their bio and their discography (songs). ✅
-6. As a user, I can set a nickname, birthday (auto zodiac), and profile picture locally. ✅
-7. As a user, I can customize theme accent/backdrop and the app remembers it. ✅ (accent swatches implemented; persisted)
-8. As a user, I can use voice commands (play/pause/next/previous/search). ✅ (Web Speech API)
+1. As a user, I can browse library, filter by genre, and search quickly.
+2. As a user, I can open an artist and play/shuffle their discography.
+3. As a user, I can like/unlike songs and see them in Favorites (persisted locally).
+4. As a user, I can create playlists and add/remove songs (persisted locally).
+5. As a user, I can use Now Playing (vinyl + ambient gradient + lyrics) and manage my queue.
 
-**Backend (FastAPI + MongoDB)**
-1. Define Mongo collections: ✅
-   - `songs` (seeded: **57** songs)
-   - `artists` (seeded: **12** artists)
-   - `profiles` (keyed by `profileId` from localStorage)
-   - `favorites` (profileId, songId)
-   - `playlists` (profileId, name, songIds, createdAt)
-2. Add endpoints: ✅
-   - `GET /api/catalog/songs?genre=&q=&artistId=&treeshChoice=`
-   - `GET /api/catalog/songs/{songId}`
-   - `GET /api/catalog/genres`
-   - `GET /api/catalog/artists`
-   - `GET /api/catalog/artists/{artistId}` (includes their songs)
-   - `POST /api/profile` and `GET /api/profile/{profileId}`
-   - `POST /api/favorites/toggle` and `GET /api/favorites/{profileId}`
-   - `POST/GET/PATCH/DELETE /api/playlists` (+ detail endpoint)
-3. Add seed logic on startup if collections empty using `/app/backend/seed_data.json`. ✅
-4. Ensure CORS config remains permissive for local dev and GitHub hosting. ✅
-
-**Backend verification:** ✅ 19/19 API tests passed (testing_agent report).
-
-**Frontend (React)**
-1. App shell + navigation: ✅
-   - Library, Icons, Favorites, Playlists, Settings
-   - Desktop sidebar + mobile bottom nav
-   - Removed Games/Videos routes and UI
-2. Global state: ✅
-   - `AudioProvider` (queue + playback)
-   - `ProfileProvider` (local profileId + onboarding + theme accent)
-   - `FavoritesProvider` + `PlaylistsProvider`
-3. Pages/components delivered: ✅
-   - Library: Treesh’s Picks + All Music, genre chips, global search
-   - Player: MiniPlayer persistent bar + full Now Playing overlay
-   - Now Playing: vinyl animation, seek/time, prev/next, shuffle/repeat, volume, like, About/Credits/Up Next
-   - Artists: Icons grid + Artist detail page w/ discography + play/shuffle
-   - Favorites: list + empty state
-   - Playlists: create/rename/delete + playlist detail w/ remove-song
-   - Profile onboarding: nickname, birthday→zodiac, avatar upload/presets
-   - Settings: profile edit, accent swatches, voice commands, erase local data
-   - Voice control: Web Speech API listening overlay + commands
-4. UI/UX upgrades (free only): ✅
-   - Tailwind + shadcn primitives
-   - framer-motion micro-interactions + page transitions
-   - starfield canvas background
-   - improved loading/empty states
-5. Performance cleanup: ✅
-   - memoized heavy card components
-   - single imperative canvas loop (starfield)
-   - no GSAP/jQuery; modern React patterns
+**Implementation**
+- Refactor template init flow:
+  - `init()` becomes async: show skeleton/loading → `loadCatalog()` → set `DATA` → continue boot.
+  - Add explicit **loading + error views** in the shell.
+- Normalization layer:
+  - Ensure required fields exist for rendering (fallback images, empty strings).
+  - Build `SONG_BY_ID`, `ARTIST_BY_ID`, genres list.
+- Add/verify `data-testid` attributes for key flows (nav, search, play, now playing, lyrics, queue, playlists).
+- Polish pass (keep theme): micro-interactions, skeletons, subtle motion improvements (no gradient abuse).
 
 **Phase 2 testing (mandatory)**
-- End-to-end flows verified:
-  - library load, genre filter, search ✅
-  - play from library, open now playing, seek, next/prev ✅
-  - like/unlike, favorites persistence ✅
-  - playlist create/add/remove ✅
-  - artist discography ✅
-  - profile onboarding + accent persistence ✅
-  - mobile layout screenshots verified ✅
+- Serve locally (`python3 -m http.server 3000`) and run a full E2E pass:
+  - Load → library → play → NP open/close → seek → next/prev → lyrics → queue reorder/remove → favorites → playlists → artists.
 
 ---
 
-### Phase 3 — Polish, Bug Fixes, “Make it Lively”, and Hardening
-**Status:** ✅ Completed (V1 polish baseline)
+### Phase 3 — Full Polish + Hardening
+**User stories (Polish)**
+1. As a user, I never lose my place due to unexpected re-renders while playing.
+2. As a user, playback UI never clips on short viewports.
+3. As a user, the app feels premium (smooth hover/press states, consistent spacing).
+4. As a user, voice commands work where supported and fail gracefully where not.
+5. As a user, offline/failed fetch still lets me use last cached catalog.
 
-**Delivered polish items**
-1. Smoothness/responsiveness: desktop + mobile verified ✅
-2. Audio hardening: loading state, error state + retry ✅
-3. Now Playing liveliness: vinyl spin, blurred cover backdrop, equalizer accents ✅
-4. Voice UI: listening overlay with pulse animation ✅
-5. Accessibility fixes: added missing `DialogTitle`/`DialogDescription` where required ✅
-6. Keyboard shortcuts: space (play/pause), arrows (seek), shift+arrows (track skip) ✅
+**Implementation**
+- Performance: avoid unnecessary full `renderView()` on every `play/pause`; only patch the minimal nodes.
+- Network hardening:
+  - Cache TTL, manual “Refresh catalog” button in Settings.
+  - If fetch fails: use cached catalog; if none, show retry UI.
+- Responsive hardening: verify 100dvh, safe-area insets, prevent NP clipping.
 
 **Phase 3 testing (mandatory)**
-- Regression pass done via testing agent report + manual browser validation ✅
+- Repeat E2E tests + responsive checks (mobile widths + short heights).
 
 ---
 
-## 3) Next Actions (immediate)
-1. ✅ Monitor for user feedback (UX tweaks, additional Treesh-specific polish).
-2. Optional: add **Lyrics source** integration (if/when you provide lyrics data source) and implement a real Lyrics tab.
-3. Optional: enhance queue UI (reorder, remove from queue) while keeping performance strong.
-4. Optional: add sharing/export (free) such as “Copy track link”, playlist share JSON, or image share (client-side).
+## 3) Next Actions
+1. Implement `loadCatalog()` (fetch + parse + normalize + cache) and remove `__TREESH_DATA__` placeholder.
+2. Add loading/error UI states and ensure app boots with live data.
+3. Run local server + complete E2E playback/lyrics/queue tests.
+4. Save final output as `/app/single_html/index.html` and provide preview path/link.
 
 ---
 
 ## 4) Success Criteria
-- Playback is reliable (play/pause/seek/next/prev/shuffle/repeat/volume) with real Treesh streams. ✅
-- Library search + genre filters work and feel fast. ✅
-- Artists/Icons pages show correct artist info + their songs. ✅
-- Favorites + playlists persist per local profileId (no login). ✅
-- Profile onboarding + theme customization are polished and persistent. ✅
-- Voice control works in supported browsers. ✅
-- No Games/Videos UI remains. ✅
-- Codebase is modular, minimal, and noticeably faster/cleaner than the original single-file app. ✅
+- **Single file** deploy: `index.html` only (CDN deps allowed).
+- Live catalog loads from `/content/*` and normalizes correctly.
+- Playback is reliable: play/pause/seek/next/prev/shuffle/repeat/volume.
+- Lyrics sync highlights correctly for tracks that have lyrics.
+- Favorites/playlists/profile/theme persist via `localStorage`.
+- Clean loading/error states; cached catalog enables use during network issues.
+- UI matches Treesh brand and feels lively without readability regressions.
