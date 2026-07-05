@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 // Spinning record-player look for the Now Playing view (optional toggle).
 export function VinylPlayer({ coverArt, playing, glow = "rgba(147,40,255,0.5)" }) {
   return (
-    <div className="relative aspect-square w-[min(78vw,340px)] sm:w-[min(60vw,400px)] lg:w-[420px]" data-testid="now-playing-vinyl">
+    <div className="relative aspect-square w-[min(78vw,44vh,420px)] shrink-0" data-testid="now-playing-vinyl">
       <div
         className={cn("vinyl h-full w-full", playing ? "spin" : "spin spin-paused")}
         style={{ animationDuration: "6s", boxShadow: `0 30px 90px ${glow}, inset 0 0 60px rgba(0,0,0,0.85)` }}

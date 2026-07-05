@@ -75,63 +75,63 @@ export function NowPlayingView() {
   const controls = song && (
     <>
       {hasError && (
-        <div className="mb-3 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <div className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-sm text-red-200">
           <AlertCircle size={16} /> Couldn&rsquo;t load this track.
           <button onClick={retry} className="font-semibold underline">Retry</button>
         </div>
       )}
       <div className="flex items-center gap-3">
-        <span className="font-doto w-10 text-right text-xs text-white/70">{formatTime(currentTime)}</span>
+        <span className="font-doto w-9 text-right text-[11px] text-white/70">{formatTime(currentTime)}</span>
         <Slider
           data-testid="now-playing-seek-slider"
           value={[duration ? (currentTime / duration) * 100 : 0]}
           onValueChange={(v) => seek((v[0] / 100) * duration)}
           max={100} step={0.1} className="flex-1"
         />
-        <span className="font-doto w-10 text-xs text-white/70">{formatTime(duration)}</span>
+        <span className="font-doto w-9 text-[11px] text-white/70">{formatTime(duration)}</span>
       </div>
 
-      <div className="mt-4 flex items-center justify-center gap-3 sm:gap-6">
-        <button onClick={toggleShuffle} data-testid="now-playing-shuffle-button" aria-label="Shuffle" className={cn("grid h-11 w-11 place-items-center rounded-full transition-colors", shuffle ? "text-white bg-white/15" : "text-white/60 hover:bg-white/10")}>
+      <div className="mt-3 flex items-center justify-center gap-2 sm:mt-4 sm:gap-6">
+        <button onClick={toggleShuffle} data-testid="now-playing-shuffle-button" aria-label="Shuffle" className={cn("grid h-10 w-10 place-items-center rounded-full transition-colors sm:h-11 sm:w-11", shuffle ? "text-white bg-white/15" : "text-white/60 hover:bg-white/10")}>
           <Shuffle size={18} />
         </button>
-        <button onClick={prev} data-testid="now-playing-prev-button" aria-label="Previous" className="grid h-12 w-12 place-items-center rounded-full text-white hover:bg-white/10 transition-colors">
-          <SkipBack size={24} fill="currentColor" />
+        <button onClick={prev} data-testid="now-playing-prev-button" aria-label="Previous" className="grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10 transition-colors sm:h-12 sm:w-12">
+          <SkipBack size={22} fill="currentColor" />
         </button>
-        <button onClick={togglePlay} data-testid="now-playing-play-pause-button" aria-label={isPlaying ? "Pause" : "Play"} className="grid h-[68px] w-[68px] place-items-center rounded-full bg-white text-black active:scale-95 transition-transform shadow-[0_10px_40px_rgba(255,255,255,0.25)]">
-          {loading ? <Loader2 size={26} className="animate-spin" /> : isPlaying ? <Pause size={30} fill="black" /> : <Play size={30} fill="black" className="ml-1" />}
+        <button onClick={togglePlay} data-testid="now-playing-play-pause-button" aria-label={isPlaying ? "Pause" : "Play"} className="grid h-[58px] w-[58px] place-items-center rounded-full bg-white text-black active:scale-95 transition-transform shadow-[0_10px_40px_rgba(255,255,255,0.25)] sm:h-[68px] sm:w-[68px]">
+          {loading ? <Loader2 size={24} className="animate-spin" /> : isPlaying ? <Pause size={28} fill="black" /> : <Play size={28} fill="black" className="ml-1" />}
         </button>
-        <button onClick={() => next(true)} data-testid="now-playing-next-button" aria-label="Next" className="grid h-12 w-12 place-items-center rounded-full text-white hover:bg-white/10 transition-colors">
-          <SkipForward size={24} fill="currentColor" />
+        <button onClick={() => next(true)} data-testid="now-playing-next-button" aria-label="Next" className="grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10 transition-colors sm:h-12 sm:w-12">
+          <SkipForward size={22} fill="currentColor" />
         </button>
-        <button onClick={cycleRepeat} data-testid="now-playing-repeat-button" aria-label="Repeat" className={cn("grid h-11 w-11 place-items-center rounded-full transition-colors", repeat !== "off" ? "text-white bg-white/15" : "text-white/60 hover:bg-white/10")}>
+        <button onClick={cycleRepeat} data-testid="now-playing-repeat-button" aria-label="Repeat" className={cn("grid h-10 w-10 place-items-center rounded-full transition-colors sm:h-11 sm:w-11", repeat !== "off" ? "text-white bg-white/15" : "text-white/60 hover:bg-white/10")}>
           {repeat === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
         </button>
       </div>
 
       {/* action bar */}
-      <div className="mt-5 flex items-center justify-center gap-2 sm:gap-3">
+      <div className="mt-3 flex items-center justify-center gap-1.5 sm:mt-5 sm:gap-3">
         <ActionBtn active={fav} onClick={() => toggleFavorite(song)} label="Like" testid="now-playing-like-button">
-          <Heart size={18} className={cn(fav && "fill-current")} />
+          <Heart size={17} className={cn(fav && "fill-current")} />
         </ActionBtn>
         <ActionBtn active={showLyrics} onClick={() => setShowLyrics((s) => !s)} label="Lyrics" testid="now-playing-lyrics-toggle">
-          <Quote size={18} />
+          <Quote size={17} />
         </ActionBtn>
         <ActionBtn active={vinylMode} onClick={toggleVinyl} label="Vinyl mode" testid="now-playing-vinyl-toggle">
-          <Disc3 size={18} />
+          <Disc3 size={17} />
         </ActionBtn>
         <ActionBtn onClick={() => setQueueOpen(true)} label="Queue" testid="now-playing-queue-button">
-          <ListMusic size={18} />
+          <ListMusic size={17} />
         </ActionBtn>
         <ActionBtn onClick={() => setAddTarget(song)} label="Add to playlist" testid="now-playing-add-button">
-          <ListPlus size={18} />
+          <ListPlus size={17} />
         </ActionBtn>
         <ActionBtn onClick={() => shareTrack(song)} label="Share" testid="now-playing-share-button">
-          <Share2 size={18} />
+          <Share2 size={17} />
         </ActionBtn>
       </div>
 
-      <div className="mt-4 hidden items-center gap-2 sm:flex">
+      <div className="mt-3 hidden items-center gap-2 sm:flex">
         <button onClick={() => setVolume(volume > 0 ? 0 : 1)} aria-label="Mute" className="text-white/60 hover:text-white transition-colors">
           {volume > 0 ? <Volume2 size={18} /> : <VolumeX size={18} />}
         </button>
@@ -181,10 +181,10 @@ export function NowPlayingView() {
             <motion.div
               initial={{ y: 40 }} animate={{ y: 0 }} exit={{ y: 40, opacity: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 30 }}
-              className="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col px-5 pb-6 pt-4 sm:px-8"
+              className="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col px-4 pb-4 pt-3 sm:px-8 sm:pb-6 sm:pt-4"
             >
               {/* top bar */}
-              <div className="flex items-center justify-between">
+              <div className="flex shrink-0 items-center justify-between">
                 <button onClick={() => setNowPlayingOpen(false)} data-testid="now-playing-close-button" aria-label="Close" className="grid h-11 w-11 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85 hover:bg-white/10 transition-colors">
                   <ChevronDown size={22} />
                 </button>
@@ -195,17 +195,17 @@ export function NowPlayingView() {
               </div>
 
               {/* main */}
-              <div className="flex min-h-0 flex-1 flex-col justify-center py-4">
+              <div className={cn("min-h-0 flex-1", showLyrics ? "flex flex-col overflow-hidden" : "overflow-y-auto no-scrollbar")}>
                 <AnimatePresence mode="wait">
                   {showLyrics ? (
                     <motion.div
                       key="lyrics"
                       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.3 }}
-                      className="flex min-h-0 flex-1 flex-col"
+                      className="flex min-h-0 flex-1 flex-col pt-3"
                     >
-                      <button onClick={() => setShowLyrics(false)} className="mb-3 flex items-center gap-3 text-left">
-                        <div className="h-12 w-12 overflow-hidden rounded-lg shadow-lg">
+                      <button onClick={() => setShowLyrics(false)} className="mb-3 flex shrink-0 items-center gap-3 text-left">
+                        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg shadow-lg">
                           <CoverArt src={song.coverArt} alt={song.title} className="h-full w-full object-cover" />
                         </div>
                         <div className="min-w-0">
@@ -215,8 +215,8 @@ export function NowPlayingView() {
                       </button>
                       <div className="relative min-h-0 flex-1">
                         <LyricsView lyrics={lyrics} currentTime={currentTime} onSeek={seek} loading={lyricsLoading} isPlaying={isPlaying} />
-                        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#08080a]/60 to-transparent" />
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#08080a]/60 to-transparent" />
+                        <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#08080a]/60 to-transparent" />
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#08080a]/60 to-transparent" />
                       </div>
                     </motion.div>
                   ) : (
@@ -224,15 +224,15 @@ export function NowPlayingView() {
                       key="art"
                       initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
                       transition={{ duration: 0.3 }}
-                      className="flex flex-col items-center"
+                      className="flex min-h-full flex-col items-center justify-center py-3"
                     >
                       {vinylMode ? (
                         <VinylPlayer coverArt={song.coverArt} playing={isPlaying} glow={rgbStr(c0, 0.5)} />
                       ) : (
                         <motion.div
-                          animate={{ scale: isPlaying ? 1 : 0.9 }}
+                          animate={{ scale: isPlaying ? 1 : 0.92 }}
                           transition={{ type: "spring", stiffness: 200, damping: 22 }}
-                          className="aspect-square w-[min(78vw,340px)] overflow-hidden rounded-3xl sm:w-[min(60vw,400px)] lg:w-[420px]"
+                          className="aspect-square w-[min(78vw,44vh,420px)] shrink-0 overflow-hidden rounded-3xl"
                           style={{ boxShadow: `0 30px 80px ${rgbStr(c0, 0.5)}, 0 10px 30px rgba(0,0,0,0.5)` }}
                           data-testid="now-playing-artwork"
                         >
@@ -240,15 +240,15 @@ export function NowPlayingView() {
                         </motion.div>
                       )}
 
-                      <div className="mt-7 w-full max-w-[440px] text-center">
+                      <div className="mt-5 w-full max-w-[440px] px-3 text-center sm:mt-6">
                         <div className="flex items-center justify-center gap-2">
-                          <h1 className="clamp-2 text-2xl font-bold leading-tight sm:text-[28px]">{song.title}</h1>
+                          <h1 className="clamp-2 text-xl font-bold leading-tight sm:text-[26px]">{song.title}</h1>
                           {song.explicit && <span className="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] bg-white/20 text-[9px] font-bold text-white/80">E</span>}
                         </div>
-                        <p className="mt-1 text-lg text-white/70">{song.artist}</p>
-                        {song.featuring && <p className="text-sm text-white/45">feat. {song.featuring}</p>}
+                        <p className="clamp-1 mt-1 text-base text-white/70 sm:text-lg">{song.artist}</p>
+                        {song.featuring && <p className="clamp-1 text-sm text-white/45">feat. {song.featuring}</p>}
                         {(song.producer || song.creationDate) && (
-                          <p className="mt-2 text-xs text-white/40">
+                          <p className="clamp-1 mt-1.5 text-xs text-white/40">
                             {song.producer ? `Prod. ${song.producer}` : ""}
                             {song.producer && song.creationDate ? " \u00b7 " : ""}
                             {song.creationDate || ""}
@@ -261,7 +261,7 @@ export function NowPlayingView() {
               </div>
 
               {/* controls (always visible) */}
-              <div className="w-full">{controls}</div>
+              <div className="w-full shrink-0 pt-2">{controls}</div>
             </motion.div>
           </motion.div>
         )}
@@ -279,7 +279,7 @@ function ActionBtn({ children, onClick, active, label, testid }) {
       aria-label={label}
       data-testid={testid}
       className={cn(
-        "grid h-11 w-11 place-items-center rounded-full border transition-colors",
+        "grid h-10 w-10 place-items-center rounded-full border transition-colors sm:h-11 sm:w-11",
         active ? "border-white/25 bg-white/15 text-white" : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
       )}
     >
