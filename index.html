@@ -12,6 +12,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
+    future: { hoverOnlyWhenSupported: true },
     theme: { extend: { fontFamily: {
       display: ['"Special Gothic Expanded One"', 'sans-serif'],
       sans: ['Manrope', 'system-ui', 'sans-serif'],
@@ -48,7 +49,9 @@
   input[type=range].tr::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; margin-top:-4px; width:14px; height:14px; border-radius:50%; background:#fff; box-shadow:0 0 10px var(--treesh-purple); border:none; }
   input[type=range].tr::-moz-range-track{ height:6px; border-radius:999px; background:transparent; border:none; }
   input[type=range].tr::-moz-range-thumb{ width:14px; height:14px; border:none; border-radius:50%; background:#fff; box-shadow:0 0 10px var(--treesh-purple); }
-  input[type=range].tr:focus{ outline:none; }
+  input[type=range].tr:focus,input[type=range].tr:hover,input[type=range].tr:active{ outline:none; box-shadow:none; background:rgba(255,255,255,0.16); }
+  input[type=range].tr:focus::-webkit-slider-runnable-track,input[type=range].tr:active::-webkit-slider-runnable-track,input[type=range].tr:hover::-webkit-slider-runnable-track{ background:transparent; }
+  input[type=range].tr:focus-visible{ outline:none; }
 
   /* vinyl */
   .vinyl{ border-radius:50%; position:relative;
@@ -274,6 +277,12 @@ function indexCatalog(){
   ARTIST_BY_ID = Object.fromEntries(ARTISTS.map(a => [a.id, a]));
   GENRES = [...new Set(SONGS.map(s => s.genre).filter(Boolean))].sort();
 }
+let _catalogSig = "";
+function catalogSig(songs, artists){
+  const str = songs.map(x=>x.id).join(",") + "~" + artists.map(x=>x.id).join(",");
+  let h=0; for(let i=0;i<str.length;i++){ h=(h*31 + str.charCodeAt(i))>>>0; }
+  return songs.length + "|" + artists.length + "|" + h;
+}
 async function loadCatalog(){
   const [songsHTML, iconsHTML, lyricsHTML] = await Promise.all([
     fetchFirst(CONTENT_SOURCES.songs),
@@ -284,17 +293,40 @@ async function loadCatalog(){
   const artists = parseArtists(parseDoc(iconsHTML));
   attachLyrics(songs, parseLyrics(parseDoc(lyricsHTML)));
   if(!songs.length) throw new Error("No songs found in catalog");
-  SONGS = songs; ARTISTS = artists; indexCatalog();
-  state._wnBuilt=null;
+  const sig = catalogSig(songs, artists);
+  const changed = sig !== _catalogSig;
+  SONGS = songs; ARTISTS = artists; indexCatalog(); _catalogSig = sig;
+  if(changed) state._wnBuilt=null;
   try{ localStorage.setItem(CATALOG_KEY, JSON.stringify({ songs: SONGS, artists: ARTISTS, ts: Date.now() })); }catch(e){}
-  return true;
+  return { changed };
 }
 function loadCatalogCache(){
   try{
     const c = JSON.parse(localStorage.getItem(CATALOG_KEY) || "null");
-    if(c && Array.isArray(c.songs) && c.songs.length){ SONGS = c.songs; ARTISTS = c.artists || []; indexCatalog(); return c.ts || 0; }
+    if(c && Array.isArray(c.songs) && c.songs.length){ SONGS = c.songs; ARTISTS = c.artists || []; indexCatalog(); _catalogSig = catalogSig(SONGS, ARTISTS); return c.ts || 0; }
   }catch(e){}
   return 0;
+}
+/* ---------- real-time catalog polling (keeps What's New fresh) ---------- */
+let _catalogPollTimer=null, _refreshing=false;
+async function refreshCatalog(){
+  if(_refreshing) return; _refreshing=true;
+  const prevS=SONGS.length, prevA=ARTISTS.length;
+  try{
+    const res = await loadCatalog();
+    if(res.changed){
+      softRefresh();
+      const dS=SONGS.length-prevS, dA=ARTISTS.length-prevA;
+      if(dS>0||dA>0){ const parts=[]; if(dS>0)parts.push(dS+" new song"+(dS>1?"s":"")); if(dA>0)parts.push(dA+" new artist"+(dA>1?"s":"")); toast("What\u2019s New updated", parts.join(" \u00B7 ")); }
+    }
+  }catch(e){}
+  finally{ _refreshing=false; }
+}
+function startCatalogPolling(){
+  if(_catalogPollTimer) return;
+  _catalogPollTimer = setInterval(refreshCatalog, 60000);
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") refreshCatalog(); });
+  window.addEventListener("focus", refreshCatalog);
 }
 
 /* ---------- local storage ---------- */
@@ -320,6 +352,9 @@ const state = {
   // now playing UI
   npOpen: false, showLyrics: false, vinylMode: LS.get("treesh_vinyl", false), queueOpen: false,
   palette: null, lyricLines: [],
+  favLyrics: LS.get("treesh_fav_lyrics", []),
+  gameStats: LS.get("treesh_game_stats", {games:0,totalScore:0,bestScore:0,rounds:0,correct:0,bestStreak:0,lastPlayed:0}),
+  studio: null, game: null,
 };
 
 /* ---------- theme ---------- */
@@ -381,7 +416,7 @@ async function sharePlaylist(pl){ const url=location.origin+location.pathname; c
 /* ============================================================
    RENDER: SHELL
    ============================================================ */
-const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["favorites","Favorites","heart"],["playlists","Playlists","list-music"],["settings","Settings","settings"]];
+const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["favorites","Favorites","heart"],["playlists","Playlists","list-music"],["game","Game","gamepad-2"],["settings","Settings","settings"]];
 function navItem(v,label,ic,mobile){ const active=state.view===v; if(mobile){ return `<button data-act="nav" data-view="${v}" data-testid="nav-mobile-${v}" class="flex flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors ${active?'text-[color:var(--treesh-purple)]':'text-white/55'}"><i data-lucide="${ic}" style="width:20px;height:20px"></i>${label}</button>`; }
   return `<button data-act="nav" data-view="${v}" data-testid="nav-${v}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${active?'bg-white/10 text-white glow-purple':'text-white/60 hover:bg-white/5 hover:text-white'}"><i data-lucide="${ic}" style="width:18px;height:18px"></i>${label}</button>`; }
 
@@ -583,8 +618,18 @@ function viewArtistDetail(){
 
 function viewFavorites(){
   const list=favSongs(); state.contextList=list;
-  return `<div class="space-y-6"><div class="flex items-end justify-between gap-4"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Your collection</p><h1 class="mt-1 flex items-center gap-2 text-3xl font-bold"><i data-lucide="heart" class="fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]" style="width:26px;height:26px"></i> Favorites</h1><p class="mt-1 text-sm text-white/55">${list.length} liked track${list.length!==1?'s':''}</p></div>${list.length?`<button data-act="playall-context" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button>`:""}</div>
-  ${list.length?`<div class="space-y-1">${list.map((s,i)=>songRow(s,i,false)).join("")}</div>`:`<div class="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><div class="eq scale-150"><span></span><span></span><span></span><span></span></div><p class="text-lg font-semibold">No favorites yet</p><p class="max-w-xs text-sm text-white/50">Tap the heart on any track to save it here.</p><button data-act="nav" data-view="library" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="music-2" style="width:16px;height:16px"></i> Browse Library</button></div>`}</div>`;
+  const groups=favLyricGroups();
+  const lyricsSection = groups.length ? `<section class="space-y-3">
+    <div class="flex items-center gap-2"><h2 class="flex items-center gap-2 text-lg font-bold"><i data-lucide="quote" class="text-[color:var(--treesh-gold)]" style="width:18px;height:18px"></i> Favorite Lyrics</h2><span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${groups.length}</span></div>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">${groups.map(g=>`<div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <div class="flex items-center gap-3"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(g.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(g.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(g.artist)}</p></div><button data-act="clear-song-lyrics" data-id="${g.songId}" aria-label="Clear" class="press grid h-8 w-8 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-white"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>
+      <div class="space-y-1 border-l-2 border-[color:var(--treesh-purple)]/50 pl-3">${g.lines.slice(0,4).map(l=>`<p class="clamp-1 text-sm text-white/80">${esc(l.text)}</p>`).join("")}${g.lines.length>4?`<p class="text-xs text-white/40">+${g.lines.length-4} more</p>`:""}</div>
+      <button data-act="make-lyric-card" data-id="${g.songId}" data-testid="make-lyric-card-${g.songId}" class="press inline-flex items-center justify-center gap-2 rounded-full bg-white/10 py-2.5 text-sm font-semibold hover:bg-white/15"><i data-lucide="wand-sparkles" style="width:16px;height:16px"></i> Make lyric card</button>
+    </div>`).join("")}</div>
+  </section>` : "";
+  return `<div class="space-y-7"><div class="flex items-end justify-between gap-4"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Your collection</p><h1 class="mt-1 flex items-center gap-2 text-3xl font-bold"><i data-lucide="heart" class="fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]" style="width:26px;height:26px"></i> Favorites</h1><p class="mt-1 text-sm text-white/55">${list.length} liked track${list.length!==1?'s':''}</p></div>${list.length?`<button data-act="playall-context" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button>`:""}</div>
+  ${list.length?`<div class="space-y-1">${list.map((s,i)=>songRow(s,i,false)).join("")}</div>`:(groups.length?"":`<div class="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><div class="eq scale-150"><span></span><span></span><span></span><span></span></div><p class="text-lg font-semibold">No favorites yet</p><p class="max-w-xs text-sm text-white/50">Tap the heart on any track to save it here.</p><button data-act="nav" data-view="library" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="music-2" style="width:16px;height:16px"></i> Browse Library</button></div>`)}
+  ${lyricsSection}</div>`;
 }
 
 function viewPlaylists(){
@@ -627,6 +672,7 @@ function renderView(animate=false){
     case "playlists": html=viewPlaylists(); break;
     case "playlist": html=viewPlaylistDetail(); break;
     case "settings": html=viewSettings(); break;
+    case "game": html=viewGame(); break;
     default: html=viewLibrary();
   }
   v.innerHTML=html; icons();
@@ -642,6 +688,267 @@ function renderView(animate=false){
 function refreshDynamic(){ renderView(); renderMini(); renderNP(); renderShellProfile(); }
 function renderShellProfile(){ /* header avatar */ renderShellHeaderAvatar(); }
 function renderShellHeaderAvatar(){ /* handled on full shell render */ }
+
+/* ============================================================
+   FAVORITE LYRICS + LYRIC CARD STUDIO
+   ============================================================ */
+function saveFavLyrics(){ LS.set("treesh_fav_lyrics", state.favLyrics); }
+function isFavLyric(songId,i){ return state.favLyrics.some(x=>x.songId===songId && x.i===i); }
+function favLyricsForSong(songId){ return state.favLyrics.filter(x=>x.songId===songId).sort((a,b)=>a.i-b.i); }
+function toggleFavLyric(songId,i){
+  const s=SONG_BY_ID[songId]; if(!s) return;
+  const idx=state.favLyrics.findIndex(x=>x.songId===songId && x.i===i);
+  if(idx>=0){ state.favLyrics.splice(idx,1); }
+  else { const line=(s.lyrics||[])[i]; if(!line) return; state.favLyrics.push({songId, i, t:line.t, text:line.text, title:s.title, artist:s.artist, coverArt:s.coverArt}); }
+  saveFavLyrics();
+}
+function favLyricGroups(){
+  const map={};
+  state.favLyrics.forEach(x=>{ (map[x.songId]=map[x.songId]||{songId:x.songId,title:x.title,artist:x.artist,coverArt:x.coverArt,lines:[]}).lines.push(x); });
+  return Object.values(map).map(g=>({...g, lines:g.lines.sort((a,b)=>a.i-b.i)}));
+}
+
+const CARD_THEMES=[
+  {name:"Purple", a:"#3a0d6b", b:"#9328ff", accent:"#e9d8ff"},
+  {name:"Noir", a:"#0b0b0d", b:"#33333b", accent:"#c3ab69"},
+  {name:"Gold", a:"#241d0a", b:"#7a5f1e", accent:"#ffe9a8"},
+  {name:"Ember", a:"#2a0f12", b:"#7a2233", accent:"#ffd0d0"},
+  {name:"Forest", a:"#0c2018", b:"#1f5b3a", accent:"#c8f5da"},
+  {name:"Ocean", a:"#0a1f2e", b:"#155e75", accent:"#bfe9ff"},
+];
+
+function openLyricStudio(songId){
+  const s=SONG_BY_ID[songId]; if(!s) return;
+  const existed=!!$("#modal [data-studio-root]");
+  if(!state.studio || state.studio.songId!==songId) state.studio={songId, theme:0};
+  const fav=favLyricsForSong(songId);
+  const themeSwatches=CARD_THEMES.map((t,i)=>`<button data-act="card-theme" data-i="${i}" aria-label="${t.name}" class="h-9 w-9 rounded-full border-2 transition ${i===state.studio.theme?'border-white scale-110':'border-white/20 hover:border-white/50'}" style="background:linear-gradient(135deg,${t.a},${t.b})"></button>`).join("");
+  const lineList = fav.length
+    ? fav.map(l=>`<div class="flex items-start gap-2 rounded-lg bg-white/5 px-2.5 py-2"><p class="flex-1 text-sm text-white/85">${esc(l.text)}</p><button data-act="studio-remove" data-i="${l.i}" aria-label="Remove" class="press mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"><i data-lucide="x" style="width:14px;height:14px"></i></button></div>`).join("")
+    : `<div class="rounded-xl border border-dashed border-white/15 p-5 text-center text-sm text-white/50"><i data-lucide="heart" style="width:20px;height:20px" class="mx-auto mb-2"></i>Tap the <span class="text-white/80">heart</span> on any lyric line to feature it here.</div>`;
+  const inner=`<div data-studio-root>
+    <div class="mb-3 flex items-center justify-between"><div><p class="font-display text-xs uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Lyric Card</p><p class="clamp-1 text-sm font-semibold">${esc(s.title)} \u00B7 ${esc(s.artist)}</p></div><button data-act="modal-close" aria-label="Close" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
+    <div class="max-h-[76vh] space-y-4 overflow-y-auto no-scrollbar pr-1">
+      <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/40"><canvas id="lyric-canvas" width="1080" height="1080" class="block w-full"></canvas></div>
+      <div><p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">Background</p><div class="flex flex-wrap gap-2">${themeSwatches}</div></div>
+      <div><p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">Featured lyrics ${fav.length?`(${fav.length})`:""}</p><div class="space-y-1.5">${lineList}</div></div>
+      <div class="flex gap-2 pt-1">
+        <button data-act="card-download" data-testid="card-download" class="press flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-white py-3 text-sm font-bold text-black ${fav.length?'':'pointer-events-none opacity-40'}"><i data-lucide="download" style="width:16px;height:16px"></i>Download</button>
+        <button data-act="card-share" data-testid="card-share" class="press flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[color:var(--treesh-purple)] py-3 text-sm font-bold glow-purple ${fav.length?'':'pointer-events-none opacity-40'}"><i data-lucide="share-2" style="width:16px;height:16px"></i>Share</button>
+      </div>
+    </div>
+  </div>`;
+  $("#modal").innerHTML=modalWrap(inner,"lyric-studio","lg"); icons();
+  if(existed){ const p=$("#modal [data-act='modal-stop']"); if(p) p.classList.remove("panel-in"); }
+  drawLyricCard();
+}
+
+function wrapCanvasText(ctx, lines, maxW){
+  const out=[];
+  lines.forEach(line=>{
+    const words=String(line).split(/\s+/); let cur="";
+    words.forEach(w=>{ const test=cur?cur+" "+w:w; if(ctx.measureText(test).width>maxW && cur){ out.push(cur); cur=w; } else cur=test; });
+    if(cur) out.push(cur); else if(!words.length) out.push("");
+  });
+  return out;
+}
+function drawLyricCard(){
+  const cv=$("#lyric-canvas"); if(!cv) return;
+  const s=SONG_BY_ID[state.studio.songId]; if(!s) return;
+  const lines=favLyricsForSong(s.id).map(x=>x.text);
+  const th=CARD_THEMES[state.studio.theme]||CARD_THEMES[0];
+  const ctx=cv.getContext("2d"); const W=1080,H=1080;
+  const draw=()=>{
+    ctx.clearRect(0,0,W,H);
+    const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,th.a); g.addColorStop(1,th.b);
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // soft glow
+    const rg=ctx.createRadialGradient(W*0.2,H*0.15,50,W*0.2,H*0.15,700); rg.addColorStop(0,"rgba(255,255,255,0.14)"); rg.addColorStop(1,"rgba(255,255,255,0)"); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
+    // decorative quote
+    ctx.fillStyle="rgba(255,255,255,0.13)"; ctx.font='900 300px Georgia, serif'; ctx.textBaseline="alphabetic"; ctx.fillText("\u201C", 60, 340);
+    // top label
+    ctx.fillStyle=th.accent||"#fff"; ctx.font='800 26px Manrope, sans-serif';
+    ctx.fillText("T R E E S H   \u00B7   L Y R I C S", 96, 150);
+    // lyric body
+    const body = lines.length ? lines : ["Select lyrics to feature\u2026"];
+    let fs = 76; const total=body.join(" ").length;
+    if(total>60) fs=62; if(total>120) fs=52; if(total>200) fs=44; if(total>320) fs=36;
+    ctx.font=`800 ${fs}px Manrope, sans-serif`;
+    let wrapped=wrapCanvasText(ctx, body, W-192);
+    // shrink if too many lines
+    while(wrapped.length*(fs*1.28) > 560 && fs>26){ fs-=4; ctx.font=`800 ${fs}px Manrope, sans-serif`; wrapped=wrapCanvasText(ctx, body, W-192); }
+    const lh=fs*1.3; const blockH=wrapped.length*lh; let y=Math.max(360, (H-260)/2 - blockH/2 + fs);
+    ctx.fillStyle="#ffffff"; ctx.textBaseline="alphabetic";
+    wrapped.forEach(ln=>{ ctx.fillText(ln, 96, y); y+=lh; });
+    // divider + attribution
+    ctx.fillStyle="rgba(255,255,255,0.25)"; ctx.fillRect(96, H-190, 90, 4);
+    ctx.fillStyle="#ffffff"; ctx.font='800 42px Manrope, sans-serif'; ctx.fillText(s.title.slice(0,40), 96, H-120);
+    ctx.fillStyle="rgba(255,255,255,0.75)"; ctx.font='500 32px Manrope, sans-serif'; ctx.fillText(s.artist.slice(0,44), 96, H-72);
+  };
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(draw); draw(); } else draw();
+}
+function cardBlob(cb){ const cv=$("#lyric-canvas"); if(!cv){ cb(null); return; } cv.toBlob(cb, "image/png"); }
+function downloadLyricCard(){
+  const s=SONG_BY_ID[state.studio.songId];
+  cardBlob(blob=>{ if(!blob) return; const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`treesh-lyric-${slug(s.title)||"card"}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500); toast("Lyric card saved"); });
+}
+async function shareLyricCard(){
+  const s=SONG_BY_ID[state.studio.songId]; const lines=favLyricsForSong(s.id).map(x=>x.text);
+  cardBlob(async blob=>{
+    if(!blob) return;
+    const file=new File([blob], `treesh-lyric-${slug(s.title)||"card"}.png`, {type:"image/png"});
+    const text=`"${lines.join(" / ")}" \u2014 ${s.artist}`;
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:s.title, text}); return; }catch(e){ if(e && e.name==="AbortError") return; }
+    }
+    downloadLyricCard(); toast("Card saved","Share it anywhere");
+  });
+}
+
+/* ============================================================
+   WHAT'S NEXT?  (lyric game)
+   ============================================================ */
+function gnorm(s){ return String(s==null?"":s).toLowerCase().replace(/[\u2018\u2019\u201c\u201d]/g,"'").replace(/[^a-z0-9\s]/g,"").replace(/\s+/g," ").trim(); }
+function lev(a,b){ const m=a.length,n=b.length; if(!m) return n; if(!n) return m; let prev=Array.from({length:n+1},(_,j)=>j); for(let i=1;i<=m;i++){ const cur=[i]; for(let j=1;j<=n;j++){ cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1)); } prev=cur; } return prev[n]; }
+function similarity(a,b){ a=gnorm(a); b=gnorm(b); if(!a||!b) return 0; if(a===b) return 1; const d=lev(a,b); return Math.max(0, 1 - d/Math.max(a.length,b.length)); }
+
+function gameEligibleSongs(){ return SONGS.filter(s=>(s.lyrics||[]).filter(l=>l.text&&l.text.trim()).length>=4); }
+function startGame(id){
+  const s=SONG_BY_ID[id]; if(!s) return;
+  const lines=(s.lyrics||[]).filter(l=>l.text&&l.text.trim());
+  if(lines.length<4){ toast("Not enough lyrics","Pick another track"); return; }
+  const cand=[]; for(let i=1;i<lines.length;i++) cand.push(i);
+  for(let i=cand.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=cand[i]; cand[i]=cand[j]; cand[j]=tmp; }
+  const targets=cand.slice(0, Math.min(5,cand.length)).sort((a,b)=>a-b);
+  state.game={song:s, lines, targets, round:0, score:0, streak:0, bestStreak:0, results:[], answered:false, saved:false, lastAnswer:"", lastSim:0, lastPoints:0, mode:"type"};
+  renderGame();
+}
+function saveGameResult(g){
+  const st=state.gameStats;
+  st.games++; st.totalScore+=g.score; st.bestScore=Math.max(st.bestScore,g.score);
+  st.rounds+=g.targets.length; st.correct+=g.results.filter(r=>r.correct).length; st.bestStreak=Math.max(st.bestStreak,g.bestStreak);
+  st.lastPlayed=Date.now(); LS.set("treesh_game_stats", st);
+}
+function renderGame(){
+  const g=state.game; if(!g) return;
+  const existed=!!$("#modal [data-game-root]");
+  let inner;
+  if(g.round>=g.targets.length){ if(!g.saved){ saveGameResult(g); g.saved=true; } inner=gameEndHTML(); }
+  else inner=gameRoundHTML();
+  $("#modal").innerHTML=modalWrap(inner,"game-modal","lg"); icons();
+  if(existed){ const p=$("#modal [data-act='modal-stop']"); if(p) p.classList.remove("panel-in"); const r=$("#modal [data-game-root]"); if(r) r.classList.add("ob-step-in"); }
+  const gi=$("#game-input"); if(gi){ gi.focus(); gi.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); submitAnswer(gi.value, gi.dataset.voice?"voice":"type"); } }); }
+}
+function gameRoundHTML(){
+  const g=state.game; const ti=g.targets[g.round];
+  const prev=g.lines[ti-1]?g.lines[ti-1].text:""; const prev2=g.lines[ti-2]?g.lines[ti-2].text:"";
+  const pct=Math.round(g.round/g.targets.length*100);
+  let block;
+  if(g.answered){
+    const target=g.lines[ti].text; const sim=g.lastSim;
+    const verdict = sim>=0.85?"Perfect!":sim>=0.6?"Nice \u2014 close!":sim>=0.3?"Almost\u2026":"Not quite";
+    const col = sim>=0.6?"var(--treesh-purple)":sim>=0.3?"var(--treesh-gold)":"#ef6a6a";
+    block=`<div class="mt-4 space-y-3">
+      <div class="rounded-2xl border bg-black/30 p-4" style="border-color:${col}55">
+        <div class="flex items-center justify-between"><span class="font-display text-xl font-bold" style="color:${col}">${verdict}</span><span class="font-doto text-xl font-bold text-white">+${g.lastPoints}</span></div>
+        <p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-white/40">Actual line</p><p class="text-base font-bold text-white">${esc(target)}</p>
+        <p class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-white/40">You ${g.mode==="voice"?"said":"typed"}</p><p class="text-sm text-white/70">${esc(g.lastAnswer||"\u2014")}</p>
+      </div>
+      <button data-act="game-next" data-testid="game-next" class="press w-full rounded-full bg-white py-3 text-sm font-bold text-black">${g.round+1>=g.targets.length?"See results":"Next line"}</button>
+    </div>`;
+  } else {
+    block=`<div class="mt-4 space-y-2.5">
+      <textarea id="game-input" rows="2" placeholder="Type the next line\u2026" class="w-full resize-none rounded-xl border border-white/12 bg-white/5 p-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/30"></textarea>
+      <div class="flex items-center gap-2">
+        <button data-act="game-mic" id="game-mic" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10"><i data-lucide="mic" style="width:16px;height:16px"></i>Speak</button>
+        <button data-act="game-hint" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10"><i data-lucide="volume-2" style="width:16px;height:16px"></i>Hear it</button>
+        <button data-act="game-submit" data-testid="game-submit" class="press ml-auto inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-bold glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Submit</button>
+      </div>
+      <button data-act="game-skip" class="w-full py-1 text-center text-xs text-white/40 hover:text-white/70">Skip this one</button>
+    </div>`;
+  }
+  return `<div data-game-root>
+    <div class="mb-3 flex items-center justify-between">
+      <div><p class="font-display text-xs uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">What\u2019s Next?</p><p class="clamp-1 text-sm font-semibold">${esc(g.song.title)}</p></div>
+      <button data-act="game-close" aria-label="Close" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+    </div>
+    <div class="mb-4 flex items-center gap-3 text-xs text-white/60"><span class="shrink-0">Round ${g.round+1}/${g.targets.length}</span><div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-[color:var(--treesh-purple)] transition-[width] duration-500" style="width:${pct}%"></div></div><span class="inline-flex shrink-0 items-center gap-1"><i data-lucide="flame" style="width:13px;height:13px" class="${g.streak>0?'text-[color:var(--treesh-gold)]':'text-white/40'}"></i>${g.streak}</span><span class="font-doto shrink-0 text-white/80">${g.score}</span></div>
+    <div class="rounded-2xl border border-white/10 bg-black/30 p-4">
+      ${prev2?`<p class="clamp-1 text-sm text-white/35">${esc(prev2)}</p>`:""}
+      <p class="mt-1 text-lg font-bold leading-snug text-white/90">${esc(prev)}</p>
+      <p class="mt-2 flex items-center gap-2 text-base font-bold text-[color:var(--treesh-purple)]"><i data-lucide="help-circle" style="width:18px;height:18px"></i> What comes next?</p>
+    </div>
+    ${block}
+  </div>`;
+}
+function gameEndHTML(){
+  const g=state.game; const acc=Math.round(g.results.filter(r=>r.correct).length/g.targets.length*100);
+  return `<div data-game-root class="text-center">
+    <div class="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full" style="background:radial-gradient(circle,rgba(147,40,255,0.45),transparent 70%)"><i data-lucide="trophy" class="text-[color:var(--treesh-gold)]" style="width:34px;height:34px"></i></div>
+    <p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Game Over</p>
+    <h2 class="mt-1 font-display text-4xl font-bold">${g.score}<span class="text-lg font-normal text-white/50"> pts</span></h2>
+    <p class="mt-1 clamp-1 text-sm text-white/55">${esc(g.song.title)} \u00B7 ${esc(g.song.artist)}</p>
+    <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+      <div class="rounded-xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${acc}%</p><p class="text-[10px] uppercase tracking-wide text-white/45">Accuracy</p></div>
+      <div class="rounded-xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${g.bestStreak}</p><p class="text-[10px] uppercase tracking-wide text-white/45">Best streak</p></div>
+      <div class="rounded-xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${g.targets.length}</p><p class="text-[10px] uppercase tracking-wide text-white/45">Rounds</p></div>
+    </div>
+    <div class="mt-5 flex gap-2">
+      <button data-act="game-again" class="press flex-1 rounded-full bg-[color:var(--treesh-purple)] py-3 text-sm font-bold glow-purple">Play again</button>
+      <button data-act="game-close" class="press flex-1 rounded-full border border-white/15 bg-white/5 py-3 text-sm font-semibold">Done</button>
+    </div>
+  </div>`;
+}
+function submitAnswer(ans, mode){
+  const g=state.game; if(!g||g.answered) return;
+  const target=g.lines[g.targets[g.round]].text;
+  const sim=similarity(ans, target); const pts=Math.round(sim*100); const correct=sim>=0.6;
+  g.lastAnswer=(ans||"").trim(); g.lastSim=sim; g.lastPoints=pts; g.mode=mode||"type"; g.score+=pts;
+  if(correct){ g.streak++; if(g.streak>g.bestStreak) g.bestStreak=g.streak; } else g.streak=0;
+  g.results.push({correct, sim, pts}); g.answered=true;
+  try{ clearTimeout(state._gameHintTimer); }catch(e){}
+  renderGame();
+}
+function gameNext(){ const g=state.game; if(!g) return; g.round++; g.answered=false; renderGame(); }
+function gameClose(){ state.game=null; try{ clearTimeout(state._gameHintTimer); }catch(e){} closeModal(); if(state.view==="game") renderView(); }
+function gameHint(){
+  const g=state.game; if(!g) return;
+  const ti=g.targets[g.round]; const t=(g.lines[ti]&&g.lines[ti].t)||0; const start=Math.max(0,t-5);
+  const same = curSong() && curSong().id===g.song.id;
+  if(!same) playSong(g.song,[g.song]);
+  setTimeout(()=>{ try{ seekTo(start); const p=state.audio.play(); if(p&&p.catch) p.catch(()=>{}); clearTimeout(state._gameHintTimer); state._gameHintTimer=setTimeout(()=>{ try{ state.audio.pause(); }catch(e){} }, Math.max(1200,(t-start)*1000)); }catch(e){} }, same?0:500);
+}
+let gameRecog=null;
+function gameVoiceInput(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ toast("Voice not supported","Type your answer instead"); return; }
+  try{
+    if(!gameRecog){ gameRecog=new SR(); gameRecog.lang="en-US"; gameRecog.interimResults=true; gameRecog.continuous=false;
+      gameRecog.onresult=e=>{ let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript; const gi=$("#game-input"); if(gi){ gi.value=t; gi.dataset.voice="1"; } };
+      gameRecog.onend=()=>{ const mb=$("#game-mic"); if(mb) mb.classList.remove("voice-pulse","border-[color:var(--treesh-purple)]","text-white"); };
+      gameRecog.onerror=()=>{ const mb=$("#game-mic"); if(mb) mb.classList.remove("voice-pulse","border-[color:var(--treesh-purple)]","text-white"); };
+    }
+    gameRecog.start(); const mb=$("#game-mic"); if(mb) mb.classList.add("voice-pulse","border-[color:var(--treesh-purple)]","text-white");
+  }catch(e){}
+}
+function viewGame(){
+  const st=state.gameStats; const songs=gameEligibleSongs();
+  const acc = st.rounds? Math.round(st.correct/st.rounds*100):0;
+  const statCard=(label,val,ic)=>`<div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="flex items-center gap-2 text-white/50"><i data-lucide="${ic}" style="width:15px;height:15px"></i><span class="text-[11px] font-semibold uppercase tracking-wide">${label}</span></div><p class="mt-1.5 font-doto text-2xl font-bold text-white">${val}</p></div>`;
+  return `<div class="space-y-6">
+    <div class="relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8" style="background:linear-gradient(135deg,rgba(147,40,255,0.22),rgba(12,12,14,0.35))">
+      <div class="absolute right-[-40px] top-[-40px] h-48 w-48 rounded-full blur-[70px]" style="background:rgba(147,40,255,0.35)"></div>
+      <p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Lyric Game</p>
+      <h1 class="mt-1 flex items-center gap-2 text-3xl font-bold sm:text-4xl"><i data-lucide="gamepad-2" style="width:30px;height:30px"></i> What\u2019s Next?</h1>
+      <p class="relative mt-2 max-w-md text-sm text-white/70">Guess the upcoming lyric \u2014 type it or say it out loud. Score points, build streaks, and track your stats.</p>
+    </div>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      ${statCard("Games",st.games,"gamepad-2")}${statCard("Best Score",st.bestScore,"trophy")}${statCard("Accuracy",acc+"%","target")}${statCard("Best Streak",st.bestStreak,"flame")}
+    </div>
+    <div class="flex items-center justify-between"><h2 class="text-lg font-bold">Choose a track</h2>${songs.length?`<button data-act="game-random" data-testid="game-random" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-4 py-2 text-sm font-semibold glow-purple"><i data-lucide="dices" style="width:15px;height:15px"></i>Random</button>`:""}</div>
+    ${songs.length? `<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">${songs.map(s=>`<button data-act="start-game" data-id="${s.id}" data-testid="game-song-${s.id}" class="press card-lift flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-2.5 text-left hover:border-white/25"><div class="h-14 w-14 shrink-0 overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white"><i data-lucide="play" style="width:16px;height:16px"></i></span></button>`).join("")}</div>` : `<div class="rounded-2xl border border-white/10 bg-white/5 p-10 text-center text-white/50">No songs with lyrics available yet.</div>`}
+  </div>`;
+}
 
 /* ============================================================
    RENDER: MINI PLAYER
@@ -692,9 +999,16 @@ function renderNP(){
   let mainInner;
   if(state.showLyrics){
     const lines=(s.lyrics||[]);
+    const favCount=favLyricsForSong(s.id).length;
     mainInner=`<div class="flex min-h-0 flex-1 flex-col pt-3">
-      <button data-act="toggle-lyrics" class="mb-3 flex shrink-0 items-center gap-3 text-left"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg shadow-lg">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-base font-bold">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60">${esc(s.artist)}</p></div></button>
-      <div class="relative min-h-0 flex-1"><div id="np-lyrics" class="h-full overflow-y-auto no-scrollbar px-1 py-[30%]">${ lines.length ? lines.map((l,i)=>`<button data-act="lyric-seek" data-t="${l.t}" data-i="${i}" class="np-line block w-full text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70">${esc(l.text)}</button>`).join("") : `<div class="flex h-full flex-col items-center justify-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p></div>` }</div>
+      <div class="mb-3 flex shrink-0 items-center justify-between gap-2">
+        <button data-act="toggle-lyrics" class="flex min-w-0 items-center gap-3 text-left"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg shadow-lg">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-base font-bold">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60">${esc(s.artist)}</p></div></button>
+        <div class="flex shrink-0 items-center gap-1.5">
+          <button data-act="open-lyric-studio" aria-label="Create lyric card" data-testid="open-lyric-studio" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="wand-sparkles" style="width:17px;height:17px"></i>${favCount?`<span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--treesh-purple)] px-1 text-[9px] font-bold text-white">${favCount}</span>`:""}</button>
+          <button data-act="start-game-current" aria-label="Play What\u2019s Next game" data-testid="start-game-current" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="gamepad-2" style="width:17px;height:17px"></i></button>
+        </div>
+      </div>
+      <div class="relative min-h-0 flex-1"><div id="np-lyrics" class="h-full overflow-y-auto no-scrollbar px-1 py-[30%]">${ lines.length ? lines.map((l,i)=>{ const favd=isFavLyric(s.id,i); return `<div class="group/l flex items-start gap-1"><button data-act="lyric-seek" data-t="${l.t}" data-i="${i}" class="np-line flex-1 text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70">${esc(l.text)}</button><button data-act="fav-lyric" data-li="${i}" data-fav="${favd?'1':''}" aria-label="Favorite lyric" class="press mt-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/55 transition-opacity duration-200 hover:bg-white/10 ${favd?'opacity-100':'opacity-100 sm:opacity-0 sm:group-hover/l:opacity-100'}"><i data-lucide="heart" class="${favd?'fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]':''}" style="width:16px;height:16px"></i></button></div>`; }).join("") : `<div class="flex h-full flex-col items-center justify-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p></div>` }</div>
       <div class="pointer-events-none absolute inset-x-0 top-0 h-12" style="background:linear-gradient(to bottom,rgba(8,8,10,0.6),transparent)"></div><div class="pointer-events-none absolute inset-x-0 bottom-0 h-12" style="background:linear-gradient(to top,rgba(8,8,10,0.6),transparent)"></div></div></div>`;
   } else {
     const artwork = state.vinylMode
@@ -767,7 +1081,7 @@ function closeModal(){
   if(panel){ panel.classList.remove("panel-in"); panel.classList.add("panel-out"); }
   setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); }, 210);
 }
-function modalWrap(inner, testid){ return `<div data-act="modal-backdrop" class="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-4 backdrop-blur-sm backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="glass-strong panel-in relative w-full max-w-md rounded-2xl border-white/15 p-5 text-white">${inner}</div></div>`; }
+function modalWrap(inner, testid, size){ const mw=size==="lg"?"max-w-lg":size==="xl"?"max-w-xl":"max-w-md"; return `<div data-act="modal-backdrop" class="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-4 backdrop-blur-sm backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="glass-strong panel-in relative w-full ${mw} rounded-2xl border-white/15 p-5 text-white">${inner}</div></div>`; }
 
 let onboard={step:0,nick:"",bday:"",avatar:""};
 function renderOnboarding(){
@@ -895,6 +1209,24 @@ document.addEventListener("click", e=>{
     case "m-add-pl": closeModal(); openAddToPlaylist(id); break;
     case "m-share": { const s=SONG_BY_ID[id]; closeModal(); shareTrack(s); break; }
     case "lyric-seek": seekTo(parseFloat(t.dataset.t)); break;
+    case "fav-lyric": { const s=curSong(); if(s){ const i=+t.dataset.li; toggleFavLyric(s.id,i); const on=isFavLyric(s.id,i); t.dataset.fav=on?"1":""; t.classList.toggle("opacity-100",on); const ic=t.querySelector("i"); if(ic){ ic.setAttribute("class", on?"fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]":""); } icons(); toast(on?"Lyric favorited":"Removed from favorites"); } break; }
+    case "open-lyric-studio": { const s=curSong(); if(s) openLyricStudio(s.id); break; }
+    case "studio-remove": { toggleFavLyric(state.studio.songId, +t.dataset.i); openLyricStudio(state.studio.songId); break; }
+    case "card-theme": state.studio.theme=+t.dataset.i; openLyricStudio(state.studio.songId); break;
+    case "card-download": downloadLyricCard(); break;
+    case "card-share": shareLyricCard(); break;
+    case "make-lyric-card": openLyricStudio(id); break;
+    case "clear-song-lyrics": { state.favLyrics=state.favLyrics.filter(x=>x.songId!==id); saveFavLyrics(); renderView(); break; }
+    case "start-game": startGame(id); break;
+    case "start-game-current": { const s=curSong(); if(s) startGame(s.id); break; }
+    case "game-random": { const songs=gameEligibleSongs(); if(songs.length) startGame(songs[Math.floor(Math.random()*songs.length)].id); break; }
+    case "game-submit": { const gi=$("#game-input"); submitAnswer(gi?gi.value:"", (gi&&gi.dataset.voice)?"voice":"type"); break; }
+    case "game-skip": submitAnswer("", "type"); break;
+    case "game-next": gameNext(); break;
+    case "game-again": { const g=state.game; if(g) startGame(g.song.id); break; }
+    case "game-close": gameClose(); break;
+    case "game-mic": gameVoiceInput(); break;
+    case "game-hint": gameHint(); break;
     case "wn-dot": goWN(+t.dataset.i); break;
     case "wn-prev": goWN((state.wnIndex||0)-1); break;
     case "wn-next": goWN((state.wnIndex||0)+1); break;
@@ -976,7 +1308,7 @@ function init(){
 }
 
 /* soft refresh after a background catalog update (keeps playback intact) */
-function softRefresh(){ renderShell(); renderView(); renderMini(); if(state.npOpen) renderNP(); }
+function softRefresh(){ renderView(); renderMini(); if(state.npOpen) renderNP(); }
 
 /* branded loading screen while the live catalog is fetched */
 function renderBootLoading(){
@@ -1012,12 +1344,13 @@ async function boot(){
   const cachedTs = loadCatalogCache();
   if(cachedTs){
     init();                                  // instant boot from cache
-    loadCatalog().then(softRefresh).catch(()=>{}); // stale-while-revalidate
+    loadCatalog().then(res=>{ if(res.changed) softRefresh(); }).catch(()=>{}); // stale-while-revalidate
   } else {
     renderBootLoading();
     try{ await loadCatalog(); init(); }
     catch(e){ console.error("Catalog load failed:", e); renderBootError(); }
   }
+  startCatalogPolling();
 }
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 </script>
