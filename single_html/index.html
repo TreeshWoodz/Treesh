@@ -30,7 +30,7 @@
     --treesh-glow-gold:0 0 0 1px rgba(195,171,105,0.24),0 0 26px rgba(195,171,105,0.2);
   }
   *{ -webkit-tap-highlight-color:transparent; }
-  html,body{ margin:0; background:var(--treesh-bg-0); color:#fafafa; font-family:'Manrope',system-ui,sans-serif; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none; }
+  html,body{ margin:0; background:var(--app-bg); color:var(--app-text); font-family:'Manrope',system-ui,sans-serif; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none; transition:background-color .3s ease, color .3s ease; }
   .font-display{ font-family:'Special Gothic Expanded One','Manrope',sans-serif; }
   .font-doto{ font-family:'Doto','Manrope',monospace; }
   .glass{ background:rgba(255,255,255,0.06); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid var(--treesh-stroke); }
@@ -75,6 +75,13 @@
   .voice-pulse::before,.voice-pulse::after{ content:""; position:absolute; inset:0; border-radius:50%; border:2px solid var(--treesh-purple); animation:tping 1.6s cubic-bezier(0,0,0.2,1) infinite; }
   .voice-pulse::after{ animation-delay:.8s; }
   @keyframes tping{ 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.2);opacity:0} }
+  /* voice assistant waveform + typing dots */
+  .voice-wave{ display:flex; align-items:center; justify-content:center; gap:5px; height:38px; }
+  .voice-wave span{ display:block; width:4px; height:100%; border-radius:999px; background:var(--treesh-purple); transform-origin:center; animation:vwave 1.05s ease-in-out infinite; }
+  .voice-wave span:nth-child(1){animation-delay:-.9s} .voice-wave span:nth-child(2){animation-delay:-.7s} .voice-wave span:nth-child(3){animation-delay:-.5s} .voice-wave span:nth-child(4){animation-delay:-.3s} .voice-wave span:nth-child(5){animation-delay:-.15s} .voice-wave span:nth-child(6){animation-delay:-.45s} .voice-wave span:nth-child(7){animation-delay:-.65s}
+  @keyframes vwave{ 0%,100%{transform:scaleY(.22)} 50%{transform:scaleY(1)} }
+  .voice-dots span{ display:inline-block; animation:vdots 1.4s infinite; } .voice-dots span:nth-child(2){ animation-delay:.2s } .voice-dots span:nth-child(3){ animation-delay:.4s }
+  @keyframes vdots{ 0%,60%,100%{opacity:.25} 30%{opacity:1} }
 
   /* ---------- motion system ---------- */
   .fade-in{ animation:tfade .34s cubic-bezier(.22,1,.36,1) both; } @keyframes tfade{ from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
@@ -82,6 +89,12 @@
 
   /* page / view navigation */
   .view-in{ animation:viewIn .42s cubic-bezier(.22,1,.36,1) both; } @keyframes viewIn{ from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+  /* scroll-reveal + staggered entrance */
+  @keyframes trRevealUp{ from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+  .reveal-stagger{ animation:trRevealUp .5s cubic-bezier(.22,1,.36,1) both; }
+  .io-reveal{ opacity:0; transform:translateY(18px); }
+  .io-reveal.io-in{ opacity:1; transform:none; transition:opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1); }
+  @media (prefers-reduced-motion: reduce){ .reveal-stagger{ animation:none !important } .io-reveal{ opacity:1 !important; transform:none !important } }
 
   /* now-playing sheet */
   @keyframes npUp{ from{opacity:0;transform:translateY(7%)} to{opacity:1;transform:none} }
@@ -168,6 +181,7 @@
 
   @media (prefers-reduced-motion: reduce){
     .spin,.eq span,.shimmer,.voice-pulse::before,.voice-pulse::after,
+    .voice-wave span,.voice-dots span,
     .fade-in,.view-in,.np-entering,.np-leaving,.np-content-in,
     .backdrop-in,.backdrop-out,.panel-in,.panel-out,.ob-step-in,
     .drawer-in,.drawer-out,.mini-in,.toast-in,.toast-out,
@@ -177,6 +191,123 @@
     .wn-slide.wn-active .wn-img{ animation:none !important }
     #wn-track{ transition:none !important }
   }
+
+  /* ---------- extended tokens + utilities (phase additions) ---------- */
+  :root{
+    --treesh-ease:cubic-bezier(.22,1,.36,1);
+    --treesh-dur-1:140ms; --treesh-dur-2:220ms; --treesh-dur-3:420ms;
+    --treesh-stroke-faint:rgba(255,255,255,0.10);
+    --treesh-focus:0 0 0 1px rgba(255,255,255,0.10),0 0 0 4px var(--treesh-purple-soft);
+  }
+  /* iOS: prevent input auto-zoom + viewport shift (font >=16px on small screens) */
+  @media (max-width:640px){ input:not([type=range]),textarea,select{ font-size:16px !important; } }
+  body.tr-locked{ overflow:hidden; }
+
+  /* reusable panel + overlay motion */
+  @keyframes trPanelIn{ from{opacity:0;transform:translateY(10px) scale(.98)} to{opacity:1;transform:none} }
+  @keyframes trPanelOut{ from{opacity:1;transform:none} to{opacity:0;transform:translateY(10px) scale(.98)} }
+  .tr-panel-in{ animation:trPanelIn var(--treesh-dur-3) var(--treesh-ease) both; }
+  .tr-panel-out{ animation:trPanelOut var(--treesh-dur-2) var(--treesh-ease) both; }
+  @keyframes trDockUp{ from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:none} }
+  .tr-dock-in{ animation:trDockUp var(--treesh-dur-3) var(--treesh-ease) both; }
+  @keyframes trFadeIn{ from{opacity:0} to{opacity:1} }
+  .tr-fade-in{ animation:trFadeIn var(--treesh-dur-2) ease both; }
+  @keyframes trFadeOut{ from{opacity:1} to{opacity:0} }
+  .tr-fade-out{ animation:trFadeOut var(--treesh-dur-2) ease both; }
+
+  /* karaoke per-letter fill */
+  @keyframes trLineSwap{ 0%{opacity:0;transform:translateY(16px) scale(.97)} 100%{opacity:1;transform:none} }
+  .kar-line-in{ animation:trLineSwap .40s var(--treesh-ease) both; }
+  .kar-ch{ color:rgba(255,255,255,0.24); transition:color .24s var(--treesh-ease), text-shadow .24s ease; }
+  .kar-ch.on{ color:var(--treesh-purple); text-shadow:0 0 26px var(--treesh-purple-soft); }
+  #kar-cur{ overflow-wrap:anywhere; word-break:break-word; hyphens:auto; }
+
+  /* animated gaussian background (game screens only) */
+  @keyframes trGauss{ 0%{transform:translate3d(-6%,-4%,0) scale(1)} 50%{transform:translate3d(6%,4%,0) scale(1.08)} 100%{transform:translate3d(-6%,-4%,0) scale(1)} }
+  .gauss{ position:absolute; width:62vmax; height:62vmax; filter:blur(46px); opacity:.5; border-radius:9999px; mix-blend-mode:screen; animation:trGauss 11s var(--treesh-ease) infinite; will-change:transform; }
+  .gauss-a{ left:-22vmax; top:-20vmax; background:radial-gradient(circle at 30% 30%,var(--treesh-purple-soft),transparent 60%); opacity:.85; }
+  .gauss-b{ right:-24vmax; top:8vmax; background:radial-gradient(circle at 30% 30%,rgba(195,171,105,0.34),transparent 62%); animation-duration:13s; }
+  .gauss-c{ left:8vmax; bottom:-28vmax; background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.10),transparent 60%); animation-duration:15s; }
+
+  /* versus flip (this-or-that) */
+  @keyframes trVsIn{ 0%{opacity:0;transform:translateY(18px) scale(.96)} 100%{opacity:1;transform:none} }
+  .vs-in{ animation:trVsIn .42s var(--treesh-ease) both; }
+  @keyframes trPop{ 0%{transform:scale(.6);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+  .tr-pop{ animation:trPop .5s var(--treesh-ease) both; }
+
+  @media (prefers-reduced-motion: reduce){
+    .tr-panel-in,.tr-panel-out,.tr-dock-in,.tr-fade-in,.tr-fade-out,.kar-line-in,.vs-in,.tr-pop{ animation:none !important }
+    .gauss{ animation:none !important }
+    .kar-ch{ transition:none !important }
+  }
+
+
+  /* ============ THEME SYSTEM (dark/light) + BACKGROUND LAYER ============ */
+  :root{ --app-bg:#121212; --app-text:#f5f5f7; }
+  html.theme-light{ --app-bg:#fefefe; --app-text:#17171b; }
+  #bg-layer{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; transition:background .35s ease, opacity .35s ease; }
+
+  /* --- LIGHT MODE override layer (chrome + views; immersive surfaces re-forced below) --- */
+  html.theme-light .text-white{ color:#17171b !important; }
+  html.theme-light .text-white\/90{ color:rgba(23,23,27,0.92) !important; }
+  html.theme-light .text-white\/85{ color:rgba(23,23,27,0.88) !important; }
+  html.theme-light .text-white\/80{ color:rgba(23,23,27,0.84) !important; }
+  html.theme-light .text-white\/75{ color:rgba(23,23,27,0.78) !important; }
+  html.theme-light .text-white\/70{ color:rgba(23,23,27,0.72) !important; }
+  html.theme-light .text-white\/65{ color:rgba(23,23,27,0.68) !important; }
+  html.theme-light .text-white\/60{ color:rgba(23,23,27,0.62) !important; }
+  html.theme-light .text-white\/55{ color:rgba(23,23,27,0.58) !important; }
+  html.theme-light .text-white\/50{ color:rgba(23,23,27,0.54) !important; }
+  html.theme-light .text-white\/45{ color:rgba(23,23,27,0.5) !important; }
+  html.theme-light .text-white\/40{ color:rgba(23,23,27,0.46) !important; }
+  html.theme-light .text-white\/35{ color:rgba(23,23,27,0.42) !important; }
+  html.theme-light .text-white\/30{ color:rgba(23,23,27,0.38) !important; }
+  html.theme-light .text-white\/25{ color:rgba(23,23,27,0.34) !important; }
+  html.theme-light .bg-white\/5{ background-color:rgba(17,17,20,0.04) !important; }
+  html.theme-light .bg-white\/10{ background-color:rgba(17,17,20,0.06) !important; }
+  html.theme-light .bg-white\/12{ background-color:rgba(17,17,20,0.07) !important; }
+  html.theme-light .bg-white\/15{ background-color:rgba(17,17,20,0.09) !important; }
+  html.theme-light .bg-white\/20{ background-color:rgba(17,17,20,0.12) !important; }
+  html.theme-light .bg-white\/30{ background-color:rgba(17,17,20,0.16) !important; }
+  html.theme-light .border-white\/10{ border-color:rgba(17,17,20,0.1) !important; }
+  html.theme-light .border-white\/12{ border-color:rgba(17,17,20,0.12) !important; }
+  html.theme-light .border-white\/15{ border-color:rgba(17,17,20,0.14) !important; }
+  html.theme-light .border-white\/20{ border-color:rgba(17,17,20,0.17) !important; }
+  html.theme-light .border-white\/25{ border-color:rgba(17,17,20,0.2) !important; }
+  html.theme-light .border-white\/30{ border-color:rgba(17,17,20,0.24) !important; }
+  html.theme-light .border-white\/50{ border-color:rgba(17,17,20,0.35) !important; }
+  html.theme-light .glass{ background:rgba(255,255,255,0.72) !important; border-color:rgba(17,17,20,0.08) !important; }
+  html.theme-light .glass-strong{ background:rgba(255,255,255,0.82) !important; border-color:rgba(17,17,20,0.1) !important; }
+  html.theme-light .bg-\[\#08080a\]\/92{ background-color:rgba(254,254,254,0.9) !important; }
+  html.theme-light .nav-glass{ background:rgba(255,255,255,0.68) !important; border-color:rgba(17,17,20,0.08) !important; }
+  html.theme-light .text-black{ color:#fff !important; }
+  html.theme-light input::placeholder,html.theme-light textarea::placeholder{ color:rgba(23,23,27,0.4) !important; }
+
+  /* --- keep immersive surfaces dark even in light mode (player, toasts, voice) --- */
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white{ color:#fff !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/90{ color:rgba(255,255,255,0.9) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/85{ color:rgba(255,255,255,0.85) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/80{ color:rgba(255,255,255,0.8) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/75{ color:rgba(255,255,255,0.75) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/70{ color:rgba(255,255,255,0.7) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/65{ color:rgba(255,255,255,0.65) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/60{ color:rgba(255,255,255,0.6) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/55{ color:rgba(255,255,255,0.55) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/50{ color:rgba(255,255,255,0.5) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/45{ color:rgba(255,255,255,0.45) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/40{ color:rgba(255,255,255,0.4) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/35{ color:rgba(255,255,255,0.35) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-white\/30{ color:rgba(255,255,255,0.3) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .bg-white\/5{ background-color:rgba(255,255,255,0.05) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .bg-white\/10{ background-color:rgba(255,255,255,0.1) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .bg-white\/12{ background-color:rgba(255,255,255,0.12) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .bg-white\/15{ background-color:rgba(255,255,255,0.15) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .border-white\/10{ border-color:rgba(255,255,255,0.1) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .border-white\/12{ border-color:rgba(255,255,255,0.12) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .border-white\/15{ border-color:rgba(255,255,255,0.15) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .glass-strong{ background:rgba(255,255,255,0.09) !important; border-color:var(--treesh-stroke) !important; }
+  html.theme-light :is(#np,#voice-ov,#toast,#sleep) .text-black{ color:#000 !important; }
+
   [data-lucide]{ width:1em; height:1em; }
 </style>
 </head>
@@ -187,6 +318,7 @@
   <div id="np"></div>
   <div id="queue"></div>
   <div id="profile"></div>
+  <div id="searchlay"></div>
   <div id="modal"></div>
   <div id="toast" class="fixed left-1/2 top-4 z-[120] flex -translate-x-1/2 flex-col items-center gap-2"></div>
 
@@ -316,7 +448,9 @@ function indexCatalog(){
   SONG_BY_ID = Object.fromEntries(SONGS.map(s => [s.id, s]));
   ARTIST_BY_ID = Object.fromEntries(ARTISTS.map(a => [a.id, a]));
   GENRES = [...new Set(SONGS.map(s => s.genre).filter(Boolean))].sort();
+  applyLyricEdits();
 }
+function applyLyricEdits(){ try{ const ed=(state&&state.lyricEdits)||{}; for(const id in ed){ if(SONG_BY_ID[id] && Array.isArray(ed[id])) SONG_BY_ID[id].lyrics=ed[id]; } }catch(e){} }
 let _catalogSig = "";
 function catalogSig(songs, artists){
   const str = songs.map(x=>x.id).join(",") + "~" + artists.map(x=>x.id).join(",");
@@ -380,9 +514,16 @@ const state = {
   view: "library", param: null,
   genre: "all", query: "",
   favorites: new Set(LS.get("treesh_favorites", [])),
+  dislikes: new Set(LS.get("treesh_dislikes", [])),
   playlists: LS.get("treesh_playlists", []),
   profile: LS.get("treesh_profile", null),
   accent: LS.get("treesh_accent", "#9328ff"),
+  theme: LS.get("treesh_theme", "dark"),
+  bg: LS.get("treesh_bg", "space"),
+  bgImage: LS.get("treesh_bg_image", ""),
+  bgOverlay: LS.get("treesh_bg_overlay", true),
+  textSize: LS.get("treesh_text_size", "md"),
+  sleepMin: LS.get("treesh_sleep", 0), sleep: false,
   contextList: [],
   // player
   audio: new Audio(),
@@ -398,13 +539,82 @@ const state = {
   libGrid: LS.get("treesh_lib_grid", true),
   gameGrid: LS.get("treesh_game_grid", false),
   gameQuery: "",
-  profileOpen: false, profileTab: "favorites",
-  studio: null, game: null,
+  profileOpen: false, profileTab: "favorites", settingsTab: "appearance",
+  searchOpen: false, searchTab: "songs", searchQuery: "", recentSearches: LS.get("treesh_recent_searches", []),
+  karaoke: false, lyricsEdit: false, lyricEdits: LS.get("treesh_lyric_edits", {}),
+  studio: null, game: null, tot: null,
 };
 
 /* ---------- theme ---------- */
 function hexToRgb(hex){ const c=hex.replace("#",""); const n=c.length===3?c.split("").map(x=>x+x).join(""):c; return {r:parseInt(n.slice(0,2),16),g:parseInt(n.slice(2,4),16),b:parseInt(n.slice(4,6),16)}; }
 function applyAccent(hex){ const {r,g,b}=hexToRgb(hex); const root=document.documentElement.style; root.setProperty("--treesh-purple",hex); root.setProperty("--treesh-purple-soft",`rgba(${r},${g},${b},0.22)`); root.setProperty("--treesh-glow-purple",`0 0 0 1px rgba(${r},${g},${b},0.28),0 0 28px rgba(${r},${g},${b},0.24)`); }
+
+/* ---------- scroll lock (blocks background scroll under overlays on mobile) ---------- */
+let _locked=false, _scrollLockY=0;
+function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
+function syncScrollLock(){ const on=overlaysOpen(); if(on===_locked) return; _locked=on; const b=document.body; if(on){ _scrollLockY=window.scrollY||window.pageYOffset||0; b.style.top="-"+_scrollLockY+"px"; b.style.left="0"; b.style.right="0"; b.style.width="100%"; b.style.position="fixed"; b.classList.add("tr-locked"); } else { b.classList.remove("tr-locked"); b.style.position=""; b.style.top=""; b.style.left=""; b.style.right=""; b.style.width=""; window.scrollTo(0,_scrollLockY); } }
+
+/* ---------- THEME + BACKGROUND ENGINE ---------- */
+const BG_GRADIENTS={
+  aurora:"radial-gradient(60% 55% at 18% 12%, var(--treesh-purple-soft), transparent 60%), radial-gradient(55% 55% at 85% 20%, rgba(45,212,191,0.20), transparent 60%), radial-gradient(70% 60% at 55% 108%, rgba(195,171,105,0.16), transparent 60%)",
+  dusk:"radial-gradient(70% 60% at 80% 8%, rgba(255,45,120,0.20), transparent 60%), linear-gradient(160deg, var(--treesh-purple-soft), transparent 55%)",
+  nebula:"radial-gradient(50% 45% at 25% 25%, rgba(147,40,255,0.26), transparent 60%), radial-gradient(55% 50% at 80% 70%, rgba(96,165,250,0.20), transparent 60%), radial-gradient(45% 45% at 60% 15%, rgba(255,45,120,0.14), transparent 60%)",
+  ocean:"radial-gradient(60% 55% at 20% 20%, rgba(34,211,238,0.22), transparent 60%), radial-gradient(60% 55% at 85% 80%, rgba(99,102,241,0.20), transparent 60%)",
+  sunset:"linear-gradient(180deg, rgba(245,158,11,0.18), transparent 45%), radial-gradient(60% 55% at 75% 12%, rgba(255,45,120,0.20), transparent 60%)",
+  mono:"radial-gradient(70% 60% at 30% 10%, rgba(140,140,150,0.16), transparent 60%), radial-gradient(60% 55% at 85% 90%, rgba(120,120,130,0.12), transparent 60%)"
+};
+const BACKGROUNDS=[
+  {id:"space", name:"Space", ic:"sparkles"},
+  {id:"solid", name:"Solid", ic:"square"},
+  {id:"accent", name:"Accent", ic:"droplet"},
+  {id:"aurora", name:"Aurora", ic:"waves"},
+  {id:"nebula", name:"Nebula", ic:"orbit"},
+  {id:"dusk", name:"Dusk", ic:"sunset"},
+  {id:"ocean", name:"Ocean", ic:"waves"},
+  {id:"sunset", name:"Sunset", ic:"sun"},
+  {id:"mono", name:"Mono", ic:"circle"},
+  {id:"custom", name:"Image", ic:"image"}
+];
+function bgPreviewStyle(id){
+  if(id==="space") return "background:#0d0d12;";
+  if(id==="solid") return "background:var(--app-bg);";
+  if(id==="accent") return "background:radial-gradient(circle at 50% 20%,var(--treesh-purple),#0d0d12 80%);";
+  if(id==="custom") return state.bgImage?`background-image:url('${state.bgImage}');background-size:cover;background-position:center;`:"background:linear-gradient(135deg,#2a2a33,#14141a);";
+  return "background:#0d0d12;"+(BG_GRADIENTS[id]?`background-image:${BG_GRADIENTS[id]};`:"");
+}
+function renderBackground(){
+  let layer=document.getElementById("bg-layer");
+  if(!layer){ layer=document.createElement("div"); layer.id="bg-layer"; document.body.insertBefore(layer, document.body.firstChild); }
+  const bg=state.bg; const stars=document.getElementById("stars"); const isSpace=(bg==="space");
+  if(stars) stars.style.display=isSpace?"":"none";
+  layer.style.background=""; layer.style.backgroundImage=""; layer.style.opacity="1"; layer.innerHTML="";
+  if(bg==="solid"||isSpace){ /* body base color shows through */ }
+  else if(bg==="accent"){ layer.style.background="radial-gradient(90% 65% at 50% -12%, var(--treesh-purple-soft), transparent 62%)"; layer.innerHTML=`<div style="position:absolute;inset:0;background:var(--treesh-purple);opacity:0.06"></div>`; }
+  else if(bg==="custom"){ if(state.bgImage){ layer.style.backgroundImage=`url("${state.bgImage}")`; layer.style.backgroundSize="cover"; layer.style.backgroundPosition="center"; if(state.bgOverlay){ layer.innerHTML=`<div style="position:absolute;inset:0;background:var(--app-bg);opacity:0.6"></div>`; } } }
+  else if(BG_GRADIENTS[bg]){ layer.style.backgroundImage=BG_GRADIENTS[bg]; }
+}
+function applyTextSize(){ const map={sm:"14px",md:"16px",lg:"18px"}; document.documentElement.style.fontSize=map[state.textSize]||"16px"; }
+function applyTheme(){
+  const h=document.documentElement;
+  h.classList.toggle("theme-light", state.theme==="light");
+  h.classList.toggle("theme-dark", state.theme!=="light");
+  const meta=document.querySelector('meta[name="theme-color"]'); if(meta) meta.setAttribute("content", state.theme==="light"?"#fefefe":"#121212");
+  applyTextSize();
+  renderBackground();
+}
+
+/* ---------- SLEEP TIMER (ambient now-playing clock after inactivity) ---------- */
+let _sleepTO=null,_sleepClk=null,_sleepSig="",_lastMove=0;
+function resetSleepTimer(){ if(_sleepTO){ clearTimeout(_sleepTO); _sleepTO=null; } if(state.sleep) return; if(!state.sleepMin||state.sleepMin<=0) return; _sleepTO=setTimeout(showSleepOverlay, state.sleepMin*60000); }
+function onSleepActivity(){ if(state.sleep) return; if(state.sleepMin>0) resetSleepTimer(); }
+function clk(d){ let h=d.getHours(); const m=d.getMinutes(); const ap=h>=12?"PM":"AM"; h=h%12||12; return {t:h+":"+String(m).padStart(2,"0"),ap}; }
+function sleepDate(d){ try{ return d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"}); }catch(e){ return ""; } }
+function sleepNPInner(s){ if(!s) return `<p class="py-4 text-center text-sm text-white/50">Nothing playing right now</p>`; return `<div class="flex items-center gap-4 rounded-3xl border border-white/12 bg-white/5 p-4 backdrop-blur-xl"><div class="h-16 w-16 shrink-0 overflow-hidden rounded-2xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-lg font-bold text-white">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60">${esc(s.artist)}</p></div><button data-act="sleep-pause" data-testid="sleep-pause-button" aria-label="${state.isPlaying?'Pause':'Play'}" class="press grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white text-black shadow-lg transition-transform hover:scale-105"><i data-lucide="${state.isPlaying?'pause':'play'}" style="width:24px;height:24px"></i></button></div>`; }
+function renderSleep(){ const c=$("#sleep"); if(!c) return; const d=new Date(); const {t,ap}=clk(d); const s=curSong(); _sleepSig=(s?s.id:'')+'|'+state.isPlaying; c.innerHTML=`<div data-act="sleep-dismiss" data-testid="sleep-overlay" class="fixed inset-0 z-[120] overflow-hidden tr-fade-in" style="background:#08080a"><div class="absolute inset-0 scale-110 opacity-40 blur-3xl" style="background-image:url('${(s&&s.coverArt)||''}');background-size:cover;background-position:center"></div><div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(8,8,10,0.5),rgba(8,8,10,0.86))"></div><div class="gauss gauss-a"></div><div class="gauss gauss-b"></div><div class="relative z-10 flex h-full w-full flex-col items-center justify-between px-6 pt-[max(32px,env(safe-area-inset-top))] pb-[max(28px,env(safe-area-inset-bottom))] text-white"><div class="mt-8 flex flex-col items-center text-center sm:mt-12"><div class="flex items-start gap-2"><span id="sleep-time" class="font-display leading-[0.9] tracking-tight" style="font-size:clamp(64px,17vw,150px)">${t}</span><span id="sleep-ap" class="mt-2 text-xl font-semibold text-white/55 sm:mt-4 sm:text-3xl">${ap}</span></div><p id="sleep-date" class="mt-4 text-xs uppercase tracking-[0.35em] text-[color:var(--treesh-gold)] sm:text-sm">${sleepDate(d)}</p></div><div class="w-full max-w-md"><div id="sleep-np">${sleepNPInner(s)}</div><p class="mt-4 text-center text-xs text-white/35">Tap anywhere to dismiss</p></div></div></div>`; icons(); }
+function showSleepOverlay(){ if(state.sleep) return; if(!curSong()){ resetSleepTimer(); return; } state.sleep=true; renderSleep(); syncScrollLock(); if(_sleepClk) clearInterval(_sleepClk); _sleepClk=setInterval(tickSleep,1000); }
+function tickSleep(){ if(!state.sleep){ if(_sleepClk){clearInterval(_sleepClk);_sleepClk=null;} return; } const d=new Date(); const {t,ap}=clk(d); const te=$("#sleep-time"); if(te)te.textContent=t; const ae=$("#sleep-ap"); if(ae)ae.textContent=ap; const de=$("#sleep-date"); if(de)de.textContent=sleepDate(d); const s=curSong(); const sig=(s?s.id:'')+'|'+state.isPlaying; if(sig!==_sleepSig){ _sleepSig=sig; const np=$("#sleep-np"); if(np){ np.innerHTML=sleepNPInner(s); icons(); } } }
+function closeSleep(){ if(!state.sleep) return; state.sleep=false; if(_sleepClk){ clearInterval(_sleepClk); _sleepClk=null; } const c=$("#sleep"); if(c) c.innerHTML=""; syncScrollLock(); resetSleepTimer(); }
+function initSleep(){ ["pointerdown","keydown","touchstart","wheel"].forEach(ev=>document.addEventListener(ev,onSleepActivity,{passive:true})); document.addEventListener("mousemove",()=>{ const n=Date.now(); if(n-_lastMove<1500) return; _lastMove=n; onSleepActivity(); },{passive:true}); resetSleepTimer(); }
 
 /* ---------- toast ---------- */
 function toast(msg, sub){ const t=$("#toast"); const el=document.createElement("div"); el.className="glass-strong rounded-xl px-4 py-2.5 text-sm text-white shadow-[var(--treesh-shadow)] toast-in"; el.innerHTML=`<div class="font-semibold">${esc(msg)}</div>${sub?`<div class="text-xs text-white/60">${esc(sub)}</div>`:""}`; t.appendChild(el); while(t.children.length>3) t.removeChild(t.firstChild); setTimeout(()=>{ el.classList.remove("toast-in"); el.classList.add("toast-out"); setTimeout(()=>el.remove(),280); }, 2200); }
@@ -491,6 +701,88 @@ async function shareTrack(song){ const url=location.origin+location.pathname+"?s
 async function sharePlaylist(pl){ const url=location.origin+location.pathname; const text=`\u{1F3A7} My Treesh playlist \u201C${pl.name}\u201D`; if(navigator.share){ try{ await navigator.share({title:pl.name,text,url}); return; }catch(e){ if(e&&e.name==="AbortError") return; } } const ok=await copyText(text+"\n"+url); toast(ok?"Link copied":"Could not copy", pl.name); }
 
 /* ============================================================
+   SONG METADATA (credits / details modal)
+   ============================================================ */
+function featuredNames(s){ const names=[]; if(s.featuring) names.push(s.featuring); (s.artistIds||[]).forEach((id,i)=>{ if(i===0) return; const a=ARTIST_BY_ID[id]; if(a && a.name && a.name!==s.artist) names.push(a.name); }); return [...new Set(names.filter(Boolean))].join(", "); }
+function metaRow(label,value){ if(!value) return ""; return `<div class="flex items-start justify-between gap-4 border-t border-white/10 py-3 first:border-t-0"><span class="shrink-0 text-xs uppercase tracking-widest text-white/45">${esc(label)}</span><span class="text-right text-sm text-white/85" data-testid="metadata-value-${slug(label)}">${esc(value)}</span></div>`; }
+function metaSection(title,rows){ if(!rows.trim()) return ""; return `<div class="mt-4 first:mt-0"><p class="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--treesh-gold)]">${title}</p><div class="rounded-2xl border border-white/10 bg-white/[0.03] px-3">${rows}</div></div>`; }
+function metaFields(s){ const feat=featuredNames(s); const mood=s.mood?s.mood.split(",").map(x=>x.trim()).filter(Boolean).join(", "):""; const dur=(state.duration&&curSong()&&curSong().id===s.id)?fmt(state.duration):""; return {feat,mood,dur}; }
+function openMetadata(songId){
+  const s=SONG_BY_ID[songId]; if(!s) return;
+  const {feat,mood,dur}=metaFields(s);
+  const release=[metaRow("Date",s.creationDate),metaRow("Album",s.album),metaRow("Label",s.label)].join("");
+  const credits=[metaRow("Artist",s.artist),metaRow("Featured",feat),metaRow("Written by",s.writtenBy),metaRow("Producer",s.producer),metaRow("Mixed by",s.mixer),metaRow("Videographer",s.videographer)].join("");
+  const details=[metaRow("Genre",s.genre),metaRow("Mood",mood),metaRow("Duration",dur),s.explicit?metaRow("Rating","Explicit"):"",s.treeshChoice?metaRow("Badge","Treesh\u2019s Pick"):""].join("");
+  const empty=!release.trim()&&!credits.trim()&&!details.trim();
+  const inner=`<div class="mb-2 flex items-center justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-3"><div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 font-display text-[13px] uppercase tracking-[0.14em] text-white/90">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60">${esc(s.artist)}</p></div></div>
+      <button data-act="modal-close" aria-label="Close" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+    </div>
+    <div class="mt-1 max-h-[68vh] overflow-y-auto no-scrollbar pr-1">${empty?`<div class="flex flex-col items-center gap-2 py-10 text-center text-white/50"><i data-lucide="info" style="width:26px;height:26px"></i><p class="text-sm">No additional details available for this track.</p></div>`:`${metaSection("Release",release)}${metaSection("Credits",credits)}${metaSection("Details",details)}`}</div>
+    ${empty?"":`<button data-act="meta-copy" data-id="${s.id}" data-testid="metadata-copy-credits-button" class="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/5 py-3 text-sm font-semibold hover:bg-white/10"><i data-lucide="copy" style="width:16px;height:16px"></i>Copy credits</button>`}`;
+  $("#modal").innerHTML=modalWrap(inner,"now-playing-metadata-modal"); icons();
+}
+function copyCredits(songId){ const s=SONG_BY_ID[songId]; if(!s) return; const {feat}=metaFields(s); const parts=[["Title",s.title],["Artist",s.artist],["Featured",feat],["Written by",s.writtenBy],["Producer",s.producer],["Mixed by",s.mixer],["Album",s.album],["Label",s.label],["Genre",s.genre],["Date",s.creationDate]].filter(p=>p[1]).map(p=>p[0]+": "+p[1]); copyText(parts.join("\n")).then(ok=>toast(ok?"Credits copied":"Couldn\u2019t copy",s.title)); }
+
+/* ============================================================
+   FULL-SCREEN SEARCH OVERLAY (bottom-docked input, thumb-reach)
+   ============================================================ */
+function pushRecent(q){ q=(q||"").trim(); if(!q) return; const list=(state.recentSearches||[]).filter(x=>x.toLowerCase()!==q.toLowerCase()); list.unshift(q); state.recentSearches=list.slice(0,8); LS.set("treesh_recent_searches",state.recentSearches); }
+function hlMatch(text,q){ text=String(text==null?"":text); if(!q) return esc(text); const i=text.toLowerCase().indexOf(q.toLowerCase()); if(i<0) return esc(text); return esc(text.slice(0,i))+`<mark style="background:var(--treesh-purple-soft);color:#fff;border-radius:4px;padding:0 2px">`+esc(text.slice(i,i+q.length))+`</mark>`+esc(text.slice(i+q.length)); }
+function searchSongsList(q){ q=(q||"").toLowerCase(); if(!q) return []; return SONGS.filter(s=> s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q) || (s.writtenBy||"").toLowerCase().includes(q) || (s.featuring||"").toLowerCase().includes(q)).slice(0,60); }
+function searchArtistsList(q){ q=(q||"").toLowerCase(); if(!q) return []; return ARTISTS.filter(a=> a.name.toLowerCase().includes(q) || (a.role||"").toLowerCase().includes(q)).slice(0,60); }
+function searchLyricsList(q){ const ql=(q||"").toLowerCase(); if(!ql) return []; const out=[]; for(const s of SONGS){ const lines=s.lyrics||[]; for(let i=0;i<lines.length;i++){ if(lines[i].text && lines[i].text.toLowerCase().includes(ql)){ out.push({song:s, line:lines[i].text, i, t:lines[i].t}); break; } } if(out.length>=40) break; } return out; }
+function searchEmpty(q){ return `<div class="flex min-h-[38vh] flex-col items-center justify-center gap-3 text-center text-white/50"><i data-lucide="search-x" style="width:38px;height:38px"></i><p class="text-sm">No ${esc(state.searchTab)} match \u201C${esc(q)}\u201D</p></div>`; }
+function searchResultsHtml(){
+  const q=(state.searchQuery||"").trim();
+  if(!q){
+    const rc=state.recentSearches||[];
+    const chips = rc.length ? `<div class="mb-2 flex items-center justify-between"><p class="text-xs font-semibold uppercase tracking-widest text-white/45">Recently searched</p><button data-act="search-recent-clear" data-testid="search-recent-clear-button" class="text-xs text-white/50 transition-colors hover:text-white/80">Clear</button></div><div class="flex flex-wrap gap-2">${rc.map((r,i)=>`<button data-act="search-recent-chip" data-q="${esc(r)}" data-testid="search-recent-chip-${i}" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10"><i data-lucide="clock" style="width:13px;height:13px"></i>${esc(r)}</button>`).join("")}</div>` : "";
+    return `<div class="flex min-h-[34vh] flex-col items-center justify-center gap-3 text-center text-white/45"><i data-lucide="search" style="width:40px;height:40px"></i><p class="text-sm">Find songs, artists and lyrics</p></div>${rc.length?`<div class="mt-2">${chips}</div>`:""}`;
+  }
+  const tab=state.searchTab;
+  if(tab==="artists"){
+    const list=searchArtistsList(q); if(!list.length) return searchEmpty(q);
+    return `<div class="space-y-1">${list.map(a=>{const cnt=artistSongs(a.id).length;return `<button data-act="search-open-artist" data-id="${a.id}" data-testid="search-result-artist-${a.id}" class="press flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-white/5"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/12">${img(a.image,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${hlMatch(a.name,q)}</p><p class="clamp-1 text-xs text-white/50">${esc(a.role||'Music Artist')} \u00B7 ${cnt} track${cnt!==1?'s':''}</p></div><i data-lucide="chevron-right" class="shrink-0 text-white/30" style="width:16px;height:16px"></i></button>`;}).join("")}</div>`;
+  }
+  if(tab==="lyrics"){
+    const list=searchLyricsList(q); if(!list.length) return searchEmpty(q);
+    return `<div class="space-y-1.5">${list.map(r=>`<button data-act="search-play-lyric" data-id="${r.song.id}" data-t="${r.t}" data-testid="search-result-lyrics-${r.song.id}" class="press flex w-full items-start gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-white/5"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-xl">${img(r.song.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(r.song.title)} <span class="text-white/50">\u00B7 ${esc(r.song.artist)}</span></p><p class="clamp-2 mt-0.5 text-sm text-white/70">\u201C${hlMatch(r.line,q)}\u201D</p></div></button>`).join("")}</div>`;
+  }
+  const list=searchSongsList(q); if(!list.length) return searchEmpty(q);
+  return `<div class="space-y-1">${list.map(s=>{const fav=isFav(s.id);const active=curSong()&&curSong().id===s.id;return `<div data-testid="search-result-song-${s.id}" class="group flex items-center gap-2 rounded-2xl p-2 transition-colors hover:bg-white/5"><button data-act="search-play" data-id="${s.id}" class="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button><button data-act="search-play" data-id="${s.id}" class="min-w-0 flex-1 text-left"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${hlMatch(s.title,q)}</p><p class="clamp-1 text-xs text-white/55">${hlMatch(s.artist,q)}</p></button><button data-act="like" data-id="${s.id}" aria-label="Like" class="tr-like${fav?' is-liked':''} press grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button><button data-act="search-song-info" data-id="${s.id}" aria-label="Details" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="info" style="width:16px;height:16px"></i></button></div>`;}).join("")}</div>`;
+}
+function searchTabBtn(id,label){ const on=state.searchTab===id; return `<button data-act="search-tab" data-tab="${id}" data-testid="search-toggle-${id}" aria-pressed="${on}" class="press h-10 rounded-xl text-sm font-semibold transition-colors ${on?'bg-white/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.10)]':'text-white/60 hover:text-white'}">${label}</button>`; }
+function updateSearchTabs(){ ["songs","artists","lyrics"].forEach(id=>{ const b=$(`#searchlay [data-tab="${id}"]`); if(b){ const on=state.searchTab===id; b.setAttribute("aria-pressed",on); b.className=`press h-10 rounded-xl text-sm font-semibold transition-colors ${on?'bg-white/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.10)]':'text-white/60 hover:text-white'}`; } }); const inp=$("#search-input"); if(inp) inp.placeholder="Search "+state.searchTab+"\u2026"; }
+function refreshSearchResults(){ const r=$("#search-results"); if(r){ r.innerHTML=searchResultsHtml(); icons(); } const cb=$('#searchlay [data-act="search-clear"]'); if(cb) cb.classList.toggle("hidden",!state.searchQuery); }
+function renderSearchOverlay(){
+  const c=$("#searchlay"); const was=!!c.querySelector("[data-search-root]");
+  c.innerHTML=`<div data-search-root data-testid="search-overlay" class="fixed inset-0 z-[80] ${was?'':'tr-fade-in'}">
+    <div data-act="search-close" class="absolute inset-0 bg-[#08080a]/92 backdrop-blur-xl"></div>
+    <div class="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[calc(14px+env(safe-area-inset-top))] sm:px-6">
+      <p class="font-display text-lg uppercase tracking-[0.14em] text-white/90">Search</p>
+      <button data-act="search-close" aria-label="Close search" data-testid="search-close-button" class="press grid h-11 w-11 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="x" style="width:20px;height:20px"></i></button>
+    </div>
+    <div id="search-results" class="no-scrollbar absolute inset-x-0 top-[calc(60px+env(safe-area-inset-top))] bottom-[calc(196px+env(safe-area-inset-bottom))] mx-auto max-w-2xl overflow-y-auto px-4 sm:px-6">${searchResultsHtml()}</div>
+    <div id="search-dock" class="absolute inset-x-0 bottom-0 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] sm:px-6 ${was?'':'tr-dock-in'}">
+      <div class="mx-auto max-w-2xl rounded-3xl glass-strong border border-white/12 p-3 shadow-[var(--treesh-shadow)]">
+        <div class="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-white/5 p-1" data-testid="search-segmented">${searchTabBtn('songs','Songs')}${searchTabBtn('artists','Artists')}${searchTabBtn('lyrics','Lyrics')}</div>
+        <div class="relative mt-2.5"><i data-lucide="search" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" style="width:16px;height:16px"></i><input id="search-input" data-testid="search-overlay-input" value="${esc(state.searchQuery)}" placeholder="Search ${esc(state.searchTab)}\u2026" autocomplete="off" class="h-12 w-full rounded-2xl border border-white/12 bg-white/[0.07] pl-10 pr-10 text-white placeholder:text-white/40 outline-none focus:border-white/25" /><button data-act="search-clear" aria-label="Clear" data-testid="search-clear-button" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white ${state.searchQuery?'':'hidden'}"><i data-lucide="x" style="width:16px;height:16px"></i></button></div>
+      </div>
+    </div>
+  </div>`;
+  icons();
+  const inp=$("#search-input"); if(inp){ inp.focus(); const v=inp.value; inp.value=""; inp.value=v; inp.addEventListener("keydown",e=>{ if(e.key==="Escape"){ e.preventDefault(); closeSearch(); } }); }
+  attachSearchViewport();
+  syncScrollLock();
+}
+function openSearch(){ state.searchOpen=true; renderSearchOverlay(); }
+function closeSearch(instant){ const c=$("#searchlay"); const root=c?c.querySelector("[data-search-root]"):null; state.searchOpen=false; state.searchQuery=""; detachSearchViewport(); if(!c){ return; } if(instant||!root){ c.innerHTML=""; syncScrollLock(); return; } const dock=root.querySelector("#search-dock"); const bd=root.querySelector('[data-act="search-close"]'); if(dock){ dock.classList.remove("tr-dock-in"); dock.classList.add("tr-fade-out"); } if(bd){ bd.classList.add("tr-fade-out"); } syncScrollLock(); setTimeout(()=>{ if(!state.searchOpen) c.innerHTML=""; }, 220); }
+let _svpHandler=null;
+function attachSearchViewport(){ if(!window.visualViewport) return; detachSearchViewport(); _svpHandler=()=>{ const dock=$("#search-dock"); if(!dock||!window.visualViewport) return; const vv=window.visualViewport; const kb=Math.max(0, window.innerHeight - vv.height - vv.offsetTop); dock.style.transform = kb>2 ? `translateY(-${kb}px)` : ""; }; window.visualViewport.addEventListener("resize",_svpHandler); window.visualViewport.addEventListener("scroll",_svpHandler); }
+function detachSearchViewport(){ if(_svpHandler&&window.visualViewport){ window.visualViewport.removeEventListener("resize",_svpHandler); window.visualViewport.removeEventListener("scroll",_svpHandler); } _svpHandler=null; }
+
+/* ============================================================
    RENDER: SHELL
    ============================================================ */
 const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["game","Game","gamepad-2"],["settings","Settings","settings"]];
@@ -500,20 +792,17 @@ function navItem(v,label,ic,mobile){ const active=state.view===v; if(mobile){ re
 function renderShell(){
   const p=state.profile||{};
   $("#app").innerHTML=`
-  <aside class="fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
+  <aside class="nav-glass fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
     <div class="px-6 py-6"><p class="font-display text-2xl uppercase tracking-[0.1em] text-white">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Music to Live For</p></div>
     <nav class="flex flex-1 flex-col gap-1 px-3">${NAV.map(n=>navItem(n[0],n[1],n[2],false)).join("")}</nav>
-    <div class="px-6 py-5 text-[10px] text-white/30">&copy; 2025 Treesh Woodz</div>
+    <div class="px-3 pb-2 pt-2"><button data-act="open-profile" data-testid="sidebar-profile-button" class="press flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.07]"><span class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-white/15 bg-white/5">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="text-sm font-semibold text-white/70">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(p.nickname||'Treesh Fan')}</span><span class="clamp-1 block text-[11px] text-white/50">${(()=>{const z=zodiac(p.birthday);return z?esc(z)+' \u00B7 View profile':'View profile';})()}</span></span><i data-lucide="chevron-right" style="width:16px;height:16px" class="shrink-0 text-white/40"></i></button></div>
+    <div class="px-6 pb-5 pt-1 text-[10px] text-white/30">&copy; 2025 Treesh Woodz</div>
   </aside>
   <div class="relative z-10 lg:ml-[240px]">
     <header class="sticky top-0 z-30 px-4 pt-3 sm:px-6 lg:px-8">
       <div class="mx-auto flex max-w-6xl items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5 backdrop-blur-2xl">
         <span class="font-display text-lg uppercase tracking-[0.12em] text-white lg:hidden">Treesh</span>
-        <div class="relative ml-auto flex flex-1 items-center lg:ml-0">
-          <i data-lucide="search" class="pointer-events-none absolute left-3 text-white/40" style="width:16px;height:16px"></i>
-          <input id="search" data-testid="global-search-input" value="${esc(state.query)}" placeholder="Search songs, artists\u2026" class="h-11 w-full rounded-full border border-white/12 bg-white/5 pl-9 pr-9 text-sm text-white placeholder:text-white/40 outline-none transition-colors focus:border-white/25 focus:bg-white/[0.08]" />
-          <button data-act="clear-search" class="absolute right-3 text-white/40 hover:text-white ${state.query?'':'hidden'}"><i data-lucide="x" style="width:16px;height:16px"></i></button>
-        </div>
+        <button data-act="open-search" aria-label="Search" data-testid="open-search-overlay-button" class="press ml-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="search" style="width:18px;height:18px"></i></button>
         <button data-act="voice-toggle" id="mic-btn" aria-label="Voice" data-testid="voice-mic-button" class="press grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="mic" style="width:18px;height:18px"></i></button>
         <button data-act="open-profile" aria-label="Profile" data-testid="open-profile-button" class="press h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/15 bg-white/5">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center text-sm font-semibold text-white/70">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</button>
       </div>
@@ -726,8 +1015,7 @@ function viewArtistDetail(){
   const songs=SONGS.filter(s=>(s.artistIds||[]).includes(a.id)); state.contextList=songs;
   return `<div class="space-y-6"><button data-act="back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back</button>
   <section class="relative overflow-hidden rounded-3xl border border-white/10"><div class="absolute inset-0">${img(a.background||a.image,'h-full w-full object-cover opacity-40',`style="object-position:${esc(a.bgPos||'center')}"`)}<div class="absolute inset-0" style="background:linear-gradient(to top,rgba(10,10,11,0.96),rgba(10,10,11,0.5))"></div></div>
-    <div class="relative flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-end sm:p-8"><div class="h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-xl sm:h-36 sm:w-36">${img(a.image,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">${esc(a.role||'Music Artist')}</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">${esc(a.name)}</h1><p class="mt-1 text-sm text-white/60">${songs.length} track${songs.length!==1?'s':''}</p></div></div></section>
-  ${a.bio?`<p class="max-w-2xl text-sm leading-relaxed text-white/70">${esc(a.bio)}</p>`:""}
+    <div class="relative flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-end sm:p-8"><div class="h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-xl sm:h-36 sm:w-36">${img(a.image,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">${esc(a.role||'Music Artist')}</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">${esc(a.name)}</h1><p class="mt-1 text-sm text-white/60">${songs.length} track${songs.length!==1?'s':''}</p>${a.bio?`<p class="mt-3 max-w-xl text-sm leading-relaxed text-white/70">${esc(a.bio)}</p>`:""}</div></div></section>
   ${a.cashapp?`<a href="https://cash.app/$${esc(a.cashapp)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-4 py-2 text-sm font-semibold text-[color:var(--treesh-gold)] hover:bg-[color:var(--treesh-gold)]/20"><i data-lucide="dollar-sign" style="width:16px;height:16px"></i> Support on Cash App \u00B7 $${esc(a.cashapp)}</a>`:""}
   ${songs.length?`<div class="flex items-center gap-3"><button data-act="artist-playall" data-id="${a.id}" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button><button data-act="artist-shuffle" data-id="${a.id}" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle</button></div>`:""}
   <div class="space-y-1">${songs.map((s,i)=>songRow(s,i,false)).join("")}</div></div>`;
@@ -763,19 +1051,150 @@ function viewPlaylistDetail(){
   ${songs.length?`<div class="flex items-center gap-3"><button data-act="playall-context" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button><button data-act="pl-share" data-id="${pl.id}" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="share-2" style="width:16px;height:16px"></i> Share</button></div><div class="space-y-1" data-plid="${pl.id}">${songs.map((s,i)=>songRow(s,i,true)).join("")}</div>`:`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-14 text-center"><i data-lucide="list-music" class="text-white/30" style="width:36px;height:36px"></i><p class="font-semibold">This playlist is empty</p><p class="text-sm text-white/50">Add songs using the \u2022\u2022\u2022 menu on any track.</p><button data-act="nav" data-view="library" class="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10">Browse Library</button></div>`}</div>`;
 }
 
-const ACCENTS=[["#9328ff","Treesh Purple"],["#7a2cff","Deep Violet"],["#b58cff","Lavender"],["#c3ab69","Gold"],["#ff2d78","Hot Pink"],["#22d3ee","Cyan"]];
+const REPORT_EMAIL="lyrics@treesh.app";
+const ACCENTS=[["#9328ff","Treesh Purple"],["#7a2cff","Deep Violet"],["#b58cff","Lavender"],["#6366f1","Indigo"],["#60a5fa","Sky"],["#22d3ee","Cyan"],["#2dd4bf","Teal"],["#34d399","Emerald"],["#c3ab69","Signature Gold"],["#f59e0b","Amber"],["#fb7185","Coral"],["#ff2d78","Hot Pink"]];
 const CMDS=["play","pause","next","previous","shuffle","repeat","search <name>","play <name>"];
 function viewSettings(){
   const p=state.profile||{}; const z=zodiac(p.birthday);
-  return `<div class="space-y-8"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Make it yours</p><h1 class="mt-1 text-3xl font-bold">Settings</h1></div>
-  <section class="rounded-3xl border border-white/10 bg-white/[0.04] p-6"><h2 class="mb-4 flex items-center gap-2 text-lg font-bold"><i data-lucide="user" style="width:18px;height:18px"></i> Profile</h2>
-    <div class="flex flex-col gap-5 sm:flex-row"><div class="flex flex-col items-center gap-3"><div id="set-avatar" class="h-24 w-24 overflow-hidden rounded-full border border-white/15">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center text-2xl font-bold text-white/50">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div><label class="flex cursor-pointer items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"><i data-lucide="upload" style="width:13px;height:13px"></i> Change<input type="file" accept="image/*" class="hidden" id="set-avatar-input"></label></div>
-    <div class="flex-1 space-y-4"><div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Nickname</label><input id="set-nick" value="${esc(p.nickname||'')}" class="h-11 w-full rounded-lg border border-white/15 bg-white/5 px-3 text-sm outline-none focus:border-white/30"></div>
-    <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Birthday</label><div class="flex items-center gap-3"><input id="set-bday" type="date" value="${esc(p.birthday||'')}" class="h-11 rounded-lg border border-white/15 bg-white/5 px-3 text-sm outline-none focus:border-white/30"><span id="set-zodiac" class="shrink-0 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-3 py-1 text-xs text-[color:var(--treesh-gold)] ${z?'':'hidden'}">${esc(z)}</span></div></div>
-    <button data-act="save-profile" class="inline-flex items-center gap-2 rounded-lg bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold hover:opacity-90"><i data-lucide="check" style="width:16px;height:16px"></i> Save profile</button></div></div></section>
-  <section class="rounded-3xl border border-white/10 bg-white/[0.04] p-6"><h2 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="palette" style="width:18px;height:18px"></i> Accent color</h2><p class="mb-4 text-sm text-white/50">Personalize the app\u2019s glow.</p><div class="flex flex-wrap gap-3">${ACCENTS.map(([hex,name])=>`<button data-act="accent" data-hex="${hex}" title="${name}" class="relative h-12 w-12 rounded-full border-2 ${state.accent===hex?'border-white':'border-white/20'}" style="background:${hex};${state.accent===hex?`box-shadow:0 0 20px ${hex}`:''}">${state.accent===hex?`<span class="absolute inset-0 grid place-items-center text-white"><i data-lucide="check" style="width:18px;height:18px"></i></span>`:''}</button>`).join("")}</div></section>
-  <section class="rounded-3xl border border-white/10 bg-white/[0.04] p-6"><h2 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="mic" style="width:18px;height:18px"></i> Voice commands</h2><p class="mb-4 text-sm text-white/50">Tap the mic in the header, then say:</p><div class="flex flex-wrap gap-2">${CMDS.map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70">\u201C${c}\u201D</span>`).join("")}</div></section>
-  <section class="rounded-3xl border border-red-500/20 bg-red-500/[0.04] p-6"><h2 class="mb-1 flex items-center gap-2 text-lg font-bold text-red-200"><i data-lucide="trash-2" style="width:18px;height:18px"></i> Erase data</h2><p class="mb-4 text-sm text-white/50">Clears your local profile, favorites, playlists and theme on this device.</p><button data-act="erase-data" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/20">Erase everything</button></section></div>`;
+  const acc=(state.accent||"#9328ff");
+  const isCustom=!ACCENTS.some(a=>a[0].toLowerCase()===acc.toLowerCase());
+  const tab=state.settingsTab||"appearance";
+  const TABS=[["appearance","Accent","palette"],["display","Display","sun-moon"],["sleep","Sleep","moon-star"],["voice","Voice","mic"],["account","Account","user"],["about","About","info"]];
+  const hero=`<div class="relative overflow-hidden rounded-[28px] border border-white/12 p-6 sm:p-8">
+     <div class="pointer-events-none absolute inset-0" style="background:radial-gradient(130% 130% at 0% 0%, var(--treesh-purple-soft), transparent 52%)"></div>
+     <div class="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full opacity-25 blur-3xl" style="background:var(--treesh-purple)"></div>
+     <div class="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
+       <div class="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 ring-4 ring-[color:var(--treesh-purple)]/25 sm:h-24 sm:w-24">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center bg-white/10 text-3xl font-bold text-white/70">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div>
+       <div class="min-w-0">
+         <p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Your profile</p>
+         <h1 class="mt-1 truncate text-3xl font-bold sm:text-4xl">${esc(p.nickname||'Treesh Fan')}</h1>
+         <div class="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">${z?`<span class="inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-2.5 py-1 text-xs text-[color:var(--treesh-gold)]"><i data-lucide="sparkle" style="width:12px;height:12px"></i>${esc(z)}</span>`:''}<span class="rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-xs text-white/60">${state.favorites.size} favorite${state.favorites.size!==1?'s':''}</span><span class="rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-xs text-white/60">${state.playlists.length} playlist${state.playlists.length!==1?'s':''}</span></div>
+       </div>
+       <div class="flex items-center gap-2 sm:ml-auto">
+         <button data-act="set-theme" data-val="${state.theme==='light'?'dark':'light'}" data-testid="hero-theme-toggle" aria-label="Toggle light or dark mode" class="press grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="${state.theme==='light'?'moon':'sun'}" style="width:18px;height:18px"></i></button>
+         <button data-act="set-settings-tab" data-val="account" data-testid="hero-edit-profile" class="press inline-flex h-11 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-semibold hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i>Edit</button>
+       </div>
+     </div>
+   </div>`;
+  const tabBar=`<div class="no-scrollbar -mx-1 mt-6 flex gap-2 overflow-x-auto px-1 pb-1" data-testid="settings-tabs">${TABS.map(([id,label,ic])=>{const on=tab===id;return `<button data-act="set-settings-tab" data-val="${id}" data-testid="settings-tab-${id}" aria-pressed="${on}" class="press inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${on?'border-transparent bg-[color:var(--treesh-purple)] text-white glow-purple':'border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;}).join("")}</div>`;
+  return `<div class="mx-auto max-w-4xl pb-6">${hero}${tabBar}
+   <div class="mt-5 space-y-6 tr-fade-in" data-testid="settings-panel-${tab}">
+   <section data-testid="settings-profile" class="${tab==='account'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+     <div class="mb-5 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="user" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Profile</h2></div>
+     <div class="flex flex-col gap-6 sm:flex-row">
+       <div class="flex flex-col items-center gap-3">
+         <div id="set-avatar" class="h-24 w-24 overflow-hidden rounded-full border border-white/15 ring-2 ring-[color:var(--treesh-purple)]/25">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center bg-white/5 text-2xl font-bold text-white/50">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div>
+         <label class="press flex cursor-pointer items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"><i data-lucide="upload" style="width:13px;height:13px"></i> Change<input type="file" accept="image/*" class="hidden" id="set-avatar-input"></label>
+       </div>
+       <div class="flex-1 space-y-4">
+         <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Nickname</label><input id="set-nick" data-testid="settings-nickname-input" value="${esc(p.nickname||'')}" class="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-white/30"></div>
+         <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Birthday</label><div class="flex flex-wrap items-center gap-3"><input id="set-bday" type="date" value="${esc(p.birthday||'')}" class="h-11 rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-white/30"><span id="set-zodiac" class="shrink-0 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-3 py-1 text-xs text-[color:var(--treesh-gold)] ${z?'':'hidden'}">${esc(z)}</span></div></div>
+         <button data-act="save-profile" data-testid="settings-save-profile-button" class="press inline-flex items-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i> Save profile</button>
+       </div>
+     </div>
+   </section>
+
+   <section data-testid="settings-appearance" class="${tab==='appearance'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="palette" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Accent color</h2></div>
+     <p class="mb-4 pl-11 text-sm text-white/50">Pick an accent, or dial in your own.</p>
+     <div class="grid grid-cols-6 gap-3 sm:grid-cols-8 md:grid-cols-12">
+       ${ACCENTS.map(([hex,name])=>`<button data-act="accent" data-hex="${hex}" title="${name}" data-testid="accent-swatch-${hex.replace('#','')}" aria-label="${name}" class="press relative mx-auto grid h-11 w-11 place-items-center rounded-full transition-transform hover:scale-110" style="background:${hex};box-shadow:${acc.toLowerCase()===hex.toLowerCase()?`0 0 0 2px #fff,0 0 18px ${hex}`:`0 0 0 1px rgba(255,255,255,0.15)`}">${acc.toLowerCase()===hex.toLowerCase()?`<i data-lucide="check" class="text-white drop-shadow" style="width:18px;height:18px"></i>`:''}</button>`).join("")}
+     </div>
+     <div class="mt-5 flex flex-col gap-3 rounded-2xl border ${isCustom?'border-[color:var(--treesh-purple)]/40':'border-white/10'} bg-white/[0.03] p-4 sm:flex-row sm:items-center">
+       <div class="flex items-center gap-3">
+         <label class="relative grid h-11 w-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full border border-white/20" title="Custom color" style="background:${acc}">${isCustom?`<i data-lucide="check" class="text-white drop-shadow" style="width:18px;height:18px"></i>`:`<i data-lucide="pipette" class="text-white/80" style="width:16px;height:16px"></i>`}<input type="color" id="set-custom-color" data-testid="settings-custom-color-input" value="${acc}" class="absolute -inset-2 h-[200%] w-[200%] cursor-pointer opacity-0"></label>
+         <div><p class="text-sm font-semibold ${isCustom?'text-[color:var(--treesh-purple)]':''}">Custom color</p><p class="text-xs text-white/45">Tap the dot or type a hex</p></div>
+       </div>
+       <div class="flex flex-1 items-center gap-2 sm:justify-end">
+         <div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40">#</span><input id="set-custom-hex" data-testid="settings-custom-hex-input" value="${esc(acc.replace('#',''))}" maxlength="6" spellcheck="false" autocomplete="off" class="h-11 w-32 rounded-xl border border-white/15 bg-white/5 pl-7 pr-3 font-mono text-sm uppercase outline-none focus:border-white/30"></div>
+         <button data-act="apply-custom-color" data-testid="settings-apply-color-button" class="press inline-flex h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold hover:bg-white/10">Apply</button>
+       </div>
+     </div>
+   </section>
+
+   <section data-testid="settings-display" class="${tab==='display'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sun-moon" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Display</h2></div>
+     <p class="mb-4 pl-11 text-sm text-white/50">Theme, background and text size.</p>
+     <div class="space-y-5">
+       <div>
+         <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">Mode</p>
+         <div class="flex gap-1.5 rounded-2xl border border-white/10 bg-white/5 p-1" data-testid="theme-toggle">
+           <button data-act="set-theme" data-val="dark" data-testid="theme-dark-button" aria-pressed="${state.theme!=='light'}" class="press flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors ${state.theme!=='light'?'bg-[color:var(--treesh-purple)] text-white glow-purple':'text-white/60 hover:text-white'}"><i data-lucide="moon" style="width:16px;height:16px"></i>Dark</button>
+           <button data-act="set-theme" data-val="light" data-testid="theme-light-button" aria-pressed="${state.theme==='light'}" class="press flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors ${state.theme==='light'?'bg-[color:var(--treesh-purple)] text-white glow-purple':'text-white/60 hover:text-white'}"><i data-lucide="sun" style="width:16px;height:16px"></i>Light</button>
+         </div>
+       </div>
+       <div>
+         <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">Background</p>
+         <div class="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
+           ${BACKGROUNDS.map(b=>{ const on=state.bg===b.id; return `<button data-act="set-bg" data-val="${b.id}" data-testid="bg-option-${b.id}" aria-pressed="${on}" class="press group relative overflow-hidden rounded-2xl border ${on?'border-[color:var(--treesh-purple)] ring-2 ring-[color:var(--treesh-purple)]/40':'border-white/12'} transition"><div class="aspect-[4/3] w-full" style="${bgPreviewStyle(b.id)}"></div><div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/45 px-2 py-1 backdrop-blur"><span class="clamp-1 text-[11px] font-semibold text-white">${b.name}</span>${on?`<i data-lucide="check" class="text-white" style="width:14px;height:14px"></i>`:''}</div>${b.id==='custom'&&!state.bgImage?`<span class="absolute inset-0 grid place-items-center text-white/70"><i data-lucide="plus" style="width:22px;height:22px"></i></span>`:''}</button>`; }).join("")}
+         </div>
+         ${state.bg==='custom'?`<div class="mt-3 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:flex-row sm:items-center sm:justify-between">
+           <label class="press inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="upload" style="width:15px;height:15px"></i>${state.bgImage?'Replace image':'Upload image'}<input type="file" accept="image/*" id="set-bg-image-input" class="hidden"></label>
+           <div class="flex items-center gap-4">
+             ${state.bgImage?`<button data-act="remove-bg-image" class="press text-sm font-semibold text-rose-300 hover:text-rose-200">Remove</button>`:''}
+             <label class="flex cursor-pointer items-center gap-2 text-sm"><span class="text-white/70">Dim overlay</span><input type="checkbox" data-act="toggle-bg-overlay" ${state.bgOverlay?'checked':''} class="h-5 w-5 accent-[color:var(--treesh-purple)]"></label>
+           </div>
+         </div>`:''}
+       </div>
+       <div>
+         <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">Text size</p>
+         <div class="flex gap-1.5 rounded-2xl border border-white/10 bg-white/5 p-1" data-testid="textsize-toggle">
+           ${[["sm","Small","text-xs"],["md","Medium","text-sm"],["lg","Large","text-base"]].map(([v,l,tc])=>{const on=state.textSize===v;return `<button data-act="set-textsize" data-val="${v}" data-testid="textsize-${v}" aria-pressed="${on}" class="press flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl font-semibold transition-colors ${on?'bg-[color:var(--treesh-purple)] text-white glow-purple':'text-white/60 hover:text-white'}"><span class="${tc} font-bold">Aa</span> ${l}</button>`;}).join("")}
+         </div>
+       </div>
+     </div>
+   </section>
+
+   <section data-testid="settings-sleep" class="${tab==='sleep'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="moon-star" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Sleep timer</h2></div>
+     <p class="mb-4 pl-11 text-sm text-white/50">After you stop interacting for this long, a beautiful now-playing clock takes over the screen.</p>
+     <div class="flex flex-wrap gap-2">
+       ${[[0,"Off"],[5,"5 min"],[10,"10 min"],[15,"15 min"],[30,"30 min"],[45,"45 min"],[60,"1 hour"]].map(([v,l])=>{const on=state.sleepMin===v;return `<button data-act="set-sleep" data-val="${v}" data-testid="sleep-${v}" aria-pressed="${on}" class="press rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}">${l}</button>`;}).join("")}
+     </div>
+   </section>
+
+   <section data-testid="settings-voice" class="${tab==='voice'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="mic" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Voice commands</h2></div>
+     <p class="mb-4 pl-11 text-sm text-white/50">Tap the mic in the top bar, then say:</p>
+     <div class="flex flex-wrap gap-2">${CMDS.map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70">\u201C${c}\u201D</span>`).join("")}</div>
+   </section>
+
+   <section data-testid="settings-danger" class="${tab==='account'?'':'hidden'} rounded-3xl border border-rose-500/20 bg-rose-500/[0.05] p-5 sm:p-6">
+     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-300"><i data-lucide="trash-2" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold text-rose-200">Danger zone</h2></div>
+     <p class="mb-4 pl-11 text-sm text-white/50">Clears your profile, favorites, playlists and theme on this device.</p>
+     <button data-act="erase-data" data-testid="settings-erase-button" class="press rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-200 hover:bg-rose-500/20">Erase everything</button>
+   </section>
+
+   <section data-testid="settings-about" class="${tab==='about'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="info" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">About</h2></div>
+     <p class="mb-4 pl-11 text-sm text-white/50">Legal &amp; app information.</p>
+     <div class="overflow-hidden rounded-2xl border border-white/10 divide-y divide-white/10">
+       <a href="https://treesh.app" target="_blank" rel="noopener" data-testid="link-privacy" class="press flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-white/5"><span class="flex items-center gap-3 text-sm font-semibold"><i data-lucide="shield-check" class="text-white/60" style="width:17px;height:17px"></i>Privacy Policy</span><i data-lucide="external-link" class="text-white/40" style="width:16px;height:16px"></i></a>
+       <a href="https://treesh.app" target="_blank" rel="noopener" data-testid="link-terms" class="press flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-white/5"><span class="flex items-center gap-3 text-sm font-semibold"><i data-lucide="scroll-text" class="text-white/60" style="width:17px;height:17px"></i>Terms of Use</span><i data-lucide="external-link" class="text-white/40" style="width:16px;height:16px"></i></a>
+     </div>
+     <div class="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+       <div class="flex items-center gap-2 text-sm font-semibold"><i data-lucide="copyright" class="text-[color:var(--treesh-gold)]" style="width:16px;height:16px"></i>\u00A9 ${new Date().getFullYear()} Treesh Woodz</div>
+       <p class="mt-1.5 text-xs leading-relaxed text-white/45">All rights reserved. All music, artwork and lyrics are the property of their respective owners and are used within the Treesh community for listening purposes only.</p>
+     </div>
+   </section>
+   </div>
+  </div>`;
+}
+
+let _io=null;
+function prefersReduced(){ return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+function animateView(){
+  const v=$("#view"); if(!v) return;
+  if(_io){ _io.disconnect(); _io=null; }
+  if(prefersReduced()) return;
+  let kids=[...v.children];
+  if(kids.length===1 && kids[0].children && kids[0].children.length>1) kids=[...kids[0].children];
+  kids.forEach((el,i)=>{ el.classList.remove("reveal-stagger"); void el.offsetWidth; el.style.animationDelay=(Math.min(i,8)*55)+"ms"; el.classList.add("reveal-stagger"); });
+  const items=v.querySelectorAll(".grid > *");
+  if(items.length>6){
+    _io=new IntersectionObserver((ents)=>{ ents.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add("io-in"); if(_io) _io.unobserve(e.target); } }); }, {rootMargin:"0px 0px -6% 0px", threshold:0.04});
+    items.forEach(el=>{ el.classList.add("io-reveal"); _io.observe(el); });
+  }
 }
 
 function renderView(animate=false){
@@ -794,15 +1213,16 @@ function renderView(animate=false){
   }
   v.innerHTML=html; icons();
   state._renderedActiveId = curSong() && curSong().id;
-  if(animate){ v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); }
+  if(animate){ v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); animateView(); }
   if(state.view==="library") wireWN(); else stopWN();
   // wire settings live zodiac + avatar preview
   const bday=$("#set-bday"); if(bday){ bday.addEventListener("input",()=>{ const z=zodiac(bday.value); const el=$("#set-zodiac"); if(el){ el.textContent=z; el.classList.toggle("hidden",!z); } }); }
   const ai=$("#set-avatar-input"); if(ai){ ai.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ state._tmpAvatar=r.result; const av=$("#set-avatar"); if(av) av.innerHTML=img(r.result,'h-full w-full object-cover'); }; r.readAsDataURL(f); }); }
+  const bgi=$("#set-bg-image-input"); if(bgi){ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>4.5*1024*1024){ toast("Image too large","Use one under 4.5 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.bgImage=r.result; state.bg="custom"; LS.set("treesh_bg_image",state.bgImage); LS.set("treesh_bg","custom"); applyTheme(); renderView(); toast("Background updated"); }catch(err){ toast("Couldn\u2019t save image","It may be too large"); } }; r.readAsDataURL(f); }); }
 }
 
 /* re-render pieces that show favorite/playing state without losing scroll on nav */
-function refreshDynamic(){ renderView(); renderMini(); renderNP(); renderShellProfile(); if(state.profileOpen) renderProfileBody(); }
+function refreshDynamic(){ renderView(); renderMini(); renderNP(); renderShellProfile(); if(state.profileOpen) renderProfileBody(); if(state.searchOpen) refreshSearchResults(); }
 function renderShellProfile(){ /* header avatar */ renderShellHeaderAvatar(); }
 function renderShellHeaderAvatar(){ /* handled on full shell render */ }
 
@@ -810,8 +1230,8 @@ function renderShellHeaderAvatar(){ /* handled on full shell render */ }
    PROFILE MODULE  (Favorites + Playlists — grows from avatar)
    ============================================================ */
 function refreshLists(){ if(state.profileOpen) renderProfileBody(); else renderView(); }
-function openProfile(tab){ if(tab) state.profileTab=tab; if(state.profileTab!=="favorites"&&state.profileTab!=="playlists") state.profileTab="favorites"; state.profileOpen=true; document.body.style.overflow="hidden"; renderProfile(); }
-function closeProfile(instant){ state.profileOpen=false; document.body.style.overflow=""; const c=$("#profile"); const panel=c.querySelector("#profile-panel"); const back=c.querySelector('[data-testid="profile-module-backdrop"]'); if(instant||!panel){ c.innerHTML=""; return; } panel.classList.remove("profile-in"); panel.classList.add("profile-out"); if(back){ back.classList.remove("backdrop-in"); back.classList.add("backdrop-out"); } setTimeout(()=>{ if(!state.profileOpen) c.innerHTML=""; }, 300); }
+function openProfile(tab){ if(tab) state.profileTab=tab; if(state.profileTab!=="favorites"&&state.profileTab!=="playlists") state.profileTab="favorites"; state.profileOpen=true; renderProfile(); syncScrollLock(); }
+function closeProfile(instant){ state.profileOpen=false; syncScrollLock(); const c=$("#profile"); const panel=c.querySelector("#profile-panel"); const back=c.querySelector('[data-testid="profile-module-backdrop"]'); if(instant||!panel){ c.innerHTML=""; return; } panel.classList.remove("profile-in"); panel.classList.add("profile-out"); if(back){ back.classList.remove("backdrop-in"); back.classList.add("backdrop-out"); } setTimeout(()=>{ if(!state.profileOpen) c.innerHTML=""; }, 300); }
 function renderProfile(){
   const c=$("#profile"); const wasOpen=!!c.querySelector("#profile-panel");
   c.innerHTML=`<div data-act="profile-close" data-testid="profile-module-backdrop" class="fixed inset-0 z-[85] bg-black/55 backdrop-blur-sm ${wasOpen?'':'backdrop-in'}"></div>
@@ -1196,7 +1616,7 @@ function renderMini(){
   const s=curSong(); const c=$("#mini");
   if(!s){ c.innerHTML=""; return; }
   const wasShown = !!c.querySelector("[data-mini-root]");
-  c.innerHTML=`<div data-mini-root data-testid="mini-player" class="fixed bottom-[68px] left-0 right-0 z-40 px-3 lg:bottom-4 lg:pl-[264px] lg:pr-6 ${wasShown?'':'mini-in'}"><div class="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] backdrop-blur-2xl shadow-[var(--treesh-shadow)]"><div class="flex items-center gap-3 p-2.5">
+  c.innerHTML=`<div data-mini-root data-testid="mini-player" class="fixed bottom-[calc(58px+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-3 lg:bottom-4 lg:pl-[264px] lg:pr-6 ${wasShown?'':'mini-in'}"><div class="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] backdrop-blur-2xl shadow-[var(--treesh-shadow)]"><div class="flex items-center gap-3 p-2.5">
     <button data-act="mini-open" data-testid="mini-player-expand-button" class="flex min-w-0 flex-1 items-center gap-3 text-left"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></button>
     <div class="flex items-center gap-1"><button data-act="toggle-play" id="mini-pp" data-testid="mini-player-play-pause-button" class="press grid h-10 w-10 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white glow-purple"><i data-lucide="${state.isPlaying?'pause':'play'}" style="width:18px;height:18px"></i></button><button data-act="next" data-testid="mini-player-next-button" class="hidden sm:grid h-10 w-10 place-items-center rounded-full text-white/75 hover:bg-white/10"><i data-lucide="skip-forward" style="width:18px;height:18px"></i></button><button data-act="mini-open" class="grid h-10 w-10 place-items-center rounded-full text-white/75 hover:bg-white/10"><i data-lucide="chevron-up" style="width:20px;height:20px"></i></button></div>
   </div><div class="h-1 w-full bg-white/10"><div id="mini-prog" class="h-full bg-[color:var(--treesh-purple)] transition-[width] duration-200 ease-linear" style="width:${state.duration?(state.currentTime/state.duration*100):0}%"></div></div></div></div>`;
@@ -1207,6 +1627,36 @@ function renderMini(){
    RENDER: NOW PLAYING
    ============================================================ */
 function actionBtn(act,ic,active,label,id,testid){ return `<button data-act="${act}" ${id?`id="${id}"`:""} ${testid?`data-testid="${testid}"`:""} aria-label="${label}" class="press grid h-10 w-10 place-items-center rounded-full border transition sm:h-11 sm:w-11 ${active?'border-white/25 bg-white/15 text-white':'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${ic}" style="width:17px;height:17px"></i></button>`; }
+
+/* ---------- Karaoke mode + lyric edit/report ---------- */
+let _karIdx=-1;
+function karaokeStageHtml(){ return `<div class="relative min-h-0 flex-1 overflow-hidden"><div id="np-karaoke" data-testid="karaoke-stage" class="flex h-full w-full flex-col items-center justify-center gap-4 overflow-hidden px-3 text-center sm:gap-6"></div><div class="pointer-events-none absolute inset-x-0 top-0 h-16" style="background:linear-gradient(to bottom,rgba(8,8,10,0.7),transparent)"></div><div class="pointer-events-none absolute inset-x-0 bottom-0 h-16" style="background:linear-gradient(to top,rgba(8,8,10,0.7),transparent)"></div></div>`; }
+function updateKaraoke(force){
+  if(!state.showLyrics||!state.karaoke) return;
+  const stage=$("#np-karaoke"); if(!stage) return;
+  const s=curSong(); const lines=(s&&s.lyrics)||[];
+  if(!lines.length){ if(force) stage.innerHTML=`<div class="flex flex-col items-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available.</p></div>`, icons(); return; }
+  const t=state.currentTime; let idx=-1; for(let i=0;i<lines.length;i++){ if(lines[i].t<=t+0.15) idx=i; else break; }
+  if(idx<0) idx=0;
+  if(idx!==_karIdx||force){
+    _karIdx=idx;
+    const prev=lines[idx-1], cur=lines[idx], next=lines[idx+1];
+    const curText=(cur&&cur.text)||"";
+    const chars=[...curText].map((ch)=> ch===" " ? " " : `<span class="kar-ch">${esc(ch)}</span>`).join("");
+    stage.innerHTML=`<p class="clamp-2 min-h-[1.4em] w-full max-w-[92vw] break-words px-2 text-base text-white/25 sm:max-w-2xl sm:text-lg">${prev?esc(prev.text||""):""}</p>
+      <p id="kar-cur" class="kar-line-in w-full max-w-[92vw] break-words px-1 text-[24px] font-extrabold leading-tight tracking-tight sm:max-w-3xl sm:text-4xl lg:text-5xl">${chars||"&nbsp;"}</p>
+      <p class="clamp-2 min-h-[1.4em] w-full max-w-[92vw] break-words px-2 text-base text-white/25 sm:max-w-2xl sm:text-lg">${next?esc(next.text||""):""}</p>`;
+  }
+  const cur=lines[idx], next=lines[idx+1];
+  const start=cur?cur.t:0; const end=next?next.t:((state.duration||start+3));
+  const dur=Math.max(0.4,(end-start)||3);
+  let p=(state.currentTime-start)/dur; p=Math.max(0,Math.min(1,p));
+  const spans=stage.querySelectorAll("#kar-cur .kar-ch"); const fillN=Math.round(p*spans.length);
+  spans.forEach((sp,i)=>sp.classList.toggle("on", i<fillN));
+}
+function lyricsEditorHtml(s){ const lines=(s.lyrics||[]); return `<div class="relative min-h-0 flex-1"><div id="np-lyrics-edit" class="no-scrollbar h-full space-y-1.5 overflow-y-auto px-1 py-2">${ lines.length ? lines.map((l,i)=>`<div class="flex items-center gap-2"><span class="w-6 shrink-0 text-right font-doto text-[11px] text-white/30">${i+1}</span><input data-li="${i}" data-t="${l.t}" value="${esc(l.text)}" data-testid="lyric-edit-input-${i}" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-base text-white outline-none focus:border-white/30"></div>`).join("") : `<p class="py-10 text-center text-sm text-white/50">No lyrics available to edit.</p>` }</div></div>`; }
+function reportLyrics(s){ if(!s) return; let lines; const inputs=[...document.querySelectorAll("#np-lyrics-edit [data-li]")]; if(inputs.length){ lines=inputs.map(i=>i.value); } else { lines=(s.lyrics||[]).map(l=>l.text); } const body=`Song: ${s.title}\nArtist: ${s.artist}\n\n--- Corrected lyrics ---\n${lines.join("\n")}\n\n--- What was wrong? ---\n`; const url=`mailto:${REPORT_EMAIL}?subject=${encodeURIComponent("Lyric correction: "+s.title+" \u2014 "+s.artist)}&body=${encodeURIComponent(body)}`; window.location.href=url; toast("Opening your email app\u2026","Report for "+s.title); }
+function saveLyricEdits(s){ if(!s) return; const inputs=[...document.querySelectorAll("#np-lyrics-edit [data-li]")]; if(!inputs.length){ state.lyricsEdit=false; renderNP(); return; } const newLines=inputs.map(inp=>({ t: parseFloat(inp.dataset.t)||0, text: inp.value })); s.lyrics=newLines; state.lyricEdits[s.id]=newLines; LS.set("treesh_lyric_edits",state.lyricEdits); state.lyricsEdit=false; _karIdx=-1; toast("Lyrics saved on this device", s.title); renderNP(); }
 
 function renderNP(){
   const c=$("#np"); const s=curSong();
@@ -1237,12 +1687,22 @@ function renderNP(){
 
   const lines=(s.lyrics||[]);
   const favCount=favLyricsForSong(s.id).length;
-  const lyricTools=`<div class="flex shrink-0 items-center gap-1.5">
+  const edited = state.lyricEdits && state.lyricEdits[s.id];
+  const lyricTools = state.lyricsEdit
+   ? `<div class="flex shrink-0 flex-wrap items-center gap-1.5">
+       <button data-act="lyrics-save" data-id="${s.id}" data-testid="lyrics-save-button" class="press inline-flex h-10 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-3.5 text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Save</button>
+       <button data-act="lyrics-edit-cancel" aria-label="Cancel editing" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="x" style="width:17px;height:17px"></i></button>
+       <button data-act="lyrics-report" data-id="${s.id}" aria-label="Report lyrics" data-testid="lyrics-report-button" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="flag" style="width:16px;height:16px"></i></button>
+     </div>`
+   : `<div class="flex shrink-0 flex-wrap items-center gap-1.5">
     <button data-act="open-lyric-studio" aria-label="Create lyric card" data-testid="open-lyric-studio" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="wand-sparkles" style="width:17px;height:17px"></i>${favCount?`<span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--treesh-purple)] px-1 text-[9px] font-bold text-white">${favCount}</span>`:""}</button>
     <button data-act="start-game-current" aria-label="Play What\u2019s Next game" data-testid="start-game-current" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="gamepad-2" style="width:17px;height:17px"></i></button>
+    <button data-act="toggle-karaoke" aria-label="Karaoke mode" data-testid="toggle-karaoke-button" class="press grid h-10 w-10 place-items-center rounded-full border ${state.karaoke?'border-white/25 bg-white/12 text-white':'border-white/12 bg-white/5 text-white/80'} hover:bg-white/10"><i data-lucide="mic-vocal" style="width:17px;height:17px"></i></button>
+    <button data-act="lyrics-edit" aria-label="Fix lyrics" data-testid="lyrics-edit-button" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="pencil" style="width:16px;height:16px"></i>${edited?`<span class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[color:var(--treesh-gold)]"></span>`:""}</button>
   </div>`;
   const lyricsScroller=`<div class="relative min-h-0 flex-1"><div id="np-lyrics" class="h-full overflow-y-auto no-scrollbar px-1 py-[30%] lg:py-[22%]">${ lines.length ? lines.map((l,i)=>{ const favd=isFavLyric(s.id,i); return `<div class="group/l flex items-start gap-1"><button data-act="lyric-seek" data-t="${l.t}" data-i="${i}" class="np-line flex-1 text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70">${esc(l.text)}</button><button data-act="fav-lyric" data-li="${i}" data-fav="${favd?'1':''}" aria-label="Favorite lyric" class="tr-favline${favd?' is-liked':''} press mt-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/55 transition-opacity duration-200 hover:bg-white/10 ${favd?'opacity-100':'opacity-100 sm:opacity-0 sm:group-hover/l:opacity-100'}"><i data-lucide="heart" style="width:16px;height:16px"></i></button></div>`; }).join("") : `<div class="flex h-full flex-col items-center justify-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p></div>` }</div>
     <div class="pointer-events-none absolute inset-x-0 top-0 h-12" style="background:linear-gradient(to bottom,rgba(8,8,10,0.6),transparent)"></div><div class="pointer-events-none absolute inset-x-0 bottom-0 h-12" style="background:linear-gradient(to top,rgba(8,8,10,0.6),transparent)"></div></div>`;
+  const lyricBody = state.lyricsEdit ? lyricsEditorHtml(s) : (state.karaoke ? karaokeStageHtml() : lyricsScroller);
   const artwork = state.vinylMode
     ? `<div class="relative aspect-square w-[min(78vw,42vh,400px)] shrink-0 lg:w-[min(40vw,64vh,470px)]"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
     : `<div class="aspect-square w-[min(78vw,42vh,400px)] shrink-0 overflow-hidden rounded-3xl lg:w-[min(40vw,64vh,470px)]" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
@@ -1258,7 +1718,7 @@ function renderNP(){
           ${lyricTools}
         </div>
       </div>
-      ${lyricsScroller}
+      ${lyricBody}
     </div>`;
   } else {
     mainInner=`<div class="flex min-h-full flex-1 flex-col items-center justify-center gap-6 py-2 lg:flex-row lg:gap-16">${artwork}<div class="w-full max-w-[460px] px-3 text-center lg:px-0 lg:text-left">${titleBlock}</div></div>`;
@@ -1277,10 +1737,12 @@ function renderNP(){
   // cache lyric line nodes + fill like icon
   state.lyricLines=[...c.querySelectorAll('#np-lyrics [data-i]')];
   updateLyricHighlight();
+  if(state.karaoke){ _karIdx=-1; updateKaraoke(true); }
+  syncScrollLock();
 }
 function closeNP(){
   const root=$("#np [data-np-root]");
-  state.npOpen=false; state.showLyrics=false; state._npMode=null;
+  state.npOpen=false; state.showLyrics=false; state.karaoke=false; state._npMode=null; syncScrollLock();
   if(!root){ $("#np").innerHTML=""; return; }
   root.classList.remove("np-entering"); root.classList.add("np-leaving");
   setTimeout(()=>{ if(!state.npOpen) $("#np").innerHTML=""; }, 330);
@@ -1299,8 +1761,8 @@ function renderQueue(){
     <div class="flex items-center justify-between border-b border-white/10 px-5 py-4"><div class="flex items-center gap-2"><i data-lucide="list-music" class="text-[color:var(--treesh-purple)]" style="width:18px;height:18px"></i><h3 class="text-lg font-bold">Up Next</h3><span class="text-sm text-white/45">${state.queue.length}</span></div><button data-act="close-queue" class="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
     <div class="min-h-0 flex-1 overflow-y-auto soft-scroll px-3 py-3 space-y-1">${ state.queue.length? state.queue.map((song,i)=>{ const active=cur&&cur.id===song.id; return `<div class="group flex items-center gap-2 rounded-xl border ${active?'border-white/20 bg-white/[0.08]':'border-transparent bg-white/[0.02] hover:bg-white/5'} px-2 py-2">
       <div class="flex flex-col"><button data-act="q-up" data-id="${song.id}" class="text-white/30 hover:text-white ${i===0?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-up" style="width:14px;height:14px"></i></button><button data-act="q-down" data-id="${song.id}" class="text-white/30 hover:text-white ${i===state.queue.length-1?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-down" style="width:14px;height:14px"></i></button></div>
-      <button data-act="play" data-id="${song.id}" class="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(song.coverArt,'h-full w-full object-cover')}</button>
-      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(song.title)}</p><p class="clamp-1 text-xs text-white/50">${esc(song.artist)}</p></div>
+      <button data-act="q-jump" data-id="${song.id}" data-testid="queue-item-play-${song.id}" class="group/qart relative h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(song.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition-opacity group-hover/qart:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
+      <button data-act="q-jump" data-id="${song.id}" data-testid="queue-item-${song.id}" class="min-w-0 flex-1 cursor-pointer text-left"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(song.title)}</p><p class="clamp-1 text-xs text-white/50">${esc(song.artist)}</p></button>
       ${active?`<span class="eq mr-1 scale-75"><span></span><span></span><span></span><span></span></span>`:''}
       <button data-act="q-remove" data-id="${song.id}" class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>
     </div>`; }).join("") : `<p class="py-16 text-center text-sm text-white/45">Queue is empty.</p>` }</div></div>`;
@@ -1308,7 +1770,7 @@ function renderQueue(){
 }
 function closeQueue(){
   const panel=$("#queue .queue-panel"); const bd=$("#queue .queue-backdrop");
-  state.queueOpen=false;
+  state.queueOpen=false; syncScrollLock();
   if(!panel){ $("#queue").innerHTML=""; return; }
   panel.classList.remove("drawer-in"); panel.classList.add("drawer-out");
   if(bd){ bd.classList.remove("backdrop-in"); bd.classList.add("backdrop-out"); }
@@ -1320,11 +1782,11 @@ function closeQueue(){
    ============================================================ */
 function closeModal(){
   const wrap = $("#modal > [data-act='modal-backdrop']");
-  if(!wrap){ $("#modal").innerHTML=""; return; }
+  if(!wrap){ $("#modal").innerHTML=""; syncScrollLock(); return; }
   const panel = wrap.querySelector("[data-act='modal-stop']");
   wrap.classList.remove("backdrop-in"); wrap.classList.add("backdrop-out");
   if(panel){ panel.classList.remove("panel-in"); panel.classList.add("panel-out"); }
-  setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); }, 210);
+  setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); syncScrollLock(); }, 210);
 }
 function modalWrap(inner, testid, size){ const mw=size==="lg"?"max-w-lg":size==="xl"?"max-w-xl":"max-w-md"; return `<div data-act="modal-backdrop" class="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-4 backdrop-blur-sm backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="glass-strong panel-in relative w-full ${mw} rounded-2xl border-white/15 p-5 text-white">${inner}</div></div>`; }
 
@@ -1349,6 +1811,7 @@ function renderOnboarding(){
   const nick=$("#ob-nick"); if(nick){ nick.focus(); nick.addEventListener("input",()=>{ onboard.nick=nick.value; const nb=$("#modal [data-act='ob-next']"); if(nb){ const ok=!!onboard.nick.trim(); nb.disabled=!ok; nb.classList.toggle("opacity-40",!ok); nb.classList.toggle("hover:opacity-90",ok); } }); nick.addEventListener("keydown",e=>{ if(e.key==="Enter"&&onboard.nick.trim()){ onboard.step=2; renderOnboarding(); } }); }
   const bday=$("#ob-bday"); if(bday) bday.addEventListener("input",()=>{ onboard.bday=bday.value; renderOnboarding(); });
   const file=$("#ob-file"); if(file) file.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ onboard.avatar=r.result; renderOnboarding(); }; r.readAsDataURL(f); });
+  syncScrollLock();
 }
 
 function openSongMenu(id){ const s=SONG_BY_ID[id]; if(!s) return; const opt=(act,ic,label,extra="")=>`<button data-act="${act}" data-id="${id}" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-white/10">${extra}<i data-lucide="${ic}" style="width:16px;height:16px"></i> ${label}</button>`;
@@ -1390,12 +1853,16 @@ function updateProgress(){ const s=curSong(); const d=state.duration||0,cur=stat
   const seek=$("#np-seek"); if(seek && document.activeElement!==seek){ seek.value=pct; }
   const curEl=$("#np-cur"); if(curEl) curEl.textContent=fmt(cur);
   updateLyricHighlight();
+  updateKaraoke();
 }
 function updateLyricHighlight(){ if(!state.showLyrics||!state.lyricLines.length) return; const t=state.currentTime; let idx=-1; const s=curSong(); const lines=s&&s.lyrics||[]; for(let i=0;i<lines.length;i++){ if(lines[i].t<=t+0.15) idx=i; else break; } state.lyricLines.forEach((el,i)=>{ const active=i===idx; el.classList.toggle("text-white",active); el.classList.toggle("text-white/40",!active&&i>idx); el.classList.toggle("text-white/35",!active&&i<idx); el.style.textShadow=active?"0 2px 30px rgba(255,255,255,0.25)":""; el.style.transform=active?"scale(1.02)":""; el.style.transformOrigin="left"; }); if(idx>=0){ const el=state.lyricLines[idx]; const cont=$("#np-lyrics"); if(el&&cont){ const target=el.offsetTop-cont.clientHeight/2+el.clientHeight/2; cont.scrollTo({top:Math.max(target,0),behavior:"smooth"}); } } }
 
 /* media session + palette on song change */
 function onSongChange(){ const s=curSong(); if(!s) return; if("mediaSession"in navigator){ try{ navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist,album:"Treesh",artwork:[{src:s.coverArt,sizes:"512x512",type:"image/jpeg"}]}); navigator.mediaSession.setActionHandler("play",()=>togglePlay()); navigator.mediaSession.setActionHandler("pause",()=>togglePlay()); navigator.mediaSession.setActionHandler("nexttrack",()=>nextTrack(true)); navigator.mediaSession.setActionHandler("previoustrack",()=>prevTrack()); }catch(e){} }
-  state.palette=null; extractPalette(s.coverArt).then(p=>{ state.palette=p; if(state.npOpen&&!state.showLyrics) renderNP(); });
+  state.palette=null;
+  if(state.npOpen) renderNP();   // refresh lyrics/title/art immediately on track change (fixes stale lyrics on next/prev)
+  renderMini();
+  extractPalette(s.coverArt).then(p=>{ state.palette=p; if(state.npOpen) renderNP(); });
 }
 let lastSongId=null;
 audio.addEventListener("loadstart",()=>{ const s=curSong(); if(s&&s.id!==lastSongId){ lastSongId=s.id; onSongChange(); } });
@@ -1403,18 +1870,46 @@ audio.addEventListener("loadstart",()=>{ const s=curSong(); if(s&&s.id!==lastSon
 /* ============================================================
    VOICE CONTROL
    ============================================================ */
-let recog=null, listening=false;
-function initVoice(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ recog=false; return; } recog=new SR(); recog.continuous=false; recog.interimResults=true; recog.lang="en-US"; recog.onresult=e=>{ let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript; const ov=$("#voice-text"); if(ov) ov.textContent=t||"Say play, pause, next\u2026"; if(e.results[e.results.length-1].isFinal) handleVoice(t.toLowerCase().trim()); }; recog.onend=()=>{ listening=false; hideVoice(); }; recog.onerror=e=>{ listening=false; hideVoice(); if(e.error==="not-allowed") toast("Microphone access denied"); }; }
-function toggleVoice(){ if(recog===null) initVoice(); if(!recog){ toast("Voice control not supported"); return; } if(listening){ recog.stop(); listening=false; hideVoice(); } else { try{ recog.start(); listening=true; showVoice(); }catch(e){} } }
-function showVoice(){ const el=document.createElement("div"); el.id="voice-ov"; el.className="fixed left-1/2 top-24 z-[110] -translate-x-1/2 fade-in"; el.innerHTML=`<div class="flex items-center gap-4 rounded-2xl border border-white/15 bg-black/70 px-6 py-4 backdrop-blur-2xl shadow-[var(--treesh-shadow)]"><div class="relative grid h-12 w-12 place-items-center"><span class="voice-pulse absolute inset-0"></span><span class="grid h-12 w-12 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white"><i data-lucide="mic" style="width:20px;height:20px"></i></span></div><div class="min-w-[160px]"><p class="text-xs uppercase tracking-widest text-white/50">Listening\u2026</p><p id="voice-text" class="clamp-1 text-sm text-white">Say play, pause, next\u2026</p></div></div>`; document.body.appendChild(el); icons(); }
-function hideVoice(){ const el=$("#voice-ov"); if(el){ el.style.opacity="0"; setTimeout(()=>el.remove(),200);} }
+let recog=null, listening=false, _voiceSticky=false, _voiceHideT=null;
+function initVoice(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ recog=false; return; } recog=new SR(); recog.continuous=false; recog.interimResults=true; recog.lang="en-US";
+  recog.onstart=()=>{ listening=true; if($("#voice-ov")) voiceSetState("listening"); };
+  recog.onresult=e=>{ let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript; const ov=$("#voice-text"); if(ov){ ov.innerHTML=t?esc(t):`Say play, pause, next<span class="voice-dots"><span>.</span><span>.</span><span>.</span></span>`; ov.classList.toggle("text-white/50",!t); ov.classList.toggle("text-white",!!t); } if(e.results[e.results.length-1].isFinal) handleVoice(t.toLowerCase().trim()); };
+  recog.onend=()=>{ listening=false; if(_voiceSticky) return; if($("#voice-ov")) hideVoice(); };
+  recog.onerror=e=>{ listening=false; if(e.error==="aborted") return; if(e.error==="not-allowed"||e.error==="service-not-allowed") voiceSetState("denied"); else if(e.error==="no-speech") voiceSetState("nospeech"); else voiceSetState("error"); };
+}
+function toggleVoice(){ if($("#voice-ov")){ stopVoice(); return; } if(recog===null) initVoice(); showVoice(); if(!recog){ voiceSetState("unsupported"); return; } try{ recog.start(); }catch(err){ try{ recog.abort(); }catch(_){} voiceSetState("error"); } }
+function voiceBody(mode){
+  if(mode==="listening"){
+    return `<div class="flex flex-col items-center gap-5 text-center">
+      <div class="flex w-full items-center justify-between">
+        <div class="text-left"><p class="font-display text-sm uppercase tracking-[0.16em] text-white/90">Voice control</p><p class="mt-0.5 text-sm text-white/55">Speak a command</p></div>
+        <button data-act="voice-cancel" aria-label="Close" data-testid="voice-close-button" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10"><i data-lucide="x" style="width:17px;height:17px"></i></button>
+      </div>
+      <div class="relative grid h-24 w-24 place-items-center" data-testid="voice-listening-orb"><span class="voice-pulse absolute inset-0"></span><span class="relative grid h-24 w-24 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white glow-purple"><i data-lucide="mic" style="width:34px;height:34px"></i></span></div>
+      <div class="voice-wave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="w-full rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left"><p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Transcript</p><p id="voice-text" data-testid="voice-live-transcript" class="mt-1 min-h-[24px] text-base font-semibold text-white/50">Say play, pause, next<span class="voice-dots"><span>.</span><span>.</span><span>.</span></span></p></div>
+      <div class="flex flex-wrap justify-center gap-1.5">${["play","pause","next","previous","shuffle","play &lt;song&gt;"].map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60">${c}</span>`).join("")}</div>
+      <div class="grid w-full grid-cols-2 gap-2"><button data-act="voice-cancel" data-testid="voice-cancel-button" class="press h-11 rounded-2xl border border-white/12 bg-white/5 text-sm font-semibold text-white/85 hover:bg-white/10">Cancel</button><button data-act="voice-stop" data-testid="voice-stop-button" class="press inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Done</button></div>
+    </div>`;
+  }
+  const M={ unsupported:["mic-off","Voice not supported","This browser doesn\u2019t support voice control. Try Chrome on Android or desktop."], denied:["mic-off","Microphone blocked","Allow microphone access in your browser settings, then try again."], error:["triangle-alert","Something went wrong","Couldn\u2019t start voice control. Please try again."], nospeech:["ear","Didn\u2019t catch that","We didn\u2019t hear anything. Tap the mic and speak clearly."] }[mode]||["mic-off","Voice unavailable","Please try again."];
+  return `<div class="flex flex-col items-center gap-4 text-center">
+    <div class="grid h-16 w-16 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70"><i data-lucide="${M[0]}" style="width:28px;height:28px"></i></div>
+    <div><p class="font-display text-base uppercase tracking-[0.14em] text-white/90">${M[1]}</p><p data-testid="voice-live-transcript" class="mx-auto mt-1.5 max-w-[16rem] text-sm text-white/60">${M[2]}</p></div>
+    <button data-act="voice-cancel" data-testid="voice-cancel-button" class="press mt-1 h-11 w-full rounded-2xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple">Got it</button>
+  </div>`;
+}
+function showVoice(){ clearTimeout(_voiceHideT); _voiceSticky=false; if($("#voice-ov")) return; const el=document.createElement("div"); el.id="voice-ov"; el.className="tr-fade-in fixed inset-0 z-[110] flex items-center justify-center p-4"; el.innerHTML=`<div data-act="voice-cancel" class="absolute inset-0 bg-black/60 backdrop-blur-md"></div><div data-voice-panel data-testid="voice-listening-overlay" class="tr-panel-in relative w-[min(92vw,420px)] rounded-[28px] glass-strong border border-white/12 p-6 pb-[calc(22px+env(safe-area-inset-bottom))] shadow-[var(--treesh-shadow)]"><div data-voice-body>${voiceBody("listening")}</div></div>`; document.body.appendChild(el); icons(); syncScrollLock(); }
+function voiceSetState(mode){ const el=$("#voice-ov"); if(!el) return; const body=el.querySelector("[data-voice-body]"); if(!body) return; body.innerHTML=voiceBody(mode); icons(); _voiceSticky=(mode!=="listening"); clearTimeout(_voiceHideT); if(_voiceSticky){ _voiceHideT=setTimeout(()=>{ if($("#voice-ov")) hideVoice(); }, 3600); } }
+function stopVoice(){ _voiceSticky=false; clearTimeout(_voiceHideT); if(recog){ try{ recog.abort(); }catch(e){ try{ recog.stop(); }catch(_){} } } listening=false; hideVoice(); }
+function hideVoice(){ clearTimeout(_voiceHideT); _voiceSticky=false; const el=$("#voice-ov"); if(el){ el.classList.remove("tr-fade-in"); el.classList.add("tr-fade-out"); const p=el.querySelector("[data-voice-panel]"); if(p){ p.classList.remove("tr-panel-in"); p.classList.add("tr-panel-out"); } setTimeout(()=>{ if(el.parentNode) el.remove(); syncScrollLock(); },200); } else { syncScrollLock(); } }
 function handleVoice(t){ if(!t) return; const say=m=>toast(m); if(/(^|\s)(pause|stop)(\s|$)/.test(t)){ if(state.isPlaying)togglePlay(); say("Paused"); } else if(/(next|skip)/.test(t)){ nextTrack(true); say("Next track"); } else if(/(previous|back|last)/.test(t)){ prevTrack(); say("Previous track"); } else if(/shuffle/.test(t)){ toggleShuffle(); say("Shuffle toggled"); } else if(/repeat/.test(t)){ cycleRepeat(); say("Repeat toggled"); } else if(/^(search|find)\s+(.+)/.test(t)){ const q=t.replace(/^(search|find)\s+/,""); state.query=q; state.view="library"; setHash("library"); renderShell(); renderView(); const si=$("#search"); if(si) si.value=q; say("Searching \u201C"+q+"\u201D"); } else if(/^play\s+(.+)/.test(t)){ const q=t.replace(/^play\s+/,""); const hit=SONGS.find(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q)); if(hit){ playSong(hit,SONGS); say("Playing "+hit.title); } else { state.query=q; state.view="library"; renderShell(); renderView(); say("Looking for \u201C"+q+"\u201D"); } } else if(/(^|\s)(play|resume)(\s|$)/.test(t)){ if(!state.isPlaying&&curSong())togglePlay(); say("Playing"); } else { toast("Didn\u2019t catch that","\u201C"+t+"\u201D"); } }
 
 /* ============================================================
    ROUTING
    ============================================================ */
 function setHash(view,param){ const h=param?`#/${view}/${param}`:`#/${view}`; if(location.hash!==h){ history.pushState(null,"",h); } }
-function navigate(view,param){ if(state.profileOpen) closeProfile(true); state.view=view; state.param=param||null; setHash(view,param); renderShell(); renderView(true); window.scrollTo(0,0); }
+function navigate(view,param){ if(state.profileOpen) closeProfile(true); if(state.searchOpen) closeSearch(true); state.view=view; state.param=param||null; setHash(view,param); renderShell(); renderView(true); window.scrollTo(0,0); syncScrollLock(); }
 function parseHash(){ const h=location.hash.replace(/^#\//,""); if(!h) return {view:"library"}; const parts=h.split("/"); return {view:parts[0]||"library",param:parts[1]?decodeURIComponent(parts[1]):null}; }
 window.addEventListener("hashchange",()=>{ if(state.profileOpen) closeProfile(true); const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
 window.addEventListener("popstate",()=>{ if(state.profileOpen) closeProfile(true); const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
@@ -1435,18 +1930,36 @@ document.addEventListener("click", e=>{
     case "repeat": cycleRepeat(); break;
     case "mini-open": state.npOpen=true; renderNP(); break;
     case "np-close": closeNP(); break;
-    case "toggle-lyrics": state.showLyrics=!state.showLyrics; renderNP(); break;
+    case "toggle-lyrics": state.showLyrics=!state.showLyrics; if(!state.showLyrics){ state.karaoke=false; state.lyricsEdit=false; } renderNP(); break;
+    case "toggle-karaoke": { state.karaoke=!state.karaoke; if(state.karaoke){ state.showLyrics=true; state.lyricsEdit=false; } _karIdx=-1; renderNP(); break; }
+    case "lyrics-edit": { state.lyricsEdit=true; state.karaoke=false; state.showLyrics=true; renderNP(); break; }
+    case "lyrics-edit-cancel": { state.lyricsEdit=false; renderNP(); break; }
+    case "lyrics-save": { saveLyricEdits(SONG_BY_ID[id]||curSong()); break; }
+    case "lyrics-report": { reportLyrics(SONG_BY_ID[id]||curSong()); break; }
     case "toggle-vinyl": state.vinylMode=!state.vinylMode; LS.set("treesh_vinyl",state.vinylMode); renderNP(); break;
     case "open-queue": state.queueOpen=true; renderQueue(); break;
     case "close-queue": closeQueue(); break;
     case "q-up": moveQueue(id,-1); break;
     case "q-down": moveQueue(id,1); break;
     case "q-remove": removeFromQueue(id); break;
+    case "q-jump": { const i=state.queue.findIndex(x=>x.id===id); if(i<0) break; if(i===state.index){ togglePlay(); } else { loadIndex(i, state.queue, true); renderQueue(); renderMini(); if(state.npOpen) renderNP(); } break; }
     case "mute": setVolume(state.volume>0?0:1); renderNP(); break;
     case "like": { const willLike=!isFav(id); const r=t.getBoundingClientRect(); heartBurst(r.left+r.width/2, r.top+r.height/2, willLike); toggleFav(id); if($("#modal").innerHTML)closeModal(); popHearts(id, willLike); break; }
     case "songmenu": openSongMenu(id); break;
     case "np-add": { const s=curSong(); if(s) openAddToPlaylist(s.id); break; }
     case "np-share": { const s=curSong(); if(s) shareTrack(s); break; }
+    case "np-meta": { const s=curSong(); if(s) openMetadata(s.id); break; }
+    case "meta-copy": copyCredits(id); break;
+    case "open-search": openSearch(); break;
+    case "search-close": closeSearch(); break;
+    case "search-tab": { state.searchTab=t.dataset.tab; updateSearchTabs(); refreshSearchResults(); break; }
+    case "search-recent-chip": { state.searchQuery=t.dataset.q||""; const si=$("#search-input"); if(si) si.value=state.searchQuery; refreshSearchResults(); break; }
+    case "search-recent-clear": { state.recentSearches=[]; LS.set("treesh_recent_searches",[]); refreshSearchResults(); break; }
+    case "search-clear": { state.searchQuery=""; const si=$("#search-input"); if(si){ si.value=""; si.focus(); } refreshSearchResults(); break; }
+    case "search-play": { const s=SONG_BY_ID[id]; if(s){ const list=searchSongsList(state.searchQuery); playSong(s, list.length?list:[s]); pushRecent(state.searchQuery); closeSearch(true); } break; }
+    case "search-open-artist": { pushRecent(state.searchQuery); closeSearch(true); navigate("artist",id); break; }
+    case "search-play-lyric": { const s=SONG_BY_ID[id]; if(s){ const tt=parseFloat(t.dataset.t)||0; playSong(s,[s]); pushRecent(state.searchQuery); state.npOpen=true; state.showLyrics=true; closeSearch(true); renderNP(); setTimeout(()=>seekTo(tt),600); } break; }
+    case "search-song-info": openMetadata(id); break;
     case "m-play-next": { const s=SONG_BY_ID[id]; const ok=addToQueue(s,true); toast(ok===false?"Already in queue":"Playing next",s.title); closeModal(); break; }
     case "m-add-queue": { const s=SONG_BY_ID[id]; const ok=addToQueue(s,false); toast(ok===false?"Already in queue":"Added to queue",s.title); closeModal(); break; }
     case "m-add-pl": closeModal(); openAddToPlaylist(id); break;
@@ -1505,22 +2018,35 @@ document.addEventListener("click", e=>{
     case "ob-preset": onboard.avatar=t.dataset.src; renderOnboarding(); break;
     case "ob-finish": { state.profile={nickname:onboard.nick.trim()||"Treesh Fan",birthday:onboard.bday,zodiac:zodiac(onboard.bday),avatar:onboard.avatar}; LS.set("treesh_profile",state.profile); closeModal(); renderShell(); renderView(); if(state.profileOpen) renderProfile(); break; }
     case "accent": { state.accent=t.dataset.hex; LS.set("treesh_accent",state.accent); applyAccent(state.accent); toast("Accent updated"); renderView(); break; }
+    case "apply-custom-color": { const ht=$("#set-custom-hex"); let v=(ht?ht.value:"").trim(); if(!/^#?[0-9a-fA-F]{6}$/.test(v)){ toast("Enter a valid hex","e.g. 9328ff"); break; } const hex=v[0]==="#"?v:("#"+v); state.accent=hex.toLowerCase(); LS.set("treesh_accent",state.accent); applyAccent(state.accent); toast("Accent updated"); renderView(); break; }
+    case "set-theme": { state.theme=(t.dataset.val==="light")?"light":"dark"; LS.set("treesh_theme",state.theme); applyTheme(); toast(state.theme==="light"?"Light mode":"Dark mode"); renderView(); break; }
+    case "set-bg": { state.bg=t.dataset.val; LS.set("treesh_bg",state.bg); applyTheme(); renderView(); break; }
+    case "set-textsize": { state.textSize=t.dataset.val; LS.set("treesh_text_size",state.textSize); applyTextSize(); renderView(); break; }
+    case "toggle-bg-overlay": { state.bgOverlay=!!t.checked; LS.set("treesh_bg_overlay",state.bgOverlay); renderBackground(); break; }
+    case "remove-bg-image": { state.bgImage=""; LS.set("treesh_bg_image",""); renderBackground(); renderView(); break; }
+    case "set-sleep": { state.sleepMin=parseInt(t.dataset.val,10)||0; LS.set("treesh_sleep",state.sleepMin); resetSleepTimer(); toast(state.sleepMin?("Sleep timer set to "+state.sleepMin+" min"):"Sleep timer off"); renderView(); break; }
+    case "set-settings-tab": { state.settingsTab=t.dataset.val; renderView(); break; }
     case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const bday=$("#set-bday").value; const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; toast("Profile saved"); renderShell(); renderView(); break; }
-    case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists and theme on this device will be reset.",()=>{ ["treesh_favorites","treesh_playlists","treesh_profile","treesh_accent","treesh_vinyl"].forEach(k=>localStorage.removeItem(k)); location.reload(); }); break;
+    case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists and theme on this device will be reset.",()=>{ ["treesh_favorites","treesh_dislikes","treesh_playlists","treesh_profile","treesh_accent","treesh_vinyl","treesh_recent_searches","treesh_fav_lyrics","treesh_stats","treesh_lyric_edits","treesh_tot"].forEach(k=>localStorage.removeItem(k)); location.reload(); }); break;
     case "prompt-ok": { const v=$("#prompt-input").value.trim(); if(v&&state._promptCb){ state._promptCb(v); closeModal(); } break; }
     case "confirm-ok": if(state._confirmCb) state._confirmCb(); break;
     case "modal-close": closeModal(); break;
     case "modal-stop": break;
     case "modal-backdrop": closeModal(); break;
     case "voice-toggle": toggleVoice(); break;
+    case "voice-stop": { if(recog){ try{recog.stop();}catch(e){} } listening=false; hideVoice(); break; }
     case "retry-load": retryLoad(); break;
     case "refresh-catalog": { toast("Refreshing catalog\u2026"); loadCatalog().then(()=>{ softRefresh(); toast("Catalog updated", SONGS.length+" tracks"); }).catch(()=>toast("Couldn\u2019t refresh","Check your connection")); break; }
   }
+  syncScrollLock();
 });
 
 /* input handlers via delegation */
 document.addEventListener("input", e=>{
   if(e.target.id==="search"){ state.query=e.target.value; const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.toggle("hidden",!state.query); renderView(); }
+  else if(e.target.id==="search-input"){ state.searchQuery=e.target.value; refreshSearchResults(); }
+  else if(e.target.id==="set-custom-color"){ const hex=(e.target.value||"").toLowerCase(); state.accent=hex; LS.set("treesh_accent",hex); applyAccent(hex); const ht=$("#set-custom-hex"); if(ht) ht.value=hex.replace('#',''); const lbl=e.target.closest("label"); if(lbl) lbl.style.background=hex; }
+  else if(e.target.id==="set-custom-hex"){ const v=(e.target.value||"").trim(); if(/^#?[0-9a-fA-F]{6}$/.test(v)){ const hex=(v[0]==="#"?v:("#"+v)).toLowerCase(); const cc=$("#set-custom-color"); if(cc) cc.value=hex; const lbl=cc?cc.closest("label"):null; if(lbl) lbl.style.background=hex; } }
   else if(e.target.id==="np-seek"){ if(state.duration) seekTo(e.target.value/100*state.duration); }
   else if(e.target.id==="np-vol"){ setVolume(e.target.value/100); }
   else if(e.target.id==="game-search"){ state.gameQuery=e.target.value; const c=$("#game-song-list"); if(c){ c.innerHTML=gameSongListHtml(); icons(); } const cb=$('[data-act="game-clear-search"]'); if(cb) cb.classList.toggle("hidden",!state.gameQuery); }
@@ -1529,7 +2055,7 @@ document.addEventListener("input", e=>{
 /* keyboard shortcuts */
 document.addEventListener("keydown", e=>{
   const tag=(e.target.tagName||""); if(["INPUT","TEXTAREA","SELECT"].includes(tag)||e.target.isContentEditable) return;
-  if(e.key==="Escape"){ if($("#modal").innerHTML){ closeModal(); return; } if(state.profileOpen){ closeProfile(); return; } if(state.queueOpen){ closeQueue(); return; } if(state.npOpen){ closeNP(); return; } }
+  if(e.key==="Escape"){ if($("#modal").innerHTML){ closeModal(); return; } if(state.searchOpen){ closeSearch(); return; } if(state.profileOpen){ closeProfile(); return; } if(state.queueOpen){ closeQueue(); return; } if(state.npOpen){ closeNP(); return; } }
   if(!curSong()) return;
   if(e.code==="Space"){ e.preventDefault(); togglePlay(); }
   else if(e.code==="ArrowRight"&&e.shiftKey) nextTrack(true);
@@ -1543,7 +2069,7 @@ document.addEventListener("keydown", e=>{
    ============================================================ */
 function starfield(){ const cv=$("#stars"); if(!cv) return; const ctx=cv.getContext("2d"); const dpr=Math.min(window.devicePixelRatio||1,2); let w,h,stars=[],shoot=null,mx=0,my=0,raf; const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
   function resize(){ w=cv.clientWidth; h=cv.clientHeight; cv.width=w*dpr; cv.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); const n=w<700?110:220; stars=Array.from({length:n},()=>({x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.3+0.2,a:Math.random()*0.6+0.2,tw:Math.random()*0.02+0.004,dir:Math.random()>0.5?1:-1,purple:Math.random()>0.86,depth:Math.random()*0.6+0.2})); }
-  function draw(){ ctx.clearRect(0,0,w,h); const g=ctx.createRadialGradient(w/2,h*0.35,0,w/2,h*0.35,Math.max(w,h)*0.8); g.addColorStop(0,"rgba(147,40,255,0.05)"); g.addColorStop(1,"rgba(0,0,0,0)"); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); const ox=(mx-w/2)*0.006,oy=(my-h/2)*0.006; for(const s of stars){ if(!reduced){ s.a+=s.tw*s.dir; if(s.a>0.85)s.dir=-1; if(s.a<0.15)s.dir=1; } const px=s.x+ox*s.depth*12,py=s.y+oy*s.depth*12; ctx.beginPath(); ctx.arc(px,py,s.r,0,Math.PI*2); ctx.fillStyle=s.purple?`rgba(180,120,255,${s.a})`:`rgba(255,255,255,${s.a})`; ctx.fill(); }
+  function draw(){ ctx.clearRect(0,0,w,h); const g=ctx.createRadialGradient(w/2,h*0.35,0,w/2,h*0.35,Math.max(w,h)*0.8); g.addColorStop(0,"rgba(147,40,255,0.05)"); g.addColorStop(1,"rgba(0,0,0,0)"); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); const ox=(mx-w/2)*0.006,oy=(my-h/2)*0.006; for(const s of stars){ if(!reduced){ s.a+=s.tw*s.dir; if(s.a>0.85)s.dir=-1; if(s.a<0.15)s.dir=1; } const px=s.x+ox*s.depth*12,py=s.y+oy*s.depth*12; ctx.beginPath(); ctx.arc(px,py,s.r,0,Math.PI*2); ctx.fillStyle=s.purple?`rgba(180,120,255,${s.a})`:(document.documentElement.classList.contains("theme-light")?`rgba(30,30,40,${s.a*0.8})`:`rgba(255,255,255,${s.a})`); ctx.fill(); }
     if(!reduced&&!shoot&&Math.random()<0.006) shoot={x:Math.random()*w*0.6,y:Math.random()*h*0.3,len:0,life:0}; if(shoot){ shoot.life++; shoot.len=Math.min(shoot.len+14,160); const sx=shoot.x+shoot.life*6,sy=shoot.y+shoot.life*3; const g2=ctx.createLinearGradient(sx-shoot.len,sy-shoot.len*0.5,sx,sy); g2.addColorStop(0,"rgba(255,255,255,0)"); g2.addColorStop(1,"rgba(255,255,255,0.7)"); ctx.strokeStyle=g2; ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(sx-shoot.len,sy-shoot.len*0.5); ctx.lineTo(sx,sy); ctx.stroke(); if(shoot.life>40||sx>w||sy>h) shoot=null; }
     raf=requestAnimationFrame(draw); }
   resize(); draw(); addEventListener("resize",resize); addEventListener("pointermove",e=>{mx=e.clientX;my=e.clientY;}); document.addEventListener("visibilitychange",()=>{ if(document.hidden) cancelAnimationFrame(raf); else raf=requestAnimationFrame(draw); }); }
@@ -1553,11 +2079,12 @@ function starfield(){ const cv=$("#stars"); if(!cv) return; const ctx=cv.getCont
    ============================================================ */
 function init(){
   const {view,param}=parseHash(); state.view=view; state.param=param;
-  renderShell(); renderView(); renderMini();
+  renderShell(); renderView(true); renderMini();
   // deep link ?song=
   const sp=new URLSearchParams(location.search); const songId=sp.get("song"); if(songId&&SONG_BY_ID[songId]){ playSong(SONG_BY_ID[songId],SONGS); state.npOpen=true; renderNP(); history.replaceState(null,"",location.pathname+location.hash); }
   // onboarding for new users
   if(!state.profile){ onboard={step:0,nick:"",bday:"",avatar:""}; setTimeout(renderOnboarding,400); }
+  initSleep();
 }
 
 /* soft refresh after a background catalog update (keeps playback intact) */
@@ -1593,6 +2120,7 @@ async function retryLoad(){ renderBootLoading(); try{ await loadCatalog(); init(
 
 async function boot(){
   applyAccent(state.accent);
+  applyTheme();
   starfield();
   const cachedTs = loadCatalogCache();
   if(cachedTs){

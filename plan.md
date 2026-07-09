@@ -1,130 +1,215 @@
-# Treesh 3.0 — Single-File Static Rebuild Plan (Live Catalog)
+# Treesh 3.0 — Single-File UI Fixes + Search + Lyrics + Games Plan (UPDATED)
 
 ## 1) Objectives
-- Deliver **one self-contained `index.html`** (Vanilla JS + Tailwind CDN + Lucide) suitable for **static hosting**.
-- **Abandon React/FastAPI** entirely; all user data persists via **`localStorage`**.
-- Load the **live catalog at runtime** from same-origin HTML endpoints:
-  - `/content/songs`, `/content/icons`, `/content/lyrics`
-- Parse remote HTML via `DOMParser`, **normalize into the app’s model**, cache results locally, then boot the UI.
-- Keep Treesh theme (near-black + **purple #9328ff** + **gold #c3ab69**) and make it feel **premium + lively** with **seamless animations/transitions**.
-- **Deployment constraint:** because `treesh.app` content endpoints do **not** send CORS headers, the app must be hosted **same-origin** as `/content/*` (i.e., on `treesh.app`). The loader still tries `content/*` → `/content/*` → `https://treesh.app/content/*` for robustness.
-
-**Current status:** ✅ All objectives achieved. Final file: `/app/single_html/index.html` (~101KB).
+- Deliver the remaining fixes/features in **`/app/single_html/index.html` only** (Vanilla JS + Tailwind CDN + localStorage).
+- Preserve the premium Treesh design language (dark + glass + accent) while adding:
+  - **Metadata modal** (credits/details)
+  - **Full-screen search overlay** opened via a **top-bar icon button** with bottom-docked input
+  - **Premium Settings** overhaul with theme/background/text/sleep controls
+  - **Karaoke mode** + **local lyric editing/reporting**
+  - **Sleep timer** (inactivity-triggered ambient overlay)
+  - **Motion system**: staggered page entrances + scroll reveal
+- Prioritize **mobile playback UX correctness** and **overlay scroll locking**.
+- Complete remaining gameplay/features: **Dislikes**, Lyric Game polish, and **This or That** game.
 
 ---
 
 ## 2) Implementation Steps
 
-### Phase 1 — Core Data Integration POC (Isolation) ✅ *Done*
-**Core risk:** runtime parsing + normalization of HTML catalog pages + same-origin fetch behavior.
+### Phase 1 — Core Bug Fixes & Mobile Foundation (DONE)
+**User stories**
+1. As a user, I can tap **Info** in Now Playing and see complete song credits/details.
+2. As a user, when I press **Next/Prev**, the lyrics always update to the new song.
+3. As a user, I can tap any item in **Up Next** to jump to it immediately.
+4. As a mobile user, when Now Playing (or overlays) are open, the page cannot scroll behind them.
+5. As a user, the mini-player never overlaps the bottom navigation.
 
-**User stories (POC) — Completed**
-1. As a user, I can open the app and it loads songs/artists/lyrics from `/content/*` without manual setup.
-2. As a user, I can hit Play on any song and audio starts reliably.
-3. As a user, lyrics (when available) appear and highlight correctly as the song plays.
-4. As a user, the catalog loads fast on repeat visits due to local caching.
-5. As a user, if `/content/*` fails, I see a clear error and a retry button.
+**Work completed**
+- **Metadata Modal (P0)**
+  - Added `np-meta` handler.
+  - Implemented metadata modal from `SONG_BY_ID` (creationDate, artist, featured artists, writtenBy, producer, mixer, videographer, album, label, genre, mood, explicit) and **Copy credits**.
+- **Lyrics not updating**
+  - Fixed `onSongChange()` to **always re-render** Now Playing when open.
+- **Queue selectable**
+  - Added `q-jump` UI + handler to jump to queue index.
+- **Mobile scroll lock**
+  - Implemented `syncScrollLock()` (body fixed-position lock) and wired into all overlays.
+- **Mini-bar offset**
+  - Mini player uses safe-area-aware `bottom-[calc(58px+env(safe-area-inset-bottom))]`.
+- **iOS input zoom**
+  - Inputs forced to `>=16px` on small screens.
 
-**Implementation — Completed**
-- Implemented **bootstrap catalog loader** before UI init:
-  - Fetch-first strategy with timeout, tries in order: `content/*` → `/content/*` → `https://treesh.app/content/*`.
-  - Parse HTML with `DOMParser`.
-  - Normalization:
-    - **Songs:** stable slug `id` generation; map `data-explicit`, `data-exclusive` booleans; extract audioUrl/coverArt/metadata.
-    - **Artists:** map `data-artist-id -> id`; extract `name`, `bio`, `role`, `cashapp`, backgrounds/images.
-    - **Lyrics:** parse `<p data-minutes="MM:SS.ss">` to seconds; attach to songs via robust matching.
-  - Cache normalized catalog in `localStorage` (`treesh_catalog_v1`) with timestamp.
-  - **Stale-while-revalidate:** boot instantly from cache, then refresh catalog in background.
-- Added branded **boot loading** skeleton screen and **error + retry** UI.
-
-**Measured results**
-- Catalog loads: **55 songs**, **12 artists**, **37 songs with synced lyrics**.
-
-**Exit criteria — Met**
-- Songs/artists render from live `/content/*`.
-- Playback works for multiple tracks.
-- Lyrics parse to seconds and highlight works.
-- Refresh uses cached data if remote is slow/unavailable.
+**Phase 1 testing completed**
+- DOM checks: metadata modal open, queue jump, lyric refresh.
+- Functional checks: scroll lock now prevents background scroll.
 
 ---
 
-### Phase 2 — V1 App Development (Wire the Template to Live DATA) ✅ *Done*
-**Goal:** replace placeholder data with runtime loader output and ensure all features work end-to-end.
+### Phase 2 — Global Full-Screen Search Overlay (DONE)
+**User stories**
+1. As a user, I can tap a **Search icon button** and get a full-screen search overlay.
+2. As a mobile user, the search input is at the **bottom** and stays reachable while typing.
+3. As a user, I can toggle results between **Songs / Artists / Lyrics**.
+4. As a user, I can quickly replay recent searches from **history chips**.
+5. As a user, search results let me play a song, open an artist, or jump to a lyric match.
 
-**User stories (V1) — Completed**
-1. Browse library, filter by genre, and search quickly.
-2. Open an artist and play/shuffle their discography.
-3. Like/unlike songs and see them in Favorites (persisted locally).
-4. Create playlists and add/remove songs (persisted locally).
-5. Use Now Playing (vinyl + ambient gradient + lyrics) and manage queue.
+**Work completed**
+- Replaced header inline search input with a **compact icon button** matching other top-bar buttons.
+- Added overlay renderer `renderSearchOverlay()`:
+  - Results scroller above + **bottom dock** with segmented toggle + input.
+  - `visualViewport` keyboard offset support.
+  - localStorage `treesh_recent_searches` (max 8).
+- Wired actions:
+  - Songs: play from results (contextList = results)
+  - Artists: navigate to artist
+  - Lyrics: play song, open NP lyrics, seek to match time
 
-**Implementation — Completed**
-- Refactored boot flow to use live catalog load + cache fallback.
-- Built normalized indices: `SONG_BY_ID`, `ARTIST_BY_ID`, computed genres.
-- Added/verified **`data-testid`** attributes for key flows (nav, search, play controls, NP controls, etc.).
-- **Critical bug fix:**
-  - Removed `onclick="event.stopPropagation()"` in modal content wrapper (it blocked all modal buttons due to event delegation).
-  - Replaced with `data-act="modal-stop"` sentinel; updated click handler.
-- Fixed onboarding UX bug: nickname step “Next” button now enables/disables live while typing.
-
-**Phase 2 testing (mandatory) — Completed**
-- Served locally (`python3 -m http.server 3000`) and validated:
-  - Load → library → play → NP open/close → seek → next/prev → lyrics → queue reorder/remove → favorites → playlists → artists → settings.
+**Phase 2 testing completed**
+- Verified overlay open/close, typing, toggles, play actions, recent chips.
 
 ---
 
-### Phase 3 — Full Polish + Hardening ✅ *Done*
-**User stories (Polish) — Completed**
-1. Never lose place due to unnecessary re-renders while playing.
-2. Playback UI never clips on short viewports.
-3. App feels premium: smooth hover/press states, consistent spacing.
-4. Voice commands work where supported and fail gracefully where not.
-5. Offline/failed fetch still allows last cached catalog.
+### Phase 3 — Settings / Voice / Artist / Desktop Profile Accessibility (DONE)
+**User stories**
+1. As a user, Settings looks premium and easy to scan.
+2. As a user, I can pick from many accents or set a **custom accent**.
+3. As a user, I can use **dark/light mode**, multiple backgrounds, text sizing, and a custom image background with overlay.
+4. As a user, the voice listening UI is centered and never cut off.
+5. As a user, I can read an Icon’s bio inside their header.
+6. As a desktop user, Profile access is easy from the sidebar.
+7. As a user, I can access Privacy/Terms/Copyright.
 
-**Implementation — Completed**
-- **Motion system (seamless + “flows well”):**
-  - Now Playing: **slide-up enter**, **slide-down exit**, **content cross-fade** on lyrics/vinyl swap.
-  - Modals: **backdrop fade + panel spring** enter, **animated exit**.
-  - Onboarding: **step slide** animation between steps.
-  - Queue drawer: **slide-in/out** (no re-slide on reorder).
-  - Mini-player: animated entrance.
-  - Toasts: slide/scale in/out.
-  - Page navigation: `view-in` transition on route change.
-  - Micro-interactions: `card-lift` hover + `press` active states.
-  - Respects `prefers-reduced-motion`.
-- **Performance hardening:**
-  - Removed unnecessary view re-render on play/pause; minimal DOM/icon patching.
-- **Network hardening:**
-  - Cache-first boot + retry UI.
-  - Manual refresh action available (settings).
+**Work completed**
+- **Full Settings overhaul (v2)**
+  - Converted Settings into a **hero banner + tabbed panels**:
+    - Tabs: Accent / Display / Sleep / Voice / Account / About
+  - **Accent**: expanded preset swatches + custom color input + hex apply.
+  - **Display**:
+    - Dark mode (#121212) + Light mode (#fefefe)
+    - Background modes: Space theme, Solid, Accent, multiple gradients, Custom Image
+    - Custom image background: upload/replace/remove + **Dim overlay** toggle.
+    - Text size: Small/Medium/Large scaling.
+  - **About**:
+    - Privacy Policy + Terms of Use link to `https://treesh.app` (until dedicated pages exist)
+    - Copyright block
+- Added a **desktop sidebar profile card** for faster access.
+- Voice overlay redesigned (safe-area centered modal panel).
+- Artist bio moved inside the artist header hero.
 
-**Phase 3 testing (mandatory) — Completed**
-- E2E test pass completed (testing agent): **34/34 passed**.
-- Verified:
-  - Real audio streaming (jukehost) currentTime advancing
-  - Synced lyrics (e.g., “Shake It Some Mo” **60 lines**) with highlight advancing
-  - Queue reorder/remove, playlists create/rename/delete, favorites
-  - Artist detail play/shuffle, settings accent changes
-  - Keyboard shortcuts (Space, Escape)
-  - Animated exit cleanups fully remove DOM and keep app interactive
+**Phase 3 testing completed**
+- Screenshot verification: Settings v2 appearance/display tabs and light mode rendering.
+- Voice overlay screenshot verification.
+
+---
+
+### Phase 4 — Lyrics Upgrades: Karaoke Mode + Report/Edit + Sleep Timer (PARTIALLY VERIFIED)
+**User stories**
+1. As a user, I can switch to **Karaoke mode** and follow one centered line at a time.
+2. As a user, I see a smooth accent fill animation synced to lyric timing.
+3. As a user, I can edit incorrect lyrics inline and keep my edits on this device.
+4. As a user, I can report lyrics via email with the full corrected text included.
+5. As a user, I can enable a **Sleep Timer** that triggers only after inactivity, showing a beautiful ambient overlay.
+
+**Work completed**
+- Karaoke mode:
+  - Toggle added in Now Playing lyrics tools.
+  - Center-stage karaoke renderer + per-character accent fill animation.
+  - Hooked into `timeupdate` via `updateKaraoke()`.
+- Lyrics edit/report:
+  - Inline lyric editor with save to localStorage (`treesh_lyric_edits`).
+  - Edits are applied to catalog at index time.
+  - Report button builds `mailto:` to `REPORT_EMAIL` including the full edited lyrics body.
+- Sleep timer:
+  - Added settings controls (5/10/15/30/45/60/off).
+  - Timer starts on **inactivity**, not while user is interacting.
+  - Full-screen overlay shows:
+    - Time of day + today’s date (top)
+    - Now playing track card + pause/play button (bottom)
+    - Pause exits overlay and restarts timer.
+  - Overlay participates in `syncScrollLock()`.
+
+**Phase 4 testing (still required / incomplete)**
+- Manual / automated checks to run:
+  - Karaoke: line swaps correctly over time; switching tracks refreshes karaoke.
+  - Lyric edits: persist across refresh; report link contains edited lyrics.
+  - Sleep: inactivity triggers overlay; pause exits; timer resets.
+
+---
+
+### Phase 5 — Motion System (DONE; continue polish as needed)
+**User stories**
+1. As a user, homepage content animates in after load.
+2. As a user, page/section transitions feel seamless and premium.
+3. As a user, song cards animate in as I scroll.
+
+**Work completed**
+- Added:
+  - Staggered view entrance animation via `animateView()`.
+  - IntersectionObserver-based scroll reveal for dense grids.
+- Existing Now Playing open/close and modal animations retained; can be further refined after Phase 6.
+
+---
+
+### Phase 6 — Remaining Items: Dislikes + Games + Game Transitions (PENDING)
+**User stories**
+1. As a user, I can dislike a song and it won’t appear in shuffle/up-next auto flow.
+2. As a user, Lyric Game opens/closes with smooth transitions and a subtle animated gaussian background.
+3. As a user, I can play **This or That** and progress is saved.
+4. As a user, I can filter This-or-That by genre and choose audio-preview or lyrics-verse mode.
+
+**Work (to implement next)**
+- **Dislikes**
+  - Add thumbs-down/dislike button (Now Playing + song rows/menu).
+  - Persist `treesh_dislikes`.
+  - Exclude dislikes from shuffle order and any autoplay/advance logic.
+  - Add management UI (likely Settings → Account or Profile module).
+- **Lyric Game polish**
+  - Add opening/closing transitions.
+  - Add subtle animated gaussian gradient background.
+- **New Game: This or That**
+  - Add tile in Games hub.
+  - King-of-the-hill tournament:
+    - Two songs presented; user chooses one to like and one to dislike (game-only).
+    - 30s preview playback per side.
+    - A song eliminated after 3 dislikes.
+    - Save progress to localStorage (`treesh_tot`).
+    - Champion screen: play full song or restart.
+  - Genre filter (uses `GENRES`).
+  - Lyrics variant:
+    - 4 random lines per song displayed; user chooses better verse.
+  - Background: gaussian animated gradient layer.
+
+**Phase 6 testing (mandatory)**
+- Run testing_agent for:
+  - Dislike persistence + shuffle exclusion.
+  - Lyric Game transitions.
+  - This-or-That end-to-end tournament + persistence + genre filter + lyrics mode.
 
 ---
 
 ## 3) Next Actions
-1. ✅ Confirm final file location: `/app/single_html/index.html`.
-2. ✅ Provide live preview link and any copy/paste guidance for GitHub/Netlify deployment.
-3. (Optional) If deploying on GitHub Pages under a different domain, either:
-   - Host `/content/*` pages on the **same domain** (recommended), or
-   - Add CORS headers on the content host (not currently present on treesh.app).
+1. **Verify Phase 4** with targeted testing:
+   - karaoke timing updates + track-switch refresh
+   - lyric edit persistence + mailto report
+   - sleep timer inactivity trigger + overlay interactions
+2. Implement **Phase 6** (Dislikes + Lyric Game transitions + This-or-That) in small, testable increments.
+3. Run **testing_agent** comprehensive pass after Phase 6.
+4. Final UI polish pass for motion consistency (NP open/close, modals, lyrics transitions) and fix any regressions.
 
 ---
 
 ## 4) Success Criteria
-- ✅ **Single file** deploy: `index.html` only (CDN deps allowed).
-- ✅ Live catalog loads from `/content/*` and normalizes correctly.
-- ✅ Playback is reliable: play/pause/seek/next/prev/shuffle/repeat/volume.
-- ✅ Lyrics sync highlights correctly for tracks that have lyrics.
-- ✅ Favorites/playlists/profile/theme persist via `localStorage`.
-- ✅ Clean loading/error states; cached catalog enables use during network issues.
-- ✅ UI matches Treesh brand and feels lively with seamless transitions.
-- ✅ Testing: E2E pass completed with **0 critical issues**.
+- Metadata modal reliably opens and shows all available credits/fields.
+- Lyrics always switch correctly on track changes (next/prev/jump) and karaoke stays in sync.
+- Queue items are tappable to jump; no background scroll under overlays on mobile.
+- Search is a **top-bar icon button** that opens a full-screen overlay with bottom input, toggles, and recents.
+- Settings is a **hero + tabbed** premium system with:
+  - accent presets + custom color
+  - dark/light mode
+  - multiple backgrounds including space theme + accent + gradients + custom image with overlay toggle
+  - text sizing
+  - privacy/terms/about
+- Voice overlay is centered and not clipped.
+- Sleep timer triggers only after inactivity and shows a beautiful ambient overlay.
+- Dislikes persist and are excluded from shuffle/autoplay.
+- Games: Lyric Game transitions improved; This-or-That works, is animated, filterable, and saves progress.
