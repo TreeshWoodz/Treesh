@@ -129,11 +129,50 @@
   .wn-slide.wn-active .wn-img{ animation:wnZoom 7.5s ease-out both; }
   @keyframes wnZoom{ from{ transform:scale(1.05) } to{ transform:scale(1.16) } }
 
+  /* ---------- like / favorite hearts (reliable, no JIT dependency) ---------- */
+  .tr-like svg,.tr-favline svg{ transition:transform .2s cubic-bezier(.34,1.56,.64,1),fill .18s ease,color .18s ease; }
+  .tr-like.is-liked svg,.tr-favline.is-liked svg{ fill:var(--treesh-purple); color:var(--treesh-purple); filter:drop-shadow(0 0 5px var(--treesh-purple-soft)); }
+  .tr-like.is-liked{ color:var(--treesh-purple); }
+  @keyframes heartPop{ 0%{transform:scale(1)} 25%{transform:scale(1.55)} 45%{transform:scale(.82)} 70%{transform:scale(1.14)} 100%{transform:scale(1)} }
+  .heart-pop{ animation:heartPop .5s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes heartUnpop{ 0%{transform:scale(1)} 40%{transform:scale(.68)} 100%{transform:scale(1)} }
+  .heart-unpop{ animation:heartUnpop .34s ease; }
+
+  /* floating heart burst particles */
+  #fx-layer{ position:fixed; inset:0; z-index:200; pointer-events:none; overflow:hidden; }
+  .fx-heart{ position:fixed; will-change:transform,opacity; pointer-events:none; animation:fxFloat var(--dur,900ms) cubic-bezier(.22,1,.36,1) forwards; }
+  .fx-heart svg{ display:block; width:var(--size,16px); height:var(--size,16px); }
+  @keyframes fxFloat{
+    0%{ transform:translate(-50%,-50%) scale(.2) rotate(0deg); opacity:0; }
+    18%{ opacity:1; transform:translate(-50%,-50%) scale(1) rotate(calc(var(--rot)*.3)); }
+    100%{ transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(var(--end,.55)) rotate(var(--rot)); opacity:0; }
+  }
+  .fx-ring{ position:fixed; width:16px; height:16px; border-radius:999px; border:2px solid var(--treesh-purple); pointer-events:none; animation:fxRing .58s cubic-bezier(.22,1,.36,1) forwards; }
+  @keyframes fxRing{ from{ transform:translate(-50%,-50%) scale(.4); opacity:.65; } to{ transform:translate(-50%,-50%) scale(3.8); opacity:0; } }
+
+  /* ---------- profile module (grows from top-right avatar) ---------- */
+  #profile-panel{ transform-origin:calc(100% - 22px) 22px; }
+  @keyframes profileIn{ 0%{ opacity:0; transform:scale(.16) translate3d(0,-6px,0); } 55%{ opacity:1; } 100%{ opacity:1; transform:scale(1) translate3d(0,0,0); } }
+  @keyframes profileOut{ 0%{ opacity:1; transform:scale(1) translate3d(0,0,0); } 100%{ opacity:0; transform:scale(.16) translate3d(0,-6px,0); } }
+  .profile-in{ animation:profileIn .44s cubic-bezier(.22,1,.36,1) both; }
+  .profile-out{ animation:profileOut .26s cubic-bezier(.4,0,1,.6) both; }
+  @keyframes pfContent{ from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+  .pf-content-in{ animation:pfContent .28s ease .12s both; }
+  @media (min-width:640px){ #profile-panel{ transform-origin:calc(100% - 8px) -12px; } }
+
+  /* touch devices: never leave a sticky hover/tap background on controls */
+  button:focus{ outline:none; }
+  @media (pointer: coarse){
+    .hover\:bg-white\/10:hover,.hover\:bg-white\/15:hover,.hover\:bg-white\/5:hover,.hover\:bg-white\/\[0\.07\]:hover{ background-color:transparent !important; }
+  }
+
   @media (prefers-reduced-motion: reduce){
     .spin,.eq span,.shimmer,.voice-pulse::before,.voice-pulse::after,
     .fade-in,.view-in,.np-entering,.np-leaving,.np-content-in,
     .backdrop-in,.backdrop-out,.panel-in,.panel-out,.ob-step-in,
-    .drawer-in,.drawer-out,.mini-in,.toast-in,.toast-out{ animation:none !important }
+    .drawer-in,.drawer-out,.mini-in,.toast-in,.toast-out,
+    .heart-pop,.heart-unpop,.profile-in,.profile-out,.pf-content-in{ animation:none !important }
+    .fx-heart,.fx-ring{ display:none !important }
     .card-lift:hover{ transform:none !important }
     .wn-slide.wn-active .wn-img{ animation:none !important }
     #wn-track{ transition:none !important }
@@ -147,6 +186,7 @@
   <div id="mini"></div>
   <div id="np"></div>
   <div id="queue"></div>
+  <div id="profile"></div>
   <div id="modal"></div>
   <div id="toast" class="fixed left-1/2 top-4 z-[120] flex -translate-x-1/2 flex-col items-center gap-2"></div>
 
@@ -353,7 +393,12 @@ const state = {
   npOpen: false, showLyrics: false, vinylMode: LS.get("treesh_vinyl", false), queueOpen: false,
   palette: null, lyricLines: [],
   favLyrics: LS.get("treesh_fav_lyrics", []),
-  gameStats: LS.get("treesh_game_stats", {games:0,totalScore:0,bestScore:0,rounds:0,correct:0,bestStreak:0,lastPlayed:0}),
+  gameStats: LS.get("treesh_game_stats", {games:0,totalScore:0,bestScore:0,rounds:0,correct:0,bestStreak:0,perfects:0,lastPlayed:0,bestSong:null,recent:[]}),
+  gameOpts: LS.get("treesh_game_opts", {timer:false, exact:false}),
+  libGrid: LS.get("treesh_lib_grid", true),
+  gameGrid: LS.get("treesh_game_grid", false),
+  gameQuery: "",
+  profileOpen: false, profileTab: "favorites",
   studio: null, game: null,
 };
 
@@ -372,6 +417,38 @@ function toggleFav(id){ const s=SONG_BY_ID[id]; const was=isFav(id); if(was) sta
 function favSongs(){ return [...state.favorites].map(id=>SONG_BY_ID[id]).filter(Boolean).reverse(); }
 function createPlaylist(name, songIds=[]){ const pl={id:"pl_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),name,songIds,createdAt:Date.now()}; state.playlists.unshift(pl); savePl(); toast("Playlist created",name); return pl; }
 function plById(id){ return state.playlists.find(p=>p.id===id); }
+
+/* ---------- heart burst animation ---------- */
+const HEART_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="__F__" stroke="__S__" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg>';
+function fxLayer(){ let l=document.getElementById("fx-layer"); if(!l){ l=document.createElement("div"); l.id="fx-layer"; document.body.appendChild(l); } return l; }
+function heartBurst(x,y,liking){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if(x==null||y==null||isNaN(x)||isNaN(y)) return;
+  const layer=fxLayer();
+  const N=liking?14:7;
+  const fill=liking?"var(--treesh-purple)":"rgba(255,255,255,0.6)";
+  for(let i=0;i<N;i++){
+    const p=document.createElement("span"); p.className="fx-heart";
+    const spread=liking?130:74;
+    const dx=(Math.random()*2-1)*spread;
+    const dy=liking?-(48+Math.random()*130):(24+Math.random()*74);
+    const size=liking?(11+Math.random()*16):(9+Math.random()*9);
+    const rot=(Math.random()*120-60);
+    const dur=liking?(760+Math.random()*640):(520+Math.random()*360);
+    p.style.left=x+"px"; p.style.top=y+"px";
+    p.style.setProperty("--dx",dx.toFixed(1)+"px");
+    p.style.setProperty("--dy",dy.toFixed(1)+"px");
+    p.style.setProperty("--rot",rot.toFixed(1)+"deg");
+    p.style.setProperty("--size",size.toFixed(1)+"px");
+    p.style.setProperty("--dur",dur.toFixed(0)+"ms");
+    p.style.setProperty("--end",(liking?.5:.3).toString());
+    p.innerHTML=HEART_SVG.replace("__F__",fill).replace("__S__",fill);
+    layer.appendChild(p);
+    setTimeout(()=>p.remove(), dur+100);
+  }
+  if(liking){ const ring=document.createElement("span"); ring.className="fx-ring"; ring.style.left=x+"px"; ring.style.top=y+"px"; layer.appendChild(ring); setTimeout(()=>ring.remove(),620); }
+}
+function popHearts(id, liking){ requestAnimationFrame(()=>{ $$('[data-act="like"][data-id="'+id+'"]').forEach(b=>{ const sv=b.querySelector("svg"); if(sv){ sv.classList.remove("heart-pop","heart-unpop"); void sv.offsetWidth; sv.classList.add(liking?"heart-pop":"heart-unpop"); } }); }); }
 
 /* ============================================================
    AUDIO ENGINE
@@ -416,7 +493,7 @@ async function sharePlaylist(pl){ const url=location.origin+location.pathname; c
 /* ============================================================
    RENDER: SHELL
    ============================================================ */
-const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["favorites","Favorites","heart"],["playlists","Playlists","list-music"],["game","Game","gamepad-2"],["settings","Settings","settings"]];
+const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["game","Game","gamepad-2"],["settings","Settings","settings"]];
 function navItem(v,label,ic,mobile){ const active=state.view===v; if(mobile){ return `<button data-act="nav" data-view="${v}" data-testid="nav-mobile-${v}" class="flex flex-col items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors ${active?'text-[color:var(--treesh-purple)]':'text-white/55'}"><i data-lucide="${ic}" style="width:20px;height:20px"></i>${label}</button>`; }
   return `<button data-act="nav" data-view="${v}" data-testid="nav-${v}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${active?'bg-white/10 text-white glow-purple':'text-white/60 hover:bg-white/5 hover:text-white'}"><i data-lucide="${ic}" style="width:18px;height:18px"></i>${label}</button>`; }
 
@@ -463,7 +540,7 @@ function songCard(s){ const active=curSong()&&curSong().id===s.id; const fav=isF
     </div>
     <div class="mt-2.5 min-w-0"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/60">${esc(s.artist)}</p></div>
     <div class="mt-2 flex items-center gap-1">
-      <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-card-like-button-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="heart" class="${fav?'fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]':''}" style="width:16px;height:16px"></i></button>
+      <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-card-like-button-${s.id}" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>
       <button data-act="songmenu" data-id="${s.id}" aria-label="More" data-testid="song-card-menu-button-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>
       ${s.genre?`<span class="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}
     </div>
@@ -477,11 +554,48 @@ function songRow(s, i, removable){ const active=curSong()&&curSong().id===s.id; 
       <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
     </div>
     ${s.genre?`<span class="hidden md:inline rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45">${esc(s.genre)}</span>`:""}
-    <button data-act="like" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" class="${fav?'fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]':''}" style="width:16px;height:16px"></i></button>
+    <button data-act="like" data-id="${s.id}" aria-label="Like" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>
     ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>`}
   </div>`; }
 
 function grid(list){ return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">${list.map(songCard).join("")}</div>`; }
+function songList(list, removable){ return `<div class="space-y-1">${list.map((s,i)=>songRow(s,i,!!removable)).join("")}</div>`; }
+function viewToggle(act, isGrid){ return `<div class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1" data-testid="${act}-toggle">
+    <button data-act="${act}" data-mode="grid" aria-label="Grid view" aria-pressed="${isGrid}" data-testid="${act}-grid" class="press grid h-8 w-8 place-items-center rounded-full transition ${isGrid?'bg-white/15 text-white':'text-white/55 hover:bg-white/10 hover:text-white'}"><i data-lucide="layout-grid" style="width:15px;height:15px"></i></button>
+    <button data-act="${act}" data-mode="list" aria-label="List view" aria-pressed="${!isGrid}" data-testid="${act}-list" class="press grid h-8 w-8 place-items-center rounded-full transition ${!isGrid?'bg-white/15 text-white':'text-white/55 hover:bg-white/10 hover:text-white'}"><i data-lucide="list" style="width:15px;height:15px"></i></button>
+  </div>`; }
+
+/* ============================================================
+   TREESH'S PICKS  (curated portrait 'peek' showcase)
+   ============================================================ */
+function buildPicks(){ const all=SONGS.filter(s=>s.treeshChoice); for(let i=all.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]]; } return all.slice(0,6); }
+function picksCard(s){ const active=curSong()&&curSong().id===s.id; const playing=active&&state.isPlaying;
+  return `<div data-testid="treesh-picks-card" class="tp-card group relative w-[210px] min-w-[210px] snap-start overflow-hidden rounded-3xl border ${active?'border-white/25 glow-purple':'border-white/10'} bg-white/5 shadow-[var(--treesh-shadow)] card-lift sm:w-[230px] sm:min-w-[230px]">
+    <div class="relative aspect-[3/4] w-full overflow-hidden">
+      ${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]',`alt="${esc(s.title)}"`)}
+      <div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 42%,rgba(0,0,0,0.74) 100%)"></div>
+      <span data-testid="treesh-picks-ribbon" class="absolute left-3 top-3 inline-flex -rotate-6 items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/[0.16] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--treesh-gold)] backdrop-blur"><i data-lucide="sparkles" style="width:11px;height:11px"></i>Treesh\u2019s Pick</span>
+      <button data-act="play" data-id="${s.id}" aria-label="Play ${esc(s.title)}" data-testid="treesh-picks-play-button" class="press glass-strong absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full text-white transition hover:glow-purple"><i data-lucide="${playing?'pause':'play'}" class="fill-current" style="width:18px;height:18px"></i></button>
+      ${active?`<div class="absolute bottom-3 right-3"><span class="eq"><span></span><span></span><span></span><span></span></span></div>`:""}
+      <div class="absolute inset-x-0 bottom-0 p-3.5">
+        <p class="clamp-1 text-base font-bold ${active?'text-[color:var(--treesh-purple)]':'text-white'}">${esc(s.title)}</p>
+        <p class="clamp-1 text-xs text-white/75">${esc(s.artist)}</p>
+        ${s.genre?`<span class="mt-2 inline-block rounded-full border border-white/15 bg-black/30 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/75 backdrop-blur">${esc(s.genre)}</span>`:""}
+      </div>
+    </div>
+  </div>`; }
+function picksSection(){
+  if(!state._picks) state._picks=buildPicks();
+  const picks=state._picks;
+  if(!picks.length) return "";
+  return `<section class="space-y-3" data-testid="treesh-picks">
+    <div class="flex items-end justify-between">
+      <h2 class="flex items-center gap-2 text-lg font-bold"><span class="h-4 w-1 rounded-full" style="background:var(--treesh-gold)"></span>Treesh\u2019s Picks</h2>
+      <button data-act="picks-shuffle" data-testid="treesh-picks-shuffle" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10"><i data-lucide="shuffle" style="width:14px;height:14px"></i>Shuffle</button>
+    </div>
+    <div class="flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar pb-1 pr-6">${picks.map(picksCard).join("")}</div>
+  </section>`;
+}
 
 /* ============================================================
    WHAT'S NEW  (featured carousel)
@@ -510,7 +624,7 @@ function wnSlide(item){
   if(item.kind==="song"){
     const s=item.song; src=s.coverArt; cat="New Music"; catIc="sparkles";
     title=s.title; sub=s.artist+(s.featuring?` \u00B7 feat. ${s.featuring}`:"");
-    meta=`${s.genre?`<span class="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide capitalize">${esc(s.genre)}</span>`:""}<span class="text-white/75">${relDate(s.creationDate)}</span>`;
+    meta=`${s.genre?`<span class="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide capitalize">${esc(s.genre)}</span>`:""}`;
     act="wn-play-song"; id=s.id;
   } else {
     const a=item.artist; const cnt=artistSongs(a.id).length; src=a.image||a.background;
@@ -582,15 +696,18 @@ function viewLibrary(){
   else if(state.genre!=="all"){ list=list.filter(s=>s.genre===state.genre); }
   state.contextList=list;
   const browse=!state.query;
-  const picks=browse&&state.genre==="all"?list.filter(s=>s.treeshChoice):[];
   const chips=["all",...GENRES].map(g=>`<button data-act="genre" data-genre="${g}" class="shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition ${state.genre===g?'border-white/25 bg-white/10 text-white glow-purple':'border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]'}">${g}</button>`).join("");
   let html=`<div class="space-y-7">`;
   if(browse){ html+=`<section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div><div class="relative"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh 3.0</p><h1 class="mt-2 max-w-lg text-3xl font-bold leading-tight sm:text-4xl">Music to <span class="shimmer">Live For</span></h1><p class="mt-2 max-w-md text-sm text-white/60">Stream the underground. ${SONGS.length} tracks from the Icons, ready to play.</p><button data-act="shuffle-all" class="mt-4 inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle all</button></div></section>`;
-    if(state.genre==="all") html+=whatsNewSection();
+    if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); }
     html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; }
   if(state.query){ html+=`<div class="flex items-center gap-2 text-sm text-white/60"><i data-lucide="search" style="width:16px;height:16px"></i> Results for <span class="font-semibold text-white">\u201C${esc(state.query)}\u201D</span></div>`; }
   if(!list.length){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><i data-lucide="search" class="text-white/30" style="width:40px;height:40px"></i><p class="text-lg font-semibold">No matches found</p><p class="text-sm text-white/50">Try a different search or genre.</p></div>`; }
-  else{ html+=`<div class="space-y-8">`; if(picks.length){ html+=`<section><h2 class="mb-3 flex items-center gap-2 text-lg font-bold"><span class="h-4 w-1 rounded-full" style="background:var(--treesh-gold)"></span>Treesh\u2019s Picks</h2>${grid(picks)}</section>`; } html+=`<section>${browse&&state.genre==="all"?'<h2 class="mb-3 text-lg font-bold">All Music</h2>':''}${grid(list)}</section></div>`; }
+  else{
+    const listHtml = state.libGrid ? grid(list) : songList(list,false);
+    const heading = state.query ? "" : (state.genre!=="all" ? state.genre : "All Music");
+    html+=`<section><div class="mb-3 flex items-center justify-between gap-3">${heading?`<h2 class="text-lg font-bold capitalize">${esc(heading)}</h2>`:`<span></span>`}${viewToggle("lib-view",state.libGrid)}</div>${listHtml}</section>`;
+  }
   html+=`</div>`;
   return html;
 }
@@ -641,7 +758,7 @@ function viewPlaylists(){
 function viewPlaylistDetail(){
   const pl=plById(state.param); if(!pl) return `<p class="text-white/60">Playlist not found.</p>`;
   const songs=(pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean); state.contextList=songs;
-  return `<div class="space-y-6"><button data-act="nav" data-view="playlists" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back</button>
+  return `<div class="space-y-6"><button data-act="pl-back" data-testid="playlist-detail-back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back to Playlists</button>
   <section class="flex items-end gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-6"><div class="grid h-24 w-24 shrink-0 place-items-center rounded-2xl border border-white/10 bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:40px;height:40px"></i></div><div class="min-w-0"><p class="text-[10px] uppercase tracking-[0.25em] text-white/45">Playlist</p><h1 class="mt-1 clamp-2 text-3xl font-bold">${esc(pl.name)}</h1><p class="mt-1 text-sm text-white/55">${songs.length} track${songs.length!==1?'s':''}</p></div></section>
   ${songs.length?`<div class="flex items-center gap-3"><button data-act="playall-context" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button><button data-act="pl-share" data-id="${pl.id}" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="share-2" style="width:16px;height:16px"></i> Share</button></div><div class="space-y-1" data-plid="${pl.id}">${songs.map((s,i)=>songRow(s,i,true)).join("")}</div>`:`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-14 text-center"><i data-lucide="list-music" class="text-white/30" style="width:36px;height:36px"></i><p class="font-semibold">This playlist is empty</p><p class="text-sm text-white/50">Add songs using the \u2022\u2022\u2022 menu on any track.</p><button data-act="nav" data-view="library" class="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10">Browse Library</button></div>`}</div>`;
 }
@@ -685,9 +802,66 @@ function renderView(animate=false){
 }
 
 /* re-render pieces that show favorite/playing state without losing scroll on nav */
-function refreshDynamic(){ renderView(); renderMini(); renderNP(); renderShellProfile(); }
+function refreshDynamic(){ renderView(); renderMini(); renderNP(); renderShellProfile(); if(state.profileOpen) renderProfileBody(); }
 function renderShellProfile(){ /* header avatar */ renderShellHeaderAvatar(); }
 function renderShellHeaderAvatar(){ /* handled on full shell render */ }
+
+/* ============================================================
+   PROFILE MODULE  (Favorites + Playlists — grows from avatar)
+   ============================================================ */
+function refreshLists(){ if(state.profileOpen) renderProfileBody(); else renderView(); }
+function openProfile(tab){ if(tab) state.profileTab=tab; if(state.profileTab!=="favorites"&&state.profileTab!=="playlists") state.profileTab="favorites"; state.profileOpen=true; document.body.style.overflow="hidden"; renderProfile(); }
+function closeProfile(instant){ state.profileOpen=false; document.body.style.overflow=""; const c=$("#profile"); const panel=c.querySelector("#profile-panel"); const back=c.querySelector('[data-testid="profile-module-backdrop"]'); if(instant||!panel){ c.innerHTML=""; return; } panel.classList.remove("profile-in"); panel.classList.add("profile-out"); if(back){ back.classList.remove("backdrop-in"); back.classList.add("backdrop-out"); } setTimeout(()=>{ if(!state.profileOpen) c.innerHTML=""; }, 300); }
+function renderProfile(){
+  const c=$("#profile"); const wasOpen=!!c.querySelector("#profile-panel");
+  c.innerHTML=`<div data-act="profile-close" data-testid="profile-module-backdrop" class="fixed inset-0 z-[85] bg-black/55 backdrop-blur-sm ${wasOpen?'':'backdrop-in'}"></div>
+  <div id="profile-panel" data-testid="profile-module-panel" role="dialog" aria-modal="true" class="fixed z-[86] inset-3 flex flex-col overflow-hidden rounded-3xl glass-strong border border-white/12 shadow-[var(--treesh-shadow)] sm:inset-auto sm:right-4 sm:top-[76px] sm:w-[460px] sm:max-h-[80vh] ${wasOpen?'':'profile-in'}">${profileInnerHtml()}</div>`;
+  icons();
+}
+function renderProfileBody(){ const b=$("#profile-body"); if(!b) return; b.innerHTML = state.profileTab==="playlists"?profilePlaylistsHtml():profileFavoritesHtml(); icons(); }
+function profileInnerHtml(){
+  const p=state.profile||{}; const z=zodiac(p.birthday); const tab=state.profileTab;
+  const tabBtn=(id,label,ic)=>`<button data-act="profile-tab" data-tab="${id}" data-testid="profile-module-tab-${id}" class="flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${tab===id?'bg-white/15 text-white glow-purple':'text-white/60 hover:text-white'}"><span class="inline-flex items-center justify-center gap-1.5"><i data-lucide="${ic}" style="width:15px;height:15px"></i>${label}</span></button>`;
+  return `<div class="shrink-0 border-b border-white/10 bg-white/[0.04] px-4 pb-3 pt-4">
+    <div class="flex items-center gap-3">
+      <div class="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/15">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center text-lg font-bold text-white/60">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div>
+      <div class="min-w-0 flex-1"><p class="clamp-1 text-base font-bold" data-testid="profile-nickname">${esc(p.nickname||'Treesh Fan')}</p>${z?`<span class="mt-0.5 inline-block rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-2 py-0.5 text-[10px] font-semibold text-[color:var(--treesh-gold)]" data-testid="profile-zodiac-chip">${esc(z)}</span>`:`<p class="text-xs text-white/50">Your collection</p>`}</div>
+      <button data-act="profile-edit" aria-label="Edit profile" data-testid="profile-edit-button" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="pencil" style="width:16px;height:16px"></i></button>
+      <button data-act="profile-close" aria-label="Close" data-testid="profile-module-close-button" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+    </div>
+    <div class="mt-4 flex gap-1 rounded-full border border-white/10 bg-black/30 p-1" data-testid="profile-module-tabs">${tabBtn('favorites','Favorites','heart')}${tabBtn('playlists','Playlists','list-music')}</div>
+  </div>
+  <div id="profile-body" class="min-h-0 flex-1 overflow-y-auto soft-scroll p-4 pf-content-in">${tab==="playlists"?profilePlaylistsHtml():profileFavoritesHtml()}</div>`;
+}
+function profileFavoritesHtml(){
+  const list=favSongs(); state.contextList=list;
+  const groups=favLyricGroups();
+  if(!list.length && !groups.length){
+    return `<div class="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] py-14 text-center" data-testid="favorites-empty"><div class="eq scale-150"><span></span><span></span><span></span><span></span></div><p class="text-base font-semibold">No favorites yet</p><p class="max-w-[15rem] text-sm text-white/50">Tap the heart on any track to save it here.</p><button data-act="nav" data-view="library" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10"><i data-lucide="music-2" style="width:15px;height:15px"></i>Browse Library</button></div>`;
+  }
+  let h=`<div class="space-y-6">`;
+  h+=`<section data-testid="favorites-liked-tracks-list"><div class="mb-2 flex items-center justify-between"><h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-white/70"><i data-lucide="heart" class="text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i>Liked Tracks<span class="rounded-full bg-white/10 px-1.5 text-[11px] font-medium text-white/60">${list.length}</span></h3>${list.length?`<button data-act="playall-context" data-testid="favorites-play-all" class="press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-3 py-1.5 text-xs font-semibold glow-purple"><i data-lucide="play" style="width:13px;height:13px"></i>Play</button>`:""}</div>${list.length?`<div class="space-y-1">${list.map((s,i)=>songRow(s,i,false)).join("")}</div>`:`<p class="rounded-xl border border-dashed border-white/12 p-4 text-center text-sm text-white/45">No liked tracks yet.</p>`}</section>`;
+  if(groups.length){
+    h+=`<section><h3 class="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-white/70"><i data-lucide="quote" class="text-[color:var(--treesh-gold)]" style="width:15px;height:15px"></i>Favorite Lyrics<span class="rounded-full bg-white/10 px-1.5 text-[11px] font-medium text-white/60">${groups.length}</span></h3><div class="grid grid-cols-1 gap-3 sm:grid-cols-2">${groups.map(g=>`<div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3" data-testid="favorites-lyrics-card">
+      <div class="flex items-center gap-2.5"><div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg">${img(g.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(g.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(g.artist)}</p></div><button data-act="clear-song-lyrics" data-id="${g.songId}" aria-label="Clear" class="press grid h-8 w-8 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-white"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button></div>
+      <div class="space-y-1 border-l-2 border-[color:var(--treesh-purple)]/50 pl-3">${g.lines.slice(0,3).map(l=>`<p class="clamp-1 text-sm text-white/80">${esc(l.text)}</p>`).join("")}${g.lines.length>3?`<p class="text-xs text-white/40">+${g.lines.length-3} more</p>`:""}</div>
+      <button data-act="make-lyric-card" data-id="${g.songId}" data-testid="make-lyric-card-${g.songId}" class="press inline-flex items-center justify-center gap-2 rounded-full bg-white/10 py-2 text-sm font-semibold hover:bg-white/15"><i data-lucide="wand-sparkles" style="width:15px;height:15px"></i>Make lyric card</button>
+    </div>`).join("")}</div></section>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+function profilePlaylistsHtml(){
+  const pls=state.playlists;
+  let h=`<div class="space-y-4"><div class="flex items-center justify-between"><h3 class="text-sm font-bold uppercase tracking-wide text-white/70">Your Playlists</h3><button data-act="new-playlist" data-testid="playlists-create-button" class="press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-3 py-1.5 text-xs font-semibold glow-purple"><i data-lucide="plus" style="width:14px;height:14px"></i>Create</button></div>`;
+  if(!pls.length){
+    h+=`<div class="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] py-14 text-center" data-testid="playlists-empty"><i data-lucide="list-music" class="text-white/30" style="width:36px;height:36px"></i><p class="text-base font-semibold">No playlists yet</p><p class="max-w-[15rem] text-sm text-white/50">Create your first playlist and start adding tracks.</p><button data-act="new-playlist" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10"><i data-lucide="plus" style="width:15px;height:15px"></i>Create playlist</button></div>`;
+  } else {
+    h+=`<div class="grid grid-cols-2 gap-3">${pls.map(pl=>{ const cover=(pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean)[0]; return `<div class="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] card-lift" data-testid="playlist-card"><button data-act="pl-open" data-id="${pl.id}" class="block w-full text-left"><div class="relative aspect-square w-full overflow-hidden">${cover?img(cover.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105'):`<div class="grid h-full w-full place-items-center bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:32px;height:32px"></i></div>`}<div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,0.6) 100%)"></div></div><div class="p-2.5"><p class="clamp-1 text-sm font-semibold">${esc(pl.name)}</p><p class="font-doto text-[11px] text-white/50">${(pl.songIds||[]).length} track${(pl.songIds||[]).length!==1?'s':''}</p></div></button><div class="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button data-act="pl-share" data-id="${pl.id}" aria-label="Share" class="press grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"><i data-lucide="share-2" style="width:13px;height:13px"></i></button><button data-act="pl-rename" data-id="${pl.id}" aria-label="Rename" class="press grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"><i data-lucide="pencil" style="width:13px;height:13px"></i></button><button data-act="pl-delete" data-id="${pl.id}" aria-label="Delete" class="press grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70 hover:text-red-300"><i data-lucide="trash-2" style="width:13px;height:13px"></i></button></div></div>`; }).join("")}</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
 
 /* ============================================================
    FAVORITE LYRICS + LYRIC CARD STUDIO
@@ -817,106 +991,147 @@ function startGame(id){
   const s=SONG_BY_ID[id]; if(!s) return;
   const lines=(s.lyrics||[]).filter(l=>l.text&&l.text.trim());
   if(lines.length<4){ toast("Not enough lyrics","Pick another track"); return; }
-  const cand=[]; for(let i=1;i<lines.length;i++) cand.push(i);
+  let cand=[]; for(let i=2;i<lines.length;i++) cand.push(i);
+  if(!cand.length){ for(let i=1;i<lines.length;i++) cand.push(i); }
   for(let i=cand.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=cand[i]; cand[i]=cand[j]; cand[j]=tmp; }
   const targets=cand.slice(0, Math.min(5,cand.length)).sort((a,b)=>a-b);
-  state.game={song:s, lines, targets, round:0, score:0, streak:0, bestStreak:0, results:[], answered:false, saved:false, lastAnswer:"", lastSim:0, lastPoints:0, mode:"type"};
+  const o=state.gameOpts||{};
+  state.game={song:s, lines, targets, round:0, score:0, streak:0, bestStreak:0, results:[], answered:false, saved:false, lastAnswer:"", lastSim:0, lastExact:false, lastPoints:0, lastBonus:0, lastTimedOut:false, mode:"type", timer:!!o.timer, exact:!!o.exact, timeLeft:GAME_TIME};
+  try{ if(state.audio) state.audio.pause(); }catch(e){}
   renderGame();
 }
+const GAME_TIME=15;
+function normExact(s){ return String(s||"").replace(/\s+/g," ").trim(); }
+function clearGameTimer(){ try{ clearInterval(state._gameTimerId); }catch(e){} state._gameTimerId=null; }
+function updateTimerUI(){ const g=state.game; if(!g) return; const bar=$("#game-timer-bar"), num=$("#game-timer-num"); const pct=Math.max(0,Math.min(100,(g.timeLeft/GAME_TIME)*100)); if(bar){ bar.style.width=pct+"%"; bar.style.background=g.timeLeft<=5?"#ef6a6a":"var(--treesh-purple)"; } if(num) num.textContent=Math.ceil(g.timeLeft)+"s"; }
+function startGameTimer(){ const g=state.game; if(!g||!g.timer) return; clearGameTimer(); g.timeLeft=GAME_TIME; updateTimerUI(); state._gameTimerId=setInterval(()=>{ const gg=state.game; if(!gg||gg.answered){ clearGameTimer(); return; } gg.timeLeft-=0.1; if(gg.timeLeft<=0){ gg.timeLeft=0; clearGameTimer(); const gi=$("#game-input"); submitAnswer(gi?gi.value:"", "type", true); return; } updateTimerUI(); }, 100); }
 function saveGameResult(g){
   const st=state.gameStats;
-  st.games++; st.totalScore+=g.score; st.bestScore=Math.max(st.bestScore,g.score);
-  st.rounds+=g.targets.length; st.correct+=g.results.filter(r=>r.correct).length; st.bestStreak=Math.max(st.bestStreak,g.bestStreak);
+  st.games=(st.games||0)+1; st.totalScore=(st.totalScore||0)+g.score;
+  if(g.score>(st.bestScore||0)){ st.bestScore=g.score; st.bestSong={id:g.song.id,title:g.song.title,artist:g.song.artist,coverArt:g.song.coverArt}; }
+  st.rounds=(st.rounds||0)+g.targets.length; st.correct=(st.correct||0)+g.results.filter(r=>r.correct).length;
+  st.bestStreak=Math.max(st.bestStreak||0,g.bestStreak);
+  st.perfects=(st.perfects||0)+g.results.filter(r=>r.sim>=0.85||r.exact).length;
+  const acc=Math.round(g.results.filter(r=>r.correct).length/g.targets.length*100);
+  st.recent=[{id:g.song.id,title:g.song.title,artist:g.song.artist,coverArt:g.song.coverArt,score:g.score,acc,date:Date.now(),timer:!!g.timer,exact:!!g.exact}, ...(st.recent||[])].slice(0,10);
   st.lastPlayed=Date.now(); LS.set("treesh_game_stats", st);
 }
 function renderGame(){
   const g=state.game; if(!g) return;
   const existed=!!$("#modal [data-game-root]");
-  let inner;
-  if(g.round>=g.targets.length){ if(!g.saved){ saveGameResult(g); g.saved=true; } inner=gameEndHTML(); }
-  else inner=gameRoundHTML();
-  $("#modal").innerHTML=modalWrap(inner,"game-modal","lg"); icons();
-  if(existed){ const p=$("#modal [data-act='modal-stop']"); if(p) p.classList.remove("panel-in"); const r=$("#modal [data-game-root]"); if(r) r.classList.add("ob-step-in"); }
+  const ended = g.round>=g.targets.length;
+  if(ended && !g.saved){ saveGameResult(g); g.saved=true; }
+  const body = ended ? gameEndHTML() : gameRoundHTML();
+  const pct = ended?100:Math.round(g.round/g.targets.length*100);
+  $("#modal").innerHTML=`<div data-game-root data-testid="game-fullscreen" class="fixed inset-0 z-[100] overflow-y-auto bg-[#0a0a0c] ${existed?'':'np-entering'}">
+    <div class="pointer-events-none absolute inset-0 overflow-hidden">${img(g.song.coverArt,'absolute inset-0 h-full w-full scale-150 object-cover opacity-25 blur-[100px] saturate-150')}<div class="absolute inset-0 bg-[#0a0a0c]/82"></div><div class="absolute -left-[15%] top-[-10%] h-[55vh] w-[55vh] rounded-full blur-[110px]" style="background:var(--treesh-purple-soft)"></div></div>
+    <div class="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-2xl flex-col px-4 py-5 sm:px-6 sm:py-7">
+      <div class="flex shrink-0 items-center justify-between gap-3">
+        <div class="flex min-w-0 items-center gap-3"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-lg">${img(g.song.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="font-display text-[11px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">What\u2019s Next?</p><p class="clamp-1 text-sm font-semibold">${esc(g.song.title)}</p></div></div>
+        <button data-act="game-close" aria-label="Close" data-testid="game-close-button" class="press grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:20px;height:20px"></i></button>
+      </div>
+      ${ended?"":`<div class="mt-5 flex shrink-0 items-center gap-3 text-xs text-white/60"><span class="shrink-0 font-doto">Round ${g.round+1}/${g.targets.length}</span><div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-[color:var(--treesh-purple)] transition-[width] duration-500" style="width:${pct}%"></div></div><span class="inline-flex shrink-0 items-center gap-1"><i data-lucide="flame" style="width:14px;height:14px" class="${g.streak>0?'text-[color:var(--treesh-gold)]':'text-white/40'}"></i>${g.streak}</span><span class="font-doto shrink-0 text-white/80">${g.score}</span></div>`}
+      <div class="flex min-h-0 flex-1 flex-col justify-center py-6 ${existed?'np-content-in':''}">${body}</div>
+    </div>
+  </div>`;
+  icons();
+  clearGameTimer();
+  if(!ended && !g.answered && g.timer) startGameTimer();
   const gi=$("#game-input"); if(gi){ gi.focus(); gi.addEventListener("keydown",e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); submitAnswer(gi.value, gi.dataset.voice?"voice":"type"); } }); }
 }
 function gameRoundHTML(){
   const g=state.game; const ti=g.targets[g.round];
   const prev=g.lines[ti-1]?g.lines[ti-1].text:""; const prev2=g.lines[ti-2]?g.lines[ti-2].text:"";
-  const pct=Math.round(g.round/g.targets.length*100);
   let block;
   if(g.answered){
-    const target=g.lines[ti].text; const sim=g.lastSim;
-    const verdict = sim>=0.85?"Perfect!":sim>=0.6?"Nice \u2014 close!":sim>=0.3?"Almost\u2026":"Not quite";
-    const col = sim>=0.6?"var(--treesh-purple)":sim>=0.3?"var(--treesh-gold)":"#ef6a6a";
-    block=`<div class="mt-4 space-y-3">
-      <div class="rounded-2xl border bg-black/30 p-4" style="border-color:${col}55">
-        <div class="flex items-center justify-between"><span class="font-display text-xl font-bold" style="color:${col}">${verdict}</span><span class="font-doto text-xl font-bold text-white">+${g.lastPoints}</span></div>
-        <p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-white/40">Actual line</p><p class="text-base font-bold text-white">${esc(target)}</p>
+    const target=g.lines[ti].text; const sim=g.lastSim; const ex=g.lastExact;
+    const good = g.exact?ex:(sim>=0.6);
+    const verdict = g.lastTimedOut?"Time\u2019s up!":(g.exact?(ex?"Exact match! \uD83D\uDD25":(sim>=0.6?"So close!":"Not quite")):(sim>=0.85?"Perfect!":sim>=0.6?"Nice \u2014 close!":sim>=0.3?"Almost\u2026":"Not quite"));
+    const col = good?"var(--treesh-purple)":sim>=0.3?"var(--treesh-gold)":"#ef6a6a";
+    block=`<div class="mt-5 space-y-3">
+      <div class="rounded-2xl border bg-black/40 p-4 backdrop-blur-xl" style="border-color:${col}55">
+        <div class="flex items-center justify-between"><span class="font-display text-xl font-bold" style="color:${col}">${verdict}</span><span class="font-doto text-2xl font-bold text-white">+${g.lastPoints}${g.lastBonus?`<span class="text-xs text-[color:var(--treesh-gold)]"> \u26A1${g.lastBonus}</span>`:""}</span></div>
+        <p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-white/40">Actual line</p><p class="text-lg font-bold text-white">${esc(target)}</p>
         <p class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-white/40">You ${g.mode==="voice"?"said":"typed"}</p><p class="text-sm text-white/70">${esc(g.lastAnswer||"\u2014")}</p>
       </div>
-      <button data-act="game-next" data-testid="game-next" class="press w-full rounded-full bg-white py-3 text-sm font-bold text-black">${g.round+1>=g.targets.length?"See results":"Next line"}</button>
+      <button data-act="game-next" data-testid="game-next" class="press w-full rounded-full bg-white py-3.5 text-sm font-bold text-black">${g.round+1>=g.targets.length?"See results":"Next line"}</button>
     </div>`;
   } else {
-    block=`<div class="mt-4 space-y-2.5">
-      <textarea id="game-input" rows="2" placeholder="Type the next line\u2026" class="w-full resize-none rounded-xl border border-white/12 bg-white/5 p-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/30"></textarea>
-      <div class="flex items-center gap-2">
+    block=`<div class="mt-5 space-y-3">
+      <textarea id="game-input" data-testid="game-input" rows="2" placeholder="${g.exact?'Type the EXACT next line\u2026':'Type the next line\u2026'}" class="w-full resize-none rounded-2xl border border-white/12 bg-white/5 p-4 text-base text-white placeholder:text-white/40 outline-none focus:border-white/30"></textarea>
+      <div class="flex flex-wrap items-center gap-2">
         <button data-act="game-mic" id="game-mic" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10"><i data-lucide="mic" style="width:16px;height:16px"></i>Speak</button>
-        <button data-act="game-hint" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10"><i data-lucide="volume-2" style="width:16px;height:16px"></i>Hear it</button>
-        <button data-act="game-submit" data-testid="game-submit" class="press ml-auto inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-bold glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Submit</button>
+        <button data-act="game-hint" data-testid="game-hint" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10"><i data-lucide="volume-2" style="width:16px;height:16px"></i>Hear it</button>
+        <button data-act="game-submit" data-testid="game-submit" class="press ml-auto inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-6 py-2.5 text-sm font-bold glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Submit</button>
       </div>
       <button data-act="game-skip" class="w-full py-1 text-center text-xs text-white/40 hover:text-white/70">Skip this one</button>
     </div>`;
   }
-  return `<div data-game-root>
-    <div class="mb-3 flex items-center justify-between">
-      <div><p class="font-display text-xs uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">What\u2019s Next?</p><p class="clamp-1 text-sm font-semibold">${esc(g.song.title)}</p></div>
-      <button data-act="game-close" aria-label="Close" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button>
-    </div>
-    <div class="mb-4 flex items-center gap-3 text-xs text-white/60"><span class="shrink-0">Round ${g.round+1}/${g.targets.length}</span><div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-[color:var(--treesh-purple)] transition-[width] duration-500" style="width:${pct}%"></div></div><span class="inline-flex shrink-0 items-center gap-1"><i data-lucide="flame" style="width:13px;height:13px" class="${g.streak>0?'text-[color:var(--treesh-gold)]':'text-white/40'}"></i>${g.streak}</span><span class="font-doto shrink-0 text-white/80">${g.score}</span></div>
-    <div class="rounded-2xl border border-white/10 bg-black/30 p-4">
-      ${prev2?`<p class="clamp-1 text-sm text-white/35">${esc(prev2)}</p>`:""}
-      <p class="mt-1 text-lg font-bold leading-snug text-white/90">${esc(prev)}</p>
-      <p class="mt-2 flex items-center gap-2 text-base font-bold text-[color:var(--treesh-purple)]"><i data-lucide="help-circle" style="width:18px;height:18px"></i> What comes next?</p>
+  const diffChips=(g.timer||g.exact)?`<div class="mb-3 flex items-center justify-center gap-2">${g.timer?`<span class="inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/60"><i data-lucide="timer" style="width:12px;height:12px"></i>Timed</span>`:""}${g.exact?`<span class="inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/60"><i data-lucide="type" style="width:12px;height:12px"></i>Exact</span>`:""}</div>`:"";
+  const timerBar=(g.timer&&!g.answered)?`<div class="mb-3"><div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-white/45"><span>Time left</span><span id="game-timer-num" class="font-doto text-white/80">${GAME_TIME}s</span></div><div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10"><div id="game-timer-bar" class="h-full rounded-full transition-[width]" style="width:100%;background:var(--treesh-purple)"></div></div></div>`:"";
+  return `<div class="mx-auto w-full max-w-xl">
+    ${diffChips}
+    ${timerBar}
+    <div class="rounded-3xl border border-white/10 bg-black/35 p-5 backdrop-blur-xl sm:p-6">
+      ${prev2?`<p class="clamp-2 text-base leading-snug text-white/35">${esc(prev2)}</p>`:""}
+      <p class="mt-1 text-2xl font-bold leading-snug text-white sm:text-3xl">${esc(prev)}</p>
+      <p class="mt-4 flex items-center gap-2 text-base font-bold text-[color:var(--treesh-purple)]"><i data-lucide="help-circle" style="width:20px;height:20px"></i> What comes next?</p>
     </div>
     ${block}
   </div>`;
 }
 function gameEndHTML(){
   const g=state.game; const acc=Math.round(g.results.filter(r=>r.correct).length/g.targets.length*100);
-  return `<div data-game-root class="text-center">
-    <div class="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full" style="background:radial-gradient(circle,rgba(147,40,255,0.45),transparent 70%)"><i data-lucide="trophy" class="text-[color:var(--treesh-gold)]" style="width:34px;height:34px"></i></div>
-    <p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Game Over</p>
-    <h2 class="mt-1 font-display text-4xl font-bold">${g.score}<span class="text-lg font-normal text-white/50"> pts</span></h2>
+  const perfects=g.results.filter(r=>r.sim>=0.85||r.exact).length;
+  const st=state.gameStats||{}; const isNewBest = g.score>=(st.bestScore||0) && g.score>0;
+  return `<div class="mx-auto w-full max-w-md text-center">
+    <div class="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"><i data-lucide="trophy" class="text-[color:var(--treesh-gold)]" style="width:34px;height:34px"></i></div>
+    <p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">${isNewBest?"New High Score!":"Game Over"}</p>
+    <h2 class="mt-1 font-display text-5xl font-bold" data-testid="game-final-score">${g.score}<span class="text-lg font-normal text-white/50"> pts</span></h2>
     <p class="mt-1 clamp-1 text-sm text-white/55">${esc(g.song.title)} \u00B7 ${esc(g.song.artist)}</p>
-    <div class="mt-4 grid grid-cols-3 gap-2 text-center">
-      <div class="rounded-xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${acc}%</p><p class="text-[10px] uppercase tracking-wide text-white/45">Accuracy</p></div>
-      <div class="rounded-xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${g.bestStreak}</p><p class="text-[10px] uppercase tracking-wide text-white/45">Best streak</p></div>
-      <div class="rounded-xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${g.targets.length}</p><p class="text-[10px] uppercase tracking-wide text-white/45">Rounds</p></div>
+    <div class="mt-5 grid grid-cols-2 gap-2.5 text-center sm:grid-cols-4">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${acc}%</p><p class="text-[10px] uppercase tracking-wide text-white/45">Accuracy</p></div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${g.bestStreak}</p><p class="text-[10px] uppercase tracking-wide text-white/45">Best streak</p></div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${perfects}</p><p class="text-[10px] uppercase tracking-wide text-white/45">Perfect</p></div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-3"><p class="font-doto text-xl font-bold">${g.targets.length}</p><p class="text-[10px] uppercase tracking-wide text-white/45">Rounds</p></div>
     </div>
     <div class="mt-5 flex gap-2">
-      <button data-act="game-again" class="press flex-1 rounded-full bg-[color:var(--treesh-purple)] py-3 text-sm font-bold glow-purple">Play again</button>
-      <button data-act="game-close" class="press flex-1 rounded-full border border-white/15 bg-white/5 py-3 text-sm font-semibold">Done</button>
+      <button data-act="game-again" data-testid="game-again" class="press flex-1 rounded-full bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold glow-purple">Play again</button>
+      <button data-act="game-close" class="press flex-1 rounded-full border border-white/15 bg-white/5 py-3.5 text-sm font-semibold">Done</button>
     </div>
   </div>`;
 }
-function submitAnswer(ans, mode){
+function submitAnswer(ans, mode, timedOut){
   const g=state.game; if(!g||g.answered) return;
+  clearGameTimer();
   const target=g.lines[g.targets[g.round]].text;
-  const sim=similarity(ans, target); const pts=Math.round(sim*100); const correct=sim>=0.6;
-  g.lastAnswer=(ans||"").trim(); g.lastSim=sim; g.lastPoints=pts; g.mode=mode||"type"; g.score+=pts;
+  const a=(ans||"").trim();
+  const sim=similarity(a, target);
+  const exact = normExact(a).toLowerCase()===normExact(target).toLowerCase() && a.length>0;
+  let correct, pts;
+  if(g.exact){ correct=exact; pts = exact?100:Math.round(sim*45); }
+  else { correct = sim>=0.6; pts=Math.round(sim*100); }
+  let bonus=0;
+  if(g.timer && correct && !timedOut){ bonus=Math.round((Math.max(0,g.timeLeft)/GAME_TIME)*30); }
+  pts+=bonus;
+  g.lastAnswer=a; g.lastSim=sim; g.lastExact=exact; g.lastPoints=pts; g.lastBonus=bonus; g.lastTimedOut=!!timedOut; g.mode=mode||"type"; g.score+=pts;
   if(correct){ g.streak++; if(g.streak>g.bestStreak) g.bestStreak=g.streak; } else g.streak=0;
-  g.results.push({correct, sim, pts}); g.answered=true;
-  try{ clearTimeout(state._gameHintTimer); }catch(e){}
+  g.results.push({correct, sim, pts, exact}); g.answered=true;
+  try{ clearTimeout(state._gameHintTimer); if(state.audio) state.audio.pause(); }catch(e){}
   renderGame();
 }
-function gameNext(){ const g=state.game; if(!g) return; g.round++; g.answered=false; renderGame(); }
-function gameClose(){ state.game=null; try{ clearTimeout(state._gameHintTimer); }catch(e){} closeModal(); if(state.view==="game") renderView(); }
+function gameNext(){ const g=state.game; if(!g) return; clearGameTimer(); g.round++; g.answered=false; renderGame(); }
+function gameClose(){ clearGameTimer(); state.game=null; try{ clearTimeout(state._gameHintTimer); if(state.audio) state.audio.pause(); }catch(e){} closeModal(); if(state.view==="game") renderView(); }
 function gameHint(){
-  const g=state.game; if(!g) return;
-  const ti=g.targets[g.round]; const t=(g.lines[ti]&&g.lines[ti].t)||0; const start=Math.max(0,t-5);
+  const g=state.game; if(!g||g.answered) return;
+  const ti=g.targets[g.round];
+  const endT=(g.lines[ti]&&g.lines[ti].t)||0;
+  let startT=(g.lines[ti-2]&&g.lines[ti-2].t)||(g.lines[ti-1]&&g.lines[ti-1].t)||0;
+  if(!startT || (endT && startT>=endT)) startT=Math.max(0,endT-8);
+  const dur = endT>startT ? (endT-startT) : 6;
   const same = curSong() && curSong().id===g.song.id;
   if(!same) playSong(g.song,[g.song]);
-  setTimeout(()=>{ try{ seekTo(start); const p=state.audio.play(); if(p&&p.catch) p.catch(()=>{}); clearTimeout(state._gameHintTimer); state._gameHintTimer=setTimeout(()=>{ try{ state.audio.pause(); }catch(e){} }, Math.max(1200,(t-start)*1000)); }catch(e){} }, same?0:500);
+  setTimeout(()=>{ try{ seekTo(startT); const p=state.audio.play(); if(p&&p.catch)p.catch(()=>{}); clearTimeout(state._gameHintTimer); state._gameHintTimer=setTimeout(()=>{ try{ if(state.audio) state.audio.pause(); }catch(e){} }, Math.max(1200,dur*1000)); }catch(e){} }, same?0:450);
 }
 let gameRecog=null;
 function gameVoiceInput(){
@@ -935,19 +1150,43 @@ function viewGame(){
   const st=state.gameStats; const songs=gameEligibleSongs();
   const acc = st.rounds? Math.round(st.correct/st.rounds*100):0;
   const statCard=(label,val,ic)=>`<div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="flex items-center gap-2 text-white/50"><i data-lucide="${ic}" style="width:15px;height:15px"></i><span class="text-[11px] font-semibold uppercase tracking-wide">${label}</span></div><p class="mt-1.5 font-doto text-2xl font-bold text-white">${val}</p></div>`;
+  const optToggle=(key,title,desc,ic)=>{ const on=!!(state.gameOpts&&state.gameOpts[key]); return `<button data-act="game-opt" data-opt="${key}" data-testid="game-opt-${key}" aria-pressed="${on}" class="press flex items-center gap-3 rounded-xl border p-3 text-left transition ${on?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/[0.12]':'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'}"><div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg ${on?'bg-[color:var(--treesh-purple)] text-white':'bg-white/10 text-white/60'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-semibold">${title}</p><p class="clamp-1 text-xs text-white/50">${desc}</p></div><div class="grid h-5 w-5 shrink-0 place-items-center rounded-full border ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25'}">${on?'<i data-lucide="check" style="width:12px;height:12px"></i>':''}</div></button>`; };
   return `<div class="space-y-6">
-    <div class="relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8" style="background:linear-gradient(135deg,rgba(147,40,255,0.22),rgba(12,12,14,0.35))">
-      <div class="absolute right-[-40px] top-[-40px] h-48 w-48 rounded-full blur-[70px]" style="background:rgba(147,40,255,0.35)"></div>
-      <p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Lyric Game</p>
-      <h1 class="mt-1 flex items-center gap-2 text-3xl font-bold sm:text-4xl"><i data-lucide="gamepad-2" style="width:30px;height:30px"></i> What\u2019s Next?</h1>
+    <div class="relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8" style="background:linear-gradient(135deg,var(--treesh-purple-soft),rgba(12,12,14,0.35))">
+      <div class="absolute right-[-40px] top-[-40px] h-48 w-48 rounded-full blur-[70px]" style="background:var(--treesh-purple-soft)"></div>
+      <p class="relative font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Lyric Game</p>
+      <h1 class="relative mt-1 flex items-center gap-2 text-3xl font-bold sm:text-4xl"><i data-lucide="gamepad-2" style="width:30px;height:30px"></i> What\u2019s Next?</h1>
       <p class="relative mt-2 max-w-md text-sm text-white/70">Guess the upcoming lyric \u2014 type it or say it out loud. Score points, build streaks, and track your stats.</p>
     </div>
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      ${statCard("Games",st.games,"gamepad-2")}${statCard("Best Score",st.bestScore,"trophy")}${statCard("Accuracy",acc+"%","target")}${statCard("Best Streak",st.bestStreak,"flame")}
+    <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <p class="mb-3 flex items-center gap-2 text-sm font-bold"><i data-lucide="sliders-horizontal" style="width:16px;height:16px"></i>Difficulty</p>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">${optToggle("timer","Timed mode","15s per line \u00B7 speed bonus","timer")}${optToggle("exact","Exact lyrics","Match the line word-for-word","type")}</div>
     </div>
-    <div class="flex items-center justify-between"><h2 class="text-lg font-bold">Choose a track</h2>${songs.length?`<button data-act="game-random" data-testid="game-random" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-4 py-2 text-sm font-semibold glow-purple"><i data-lucide="dices" style="width:15px;height:15px"></i>Random</button>`:""}</div>
-    ${songs.length? `<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">${songs.map(s=>`<button data-act="start-game" data-id="${s.id}" data-testid="game-song-${s.id}" class="press card-lift flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-2.5 text-left hover:border-white/25"><div class="h-14 w-14 shrink-0 overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white"><i data-lucide="play" style="width:16px;height:16px"></i></span></button>`).join("")}</div>` : `<div class="rounded-2xl border border-white/10 bg-white/5 p-10 text-center text-white/50">No songs with lyrics available yet.</div>`}
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      ${statCard("Games",st.games||0,"gamepad-2")}${statCard("High Score",st.bestScore||0,"trophy")}${statCard("Accuracy",acc+"%","target")}${statCard("Best Streak",st.bestStreak||0,"flame")}
+    </div>
+    ${st.bestSong?`<div class="flex items-center gap-3 rounded-2xl border border-[color:var(--treesh-gold)]/25 bg-[color:var(--treesh-gold)]/[0.06] p-3" data-testid="game-highscore-song"><div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl">${img(st.bestSong.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--treesh-gold)]">High score track \u00B7 ${st.bestScore} pts</p><p class="clamp-1 font-semibold">${esc(st.bestSong.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(st.bestSong.artist)}</p></div><button data-act="start-game" data-id="${st.bestSong.id}" class="press shrink-0 rounded-full bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/15">Replay</button></div>`:""}
+    <div class="grid grid-cols-3 gap-3">
+      ${statCard("Perfect",st.perfects||0,"sparkles")}${statCard("Rounds",st.rounds||0,"repeat")}${statCard("Avg score",st.games?Math.round(st.totalScore/st.games):0,"bar-chart-3")}
+    </div>
+    ${(st.recent&&st.recent.length)?`<section data-testid="game-recent"><h2 class="mb-2 text-lg font-bold">Recently played</h2><div class="space-y-1.5">${st.recent.slice(0,6).map(r=>`<button data-act="start-game" data-id="${r.id}" class="press flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2 text-left hover:bg-white/[0.06]"><div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg">${img(r.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(r.title)}</p><p class="clamp-1 text-xs text-white/50">${esc(r.artist)}</p></div><div class="shrink-0 text-right"><p class="font-doto text-sm font-bold text-white">${r.score}</p><p class="text-[10px] text-white/40">${r.acc}%${r.timer?' \u00B7 \u23F1':''}${r.exact?' \u00B7 =':''}</p></div></button>`).join("")}</div></section>`:""}
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-3"><h2 class="text-lg font-bold">Choose a track</h2><div class="flex items-center gap-2">${songs.length?`<button data-act="game-random" data-testid="game-random" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-4 py-2 text-sm font-semibold glow-purple"><i data-lucide="dices" style="width:15px;height:15px"></i>Random</button>`:""}${songs.length?viewToggle("game-view",state.gameGrid):""}</div></div>
+      ${songs.length?`<div class="relative"><i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40" style="width:16px;height:16px"></i><input id="game-search" data-testid="game-search-input" value="${esc(state.gameQuery)}" placeholder="Search tracks to play\u2026" class="h-11 w-full rounded-full border border-white/12 bg-white/5 pl-9 pr-9 text-sm text-white placeholder:text-white/40 outline-none transition-colors focus:border-white/25 focus:bg-white/[0.08]"><button data-act="game-clear-search" aria-label="Clear" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white ${state.gameQuery?'':'hidden'}"><i data-lucide="x" style="width:15px;height:15px"></i></button></div>`:""}
+      <div id="game-song-list">${gameSongListHtml()}</div>
+    </div>
   </div>`;
+}
+function gameSongListHtml(){
+  let songs=gameEligibleSongs();
+  if(!songs.length) return `<div class="rounded-2xl border border-white/10 bg-white/5 p-10 text-center text-white/50">No songs with lyrics available yet.</div>`;
+  const q=(state.gameQuery||"").toLowerCase().trim();
+  if(q) songs=songs.filter(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q));
+  if(!songs.length) return `<div class="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/5 p-10 text-center" data-testid="game-search-empty"><i data-lucide="search-x" class="text-white/30" style="width:28px;height:28px"></i><p class="text-sm text-white/60">No tracks match \u201C${esc(state.gameQuery)}\u201D</p></div>`;
+  if(state.gameGrid){
+    return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">${songs.map(s=>`<button data-act="start-game" data-id="${s.id}" data-testid="game-song-${s.id}" class="press card-lift group flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-2.5 text-left hover:border-white/25"><div class="relative aspect-square w-full overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105')}<span class="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white glow-purple opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"><i data-lucide="play" style="width:15px;height:15px"></i></span></div><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></button>`).join("")}</div>`;
+  }
+  return `<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">${songs.map(s=>`<button data-act="start-game" data-id="${s.id}" data-testid="game-song-${s.id}" class="press card-lift flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-2.5 text-left hover:border-white/25"><div class="h-14 w-14 shrink-0 overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-white"><i data-lucide="play" style="width:16px;height:16px"></i></span></button>`).join("")}</div>`;
 }
 
 /* ============================================================
@@ -987,50 +1226,56 @@ function renderNP(){
       <button data-act="repeat" data-testid="now-playing-repeat-button" class="press grid h-10 w-10 place-items-center rounded-full sm:h-11 sm:w-11 ${state.repeat!=='off'?'text-white bg-white/15':'text-white/60 hover:bg-white/10'}"><i data-lucide="${state.repeat==='one'?'repeat-1':'repeat'}" style="width:18px;height:18px"></i></button>
     </div>
     <div class="mt-3 flex items-center justify-center gap-1.5 sm:mt-5 sm:gap-3">
-      ${actionBtn('like',isFav(s.id)?'heart':'heart',false,'Like')}
+      <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="now-playing-like-button" class="tr-like${isFav(s.id)?' is-liked':''} press grid h-10 w-10 place-items-center rounded-full border transition sm:h-11 sm:w-11 ${isFav(s.id)?'border-white/25 bg-white/10':'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="heart" style="width:17px;height:17px"></i></button>
       ${actionBtn('toggle-lyrics','quote',state.showLyrics,'Lyrics',null,'now-playing-lyrics-tab')}
       ${actionBtn('toggle-vinyl','disc-3',state.vinylMode,'Vinyl',null,'now-playing-vinyl-button')}
       ${actionBtn('open-queue','list-music',false,'Queue',null,'now-playing-queue-button')}
       ${actionBtn('np-add','list-plus',false,'Add to playlist')}
-      ${actionBtn('np-share','share-2',false,'Share')}
+      ${actionBtn('np-meta','info',false,'Song details','','now-playing-info-button')}
     </div>
     <div class="mt-3 hidden items-center gap-2 sm:flex"><button data-act="mute" class="text-white/60 hover:text-white"><i data-lucide="${state.volume>0?'volume-2':'volume-x'}" style="width:18px;height:18px"></i></button><input id="np-vol" class="tr max-w-[180px] flex-1" type="range" min="0" max="100" step="1" value="${state.volume*100}"></div>`;
 
+  const lines=(s.lyrics||[]);
+  const favCount=favLyricsForSong(s.id).length;
+  const lyricTools=`<div class="flex shrink-0 items-center gap-1.5">
+    <button data-act="open-lyric-studio" aria-label="Create lyric card" data-testid="open-lyric-studio" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="wand-sparkles" style="width:17px;height:17px"></i>${favCount?`<span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--treesh-purple)] px-1 text-[9px] font-bold text-white">${favCount}</span>`:""}</button>
+    <button data-act="start-game-current" aria-label="Play What\u2019s Next game" data-testid="start-game-current" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="gamepad-2" style="width:17px;height:17px"></i></button>
+  </div>`;
+  const lyricsScroller=`<div class="relative min-h-0 flex-1"><div id="np-lyrics" class="h-full overflow-y-auto no-scrollbar px-1 py-[30%] lg:py-[22%]">${ lines.length ? lines.map((l,i)=>{ const favd=isFavLyric(s.id,i); return `<div class="group/l flex items-start gap-1"><button data-act="lyric-seek" data-t="${l.t}" data-i="${i}" class="np-line flex-1 text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70">${esc(l.text)}</button><button data-act="fav-lyric" data-li="${i}" data-fav="${favd?'1':''}" aria-label="Favorite lyric" class="tr-favline${favd?' is-liked':''} press mt-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/55 transition-opacity duration-200 hover:bg-white/10 ${favd?'opacity-100':'opacity-100 sm:opacity-0 sm:group-hover/l:opacity-100'}"><i data-lucide="heart" style="width:16px;height:16px"></i></button></div>`; }).join("") : `<div class="flex h-full flex-col items-center justify-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p></div>` }</div>
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-12" style="background:linear-gradient(to bottom,rgba(8,8,10,0.6),transparent)"></div><div class="pointer-events-none absolute inset-x-0 bottom-0 h-12" style="background:linear-gradient(to top,rgba(8,8,10,0.6),transparent)"></div></div>`;
+  const artwork = state.vinylMode
+    ? `<div class="relative aspect-square w-[min(78vw,42vh,400px)] shrink-0 lg:w-[min(40vw,64vh,470px)]"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
+    : `<div class="aspect-square w-[min(78vw,42vh,400px)] shrink-0 overflow-hidden rounded-3xl lg:w-[min(40vw,64vh,470px)]" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
+  const credits=s.producer?`<p class="clamp-1 mt-1.5 text-xs text-white/40">Prod. ${esc(s.producer)}</p>`:"";
+  const titleBlock=`<div class="flex items-center justify-center gap-2 lg:justify-start"><h1 class="clamp-2 text-2xl font-bold leading-tight sm:text-[26px] lg:text-4xl">${esc(s.title)}</h1>${s.explicit?`<span class="grid h-5 w-5 shrink-0 place-items-center rounded-[4px] bg-white/20 text-[9px] font-bold text-white/80">E</span>`:""}</div><p class="clamp-1 mt-1 text-base text-white/70 sm:text-lg">${esc(s.artist)}</p>${s.featuring?`<p class="clamp-1 text-sm text-white/45">feat. ${esc(s.featuring)}</p>`:""}${credits}`;
+
   let mainInner;
   if(state.showLyrics){
-    const lines=(s.lyrics||[]);
-    const favCount=favLyricsForSong(s.id).length;
-    mainInner=`<div class="flex min-h-0 flex-1 flex-col pt-3">
-      <div class="mb-3 flex shrink-0 items-center justify-between gap-2">
-        <button data-act="toggle-lyrics" class="flex min-w-0 items-center gap-3 text-left"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg shadow-lg">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-base font-bold">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60">${esc(s.artist)}</p></div></button>
-        <div class="flex shrink-0 items-center gap-1.5">
-          <button data-act="open-lyric-studio" aria-label="Create lyric card" data-testid="open-lyric-studio" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="wand-sparkles" style="width:17px;height:17px"></i>${favCount?`<span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--treesh-purple)] px-1 text-[9px] font-bold text-white">${favCount}</span>`:""}</button>
-          <button data-act="start-game-current" aria-label="Play What\u2019s Next game" data-testid="start-game-current" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="gamepad-2" style="width:17px;height:17px"></i></button>
+    mainInner=`<div class="flex min-h-0 flex-1 flex-col pt-1 lg:flex-row lg:gap-12 lg:pt-3">
+      <div class="flex shrink-0 flex-col lg:w-[330px] lg:justify-center">
+        <div class="mb-3 flex shrink-0 items-center justify-between gap-2 lg:mb-0 lg:flex-col lg:items-stretch lg:gap-6">
+          <button data-act="toggle-lyrics" class="flex min-w-0 items-center gap-3 text-left lg:flex-col lg:items-start lg:gap-4"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg shadow-lg lg:h-auto lg:w-full lg:rounded-3xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 lg:mt-1"><p class="clamp-1 text-base font-bold lg:text-2xl">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60 lg:text-base">${esc(s.artist)}</p></div></button>
+          ${lyricTools}
         </div>
       </div>
-      <div class="relative min-h-0 flex-1"><div id="np-lyrics" class="h-full overflow-y-auto no-scrollbar px-1 py-[30%]">${ lines.length ? lines.map((l,i)=>{ const favd=isFavLyric(s.id,i); return `<div class="group/l flex items-start gap-1"><button data-act="lyric-seek" data-t="${l.t}" data-i="${i}" class="np-line flex-1 text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70">${esc(l.text)}</button><button data-act="fav-lyric" data-li="${i}" data-fav="${favd?'1':''}" aria-label="Favorite lyric" class="press mt-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/55 transition-opacity duration-200 hover:bg-white/10 ${favd?'opacity-100':'opacity-100 sm:opacity-0 sm:group-hover/l:opacity-100'}"><i data-lucide="heart" class="${favd?'fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]':''}" style="width:16px;height:16px"></i></button></div>`; }).join("") : `<div class="flex h-full flex-col items-center justify-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p></div>` }</div>
-      <div class="pointer-events-none absolute inset-x-0 top-0 h-12" style="background:linear-gradient(to bottom,rgba(8,8,10,0.6),transparent)"></div><div class="pointer-events-none absolute inset-x-0 bottom-0 h-12" style="background:linear-gradient(to top,rgba(8,8,10,0.6),transparent)"></div></div></div>`;
+      ${lyricsScroller}
+    </div>`;
   } else {
-    const artwork = state.vinylMode
-      ? `<div class="relative aspect-square w-[min(78vw,44vh,420px)] shrink-0"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
-      : `<div class="aspect-square w-[min(78vw,44vh,420px)] shrink-0 overflow-hidden rounded-3xl" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
-    const credits=(s.producer||s.creationDate)?`<p class="clamp-1 mt-1.5 text-xs text-white/40">${s.producer?'Prod. '+esc(s.producer):''}${s.producer&&s.creationDate?' \u00B7 ':''}${esc(s.creationDate||'')}</p>`:"";
-    mainInner=`<div class="flex min-h-full flex-col items-center justify-center py-3">${artwork}<div class="mt-5 w-full max-w-[440px] px-3 text-center sm:mt-6"><div class="flex items-center justify-center gap-2"><h1 class="clamp-2 text-xl font-bold leading-tight sm:text-[26px]">${esc(s.title)}</h1>${s.explicit?`<span class="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] bg-white/20 text-[9px] font-bold text-white/80">E</span>`:""}</div><p class="clamp-1 mt-1 text-base text-white/70 sm:text-lg">${esc(s.artist)}</p>${s.featuring?`<p class="clamp-1 text-sm text-white/45">feat. ${esc(s.featuring)}</p>`:""}${credits}</div></div>`;
+    mainInner=`<div class="flex min-h-full flex-1 flex-col items-center justify-center gap-6 py-2 lg:flex-row lg:gap-16">${artwork}<div class="w-full max-w-[460px] px-3 text-center lg:px-0 lg:text-left">${titleBlock}</div></div>`;
   }
 
   c.innerHTML=`<div data-np-root data-testid="now-playing" class="fixed inset-0 z-[60] overflow-hidden bg-[#08080a] ${wasOpen?'':'np-entering'}">
     <div class="absolute inset-0 overflow-hidden">${img(s.coverArt,'absolute inset-0 h-full w-full scale-150 object-cover opacity-40 blur-[80px] saturate-150')}
       ${pal?`<div class="absolute -left-1/4 top-[-10%] h-[70vh] w-[70vh] rounded-full blur-[90px]" style="background:${rgb(c0,0.55)}"></div><div class="absolute right-[-15%] top-[20%] h-[60vh] w-[60vh] rounded-full blur-[90px]" style="background:${rgb(c1,0.5)}"></div><div class="absolute bottom-[-20%] left-[20%] h-[60vh] w-[60vh] rounded-full blur-[100px]" style="background:${rgb(c2,0.45)}"></div>`:''}
       <div class="absolute inset-0" style="background:linear-gradient(to bottom,rgba(0,0,0,0.35),rgba(0,0,0,0.55) 55%,rgba(0,0,0,0.8))"></div></div>
-    <div class="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col px-4 pb-4 pt-3 sm:px-8 sm:pb-6 sm:pt-4">
+    <div class="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col px-4 pb-4 pt-3 sm:px-8 sm:pb-6 sm:pt-4 lg:max-w-6xl">
       <div class="flex shrink-0 items-center justify-between"><button data-act="np-close" aria-label="Close" data-testid="now-playing-close-button" class="press grid h-11 w-11 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85 hover:bg-white/10"><i data-lucide="chevron-down" style="width:22px;height:22px"></i></button><p class="font-display text-xs uppercase tracking-[0.25em] text-white/70">Now Playing</p><button data-act="np-share" aria-label="Share" class="press grid h-11 w-11 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85 hover:bg-white/10"><i data-lucide="share-2" style="width:18px;height:18px"></i></button></div>
-      <div class="min-h-0 flex-1 ${state.showLyrics?'flex flex-col overflow-hidden':'overflow-y-auto no-scrollbar'} ${modeChanged?'np-content-in':''}">${mainInner}</div>
-      <div class="w-full shrink-0 pt-2">${controls}</div>
+      <div class="min-h-0 flex-1 flex flex-col ${state.showLyrics?'overflow-hidden':'overflow-y-auto no-scrollbar'} ${modeChanged?'np-content-in':''}">${mainInner}</div>
+      <div class="mx-auto w-full max-w-3xl shrink-0 pt-2">${controls}</div>
     </div></div>`;
   icons();
   // cache lyric line nodes + fill like icon
   state.lyricLines=[...c.querySelectorAll('#np-lyrics [data-i]')];
-  const likeIcon=c.querySelector('[data-act="like"] i'); if(likeIcon&&isFav(s.id)) likeIcon.classList.add('fill-current','text-[color:var(--treesh-purple)]');
   updateLyricHighlight();
 }
 function closeNP(){
@@ -1127,21 +1372,19 @@ function openConfirm(title, desc, onOk){ state._confirmCb=onOk; const inner=`<h3
 /* ============================================================
    PLAYER UI UPDATES
    ============================================================ */
-function updatePlayIcons(){ const mp=$("#mini-pp i"); if(mp){ mp.setAttribute("data-lucide",state.isPlaying?"pause":"play"); } const np=$("#np-pp i"); if(np){ np.setAttribute("data-lucide",state.isPlaying?"pause":"play"); } // update playing card eq / icons cheaply by re-render view play buttons
-  // refresh play/pause glyphs
-  icons();
-  // re-render current song card/row play icon state (light: re-render view only if library-like)
-  syncCardPlayingState();
+function setIconIn(btn, name, size, fill){ if(!btn) return; const ic=btn.querySelector("svg,i"); if(!ic) return; const ni=document.createElement("i"); ni.setAttribute("data-lucide",name); ni.style.width=size+"px"; ni.style.height=size+"px"; if(fill) ni.className="fill-current"; ic.replaceWith(ni); }
+function iconSize(ic){ if(!ic) return 18; const sw=(ic.style&&ic.style.width)?parseInt(ic.style.width,10):0; const aw=parseInt(ic.getAttribute&&ic.getAttribute("width")||"0",10); return sw||aw||18; }
+function updatePlayIcons(){
+  const curId = curSong() && curSong().id;
+  if(curId !== state._renderedActiveId){ renderView(); }
+  const name = state.isPlaying ? "pause" : "play";
+  setIconIn($("#mini-pp"), name, 18, false);
+  setIconIn($("#np-pp"), name, 28, true);
+  if(curId){ $$('[data-act="play"][data-id="'+curId+'"]').forEach(btn=>{ const ic=btn.querySelector("svg,i"); if(!ic) return; const size=iconSize(ic); const fill=ic.classList&&ic.classList.contains("fill-current"); const ni=document.createElement("i"); ni.setAttribute("data-lucide",name); ni.style.width=size+"px"; ni.style.height=size+"px"; if(fill) ni.className="fill-current"; ic.replaceWith(ni); }); }
+  lucide.createIcons();
   updateVinylSpin();
 }
 function updateVinylSpin(){ const v=$("#np .vinyl"); if(v){ v.classList.toggle("spin-paused",!state.isPlaying); } }
-function syncCardPlayingState(){
-  const curId = curSong() && curSong().id;
-  if(curId !== state._renderedActiveId){ renderView(); return; } // active track changed -> refresh highlights
-  // same track: only flip play/pause glyphs in the current view (no full re-render, no flicker)
-  $$('#view [data-act="play"]').forEach(btn=>{ const i=btn.querySelector('i'); if(i && btn.dataset.id===curId) i.setAttribute('data-lucide', state.isPlaying?'pause':'play'); });
-  icons();
-}
 function updateProgress(){ const s=curSong(); const d=state.duration||0,cur=state.currentTime||0; const pct=d?(cur/d*100):0;
   const mp=$("#mini-prog"); if(mp) mp.style.width=pct+"%";
   const seek=$("#np-seek"); if(seek && document.activeElement!==seek){ seek.value=pct; }
@@ -1171,10 +1414,10 @@ function handleVoice(t){ if(!t) return; const say=m=>toast(m); if(/(^|\s)(pause|
    ROUTING
    ============================================================ */
 function setHash(view,param){ const h=param?`#/${view}/${param}`:`#/${view}`; if(location.hash!==h){ history.pushState(null,"",h); } }
-function navigate(view,param){ state.view=view; state.param=param||null; setHash(view,param); renderShell(); renderView(true); window.scrollTo(0,0); }
+function navigate(view,param){ if(state.profileOpen) closeProfile(true); state.view=view; state.param=param||null; setHash(view,param); renderShell(); renderView(true); window.scrollTo(0,0); }
 function parseHash(){ const h=location.hash.replace(/^#\//,""); if(!h) return {view:"library"}; const parts=h.split("/"); return {view:parts[0]||"library",param:parts[1]?decodeURIComponent(parts[1]):null}; }
-window.addEventListener("hashchange",()=>{ const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
-window.addEventListener("popstate",()=>{ const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
+window.addEventListener("hashchange",()=>{ if(state.profileOpen) closeProfile(true); const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
+window.addEventListener("popstate",()=>{ if(state.profileOpen) closeProfile(true); const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
 
 /* ============================================================
    EVENT DELEGATION
@@ -1184,7 +1427,7 @@ document.addEventListener("click", e=>{
   switch(act){
     case "nav": navigate(t.dataset.view); break;
     case "back": history.back(); break;
-    case "play": { const s=SONG_BY_ID[id]; if(s) playSong(s, state.contextList&&state.contextList.length?state.contextList:[s]); break; }
+    case "play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { playSong(s, state.contextList&&state.contextList.length?state.contextList:[s]); } break; }
     case "toggle-play": togglePlay(); break;
     case "next": nextTrack(true); break;
     case "prev": prevTrack(); break;
@@ -1200,7 +1443,7 @@ document.addEventListener("click", e=>{
     case "q-down": moveQueue(id,1); break;
     case "q-remove": removeFromQueue(id); break;
     case "mute": setVolume(state.volume>0?0:1); renderNP(); break;
-    case "like": toggleFav(id); if($("#modal").innerHTML)closeModal(); break;
+    case "like": { const willLike=!isFav(id); const r=t.getBoundingClientRect(); heartBurst(r.left+r.width/2, r.top+r.height/2, willLike); toggleFav(id); if($("#modal").innerHTML)closeModal(); popHearts(id, willLike); break; }
     case "songmenu": openSongMenu(id); break;
     case "np-add": { const s=curSong(); if(s) openAddToPlaylist(s.id); break; }
     case "np-share": { const s=curSong(); if(s) shareTrack(s); break; }
@@ -1209,17 +1452,19 @@ document.addEventListener("click", e=>{
     case "m-add-pl": closeModal(); openAddToPlaylist(id); break;
     case "m-share": { const s=SONG_BY_ID[id]; closeModal(); shareTrack(s); break; }
     case "lyric-seek": seekTo(parseFloat(t.dataset.t)); break;
-    case "fav-lyric": { const s=curSong(); if(s){ const i=+t.dataset.li; toggleFavLyric(s.id,i); const on=isFavLyric(s.id,i); t.dataset.fav=on?"1":""; t.classList.toggle("opacity-100",on); const ic=t.querySelector("i"); if(ic){ ic.setAttribute("class", on?"fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]":""); } icons(); toast(on?"Lyric favorited":"Removed from favorites"); } break; }
+    case "fav-lyric": { const s=curSong(); if(s){ const i=+t.dataset.li; const willFav=!isFavLyric(s.id,i); const r=t.getBoundingClientRect(); heartBurst(r.left+r.width/2, r.top+r.height/2, willFav); toggleFavLyric(s.id,i); const on=isFavLyric(s.id,i); t.dataset.fav=on?"1":""; t.classList.toggle("opacity-100",on); t.classList.toggle("is-liked",on); const sv=t.querySelector("svg"); if(sv){ sv.classList.remove("heart-pop","heart-unpop"); void sv.offsetWidth; sv.classList.add(on?"heart-pop":"heart-unpop"); } toast(on?"Lyric favorited":"Removed from favorites"); } break; }
     case "open-lyric-studio": { const s=curSong(); if(s) openLyricStudio(s.id); break; }
     case "studio-remove": { toggleFavLyric(state.studio.songId, +t.dataset.i); openLyricStudio(state.studio.songId); break; }
     case "card-theme": state.studio.theme=+t.dataset.i; openLyricStudio(state.studio.songId); break;
     case "card-download": downloadLyricCard(); break;
     case "card-share": shareLyricCard(); break;
     case "make-lyric-card": openLyricStudio(id); break;
-    case "clear-song-lyrics": { state.favLyrics=state.favLyrics.filter(x=>x.songId!==id); saveFavLyrics(); renderView(); break; }
+    case "clear-song-lyrics": { state.favLyrics=state.favLyrics.filter(x=>x.songId!==id); saveFavLyrics(); refreshLists(); break; }
     case "start-game": startGame(id); break;
+    case "game-opt": { const k=t.dataset.opt; state.gameOpts[k]=!state.gameOpts[k]; LS.set("treesh_game_opts",state.gameOpts); renderView(); break; }
     case "start-game-current": { const s=curSong(); if(s) startGame(s.id); break; }
     case "game-random": { const songs=gameEligibleSongs(); if(songs.length) startGame(songs[Math.floor(Math.random()*songs.length)].id); break; }
+    case "game-clear-search": { state.gameQuery=""; const gs=$("#game-search"); if(gs)gs.value=""; const c=$("#game-song-list"); if(c){ c.innerHTML=gameSongListHtml(); icons(); } const cb=$('[data-act="game-clear-search"]'); if(cb)cb.classList.add("hidden"); break; }
     case "game-submit": { const gi=$("#game-input"); submitAnswer(gi?gi.value:"", (gi&&gi.dataset.voice)?"voice":"type"); break; }
     case "game-skip": submitAnswer("", "type"); break;
     case "game-next": gameNext(); break;
@@ -1233,25 +1478,32 @@ document.addEventListener("click", e=>{
     case "wn-play-song": { const s=SONG_BY_ID[id]; if(s) playSong(s, SONGS); break; }
     case "wn-play-artist": { const songs=artistSongs(id); if(songs.length) playSong(songs[0], songs); break; }
     case "genre": state.genre=t.dataset.genre; renderView(); break;
+    case "picks-shuffle": state._picks=buildPicks(); renderView(); break;
+    case "lib-view": state.libGrid=(t.dataset.mode==="grid"); LS.set("treesh_lib_grid",state.libGrid); renderView(); break;
+    case "game-view": state.gameGrid=(t.dataset.mode==="grid"); LS.set("treesh_game_grid",state.gameGrid); renderView(); break;
     case "clear-search": state.query=""; const si=$("#search"); if(si)si.value=""; renderView(); const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.add("hidden"); break;
     case "shuffle-all": { if(!SONGS.length)break; state.shuffle=true; const r=SONGS[Math.floor(Math.random()*SONGS.length)]; playSong(r,SONGS); break; }
     case "playall-context": { if(state.contextList.length) playSong(state.contextList[0],state.contextList); break; }
     case "artist-open": navigate("artist",id); break;
     case "artist-playall": { const songs=SONGS.filter(s=>(s.artistIds||[]).includes(id)); if(songs.length) playSong(songs[0],songs); break; }
     case "artist-shuffle": { const songs=SONGS.filter(s=>(s.artistIds||[]).includes(id)); if(!songs.length)break; state.shuffle=true; playSong(songs[Math.floor(Math.random()*songs.length)],songs); break; }
-    case "new-playlist": openPrompt("New playlist","",(name)=>{ createPlaylist(name); renderView(); }); break;
+    case "new-playlist": openPrompt("New playlist","",(name)=>{ createPlaylist(name); refreshLists(); }); break;
     case "pl-open": navigate("playlist",id); break;
-    case "pl-rename": { const pl=plById(id); openPrompt("Rename playlist",pl.name,(name)=>{ pl.name=name; savePl(); renderView(); }); break; }
-    case "pl-delete": { const pl=plById(id); openConfirm("Delete playlist?","\u201C"+pl.name+"\u201D will be permanently removed.",()=>{ state.playlists=state.playlists.filter(p=>p.id!==id); savePl(); closeModal(); renderView(); }); break; }
+    case "pl-back": navigate("library"); openProfile("playlists"); break;
+    case "pl-rename": { const pl=plById(id); openPrompt("Rename playlist",pl.name,(name)=>{ pl.name=name; savePl(); refreshLists(); }); break; }
+    case "pl-delete": { const pl=plById(id); openConfirm("Delete playlist?","\u201C"+pl.name+"\u201D will be permanently removed.",()=>{ state.playlists=state.playlists.filter(p=>p.id!==id); savePl(); closeModal(); refreshLists(); }); break; }
     case "pl-share": { const pl=plById(id); if(pl) sharePlaylist(pl); break; }
     case "pl-remove-song": { const plid=$("#view [data-plid]").dataset.plid; const pl=plById(plid); if(pl){ pl.songIds=pl.songIds.filter(x=>x!==id); savePl(); renderView(); } break; }
-    case "atp-new": openPrompt("New playlist","",(name)=>{ const pl=createPlaylist(name,[state._addSong]); toast("Added to playlist",pl.name); closeModal(); if(state.view==="playlists")renderView(); }); break;
+    case "atp-new": openPrompt("New playlist","",(name)=>{ const pl=createPlaylist(name,[state._addSong]); toast("Added to playlist",pl.name); closeModal(); refreshLists(); }); break;
     case "atp-add": { const pl=plById(t.dataset.pl); if(pl&&!pl.songIds.includes(state._addSong)){ pl.songIds.push(state._addSong); savePl(); toast("Added to playlist",pl.name); } openAddToPlaylist(state._addSong); break; }
-    case "open-profile": onboard={step:0,nick:(state.profile&&state.profile.nickname)||"",bday:(state.profile&&state.profile.birthday)||"",avatar:(state.profile&&state.profile.avatar)||""}; renderOnboarding(); break;
+    case "open-profile": openProfile(t.dataset.tab); break;
+    case "profile-close": closeProfile(); break;
+    case "profile-tab": if(state.profileTab!==t.dataset.tab){ state.profileTab=t.dataset.tab; const pnl=$("#profile-panel"); if(pnl){ pnl.innerHTML=profileInnerHtml(); icons(); } } break;
+    case "profile-edit": onboard={step:0,nick:(state.profile&&state.profile.nickname)||"",bday:(state.profile&&state.profile.birthday)||"",avatar:(state.profile&&state.profile.avatar)||""}; renderOnboarding(); break;
     case "ob-next": onboard.step++; renderOnboarding(); break;
     case "ob-skip": closeModal(); if(!state.profile){ state.profile={nickname:"Treesh Fan"}; LS.set("treesh_profile",state.profile); } break;
     case "ob-preset": onboard.avatar=t.dataset.src; renderOnboarding(); break;
-    case "ob-finish": { state.profile={nickname:onboard.nick.trim()||"Treesh Fan",birthday:onboard.bday,zodiac:zodiac(onboard.bday),avatar:onboard.avatar}; LS.set("treesh_profile",state.profile); closeModal(); renderShell(); renderView(); break; }
+    case "ob-finish": { state.profile={nickname:onboard.nick.trim()||"Treesh Fan",birthday:onboard.bday,zodiac:zodiac(onboard.bday),avatar:onboard.avatar}; LS.set("treesh_profile",state.profile); closeModal(); renderShell(); renderView(); if(state.profileOpen) renderProfile(); break; }
     case "accent": { state.accent=t.dataset.hex; LS.set("treesh_accent",state.accent); applyAccent(state.accent); toast("Accent updated"); renderView(); break; }
     case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const bday=$("#set-bday").value; const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; toast("Profile saved"); renderShell(); renderView(); break; }
     case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists and theme on this device will be reset.",()=>{ ["treesh_favorites","treesh_playlists","treesh_profile","treesh_accent","treesh_vinyl"].forEach(k=>localStorage.removeItem(k)); location.reload(); }); break;
@@ -1271,12 +1523,13 @@ document.addEventListener("input", e=>{
   if(e.target.id==="search"){ state.query=e.target.value; const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.toggle("hidden",!state.query); renderView(); }
   else if(e.target.id==="np-seek"){ if(state.duration) seekTo(e.target.value/100*state.duration); }
   else if(e.target.id==="np-vol"){ setVolume(e.target.value/100); }
+  else if(e.target.id==="game-search"){ state.gameQuery=e.target.value; const c=$("#game-song-list"); if(c){ c.innerHTML=gameSongListHtml(); icons(); } const cb=$('[data-act="game-clear-search"]'); if(cb) cb.classList.toggle("hidden",!state.gameQuery); }
 });
 
 /* keyboard shortcuts */
 document.addEventListener("keydown", e=>{
   const tag=(e.target.tagName||""); if(["INPUT","TEXTAREA","SELECT"].includes(tag)||e.target.isContentEditable) return;
-  if(e.key==="Escape"){ if($("#modal").innerHTML){ closeModal(); return; } if(state.queueOpen){ closeQueue(); return; } if(state.npOpen){ closeNP(); return; } }
+  if(e.key==="Escape"){ if($("#modal").innerHTML){ closeModal(); return; } if(state.profileOpen){ closeProfile(); return; } if(state.queueOpen){ closeQueue(); return; } if(state.npOpen){ closeNP(); return; } }
   if(!curSong()) return;
   if(e.code==="Space"){ e.preventDefault(); togglePlay(); }
   else if(e.code==="ArrowRight"&&e.shiftKey) nextTrack(true);
