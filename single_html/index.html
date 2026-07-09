@@ -359,7 +359,7 @@ const CONTENT_SOURCES = {
   icons:  ["content/icons",  "/content/icons",  "https://treesh.app/content/icons"],
   lyrics: ["content/lyrics", "/content/lyrics", "https://treesh.app/content/lyrics"],
 };
-const CATALOG_KEY = "treesh_catalog_v1";
+const CATALOG_KEY = "treesh_catalog_v2";
 
 async function fetchFirst(urls){
   let lastErr;
@@ -487,7 +487,7 @@ async function loadCatalog(){
   const sig = catalogSig(songs, artists);
   const changed = sig !== _catalogSig;
   SONGS = songs; ARTISTS = artists; indexCatalog(); _catalogSig = sig;
-  if(changed) state._wnBuilt=null;
+  if(changed){ state._wnBuilt=null; state._picks=null; }
   try{ localStorage.setItem(CATALOG_KEY, JSON.stringify({ songs: SONGS, artists: ARTISTS, ts: Date.now() })); }catch(e){}
   return { changed };
 }
@@ -797,7 +797,7 @@ function renderSearchOverlay(){
   syncScrollLock();
 }
 function openSearch(){ state.searchOpen=true; renderSearchOverlay(); }
-function closeSearch(instant){ const c=$("#searchlay"); const root=c?c.querySelector("[data-search-root]"):null; state.searchOpen=false; state.searchQuery=""; detachSearchViewport(); if(!c){ return; } if(instant||!root){ c.innerHTML=""; syncScrollLock(); return; } root.classList.remove("tr-fade-in"); root.classList.add("tr-fade-out"); const dock=root.querySelector("#search-dock"); if(dock) dock.classList.remove("tr-dock-in"); syncScrollLock(); setTimeout(()=>{ if(!state.searchOpen) c.innerHTML=""; }, 220); }
+function closeSearch(instant){ const c=$("#searchlay"); const root=c?c.querySelector("[data-search-root]"):null; state.searchOpen=false; state.searchQuery=""; detachSearchViewport(); if(!c){ return; } if(instant||!root){ c.innerHTML=""; syncScrollLock(); return; } root.style.pointerEvents="none"; root.classList.remove("tr-fade-in"); root.classList.add("tr-fade-out"); const dock=root.querySelector("#search-dock"); if(dock) dock.classList.remove("tr-dock-in"); syncScrollLock(); setTimeout(()=>{ if(!state.searchOpen && root.parentNode) root.remove(); }, 240); }
 let _svpHandler=null;
 function attachSearchViewport(){ if(!window.visualViewport) return; detachSearchViewport(); _svpHandler=()=>{ const dock=$("#search-dock"); if(!dock||!window.visualViewport) return; const vv=window.visualViewport; const kb=Math.max(0, window.innerHeight - vv.height - vv.offsetTop); dock.style.transform = kb>2 ? `translateY(-${kb}px)` : ""; }; window.visualViewport.addEventListener("resize",_svpHandler); window.visualViewport.addEventListener("scroll",_svpHandler); }
 function detachSearchViewport(){ if(_svpHandler&&window.visualViewport){ window.visualViewport.removeEventListener("resize",_svpHandler); window.visualViewport.removeEventListener("scroll",_svpHandler); } _svpHandler=null; }
@@ -1777,7 +1777,10 @@ function renderNP(){
   const lyricBody = state.lyricsEdit ? lyricsEditorHtml(s) : (state.karaoke ? karaokeStageHtml() : lyricsScroller);
   const artwork = state.vinylMode
     ? `<div class="relative aspect-square w-[min(78vw,42vh,400px)] shrink-0 lg:w-[min(40vw,64vh,470px)]"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
-    : `<div class="aspect-square w-[min(78vw,42vh,400px)] shrink-0 overflow-hidden rounded-3xl lg:w-[min(40vw,64vh,470px)]" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
+    : `<div class="relative aspect-square w-[min(78vw,42vh,400px)] shrink-0 lg:w-[min(40vw,64vh,470px)]">
+        <div class="vinyl absolute right-[-15%] top-1/2 aspect-square w-[82%] -translate-y-1/2 ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 24px 70px ${rgb(c0,0.45)},inset 0 0 50px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div>
+        <div class="relative z-10 aspect-square w-full overflow-hidden rounded-3xl" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>
+      </div>`;
   const credits=s.producer?`<p class="clamp-1 mt-1.5 text-xs text-white/40">Prod. ${esc(s.producer)}</p>`:"";
   const titleBlock=`<div class="flex items-center justify-center gap-2 lg:justify-start"><h1 class="clamp-2 text-2xl font-bold leading-tight sm:text-[26px] lg:text-4xl">${esc(s.title)}</h1>${s.explicit?`<span class="grid h-5 w-5 shrink-0 place-items-center rounded-[4px] bg-white/20 text-[9px] font-bold text-white/80">E</span>`:""}</div><p class="clamp-1 mt-1 text-base text-white/70 sm:text-lg">${esc(s.artist)}</p>${s.featuring?`<p class="clamp-1 text-sm text-white/45">feat. ${esc(s.featuring)}</p>`:""}${credits}`;
 
