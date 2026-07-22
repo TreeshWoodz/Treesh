@@ -522,8 +522,6 @@
   /* --- Karaoke: clean text-only fill (no boxes) + smoother motion --- */
   #np-karaoke{ background:transparent !important; }
   #np-karaoke p{ background:transparent !important; }
-  .kar-ch{ transition:background-image .09s linear; }
-  html.perf-mode .kar-ch{ transition:none !important; }
   #kar-cur{ transition:opacity .28s var(--treesh-ease), transform .28s var(--treesh-ease); }
   /* Karaoke FULLSCREEN (pure black immersive) */
   [data-np-root].np-kar-full{ background:#000 !important; }
@@ -539,6 +537,9 @@
   #app a, #app button, .i-btn, [role="button"], [data-act]{ transition: background-color .18s var(--treesh-ease), color .18s var(--treesh-ease), border-color .18s var(--treesh-ease), box-shadow .18s var(--treesh-ease), transform .13s var(--treesh-ease), opacity .18s var(--treesh-ease); }
   /* modal tab / panel body content fade */
   #profile-body.tr-fade-in, [data-game-panel]{ animation:trFadeIn .3s ease both; }
+  #profile-star-banner{ overflow:hidden; transition:max-height .34s var(--treesh-ease), opacity .26s var(--treesh-ease), margin-top .34s var(--treesh-ease), padding .34s var(--treesh-ease), border-width .2s ease; max-height:78px; }
+  #profile-star-banner.pf-star-collapsed{ max-height:0; opacity:0; margin-top:0 !important; padding-top:0 !important; padding-bottom:0 !important; border-width:0 !important; }
+  html.perf-mode #profile-star-banner{ transition:none; }
 
   /* --- Card labels (customizable; default white text) --- */
   .tr-label{ color:var(--label-text,#fff) !important; background:var(--label-bg,rgba(0,0,0,0.5)) !important; border:var(--label-border-width,1px) solid var(--label-border-color,rgba(255,255,255,0.18)) !important; box-shadow:var(--label-shadow,none) !important; }
@@ -1724,9 +1725,16 @@ function renderProfile(){
 }
 function renderProfileBody(){ const b=$("#profile-body"); if(!b) return; b.innerHTML = profileBodyHtml(); icons(); }
 function profileBodyHtml(){ const t=state.profileTab; return t==="playlists"?profilePlaylistsHtml():t==="disliked"?profileDislikedHtml():t==="stats"?profileStatsHtml():t==="lyrics"?profileLyricsHtml():profileFavoritesHtml(); }
+function profileTabBtn(id,label,ic){ const tab=state.profileTab; return `<button data-act="profile-tab" data-tab="${id}" data-testid="profile-module-tab-${id}" class="shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold transition ${tab===id?'bg-white/15 text-white glow-purple':'text-white/60 hover:text-white'}"><span class="inline-flex items-center justify-center gap-1.5"><i data-lucide="${ic}" style="width:15px;height:15px"></i>${label}</span></button>`; }
+function profileTabsInner(){ return `${profileTabBtn('favorites','Favorites','heart')}${profileTabBtn('lyrics','Lyrics','quote')}${profileTabBtn('disliked','Disliked','heart-crack')}${profileTabBtn('playlists','Playlists','list-music')}${profileTabBtn('stats','Stats','bar-chart-3')}`; }
+function profileStarBannerHtml(){ const collapsed=state.profileTab==='stats'; return `<button data-act="profile-tab" data-tab="stats" id="profile-star-banner" data-testid="profile-starlites" aria-label="View stats" class="pf-star-wrap mt-3 flex w-full items-center gap-3 rounded-2xl border border-[color:var(--treesh-gold)]/25 bg-[color:var(--treesh-gold)]/[0.08] p-3 text-left hover:bg-[color:var(--treesh-gold)]/[0.13] ${collapsed?'pf-star-collapsed':''}">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:20px;height:20px"></i></span>
+      <div class="min-w-0 flex-1"><p class="text-[11px] font-semibold uppercase tracking-wide text-white/55">Starlites</p><p class="font-doto text-2xl font-bold leading-none text-white" data-star-count>${fmtNum((state.stars&&state.stars.points)||0)}</p></div>
+      ${((state.stars&&state.stars.streak)||0)>1?`<span class="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/75"><i data-lucide="flame" style="width:13px;height:13px" class="text-[color:var(--treesh-gold)]"></i>${state.stars.streak}d</span>`:''}
+      <i data-lucide="chevron-right" style="width:16px;height:16px" class="shrink-0 text-white/35"></i>
+    </button>`; }
 function profileInnerHtml(){
   const p=state.profile||{}; const z=zodiac(p.birthday); const tab=state.profileTab;
-  const tabBtn=(id,label,ic)=>`<button data-act="profile-tab" data-tab="${id}" data-testid="profile-module-tab-${id}" class="shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold transition ${tab===id?'bg-white/15 text-white glow-purple':'text-white/60 hover:text-white'}"><span class="inline-flex items-center justify-center gap-1.5"><i data-lucide="${ic}" style="width:15px;height:15px"></i>${label}</span></button>`;
   return `<div class="shrink-0 border-b border-white/10 bg-white/[0.04] px-4 pb-3 pt-4">
     <div class="flex items-center gap-3">
       <div class="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/15">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center text-lg font-bold text-white/60">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div>
@@ -1734,12 +1742,8 @@ function profileInnerHtml(){
       <button data-act="profile-edit" aria-label="Edit profile" data-testid="profile-edit-button" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="pencil" style="width:16px;height:16px"></i></button>
       <button data-act="profile-close" aria-label="Close" data-testid="profile-module-close-button" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button>
     </div>
-    <div class="mt-3 flex items-center gap-3 rounded-2xl border border-[color:var(--treesh-gold)]/25 bg-[color:var(--treesh-gold)]/[0.08] p-3" data-testid="profile-starlites">
-      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:20px;height:20px"></i></span>
-      <div class="min-w-0 flex-1"><p class="text-[11px] font-semibold uppercase tracking-wide text-white/55">Starlites</p><p class="font-doto text-2xl font-bold leading-none text-white" data-star-count>${fmtNum(state.stars.points||0)}</p></div>
-      ${(state.stars.streak||0)>1?`<span class="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/75"><i data-lucide="flame" style="width:13px;height:13px" class="text-[color:var(--treesh-gold)]"></i>${state.stars.streak}d</span>`:''}
-    </div>
-    <div class="mt-4 flex gap-1 overflow-x-auto no-scrollbar rounded-full border border-white/10 bg-black/30 p-1" data-testid="profile-module-tabs">${tabBtn('favorites','Favorites','heart')}${tabBtn('lyrics','Lyrics','quote')}${tabBtn('disliked','Disliked','heart-crack')}${tabBtn('playlists','Playlists','list-music')}${tabBtn('stats','Stats','bar-chart-3')}</div>
+    ${profileStarBannerHtml()}
+    <div id="profile-tabs" class="mt-4 flex gap-1 overflow-x-auto no-scrollbar rounded-full border border-white/10 bg-black/30 p-1" data-testid="profile-module-tabs">${profileTabsInner()}</div>
   </div>
   <div id="profile-body" class="min-h-0 flex-1 overflow-y-auto soft-scroll p-4 pf-content-in">${profileBodyHtml()}</div>`;
 }
@@ -2369,7 +2373,7 @@ function buildKaraokeLine(force){
   const stage=$("#np-karaoke"); if(!stage) return -1;
   const s=curSong(); const lines=(s&&s.lyrics)||[];
   if(!lines.length){ if(force){ stage.innerHTML=`<div class="flex flex-col items-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available.</p></div>`; icons(); } _karSpans=null; _karIdx=-1; return -1; }
-  const t=state.currentTime; let idx=-1; for(let i=0;i<lines.length;i++){ if(lines[i].t<=t+0.15) idx=i; else break; }
+  const t=state.currentTime; let idx=-1; for(let i=0;i<lines.length;i++){ if(lines[i].t<=t) idx=i; else break; }
   if(idx<0) idx=0;
   if(idx!==_karIdx||force){
     _karIdx=idx;
@@ -2388,7 +2392,8 @@ function paintKaraoke(idx){
   const s=curSong(); const lines=(s&&s.lyrics)||[]; if(!lines.length) return;
   const cur=lines[idx], next=lines[idx+1];
   const start=cur?cur.t:0; const end=next?next.t:((state.duration||start+3));
-  const dur=Math.max(0.4,(end-start)||3);
+  let span=(end-start); if(!isFinite(span)||span<=0) span=3;
+  const dur=Math.max(0.4, span-0.12);
   let p=(state.currentTime-start)/dur; p=Math.max(0,Math.min(1,p));
   const spans=_karSpans; if(!spans||!spans.length) return;
   const N=spans.length; const fpos=p*N; const perf=state.perfMode;
@@ -2525,7 +2530,7 @@ function renderNP(){
     </div></div>`;
   icons();
   // cache lyric line nodes + fill like icon
-  state.lyricLines=[...c.querySelectorAll('#np-lyrics [data-i]')];
+  state.lyricLines=[...c.querySelectorAll('#np-lyrics .np-line')];
   _perfKey="__init__"; _lyricUserScrollUntil=0;
   const lcont=$("#np-lyrics");
   if(lcont){ const onUser=()=>pauseLyricAutoScroll(); lcont.addEventListener("wheel",onUser,{passive:true}); lcont.addEventListener("touchmove",onUser,{passive:true}); }
@@ -2760,6 +2765,7 @@ document.addEventListener("input", e=>{
 });
 /* commit slider/tempo tweaks to undo history when a gesture ends */
 document.addEventListener("change", e=>{
+  if(e.target && e.target.id==="i-import-input"){ const f=e.target.files&&e.target.files[0]; if(f) iImportData(f); e.target.value=""; return; }
   const el=e.target.closest("[data-act]"); if(!el) return; const act=el.dataset.act;
   if(["i-bpm","i-swing","i-master","i-vol"].includes(act)){ if(state.instrum) iPushHistory(); }
 });
@@ -2791,7 +2797,16 @@ document.addEventListener("click", e=>{
     case "i-bars": iSetBars(+t.dataset.val); break;
     case "i-clear": iClearSteps(); break;
     case "i-random": iRandomize(); break;
-    case "i-save": iOpenSaveDialog(); break;
+    case "i-save": iCloseMenu(); iOpenSaveDialog(); break;
+    case "i-menu-toggle": { const S=state.instrum; if(S){ S.menu=!S.menu; renderInstrum(); } break; }
+    case "i-menu-close": iCloseMenu(); break;
+    case "i-new": iNewProject(); break;
+    case "i-open": iCloseMenu(); instrumOpenModal(); break;
+    case "i-open-load": iOpenLoad(id); break;
+    case "i-open-del": { state.beats=(state.beats||[]).filter(b=>b.id!==id); LS.set("treesh_beats",state.beats); instrumOpenModal(); toast("Beat deleted"); break; }
+    case "i-export-data": iCloseMenu(); iExportData(); break;
+    case "i-import-data": { iCloseMenu(); const inp=$("#i-import-input"); if(inp) inp.click(); break; }
+    case "i-faq": iCloseMenu(); instrumFaqModal(); break;
     case "i-load": iLoadProject(id); break;
     case "i-del": iDeleteProject(id); break;
     case "i-export": iExportWav(); break;
@@ -2922,13 +2937,13 @@ document.addEventListener("click", e=>{
     case "atp-add": { const pl=plById(t.dataset.pl); if(pl&&!pl.songIds.includes(state._addSong)){ pl.songIds.push(state._addSong); savePl(); toast("Added to playlist",pl.name); } openAddToPlaylist(state._addSong); break; }
     case "open-profile": openProfile(t.dataset.tab); break;
     case "profile-close": closeProfile(); break;
-    case "profile-tab": if(state.profileTab!==t.dataset.tab){ state.profileTab=t.dataset.tab; const pnl=$("#profile-panel"); if(pnl){ pnl.innerHTML=profileInnerHtml(); icons(); const b=$("#profile-body"); if(b) b.classList.add("tr-fade-in"); } } break;
+    case "profile-tab": if(state.profileTab!==t.dataset.tab){ state.profileTab=t.dataset.tab; const tw=$("#profile-tabs"); if(tw) tw.innerHTML=profileTabsInner(); const ban=$("#profile-star-banner"); if(ban) ban.classList.toggle("pf-star-collapsed", state.profileTab==='stats'); renderProfileBody(); const b=$("#profile-body"); if(b){ b.classList.remove("tr-fade-in"); void b.offsetWidth; b.classList.add("tr-fade-in"); } icons(); } break;
     case "profile-edit": onboard={step:0,nick:(state.profile&&state.profile.nickname)||"",bday:(state.profile&&state.profile.birthday)||"",avatar:(state.profile&&state.profile.avatar)||""}; renderOnboarding(); break;
     case "ob-next": onboard.step++; renderOnboarding(); break;
     case "ob-back": onboard.step=Math.max(0,onboard.step-1); renderOnboarding(); break;
-    case "ob-skip": closeModal(); if(!state.profile){ state.profile={nickname:"Treesh Fan"}; LS.set("treesh_profile",state.profile); } break;
+    case "ob-skip": closeModal(); if(!state.profile){ state.profile={nickname:"Treesh Fan"}; LS.set("treesh_profile",state.profile); } checkDailyStars(); break;
     case "ob-preset": onboard.avatar=t.dataset.src; renderOnboarding(); break;
-    case "ob-finish": { state.profile={nickname:onboard.nick.trim()||"Treesh Fan",birthday:onboard.bday,zodiac:zodiac(onboard.bday),avatar:onboard.avatar}; LS.set("treesh_profile",state.profile); if(onboard.bday){ state.bdayEdits=1; LS.set("treesh_bday_edits",1); } state.explicitUnlocked=false; closeModal(); renderShell(); renderView(); if(state.profileOpen) renderProfile(); break; }
+    case "ob-finish": { state.profile={nickname:onboard.nick.trim()||"Treesh Fan",birthday:onboard.bday,zodiac:zodiac(onboard.bday),avatar:onboard.avatar}; LS.set("treesh_profile",state.profile); if(onboard.bday){ state.bdayEdits=1; LS.set("treesh_bday_edits",1); } state.explicitUnlocked=false; closeModal(); checkDailyStars(); renderShell(); renderView(); if(state.profileOpen) renderProfile(); break; }
     case "accent": { state.accent=t.dataset.hex; LS.set("treesh_accent",state.accent); applyAccent(state.accent); toast("Accent updated"); renderView(); break; }
     case "apply-custom-color": { const ht=$("#set-custom-hex"); let v=(ht?ht.value:"").trim(); if(!/^#?[0-9a-fA-F]{6}$/.test(v)){ toast("Enter a valid hex","e.g. 9328ff"); break; } const hex=v[0]==="#"?v:("#"+v); state.accent=hex.toLowerCase(); LS.set("treesh_accent",state.accent); applyAccent(state.accent); toast("Accent updated"); renderView(); break; }
     case "set-theme": { state.theme=(t.dataset.val==="light")?"light":"dark"; LS.set("treesh_theme",state.theme); applyTheme(); toast(state.theme==="light"?"Light mode":"Dark mode"); renderView(); renderNP(); if(state.game) renderGame(); if(state.tot) renderTot(); break; }
@@ -3007,7 +3022,7 @@ function init(){
   const {view,param}=parseHash(); state.view=view; state.param=param;
   applyUiFont(); applyCustomColors(); applyLabelStyle();
   renderShell(); renderView(true); renderMini();
-  checkDailyStars();
+  if(state.profile) checkDailyStars();
   // deep link ?song=
   const sp=new URLSearchParams(location.search); const songId=sp.get("song"); if(songId&&SONG_BY_ID[songId]){ playSong(SONG_BY_ID[songId],SONGS); state.npOpen=true; renderNP(); history.replaceState(null,"",location.pathname+location.hash); }
   // onboarding for new users
@@ -3143,6 +3158,18 @@ function instrumUID(){ try{ return crypto.randomUUID(); }catch(e){ return "b"+Da
 function instrumDefaultProject(){ const bars=1,total=bars*16; const proj={ id:null, name:"Untitled beat", bpm:90, bars, swing:0, master:0.9, metronome:false, tracks: INSTRUM_KIT.map(k=>Object.assign({vol:0.85,mute:false,solo:false,steps:new Array(total).fill(false)},k)) }; iSeedPattern(proj); return proj; }
 function iSeedPattern(p){ const set=(type,arr)=>{ const tr=p.tracks.find(t=>t.type===type); if(tr) arr.forEach(i=>{ if(i>=0&&i<tr.steps.length) tr.steps[i]=true; }); };
   set("kick",[0,8,10]); set("snare",[4,12]); set("hat",[0,2,4,6,8,10,12,14]); set("openhat",[14]); set("bass",[0,8]); }
+const INSTRUM_PRESETS=[
+  {id:"boombap",name:"Boom Bap",bpm:90,swing:0.16,pat:{kick:[0,7,8],snare:[4,12],hat:[0,2,4,6,8,10,12,14],openhat:[14],bass:[0,10]},notes:{bass:"C2"}},
+  {id:"trap",name:"Trap",bpm:140,swing:0,pat:{kick:[0,6,10],snare:[4,12],clap:[4,12],hat:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],openhat:[7],bass:[0,3,8,11]},notes:{bass:"C2"}},
+  {id:"house",name:"House",bpm:124,swing:0,pat:{kick:[0,4,8,12],clap:[4,12],openhat:[2,6,10,14],bass:[2,6,10,14]},notes:{bass:"C2"}},
+  {id:"lofi",name:"Lo-Fi",bpm:74,swing:0.22,pat:{kick:[0,8],snare:[4,12],hat:[0,3,6,9,12,15],pad:[0,8],pluck:[2,6,10,14]},notes:{pad:"C3",pluck:"E3"}},
+  {id:"afro",name:"Afrobeat",bpm:106,swing:0.12,pat:{kick:[0,6,10],clap:[4,10],hat:[0,2,4,6,8,10,12,14],tom:[7,15],bass:[0,3,6,10]},notes:{bass:"C2"}},
+  {id:"pop",name:"Pop",bpm:118,swing:0,pat:{kick:[0,8],snare:[4,12],clap:[4,12],hat:[0,2,4,6,8,10,12,14],bass:[0,4,8,12],pad:[0,8]},notes:{bass:"C2",pad:"C3"}},
+  {id:"drill",name:"Drill",bpm:142,swing:0,pat:{kick:[0,6,9],snare:[4,12],hat:[0,2,3,4,6,8,10,11,12,14],bass:[0,6,9]},notes:{bass:"C2"}},
+  {id:"dnb",name:"Drum & Bass",bpm:172,swing:0,pat:{kick:[0,10],snare:[4,12],hat:[0,2,4,6,8,10,12,14],openhat:[6,14],bass:[0,8]},notes:{bass:"C2"}},
+];
+function iApplyPreset(id){ const pr=INSTRUM_PRESETS.find(x=>x.id===id); if(!pr) return; const S=state.instrum; if(!S) return; const p=S.project; p.bars=1; const total=16; p.bpm=pr.bpm; p.swing=pr.swing||0; p.tracks.forEach(tr=>{ tr.steps=new Array(total).fill(false); const arr=pr.pat[tr.type]; if(arr) arr.forEach(i=>{ if(i<total) tr.steps[i]=true; }); if(tr.melodic && pr.notes && pr.notes[tr.type]) tr.note=pr.notes[tr.type]; }); if(S.playing) iStop(); iPushHistory(); renderInstrum(); toast("Preset loaded",pr.name+" \u00b7 "+pr.bpm+" BPM"); }
+function instrumPresetsHtml(){ return `<div class="mx-3 sm:mx-4"><div class="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-white/45"><i data-lucide="wand-sparkles" style="width:13px;height:13px" class="text-[color:var(--treesh-purple)]"></i>Presets</div><div class="flex gap-2 overflow-x-auto no-scrollbar pb-1" data-testid="instrum-presets">${INSTRUM_PRESETS.map(pr=>`<button data-act="i-preset" data-id="${pr.id}" data-testid="preset-${pr.id}" class="press shrink-0 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-2 text-left hover:bg-white/[0.08] hover:border-white/20"><span class="block text-sm font-semibold text-white">${pr.name}</span><span class="block text-[11px] text-white/45">${pr.bpm} BPM</span></button>`).join("")}</div></div>`; }
 function iNoise(ctx){ if(ctx._noise) return ctx._noise; const b=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate); const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; ctx._noise=b; return b; }
 function iTrigger(tr,t,ctx,dest){ const vol=tr.vol==null?0.85:tr.vol; const g=ctx.createGain(); g.connect(dest); const type=tr.type;
   const env=(a,d,peak)=>{ g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(peak*vol,t+a); g.gain.exponentialRampToValueAtTime(0.0001,t+a+d); };
@@ -3184,14 +3211,49 @@ function instrumLanding(){ return `<div class="flex min-h-[64vh] flex-col items-
   <button data-act="instrum-start" data-testid="instrum-start" class="press mt-7 inline-flex items-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] px-7 py-3.5 text-base font-bold text-white glow-purple"><i data-lucide="play" style="width:18px;height:18px"></i>Open Studio</button>
 </div>`; }
 const LANE_W="w-[100px] shrink-0 sm:w-[152px]";
+function instrumFileMenuHtml(){ const mi=(act,ic,title,desc,extra)=>`<button data-act="${act}" data-testid="ifile-${act}" class="press flex w-full items-center gap-3 px-3.5 py-2.5 text-left hover:bg-white/[0.06] ${extra||''}"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/8 text-white/70"><i data-lucide="${ic}" style="width:15px;height:15px"></i></span><span class="min-w-0"><span class="block text-sm font-semibold text-white">${title}</span>${desc?`<span class="block text-[11px] text-white/45">${desc}</span>`:''}</span></button>`;
+  return `<div role="menu" class="absolute right-0 top-[calc(100%+8px)] z-40 w-60 overflow-hidden rounded-2xl border border-white/12 bg-[#14141a]/95 py-1 shadow-[var(--treesh-shadow)] backdrop-blur-2xl tr-fade-in" data-testid="instrum-file-dropdown">
+    ${mi('i-new','file-plus','New project','Start a fresh beat')}
+    ${mi('i-open','folder-open','Open project','Load a saved beat')}
+    ${mi('i-save','save','Save project','Store to My Beats')}
+    <div class="my-1 h-px bg-white/8"></div>
+    ${mi('i-export','audio-lines','Export WAV','Render to audio file')}
+    ${mi('i-export-data','file-json','Export data','Download as .json')}
+    ${mi('i-import-data','upload','Import data','Open a .json beat')}
+    <div class="my-1 h-px bg-white/8"></div>
+    ${mi('i-faq','graduation-cap','Guide & FAQ','How the studio works')}
+  </div>`; }
+function iCloseMenu(){ if(state.instrum&&state.instrum.menu){ state.instrum.menu=false; renderInstrum(); } }
+function iNewProject(){ const S=state.instrum; S.project=instrumDefaultProject(); S.history=[]; S.hi=-1; if(_iMaster) _iMaster.gain.value=S.project.master; iPushHistory(); S.menu=false; renderInstrum(); toast("New project started","Untitled beat"); }
+function iExportData(){ const p=state.instrum.project; try{ const data=JSON.stringify({type:"treesh-beat",v:1,project:p},null,2); const blob=new Blob([data],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=(p.name||"beat").replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"")+".json"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast("Project data exported",p.name); }catch(e){ toast("Export failed"); } }
+function iImportData(file){ const r=new FileReader(); r.onload=()=>{ try{ const obj=JSON.parse(r.result); const p=obj&&obj.project?obj.project:obj; if(!p||!Array.isArray(p.tracks)) throw new Error("bad"); const total=(p.bars||1)*16; p.tracks.forEach(tr=>{ if(!Array.isArray(tr.steps)) tr.steps=new Array(total).fill(false); }); p.id=p.id||instrumUID(); const S=state.instrum; S.project=JSON.parse(JSON.stringify(p)); S.history=[]; S.hi=-1; if(_iMaster) _iMaster.gain.value=S.project.master||0.9; iPushHistory(); S.menu=false; renderInstrum(); toast("Project imported",p.name||"Beat"); }catch(e){ toast("Import failed","Not a valid beat file"); } }; r.readAsText(file); }
+function instrumOpenModal(){ const beats=state.beats||[]; const inner=`<div class="mb-3 flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="folder-open" style="width:18px;height:18px"></i></span><h3 class="text-lg font-bold">Open project</h3></div>
+    ${beats.length?`<div class="max-h-[60vh] space-y-2 overflow-y-auto no-scrollbar pr-0.5">${beats.map(b=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3" data-testid="open-beat-${b.id}"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:20px;height:20px"></i></span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(b.name||'Untitled beat')}</p><p class="text-xs text-white/50">${b.bpm||90} BPM \u00b7 ${b.bars||1} bar${(b.bars||1)>1?'s':''}</p></div><button data-act="i-open-load" data-id="${b.id}" data-testid="load-beat-${b.id}" class="press rounded-full bg-[color:var(--treesh-purple)] px-3.5 py-2 text-xs font-semibold text-white glow-purple">Open</button><button data-act="i-open-del" data-id="${b.id}" aria-label="Delete" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-rose-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`:`<div class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/12 py-12 text-center"><i data-lucide="folder-open" style="width:34px;height:34px" class="text-white/30"></i><p class="text-sm text-white/55">No saved beats yet.</p><p class="text-xs text-white/40">Create a beat and choose File \u2192 Save.</p></div>`}`;
+  $("#modal").innerHTML=modalWrap(inner,"instrum-open-modal","lg"); icons();
+}
+function iOpenLoad(id){ const b=(state.beats||[]).find(x=>x.id===id); if(!b) return; const S=state.instrum; S.project=JSON.parse(JSON.stringify(b)); S.history=[]; S.hi=-1; if(_iMaster) _iMaster.gain.value=S.project.master||0.9; iPushHistory(); closeModal(); renderInstrum(); toast("Project opened",b.name); }
+function instrumFaqModal(){ const q=(t,a)=>`<div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p class="mb-1 flex items-center gap-2 text-sm font-bold"><i data-lucide="circle-help" style="width:15px;height:15px" class="text-[color:var(--treesh-purple)]"></i>${t}</p><p class="text-sm leading-relaxed text-white/65">${a}</p></div>`;
+  const inner=`<div class="mb-3 flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="graduation-cap" style="width:18px;height:18px"></i></span><h3 class="text-lg font-bold">Studio guide & FAQ</h3></div>
+    <div class="max-h-[65vh] space-y-2.5 overflow-y-auto no-scrollbar pr-0.5">
+      ${q('How do I make a beat?','Tap the cells in each instrument lane to place hits on the step grid. Press Play to loop your pattern. Each row is one sound (kick, snare, hats, plus melodic keys).')}
+      ${q('Melodic instruments (Keys/Bass/Lead)','Melodic lanes have a note selector \u2014 pick a note, then place steps to build a melody or bassline.')}
+      ${q('Tempo, bars & swing','Use +/- to change BPM. \u201cBars\u201d sets pattern length (1\u20134). \u201cSwing\u201d adds groove by delaying off-beats.')}
+      ${q('Presets','Tap a preset in the Presets strip to instantly load a great-sounding starting pattern, then tweak it.')}
+      ${q('Saving & files','Open the File menu to start a New project, Open a saved beat, Save the current one, Export WAV audio, or Export/Import your beat data as a .json file to back up or share.')}
+      ${q('Record your own stems','Use the Record button on a lane to capture audio (e.g. vocals) from your mic and layer it into the beat.')}
+    </div>`;
+  $("#modal").innerHTML=modalWrap(inner,"instrum-faq-modal","lg"); icons();
+}
 function instrumHeaderHtml(fs){ const p=state.instrum.project; return `<div class="flex items-center gap-2 px-3 sm:px-4 ${fs?'pt-[max(12px,env(safe-area-inset-top))] pb-1':'pb-3'}">
     <div class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sliders-horizontal" style="width:17px;height:17px"></i></div>
     <div class="min-w-0 flex-1">
       <p class="font-display text-[9px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Treesh Studio</p>
       <input value="${esc(p.name)}" data-act="i-name" data-testid="instrum-name" maxlength="40" placeholder="Beat name" class="-ml-0.5 w-full max-w-[240px] truncate bg-transparent text-lg font-extrabold leading-tight text-white outline-none placeholder:text-white/35">
     </div>
+    <button data-act="i-faq" aria-label="Guide & FAQ" class="tip i-btn h-10 w-10" data-tip="Guide & FAQ"><i data-lucide="graduation-cap" style="width:17px;height:17px"></i></button>
     <button data-act="i-fullscreen" data-testid="instrum-fullscreen" aria-label="${fs?'Exit full screen':'Full screen'}" class="tip i-btn h-10 w-10" data-tip="${fs?'Exit full screen':'Full screen'}"><i data-lucide="${fs?'minimize-2':'maximize-2'}" style="width:17px;height:17px"></i></button>
     ${fs?`<button data-act="i-fullscreen" aria-label="Close" class="i-btn h-10 w-10"><i data-lucide="x" style="width:18px;height:18px"></i></button>`:''}
+    <input type="file" id="i-import-input" accept=".json,application/json" class="hidden">
   </div>`; }
 function instrumTransportHtml(fs){ const p=state.instrum.project; const S=state.instrum; const canUndo=S.history&&S.hi>0; const canRedo=S.history&&S.hi<(S.history.length-1);
   return `<div class="studio-panel mx-3 sm:mx-4 p-2.5 sm:p-3">
@@ -3206,8 +3268,10 @@ function instrumTransportHtml(fs){ const p=state.instrum.project; const S=state.
         <button data-act="i-undo" data-testid="instrum-undo" aria-label="Undo" class="tip i-btn h-11 w-11" data-tip="Undo" ${canUndo?'':'disabled'}><i data-lucide="undo-2" style="width:17px;height:17px"></i></button>
         <button data-act="i-redo" data-testid="instrum-redo" aria-label="Redo" class="tip i-btn h-11 w-11" data-tip="Redo" ${canRedo?'':'disabled'}><i data-lucide="redo-2" style="width:17px;height:17px"></i></button>
         <span class="mx-0.5 h-6 w-px bg-white/10"></span>
-        <button data-act="i-save" data-testid="instrum-save" class="tip i-btn h-11 shrink-0 gap-1.5 px-2.5 sm:px-3.5 text-sm font-semibold" data-tip="Name &amp; save"><i data-lucide="save" style="width:17px;height:17px"></i><span class="hidden sm:inline">Save</span></button>
-        <button data-act="i-export" data-testid="instrum-export" class="tip i-btn h-11 shrink-0 gap-1.5 px-2.5 sm:px-3.5 text-sm font-semibold" data-tip="Export WAV"><i data-lucide="download" style="width:17px;height:17px"></i><span class="hidden sm:inline">WAV</span></button>
+        <div class="relative">
+          <button data-act="i-menu-toggle" data-testid="instrum-file-menu" aria-haspopup="menu" aria-expanded="${S.menu?'true':'false'}" class="i-btn h-11 shrink-0 gap-1.5 px-2.5 sm:px-3.5 text-sm font-semibold ${S.menu?'on':''}"><i data-lucide="folder" style="width:17px;height:17px"></i><span class="hidden sm:inline">File</span><i data-lucide="chevron-down" style="width:13px;height:13px" class="transition-transform ${S.menu?'rotate-180':''}"></i></button>
+          ${S.menu?`<div data-act="i-menu-close" class="fixed inset-0 z-30"></div>${instrumFileMenuHtml()}`:''}
+        </div>
       </div>
     </div>
     <div class="mt-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
@@ -3264,7 +3328,7 @@ function instrumStudioHtml(fs){ if(fs){ return `<div data-instrum-root class="fl
       <aside class="mr-3 hidden w-[320px] shrink-0 flex-col gap-3 overflow-hidden pb-1 sm:mr-4 lg:flex">${instrumDockHtml()}</aside>
     </div>
   </div>`; }
-  return `<div data-instrum-root class="-mx-4 pb-8 sm:-mx-6 lg:-mx-8">${instrumHeaderHtml(false)}<div class="space-y-3">${instrumTransportHtml(false)}${instrumGridHtml(false)}</div>${instrumBeatsHtml()}</div>`; }
+  return `<div data-instrum-root class="-mx-4 pb-8 sm:-mx-6 lg:-mx-8">${instrumHeaderHtml(false)}<div class="space-y-3">${instrumTransportHtml(false)}${instrumPresetsHtml()}${instrumGridHtml(false)}</div></div>`; }
 function instrumFSPlaceholder(){ return `<div class="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center"><div class="grid h-16 w-16 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="maximize-2" style="width:28px;height:28px"></i></div><p class="text-lg font-bold">Studio is in full screen</p><button data-act="i-fullscreen" class="press inline-flex items-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple"><i data-lucide="minimize-2" style="width:16px;height:16px"></i>Exit full screen</button></div>`; }
 function viewInstrum(){ if(!state.instrum||!state.instrum.started) return instrumLanding(); if(state.instrum.fs) return instrumFSPlaceholder(); return instrumStudioHtml(false); }
 /* ---------- Instrum render targets (view vs fullscreen overlay) ---------- */
