@@ -1,274 +1,102 @@
-# Treesh 3.0 — Single-File UI Fixes + Lyrics + Games + Instrum (UPDATED)
+# Treesh 3.0 — Bug Fixes, Instrum Overhaul, Storage Mgmt, + LyricFlow Integration
 
-## 1) Objectives
-- Deliver all remaining fixes/features in **`/app/single_html/index.html` only** (Vanilla JS + Tailwind CDN + localStorage). **No build step.**
-- Preserve the premium Treesh design language (dark + glass + custom accent) and ensure:
-  - **Karaoke highlighting is smooth** and easy to follow (P0)
-  - **Like/Dislike animations** are premium and on-brand (accent color only) (P0)
-  - **Dislike button + queue/shuffle exclusion** works reliably (P0/P1)
-  - **Games section** is restructured with tabs and includes a complete **This or That** game (P0)
-  - **Instrum** looks like a real studio (BandLab/Ableton-esque) while keeping its engine intact (P1)
-- Prioritize **mobile playback UX correctness** (no overlaps), **overlay scroll locking**, and reduced-motion/performance-mode behavior.
-- **English-only** UI copy and responses.
+## Ground Rules
+- Single file only: `/app/single_html/index.html` (Vanilla JS + Tailwind CDN + localStorage). No build step.
+- Served by python http.server on :3000 from `/app/single_html`.
+- Light mode class = `html.theme-light` (NOT `.light`).
+- DO NOT touch `/app/frontend` or `/app/backend`.
+- DO NOT run parallel `search_replace` on index.html (race conditions → corruption). Sequential edits only.
+- English-only UI copy.
 
 ---
 
-## 2) Implementation Steps
+## PHASE 1 — Bug Fixes & UI Polish (Status: IN PROGRESS)
+1. Light-mode Profile modal theming (`#profile-panel` stays dark in light mode) — add theme-light overrides.
+2. Queue / "Up Next": allow tapping any song in the list to play it (verify `q-jump` handler).
+3. Mobile mini-bar overlapping bottom nav (validate at 390x844).
+4. Welcome/Onboarding popup: birthday `<input type=date>` overflows off-screen → horizontal scroll. Fix width/box-sizing.
+5. Desktop full-screen player: cover art & content overflow off screen. Constrain layout.
+6. Player: remove transparent→black gradient (top/bottom) when viewing lyrics; make it theme-aware.
+7. When a custom IMAGE background is set: panels/divs are transparent & unreadable → add solid/glass backings for readability.
+8. Font size Large (and sometimes Medium/Normal): content overflows and doesn't fit → fix responsive fit.
+9. Featured artists in lyrics: tapping the artist shows a popup with 2 options: (a) Go to profile, (b) Open their facts about this song.
+10. Karaoke: smoother letter transitions, remove lyric background color, add a full full-screen black-background mode.
+11. Add transitions/animations to (nearly) everything — tasteful, on-brand, perf-mode aware.
+12. Fix lyric editing in Music Player — edits don't actually save/display (preserve sec/explain).
+13. Lyric-edit toolbar: move Save to far right, then Close after Save (far right).
+14. Move Favorite Lyrics into its OWN profile tab (separate from Favorite Songs).
+15. Settings option: show Notifications inside the nav bar (top); nav bar animates taller to fit the notification.
+16. Lyric lines: show an "edited" indicator; clicking an edited line reveals the ORIGINAL line below (like explanations). If edited + has explanation, show both in the same panel.
+17. Lyric lines: let users add their own NOTES (like explanations, but user-authored) with indicator + panel.
+18. Mobile LANDSCAPE optimization: restructure layouts so the whole app fits beautifully in landscape on phones.
+19. Fix This-or-That champion = the song with the MOST wins (not last standing).
+20. Fix "choppy jump/refresh" on clicks (preserve scroll, avoid needless full re-render/re-animate).
+21. Merge Accent settings tab into the Display tab.
+22. Standardize ALL checkbox/toggle styling to match the Lyric Game difficulty toggle card.
+23. Rename Games "Lyric Game" tab -> "What's Next?".
+24. Settings: customize colors of navigation bar, top bar, and song-list backgrounds.
+25. Settings: font selection (many curated fonts) + allow custom fonts.
+26. Starlites reward points system: earn points for actions (new songs, daily open, 30+ min listening, games, beats, interactions); show in profile. Values designed by agent; reserved for future features.
+27. NEEDS-CLARIFICATION: "best lyrics" settings option the user referenced earlier (ask at checkpoint).
+28. Card labels (Treesh's Picks etc.): default WHITE text + full customization (text/bg/border/border-color/shadow).
+29. Treesh's Picks card: move Play button inline with title/artist (was floating right).
+30. In-nav notifications: desktop = far-left inline in top bar, must NOT overflow search/voice/profile buttons.
+31. If browser lacks SpeechRecognition: remove ALL voice UI (top-bar mic, game Speak, Voice settings tab).
 
-### Phase 1 — Core Bug Fixes & Mobile Foundation (DONE)
-**User stories**
-1. As a user, I can tap **Info** in Now Playing and see complete song credits/details.
-2. As a user, when I press **Next/Prev**, the lyrics always update to the new song.
-3. As a user, I can tap any item in **Up Next** to jump to it immediately.
-4. As a mobile user, when Now Playing (or overlays) are open, the page cannot scroll behind them.
-5. As a user, the mini-player never overlaps the bottom navigation.
+## PHASE 2 — Instrum (Beat Studio) Overhaul (append)
+- Add FAQ/guide &/or tutorial inside Instrum.
+- Add curated beat PRESETS users can pick (good-sounding starting points).
 
-**Work completed**
-- **Metadata Modal (P0)**
-  - Added `np-meta` handler.
-  - Implemented metadata modal from `SONG_BY_ID` and **Copy credits**.
-- **Lyrics not updating**
-  - Fixed `onSongChange()` to always re-render Now Playing when open.
-- **Queue selectable**
-  - Added `q-jump` UI + handler.
-- **Mobile scroll lock**
-  - Implemented `syncScrollLock()` and wired into overlays.
-- **Mini-bar offset**
-  - Safe-area-aware minibar offset logic added.
-- **iOS input zoom**
-  - Inputs forced to `>=16px`.
+## PHASE 2 — Instrum (Beat Studio) Overhaul (Status: NOT STARTED)
+1. Add more instruments incl. Piano/Keys (melodic) so it's not only drums.
+2. Add a dedicated NEW project button (Clear only clears steps of current project).
+3. Fix saving projects (persist reliably to `treesh_beats`).
+4. Desktop BPM input: remove/native-style the number spinner arrows to match design.
+5. Add an OPEN button → saved-projects list as a popup MODULE (not pinned at bottom of studio).
+6. Fullscreen: Save-project (name) popup is hidden → render modal above fullscreen layer.
+7. Custom audio stems: record vocals / import audio stems (MediaRecorder + per-stem playback in engine).
 
-**Phase 1 testing completed**
-- DOM checks: metadata modal open, queue jump, lyric refresh.
-- Functional checks: scroll lock prevents background scroll.
+## PHASE 3 — Storage Management (Status: NOT STARTED)
+1. If localStorage too small, use IndexedDB fallback for large blobs (still fully local).
+2. Account settings: show device storage capacity (navigator.storage.estimate + fmtBytes).
+3. Manual per-item stored-data list with individual delete checkboxes.
 
----
+## PHASE 3.5 — App & Page Password Protection (Status: NOT STARTED)
+- Settings option to password-protect:
+  - The ENTIRE app at startup (lock screen on load), and/or
+  - Specific pages/sections (choose which to lock).
+- PIN/password stored locally (hashed), unlock screen UI, forgot-flow.
+- Must be added BEFORE LyricFlow.
 
-### Phase 2 — Global Full-Screen Search Overlay (DONE)
-**User stories**
-1. As a user, I can tap a **Search icon button** and get a full-screen search overlay.
-2. As a mobile user, the search input is at the **bottom** and stays reachable while typing.
-3. As a user, I can toggle results between **Songs / Artists / Lyrics**.
-4. As a user, I can quickly replay recent searches from **history chips**.
-5. As a user, search results let me play a song, open an artist, or jump to a lyric match.
+## >>> CHECKPOINT: PAUSE & NOTIFY USER BEFORE STARTING LYRICFLOW <<<
 
-**Work completed**
-- Added `renderSearchOverlay()` with bottom dock and `visualViewport` keyboard support.
-- Persisted recent searches (`treesh_recent_searches`, max 8).
-- Wired results actions (songs play, artists navigate, lyrics play+seek).
+## PHASE 4 — LyricFlow Integration (Status: NOT STARTED)
+- Add as a new top-level nav section ("LyricFlow" / "Studio").
+- Port ALL features from `/app/lyricflow_reference.txt`, translating jQuery → Vanilla JS + Tailwind:
+  - Multi-tab lyrics editor (contenteditable), autosave + manual save, undo/redo
+  - Song library w/ folders, trash, swipe actions
+  - Audio management (IndexedDB blobs), waveform/visualizer
+  - TTS (voices + choir mode), Rhymes finder, Find & Replace, rich toolbar
+  - Translation, Explain/annotations + gallery
+  - Karaoke mode, Sync Studio (LRC timestamps)
+  - Export: plain / markdown / LRC / HTML; Backup/restore JSON (song select)
+  - Passcode lock, FAQ, tutorial, Treesh import
+- Persist under `treesh_lyricflow_*` keys / IndexedDB.
+- Build cohesively, test at the end (per user).
 
-**Phase 2 testing completed**
-- Verified overlay open/close, typing, toggles, play actions, recent chips.
-
----
-
-### Phase 3 — Settings / Voice / Artist / Desktop Profile Accessibility (DONE)
-**User stories**
-1. As a user, Settings looks premium and easy to scan.
-2. As a user, I can pick from many accents or set a **custom accent**.
-3. As a user, I can use **dark/light mode**, multiple backgrounds, text sizing, and a custom image background with overlay.
-4. As a user, the voice listening UI is centered and never cut off.
-5. As a user, I can read an Icon’s bio inside their header.
-6. As a desktop user, Profile access is easy from the sidebar.
-7. As a user, I can access Privacy/Terms/Copyright.
-
-**Work completed**
-- Settings v2 (hero + tabs): Accent / Display / Sleep / Voice / Account / About.
-- Accent presets + custom hex.
-- Display controls: theme, backgrounds, custom image + dim overlay, text size.
-- Voice overlay redesigned for safe-area.
-- Artist bio moved into artist header.
-- Desktop sidebar profile card.
-
-**Phase 3 testing completed**
-- Screenshot verification + functional checks.
-
----
-
-### Phase 4 — Lyrics Upgrades: Karaoke Mode + Report/Edit + Sleep Timer (PARTIALLY VERIFIED)
-**User stories**
-1. As a user, I can switch to **Karaoke mode** and follow one centered line at a time.
-2. As a user, I see a smooth accent fill animation synced to lyric timing.
-3. As a user, I can edit incorrect lyrics inline and keep my edits on this device.
-4. As a user, I can report lyrics via email with the full corrected text included.
-5. As a user, I can enable a **Sleep Timer** that triggers only after inactivity.
-
-**Work completed**
-- Karaoke stage renderer + per-character fill (current approach = discrete toggles).
-- Lyric edit + report via mailto; edits persisted in `treesh_lyric_edits`.
-- Sleep timer with inactivity trigger + ambient overlay.
-
-**Remaining (superseded by Phase A below)**
-- Karaoke highlight smoothness is not acceptable yet (reported choppy).
+## PHASE 5 — Future / Backlog
+- Games "Choose a track" → full-screen search module (list/grid toggle).
+- Custom image background w/ opacity overlay (verify existing).
+- Remove Share Playlist button globally (verify + remove).
 
 ---
 
-### Phase 5 — Motion System (DONE; continue polish as needed)
-**User stories**
-1. As a user, homepage content animates in after load.
-2. As a user, page/section transitions feel seamless and premium.
-3. As a user, song cards animate in as I scroll.
+## Testing
+- Screenshot tool for visual (desktop 1920x800 + mobile 390x844).
+- testing_agent for complex JS flows after each phase.
+- esbuild syntax check before screenshots: `esbuild src/... ` N/A (single html) → use node/`tidy`? Use browser console logs.
 
-**Work completed**
-- Staggered view entrance animation via `animateView()`.
-- IntersectionObserver-based scroll reveal.
-- Performance Mode decoupled from OS reduced-motion.
-
----
-
-### Phase A — Karaoke Smoothness (P0, IN PROGRESS)
-**Problem**
-- Current `updateKaraoke()` toggles `.kar-ch.on` discretely.
-- It is driven by `audio.timeupdate` (low frequency) → **choppy highlighting**.
-
-**Goal**
-- Smooth, continuous karaoke fill that is readable and tracks audio precisely.
-
-**Work to implement**
-- Replace discrete per-character toggling with **continuous fill**:
-  - Render the current line as a **two-layer text** or **single-layer gradient** driven by CSS var `--cp` (0..1).
-  - Use `background-clip:text` (and `-webkit-background-clip:text`) so accent fill sweeps smoothly.
-- Drive karaoke progress via a **requestAnimationFrame loop** while karaoke is active:
-  - Start rAF when karaoke toggles on / NP opens in karaoke.
-  - Stop rAF when karaoke toggles off / NP closes / view changes.
-- Only rebuild karaoke DOM when line index changes; otherwise just update `--cp`.
-- Respect **Performance Mode**:
-  - If `state.perfMode`, snap fill to coarse steps (or fall back to discrete) to reduce load.
-
-**Testing required**
-- Verify smooth fill on mobile and desktop.
-- Verify track changes refresh karaoke state.
-
----
-
-### Phase B — Like/Dislike Animations + Dislike Button (P0/P1)
-**User stories**
-1. As a user, liking a song shows **one large accent heart** floating up like a balloon.
-2. As a user, disliking shows a **broken-heart** accent animation.
-3. As a user, dislike persists and disliked songs are excluded from shuffle/autoplay.
-
-**Work to implement**
-- Replace current multi-particle `heartBurst()` with a new FX system:
-  - **LIKE**: one big heart (accent color) rises, gently sways, scales slightly, fades.
-  - **DISLIKE**: broken-heart animation (accent color) with “crack/split” effect.
-  - Never use red; always use `var(--treesh-purple)` / current accent.
-  - Add new CSS keyframes and keep them disabled in `html.perf-mode`.
-- Add **dislike button** in Now Playing controls near Like:
-  - `data-testid="now-playing-dislike-button"`.
-  - `toggleDislike(songId)` persists to `treesh_dislikes` (state already contains `dislikes: new Set(...)`).
-  - Ensure **liking clears dislike** and **disliking clears like** (mutual exclusion).
-- Exclude disliked songs from:
-  - Shuffle order building and any “autoplay / advance” logic.
-  - Song pools used by Games where applicable (configurable if needed).
-
-**Testing required**
-- Like/dislike animations in Library cards, Search results, Now Playing.
-- Persistence across reload.
-- Shuffle + next/advance never selects disliked songs.
-
----
-
-### Phase C — Games Restructure + “This or That” (P0)
-**User stories**
-1. As a user, Games has a **Home** tab (first) with hero banners.
-2. As a user, Lyric Game has its own dedicated tab.
-3. As a user, I can play **This or That** in its own tab.
-4. As a user, progress and win-count persist.
-
-**Work to implement**
-- Add `state.gameTab` with values: `home | lyrics | tot`.
-- Update `viewGame()` to include a premium **top tab bar** and render based on `state.gameTab`.
-  - Default = `home`.
-- **Home tab**:
-  - Two hero banners:
-    - “What’s Next? (Lyric Game)” → opens Lyrics tab / start flow.
-    - “This or That” → opens TOT tab / start flow.
-- **Lyrics tab**:
-  - Move the existing Lyric Game hub (difficulty, stats, track picker) into this tab.
-- **This or That tab**:
-  - Intro, genre filter (from `GENRES`), Start.
-  - Show leaderboard/win-count summary loaded from `treesh_tot`.
-- Implement **This or That** fullscreen game overlay:
-  - Two random songs head-to-head.
-  - Each has a **30s preview** using a dedicated preview `Audio` element (do not interrupt main player unless user chooses).
-  - User selects a winner; loser receives a strike.
-  - After **3 strikes**, song is eliminated; new challenger appears.
-  - Last remaining song → champion screen (play full song / restart).
-  - Persist to localStorage `treesh_tot`:
-    - win counts per song + last run state as needed.
-  - Use the existing `.gauss` animated background tokens; reduced-motion safe.
-
-**Testing required**
-- Tab switching, state persistence, hero banner launches.
-- TOT end-to-end: preview audio, strike/elimination, champion screen, win-count saved.
-
----
-
-### Phase D — Instrum Studio Redesign (P1)
-**User stories**
-1. As a user, Instrum looks like a real studio app (BandLab/Ableton-esque) and is not cluttered.
-2. As a user, the workflow is obvious: transport → channels → step grid → save/export.
-
-**Non-negotiables**
-- Keep the **entire existing Web Audio engine** intact (`iTrigger/iSchedule/iPlay/etc.`) and keep **data-act hooks** working.
-- Single file only; Tailwind CDN utilities; limited custom CSS in the existing `<style>` block.
-
-**Work to implement (UI only)**
-- Rewrite only these HTML generator functions (no engine rewrite):
-  - `instrumLanding`, `instrumTransportHtml`, `instrumLaneHtml`, `instrumGridHtml`, `instrumBeatsHtml`, `viewInstrum`.
-- New layout (mobile-first, scalable to desktop):
-  - **Transport bar**: big circular Play/Stop, “LCD” BPM (Doto), bars selector, step/position readout, metronome toggle, swing, master with small meter, clear/random/save/WAV.
-  - **Channel rack**: DAW-style channel strips (color dot + icon, name, note select for melodic, M/S buttons, compact fader).
-  - **Step grid**: 4/4 group shading, step ruler, moving playhead, clear “active step” styling using accent.
-- Visual polish:
-  - Dark charcoal panels, subtle strokes, glass blur, accent for active states.
-  - Respect theme (dark/light) and custom accent.
-  - Performance Mode disables expensive transitions.
-- Add metronome support:
-  - `p.metronome` flag in project.
-  - Scheduler injects click sound (simple oscillator/noise) on quarter notes.
-
-**Testing required**
-- Play/stop, step toggling, save/load, export WAV.
-- Ensure no event wiring regressions.
-
----
-
-### Phase E — Testing (MANDATORY)
-**Method**
-- Use `testing_agent` with explicit **mobile viewport 390x844**.
-
-**Test checklist**
-1. Karaoke smoothness (60fps fill, line swaps, track change, perf-mode behavior).
-2. Like/Dislike:
-   - Big heart balloon + broken-heart animation.
-   - Accent color only.
-   - Persistence + shuffle exclusion.
-3. Games:
-   - Game tabs: Home/Lyrics/This-or-That.
-   - This or That full run + persistence.
-4. Instrum:
-   - New studio UI renders cleanly.
-   - Play/stop, step toggles, M/S/volume, bars, swing, save/load/export.
-5. Regression:
-   - Mini-bar vs bottom nav overlap (recurring mobile bug).
-   - Overlay scroll locking still correct.
-
----
-
-## 3) Next Actions
-1. Implement **Phase A** karaoke rAF-driven continuous fill + validate on mobile.
-2. Implement **Phase B**: dislike button + mutual exclusion + new like/dislike animations + shuffle/autoplay exclusion.
-3. Implement **Phase C**: game tab restructure + This or That mode + persistence.
-4. Implement **Phase D**: Instrum studio UI redesign (keep engine, replace HTML + CSS only).
-5. Run **Phase E testing** (testing_agent mobile-first) and fix any regressions.
-
----
-
-## 4) Success Criteria
-- Karaoke highlighting is smooth, readable, and synced (no choppiness).
-- Like = single floating accent heart balloon; Dislike = broken-heart animation; both disabled in perf-mode.
-- Dislike button exists in Now Playing (with `data-testid`) and disliked songs are excluded from shuffle/autoplay.
-- Games screen contains **Home / Lyrics / This or That** tabs; Home has two hero banners; This or That fully playable with 3-strike elimination and persistence.
-- Instrum looks like a pro studio while all existing engine features (save/export/play) still work.
-- Mobile viewport has no minibar/nav overlap regressions; overlays remain scroll-locked correctly.
+## Notes / Decisions (from user)
+- Priority: Phase 1 bugs first → then Instrum → then Storage → then LyricFlow.
+- LyricFlow: ALL features; new top-level nav tab; build all-at-once, test at end.
+- Storage: localStorage, IndexedDB fallback for large data; keep everything local. Add storage feature BEFORE LyricFlow.
