@@ -12,7 +12,7 @@
 
 ---
 
-## PHASE 1 — Bug Fixes & UI Polish (Status: IN PROGRESS)
+## PHASE 1 — Bug Fixes & UI Polish (Status: PARTIALLY COMPLETE)
 ### Completed in this workstream
 1. Light-mode Profile modal theming (`#profile-panel` stays dark in light mode) — fixed via theme-light overrides. ✅
 2. Karaoke: smoother animations (rAF loop), add full-screen karaoke mode. ✅
@@ -25,15 +25,18 @@
 9. UI customization: label styling (default white text + customization), custom colors, custom font upload. ✅
 10. Voice gating: remove/hide mic UI globally when SpeechRecognition unsupported. ✅
 11. App & Page Password Protection shipped earlier in this workstream + lock screen redesign shipped earlier. ✅
-12. **Settings tab polish:** Voice tab removed earlier (no meaningful settings at the time). ✅
+12. Settings tab polish: Voice tab removed earlier (no meaningful settings at the time). ✅
 13. **Global UX protections shipped (new):** ✅
-   - Disable zoom: viewport `user-scalable=no` + gesture/wheel/keyboard zoom blockers.
+   - Disable zoom: viewport `maximum-scale=1.0, user-scalable=no` + gesture/wheel/keyboard zoom blockers.
    - Disable text selection globally except editable fields (`input/textarea/select/contenteditable`).
    - Disable image dragging + disable right-click/context menu outside editable fields.
-14. **Birthday UX fixes shipped (new):** ✅
-   - Onboarding date picker no longer closes instantly (removed destructive re-render; update zodiac/continue button in-place).
-   - Onboarding birthday value centered.
-   - Settings birthday: full-width input, “Set birthday” placeholder when empty, correct display when set.
+14. **Birthday UX fixes shipped (revised, new):** ✅
+   - Replaced brittle native date inputs with a **custom date field** (`dateFieldHTML`) using a fully-styled container + transparent native `input[type=date]` overlay.
+   - Prevents overflow on all viewports (Welcome/Onboarding/Settings/Parent-DOB).
+   - Picker no longer closes instantly (removed destructive re-render; updates happen in-place).
+   - Clean placeholders (e.g., “Select your birthday” / “Set birthday”) and formatted display (e.g., “Jun 15, 1995”).
+   - `showPicker()` on click best-effort for browsers that support it.
+15. **Welcome birthday overflow regression fixed (new):** ✅ via the custom date field approach.
 
 ### Still pending in Phase 1 (carry-forward)
 1. Queue / “Up Next”: allow tapping any song in the list to play it (verify `q-jump` handler). (P2)
@@ -112,16 +115,15 @@ Testing (automation)
 
 ## PHASE C — P1 Bugs: Overflow Fixes (Status: COMPLETED)
 ### 1) Welcome/Onboarding birthday input overflow
-Fix implemented (revised)
-- Reworked date input behavior so:
+Fix implemented (final)
+- Migrated all birthday/date inputs to the **custom date field** wrapper:
   - No overflow in layout.
-  - Picker does **not** instantly close due to DOM re-render.
-  - Date value can be centered.
-- Added `showPicker()`-on-click best-effort for browsers that support it.
+  - Picker does not close due to DOM re-render.
+  - Clean placeholder + formatted display.
 
 Testing
-- Automation validates stable DOM (no re-render loop) and correct UI state updates.
-- **Needs real-device confirmation** (iOS Safari/Android Chrome) for native picker behavior.
+- Verified no horizontal overflow in automation.
+- Verified picker stability by eliminating full re-render on date change.
 
 ### 2) Desktop Now Playing cover art overflow
 Fix implemented
@@ -149,45 +151,71 @@ Testing
 
 ---
 
-## >>> CHECKPOINT: PAUSE & USER REVIEW (Status: NEEDS REVIEW) <<<
-Per your batch-then-review preference, the following are ready for your review now:
+## >>> CHECKPOINT: PAUSE & USER REVIEW (Status: UPDATED) <<<
+User cadence: **review after each phase**.
+
+### Ready for review (already implemented)
 - Lock screen: no background scrolling, no clock/date, fits all screens, unlock works with `0000`.
 - Storage & data UI: gauge + device estimate + breakdown + clear buttons.
-- Birthday inputs:
-  - Onboarding: picker no longer closes instantly; centered value.
-  - Settings: full-width field, “Set birthday” placeholder, correct empty/set behavior.
+- Birthday/date fields (all places): no overflow, consistent width, placeholders, formatted display, picker stable.
 - Global protections: no zoom, no accidental text selection, image drag disabled, right click disabled.
 - Desktop cover art overflow fixed.
 - Metadata: `data-desc` parsing + About shown in Metadata modal (not in Now Playing).
 
-Please confirm on your phone:
-1. Onboarding birthday date picker: does it stay open while changing month/day?
-2. Settings birthday field: does it look full-width and display the chosen date correctly?
+### Newly completed and ready for review
+- **PHASE 3 Global Search overhaul** (below).
 
 ---
 
-## PHASE 3 — Global Search Overhaul (Status: NOT STARTED)
-### Goals
-1. **Smooth open/close transition** (blur + fade + panel motion together; avoid “text appears before blur”).
-2. Mobile keyboard behavior (best-effort): only the search box rises; avoid whole app shifting.
-3. Layout: results area fills available space (remove large bottom gap).
-4. **Extremely smart search**:
-   - Case-insensitive, accent-insensitive (Moné == Mone), punctuation-insensitive (A. == A).
-   - Fuzzy/partial matching (e.g., “Mo A Lisa” → “Moné A. Lisa”).
-   - Query parsing for `"<song> by <artist>"`.
-   - Artist name searchable alongside songs.
-5. Filters in search results (e.g., Songs / Artists / Explicit / Treesh Picks / Genre / Mood).
-6. Recently searched positioned just above search box.
+## PHASE 3 — Global Search Overhaul (Status: COMPLETED)
+### Goals (delivered)
+1. Smooth open/close transition (blur + fade + panel motion together; avoid “text appears before blur”). ✅
+2. Mobile keyboard behavior (best-effort): only the search dock rises; avoid whole app shifting. ✅
+3. Layout: results area fills available space (remove large bottom gap). ✅
+4. Extremely smart search (accent/punct/case-insensitive + fuzzy/partial matching). ✅
+5. Filters in search results + sorting controls. ✅
+6. Recently searched positioned just above search box (not centered). ✅
 7. Lyrics actions in Search:
-   - Favorite/unfavorite lyrics from search.
-   - Create lyric cards without requiring favorite.
+   - Favorite/unfavorite lyrics from search. ✅
+   - Create lyric cards without requiring favorite. ✅
 
-### Implementation steps (planned)
-- Add `normalize(str)` function: lower-case + remove diacritics + strip punctuation.
-- Add token scoring: exact token matches + prefix matches + subsequence/fuzzy bonus.
-- Add `by <artist>` parsing: split query and score title vs artist separately.
-- UI restructure: flex column with results `flex-1 overflow-y-auto`, bottom docked search bar.
-- Transition: add overlay entrance animation (opacity + blur + translate).
+### What was implemented
+1. **Smart fuzzy search engine**
+   - `normStr()` strips diacritics/accents and punctuation, normalizes whitespace.
+   - Token scoring: exact match + prefix + substring + subsequence bonus.
+   - `"<song> by <artist>"` query parsing (`parseByQuery`).
+   - Song scoring considers: title, artist, featuring, writtenBy, genre, mood, album.
+   - Artist scoring considers: name + role.
+   - Lyrics search matches normalized lyric text.
+
+2. **UI overhaul**
+   - New flex layout: results `flex-1` fill available space; dock pinned bottom.
+   - Recent searches moved into a horizontal chip bar **directly above the search box**.
+   - Added songs-only filter chips: All / Picks / Explicit / Clean.
+   - Added sort chips: Top / A–Z / Artist.
+
+3. **Smooth open transition**
+   - Split overlay into:
+     - `.search-backdrop` (blur/fade establishes first)
+     - `.search-content` (content fades/slides in with delay)
+   - Fixes “text appears before blur” jank.
+
+4. **Lyrics results actions**
+   - Each lyric result row now has:
+     - Heart toggle (favorite/unfavorite lyric)
+     - “Make card” button
+   - Implemented `state.studio.picked` + `studioLines()` to allow building lyric cards **without** favoriting.
+   - Updated builder/draw/share logic to use `studioLines()`.
+
+### Verification (automation)
+- Confirmed no results/dock gap (gap = 0).
+- Confirmed recent chip placement above search box.
+- Confirmed fuzzy matching for user examples:
+  - “mona lisa by savionce” → Moné A. Lisa by SAVIONCE (1 result)
+  - “mone alisa”, “mone a lisa”, “MONE A. LISA” all top-match.
+  - Typos/partials/no punctuation also work.
+- Confirmed Lyrics tab: favorite toggle + make-card present for each row.
+- Confirmed make-card does not require favoriting (favCount remains 0).
 
 ---
 
@@ -198,7 +226,9 @@ Please confirm on your phone:
 
 ---
 
-## PHASE 5 — Now Playing / Lyrics UX Upgrades (Status: NOT STARTED)
+## PHASE 5 — Now Playing / Lyrics UX Upgrades (Status: NEXT UP)
+**User priority order after Search:** Now Playing upgrades → Instrum fixes → Lyric Cards overhaul → Voice overhaul.
+
 1. Edited lyrics should reflect immediately after save.
 2. Add transition when launching “WHAT’S NEXT?” game from lyrics.
 3. Karaoke:
@@ -211,23 +241,42 @@ Please confirm on your phone:
 6. Minibar:
    - Allow scrubbing while minimized.
 
+Implementation notes (planned)
+- Identify lyric edit save flow; ensure `renderLyrics()` / NP lyric panel refreshes immediately after save.
+- Add transition classes for game open (overlay fade/scale) before navigation/state switch.
+- Karaoke performance:
+  - Reduce DOM churn; prefer transform/opacity + requestAnimationFrame; cache measurements.
+  - Add obvious exit-fullscreen control in fullscreen karaoke.
+- Lyric line spacing:
+  - Move edit/like controls to absolute-positioned overlay or fixed-width inline container that doesn’t change line height.
+- Scrubber progress fill:
+  - Use CSS background-size or a sibling progress element synced to currentTime/duration.
+- A–B loop:
+  - Store `state.abLoop={on,a,b}`; clamp seeking and loop on `timeupdate`.
+- Minibar scrubbing:
+  - Add pointer handlers for the mini seek slider; sync with main player.
+
 ---
 
 ## PHASE 6 — Lyric Cards Overhaul (Status: NOT STARTED)
-1. Create lyric cards without requiring lyrics to be favorited.
-2. Preserve/render line breaks (verse/hook/chorus spacing) in cards.
-3. More background options:
+1. Preserve/render line breaks (verse/hook/chorus spacing) in cards.
+2. More background options:
    - More presets + custom color picker.
    - Image background (cover art and/or artist photos when available).
    - Overlay controls: darken/gradient + blur.
-4. Layout options:
+3. Layout options:
    - If not using image bg: keep cover art + title/artist bottom-left.
    - Cover art shape options: rounded, sharp, heart, triangle, diamond, oval, star, cloud, circle.
 
+*(Note: Phase 3 already enabled “make card without favoriting” by introducing `picked` lines; Phase 6 expands visual customization and line-break fidelity.)*
+
 ---
 
-## PHASE 7 — Voice Controls Overhaul (Status: NEEDS DECISION)
-### Requested capabilities
+## PHASE 7 — Voice Controls Overhaul (Status: DECIDED / NOT STARTED)
+Decision (user)
+- **Offline / rule-based approach confirmed** (private, offline; no API key).
+
+Requested capabilities
 - Smart voice commands:
   - play / pause
   - play `<song>` [by `<artist>`] (with disambiguation UI if needed)
@@ -237,14 +286,14 @@ Please confirm on your phone:
 - Bring back Voice settings tab with:
   - Guide/help + examples
   - Custom phrases → actions (automation)
-  - Optional conversational mode
 
-### Decision required (user)
-- **Option A (offline/rule-based):** deterministic intent parser + fuzzy match against library; fast, private, works offline.
-- **Option B (LLM-backed conversation):** true chat/assist behavior requires a network LLM API (not currently in scope / would violate “no backend” unless we use a user-provided key and client-side calls). 
-
-Planned approach (default)
-- Implement Option A fully first; leave a placeholder “Conversational mode (coming soon)” unless you approve an LLM strategy.
+Planned approach
+- Implement deterministic intent parser + fuzzy matcher (reuse Search normalization/scoring).
+- Add disambiguation modal when multiple candidates match.
+- Re-add Voice settings tab containing:
+  - Toggle + permission status
+  - Command guide
+  - Custom phrase manager (phrase → action mapping)
 
 ---
 
@@ -264,11 +313,13 @@ Planned approach (default)
 
 ## Testing
 - Screenshot tool for visual validation (desktop 1440×900 + mobile 390×844 + small 320×568 + landscape 812×375).
-- testing_agent for complex interaction flows after each phase (search interactions, lyric save-refresh, studio fullscreen/minimize, scrubber A↔B loop).
+- testing_agent for complex interaction flows after each phase:
+  - Search interactions (completed), lyric save-refresh, scrubber A↔B loop, minibar scrubbing, karaoke fullscreen exit, studio fullscreen/minimize.
 - No build tools; rely on browser console logs + cautious sequential edits.
 
 ## Notes / Decisions (from user)
 - Storage UI must include: **visual gauge + breakdown + delete + clear buttons** (done).
 - Test PIN: `0000`.
 - Keep current player look as the default; customization options should be opt-in.
-- Voice settings tab was removed earlier (no settings); Voice overhaul request requires a new dedicated phase + decision (above).
+- Voice approach: **offline/rule-based** confirmed; conversational LLM mode not in scope.
+- Delivery cadence: **review after each major phase**.

@@ -236,6 +236,14 @@
   .tr-fade-in{ animation:trFadeIn var(--treesh-dur-2) ease both; }
   @keyframes trFadeOut{ from{opacity:1} to{opacity:0} }
   .tr-fade-out{ animation:trFadeOut var(--treesh-dur-2) ease both; }
+  @keyframes trSearchIn{ from{opacity:0;transform:scale(1.015)} to{opacity:1;transform:none} }
+  .search-enter{ }
+  @keyframes trBackdropIn{ from{opacity:0} to{opacity:1} }
+  @keyframes trContentIn{ from{opacity:0;transform:translateY(10px) scale(0.995)} to{opacity:1;transform:none} }
+  .search-enter .search-backdrop{ animation:trBackdropIn 190ms ease both; }
+  .search-enter .search-content{ animation:trContentIn 300ms 95ms cubic-bezier(0.22,1,0.36,1) both; }
+  @keyframes trSearchOut{ from{opacity:1} to{opacity:0} }
+  .search-exit{ animation:trSearchOut 180ms ease both; }
 
   /* karaoke per-letter fill */
   @keyframes trLineSwap{ 0%{opacity:0;transform:translateY(16px) scale(.97)} 100%{opacity:1;transform:none} }
@@ -870,7 +878,7 @@ const state = {
   parentPin: LS.get("treesh_parent_pin", null),
   bdayEdits: (function(){ const v=LS.get("treesh_bday_edits",null); if(v!=null) return v; const pr=LS.get("treesh_profile",null); return (pr&&pr.birthday)?1:0; })(),
   profileOpen: false, profileTab: "favorites", settingsTab: "display",
-  searchOpen: false, searchTab: "songs", searchQuery: "", recentSearches: LS.get("treesh_recent_searches", []),
+  searchOpen: false, searchTab: "songs", searchQuery: "", searchFilter: "all", searchSort: "relevance", recentSearches: LS.get("treesh_recent_searches", []),
   karaoke: false, lyricsEdit: false, lyricEdits: LS.get("treesh_lyric_edits", {}),
   studio: null, game: null, tot: null,
   perfMode: LS.get("treesh_perf", false),
@@ -1153,45 +1161,61 @@ function copyCredits(songId){ const s=SONG_BY_ID[songId]; if(!s) return; const {
    ============================================================ */
 function pushRecent(q){ q=(q||"").trim(); if(!q) return; const list=(state.recentSearches||[]).filter(x=>x.toLowerCase()!==q.toLowerCase()); list.unshift(q); state.recentSearches=list.slice(0,8); LS.set("treesh_recent_searches",state.recentSearches); }
 function hlMatch(text,q){ text=String(text==null?"":text); if(!q) return esc(text); const i=text.toLowerCase().indexOf(q.toLowerCase()); if(i<0) return esc(text); return esc(text.slice(0,i))+`<mark style="background:var(--treesh-purple-soft);color:#fff;border-radius:4px;padding:0 2px">`+esc(text.slice(i,i+q.length))+`</mark>`+esc(text.slice(i+q.length)); }
-function searchSongsList(q){ q=(q||"").toLowerCase(); if(!q) return []; return vis(SONGS.filter(s=> s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q) || (s.writtenBy||"").toLowerCase().includes(q) || (s.featuring||"").toLowerCase().includes(q))).slice(0,60); }
-function searchArtistsList(q){ q=(q||"").toLowerCase(); if(!q) return []; return ARTISTS.filter(a=> a.name.toLowerCase().includes(q) || (a.role||"").toLowerCase().includes(q)).slice(0,60); }
-function searchLyricsList(q){ const ql=(q||"").toLowerCase(); if(!ql) return []; const out=[]; for(const s of SONGS){ const lines=s.lyrics||[]; for(let i=0;i<lines.length;i++){ if(lines[i].text && lines[i].text.toLowerCase().includes(ql)){ out.push({song:s, line:lines[i].text, i, t:lines[i].t}); break; } } if(out.length>=40) break; } return out; }
+function normStr(s){ return String(s==null?"":s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim(); }
+function isSubseq(needle,hay){ if(!needle) return true; let i=0; for(let j=0;j<hay.length&&i<needle.length;j++){ if(hay[j]===needle[i]) i++; } return i===needle.length; }
+function fieldScore(text,qn,qTokens,qc){ const hn=normStr(text); if(!hn) return 0; const hc=hn.replace(/ /g,""); let sc=0; if(hn.includes(qn)) sc=Math.max(sc,100); if(qc && hc.includes(qc)) sc=Math.max(sc,88); const hTokens=hn.split(" ").filter(Boolean); let covered=0,tsum=0; for(const qt of qTokens){ let tb=0; for(const ht of hTokens){ if(ht===qt){tb=Math.max(tb,12);} else if(ht.startsWith(qt)){tb=Math.max(tb,9);} else if(qt.length>=2&&ht.includes(qt)){tb=Math.max(tb,6);} } if(tb===0&&qt.length>=3&&isSubseq(qt,hc)) tb=3; if(tb>0){covered++;tsum+=tb;} } if(qTokens.length&&covered===qTokens.length) sc=Math.max(sc,45+tsum); else if(covered>0) sc=Math.max(sc,tsum); if(sc===0&&qc.length>=3&&isSubseq(qc,hc)) sc=18; return sc; }
+function scoreFields(fields,q){ const qn=normStr(q); if(!qn) return 0; const qTokens=qn.split(" ").filter(Boolean); const qc=qn.replace(/ /g,""); let best=0; for(const f of fields){ const s=fieldScore(f.text,qn,qTokens,qc)*(f.weight||1); if(s>best) best=s; } return best; }
+function parseByQuery(q){ const m=(q||"").match(/^(.*\S)\s+by\s+(\S.*)$/i); return m?{song:m[1].trim(),artist:m[2].trim()}:null; }
+function searchSongsList(q){ q=(q||"").trim(); if(!q) return []; const by=parseByQuery(q); let scored=[]; if(by){ for(const s of SONGS){ const ts=scoreFields([{text:s.title,weight:1}],by.song); const as=scoreFields([{text:s.artist,weight:1},{text:s.featuring||"",weight:0.75},{text:s.writtenBy||"",weight:0.6}],by.artist); if(ts>0&&as>0) scored.push({s,score:ts+as+25}); } } if(!scored.length){ for(const s of SONGS){ const sc=scoreFields([{text:s.title,weight:1},{text:s.artist,weight:0.92},{text:s.featuring||"",weight:0.72},{text:s.writtenBy||"",weight:0.5},{text:s.genre||"",weight:0.4},{text:s.mood||"",weight:0.35},{text:s.album||"",weight:0.4}],q); if(sc>0) scored.push({s,score:sc}); } } if(state.searchSort==="title") scored.sort((a,b)=>a.s.title.localeCompare(b.s.title)); else if(state.searchSort==="artist") scored.sort((a,b)=>(a.s.artist||"").localeCompare(b.s.artist||"")||(b.score-a.score)); else scored.sort((a,b)=>b.score-a.score); return vis(scored.map(x=>x.s)).slice(0,80); }
+function searchArtistsList(q){ q=(q||"").trim(); if(!q) return []; let scored=[]; for(const a of ARTISTS){ const sc=scoreFields([{text:a.name,weight:1},{text:a.role||"",weight:0.4}],q); if(sc>0) scored.push({a,score:sc}); } scored.sort((x,y)=>y.score-x.score); return scored.map(x=>x.a).slice(0,60); }
+function searchLyricsList(q){ q=(q||"").trim(); if(!q) return []; const qn=normStr(q); const qc=qn.replace(/ /g,""); const out=[]; for(const s of vis(SONGS)){ const lines=s.lyrics||[]; for(let i=0;i<lines.length;i++){ const tx=lines[i]&&lines[i].text; if(!tx) continue; const hn=normStr(tx); if(hn.includes(qn) || (qc.length>=3 && hn.replace(/ /g,"").includes(qc))){ out.push({song:s,line:tx,i,t:lines[i].t}); if(out.length>=60) break; } } if(out.length>=60) break; } return out; }
 function searchEmpty(q){ return `<div class="flex min-h-[38vh] flex-col items-center justify-center gap-3 text-center text-white/50"><i data-lucide="search-x" style="width:38px;height:38px"></i><p class="text-sm">No ${esc(state.searchTab)} match \u201C${esc(q)}\u201D</p></div>`; }
 function searchResultsHtml(){
   const q=(state.searchQuery||"").trim();
   if(!q){
-    const rc=state.recentSearches||[];
-    const chips = rc.length ? `<div class="mb-2 flex items-center justify-between"><p class="text-xs font-semibold uppercase tracking-widest text-white/45">Recently searched</p><button data-act="search-recent-clear" data-testid="search-recent-clear-button" class="text-xs text-white/50 transition-colors hover:text-white/80">Clear</button></div><div class="flex flex-wrap gap-2">${rc.map((r,i)=>`<button data-act="search-recent-chip" data-q="${esc(r)}" data-testid="search-recent-chip-${i}" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10"><i data-lucide="clock" style="width:13px;height:13px"></i>${esc(r)}</button>`).join("")}</div>` : "";
-    return `<div class="flex min-h-[34vh] flex-col items-center justify-center gap-3 text-center text-white/45"><i data-lucide="search" style="width:40px;height:40px"></i><p class="text-sm">Find songs, artists and lyrics</p></div>${rc.length?`<div class="mt-2">${chips}</div>`:""}`;
+    return `<div class="flex h-full min-h-[40vh] flex-col items-center justify-center gap-3 text-center text-white/45"><div class="grid h-16 w-16 place-items-center rounded-2xl bg-white/5"><i data-lucide="search" style="width:30px;height:30px"></i></div><p class="text-sm">Search songs, artists &amp; lyrics</p></div>`;
   }
   const tab=state.searchTab;
   if(tab==="artists"){
     const list=searchArtistsList(q); if(!list.length) return searchEmpty(q);
-    return `<div class="space-y-1">${list.map(a=>{const cnt=artistSongs(a.id).length;return `<button data-act="search-open-artist" data-id="${a.id}" data-testid="search-result-artist-${a.id}" class="press flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-white/5"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/12">${img(a.image,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${hlMatch(a.name,q)}</p><p class="clamp-1 text-xs text-white/50">${esc(a.role||'Music Artist')} \u00B7 ${cnt} track${cnt!==1?'s':''}</p></div><i data-lucide="chevron-right" class="shrink-0 text-white/30" style="width:16px;height:16px"></i></button>`;}).join("")}</div>`;
+    return `<div class="space-y-1 pb-2">${list.map(a=>{const cnt=artistSongs(a.id).length;return `<button data-act="search-open-artist" data-id="${a.id}" data-testid="search-result-artist-${a.id}" class="press flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-white/5"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/12">${img(a.image,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${hlMatch(a.name,q)}</p><p class="clamp-1 text-xs text-white/50">${esc(a.role||'Music Artist')} \u00B7 ${cnt} track${cnt!==1?'s':''}</p></div><i data-lucide="chevron-right" class="shrink-0 text-white/30" style="width:16px;height:16px"></i></button>`;}).join("")}</div>`;
   }
   if(tab==="lyrics"){
     const list=searchLyricsList(q); if(!list.length) return searchEmpty(q);
-    return `<div class="space-y-1.5">${list.map(r=>`<button data-act="search-play-lyric" data-id="${r.song.id}" data-t="${r.t}" data-testid="search-result-lyrics-${r.song.id}" class="press flex w-full items-start gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-white/5"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-xl">${img(r.song.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(r.song.title)} <span class="text-white/50">\u00B7 ${esc(r.song.artist)}</span></p><p class="clamp-2 mt-0.5 text-sm text-white/70">\u201C${hlMatch(r.line,q)}\u201D</p></div></button>`).join("")}</div>`;
+    return `<div class="space-y-1.5 pb-2">${list.map(r=>{const liked=isFavLyric(r.song.id,r.i);return `<div data-testid="search-result-lyrics-${r.song.id}-${r.i}" class="group flex items-start gap-3 rounded-2xl p-2.5 transition-colors hover:bg-white/5"><button data-act="search-play-lyric" data-id="${r.song.id}" data-i="${r.i}" data-t="${r.t}" class="h-11 w-11 shrink-0 overflow-hidden rounded-xl">${img(r.song.coverArt,'h-full w-full object-cover')}</button><button data-act="search-play-lyric" data-id="${r.song.id}" data-i="${r.i}" data-t="${r.t}" class="min-w-0 flex-1 text-left"><p class="clamp-1 text-xs text-white/55">${esc(r.song.title)} \u00B7 ${esc(r.song.artist)}</p><p class="clamp-2 mt-0.5 text-sm text-white/85">\u201C${hlMatch(r.line,q)}\u201D</p></button><div class="flex shrink-0 items-center gap-1"><button data-act="search-fav-lyric" data-id="${r.song.id}" data-i="${r.i}" data-testid="search-fav-lyric-${r.song.id}-${r.i}" aria-label="Favorite lyric" class="tr-like${liked?' is-liked':''} press grid h-9 w-9 place-items-center rounded-full text-white/55 hover:bg-white/10"><i data-lucide="heart" style="width:15px;height:15px"></i></button><button data-act="search-make-card" data-id="${r.song.id}" data-i="${r.i}" data-testid="search-make-card-${r.song.id}-${r.i}" aria-label="Make lyric card" class="press grid h-9 w-9 place-items-center rounded-full text-white/55 hover:bg-white/10"><i data-lucide="image" style="width:15px;height:15px"></i></button></div></div>`;}).join("")}</div>`;
   }
-  const list=searchSongsList(q); if(!list.length) return searchEmpty(q);
-  return `<div class="space-y-1">${list.map(s=>{const fav=isFav(s.id);const active=curSong()&&curSong().id===s.id;return `<div data-testid="search-result-song-${s.id}" class="group flex items-center gap-2 rounded-2xl p-2 transition-colors hover:bg-white/5"><button data-act="search-play" data-id="${s.id}" class="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button><button data-act="search-play" data-id="${s.id}" class="min-w-0 flex-1 text-left"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${hlMatch(s.title,q)}</p><p class="clamp-1 text-xs text-white/55">${hlMatch(s.artist,q)}</p></button><button data-act="like" data-id="${s.id}" aria-label="Like" class="tr-like${fav?' is-liked':''} press grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button><button data-act="search-song-info" data-id="${s.id}" aria-label="Details" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="info" style="width:16px;height:16px"></i></button></div>`;}).join("")}</div>`;
+  let list=searchSongsList(q);
+  if(state.searchFilter==="picks") list=list.filter(s=>s.treeshChoice);
+  else if(state.searchFilter==="explicit") list=list.filter(s=>s.explicit);
+  else if(state.searchFilter==="clean") list=list.filter(s=>!s.explicit);
+  if(!list.length) return searchEmpty(q);
+  return `<div class="space-y-1 pb-2">${list.map(s=>{const fav=isFav(s.id);const active=curSong()&&curSong().id===s.id;return `<div data-testid="search-result-song-${s.id}" class="group flex items-center gap-2 rounded-2xl p-2 transition-colors hover:bg-white/5"><button data-act="search-play" data-id="${s.id}" class="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button><button data-act="search-play" data-id="${s.id}" class="min-w-0 flex-1 text-left"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${hlMatch(s.title,q)}${s.explicit?' <span class="ml-1 align-middle rounded bg-white/15 px-1 text-[9px] font-bold text-white/70">E</span>':''}</p><p class="clamp-1 text-xs text-white/55">${hlMatch(s.artist,q)}</p></button><button data-act="like" data-id="${s.id}" aria-label="Like" class="tr-like${fav?' is-liked':''} press grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button><button data-act="search-song-info" data-id="${s.id}" aria-label="Details" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="info" style="width:16px;height:16px"></i></button></div>`;}).join("")}</div>`;
 }
+function searchFilterBar(){ if(state.searchTab!=="songs") return ""; const F=[["all","All"],["picks","Picks"],["explicit","Explicit"],["clean","Clean"]]; const chip=(id,l)=>{ const on=state.searchFilter===id; return `<button data-act="search-filter" data-f="${id}" data-testid="search-filter-${id}" aria-pressed="${on}" class="press h-8 shrink-0 rounded-full px-3 text-xs font-semibold transition-colors ${on?'bg-[color:var(--treesh-purple)] text-white':'border border-white/12 bg-white/5 text-white/65 hover:bg-white/10'}">${l}</button>`; }; const S=[["relevance","Top"],["title","A\u2013Z"],["artist","Artist"]]; const sortBtns=S.map(([id,l])=>{const on=state.searchSort===id;return `<button data-act="search-sort" data-s="${id}" data-testid="search-sort-${id}" aria-pressed="${on}" class="press h-8 shrink-0 rounded-full px-2.5 text-xs font-semibold transition-colors ${on?'bg-white/15 text-white':'text-white/50 hover:text-white'}">${l}</button>`;}).join(""); return `<div class="no-scrollbar flex items-center gap-1.5 overflow-x-auto">${F.map(f=>chip(f[0],f[1])).join("")}<span class="mx-1 h-4 w-px shrink-0 bg-white/10"></span>${sortBtns}</div>`; }
+function searchRecentBar(){ const rc=state.recentSearches||[]; if((state.searchQuery||"").trim()||!rc.length) return ""; return `<div class="mb-2"><div class="mb-1.5 flex items-center justify-between px-0.5"><p class="text-[11px] font-semibold uppercase tracking-widest text-white/40">Recently searched</p><button data-act="search-recent-clear" data-testid="search-recent-clear-button" class="text-[11px] text-white/45 hover:text-white/80">Clear</button></div><div class="no-scrollbar flex gap-2 overflow-x-auto pb-0.5">${rc.map((r,i)=>`<button data-act="search-recent-chip" data-q="${esc(r)}" data-testid="search-recent-chip-${i}" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"><i data-lucide="clock" style="width:13px;height:13px"></i>${esc(r)}</button>`).join("")}</div></div>`; }
 function searchTabBtn(id,label){ const on=state.searchTab===id; return `<button data-act="search-tab" data-tab="${id}" data-testid="search-toggle-${id}" aria-pressed="${on}" class="press h-10 rounded-xl text-sm font-semibold transition-colors ${on?'bg-white/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.10)]':'text-white/60 hover:text-white'}">${label}</button>`; }
-function updateSearchTabs(){ ["songs","artists","lyrics"].forEach(id=>{ const b=$(`#searchlay [data-tab="${id}"]`); if(b){ const on=state.searchTab===id; b.setAttribute("aria-pressed",on); b.className=`press h-10 rounded-xl text-sm font-semibold transition-colors ${on?'bg-white/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.10)]':'text-white/60 hover:text-white'}`; } }); const inp=$("#search-input"); if(inp) inp.placeholder="Search "+state.searchTab+"\u2026"; }
-function refreshSearchResults(){ const r=$("#search-results"); if(r){ r.innerHTML=searchResultsHtml(); icons(); } const cb=$('#searchlay [data-act="search-clear"]'); if(cb) cb.classList.toggle("hidden",!state.searchQuery); }
+function updateSearchTabs(){ ["songs","artists","lyrics"].forEach(id=>{ const b=$(`#searchlay [data-tab="${id}"]`); if(b){ const on=state.searchTab===id; b.setAttribute("aria-pressed",on); b.className=`press h-10 rounded-xl text-sm font-semibold transition-colors ${on?'bg-white/12 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.10)]':'text-white/60 hover:text-white'}`; } }); const fw=$("#search-filter-wrap"); if(fw){ fw.innerHTML=searchFilterBar(); fw.classList.toggle("hidden", state.searchTab!=="songs"); } const inp=$("#search-input"); if(inp) inp.placeholder=searchPlaceholder(); icons(); }
+function searchPlaceholder(){ return state.searchTab==="artists"?"Search artists\u2026":state.searchTab==="lyrics"?"Search lyrics\u2026":"Search songs or \u2018song by artist\u2019\u2026"; }
+function refreshSearchResults(){ const r=$("#search-results"); if(r){ r.innerHTML=searchResultsHtml(); } const rw=$("#search-recent-wrap"); if(rw){ rw.innerHTML=searchRecentBar(); } const fw=$("#search-filter-wrap"); if(fw){ fw.innerHTML=searchFilterBar(); fw.classList.toggle("hidden", state.searchTab!=="songs"); } icons(); const cb=$('#searchlay [data-act="search-clear"]'); if(cb) cb.classList.toggle("hidden",!state.searchQuery); }
 function renderSearchOverlay(){
   const c=$("#searchlay"); const was=!!c.querySelector("[data-search-root]");
-  c.innerHTML=`<div data-search-root data-testid="search-overlay" class="fixed inset-0 z-[80] ${was?'':'tr-fade-in'}">
-    <div data-act="search-close" class="absolute inset-0 bg-[#08080a]/92 backdrop-blur-xl"></div>
-    <div class="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[calc(14px+env(safe-area-inset-top))] sm:px-6">
-      <p class="font-display text-lg uppercase tracking-[0.14em] text-white/90">Search</p>
-      <button data-act="search-close" aria-label="Close search" data-testid="search-close-button" class="press grid h-11 w-11 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="x" style="width:20px;height:20px"></i></button>
-    </div>
-    <div id="search-results" class="no-scrollbar absolute inset-x-0 top-[calc(60px+env(safe-area-inset-top))] bottom-[calc(196px+env(safe-area-inset-bottom))] mx-auto max-w-2xl overflow-y-auto px-4 sm:px-6">${searchResultsHtml()}</div>
-    <div id="search-dock" class="absolute inset-x-0 bottom-0 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] sm:px-6 ${was?'':'tr-dock-in'}">
-      <div class="mx-auto max-w-2xl rounded-3xl glass-strong border border-white/12 p-3 shadow-[var(--treesh-shadow)]">
-        <div class="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-white/5 p-1" data-testid="search-segmented">${searchTabBtn('songs','Songs')}${searchTabBtn('artists','Artists')}${searchTabBtn('lyrics','Lyrics')}</div>
-        <div class="relative mt-2.5"><i data-lucide="search" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" style="width:16px;height:16px"></i><input id="search-input" data-testid="search-overlay-input" value="${esc(state.searchQuery)}" placeholder="Search ${esc(state.searchTab)}\u2026" autocomplete="off" class="h-12 w-full rounded-2xl border border-white/12 bg-white/[0.07] pl-10 pr-10 text-white placeholder:text-white/40 outline-none focus:border-white/25" /><button data-act="search-clear" aria-label="Clear" data-testid="search-clear-button" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white ${state.searchQuery?'':'hidden'}"><i data-lucide="x" style="width:16px;height:16px"></i></button></div>
+  c.innerHTML=`<div data-search-root data-testid="search-overlay" class="fixed inset-0 z-[80] flex flex-col ${was?'':'search-enter'}">
+    <div data-act="search-close" class="search-backdrop absolute inset-0 bg-[#08080a]/92 backdrop-blur-lg"></div>
+    <div class="search-content relative z-10 flex min-h-0 flex-1 flex-col">
+      <div class="flex shrink-0 items-center justify-between px-4 pt-[calc(14px+env(safe-area-inset-top))] sm:px-6">
+        <p class="font-display text-lg uppercase tracking-[0.14em] text-white/90">Search</p>
+        <button data-act="search-close" aria-label="Close search" data-testid="search-close-button" class="press grid h-11 w-11 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="x" style="width:20px;height:20px"></i></button>
+      </div>
+      <div id="search-results" class="no-scrollbar mx-auto w-full max-w-2xl flex-1 overflow-y-auto px-4 pt-3 sm:px-6">${searchResultsHtml()}</div>
+      <div id="search-dock" class="shrink-0 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-2 sm:px-6">
+        <div class="mx-auto max-w-2xl">
+          <div id="search-recent-wrap">${searchRecentBar()}</div>
+          <div class="rounded-3xl glass-strong border border-white/12 p-3 shadow-[var(--treesh-shadow)]">
+            <div class="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-white/5 p-1" data-testid="search-segmented">${searchTabBtn('songs','Songs')}${searchTabBtn('artists','Artists')}${searchTabBtn('lyrics','Lyrics')}</div>
+            <div id="search-filter-wrap" class="mt-2 ${state.searchTab==='songs'?'':'hidden'}">${searchFilterBar()}</div>
+            <div class="relative mt-2.5"><i data-lucide="search" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" style="width:16px;height:16px"></i><input id="search-input" data-testid="search-overlay-input" value="${esc(state.searchQuery)}" placeholder="${esc(searchPlaceholder())}" autocomplete="off" class="h-12 w-full rounded-2xl border border-white/12 bg-white/[0.07] pl-10 pr-10 text-white placeholder:text-white/40 outline-none focus:border-white/25" /><button data-act="search-clear" aria-label="Clear" data-testid="search-clear-button" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white ${state.searchQuery?'':'hidden'}"><i data-lucide="x" style="width:16px;height:16px"></i></button></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>`;
@@ -1201,7 +1225,7 @@ function renderSearchOverlay(){
   syncScrollLock();
 }
 function openSearch(){ state.searchOpen=true; renderSearchOverlay(); }
-function closeSearch(instant){ const c=$("#searchlay"); const root=c?c.querySelector("[data-search-root]"):null; state.searchOpen=false; state.searchQuery=""; detachSearchViewport(); if(!c){ return; } if(instant||!root){ c.innerHTML=""; syncScrollLock(); return; } root.style.pointerEvents="none"; root.classList.remove("tr-fade-in"); root.classList.add("tr-fade-out"); const dock=root.querySelector("#search-dock"); if(dock) dock.classList.remove("tr-dock-in"); syncScrollLock(); setTimeout(()=>{ if(!state.searchOpen && root.parentNode) root.remove(); }, 240); }
+function closeSearch(instant){ const c=$("#searchlay"); const root=c?c.querySelector("[data-search-root]"):null; state.searchOpen=false; state.searchQuery=""; detachSearchViewport(); if(!c){ return; } if(instant||!root){ c.innerHTML=""; syncScrollLock(); return; } root.style.pointerEvents="none"; root.classList.remove("search-enter"); root.classList.add("search-exit"); const dock=root.querySelector("#search-dock"); if(dock) dock.classList.remove("tr-dock-in"); syncScrollLock(); setTimeout(()=>{ if(!state.searchOpen && root.parentNode) root.remove(); }, 200); }
 let _svpHandler=null;
 function attachSearchViewport(){ if(!window.visualViewport) return; detachSearchViewport(); _svpHandler=()=>{ const dock=$("#search-dock"); if(!dock||!window.visualViewport) return; const vv=window.visualViewport; const kb=Math.max(0, window.innerHeight - vv.height - vv.offsetTop); dock.style.transform = kb>2 ? `translateY(-${kb}px)` : ""; }; window.visualViewport.addEventListener("resize",_svpHandler); window.visualViewport.addEventListener("scroll",_svpHandler); }
 function detachSearchViewport(){ if(_svpHandler&&window.visualViewport){ window.visualViewport.removeEventListener("resize",_svpHandler); window.visualViewport.removeEventListener("scroll",_svpHandler); } _svpHandler=null; }
@@ -2076,6 +2100,7 @@ function renderSidebarLibrary(){ const el=document.getElementById("sidebar-libra
 function saveFavLyrics(){ LS.set("treesh_fav_lyrics", state.favLyrics); }
 function isFavLyric(songId,i){ return state.favLyrics.some(x=>x.songId===songId && x.i===i); }
 function favLyricsForSong(songId){ return state.favLyrics.filter(x=>x.songId===songId).sort((a,b)=>a.i-b.i); }
+function studioLines(songId){ const favs=favLyricsForSong(songId); const picked=(state.studio&&state.studio.songId===songId&&state.studio.picked)?state.studio.picked:[]; const map={}; favs.forEach(l=>{ map[l.i]=l; }); picked.forEach(l=>{ if(map[l.i]==null) map[l.i]=l; }); return Object.values(map).sort((a,b)=>a.i-b.i); }
 function toggleFavLyric(songId,i){
   const s=SONG_BY_ID[songId]; if(!s) return;
   const idx=state.favLyrics.findIndex(x=>x.songId===songId && x.i===i);
@@ -2102,7 +2127,7 @@ function openLyricStudio(songId){
   const s=SONG_BY_ID[songId]; if(!s) return;
   const existed=!!$("#modal [data-studio-root]");
   if(!state.studio || state.studio.songId!==songId) state.studio={songId, theme:0};
-  const fav=favLyricsForSong(songId);
+  const fav=studioLines(songId);
   const themeSwatches=CARD_THEMES.map((t,i)=>`<button data-act="card-theme" data-i="${i}" aria-label="${t.name}" class="h-9 w-9 rounded-full border-2 transition ${i===state.studio.theme?'border-white scale-110':'border-white/20 hover:border-white/50'}" style="background:linear-gradient(135deg,${t.a},${t.b})"></button>`).join("");
   const lineList = fav.length
     ? fav.map(l=>`<div class="flex items-start gap-2 rounded-lg bg-white/5 px-2.5 py-2"><p class="flex-1 text-sm text-white/85">${esc(l.text)}</p><button data-act="studio-remove" data-i="${l.i}" aria-label="Remove" class="press mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"><i data-lucide="x" style="width:14px;height:14px"></i></button></div>`).join("")
@@ -2136,7 +2161,7 @@ function wrapCanvasText(ctx, lines, maxW){
 function drawLyricCard(){
   const cv=$("#lyric-canvas"); if(!cv) return;
   const s=SONG_BY_ID[state.studio.songId]; if(!s) return;
-  const lines=favLyricsForSong(s.id).map(x=>x.text);
+  const lines=studioLines(s.id).map(x=>x.text);
   const th=CARD_THEMES[state.studio.theme]||CARD_THEMES[0];
   const ctx=cv.getContext("2d"); const W=1080,H=1080;
   const draw=()=>{
@@ -2174,7 +2199,7 @@ function downloadLyricCard(){
   cardBlob(blob=>{ if(!blob) return; const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`treesh-lyric-${slug(s.title)||"card"}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500); toast("Lyric card saved"); });
 }
 async function shareLyricCard(){
-  const s=SONG_BY_ID[state.studio.songId]; const lines=favLyricsForSong(s.id).map(x=>x.text);
+  const s=SONG_BY_ID[state.studio.songId]; const lines=studioLines(s.id).map(x=>x.text);
   cardBlob(async blob=>{
     if(!blob) return;
     const file=new File([blob], `treesh-lyric-${slug(s.title)||"card"}.png`, {type:"image/png"});
@@ -3105,12 +3130,16 @@ document.addEventListener("click", e=>{
     case "open-search": openSearch(); break;
     case "search-close": closeSearch(); break;
     case "search-tab": { state.searchTab=t.dataset.tab; updateSearchTabs(); refreshSearchResults(); break; }
+    case "search-filter": { state.searchFilter=t.dataset.f||"all"; refreshSearchResults(); break; }
+    case "search-sort": { state.searchSort=t.dataset.s||"relevance"; refreshSearchResults(); break; }
     case "search-recent-chip": { state.searchQuery=t.dataset.q||""; const si=$("#search-input"); if(si) si.value=state.searchQuery; refreshSearchResults(); break; }
     case "search-recent-clear": { state.recentSearches=[]; LS.set("treesh_recent_searches",[]); refreshSearchResults(); break; }
     case "search-clear": { state.searchQuery=""; const si=$("#search-input"); if(si){ si.value=""; si.focus(); } refreshSearchResults(); break; }
     case "search-play": { const s=SONG_BY_ID[id]; if(s){ const list=searchSongsList(state.searchQuery); playSong(s, list.length?list:[s]); pushRecent(state.searchQuery); closeSearch(true); } break; }
     case "search-open-artist": { pushRecent(state.searchQuery); closeSearch(true); navigate("artist",id); break; }
     case "search-play-lyric": { const s=SONG_BY_ID[id]; if(s){ const tt=parseFloat(t.dataset.t)||0; playSong(s,[s]); pushRecent(state.searchQuery); state.npOpen=true; state.showLyrics=true; closeSearch(true); renderNP(); setTimeout(()=>seekTo(tt),600); } break; }
+    case "search-fav-lyric": { const sid=id, i=parseInt(t.dataset.i); toggleFavLyric(sid,i); const liked=isFavLyric(sid,i); const btn=t.closest('[data-act="search-fav-lyric"]'); if(btn) btn.classList.toggle("is-liked",liked); toast(liked?"Lyric favorited":"Lyric removed"); break; }
+    case "search-make-card": { const sid=id, i=parseInt(t.dataset.i); const s=SONG_BY_ID[sid]; if(s){ const line=(s.lyrics||[])[i]; state.studio={songId:sid, theme:0, picked: line?[{songId:sid,i,t:line.t,text:line.text,title:s.title,artist:s.artist,coverArt:s.coverArt}]:[]}; closeSearch(true); openLyricStudio(sid); } break; }
     case "search-song-info": openMetadata(id); break;
     case "m-play-next": { const s=SONG_BY_ID[id]; const ok=addToQueue(s,true); toast(ok===false?"Already in queue":"Playing next",s.title); closeModal(); break; }
     case "m-add-queue": { const s=SONG_BY_ID[id]; const ok=addToQueue(s,false); toast(ok===false?"Already in queue":"Added to queue",s.title); closeModal(); break; }
@@ -3123,7 +3152,7 @@ document.addEventListener("click", e=>{
     case "lyric-note-remove": { setLyricNote(t.dataset.id, +t.dataset.i, ''); closeModal(); if(state.npOpen) renderNP(); toast("Note removed"); break; }
     case "fav-lyric": { const s=curSong(); if(s){ const i=+t.dataset.li; const willFav=!isFavLyric(s.id,i); const r=t.getBoundingClientRect(); heartBurst(r.left+r.width/2, r.top+r.height/2, willFav); toggleFavLyric(s.id,i); const on=isFavLyric(s.id,i); t.dataset.fav=on?"1":""; t.classList.toggle("opacity-100",on); t.classList.toggle("is-liked",on); const sv=t.querySelector("svg"); if(sv){ sv.classList.remove("heart-pop","heart-unpop"); void sv.offsetWidth; sv.classList.add(on?"heart-pop":"heart-unpop"); } toast(on?"Lyric favorited":"Removed from favorites"); } break; }
     case "open-lyric-studio": { const s=curSong(); if(s) openLyricStudio(s.id); break; }
-    case "studio-remove": { toggleFavLyric(state.studio.songId, +t.dataset.i); openLyricStudio(state.studio.songId); break; }
+    case "studio-remove": { const ri=+t.dataset.i; if(state.studio&&state.studio.picked) state.studio.picked=state.studio.picked.filter(x=>x.i!==ri); if(isFavLyric(state.studio.songId,ri)) toggleFavLyric(state.studio.songId, ri); openLyricStudio(state.studio.songId); break; }
     case "card-theme": state.studio.theme=+t.dataset.i; openLyricStudio(state.studio.songId); break;
     case "card-download": downloadLyricCard(); break;
     case "card-share": shareLyricCard(); break;
