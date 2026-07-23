@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Treesh 3.0 — Music to Live For</title>
 <meta name="description" content="Treesh 3.0 — stream the underground. Music to Live For." />
 <meta name="theme-color" content="#0a0a0b" />
@@ -217,6 +217,14 @@
   @media (max-width:640px){ input:not([type=range]),textarea,select{ font-size:16px !important; } }
   body.tr-locked{ overflow:hidden; }
 
+  /* --- Global UX protections: no accidental zoom, no text selection (except editable), no image drag --- */
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+  body{ touch-action:manipulation; overscroll-behavior:none; }
+  *{ -webkit-user-select:none; -moz-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  input, textarea, select, [contenteditable="true"], [contenteditable=""], .selectable, .selectable *{ -webkit-user-select:text; -moz-user-select:text; user-select:text; -webkit-touch-callout:default; }
+  img{ -webkit-user-drag:none; user-drag:none; -webkit-touch-callout:none; }
+
+
   /* reusable panel + overlay motion */
   @keyframes trPanelIn{ from{opacity:0;transform:translateY(10px) scale(.98)} to{opacity:1;transform:none} }
   @keyframes trPanelOut{ from{opacity:1;transform:none} to{opacity:0;transform:translateY(10px) scale(.98)} }
@@ -234,6 +242,7 @@
   .kar-line-in{ animation:trLineSwap .40s var(--treesh-ease) both; }
   .kar-ch{ --cp:0; background-image:linear-gradient(90deg,var(--treesh-purple),var(--treesh-purple) calc(var(--cp)*100%),rgba(255,255,255,0.26) calc(var(--cp)*100%),rgba(255,255,255,0.26)); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; will-change:background-image; }
   .kar-ch.lit{ filter:drop-shadow(0 0 15px var(--treesh-purple-soft)); }
+  html.theme-light [data-np-root]:not(.np-kar-full) .kar-ch{ background-image:linear-gradient(90deg,var(--treesh-purple),var(--treesh-purple) calc(var(--cp)*100%),rgba(17,17,20,0.30) calc(var(--cp)*100%),rgba(17,17,20,0.30)); }
   html.perf-mode .kar-ch.lit{ filter:none; }
   /* onboarding / welcome */
   #modal input[type=date]{ min-width:0; max-width:100%; box-sizing:border-box; }
@@ -415,8 +424,35 @@
   html.theme-light .instrum-cell{ background:rgba(0,0,0,0.05); border-color:rgba(0,0,0,0.08); }
   html.theme-light .instrum-cell:hover{ background:rgba(0,0,0,0.09); }
   html.theme-light .instrum-cell.beat4{ box-shadow:inset 2px 0 0 rgba(0,0,0,0.12); }
+  html.theme-light .instrum-cell.on{ background:var(--tr-cell,var(--treesh-purple)) !important; border-color:transparent !important; }
+  html.theme-light .instrum-cell.on.beat4{ box-shadow:0 0 12px var(--tr-cell,var(--treesh-purple)), inset 2px 0 0 rgba(255,255,255,0.35); }
   html.theme-light .i-slider,html.theme-light .fader-v{ background:rgba(0,0,0,0.14); }
   html.theme-light .i-meter{ background:rgba(0,0,0,0.12); }
+  /* floating menu surface (adapts to theme) */
+  .imenu-surface{ background:rgba(20,20,26,0.97); }
+  html.theme-light .imenu-surface{ background:rgba(255,255,255,0.98); }
+  /* personalization: interface glow + animated background */
+  html.no-glow .glow-purple{ box-shadow:none !important; }
+  html.no-glow .i-play-btn.playing{ box-shadow:none !important; }
+  html.no-anim-bg #stars{ display:none !important; }
+  /* lock screen */
+  #lock .lock-dot{ background:transparent; border:1.5px solid rgba(255,255,255,0.35); transition:background .18s var(--treesh-ease), transform .18s var(--treesh-ease), border-color .18s, box-shadow .18s; }
+  #lock .lock-dot.on{ background:var(--treesh-purple); border-color:transparent; transform:scale(1.18); box-shadow:0 0 16px var(--treesh-purple-soft); }
+  html.theme-light #lock .lock-dot{ border-color:rgba(0,0,0,0.28); }
+  #lock .lock-key{ background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); transition:transform .12s var(--treesh-ease), background .15s; }
+  #lock .lock-key:hover{ background:rgba(255,255,255,0.12); }
+  #lock .lock-key:active{ transform:scale(.9); background:rgba(255,255,255,0.2); }
+  html.theme-light #lock .lock-key{ background:rgba(0,0,0,0.04); border-color:rgba(0,0,0,0.08); }
+  html.theme-light #lock .lock-key:hover{ background:rgba(0,0,0,0.07); }
+  html.theme-light #lock .lock-key span{ color:#17171b !important; }
+  @keyframes lockScreenIn{ from{ opacity:0 } to{ opacity:1 } }
+  @keyframes lockScreenOut{ from{ opacity:1; filter:blur(0) } to{ opacity:0; transform:scale(1.03); filter:blur(6px) } }
+  @keyframes lockCardIn{ from{ opacity:0; transform:translateY(30px) scale(.95) } to{ opacity:1; transform:none } }
+  @keyframes lockShakeAnim{ 0%,100%{ transform:translateX(0) } 15%{ transform:translateX(-9px) } 30%{ transform:translateX(9px) } 45%{ transform:translateX(-6px) } 60%{ transform:translateX(6px) } 75%{ transform:translateX(-3px) } }
+  #lock .lock-screen.lock-enter{ animation:lockScreenIn .4s ease both; }
+  #lock .lock-screen.lock-enter .lock-inner{ animation:lockCardIn .6s cubic-bezier(.22,1,.36,1) both; }
+  #lock .lock-screen.lock-exiting{ animation:lockScreenOut .34s ease forwards; transform-origin:center; }
+  #lock .lock-shake{ animation:lockShakeAnim .45s ease; }
   /* fullscreen studio overlay */
   #instrum-fs:empty{ display:none !important; }
   #instrum-fs{ position:fixed; inset:0; z-index:150; }
@@ -562,6 +598,13 @@
   #app h1,#app h2,#app h3,#app p,#app span,#np h1,#np p{ overflow-wrap:anywhere; }
   .clamp-1,.clamp-2{ overflow-wrap:anywhere; word-break:break-word; }
 
+  /* --- Native date inputs sit as a transparent overlay inside .tdf; keep them from forcing width --- */
+  input[type="date"]{ min-width:0; max-width:100%; box-sizing:border-box; }
+  input[type="date"].tdf-native{ -webkit-appearance:none; appearance:none; color:transparent; }
+  input[type="date"].tdf-native::-webkit-calendar-picker-indicator{ opacity:0; }
+  input[type="date"].tdf-native::-webkit-date-and-time-value{ color:transparent; }
+
+
 </style>
 </head>
 <body class="min-h-[100dvh] overflow-x-hidden">
@@ -574,7 +617,9 @@
   <div id="searchlay"></div>
   <div id="modal"></div>
   <div id="instrum-fs"></div>
-  <div id="toast" class="fixed left-1/2 top-4 z-[120] flex -translate-x-1/2 flex-col items-center gap-2"></div>
+  <div id="lock"></div>
+  <div id="imenu"></div>
+  <div id="toast" class="fixed left-1/2 top-4 z-[320] flex -translate-x-1/2 flex-col items-center gap-2"></div>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <script>
@@ -652,7 +697,7 @@ function parseSongs(doc){
       videographer: attr(el,"data-videographer"), featuring: attr(el,"data-featuring"),
       album: attr(el,"data-album"), label: attr(el,"data-label"),
       coverArt: attr(el,"data-coverart"), audioUrl, videoId: attr(el,"data-video"),
-      bio: attr(el,"data-bio"),
+      bio: attr(el,"data-bio"), desc: attr(el,"data-desc"),
       explicit: el.hasAttribute("data-explicit"),
       treeshChoice: el.hasAttribute("data-treeshChoice") || el.hasAttribute("data-exclusive"),
       exclusive: el.hasAttribute("data-exclusive"),
@@ -800,6 +845,8 @@ const state = {
   bgImage: LS.get("treesh_bg_image", ""),
   bgOverlay: LS.get("treesh_bg_overlay", true),
   textSize: LS.get("treesh_text_size", "md"),
+  animBg: LS.get("treesh_anim_bg", true),
+  uiGlow: LS.get("treesh_ui_glow", true),
   sleepMin: LS.get("treesh_sleep", 0), sleep: false,
   contextList: [],
   // player
@@ -830,6 +877,7 @@ const state = {
   explainAuto: LS.get("treesh_explain_auto", false),
   viz: Object.assign({enabled:true, style:"bars", color:"accent", customColor:"#9328ff", mirror:true, glow:true, sensitivity:1.3, bgStyle:"bars"}, LS.get("treesh_viz", {})),
   beats: LS.get("treesh_beats", []),
+  userPresets: LS.get("treesh_user_presets", []),
   instrum: null,
   stars: LS.get("treesh_stars", {points:0, lastDaily:null, streak:0, newSongs:{}, minToday:0, min30Date:null, secAccum:0, totalMin:0, games:0, beats:0, log:[]}),
   navColor: LS.get("treesh_nav_color", ""),
@@ -839,6 +887,10 @@ const state = {
   customFont: LS.get("treesh_custom_font", null),
   notifInNav: LS.get("treesh_notif_nav", false),
   label: LS.get("treesh_label", {text:"#ffffff", bg:"#000000", bgA:0.5, border:true, borderColor:"#ffffff", borderA:0.18, shadow:true}),
+  lock: LS.get("treesh_lock", null),   /* {type:'pin'|'password', secret:<b64>, len:<num>, appLock:bool, pages:[...] } */
+  appUnlocked: false,
+  pageUnlocked: [],
+  _lockActive: false, _lockMode: null, _lockView: null, _lockParam: null, _lockInput: "", _lockErr: "", _lockShow: false,
 };
 
 /* one-time default migration: move users still on the old default background ("space") to the new default ("mono"). Anyone who explicitly picked another background is left untouched. */
@@ -891,7 +943,7 @@ function applyLabelStyle(){ const L=state.label||{}; const rs=document.documentE
 
 /* ---------- scroll lock (blocks background scroll under overlays on mobile) ---------- */
 let _locked=false, _scrollLockY=0;
-function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
+function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
 function syncScrollLock(){ const on=overlaysOpen(); if(on===_locked) return; _locked=on; const b=document.body; if(on){ _scrollLockY=window.scrollY||window.pageYOffset||0; b.style.top="-"+_scrollLockY+"px"; b.style.left="0"; b.style.right="0"; b.style.width="100%"; b.style.position="fixed"; b.classList.add("tr-locked"); } else { b.classList.remove("tr-locked"); b.style.position=""; b.style.top=""; b.style.left=""; b.style.right=""; b.style.width=""; window.scrollTo(0,_scrollLockY); } }
 
 /* ---------- Starlites reward points ---------- */
@@ -966,8 +1018,10 @@ function applyTheme(){
   h.classList.toggle("theme-dark", state.theme!=="light");
   const meta=document.querySelector('meta[name="theme-color"]'); if(meta) meta.setAttribute("content", state.theme==="light"?"#fefefe":"#121212");
   applyTextSize();
+  applyUiPrefs();
   renderBackground();
 }
+function applyUiPrefs(){ const h=document.documentElement; h.classList.toggle("no-glow", !state.uiGlow); h.classList.toggle("no-anim-bg", !state.animBg); }
 
 /* ---------- SLEEP TIMER (ambient now-playing clock after inactivity) ---------- */
 let _sleepTO=null,_sleepClk=null,_sleepSig="",_lastMove=0;
@@ -1081,12 +1135,14 @@ function openMetadata(songId){
   const release=[metaRow("Date",s.creationDate),metaRow("Album",s.album),metaRow("Label",s.label)].join("");
   const credits=[metaRow("Artist",s.artist),metaRow("Featured",feat),metaRow("Written by",s.writtenBy),metaRow("Producer",s.producer),metaRow("Mixed by",s.mixer),metaRow("Videographer",s.videographer)].join("");
   const details=[metaRow("Genre",s.genre),metaRow("Mood",mood),metaRow("Duration",dur),s.explicit?metaRow("Rating","Explicit"):"",s.treeshChoice?metaRow("Badge","Treesh\u2019s Pick"):""].join("");
-  const empty=!release.trim()&&!credits.trim()&&!details.trim();
+  const aboutText=((s.desc||s.bio||"")+"").trim();
+  const about=aboutText?`<p class="py-3 text-sm leading-relaxed text-white/80" data-testid="metadata-about">${esc(aboutText)}</p>`:"";
+  const empty=!release.trim()&&!credits.trim()&&!details.trim()&&!about.trim();
   const inner=`<div class="mb-2 flex items-center justify-between gap-3">
       <div class="flex min-w-0 items-center gap-3"><div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 font-display text-[13px] uppercase tracking-[0.14em] text-white/90">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60">${esc(s.artist)}</p></div></div>
       <button data-act="modal-close" aria-label="Close" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button>
     </div>
-    <div class="mt-1 max-h-[68vh] overflow-y-auto no-scrollbar pr-1">${empty?`<div class="flex flex-col items-center gap-2 py-10 text-center text-white/50"><i data-lucide="info" style="width:26px;height:26px"></i><p class="text-sm">No additional details available for this track.</p></div>`:`${metaSection("Release",release)}${metaSection("Credits",credits)}${metaSection("Details",details)}`}</div>
+    <div class="mt-1 max-h-[68vh] overflow-y-auto no-scrollbar pr-1">${empty?`<div class="flex flex-col items-center gap-2 py-10 text-center text-white/50"><i data-lucide="info" style="width:26px;height:26px"></i><p class="text-sm">No additional details available for this track.</p></div>`:`${metaSection("About",about)}${metaSection("Release",release)}${metaSection("Credits",credits)}${metaSection("Details",details)}`}</div>
     ${empty?"":`<button data-act="meta-copy" data-id="${s.id}" data-testid="metadata-copy-credits-button" class="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/5 py-3 text-sm font-semibold hover:bg-white/10"><i data-lucide="copy" style="width:16px;height:16px"></i>Copy credits</button>`}`;
   $("#modal").innerHTML=modalWrap(inner,"now-playing-metadata-modal"); icons();
 }
@@ -1463,7 +1519,7 @@ function renderParentalModal(){
   const pinCls="box-border h-12 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-center text-lg font-bold tracking-[0.4em] outline-none focus:border-[color:var(--treesh-purple)]";
   let inner;
   if(step==='dob'){
-    inner=`${head('shield','Guardian verification','Confirm a parent or guardian birth date (18+).')}<label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Guardian birth date</label><input id="parent-dob" type="date" class="box-border h-12 w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-[color:var(--treesh-purple)]">${errHtml}<div class="mt-5 flex justify-end gap-2"><button data-act="modal-close" class="press rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10">Cancel</button><button data-act="parent-dob-next" data-testid="parent-dob-next" class="press rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white glow-purple">Continue</button></div>`;
+    inner=`${head('shield','Guardian verification','Confirm a parent or guardian birth date (18+).')}<label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Guardian birth date</label>${dateFieldHTML({id:'parent-dob',value:'',placeholder:'Select birth date',boxClass:'h-12 rounded-xl border border-white/15 bg-white/5 text-sm'})}${errHtml}<div class="mt-5 flex justify-end gap-2"><button data-act="modal-close" class="press rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10">Cancel</button><button data-act="parent-dob-next" data-testid="parent-dob-next" class="press rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white glow-purple">Continue</button></div>`;
   } else if(step==='setpin'){
     inner=`${head('key-round','Create a Parent PIN','Set a 4-digit PIN. You\u2019ll enter it to unlock explicit content.')}<div class="flex gap-3"><div class="flex-1"><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">New PIN</label><input id="parent-pin1" type="password" inputmode="numeric" maxlength="4" autocomplete="off" data-testid="parent-pin1" class="${pinCls}"></div><div class="flex-1"><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Confirm</label><input id="parent-pin2" type="password" inputmode="numeric" maxlength="4" autocomplete="off" data-testid="parent-pin2" class="${pinCls}"></div></div>${errHtml}<div class="mt-5 flex justify-end gap-2"><button data-act="modal-close" class="press rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10">Cancel</button><button data-act="parent-setpin" data-testid="parent-setpin" class="press rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white glow-purple">Set PIN &amp; unlock</button></div>`;
   } else {
@@ -1472,15 +1528,163 @@ function renderParentalModal(){
   $("#modal").innerHTML=modalWrap(inner,"parental-modal","md"); icons();
   const f=$("#parent-dob")||$("#parent-pin1")||$("#parent-pin"); if(f) setTimeout(()=>{ try{ f.focus(); }catch(e){} },50);
 }
+/* ============================================================
+   APP & PAGE LOCK  (client-side soft lock; PIN or password)
+   ============================================================ */
+const LOCK_PAGES=[["library","Library","library-big"],["artists","Icons","sparkles"],["instrum","Instrum","sliders-horizontal"],["game","Game","gamepad-2"],["settings","Settings","settings"]];
+function lockObf(s){ try{ return btoa(unescape(encodeURIComponent(String(s)))); }catch(e){ return String(s); } }
+function lockIsSet(){ return !!(state.lock && state.lock.secret); }
+function lockCheck(input){ return lockIsSet() && lockObf(input)===state.lock.secret; }
+function lockType(){ return (state.lock&&state.lock.type)||'pin'; }
+function appLockActive(){ return lockIsSet() && !!state.lock.appLock && !state.appUnlocked; }
+function pageIsLocked(view){ const L=state.lock; if(!L||!L.secret) return false; if(state.appUnlocked) return false; if(!(L.pages||[]).includes(view)) return false; return !(state.pageUnlocked||[]).includes(view); }
+function pageLabel(v){ const f=LOCK_PAGES.find(p=>p[0]===v); return f?f[1]:v; }
+function openAppLock(){ state._lockActive=true; state._lockMode='app'; state._lockInput=''; state._lockErr=''; state._lockShow=false; renderLockScreen(); }
+function openPageLock(view,param){ state._lockActive=true; state._lockMode='page'; state._lockView=view; state._lockParam=param||null; state._lockInput=''; state._lockErr=''; state._lockShow=false; renderLockScreen(); }
+function closeLockScreen(cb){ state._lockActive=false; lockExit(cb); }
+function lockExit(cb){ stopLockClock(); const scr=document.querySelector('#lock .lock-screen'); const done=()=>{ state._lockShown=false; state._lockInput=''; state._lockErr=''; const c=document.getElementById('lock'); if(c) c.innerHTML=''; syncScrollLock(); if(cb) cb(); }; if(scr){ scr.classList.remove('lock-enter'); scr.classList.add('lock-exiting'); setTimeout(done,340); } else done(); }
+function startLockClock(){ const upd=()=>{ const c=document.getElementById('lock-clock'); if(!c){ stopLockClock(); return; } const now=new Date(); let h=now.getHours(); const m=now.getMinutes(); let hh=h%12; if(hh===0) hh=12; c.textContent=hh+':'+String(m).padStart(2,'0'); const d=document.getElementById('lock-date'); if(d) d.textContent=now.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'}); }; upd(); if(state._lockClockTimer) return; state._lockClockTimer=setInterval(upd,15000); }
+function stopLockClock(){ if(state._lockClockTimer){ clearInterval(state._lockClockTimer); state._lockClockTimer=null; } }
+function updateLockDots(){ const wrap=document.querySelector('#lock [data-testid="lock-dots"]'); if(wrap){ const n=(state._lockInput||'').length; [...wrap.querySelectorAll('.lock-dot')].forEach((d,i)=>d.classList.toggle('on', i<n)); } if(!state._lockErr){ const err=document.querySelector('#lock [data-testid="lock-error"]'); if(err) err.classList.add('opacity-0'); } }
+function lockSubmit(){ const val = lockType()==='password' ? (($('#lock-pass')&&$('#lock-pass').value)||'') : (state._lockInput||''); if(!val){ state._lockErr='Enter your '+(lockType()==='password'?'password':'PIN')+'.'; state._lockShake=true; renderLockScreen(); return; } if(lockCheck(val)){ lockUnlockSuccess(); } else { state._lockErr='Incorrect '+(lockType()==='password'?'password':'PIN')+'. Try again.'; state._lockInput=''; state._lockShake=true; renderLockScreen(); } }
+function lockUnlockSuccess(){ const mode=state._lockMode; state._lockActive=false; if(mode==='app'){ state.appUnlocked=true; lockExit(()=>toast('Unlocked','Welcome back')); } else { const v=state._lockView, p=state._lockParam; if(!state.pageUnlocked.includes(v)) state.pageUnlocked.push(v); lockExit(()=>navigate(v,p)); } }
+function lockKeyPress(d){ if(lockType()!=='pin') return; const len=(state.lock&&state.lock.len)||4; if((state._lockInput||'').length>=len) return; state._lockInput=(state._lockInput||'')+d; state._lockErr=''; updateLockDots(); if(state._lockInput.length>=len) setTimeout(lockSubmit,160); }
+function lockBackspace(){ state._lockInput=(state._lockInput||'').slice(0,-1); state._lockErr=''; updateLockDots(); }
+function renderLockScreen(){
+  const c=document.getElementById('lock'); if(!c) return;
+  if(!state._lockActive){ c.innerHTML=''; stopLockClock(); return; }
+  const isApp=state._lockMode==='app'; const type=lockType(); const light=state.theme==='light';
+  const title=isApp?'Welcome back':pageLabel(state._lockView);
+  const sub=isApp?('Enter your '+(type==='password'?'password':'PIN')+' to unlock Treesh'):('Enter your '+(type==='password'?'password':'PIN')+' to open this page');
+  const len=(state.lock&&state.lock.len)||4;
+  const first=!state._lockShown; state._lockShown=true;
+  const shake=state._lockShake; state._lockShake=false;
+  const LK={1:'',2:'ABC',3:'DEF',4:'GHI',5:'JKL',6:'MNO',7:'PQRS',8:'TUV',9:'WXYZ',0:''};
+  const dots=type==='pin'?`<div data-testid="lock-dots" class="flex items-center justify-center gap-3.5 ${shake?'lock-shake':''}">${Array.from({length:len}).map((_,i)=>`<span class="lock-dot h-4 w-4 rounded-full ${i<(state._lockInput||'').length?'on':''}"></span>`).join('')}</div>`:'';
+  const key=(n,letters)=>`<button data-act="lock-key" data-d="${n}" data-testid="lock-key-${n}" class="lock-key relative grid aspect-square w-full place-items-center rounded-full"><span class="text-[28px] font-semibold leading-none text-white">${n}</span>${letters?`<span class="absolute bottom-[9px] text-[8px] font-bold tracking-[0.18em] text-white/40">${letters}</span>`:''}</button>`;
+  const keypad=type==='pin'?`<div data-testid="lock-keypad" class="mx-auto grid w-full max-w-[220px] grid-cols-3 gap-2.5 sm:max-w-[264px] sm:gap-3.5">${[1,2,3,4,5,6,7,8,9].map(n=>key(n,LK[n])).join('')}<span></span>${key(0,'')}<button data-act="lock-back" data-testid="lock-back" aria-label="Delete" class="lock-key grid aspect-square w-full place-items-center rounded-full text-white/70"><i data-lucide="delete" style="width:26px;height:26px"></i></button></div>`:'';
+  const passField=type==='password'?`<div class="mx-auto w-full max-w-[320px]"><div class="relative"><input id="lock-pass" type="${state._lockShow?'text':'password'}" autocomplete="off" data-testid="lock-password-input" placeholder="Enter password" class="box-border h-14 w-full rounded-2xl border border-white/15 bg-white/[0.06] px-4 pr-12 text-center text-base text-white outline-none focus:border-[color:var(--treesh-purple)]"><button data-act="lock-toggle-show" aria-label="Show password" class="absolute right-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full text-white/55 hover:bg-white/10"><i data-lucide="${state._lockShow?'eye-off':'eye'}" style="width:18px;height:18px"></i></button></div><button data-act="lock-submit" data-testid="lock-submit-button" class="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="lock-open" style="width:16px;height:16px"></i>Unlock</button></div>`:'';
+  const errHtml=`<p data-testid="lock-error" class="flex min-h-[20px] items-center justify-center gap-1.5 text-sm text-rose-300 ${state._lockErr?'':'opacity-0'}">${state._lockErr?`<i data-lucide="circle-alert" style="width:15px;height:15px"></i>${esc(state._lockErr)}`:'&nbsp;'}</p>`;
+  const backBtn=!isApp?`<button data-act="lock-cancel" data-testid="lock-cancel-button" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 hover:bg-white/10"><i data-lucide="arrow-left" style="width:15px;height:15px"></i>Back to Library</button>`:'';
+  const bg = light
+    ? 'radial-gradient(120% 80% at 50% -10%, rgba(147,40,255,0.14), transparent 55%), #eef0f5'
+    : 'radial-gradient(120% 80% at 50% -10%, rgba(147,40,255,0.22), transparent 55%), radial-gradient(90% 60% at 100% 115%, rgba(255,196,0,0.10), transparent 60%), #070709';
+  c.innerHTML=`<div data-testid="lock-screen" class="lock-screen ${first?'lock-enter':''} fixed inset-0 z-[500] overflow-hidden" style="background:${bg}"><div class="gauss gauss-a"></div><div class="gauss gauss-b"></div>
+    <div class="lock-inner relative z-10 flex h-[100dvh] w-full flex-col overflow-y-auto no-scrollbar px-6 py-6">
+      <div class="m-auto flex w-full max-w-sm flex-col items-center gap-3.5 text-center sm:gap-4">
+        <div class="lock-badge grid h-14 w-14 shrink-0 place-items-center rounded-[20px] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)] glow-purple sm:h-16 sm:w-16"><i data-lucide="lock" style="width:26px;height:26px"></i></div>
+        <div class="shrink-0"><h1 class="text-xl font-extrabold sm:text-2xl">${esc(title)}</h1><p class="mt-1.5 text-sm text-white/50">${esc(sub)}</p></div>
+        ${dots}${errHtml}${keypad}${passField}
+        <div class="shrink-0 space-y-3 pt-1">
+          ${backBtn}
+          <p class="flex items-center justify-center gap-1.5 text-[11px] text-white/35"><i data-lucide="shield-check" style="width:13px;height:13px"></i>Protected on this device</p>
+        </div>
+      </div>
+    </div></div>`;
+  icons(); syncScrollLock();
+  if(type==='password'){ const f=$('#lock-pass'); if(f){ setTimeout(()=>{ try{ f.focus(); }catch(e){} },60); f.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); lockSubmit(); } }); } }
+}
+function openLockSetup(change){ state._lockSetup={step:'type', type:(state.lock&&state.lock.type)||'pin', err:'', change:!!change}; renderLockSetupModal(); }
+function renderLockSetupModal(){
+  const S=state._lockSetup; if(!S) return; const err=S.err||'';
+  const head=(ic,title,sub)=>`<div class="mb-4 flex items-center gap-3"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="${ic}" style="width:22px;height:22px"></i></span><div><h3 class="text-lg font-bold">${title}</h3><p class="text-sm text-white/55">${sub}</p></div></div>`;
+  const errHtml=err?`<p class="mt-2 flex items-center gap-1.5 text-sm text-rose-300"><i data-lucide="circle-alert" style="width:14px;height:14px"></i>${esc(err)}</p>`:'';
+  let inner;
+  if(S.step==='type'){
+    const card=(t,ic,title,desc)=>`<button data-act="lock-setup-type" data-t="${t}" data-testid="lock-type-${t}" class="press flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition ${S.type===t?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/[0.12]':'border-white/12 bg-white/[0.03] hover:bg-white/[0.06]'}"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl ${S.type===t?'bg-[color:var(--treesh-purple)] text-white':'bg-white/10 text-white/60'}"><i data-lucide="${ic}" style="width:18px;height:18px"></i></span><span class="min-w-0 flex-1"><span class="block text-sm font-semibold">${title}</span><span class="block text-xs text-white/50">${desc}</span></span><span class="grid h-5 w-5 shrink-0 place-items-center rounded-full border ${S.type===t?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25'}">${S.type===t?'<i data-lucide="check" style="width:12px;height:12px"></i>':''}</span></button>`;
+    inner=`${head('lock','Choose a lock type','How would you like to protect Treesh?')}<div class="space-y-2.5">${card('pin','hash','PIN code','Fast 4\u20136 digit unlock')}${card('password','key-round','Password','Letters, numbers &amp; symbols')}</div><div class="mt-5 flex justify-end gap-2"><button data-act="modal-close" class="press rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10">Cancel</button><button data-act="lock-setup-next" data-testid="lock-setup-next" class="press rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white glow-purple">Continue</button></div>`;
+  } else {
+    const isPin=S.type==='pin';
+    const fld=(id,ph)=>isPin?`<input id="${id}" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="${ph}" class="box-border h-12 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-center text-lg font-bold tracking-[0.3em] outline-none focus:border-[color:var(--treesh-purple)]">`:`<input id="${id}" type="password" autocomplete="off" placeholder="${ph}" class="box-border h-12 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-[color:var(--treesh-purple)]">`;
+    inner=`${head('key-round',isPin?'Create a PIN':'Create a password',isPin?'Enter a 4\u20136 digit PIN.':'Choose a strong password (min 4 characters).')}<div class="space-y-3"><div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">${isPin?'New PIN':'New password'}</label>${fld('lock-v1',isPin?'\u2022\u2022\u2022\u2022':'Password')}</div><div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Confirm</label>${fld('lock-v2',isPin?'\u2022\u2022\u2022\u2022':'Repeat')}</div></div>${errHtml}<div class="mt-5 flex justify-end gap-2"><button data-act="lock-setup-back" class="press rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold hover:bg-white/10">Back</button><button data-act="lock-setup-save" data-testid="lock-setup-save" class="press rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white glow-purple">Save lock</button></div>`;
+  }
+  $('#modal').innerHTML=modalWrap(inner,'lock-setup-modal','md'); icons();
+  const f=$('#lock-v1'); if(f) setTimeout(()=>{ try{ f.focus(); }catch(e){} },40);
+}
+function lockSetupSave(){ const S=state._lockSetup; if(!S) return; const v1=(($('#lock-v1')||{}).value||''); const v2=(($('#lock-v2')||{}).value||''); if(S.type==='pin'){ if(!/^\d{4,6}$/.test(v1)){ S.err='PIN must be 4\u20136 digits.'; renderLockSetupModal(); return; } } else { if((v1||'').length<4){ S.err='Password must be at least 4 characters.'; renderLockSetupModal(); return; } } if(v1!==v2){ S.err=(S.type==='pin'?'PINs':'Passwords')+' do not match.'; renderLockSetupModal(); return; } const prev=state.lock||{}; state.lock={ type:S.type, secret:lockObf(v1), len:(S.type==='pin'?v1.length:0), appLock:(prev.appLock!=null?prev.appLock:true), pages:(prev.pages||[]) }; LS.set('treesh_lock',state.lock); state.appUnlocked=true; state._lockSetup=null; closeModal(); if(state.view==='settings') renderView(); toast(S.change?'Lock updated':'Lock enabled', state.lock.type==='pin'?'PIN protection on':'Password protection on'); }
+function lockRemove(){ openConfirm('Remove lock?','This will turn off app and page locks on this device.',()=>{ state.lock=null; state.appUnlocked=false; state.pageUnlocked=[]; LS.set('treesh_lock',null); try{ localStorage.removeItem('treesh_lock'); }catch(e){} if(state.view==='settings') renderView(); toast('Lock removed'); }); }
+function toggleAppLock(){ if(!lockIsSet()) return; state.lock.appLock=!state.lock.appLock; LS.set('treesh_lock',state.lock); if(state.view==='settings') renderView(); toast(state.lock.appLock?'App will lock on startup':'App startup lock off'); }
+function togglePageLock(view){ if(!lockIsSet()) return; const set=new Set(state.lock.pages||[]); if(set.has(view)) set.delete(view); else set.add(view); state.lock.pages=[...set]; LS.set('treesh_lock',state.lock); if(state.view==='settings') renderView(); }
+function lockSettingsSection(tab){
+  if(tab!=='privacy') return `<section data-testid="settings-privacy" class="hidden"></section>`;
+  const set=lockIsSet();
+  const header=`<div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="lock" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">App Lock</h2></div>`;
+  if(!set){
+    return `<section data-testid="settings-privacy" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${header}<p class="mb-4 pl-11 text-sm text-white/55">Protect Treesh with a PIN or password. Lock the whole app on startup and/or lock individual pages.</p><button data-act="lock-setup" data-testid="lock-setup-button" class="press inline-flex items-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white glow-purple"><i data-lucide="shield-plus" style="width:16px;height:16px"></i>Set up a lock</button></section>`;
+  }
+  const typeLabel=state.lock.type==='pin'?('PIN \u00b7 '+(state.lock.len||4)+' digits'):'Password';
+  const pagesHtml=LOCK_PAGES.map(([v,label,ic])=>{ const locked=(state.lock.pages||[]).includes(v); return toggleCard('lock-page-toggle-'+v,'lock-page-'+v,locked,ic,label,locked?'Requires unlock to open':'Open freely'); }).join('');
+  return `<section data-testid="settings-privacy" class="space-y-5">
+    <div class="rounded-3xl border border-[color:var(--treesh-purple)]/30 bg-white/[0.04] p-5 sm:p-6">${header}
+      <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="shield-check" style="width:18px;height:18px"></i></span><div><p class="text-sm font-semibold" data-testid="lock-status">Lock is on \u00b7 ${typeLabel}</p><p class="text-xs text-white/45">Protects your data on this device.</p></div></div>
+        <div class="flex shrink-0 gap-2"><button data-act="lock-change" data-testid="lock-change-button" class="press inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i>Change</button><button data-act="lock-remove" data-testid="lock-remove-button" class="press inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm font-semibold text-rose-200 hover:bg-rose-500/20"><i data-lucide="trash-2" style="width:15px;height:15px"></i>Remove</button></div>
+      </div>
+      <div class="mt-3">${toggleCard('lock-toggle-app','lock-toggle-app',!!state.lock.appLock,'power','Lock on startup','Ask for '+(state.lock.type==='pin'?'PIN':'password')+' when the app opens')}</div>
+    </div>
+    <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="lock-keyhole" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Page Locks</h2></div>
+      <p class="mb-4 pl-11 text-sm text-white/55">Choose which pages require unlocking each session.</p>
+      <div class="space-y-2.5">${pagesHtml}</div>
+    </div>
+  </section>`;
+}
 function toggleCard(act,testid,on,ic,title,desc){ return `<button data-act="${act}" data-testid="${testid}" aria-pressed="${on}" role="switch" aria-checked="${on}" class="press flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition ${on?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/[0.12]':'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'}"><div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg ${on?'bg-[color:var(--treesh-purple)] text-white':'bg-white/10 text-white/60'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-semibold">${title}</p><p class="text-xs text-white/50">${desc}</p></div><div class="grid h-5 w-5 shrink-0 place-items-center rounded-full border ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25'}">${on?'<i data-lucide="check" style="width:12px;height:12px"></i>':''}</div></button>`; }
 function colorRow(act, resetAct, value, ic, title, desc){ const v=value||'#000000'; return `<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10 text-white/60"><i data-lucide="${ic}" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">${title}</p>${desc?`<p class="text-xs text-white/50">${desc}</p>`:''}</div>${(resetAct&&value)?`<button data-act="${resetAct}" aria-label="Reset ${title}" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10"><i data-lucide="rotate-ccw" style="width:14px;height:14px"></i></button>`:''}<label class="relative h-9 w-12 shrink-0 overflow-hidden rounded-lg border border-white/20" style="background:${v}"><input type="color" value="${v}" data-act="${act}" data-testid="${act}" class="absolute -inset-2 h-[200%] w-[200%] cursor-pointer opacity-0"></label></div>`; }
+/* ---------- storage & data management ---------- */
+/* ---------- custom date field (native picker under a fully-styled box; avoids cross-browser date-input quirks) ---------- */
+function fmtDateDisplay(v){ if(!v) return ""; const p=(""+v).split("-"); if(p.length!==3) return v; const y=+p[0],m=+p[1],d=+p[2]; if(!y||!m||!d) return v; const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return MO[m-1]+" "+d+", "+y; }
+function dateFieldHTML(o){ o=o||{}; const id=o.id, v=o.value||"", tid=o.testid?`data-testid="${o.testid}"`:"", ph=o.placeholder||"Select date", center=!!o.center, disabled=!!o.disabled; const box=o.boxClass||"h-11 rounded-xl border border-white/15 bg-white/5 text-sm"; const shown=fmtDateDisplay(v); const minA=o.min?`min="${o.min}"`:"", maxA=o.max?`max="${o.max}"`:""; return `<div class="tdf relative box-border w-full max-w-full overflow-hidden ${box} ${disabled?'opacity-60':''}"><input type="date" id="${id}" value="${esc(v)}" data-ph="${esc(ph)}" ${tid} ${minA} ${maxA} ${disabled?'disabled':''} class="tdf-native absolute inset-0 z-10 m-0 h-full w-full border-0 bg-transparent p-0 opacity-0 ${disabled?'pointer-events-none':'cursor-pointer'}"><div class="pointer-events-none absolute inset-0 flex items-center gap-2 pl-3.5 pr-10 ${center?'justify-center':'justify-start'}"><span class="tdf-val block max-w-full truncate ${shown?'text-white':'text-white/40'} ${center?'text-center':''}">${shown?esc(shown):esc(ph)}</span></div><i data-lucide="calendar" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40" style="width:16px;height:16px"></i></div>`; }
+function syncDateField(inp){ if(!inp) return; const wrap=inp.closest(".tdf"); if(!wrap) return; const span=wrap.querySelector(".tdf-val"); if(!span) return; const shown=fmtDateDisplay(inp.value); span.textContent = shown || (inp.getAttribute("data-ph")||"Select date"); span.classList.toggle("text-white", !!shown); span.classList.toggle("text-white/40", !shown); }
+
+const STORAGE_GROUPS=[
+  { id:"library", label:"Library & playlists", icon:"library-big", desc:"Playlists, favorites, dislikes & lyric edits", keys:["treesh_playlists","treesh_favorites","treesh_dislikes","treesh_fav_lyrics","treesh_lyric_edits"] },
+  { id:"beats", label:"Beats & presets", icon:"drum", desc:"Instrum projects and your custom presets", keys:["treesh_beats","treesh_user_presets"] },
+  { id:"activity", label:"Games & rewards", icon:"trophy", desc:"Game stats, This or That & Starlites", keys:["treesh_game_stats","treesh_game_opts","treesh_tot","treesh_stars","treesh_stats"] },
+  { id:"personalize", label:"Appearance & profile", icon:"palette", desc:"Profile, theme, colors, fonts & background", keys:["treesh_profile","treesh_accent","treesh_theme","treesh_bg","treesh_bg_image","treesh_bg_overlay","treesh_text_size","treesh_anim_bg","treesh_ui_glow","treesh_sleep","treesh_vinyl","treesh_lib_grid","treesh_game_grid","treesh_viz","treesh_nav_color","treesh_topbar_color","treesh_row_color","treesh_font","treesh_custom_font","treesh_label","treesh_notif_nav","treesh_explain_auto","treesh_perf","treesh_bday_edits"] },
+  { id:"cache", label:"Cache", icon:"database", desc:"Offline catalog copy & recent searches", keys:[CATALOG_KEY,"treesh_recent_searches"] },
+  { id:"security", label:"Security", icon:"shield", desc:"App lock & parent PIN", keys:["treesh_lock","treesh_parent_pin"] },
+];
+function lsBytes(k){ try{ const v=localStorage.getItem(k); if(v==null) return 0; return (k.length+v.length)*2; }catch(e){ return 0; } }
+function fmtBytes(b){ b=b||0; if(b<1024) return b+" B"; if(b<1024*1024) return (b/1024).toFixed(b<10240?1:0)+" KB"; return (b/1048576).toFixed(2)+" MB"; }
+function groupBytes(g){ return g.keys.reduce((a,k)=>a+lsBytes(k),0); }
+function treeshTotalBytes(){ let t=0; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) t+=lsBytes(k); } }catch(e){} return t; }
+function storageSection(tab){
+  const total=treeshTotalBytes();
+  const softCap=5*1024*1024;
+  const pct=Math.min(100, Math.max(total>0?2:0, Math.round(total/softCap*100)));
+  const rows=STORAGE_GROUPS.map(g=>{ const bytes=groupBytes(g); const empty=bytes<=0; return `<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" data-testid="storage-group-${g.id}">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="${g.icon}" style="width:18px;height:18px"></i></span>
+      <div class="min-w-0 flex-1"><p class="text-sm font-semibold">${g.label}</p><p class="clamp-1 text-xs text-white/45">${g.desc}</p></div>
+      <span class="shrink-0 font-doto text-xs text-white/60" data-testid="storage-size-${g.id}">${fmtBytes(bytes)}</span>
+      <button data-act="storage-clear-group" data-group="${g.id}" data-testid="storage-clear-${g.id}" aria-label="Clear ${g.label}" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/60 transition-colors hover:bg-white/10 hover:text-rose-300 ${empty?'pointer-events-none opacity-30':''}"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>
+    </div>`; }).join("");
+  return `<section data-testid="settings-storage" class="${tab==='account'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="hard-drive" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Storage &amp; data</h2></div>
+    <p class="mb-4 pl-11 text-sm text-white/50">Everything in Treesh is saved only on this device. Review what\u2019s stored and free up space.</p>
+    <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-widest text-white/45">Treesh storage used</p><p class="mt-1 font-doto text-2xl font-bold" data-testid="storage-total">${fmtBytes(total)}</p></div><p id="storage-quota-text" data-testid="storage-quota-text" class="text-right text-xs text-white/45">Estimating device space\u2026</p></div>
+      <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10"><div id="storage-gauge-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:${pct}%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
+    </div>
+    <div class="mt-4 space-y-2.5" data-testid="storage-groups">${rows}</div>
+    <button data-act="storage-clear-all" data-testid="storage-clear-all-button" class="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3 text-sm font-semibold text-rose-200 transition-colors hover:bg-rose-500/20"><i data-lucide="trash-2" style="width:16px;height:16px"></i>Clear all Treesh data</button>
+  </section>`;
+}
+function updateStorageEstimate(){
+  const el=document.getElementById("storage-quota-text"); if(!el) return;
+  if(navigator.storage && navigator.storage.estimate){
+    navigator.storage.estimate().then(est=>{ const el2=document.getElementById("storage-quota-text"); if(!el2) return; if(est && est.quota){ const free=Math.max(0,(est.quota||0)-(est.usage||0)); el2.textContent="~"+fmtBytes(free)+" free on device"; } else { el2.textContent="Device estimate unavailable"; } }).catch(()=>{ const el2=document.getElementById("storage-quota-text"); if(el2) el2.textContent="Device estimate unavailable"; });
+  } else { el.textContent="Device estimate unavailable"; }
+}
+
 function viewSettings(){
   const p=state.profile||{}; const z=zodiac(p.birthday);
   const acc=(state.accent||"#9328ff");
   const isCustom=!ACCENTS.some(a=>a[0].toLowerCase()===acc.toLowerCase());
-  if(!VOICE_OK && state.settingsTab==='voice') state.settingsTab='display';
+  if(state.settingsTab==='voice') state.settingsTab='display';
+  if(state.settingsTab==='personalize') state.settingsTab='display';
   const tab=state.settingsTab||"display";
-  let TABS=[["display","Display","sun-moon"],["personalize","Personalize","brush"],["sleep","Sleep","moon-star"],["voice","Voice","mic"],["account","Account","user"],["about","About","info"]];
+  let TABS=[["display","Appearance","palette"],["sleep","Sleep","moon-star"],["account","Account","user"],["privacy","Privacy","lock"],["about","About","info"]];
   if(!VOICE_OK){ TABS=TABS.filter(t=>t[0]!=='voice'); }
   const hero=`<div class="relative overflow-hidden rounded-[28px] border border-white/12 p-6 sm:p-8">
      <div class="pointer-events-none absolute inset-0" style="background:radial-gradient(130% 130% at 0% 0%, var(--treesh-purple-soft), transparent 52%)"></div>
@@ -1510,7 +1714,7 @@ function viewSettings(){
        </div>
        <div class="flex-1 space-y-4">
          <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Nickname</label><input id="set-nick" data-testid="settings-nickname-input" value="${esc(p.nickname||'')}" class="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-white/30"></div>
-         <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Birthday</label><div class="flex flex-wrap items-center gap-3"><input id="set-bday" type="date" value="${esc(p.birthday||'')}" ${bdayLocked()?'disabled':''} class="box-border h-11 min-w-0 max-w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-white/30 ${bdayLocked()?'cursor-not-allowed opacity-60':''}"><span id="set-zodiac" class="shrink-0 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-3 py-1 text-xs text-[color:var(--treesh-gold)] ${z?'':'hidden'}">${esc(z)}</span></div>${bdayLocked()?`<p class="mt-1.5 flex items-center gap-1.5 text-[11px] text-white/40"><i data-lucide="lock" style="width:12px;height:12px"></i>Birthday is locked and can no longer be changed.</p>`:`<p class="mt-1.5 text-[11px] text-white/40">Heads up: you can change your birthday one more time, then it locks.</p>`}</div>
+         <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Birthday</label>${dateFieldHTML({id:'set-bday',value:p.birthday||'',placeholder:'Set birthday',disabled:bdayLocked(),boxClass:'h-11 rounded-xl border border-white/15 bg-white/5 text-sm'})}<div class="mt-2 ${z?'':'hidden'}" id="set-zodiac-wrap"><span id="set-zodiac" class="inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-3 py-1 text-xs text-[color:var(--treesh-gold)]">${esc(z)}</span></div>${bdayLocked()?`<p class="mt-1.5 flex items-center gap-1.5 text-[11px] text-white/40"><i data-lucide="lock" style="width:12px;height:12px"></i>Birthday is locked and can no longer be changed.</p>`:`<p class="mt-1.5 text-[11px] text-white/40">Heads up: you can change your birthday one more time, then it locks.</p>`}</div>
          <button data-act="save-profile" data-testid="settings-save-profile-button" class="press inline-flex items-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i> Save profile</button>
        </div>
      </div>
@@ -1569,16 +1773,18 @@ function viewSettings(){
    </section>
 
    <section data-testid="settings-lyrics" class="${tab==='display'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
-    <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="mic-vocal" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Lyrics &amp; motion</h2></div>
-    <p class="mb-4 pl-11 text-sm text-white/50">Fine-tune the lyric experience.</p>
+    <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sparkles" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Motion &amp; effects</h2></div>
+    <p class="mb-4 pl-11 text-sm text-white/50">Animations, effects and lyric behavior.</p>
     <div class="space-y-2.5">
+      ${toggleCard('toggle-anim-bg','settings-toggle-anim-bg',!!state.animBg,'sparkles','Animated background','Show the drifting starfield behind the app')}
+      ${toggleCard('toggle-ui-glow','settings-toggle-ui-glow',!!state.uiGlow,'flashlight','Interface glow','Soft accent glow on buttons and highlights')}
       ${toggleCard('toggle-explain-auto','settings-toggle-explain-auto',!!state.explainAuto,'lightbulb','Auto-show lyric meanings','Reveal explanations automatically as lines play')}
       ${toggleCard('perf-mode-toggle','settings-toggle-perf-mode',!!state.perfMode,'zap','Performance mode','Reduce animations for smoother playback on older devices')}
       ${toggleCard('toggle-notif-nav','settings-toggle-notif-nav',!!state.notifInNav,'bell','Show notifications in the bar','Pop alerts into the top navigation bar instead of the screen')}
     </div>
   </section>
 
-  <section data-testid="settings-personalize" class="${tab==='personalize'?'':'hidden'} space-y-5">
+  <section data-testid="settings-personalize" class="${tab==='display'?'':'hidden'} space-y-5">
     <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="type" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Font</h2></div>
       <p class="mb-4 pl-11 text-sm text-white/50">Choose a typeface for the whole app.</p>
@@ -1636,6 +1842,8 @@ function viewSettings(){
      <div class="flex flex-wrap gap-2">${CMDS.map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70">\u201C${c}\u201D</span>`).join("")}</div>
    </section>
 
+   ${lockSettingsSection(tab)}
+   ${storageSection(tab)}
    <section data-testid="settings-danger" class="${tab==='account'?'':'hidden'} rounded-3xl border border-rose-500/20 bg-rose-500/[0.05] p-5 sm:p-6">
      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/15 text-rose-300"><i data-lucide="trash-2" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold text-rose-200">Danger zone</h2></div>
      <p class="mb-4 pl-11 text-sm text-white/50">Clears your profile, favorites, playlists and theme on this device.</p>
@@ -1675,8 +1883,15 @@ function animateView(){
   }
 }
 
+/* ---------- preserve inner scroll positions across re-renders ---------- */
+function _domPath(el, root){ const path=[]; let n=el; while(n && n!==root){ const parent=n.parentNode; if(!parent) break; const idx=Array.prototype.indexOf.call(parent.children, n); if(idx<0) break; path.push(idx); n=parent; } return path.reverse().join('.'); }
+function _elByPath(root, path){ if(path==='') return root; const parts=path.split('.'); let n=root; for(let i=0;i<parts.length;i++){ const idx=+parts[i]; if(!n||!n.children||!n.children[idx]) return null; n=n.children[idx]; } return n; }
+function captureScroll(root){ const map=[]; if(!root) return map; const all=root.querySelectorAll('*'); for(let i=0;i<all.length;i++){ const el=all[i]; if((el.scrollLeft>0||el.scrollTop>0) && (el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1)){ map.push([_domPath(el,root), el.scrollLeft, el.scrollTop]); } } return map; }
+function restoreScroll(root, map){ if(!root||!map||!map.length) return; for(let i=0;i<map.length;i++){ const rec=map[i]; const el=_elByPath(root, rec[0]); if(el){ if(rec[1]) el.scrollLeft=rec[1]; if(rec[2]) el.scrollTop=rec[2]; } } }
+
 function renderView(animate=false){
   const v=$("#view"); if(!v) return;
+  const _scrollMap=captureScroll(v);
   const _prevY=(typeof window!=='undefined')?(window.scrollY||window.pageYOffset||0):0;
   { const fsc=document.getElementById("instrum-fs"); if(fsc&&fsc.childElementCount>0 && !(state.view==="instrum"&&state.instrum&&state.instrum.fs)){ fsc.innerHTML=""; if(state.instrum) state.instrum.fs=false; } }
   let html="";
@@ -1694,16 +1909,19 @@ function renderView(animate=false){
     default: html=viewLibrary();
   }
   v.innerHTML=html; icons();
+  restoreScroll(v, _scrollMap);
   if(!animate){ try{ window.scrollTo(0,_prevY); }catch(e){} }
   if(state.view==="instrum" && state.instrum && state.instrum.started) requestAnimationFrame(()=>{ if(state.instrum && state.instrum.playing) iHighlightCol(state.instrum.visStep); });
   state._renderedActiveId = curSong() && curSong().id;
   if(animate){ v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); animateView(); }
   if(state.view==="library") wireWN(); else stopWN();
   // wire settings live zodiac + avatar preview
-  const bday=$("#set-bday"); if(bday){ bday.addEventListener("input",()=>{ const z=zodiac(bday.value); const el=$("#set-zodiac"); if(el){ el.textContent=z; el.classList.toggle("hidden",!z); } }); }
+  const bday=$("#set-bday"); if(bday){ const updSB=()=>{ syncDateField(bday); const z=zodiac(bday.value); const el=$("#set-zodiac"); if(el) el.textContent=z; const zw=$("#set-zodiac-wrap"); if(zw) zw.classList.toggle("hidden",!z); }; bday.addEventListener("input",updSB); bday.addEventListener("change",updSB); }
   const ai=$("#set-avatar-input"); if(ai){ ai.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ state._tmpAvatar=r.result; const av=$("#set-avatar"); if(av) av.innerHTML=img(r.result,'h-full w-full object-cover'); }; r.readAsDataURL(f); }); }
   const bgi=$("#set-bg-image-input"); if(bgi){ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>4.5*1024*1024){ toast("Image too large","Use one under 4.5 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.bgImage=r.result; state.bg="custom"; LS.set("treesh_bg_image",state.bgImage); LS.set("treesh_bg","custom"); applyTheme(); renderView(); toast("Background updated"); }catch(err){ toast("Couldn\u2019t save image","It may be too large"); } }; r.readAsDataURL(f); }); }
   const ff=$("#set-font-file"); if(ff){ ff.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>3*1024*1024){ toast("Font too large","Use one under 3 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.customFont={data:r.result, name:(f.name||'Custom').replace(/\.[^.]+$/,'')}; state.uiFont=""; _customFontLoaded=false; LS.set("treesh_custom_font",state.customFont); applyUiFont(); renderView(); toast("Custom font applied", state.customFont.name); }catch(err){ toast("Couldn\u2019t load font"); } }; r.readAsDataURL(f); }); }
+  iRenderMenu();
+  if(state.view==="settings" && (state.settingsTab||"display")==="account") updateStorageEstimate();
 }
 
 /* re-render pieces that show favorite/playing state without losing scroll on nav */
@@ -2496,8 +2714,8 @@ function renderNP(){
     <button id="lyric-resume" data-act="lyric-resume" data-testid="lyric-resume-button" class="lyric-resume-in absolute bottom-3 left-1/2 z-20 hidden inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-3.5 py-2 text-xs font-semibold text-white shadow-[var(--treesh-shadow)] backdrop-blur-xl hover:bg-black/70"><i data-lucide="arrow-down-to-line" style="width:14px;height:14px"></i>Resume auto-scroll</button></div>`;
   const lyricBody = state.lyricsEdit ? lyricsEditorHtml(s) : (state.karaoke ? karaokeStageHtml() : lyricsScroller);
   const artwork = state.vinylMode
-    ? `<div class="relative aspect-square w-[min(78vw,42vh,400px)] shrink-0 lg:w-[min(40vw,64vh,470px)]"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
-    : `<div class="aspect-square w-[min(78vw,42vh,400px)] shrink-0 overflow-hidden rounded-3xl lg:w-[min(40vw,64vh,470px)]" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
+    ? `<div class="relative aspect-square w-[min(78vw,40vh,400px)] shrink-0 lg:w-[min(40vw,48vh,470px)]"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
+    : `<div class="aspect-square w-[min(78vw,40vh,400px)] shrink-0 overflow-hidden rounded-3xl lg:w-[min(40vw,48vh,470px)]" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
   const credits=s.producer?`<p class="clamp-1 mt-1.5 text-xs text-white/40">Prod. ${esc(s.producer)}</p>`:"";
   const titleBlock=`<div class="flex items-center justify-center gap-2 lg:justify-start"><h1 class="clamp-2 text-2xl font-bold leading-tight sm:text-[26px] lg:text-4xl">${esc(s.title)}</h1>${s.explicit?`<span class="grid h-5 w-5 shrink-0 place-items-center rounded-[4px] bg-white/20 text-[9px] font-bold text-white/80">E</span>`:""}</div><p class="clamp-1 mt-1 text-base text-white/70 sm:text-lg">${esc(s.artist)}</p>${s.featuring?`<p class="clamp-1 text-sm text-white/45">feat. ${esc(s.featuring)}</p>`:""}${credits}`;
 
@@ -2588,9 +2806,10 @@ function closeModal(){
   if(panel){ panel.classList.remove("panel-in"); panel.classList.add("panel-out"); }
   setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); syncScrollLock(); }, 210);
 }
-function modalWrap(inner, testid, size){ const mw=size==="lg"?"max-w-lg":size==="xl"?"max-w-xl":"max-w-md"; return `<div data-act="modal-backdrop" class="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-4 backdrop-blur-sm backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="glass-strong panel-in relative w-full ${mw} rounded-2xl border-white/15 p-5 text-white">${inner}</div></div>`; }
+function modalWrap(inner, testid, size){ const mw=size==="lg"?"max-w-lg":size==="xl"?"max-w-xl":"max-w-md"; return `<div data-act="modal-backdrop" class="fixed inset-0 z-[210] grid place-items-center bg-black/60 p-4 backdrop-blur-sm backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="glass-strong panel-in relative w-full ${mw} rounded-2xl border-white/15 p-5 text-white">${inner}</div></div>`; }
 
 let onboard={step:0,nick:"",bday:"",avatar:""};
+function obZodiacHtml(z){ return z?`<div class="ob-anim flex items-center gap-3 rounded-2xl border border-[color:var(--treesh-gold)]/30 bg-[color:var(--treesh-gold)]/[0.08] p-4"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:22px;height:22px"></i></div><div><p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--treesh-gold)]">Your sign</p><p class="text-lg font-bold">${z}</p></div></div>`:`<p class="pl-1 text-xs text-white/40">We\u2019ll reveal your zodiac \u2014 and keep explicit tracks age-appropriate.</p>`; }
 function renderOnboarding(){
   const steps=[["Welcome to Treesh 3.0","Music to Live For \u2014 stream the underground, your way."],["What should we call you?","Pick a nickname that\u2019s all you."],["When\u2019s your birthday?","We\u2019ll reveal your zodiac and keep things age-appropriate."],["Add a profile picture","Choose an Icon or upload your own."]];
   const z=zodiac(onboard.bday);
@@ -2598,7 +2817,7 @@ function renderOnboarding(){
   let body="";
   if(onboard.step===0){ const feats=[["radio","Stream the underground","An indie catalog of Icons, always fresh."],["mic-vocal","Sing &amp; learn","Karaoke, lyric meanings &amp; the What\u2019s Next game."],["sliders-horizontal","Make beats","Produce in Instrum \u2014 your pocket studio."]]; body=`<div class="space-y-2.5">${feats.map(([ic,t,d])=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.05] p-3.5"><div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="${ic}" style="width:20px;height:20px"></i></div><div class="min-w-0"><p class="text-sm font-bold">${t}</p><p class="text-xs text-white/55">${d}</p></div></div>`).join("")}<p class="pt-1.5 text-center text-xs text-white/40"><i data-lucide="shield-check" style="width:12px;height:12px" class="mr-1 inline align-[-2px]"></i>No signup \u2014 everything saves on this device.</p></div>`; }
   else if(onboard.step===1){ body=`<div><div class="relative"><i data-lucide="at-sign" class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/40" style="width:20px;height:20px"></i><input id="ob-nick" data-testid="onboarding-nickname" value="${esc(onboard.nick)}" placeholder="Your nickname" maxlength="24" class="h-14 w-full rounded-2xl border border-white/15 bg-white/[0.06] pl-12 pr-4 text-lg font-semibold text-white outline-none transition-colors placeholder:text-white/35 focus:border-[color:var(--treesh-purple)] focus:bg-white/[0.09]"></div><p class="mt-2 pl-1 text-xs text-white/40">This is how you\u2019ll show up across Treesh.</p></div>`; }
-  else if(onboard.step===2){ body=`<div class="space-y-4"><div class="relative"><i data-lucide="cake" class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/40" style="width:20px;height:20px"></i><input id="ob-bday" type="date" data-testid="onboarding-birthday" value="${esc(onboard.bday)}" class="box-border block h-14 w-full min-w-0 max-w-full rounded-2xl border border-white/15 bg-white/[0.06] pl-12 pr-4 text-base font-semibold text-white outline-none transition-colors focus:border-[color:var(--treesh-purple)]"></div>${z?`<div class="ob-anim flex items-center gap-3 rounded-2xl border border-[color:var(--treesh-gold)]/30 bg-[color:var(--treesh-gold)]/[0.08] p-4"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:22px;height:22px"></i></div><div><p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--treesh-gold)]">Your sign</p><p class="text-lg font-bold">${z}</p></div></div>`:`<p class="pl-1 text-xs text-white/40">We\u2019ll reveal your zodiac \u2014 and keep explicit tracks age-appropriate.</p>`}</div>`; }
+  else if(onboard.step===2){ body=`<div class="space-y-4">${dateFieldHTML({id:'ob-bday',value:onboard.bday,testid:'onboarding-birthday',center:true,placeholder:'Select your birthday',boxClass:'h-14 rounded-2xl border border-white/15 bg-white/[0.06] text-base font-semibold'})}<div id="ob-zodiac-wrap">${obZodiacHtml(z)}</div></div>`; }
   else{ body=`<div class="flex flex-col items-center gap-5"><div class="relative"><div class="pointer-events-none absolute -inset-3 rounded-full opacity-70 blur-2xl" style="background:var(--treesh-purple-soft)"></div><div class="relative h-28 w-28 overflow-hidden rounded-full border-2 border-white/15">${onboard.avatar?img(onboard.avatar,'h-full w-full object-cover'):`<div class="grid h-full w-full place-items-center bg-white/5 text-white/40"><i data-lucide="user" style="width:36px;height:36px"></i></div>`}</div></div><div class="flex flex-wrap items-center justify-center gap-2.5">${PRESETS.map(a=>`<button data-act="ob-preset" data-src="${a}" class="press h-14 w-14 overflow-hidden rounded-full border-2 transition ${onboard.avatar===a?'scale-110 border-[color:var(--treesh-purple)]':'border-white/10 hover:border-white/30'}">${img(a,'h-full w-full object-cover')}</button>`).join("")}<label class="press grid h-14 w-14 cursor-pointer place-items-center rounded-full border border-dashed border-white/25 text-white/60 hover:bg-white/5"><i data-lucide="upload" style="width:18px;height:18px"></i><input type="file" accept="image/*" class="hidden" id="ob-file"></label></div><p class="text-xs text-white/40">Optional \u2014 you can change this anytime in your profile.</p></div>`; }
   const canNext = onboard.step===0 || (onboard.step===1&&onboard.nick.trim()) || (onboard.step===2&&onboard.bday) || onboard.step===3;
   const dots=[0,1,2,3].map(i=>`<span class="h-1.5 flex-1 rounded-full transition-all duration-300 ${i<onboard.step?'bg-[color:var(--treesh-purple)]':i===onboard.step?'bg-[color:var(--treesh-purple)]':'bg-white/12'}"></span>`).join("");
@@ -2627,7 +2846,7 @@ function renderOnboarding(){
   </div>`;
   $("#modal").innerHTML=shell; icons();
   const nick=$("#ob-nick"); if(nick){ nick.focus(); nick.addEventListener("input",()=>{ onboard.nick=nick.value; const nb=$("#modal [data-act='ob-next']"); if(nb){ const ok=!!onboard.nick.trim(); nb.disabled=!ok; nb.classList.toggle("opacity-40",!ok); } }); nick.addEventListener("keydown",e=>{ if(e.key==="Enter"&&onboard.nick.trim()){ onboard.step=2; renderOnboarding(); } }); }
-  const bday=$("#ob-bday"); if(bday) bday.addEventListener("input",()=>{ onboard.bday=bday.value; renderOnboarding(); });
+  const bday=$("#ob-bday"); if(bday){ const updBday=()=>{ onboard.bday=bday.value; syncDateField(bday); const z2=zodiac(onboard.bday); const zw=$("#ob-zodiac-wrap"); if(zw){ zw.innerHTML=obZodiacHtml(z2); icons(); } const nb=$("#modal [data-act='ob-next']"); if(nb){ const ok=!!onboard.bday; nb.disabled=!ok; nb.classList.toggle("opacity-40",!ok); } }; bday.addEventListener("input",updBday); bday.addEventListener("change",updBday); }
   const file=$("#ob-file"); if(file) file.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ onboard.avatar=r.result; renderOnboarding(); }; r.readAsDataURL(f); });
   syncScrollLock();
 }
@@ -2740,7 +2959,7 @@ function handleVoice(t){ if(!t) return; _voiceHandled=true; const say=m=>toast(m
    ROUTING
    ============================================================ */
 function setHash(view,param){ const h=param?`#/${view}/${param}`:`#/${view}`; if(location.hash!==h){ history.pushState(null,"",h); } }
-function navigate(view,param){ if(state.profileOpen) closeProfile(true); if(state.searchOpen) closeSearch(true); state.view=view; state.param=param||null; setHash(view,param); renderShell(); renderView(true); window.scrollTo(0,0); syncScrollLock(); }
+function navigate(view,param){ if(pageIsLocked(view)){ if(state.profileOpen) closeProfile(true); if(state.searchOpen) closeSearch(true); openPageLock(view,param); return; } if(state.profileOpen) closeProfile(true); if(state.searchOpen) closeSearch(true); state.view=view; state.param=param||null; setHash(view,param); renderShell(); renderView(true); window.scrollTo(0,0); syncScrollLock(); }
 function parseHash(){ const h=location.hash.replace(/^#\//,""); if(!h) return {view:"library"}; const parts=h.split("/"); return {view:parts[0]||"library",param:parts[1]?decodeURIComponent(parts[1]):null}; }
 window.addEventListener("hashchange",()=>{ if(state.profileOpen) closeProfile(true); const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
 window.addEventListener("popstate",()=>{ if(state.profileOpen) closeProfile(true); const {view,param}=parseHash(); state.view=view; state.param=param; renderShell(); renderView(true); });
@@ -2760,7 +2979,7 @@ document.addEventListener("input", e=>{
   else if(act==="i-swing"){ p.swing=+el.value; }
   else if(act==="i-master"){ p.master=+el.value; if(_iMaster) _iMaster.gain.value=p.master; }
   else if(act==="i-vol"){ if(p.tracks[ti]) p.tracks[ti].vol=+el.value; }
-  else if(act==="i-note"){ if(p.tracks[ti]){ p.tracks[ti].note=el.value; iPushHistory(); } }
+  else if(act==="i-note"){ if(p.tracks[ti]){ p.tracks[ti].note=el.value; iDeselectPreset(); iPushHistory(); } }
   else if(act==="i-name"){ p.name=el.value; }
 });
 /* commit slider/tempo tweaks to undo history when a gesture ends */
@@ -2775,7 +2994,21 @@ document.addEventListener("change", e=>{
    ============================================================ */
 document.addEventListener("click", e=>{
   const t=e.target.closest("[data-act]"); if(!t) return; const act=t.dataset.act; const id=t.dataset.id;
+  if(act && act.indexOf('lock-page-toggle-')===0){ togglePageLock(act.slice(17)); return; }
   switch(act){
+    case "lock-setup": openLockSetup(false); break;
+    case "lock-change": openLockSetup(true); break;
+    case "lock-remove": lockRemove(); break;
+    case "lock-toggle-app": toggleAppLock(); break;
+    case "lock-setup-type": if(state._lockSetup){ state._lockSetup.type=t.dataset.t; renderLockSetupModal(); } break;
+    case "lock-setup-next": if(state._lockSetup){ state._lockSetup.step='cred'; state._lockSetup.err=''; renderLockSetupModal(); } break;
+    case "lock-setup-back": if(state._lockSetup){ state._lockSetup.step='type'; state._lockSetup.err=''; renderLockSetupModal(); } break;
+    case "lock-setup-save": lockSetupSave(); break;
+    case "lock-key": lockKeyPress(t.dataset.d); break;
+    case "lock-back": lockBackspace(); break;
+    case "lock-submit": lockSubmit(); break;
+    case "lock-toggle-show": state._lockShow=!state._lockShow; renderLockScreen(); break;
+    case "lock-cancel": closeLockScreen(()=>navigate('library')); break;
     case "nav": navigate(t.dataset.view); break;
     case "nav-view": navigate(t.dataset.view); break;
     case "view-all-picks": navigate("picks"); break;
@@ -2783,6 +3016,8 @@ document.addEventListener("click", e=>{
     case "song-facts": openSongFacts(t.dataset.name, t.dataset.id||null); break;
     case "play-song": { const s=SONG_BY_ID[id]; if(s){ closeModal(); playSong(s,[s]); } break; }
     case "perf-mode-toggle": { state.perfMode=!state.perfMode; LS.set("treesh_perf",state.perfMode); applyPerfMode(); toast(state.perfMode?"Performance mode on":"Performance mode off"); renderView(); break; }
+    case "toggle-anim-bg": { state.animBg=!state.animBg; LS.set("treesh_anim_bg",state.animBg); applyUiPrefs(); toast(state.animBg?"Animated background on":"Animated background off"); renderView(); break; }
+    case "toggle-ui-glow": { state.uiGlow=!state.uiGlow; LS.set("treesh_ui_glow",state.uiGlow); applyUiPrefs(); toast(state.uiGlow?"Interface glow on":"Interface glow off"); renderView(); break; }
     case "toggle-explain-auto": { state.explainAuto=!state.explainAuto; LS.set("treesh_explain_auto",state.explainAuto); toast(state.explainAuto?"Lyric meanings will auto-show":"Auto-show meanings off"); renderView(); if(state.npOpen) renderNP(); break; }
     case "viz-style": state.viz.style=t.dataset.val; LS.set("treesh_viz",state.viz); renderView(); break;
     case "viz-bgstyle": state.viz.bgStyle=t.dataset.val; LS.set("treesh_viz",state.viz); renderView(); break;
@@ -2797,7 +3032,8 @@ document.addEventListener("click", e=>{
     case "i-bars": iSetBars(+t.dataset.val); break;
     case "i-clear": iClearSteps(); break;
     case "i-random": iRandomize(); break;
-    case "i-save": iCloseMenu(); iOpenSaveDialog(); break;
+    case "i-save": iCloseMenu(); iSaveCurrent(); break;
+    case "i-save-as": iCloseMenu(); iSaveAsDialog(); break;
     case "i-menu-toggle": { const S=state.instrum; if(S){ S.menu=!S.menu; renderInstrum(); } break; }
     case "i-menu-close": iCloseMenu(); break;
     case "i-new": iNewProject(); break;
@@ -2810,6 +3046,9 @@ document.addEventListener("click", e=>{
     case "i-load": iLoadProject(id); break;
     case "i-del": iDeleteProject(id); break;
     case "i-export": iExportWav(); break;
+    case "i-preset": iApplyPreset(id); break;
+    case "i-preset-add": iAddPreset(); break;
+    case "i-preset-del": iDeletePreset(id); break;
     case "i-metronome": iToggleMetronome(); break;
     case "i-undo": iUndo(); break;
     case "i-redo": iRedo(); break;
@@ -2966,9 +3205,11 @@ document.addEventListener("click", e=>{
     case "toggle-notif-nav": { state.notifInNav=!state.notifInNav; LS.set("treesh_notif_nav",state.notifInNav); renderView(); toast(state.notifInNav?"Notifications now show in the bar":"Notifications restored", null, {star:false}); break; }
     case "nav-notif-close": clearNavNotify(); break;
     case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const oldB=(state.profile&&state.profile.birthday)||""; let bday=($("#set-bday")&&$("#set-bday").value)||oldB; if(bdayLocked()) bday=oldB; else if(bday!==oldB && bday) bumpBdayEdits(); const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; toast("Profile saved"); renderShell(); renderView(); renderSidebarLibrary(); break; }
-    case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists and theme on this device will be reset.",()=>{ ["treesh_favorites","treesh_dislikes","treesh_playlists","treesh_profile","treesh_accent","treesh_vinyl","treesh_recent_searches","treesh_fav_lyrics","treesh_stats","treesh_lyric_edits","treesh_tot"].forEach(k=>localStorage.removeItem(k)); location.reload(); }); break;
+    case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists, beats, settings and locks on this device will be reset. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break;
+    case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ g.keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); }); break; }
+    case "storage-clear-all": { openConfirm("Clear all Treesh data?","This erases everything saved on this device \u2014 profile, playlists, beats, games, appearance and locks. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break; }
     case "prompt-ok": { const v=$("#prompt-input").value.trim(); if(v&&state._promptCb){ state._promptCb(v); closeModal(); } break; }
-    case "confirm-ok": if(state._confirmCb) state._confirmCb(); break;
+    case "confirm-ok": { const cb=state._confirmCb; state._confirmCb=null; closeModal(); if(cb) cb(); break; }
     case "modal-close": closeModal(); break;
     case "modal-stop": break;
     case "modal-backdrop": closeModal(); break;
@@ -3028,6 +3269,8 @@ function init(){
   // onboarding for new users
   if(!state.profile){ onboard={step:0,nick:"",bday:"",avatar:""}; setTimeout(renderOnboarding,400); }
   initSleep();
+  if(appLockActive()) openAppLock();
+  else if(pageIsLocked(state.view)) openPageLock(state.view, state.param);
 }
 
 /* soft refresh after a background catalog update (keeps playback intact) */
@@ -3155,7 +3398,8 @@ const INSTRUM_KIT=[
 ];
 const METRONOME_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M8.5 3h7l3.2 18H5.3L8.5 3Z"/><path d="M12 8l3.4 8"/><circle cx="12" cy="8" r="1.15" fill="currentColor" stroke="none"/></svg>';
 function instrumUID(){ try{ return crypto.randomUUID(); }catch(e){ return "b"+Date.now().toString(36)+Math.random().toString(16).slice(2,8); } }
-function instrumDefaultProject(){ const bars=1,total=bars*16; const proj={ id:null, name:"Untitled beat", bpm:90, bars, swing:0, master:0.9, metronome:false, tracks: INSTRUM_KIT.map(k=>Object.assign({vol:0.85,mute:false,solo:false,steps:new Array(total).fill(false)},k)) }; iSeedPattern(proj); return proj; }
+function instrumBlankProject(){ const bars=1,total=bars*16; return { id:null, name:"Untitled beat", bpm:90, bars, swing:0, master:0.9, metronome:false, tracks: INSTRUM_KIT.map(k=>Object.assign({vol:0.85,mute:false,solo:false,steps:new Array(total).fill(false)},k)) }; }
+function instrumDefaultProject(){ const proj=instrumBlankProject(); iSeedPattern(proj); return proj; }
 function iSeedPattern(p){ const set=(type,arr)=>{ const tr=p.tracks.find(t=>t.type===type); if(tr) arr.forEach(i=>{ if(i>=0&&i<tr.steps.length) tr.steps[i]=true; }); };
   set("kick",[0,8,10]); set("snare",[4,12]); set("hat",[0,2,4,6,8,10,12,14]); set("openhat",[14]); set("bass",[0,8]); }
 const INSTRUM_PRESETS=[
@@ -3168,8 +3412,19 @@ const INSTRUM_PRESETS=[
   {id:"drill",name:"Drill",bpm:142,swing:0,pat:{kick:[0,6,9],snare:[4,12],hat:[0,2,3,4,6,8,10,11,12,14],bass:[0,6,9]},notes:{bass:"C2"}},
   {id:"dnb",name:"Drum & Bass",bpm:172,swing:0,pat:{kick:[0,10],snare:[4,12],hat:[0,2,4,6,8,10,12,14],openhat:[6,14],bass:[0,8]},notes:{bass:"C2"}},
 ];
-function iApplyPreset(id){ const pr=INSTRUM_PRESETS.find(x=>x.id===id); if(!pr) return; const S=state.instrum; if(!S) return; const p=S.project; p.bars=1; const total=16; p.bpm=pr.bpm; p.swing=pr.swing||0; p.tracks.forEach(tr=>{ tr.steps=new Array(total).fill(false); const arr=pr.pat[tr.type]; if(arr) arr.forEach(i=>{ if(i<total) tr.steps[i]=true; }); if(tr.melodic && pr.notes && pr.notes[tr.type]) tr.note=pr.notes[tr.type]; }); if(S.playing) iStop(); iPushHistory(); renderInstrum(); toast("Preset loaded",pr.name+" \u00b7 "+pr.bpm+" BPM"); }
-function instrumPresetsHtml(){ return `<div class="mx-3 sm:mx-4"><div class="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-white/45"><i data-lucide="wand-sparkles" style="width:13px;height:13px" class="text-[color:var(--treesh-purple)]"></i>Presets</div><div class="flex gap-2 overflow-x-auto no-scrollbar pb-1" data-testid="instrum-presets">${INSTRUM_PRESETS.map(pr=>`<button data-act="i-preset" data-id="${pr.id}" data-testid="preset-${pr.id}" class="press shrink-0 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-2 text-left hover:bg-white/[0.08] hover:border-white/20"><span class="block text-sm font-semibold text-white">${pr.name}</span><span class="block text-[11px] text-white/45">${pr.bpm} BPM</span></button>`).join("")}</div></div>`; }
+function allPresets(){ return INSTRUM_PRESETS.concat(state.userPresets||[]); }
+function iApplyPreset(id){ const pr=allPresets().find(x=>x.id===id); if(!pr) return; const S=state.instrum; if(!S) return; const p=S.project; const bars=Math.max(1,Math.min(4,pr.bars||1)); const total=bars*16; p.bars=bars; p.bpm=pr.bpm; p.swing=pr.swing||0; p.tracks.forEach(tr=>{ tr.steps=new Array(total).fill(false); const arr=pr.pat&&pr.pat[tr.type]; if(arr) arr.forEach(i=>{ if(i<total) tr.steps[i]=true; }); if(tr.melodic && pr.notes && pr.notes[tr.type]) tr.note=pr.notes[tr.type]; }); if(S.playing) iStop(); S.activePreset=id; iPushHistory(); renderInstrum(); toast("Preset loaded",pr.name+" \u00b7 "+pr.bpm+" BPM"); }
+function iCurrentAsPreset(name){ const p=state.instrum.project; const pat={}; const notes={}; p.tracks.forEach(tr=>{ const steps=[]; (tr.steps||[]).forEach((v,i)=>{ if(v) steps.push(i); }); if(steps.length) pat[tr.type]=steps; if(tr.melodic) notes[tr.type]=tr.note; }); return { id:"u_"+instrumUID(), name, bpm:p.bpm, swing:p.swing||0, bars:p.bars||1, pat, notes, custom:true }; }
+function iAddPreset(){ const S=state.instrum; if(!S) return; const p=S.project; const hasSteps=p.tracks.some(tr=>(tr.steps||[]).some(Boolean)); if(!hasSteps){ toast("Nothing to save","Add some beats to the grid first"); return; } openPrompt("Save as preset", (p.name&&p.name!=="Untitled beat"?p.name:"My preset"), (name)=>{ name=(name||"").trim()||"My preset"; const pr=iCurrentAsPreset(name); state.userPresets=[pr,...(state.userPresets||[])].slice(0,40); LS.set("treesh_user_presets",state.userPresets); S.activePreset=pr.id; renderInstrum(); toast("Preset saved",name); }); }
+function iDeletePreset(id){ state.userPresets=(state.userPresets||[]).filter(x=>x.id!==id); LS.set("treesh_user_presets",state.userPresets); const S=state.instrum; if(S&&S.activePreset===id) S.activePreset=null; renderInstrum(); toast("Preset removed"); }
+function iDeselectPreset(){ const S=state.instrum; if(S && S.activePreset){ S.activePreset=null; iRenderPresetStrip(); } }
+function iRenderPresetStrip(){ const el=document.querySelector('[data-testid="instrum-presets"]'); if(el && el.parentElement){ const wrap=el.parentElement; const tmp=document.createElement("div"); tmp.innerHTML=instrumPresetsHtml(); const fresh=tmp.firstElementChild; if(fresh){ wrap.replaceWith(fresh); icons(); } } }
+function instrumPresetsHtml(){ const S=state.instrum; const active=S&&S.activePreset;
+  const chip=(pr,custom)=>{ const on=active===pr.id; return `<div class="relative shrink-0"><button data-act="i-preset" data-id="${pr.id}" data-testid="preset-${pr.id}" aria-pressed="${on}" class="press w-full rounded-xl border ${custom?'pr-7':''} px-3.5 py-2 text-left transition-colors ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15':'border-white/12 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/20'}"><span class="flex items-center gap-1.5"><span class="block text-sm font-semibold text-white">${esc(pr.name)}</span>${on?`<i data-lucide="check" style="width:13px;height:13px" class="text-[color:var(--treesh-purple)]"></i>`:''}</span><span class="block text-[11px] ${on?'text-white/60':'text-white/45'}">${pr.bpm} BPM${custom?' \u00b7 Custom':''}</span></button>${custom?`<button data-act="i-preset-del" data-id="${pr.id}" data-testid="preset-del-${pr.id}" aria-label="Delete preset ${esc(pr.name)}" class="press absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full text-white/40 hover:bg-white/10 hover:text-rose-300"><i data-lucide="x" style="width:12px;height:12px"></i></button>`:''}</div>`; };
+  const builtins=INSTRUM_PRESETS.map(pr=>chip(pr,false)).join("");
+  const customs=(state.userPresets||[]).map(pr=>chip(pr,true)).join("");
+  const addBtn=`<button data-act="i-preset-add" data-testid="preset-add" class="press shrink-0 rounded-xl border border-dashed border-white/20 bg-white/[0.02] px-3 py-2 text-left text-white/70 hover:bg-white/[0.06] hover:text-white hover:border-white/35"><span class="flex items-center gap-1.5 text-sm font-semibold"><i data-lucide="plus" style="width:14px;height:14px"></i>New</span><span class="block text-[11px] text-white/40">Save current</span></button>`;
+  return `<div class="mx-3 sm:mx-4"><div class="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-white/45"><i data-lucide="wand-sparkles" style="width:13px;height:13px" class="text-[color:var(--treesh-purple)]"></i>Presets</div><div class="flex gap-2 overflow-x-auto no-scrollbar pb-1" data-testid="instrum-presets">${builtins}${customs}${addBtn}</div></div>`; }
 function iNoise(ctx){ if(ctx._noise) return ctx._noise; const b=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate); const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; ctx._noise=b; return b; }
 function iTrigger(tr,t,ctx,dest){ const vol=tr.vol==null?0.85:tr.vol; const g=ctx.createGain(); g.connect(dest); const type=tr.type;
   const env=(a,d,peak)=>{ g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(peak*vol,t+a); g.gain.exponentialRampToValueAtTime(0.0001,t+a+d); };
@@ -3192,30 +3447,36 @@ function iVisual(){ const S=state.instrum; if(!S||!S.playing) return; const secS
 function iPlay(){ const S=state.instrum; if(!S||S.playing) return; const go=()=>{ if(!state.instrum||state.instrum!==S) return; S.playing=true; S.step=0; S.visStep=-1; S.nextTime=_iAC.currentTime+0.08; S.startTime=S.nextTime; iSchedule(); iVisual(); iUpdateTransport(); }; try{ const r=_iAC.resume(); if(r&&r.then){ r.then(go).catch(go); } else { go(); } }catch(e){ go(); } }
 function iStop(){ const S=state.instrum; if(!S) return; S.playing=false; clearTimeout(S.timer); cancelAnimationFrame(S.raf); iHighlightCol(-1); iUpdateTransport(); }
 function iUpdateTransport(){ const b=document.querySelector('[data-act="i-play"]'); const S=state.instrum; if(b&&S){ b.setAttribute("aria-label",S.playing?'Stop':'Play'); b.classList.toggle("playing",!!S.playing); b.innerHTML=`<i data-lucide="${S.playing?'pause':'play'}" style="width:23px;height:23px" class="${S.playing?'':'fill-current translate-x-[1px]'}"></i>`; icons(); } }
-function instrumStart(){ if(!state.instrum||!state.instrum.started){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC){ toast("Audio not supported here"); return; } try{ _iAC=new AC(); }catch(e){ toast("Audio not supported"); return; } _iMaster=_iAC.createGain(); _iMaster.connect(_iAC.destination); state.instrum={started:true,project:instrumDefaultProject(),playing:false,step:0,visStep:-1,fs:false,history:[],hi:-1}; _iMaster.gain.value=state.instrum.project.master; iPushHistory(); } try{_iAC.resume();}catch(e){} renderView(true); }
-function iToggleStep(ti,step,cell){ const p=state.instrum.project; const tr=p.tracks[ti]; if(!tr) return; tr.steps[step]=!tr.steps[step]; if(cell){ cell.classList.toggle("on",tr.steps[step]); if(tr.steps[step]){ cell.classList.remove("instrum-hit"); void cell.offsetWidth; cell.classList.add("instrum-hit"); } } if(tr.steps[step]&&_iAC){ try{_iAC.resume();}catch(e){} iTrigger(tr,_iAC.currentTime+0.01,_iAC,_iMaster); } iPushHistory(); }
-function iSetBars(b){ const p=state.instrum.project; const total=b*16; p.tracks.forEach(tr=>{ const old=tr.steps; const ns=new Array(total).fill(false); for(let i=0;i<Math.min(total,old.length);i++) ns[i]=old[i]; tr.steps=ns; }); p.bars=b; if(state.instrum.playing) iStop(); iPushHistory(); renderInstrum(); }
-function iClearSteps(){ state.instrum.project.tracks.forEach(tr=>tr.steps.fill(false)); iPushHistory(); renderInstrum(); toast("Grid cleared"); }
-function iRandomize(){ const p=state.instrum.project; const total=p.bars*16; p.tracks.forEach(tr=>{ for(let s=0;s<total;s++){ let pr=0; const beat=s%16; if(tr.type==="kick") pr=(beat%4===0)?0.9:0.06; else if(tr.type==="snare") pr=(beat%8===4)?0.92:0.03; else if(tr.type==="hat") pr=(s%2===0)?0.7:0.25; else if(tr.type==="openhat") pr=(beat%8===6)?0.5:0.04; else if(tr.type==="clap") pr=(beat%8===4)?0.4:0.02; else if(tr.type==="bass") pr=(beat%4===0)?0.55:0.08; else if(tr.type==="tom") pr=0.05; else pr=0.12; tr.steps[s]=Math.random()<pr; } }); iPushHistory(); renderInstrum(); toast("Randomized"); }
-function iSaveProject(){ const S=state.instrum; const p=S.project; if(!p.name||!p.name.trim()) p.name="Untitled beat"; if(!p.id) p.id=instrumUID(); const isNew=!state.beats.some(b=>b.id===p.id); const clone=JSON.parse(JSON.stringify(p)); const i=state.beats.findIndex(b=>b.id===p.id); if(i>=0) state.beats[i]=clone; else state.beats.unshift(clone); LS.set("treesh_beats",state.beats); toast("Beat saved to My Beats",p.name); if(isNew) starBeatMade(); renderInstrum(); }
-function iLoadProject(id){ const b=state.beats.find(x=>x.id===id); if(!b) return; if(state.instrum&&state.instrum.playing) iStop(); state.instrum.project=JSON.parse(JSON.stringify(b)); const p2=state.instrum.project; if(p2.metronome==null) p2.metronome=false; const total=p2.bars*16; p2.tracks.forEach(tr=>{ if(!Array.isArray(tr.steps)) tr.steps=[]; if(tr.steps.length!==total){ const ns=new Array(total).fill(false); for(let i=0;i<Math.min(total,tr.steps.length);i++) ns[i]=tr.steps[i]; tr.steps=ns; } }); if(_iMaster) _iMaster.gain.value=p2.master; state.instrum.history=[]; state.instrum.hi=-1; iPushHistory(); renderInstrum(true); toast("Opened",b.name); }
+function instrumStart(){ if(!state.instrum||!state.instrum.started){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC){ toast("Audio not supported here"); return; } try{ _iAC=new AC(); }catch(e){ toast("Audio not supported"); return; } _iMaster=_iAC.createGain(); _iMaster.connect(_iAC.destination); state.instrum={started:true,project:instrumBlankProject(),playing:false,step:0,visStep:-1,fs:false,history:[],hi:-1,activePreset:null}; _iMaster.gain.value=state.instrum.project.master; iPushHistory(); } try{_iAC.resume();}catch(e){} renderView(true); }
+function iToggleStep(ti,step,cell){ const p=state.instrum.project; const tr=p.tracks[ti]; if(!tr) return; tr.steps[step]=!tr.steps[step]; if(cell){ cell.classList.toggle("on",tr.steps[step]); if(tr.steps[step]){ cell.classList.remove("instrum-hit"); void cell.offsetWidth; cell.classList.add("instrum-hit"); } } if(tr.steps[step]&&_iAC){ try{_iAC.resume();}catch(e){} iTrigger(tr,_iAC.currentTime+0.01,_iAC,_iMaster); } iDeselectPreset(); iPushHistory(); }
+function iSetBars(b){ const p=state.instrum.project; const total=b*16; p.tracks.forEach(tr=>{ const old=tr.steps; const ns=new Array(total).fill(false); for(let i=0;i<Math.min(total,old.length);i++) ns[i]=old[i]; tr.steps=ns; }); p.bars=b; state.instrum.activePreset=null; if(state.instrum.playing) iStop(); iPushHistory(); renderInstrum(); }
+function iClearSteps(){ state.instrum.project.tracks.forEach(tr=>tr.steps.fill(false)); state.instrum.activePreset=null; iPushHistory(); renderInstrum(); toast("Grid cleared"); }
+function iRandomize(){ const p=state.instrum.project; const total=p.bars*16; p.tracks.forEach(tr=>{ for(let s=0;s<total;s++){ let pr=0; const beat=s%16; if(tr.type==="kick") pr=(beat%4===0)?0.9:0.06; else if(tr.type==="snare") pr=(beat%8===4)?0.92:0.03; else if(tr.type==="hat") pr=(s%2===0)?0.7:0.25; else if(tr.type==="openhat") pr=(beat%8===6)?0.5:0.04; else if(tr.type==="clap") pr=(beat%8===4)?0.4:0.02; else if(tr.type==="bass") pr=(beat%4===0)?0.55:0.08; else if(tr.type==="tom") pr=0.05; else pr=0.12; tr.steps[s]=Math.random()<pr; } }); state.instrum.activePreset=null; iPushHistory(); renderInstrum(); toast("Randomized"); }
+function iSaveProject(){ const S=state.instrum; const p=S.project; if(!p.name||!p.name.trim()) p.name="Untitled beat"; if(!p.id) p.id=instrumUID(); const isNew=!state.beats.some(b=>b.id===p.id); const clone=JSON.parse(JSON.stringify(p)); const i=state.beats.findIndex(b=>b.id===p.id); if(i>=0) state.beats[i]=clone; else state.beats.unshift(clone); LS.set("treesh_beats",state.beats); toast(isNew?"Beat saved to My Beats":"Project saved",p.name); if(isNew) starBeatMade(); renderInstrum(); }
+function iSaveCurrent(){ const S=state.instrum; if(!S) return; const p=S.project; const existing=p.id && state.beats.some(b=>b.id===p.id); if(existing) iSaveProject(); else iOpenSaveDialog(); }
+function iSaveAsDialog(){ const S=state.instrum; if(!S) return; const p=S.project; const base=(p.name||"Untitled beat").trim()||"Untitled beat"; openPrompt("Save as new project", base+" copy", (name)=>{ iSaveAsNew((name||"").trim()||(base+" copy")); }); }
+function iSaveAsNew(name){ const S=state.instrum; if(!S) return; const p=S.project; const clone=JSON.parse(JSON.stringify(p)); clone.id=instrumUID(); clone.name=name; state.beats.unshift(clone); LS.set("treesh_beats",state.beats); p.id=clone.id; p.name=name; starBeatMade(); toast("Saved as new project",name); renderInstrum(); }
+function iLoadProject(id){ const b=state.beats.find(x=>x.id===id); if(!b) return; if(state.instrum&&state.instrum.playing) iStop(); state.instrum.project=JSON.parse(JSON.stringify(b)); const p2=state.instrum.project; if(p2.metronome==null) p2.metronome=false; const total=p2.bars*16; p2.tracks.forEach(tr=>{ if(!Array.isArray(tr.steps)) tr.steps=[]; if(tr.steps.length!==total){ const ns=new Array(total).fill(false); for(let i=0;i<Math.min(total,tr.steps.length);i++) ns[i]=tr.steps[i]; tr.steps=ns; } }); if(_iMaster) _iMaster.gain.value=p2.master; state.instrum.history=[]; state.instrum.hi=-1; state.instrum.activePreset=null; iPushHistory(); renderInstrum(true); toast("Opened",b.name); }
 function iDeleteProject(id){ state.beats=state.beats.filter(b=>b.id!==id); LS.set("treesh_beats",state.beats); renderInstrum(); toast("Beat deleted"); }
 async function iExportWav(){ const S=state.instrum; if(!S){ return; } const p=S.project; const secStep=(60/p.bpm)/4; const total=p.bars*16; const loops=2; const dur=total*secStep*loops+0.8; try{ toast("Rendering WAV\u2026",p.name); const off=new OfflineAudioContext(2,Math.max(1,Math.ceil(44100*dur)),44100); const m=off.createGain(); m.gain.value=p.master; m.connect(off.destination); const solo=p.tracks.some(t=>t.solo); for(let L=0;L<loops;L++){ for(let s=0;s<total;s++){ const t=(L*total+s)*secStep; p.tracks.forEach(tr=>{ if(tr.steps[s]&&!tr.mute&&(!solo||tr.solo)) iTrigger(tr,t,off,m); }); } } const buf=await off.startRendering(); const wav=encodeWAV(buf); const blob=new Blob([wav],{type:"audio/wav"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=(p.name||"beat").replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"")+".wav"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),5000); toast("WAV downloaded",p.name); }catch(e){ toast("Export failed"); } }
 function encodeWAV(buf){ const nCh=buf.numberOfChannels,len=buf.length,sr=buf.sampleRate; const blockAlign=nCh*2; const dataLen=len*blockAlign; const ab=new ArrayBuffer(44+dataLen); const dv=new DataView(ab); let o=0; const ws=s=>{for(let i=0;i<s.length;i++)dv.setUint8(o++,s.charCodeAt(i));}; const w32=v=>{dv.setUint32(o,v,true);o+=4;}; const w16=v=>{dv.setUint16(o,v,true);o+=2;}; ws("RIFF");w32(36+dataLen);ws("WAVE");ws("fmt ");w32(16);w16(1);w16(nCh);w32(sr);w32(sr*blockAlign);w16(blockAlign);w16(16);ws("data");w32(dataLen); const chans=[]; for(let c=0;c<nCh;c++) chans.push(buf.getChannelData(c)); for(let i=0;i<len;i++){ for(let c=0;c<nCh;c++){ let v=Math.max(-1,Math.min(1,chans[c][i])); dv.setInt16(o, v<0?v*0x8000:v*0x7fff, true); o+=2; } } return ab; }
 function instrumLanding(){ return `<div class="flex min-h-[64vh] flex-col items-center justify-center px-4 py-10 text-center">
   <div class="relative mb-6 grid h-24 w-24 place-items-center rounded-[28px] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)] glow-purple"><i data-lucide="sliders-horizontal" style="width:44px;height:44px"></i></div>
-  <p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh Studio</p>
+  <p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Instrum Studio</p>
   <h1 class="mt-2 text-4xl font-extrabold sm:text-5xl">Instrum</h1>
   <p class="mx-auto mt-3 max-w-md text-white/55">A pocket-size beat studio. Layer drums, 808s, leads and pads on a step sequencer \u2014 tap to build, play it live, then save or export. No downloads, all synthesized in your browser.</p>
   <div class="mt-5 flex flex-wrap justify-center gap-2 text-xs text-white/50">${["10 instruments","Metronome","Undo / Redo","Full screen","Save & export WAV"].map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">${c}</span>`).join("")}</div>
   <button data-act="instrum-start" data-testid="instrum-start" class="press mt-7 inline-flex items-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] px-7 py-3.5 text-base font-bold text-white glow-purple"><i data-lucide="play" style="width:18px;height:18px"></i>Open Studio</button>
 </div>`; }
 const LANE_W="w-[100px] shrink-0 sm:w-[152px]";
+function iRenderMenu(){ const c=document.getElementById('imenu'); if(!c) return; const S=state.instrum; const visible = S && S.menu && (state.view==='instrum' || S.fs); if(!visible){ if(c.innerHTML) c.innerHTML=''; return; } c.innerHTML=`<div data-act="i-menu-close" data-testid="instrum-menu-backdrop" class="fixed inset-0 z-[235]"></div>${instrumFileMenuHtml()}`; icons(); iPositionMenu(); }
+function iPositionMenu(){ const btn=document.querySelector('[data-testid="instrum-file-menu"]'); const menu=document.querySelector('#imenu [data-testid="instrum-file-dropdown"]'); if(!btn||!menu) return; const r=btn.getBoundingClientRect(); const mw=menu.offsetWidth||240; let left=r.right-mw; if(left+mw>window.innerWidth-8) left=window.innerWidth-8-mw; if(left<8) left=8; const mh=menu.offsetHeight||300; let top=r.bottom+8; if(top+mh>window.innerHeight-8) top=Math.max(8,r.top-mh-8); menu.style.left=left+'px'; menu.style.top=top+'px'; }
 function instrumFileMenuHtml(){ const mi=(act,ic,title,desc,extra)=>`<button data-act="${act}" data-testid="ifile-${act}" class="press flex w-full items-center gap-3 px-3.5 py-2.5 text-left hover:bg-white/[0.06] ${extra||''}"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/8 text-white/70"><i data-lucide="${ic}" style="width:15px;height:15px"></i></span><span class="min-w-0"><span class="block text-sm font-semibold text-white">${title}</span>${desc?`<span class="block text-[11px] text-white/45">${desc}</span>`:''}</span></button>`;
-  return `<div role="menu" class="absolute right-0 top-[calc(100%+8px)] z-40 w-60 overflow-hidden rounded-2xl border border-white/12 bg-[#14141a]/95 py-1 shadow-[var(--treesh-shadow)] backdrop-blur-2xl tr-fade-in" data-testid="instrum-file-dropdown">
+  return `<div role="menu" style="top:-9999px;left:-9999px" class="imenu-surface fixed z-[240] w-60 overflow-hidden rounded-2xl border border-white/12 py-1 shadow-[var(--treesh-shadow)] backdrop-blur-2xl tr-fade-in" data-testid="instrum-file-dropdown">
     ${mi('i-new','file-plus','New project','Start a fresh beat')}
     ${mi('i-open','folder-open','Open project','Load a saved beat')}
-    ${mi('i-save','save','Save project','Store to My Beats')}
+    ${mi('i-save','save','Save','Update this project')}
+    ${mi('i-save-as','save-all','Save as\u2026','Save a new copy')}
     <div class="my-1 h-px bg-white/8"></div>
     ${mi('i-export','audio-lines','Export WAV','Render to audio file')}
     ${mi('i-export-data','file-json','Export data','Download as .json')}
@@ -3224,16 +3485,18 @@ function instrumFileMenuHtml(){ const mi=(act,ic,title,desc,extra)=>`<button dat
     ${mi('i-faq','graduation-cap','Guide & FAQ','How the studio works')}
   </div>`; }
 function iCloseMenu(){ if(state.instrum&&state.instrum.menu){ state.instrum.menu=false; renderInstrum(); } }
-function iNewProject(){ const S=state.instrum; S.project=instrumDefaultProject(); S.history=[]; S.hi=-1; if(_iMaster) _iMaster.gain.value=S.project.master; iPushHistory(); S.menu=false; renderInstrum(); toast("New project started","Untitled beat"); }
+function iProjectDirty(){ const S=state.instrum; if(!S||!S.project) return false; const p=S.project; const saved=(state.beats||[]).find(b=>b.id===p.id); if(saved){ try{ return JSON.stringify(saved)!==JSON.stringify(p); }catch(e){ return true; } } return !!(p.tracks && p.tracks.some(tr=>(tr.steps||[]).some(Boolean))); }
+function iDoNewProject(){ const S=state.instrum; if(!S) return; if(S.playing) iStop(); S.project=instrumBlankProject(); S.history=[]; S.hi=-1; S.activePreset=null; if(_iMaster) _iMaster.gain.value=S.project.master; iPushHistory(); S.menu=false; renderInstrum(); toast("New project started","Empty grid"); }
+function iNewProject(){ const S=state.instrum; if(!S) return; S.menu=false; if(iProjectDirty()){ renderInstrum(); openConfirm("Start a new project?","You have an active project with unsaved changes. Starting a new project will clear the grid and discard them.", ()=>{ iDoNewProject(); }); } else { iDoNewProject(); } }
 function iExportData(){ const p=state.instrum.project; try{ const data=JSON.stringify({type:"treesh-beat",v:1,project:p},null,2); const blob=new Blob([data],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=(p.name||"beat").replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"")+".json"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast("Project data exported",p.name); }catch(e){ toast("Export failed"); } }
-function iImportData(file){ const r=new FileReader(); r.onload=()=>{ try{ const obj=JSON.parse(r.result); const p=obj&&obj.project?obj.project:obj; if(!p||!Array.isArray(p.tracks)) throw new Error("bad"); const total=(p.bars||1)*16; p.tracks.forEach(tr=>{ if(!Array.isArray(tr.steps)) tr.steps=new Array(total).fill(false); }); p.id=p.id||instrumUID(); const S=state.instrum; S.project=JSON.parse(JSON.stringify(p)); S.history=[]; S.hi=-1; if(_iMaster) _iMaster.gain.value=S.project.master||0.9; iPushHistory(); S.menu=false; renderInstrum(); toast("Project imported",p.name||"Beat"); }catch(e){ toast("Import failed","Not a valid beat file"); } }; r.readAsText(file); }
-function instrumOpenModal(){ const beats=state.beats||[]; const inner=`<div class="mb-3 flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="folder-open" style="width:18px;height:18px"></i></span><h3 class="text-lg font-bold">Open project</h3></div>
+function iImportData(file){ const r=new FileReader(); r.onload=()=>{ try{ const obj=JSON.parse(r.result); const p=obj&&obj.project?obj.project:obj; if(!p||!Array.isArray(p.tracks)) throw new Error("bad"); const total=(p.bars||1)*16; p.tracks.forEach(tr=>{ if(!Array.isArray(tr.steps)) tr.steps=new Array(total).fill(false); }); p.id=p.id||instrumUID(); const S=state.instrum; S.project=JSON.parse(JSON.stringify(p)); S.history=[]; S.hi=-1; S.activePreset=null; if(_iMaster) _iMaster.gain.value=S.project.master||0.9; iPushHistory(); S.menu=false; renderInstrum(); toast("Project imported",p.name||"Beat"); }catch(e){ toast("Import failed","Not a valid beat file"); } }; r.readAsText(file); }
+function instrumOpenModal(){ const beats=state.beats||[]; const inner=`<div class="mb-3 flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="folder-open" style="width:18px;height:18px"></i></span><h3 class="text-lg font-bold">Open project</h3><button data-act="modal-close" aria-label="Close" data-testid="instrum-open-close" class="press ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
     ${beats.length?`<div class="max-h-[60vh] space-y-2 overflow-y-auto no-scrollbar pr-0.5">${beats.map(b=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3" data-testid="open-beat-${b.id}"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:20px;height:20px"></i></span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(b.name||'Untitled beat')}</p><p class="text-xs text-white/50">${b.bpm||90} BPM \u00b7 ${b.bars||1} bar${(b.bars||1)>1?'s':''}</p></div><button data-act="i-open-load" data-id="${b.id}" data-testid="load-beat-${b.id}" class="press rounded-full bg-[color:var(--treesh-purple)] px-3.5 py-2 text-xs font-semibold text-white glow-purple">Open</button><button data-act="i-open-del" data-id="${b.id}" aria-label="Delete" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-rose-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`:`<div class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/12 py-12 text-center"><i data-lucide="folder-open" style="width:34px;height:34px" class="text-white/30"></i><p class="text-sm text-white/55">No saved beats yet.</p><p class="text-xs text-white/40">Create a beat and choose File \u2192 Save.</p></div>`}`;
   $("#modal").innerHTML=modalWrap(inner,"instrum-open-modal","lg"); icons();
 }
-function iOpenLoad(id){ const b=(state.beats||[]).find(x=>x.id===id); if(!b) return; const S=state.instrum; S.project=JSON.parse(JSON.stringify(b)); S.history=[]; S.hi=-1; if(_iMaster) _iMaster.gain.value=S.project.master||0.9; iPushHistory(); closeModal(); renderInstrum(); toast("Project opened",b.name); }
+function iOpenLoad(id){ const b=(state.beats||[]).find(x=>x.id===id); if(!b) return; const S=state.instrum; S.project=JSON.parse(JSON.stringify(b)); S.history=[]; S.hi=-1; S.activePreset=null; if(_iMaster) _iMaster.gain.value=S.project.master||0.9; iPushHistory(); closeModal(); renderInstrum(); toast("Project opened",b.name); }
 function instrumFaqModal(){ const q=(t,a)=>`<div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p class="mb-1 flex items-center gap-2 text-sm font-bold"><i data-lucide="circle-help" style="width:15px;height:15px" class="text-[color:var(--treesh-purple)]"></i>${t}</p><p class="text-sm leading-relaxed text-white/65">${a}</p></div>`;
-  const inner=`<div class="mb-3 flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="graduation-cap" style="width:18px;height:18px"></i></span><h3 class="text-lg font-bold">Studio guide & FAQ</h3></div>
+  const inner=`<div class="mb-3 flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="graduation-cap" style="width:18px;height:18px"></i></span><h3 class="text-lg font-bold">Studio guide &amp; FAQ</h3><button data-act="modal-close" aria-label="Close" data-testid="instrum-faq-close" class="press ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
     <div class="max-h-[65vh] space-y-2.5 overflow-y-auto no-scrollbar pr-0.5">
       ${q('How do I make a beat?','Tap the cells in each instrument lane to place hits on the step grid. Press Play to loop your pattern. Each row is one sound (kick, snare, hats, plus melodic keys).')}
       ${q('Melodic instruments (Keys/Bass/Lead)','Melodic lanes have a note selector \u2014 pick a note, then place steps to build a melody or bassline.')}
@@ -3247,7 +3510,7 @@ function instrumFaqModal(){ const q=(t,a)=>`<div class="rounded-2xl border borde
 function instrumHeaderHtml(fs){ const p=state.instrum.project; return `<div class="flex items-center gap-2 px-3 sm:px-4 ${fs?'pt-[max(12px,env(safe-area-inset-top))] pb-1':'pb-3'}">
     <div class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sliders-horizontal" style="width:17px;height:17px"></i></div>
     <div class="min-w-0 flex-1">
-      <p class="font-display text-[9px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Treesh Studio</p>
+      <p class="font-display text-[9px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Instrum Studio</p>
       <input value="${esc(p.name)}" data-act="i-name" data-testid="instrum-name" maxlength="40" placeholder="Beat name" class="-ml-0.5 w-full max-w-[240px] truncate bg-transparent text-lg font-extrabold leading-tight text-white outline-none placeholder:text-white/35">
     </div>
     <button data-act="i-faq" aria-label="Guide & FAQ" class="tip i-btn h-10 w-10" data-tip="Guide & FAQ"><i data-lucide="graduation-cap" style="width:17px;height:17px"></i></button>
@@ -3256,25 +3519,24 @@ function instrumHeaderHtml(fs){ const p=state.instrum.project; return `<div clas
     <input type="file" id="i-import-input" accept=".json,application/json" class="hidden">
   </div>`; }
 function instrumTransportHtml(fs){ const p=state.instrum.project; const S=state.instrum; const canUndo=S.history&&S.hi>0; const canRedo=S.history&&S.hi<(S.history.length-1);
-  return `<div class="studio-panel mx-3 sm:mx-4 p-2.5 sm:p-3">
-    <div class="flex flex-wrap items-center gap-2">
+  return `<div class="studio-panel mx-3 sm:mx-4 p-2.5 sm:p-3 ${S.menu?'relative z-[80]':''}">
+    <div class="flex flex-col gap-2.5 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-2 lg:overflow-x-auto lg:no-scrollbar">
+      <div class="flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar lg:contents">
       <button data-act="i-play" data-testid="instrum-play" aria-label="${S.playing?'Stop':'Play'}" class="i-play-btn press shrink-0 ${S.playing?'playing':''}"><i data-lucide="${S.playing?'pause':'play'}" style="width:23px;height:23px" class="${S.playing?'':'fill-current translate-x-[1px]'}"></i></button>
       <div class="flex h-11 shrink-0 items-center gap-0.5 rounded-xl border border-white/10 bg-white/5 px-1">
         <button data-act="i-bpm-dec" aria-label="Slower" class="i-btn h-8 w-8 border-0 bg-transparent"><i data-lucide="minus" style="width:15px;height:15px"></i></button>
         <div class="px-0.5 text-center leading-none"><input type="number" inputmode="numeric" min="40" max="220" value="${p.bpm}" data-act="i-bpm" data-testid="instrum-bpm" class="i-lcd font-doto w-10 bg-transparent text-center text-xl font-bold outline-none"><span class="block text-[8px] font-semibold uppercase tracking-[0.15em] text-white/40">BPM</span></div>
         <button data-act="i-bpm-inc" aria-label="Faster" class="i-btn h-8 w-8 border-0 bg-transparent"><i data-lucide="plus" style="width:15px;height:15px"></i></button>
       </div>
-      <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
+      <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 lg:ml-0">
         <button data-act="i-undo" data-testid="instrum-undo" aria-label="Undo" class="tip i-btn h-11 w-11" data-tip="Undo" ${canUndo?'':'disabled'}><i data-lucide="undo-2" style="width:17px;height:17px"></i></button>
         <button data-act="i-redo" data-testid="instrum-redo" aria-label="Redo" class="tip i-btn h-11 w-11" data-tip="Redo" ${canRedo?'':'disabled'}><i data-lucide="redo-2" style="width:17px;height:17px"></i></button>
         <span class="mx-0.5 h-6 w-px bg-white/10"></span>
-        <div class="relative">
-          <button data-act="i-menu-toggle" data-testid="instrum-file-menu" aria-haspopup="menu" aria-expanded="${S.menu?'true':'false'}" class="i-btn h-11 shrink-0 gap-1.5 px-2.5 sm:px-3.5 text-sm font-semibold ${S.menu?'on':''}"><i data-lucide="folder" style="width:17px;height:17px"></i><span class="hidden sm:inline">File</span><i data-lucide="chevron-down" style="width:13px;height:13px" class="transition-transform ${S.menu?'rotate-180':''}"></i></button>
-          ${S.menu?`<div data-act="i-menu-close" class="fixed inset-0 z-30"></div>${instrumFileMenuHtml()}`:''}
-        </div>
+        <button data-act="i-menu-toggle" data-testid="instrum-file-menu" aria-haspopup="menu" aria-expanded="${S.menu?'true':'false'}" class="i-btn h-11 shrink-0 gap-1.5 px-2.5 sm:px-3.5 text-sm font-semibold ${S.menu?'on':''}"><i data-lucide="folder" style="width:17px;height:17px"></i><span class="hidden sm:inline">File</span><i data-lucide="chevron-down" style="width:13px;height:13px" class="transition-transform ${S.menu?'rotate-180':''}"></i></button>
       </div>
-    </div>
-    <div class="mt-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+      </div>
+      <span class="hidden h-7 w-px shrink-0 bg-white/10 lg:block"></span>
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 lg:contents">
       <div class="flex h-10 shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2"><span class="pl-0.5 text-[9px] font-semibold uppercase tracking-wide text-white/40">Bars</span>${[1,2,4].map(b=>`<button data-act="i-bars" data-val="${b}" class="press h-7 w-7 rounded-lg text-sm font-bold ${p.bars===b?'bg-[color:var(--treesh-purple)] text-white':'text-white/55 hover:bg-white/10'}">${b}</button>`).join("")}</div>
       <button data-act="i-metronome" data-testid="instrum-metronome" aria-label="Metronome" class="tip i-btn h-10 w-10 shrink-0 ${p.metronome?'on':''}" data-tip="Metronome">${METRONOME_SVG}</button>
       <div class="tip flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5" data-tip="Swing groove"><i data-lucide="waves" style="width:14px;height:14px" class="text-white/45"></i><input type="range" min="0" max="0.6" step="0.05" value="${p.swing}" data-act="i-swing" aria-label="Swing" class="i-slider w-16"></div>
@@ -3282,6 +3544,7 @@ function instrumTransportHtml(fs){ const p=state.instrum.project; const S=state.
       <span class="h-6 w-px shrink-0 bg-white/10"></span>
       <button data-act="i-clear" data-testid="instrum-clear" aria-label="Clear grid" class="tip i-btn h-10 w-10 shrink-0" data-tip="Clear grid"><i data-lucide="eraser" style="width:16px;height:16px"></i></button>
       <button data-act="i-random" data-testid="instrum-random" aria-label="Randomize" class="tip i-btn h-10 w-10 shrink-0" data-tip="Randomize"><i data-lucide="dices" style="width:16px;height:16px"></i></button>
+      </div>
     </div>
   </div>`; }
 function instrumLaneCells(tr,ti,total){
@@ -3332,9 +3595,9 @@ function instrumStudioHtml(fs){ if(fs){ return `<div data-instrum-root class="fl
 function instrumFSPlaceholder(){ return `<div class="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center"><div class="grid h-16 w-16 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="maximize-2" style="width:28px;height:28px"></i></div><p class="text-lg font-bold">Studio is in full screen</p><button data-act="i-fullscreen" class="press inline-flex items-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple"><i data-lucide="minimize-2" style="width:16px;height:16px"></i>Exit full screen</button></div>`; }
 function viewInstrum(){ if(!state.instrum||!state.instrum.started) return instrumLanding(); if(state.instrum.fs) return instrumFSPlaceholder(); return instrumStudioHtml(false); }
 /* ---------- Instrum render targets (view vs fullscreen overlay) ---------- */
-function renderInstrum(animate){ if(state.instrum&&state.instrum.fs) renderInstrumFS(); else renderView(animate); }
-function renderInstrumFS(){ const c=document.getElementById("instrum-fs"); if(!c) return; if(!state.instrum||!state.instrum.fs){ c.innerHTML=""; return; } c.innerHTML=`<div class="fs-shell">${instrumStudioHtml(true)}</div>`; icons(); requestAnimationFrame(()=>{ if(state.instrum&&state.instrum.playing) iHighlightCol(state.instrum.visStep); }); }
-function iToggleFullscreen(){ const S=state.instrum; if(!S) return; S.fs=!S.fs; if(S.fs){ renderView(); renderInstrumFS(); } else { const c=document.getElementById("instrum-fs"); if(c) c.innerHTML=""; renderView(true); } syncScrollLock(); }
+function renderInstrum(animate){ if(state.instrum&&state.instrum.fs) renderInstrumFS(); else renderView(animate); iRenderMenu(); }
+function renderInstrumFS(){ const c=document.getElementById("instrum-fs"); if(!c) return; if(!state.instrum||!state.instrum.fs){ c.innerHTML=""; return; } const _sm=captureScroll(c); c.innerHTML=`<div class="fs-shell">${instrumStudioHtml(true)}</div>`; icons(); restoreScroll(c,_sm); requestAnimationFrame(()=>{ if(state.instrum&&state.instrum.playing) iHighlightCol(state.instrum.visStep); }); }
+function iToggleFullscreen(){ const S=state.instrum; if(!S) return; S.fs=!S.fs; if(S.fs){ renderView(); renderInstrumFS(); } else { const c=document.getElementById("instrum-fs"); if(c) c.innerHTML=""; renderView(true); } iRenderMenu(); syncScrollLock(); }
 /* ---------- Instrum history (undo / redo) ---------- */
 function iSnapshot(){ return JSON.stringify(state.instrum.project); }
 function iPushHistory(){ const S=state.instrum; if(!S) return; if(!S.history) S.history=[]; S.history=S.history.slice(0,(S.hi==null?-1:S.hi)+1); S.history.push(iSnapshot()); if(S.history.length>80){ S.history.shift(); } S.hi=S.history.length-1; iUpdateUndoUI(); }
@@ -3362,6 +3625,19 @@ async function boot(){
   startCatalogPolling();
 }
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
+
+/* --- Global UX protections: block accidental zoom, protect images, full-tap date picker --- */
+(function(){
+  try{
+    window.addEventListener("wheel", e=>{ if(e.ctrlKey||e.metaKey) e.preventDefault(); }, {passive:false});
+    window.addEventListener("keydown", e=>{ if((e.ctrlKey||e.metaKey) && (e.key==="+"||e.key==="-"||e.key==="="||e.key==="0")) e.preventDefault(); });
+    ["gesturestart","gesturechange","gestureend"].forEach(ev=>document.addEventListener(ev, e=>{ e.preventDefault(); }));
+    document.addEventListener("contextmenu", e=>{ if(e.target && e.target.closest && e.target.closest("input,textarea,[contenteditable]")) return; e.preventDefault(); });
+    document.addEventListener("dragstart", e=>{ if(e.target && e.target.tagName==="IMG") e.preventDefault(); });
+    document.addEventListener("click", e=>{ const d=e.target && e.target.closest && e.target.closest('input[type="date"]'); if(d && !d.disabled && typeof d.showPicker==="function"){ try{ d.showPicker(); }catch(_){} } });
+    ["input","change"].forEach(ev=>document.addEventListener(ev, e=>{ const t=e.target; if(t && t.classList && t.classList.contains("tdf-native")) syncDateField(t); }));
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
