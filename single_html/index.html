@@ -901,7 +901,7 @@ const state = {
   karaoke: false, lyricsEdit: false, lyricEdits: LS.get("treesh_lyric_edits", {}),
   studio: null, game: null, tot: null,
   perfMode: LS.get("treesh_perf", false),
-  perfOpts: Object.assign({show:true, size:"md", scheme:"accent", layout:"pill", pos:"top", rolePos:"inline", customColor:"#c3ab69", bgColor:"#000000", pillColor:"#ffffff"}, LS.get("treesh_perf_opts", {})),
+  perfOpts: Object.assign({show:true, size:"md", scheme:"accent", layout:"pill", pos:"top", rolePos:"inline", customColor:"#c3ab69", bgColor:"#000000", pillColor:"#ffffff", bgOpacity:0.5, pillBorder:false, pillBorderColor:"#ffffff", pillBorderOpacity:1}, LS.get("treesh_perf_opts", {})),
   explainAuto: LS.get("treesh_explain_auto", false),
   viz: Object.assign({enabled:true, style:"bars", color:"accent", customColor:"#9328ff", mirror:true, glow:true, sensitivity:1.3, bgStyle:"bars"}, LS.get("treesh_viz", {})),
   beats: LS.get("treesh_beats", []),
@@ -1932,7 +1932,11 @@ function viewSettings(){
         <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Name color</p>${pseg('perf-opt-scheme',perfOpts().scheme,[['accent','Accent'],['rose','Rose'],['mono','Mono'],['custom','Custom']])}</div>
         ${perfOpts().scheme==='custom'?colorRow('perf-opt-custom-color',null,perfOpts().customColor||'#c3ab69','pipette','Name color','Custom performer name & ring color'):''}
         ${colorRow('perf-opt-bg-color',null,perfOpts().bgColor||'#000000','square','Badge background','Backdrop color of the performer badge')}
+        <div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10 text-white/60"><i data-lucide="droplet" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Badge opacity</p><p class="text-xs text-white/50">How see-through the badge backdrop is</p></div><input type="range" min="0" max="1" step="0.05" value="${perfOpts().bgOpacity==null?0.5:perfOpts().bgOpacity}" data-act="perf-opt-bg-opacity" data-testid="perf-opt-bg-opacity" aria-label="Badge opacity" class="i-slider w-28"></div>
         ${colorRow('perf-opt-pill-color',null,perfOpts().pillColor||'#ffffff','pill','Pill background','Background color of the artist pills')}
+        ${toggleCard('perf-opt-pill-border','perf-opt-pill-border-toggle',!!perfOpts().pillBorder,'frame','Pill border','Add a 3px border around each artist pill')}
+        ${perfOpts().pillBorder?colorRow('perf-opt-pill-border-color',null,perfOpts().pillBorderColor||'#ffffff','frame','Border color','Color of the pill border'):''}
+        ${perfOpts().pillBorder?`<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10 text-white/60"><i data-lucide="droplet" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Border opacity</p></div><input type="range" min="0" max="1" step="0.05" value="${perfOpts().pillBorderOpacity==null?1:perfOpts().pillBorderOpacity}" data-act="perf-opt-pill-border-opacity" data-testid="perf-opt-pill-border-opacity" aria-label="Border opacity" class="i-slider w-28"></div>`:''}
         <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Screen position</p>${pseg('perf-opt-pos',perfOpts().pos,[['top','Top'],['bottom','Bottom']])}</div>
       </div>
     </div>
@@ -2681,7 +2685,7 @@ function parseSection(sec){
   names.forEach(n=>{ const k=normKey(n); if(!k||seen.has(k)) return; seen.add(k); const ic=findArtist(n); artists.push(ic?{name:ic.name,image:ic.image,id:ic.id}:{name:n,image:null,id:null}); });
   return {role, artists};
 }
-function perfOpts(){ return state.perfOpts||{show:true,size:"md",scheme:"accent",layout:"pill",pos:"top",rolePos:"inline",customColor:"#c3ab69",bgColor:"#000000",pillColor:"#ffffff"}; }
+function perfOpts(){ return state.perfOpts||{show:true,size:"md",scheme:"accent",layout:"pill",pos:"top",rolePos:"inline",customColor:"#c3ab69",bgColor:"#000000",pillColor:"#ffffff",bgOpacity:0.5,pillBorder:false,pillBorderColor:"#ffffff",pillBorderOpacity:1}; }
 function savePerfOpts(){ LS.set("treesh_perf_opts", state.perfOpts); if(typeof refreshPerformer==="function") refreshPerformer(); }
 function refreshPerfSettings(){ renderView(); if(typeof refreshPerformer==="function") refreshPerformer(); }
 function perfSchemeVars(scheme, custom){
@@ -2693,8 +2697,9 @@ function perfSchemeVars(scheme, custom){
 function buildPerformerHtml(info,o,preview){
   o=o||perfOpts();
   const sv=perfSchemeVars(o.scheme, o.customColor);
-  const badgeBg=hexA(o.bgColor||"#000000", 0.5);
+  const badgeBg=hexA(o.bgColor||"#000000", o.bgOpacity==null?0.5:o.bgOpacity);
   const pillBg=hexA(o.pillColor||"#ffffff", 0.16);
+  const pillBorderCss=o.pillBorder?`border:3px solid ${hexA(o.pillBorderColor||"#ffffff", o.pillBorderOpacity==null?1:o.pillBorderOpacity)};`:"";
   const pe=preview?"pointer-events-none":"pointer-events-auto";
   const S = o.size==="sm" ? {av:"h-5 w-5", nameTx:"text-[11px]", roleTx:"text-[7px]", pad:"py-0.5 pl-0.5 pr-2", gap:"gap-1", box:"py-0.5 pl-2 pr-1", stackBox:"px-2 py-1.5"} :
             o.size==="lg" ? {av:"h-8 w-8", nameTx:"text-sm", roleTx:"text-[10px]", pad:"py-1 pl-1 pr-3", gap:"gap-2", box:"py-1.5 pl-3 pr-2", stackBox:"px-3.5 py-2.5"} :
@@ -2717,7 +2722,7 @@ function buildPerformerHtml(info,o,preview){
   const pills=info.artists.map(a=>{
     const attrs=preview ? `data-testid="perf-preview-pill-${slug(a.name)}" tabindex="-1" aria-hidden="true"` : `data-act="perf-artist" data-name="${esc(a.name)}" data-id="${a.id||''}" data-testid="perf-pill-${slug(a.name)}" aria-label="About ${esc(a.name)}"`;
     const cls=preview ? `flex shrink-0 items-center pointer-events-none` : `press flex shrink-0 items-center`;
-    return `<button ${attrs} class="${cls} ${S.gap} rounded-full ${S.pad}" style="background:${pillBg}">${a.image?`<span class="${S.av} shrink-0 overflow-hidden rounded-full ring-1" style="--tw-ring-color:${sv.ring}">${img(a.image,'h-full w-full object-cover')}</span>`:`<span class="grid ${S.av} shrink-0 place-items-center rounded-full bg-white/15 text-[10px] font-bold text-white ring-1" style="--tw-ring-color:${sv.ring}">${esc((a.name||'?').charAt(0).toUpperCase())}</span>`}<span class="clamp-1 ${S.nameTx} font-bold text-white">${esc(a.name)}</span></button>`;
+    return `<button ${attrs} class="${cls} ${S.gap} rounded-full ${S.pad}" style="background:${pillBg};${pillBorderCss}">${a.image?`<span class="${S.av} shrink-0 overflow-hidden rounded-full ring-1" style="--tw-ring-color:${sv.ring}">${img(a.image,'h-full w-full object-cover')}</span>`:`<span class="grid ${S.av} shrink-0 place-items-center rounded-full bg-white/15 text-[10px] font-bold text-white ring-1" style="--tw-ring-color:${sv.ring}">${esc((a.name||'?').charAt(0).toUpperCase())}</span>`}<span class="clamp-1 ${S.nameTx} font-bold text-white">${esc(a.name)}</span></button>`;
   }).join("");
   const rp=o.rolePos||"inline";
   if(rp==="above"||rp==="below"){
@@ -2732,7 +2737,7 @@ function updatePerformer(sec){
   const box=document.getElementById("np-performer"); if(!box) return;
   const o=perfOpts();
   box.className="pointer-events-none absolute inset-x-0 z-20 flex justify-center px-2 "+(o.pos==="bottom"?"bottom-1 pb-1":"top-0 pt-1");
-  const key=(sec||"")+"|"+o.size+"|"+o.scheme+"|"+o.layout+"|"+o.pos+"|"+(o.rolePos||"inline")+"|"+(o.customColor||"")+"|"+(o.bgColor||"")+"|"+(o.pillColor||"")+"|"+(o.show?1:0);
+  const key=(sec||"")+"|"+o.size+"|"+o.scheme+"|"+o.layout+"|"+o.pos+"|"+(o.rolePos||"inline")+"|"+(o.customColor||"")+"|"+(o.bgColor||"")+"|"+(o.pillColor||"")+"|"+(o.bgOpacity==null?0.5:o.bgOpacity)+"|"+(o.pillBorder?1:0)+"|"+(o.pillBorderColor||"")+"|"+(o.pillBorderOpacity==null?1:o.pillBorderOpacity)+"|"+(o.show?1:0);
   if(_perfKey===key) return; _perfKey=key;
   if(!o.show){ box.innerHTML=""; return; }
   const info=parseSection(sec);
@@ -3141,7 +3146,8 @@ document.addEventListener("input", e=>{
   if(act==="set-label-text"){ state.label.text=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   if(act==="set-label-bg"){ state.label.bg=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   if(act==="set-label-border-color"){ state.label.borderColor=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
-  if(act==="perf-opt-custom-color"||act==="perf-opt-bg-color"||act==="perf-opt-pill-color"){ const key=act==="perf-opt-bg-color"?"bgColor":act==="perf-opt-pill-color"?"pillColor":"customColor"; state.perfOpts[key]=el.value; savePerfOpts(); const lbl=el.closest("label"); if(lbl) lbl.style.background=el.value; const pv=document.getElementById("perf-preview"); if(pv){ pv.innerHTML=perfPreviewHtml(); icons(); } return; }
+  if(act==="perf-opt-custom-color"||act==="perf-opt-bg-color"||act==="perf-opt-pill-color"||act==="perf-opt-pill-border-color"){ const key=act==="perf-opt-bg-color"?"bgColor":act==="perf-opt-pill-color"?"pillColor":act==="perf-opt-pill-border-color"?"pillBorderColor":"customColor"; state.perfOpts[key]=el.value; savePerfOpts(); const lbl=el.closest("label"); if(lbl) lbl.style.background=el.value; const pv=document.getElementById("perf-preview"); if(pv){ pv.innerHTML=perfPreviewHtml(); icons(); } return; }
+  if(act==="perf-opt-bg-opacity"||act==="perf-opt-pill-border-opacity"){ const key=act==="perf-opt-bg-opacity"?"bgOpacity":"pillBorderOpacity"; state.perfOpts[key]=+el.value; savePerfOpts(); const pv=document.getElementById("perf-preview"); if(pv){ pv.innerHTML=perfPreviewHtml(); icons(); } return; }
   if(act==="set-label-bg-opacity"){ state.label.bgA=+el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   const S=state.instrum; if(!S) return; const p=S.project; const ti=+el.dataset.ti;
   if(act==="i-bpm"){ p.bpm=Math.max(40,Math.min(220,parseInt(el.value)||90)); document.querySelectorAll('[data-act="i-bpm"]').forEach(x=>{ if(x!==el) x.value=p.bpm; }); }
@@ -3191,7 +3197,8 @@ document.addEventListener("click", e=>{
     case "perf-opt-scheme": { state.perfOpts.scheme=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "perf-opt-rolepos": { state.perfOpts.rolePos=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "perf-opt-pos": { state.perfOpts.pos=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
-    case "perf-opt-reset": { state.perfOpts={show:true, size:"md", scheme:"accent", layout:"pill", pos:"top", rolePos:"inline", customColor:"#c3ab69", bgColor:"#000000", pillColor:"#ffffff"}; savePerfOpts(); refreshPerfSettings(); toast("Performer options reset"); break; }
+    case "perf-opt-pill-border": { state.perfOpts.pillBorder=!state.perfOpts.pillBorder; savePerfOpts(); refreshPerfSettings(); break; }
+    case "perf-opt-reset": { state.perfOpts={show:true, size:"md", scheme:"accent", layout:"pill", pos:"top", rolePos:"inline", customColor:"#c3ab69", bgColor:"#000000", pillColor:"#ffffff", bgOpacity:0.5, pillBorder:false, pillBorderColor:"#ffffff", pillBorderOpacity:1}; savePerfOpts(); refreshPerfSettings(); toast("Performer options reset"); break; }
     case "toggle-anim-bg": { state.animBg=!state.animBg; LS.set("treesh_anim_bg",state.animBg); applyUiPrefs(); toast(state.animBg?"Animated background on":"Animated background off"); renderView(); break; }
     case "toggle-ui-glow": { state.uiGlow=!state.uiGlow; LS.set("treesh_ui_glow",state.uiGlow); applyUiPrefs(); toast(state.uiGlow?"Interface glow on":"Interface glow off"); renderView(); break; }
     case "toggle-explain-auto": { state.explainAuto=!state.explainAuto; LS.set("treesh_explain_auto",state.explainAuto); toast(state.explainAuto?"Lyric meanings will auto-show":"Auto-show meanings off"); renderView(); if(state.npOpen) renderNP(); break; }
