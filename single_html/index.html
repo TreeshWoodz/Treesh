@@ -664,14 +664,14 @@ function bumpBdayEdits(){ state.bdayEdits=bdayEditCount()+1; LS.set("treesh_bday
    HTML, normalized, and cached to localStorage. This keeps the app
    in sync with the live Treesh catalog with zero backend.
    ============================================================ */
-let SONGS = [], ARTISTS = [], GENRES = [], SONG_BY_ID = {}, ARTIST_BY_ID = {};
+let SONGS = [], ARTISTS = [], GENRES = [], SONG_BY_ID = {}, ARTIST_BY_ID = {}, ARTIST_SONG_IDS = {};
 
 const CONTENT_SOURCES = {
   songs:  ["content/songs",  "/content/songs",  "https://treesh.app/content/songs"],
   icons:  ["content/icons",  "/content/icons",  "https://treesh.app/content/icons"],
   lyrics: ["content/lyrics", "/content/lyrics", "https://treesh.app/content/lyrics"],
 };
-const CATALOG_KEY = "treesh_catalog_v2";
+const CATALOG_KEY = "treesh_catalog_v3";
 
 async function fetchFirst(urls){
   let lastErr;
@@ -698,7 +698,7 @@ function parseSongs(doc){
     while(used.has(id)) id = id + "-" + i;
     used.add(id);
     out.push({
-      id, title, artist, artistIds: aid ? [aid] : [],
+      id, title, artist, artistIds: aid ? aid.split(",").map(x => x.trim()).filter(Boolean) : [],
       genre: attr(el,"data-genre"), mood: attr(el,"data-mood"),
       creationDate: attr(el,"data-creation-date"), writtenBy: attr(el,"data-written-by"),
       producer: attr(el,"data-producer"), mixer: attr(el,"data-mixer"),
@@ -779,6 +779,23 @@ function indexCatalog(){
   ARTIST_BY_ID = Object.fromEntries(ARTISTS.map(a => [a.id, a]));
   GENRES = [...new Set(SONGS.map(s => s.genre).filter(Boolean))].sort();
   applyLyricEdits();
+  buildArtistSongIndex();
+}
+/* Map each artist id -> set of song ids they perform on. Includes the primary
+   artist, name/featuring matches, AND lyric-section performers so members of a
+   group (e.g. Zuubandz in a PerfekTenz track) get credit on their own profile. */
+function buildArtistSongIndex(){
+  ARTIST_SONG_IDS = {};
+  const byName = {}; ARTISTS.forEach(a => { byName[normKey(a.name)] = a.id; });
+  const add = (id, sid) => { if(!id) return; (ARTIST_SONG_IDS[id] || (ARTIST_SONG_IDS[id] = new Set())).add(sid); };
+  const secCache = {};
+  const psec = (sec) => { if(sec==null) return null; if(sec in secCache) return secCache[sec]; const r = (typeof parseSection==="function") ? parseSection(sec) : null; secCache[sec] = r; return r; };
+  SONGS.forEach(s => {
+    (s.artistIds || []).forEach(id => add(id, s.id));
+    const pid = byName[normKey(s.artist)]; if(pid) add(pid, s.id);
+    if(s.featuring){ String(s.featuring).split(/\s*[,&\/+\u00d7]\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|x)\s+/i).forEach(n => { const id = byName[normKey(n)]; if(id) add(id, s.id); }); }
+    (s.lyrics || []).forEach(l => { const info = psec(l.sec); if(info && info.artists) info.artists.forEach(a => { const id = a.id || byName[normKey(a.name)]; if(id) add(id, s.id); }); });
+  });
 }
 function applyLyricEdits(){ try{ const ed=(state&&state.lyricEdits)||{}; for(const id in ed){ if(SONG_BY_ID[id] && Array.isArray(ed[id])) SONG_BY_ID[id].lyrics=ed[id]; } }catch(e){} }
 let _catalogSig = "";
@@ -914,9 +931,36 @@ function bgSaveImages(){
   state.bgImages=(state.bgImages||[]).filter(Boolean).slice(0,3);
   if(state.bgIndex>state.bgImages.length-1) state.bgIndex=Math.max(0,state.bgImages.length-1);
   state.bgImage=state.bgImages[state.bgIndex]||"";
-  LS.set("treesh_bg_images",state.bgImages);
-  LS.set("treesh_bg_index",state.bgIndex);
-  LS.set("treesh_bg_image",state.bgImage);
+  try{
+    localStorage.setItem("treesh_bg_images", JSON.stringify(state.bgImages));
+    localStorage.setItem("treesh_bg_index", JSON.stringify(state.bgIndex));
+    /* keep legacy single-image key in sync (small) for backward compatibility */
+    localStorage.setItem("treesh_bg_image", JSON.stringify(state.bgImage));
+    return true;
+  }catch(e){ return false; }
+}
+/* Downscale + recompress an uploaded image so it reliably fits in localStorage.
+   Full-screen backgrounds don't need more than ~1600px; JPEG keeps size tiny. */
+function compressImageDataUrl(dataUrl, maxDim, quality){
+  return new Promise((resolve,reject)=>{
+    try{
+      const im=new Image();
+      im.onload=()=>{
+        try{
+          let w=im.naturalWidth||im.width, h=im.naturalHeight||im.height;
+          if(!w||!h){ resolve(dataUrl); return; }
+          const scale=Math.min(1, maxDim/Math.max(w,h));
+          w=Math.max(1,Math.round(w*scale)); h=Math.max(1,Math.round(h*scale));
+          const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+          const ctx=cv.getContext("2d"); ctx.drawImage(im,0,0,w,h);
+          let out; try{ out=cv.toDataURL("image/jpeg", quality); }catch(e){ out=dataUrl; }
+          resolve(out && out.length ? out : dataUrl);
+        }catch(e){ resolve(dataUrl); }
+      };
+      im.onerror=()=>reject(new Error("bad image"));
+      im.src=dataUrl;
+    }catch(e){ reject(e); }
+  });
 }
 
 /* ---------- theme ---------- */
@@ -1372,7 +1416,7 @@ function picksSection(){
    ============================================================ */
 function dateMs(str){ if(!str) return 0; const t=Date.parse(str); return isNaN(t)?0:t; }
 function relDate(str){ const t=dateMs(str); if(!t) return esc(str||""); const diff=Date.now()-t, day=86400000; if(diff<day*2) return "Just added"; const d=Math.floor(diff/day); if(d<7) return d+" days ago"; const w=Math.floor(d/7); if(w<5) return w+(w===1?" week ago":" weeks ago"); const mo=Math.floor(d/30); if(mo<12) return mo+(mo===1?" month ago":" months ago"); const y=Math.floor(d/365); return y+(y===1?" year ago":" years ago"); }
-function artistSongs(id){ return vis(SONGS.filter(s=>(s.artistIds||[]).includes(id))); }
+function artistSongs(id){ const set=ARTIST_SONG_IDS[id]; if(set) return vis(SONGS.filter(s=>set.has(s.id))); return vis(SONGS.filter(s=>(s.artistIds||[]).includes(id))); }
 
 function buildWhatsNew(){
   const bydate=vis([...SONGS]).sort((a,b)=>dateMs(b.creationDate)-dateMs(a.creationDate));
@@ -1493,7 +1537,7 @@ function viewArtists(){
 
 function viewArtistDetail(){
   const a=ARTIST_BY_ID[state.param]; if(!a) return `<p class="text-white/60">Artist not found.</p>`;
-  const songs=vis(SONGS.filter(s=>(s.artistIds||[]).includes(a.id))); state.contextList=songs;
+  const songs=artistSongs(a.id); state.contextList=songs;
   return `<div class="space-y-6"><button data-act="back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back</button>
   <section class="dark-surface relative overflow-hidden rounded-3xl border border-white/10"><div class="absolute inset-0">${img(a.background||a.image,'h-full w-full object-cover opacity-40',`style="object-position:${esc(a.bgPos||'center')}"`)}<div class="absolute inset-0" style="background:linear-gradient(to top,rgba(10,10,11,0.96),rgba(10,10,11,0.5))"></div></div>
     <div class="relative flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-end sm:p-8"><div class="h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-xl sm:h-36 sm:w-36">${img(a.image,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">${esc(a.role||'Music Artist')}</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">${esc(a.name)}</h1><p class="mt-1 text-sm text-white/60">${songs.length} track${songs.length!==1?'s':''}</p>${a.bio?`<p class="mt-3 max-w-xl text-sm leading-relaxed text-white/70">${esc(a.bio)}</p>`:""}</div></div></section>
@@ -1807,7 +1851,7 @@ function viewSettings(){
                  return `<label data-testid="bg-add-image-${i}" class="press grid aspect-[4/3] cursor-pointer place-items-center rounded-xl border border-dashed border-white/20 bg-white/[0.02] text-white/55 transition hover:bg-white/5 hover:text-white/80"><span class="flex flex-col items-center gap-1"><i data-lucide="image-plus" style="width:20px;height:20px"></i><span class="text-[10px] font-semibold">Add</span></span><input type="file" accept="image/*" class="hidden bg-image-input"></label>`;
                }).join("")}
              </div>
-             <p class="mt-2 text-[11px] text-white/40">Save up to 3 images, then tap one to use it. Max 4.5&nbsp;MB each.</p>
+             <p class="mt-2 text-[11px] text-white/40">Save up to 3 images, then tap one to use it. Photos are optimized automatically.</p>
            </div>
            ${state.bgImage?toggleCard('toggle-bg-overlay','settings-toggle-bg-overlay',!!state.bgOverlay,'contrast','Dim overlay','Darken the image so text stays easy to read'):''}
          </div>`:''}
@@ -1877,7 +1921,7 @@ function viewSettings(){
     </div>
 
     <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6" data-testid="settings-perf">
-      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="mic-vocal" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Verse performer</h2></div>
+      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="mic-vocal" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Verse performer</h2><button data-act="perf-opt-reset" data-testid="perf-reset-button" aria-label="Reset performer options" class="press ml-auto inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10"><i data-lucide="rotate-ccw" style="width:13px;height:13px"></i>Reset</button></div>
       <p class="mb-4 pl-11 text-sm text-white/50">The badge in the lyrics view that shows who\u2019s performing each section.</p>
       <div id="perf-preview" class="pointer-events-none mb-4 flex min-h-[68px] items-center justify-center rounded-2xl border border-white/10 bg-black/40 p-3">${perfPreviewHtml()}</div>
       ${toggleCard('perf-opt-show','perf-show-toggle',perfOpts().show,'eye','Show performer badge','Display the active artist while lyrics play')}
@@ -1984,7 +2028,7 @@ function renderView(animate=false){
   // wire settings live zodiac + avatar preview
   const bday=$("#set-bday"); if(bday){ const updSB=()=>{ syncDateField(bday); const z=zodiac(bday.value); const el=$("#set-zodiac"); if(el) el.textContent=z; const zw=$("#set-zodiac-wrap"); if(zw) zw.classList.toggle("hidden",!z); }; bday.addEventListener("input",updSB); bday.addEventListener("change",updSB); }
   const ai=$("#set-avatar-input"); if(ai){ ai.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ state._tmpAvatar=r.result; const av=$("#set-avatar"); if(av) av.innerHTML=img(r.result,'h-full w-full object-cover'); }; r.readAsDataURL(f); }); }
-  document.querySelectorAll(".bg-image-input").forEach(bgi=>{ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>4.5*1024*1024){ toast("Image too large","Use one under 4.5 MB"); return; } if((state.bgImages||[]).length>=3){ toast("Limit reached","You can save up to 3 images"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.bgImages=(state.bgImages||[]).filter(Boolean); state.bgImages.push(r.result); state.bgIndex=state.bgImages.length-1; state.bg="custom"; LS.set("treesh_bg","custom"); bgSaveImages(); applyTheme(); renderView(); toast("Background added", `Image ${state.bgIndex+1} of ${state.bgImages.length}`); }catch(err){ toast("Couldn\u2019t save image","It may be too large"); } }; r.readAsDataURL(f); }); });
+  document.querySelectorAll(".bg-image-input").forEach(bgi=>{ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>12*1024*1024){ toast("Image too large","Use one under 12 MB"); return; } if((state.bgImages||[]).length>=3){ toast("Limit reached","You can save up to 3 images"); return; } const r=new FileReader(); r.onload=()=>{ compressImageDataUrl(r.result, 1600, 0.82).then(small=>{ state.bgImages=(state.bgImages||[]).filter(Boolean); state.bgImages.push(small); state.bgIndex=state.bgImages.length-1; const prevBg=state.bg; state.bg="custom"; const ok=bgSaveImages(); if(!ok){ state.bgImages.pop(); state.bgIndex=Math.max(0,state.bgImages.length-1); state.bg=prevBg; bgSaveImages(); applyTheme(); renderView(); toast("Storage full","Couldn\u2019t save \u2014 remove an image and try again"); return; } LS.set("treesh_bg","custom"); applyTheme(); renderView(); toast("Background added", `Image ${state.bgIndex+1} of ${state.bgImages.length}`); }).catch(()=>toast("Couldn\u2019t read image","Try a different file")); }; r.readAsDataURL(f); }); });
   const ff=$("#set-font-file"); if(ff){ ff.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>3*1024*1024){ toast("Font too large","Use one under 3 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.customFont={data:r.result, name:(f.name||'Custom').replace(/\.[^.]+$/,'')}; state.uiFont=""; _customFontLoaded=false; LS.set("treesh_custom_font",state.customFont); applyUiFont(); renderView(); toast("Custom font applied", state.customFont.name); }catch(err){ toast("Couldn\u2019t load font"); } }; r.readAsDataURL(f); }); }
   iRenderMenu();
   if(state.view==="settings" && (state.settingsTab||"display")==="account") updateStorageEstimate();
@@ -3147,6 +3191,7 @@ document.addEventListener("click", e=>{
     case "perf-opt-scheme": { state.perfOpts.scheme=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "perf-opt-rolepos": { state.perfOpts.rolePos=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "perf-opt-pos": { state.perfOpts.pos=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
+    case "perf-opt-reset": { state.perfOpts={show:true, size:"md", scheme:"accent", layout:"pill", pos:"top", rolePos:"inline", customColor:"#c3ab69", bgColor:"#000000", pillColor:"#ffffff"}; savePerfOpts(); refreshPerfSettings(); toast("Performer options reset"); break; }
     case "toggle-anim-bg": { state.animBg=!state.animBg; LS.set("treesh_anim_bg",state.animBg); applyUiPrefs(); toast(state.animBg?"Animated background on":"Animated background off"); renderView(); break; }
     case "toggle-ui-glow": { state.uiGlow=!state.uiGlow; LS.set("treesh_ui_glow",state.uiGlow); applyUiPrefs(); toast(state.uiGlow?"Interface glow on":"Interface glow off"); renderView(); break; }
     case "toggle-explain-auto": { state.explainAuto=!state.explainAuto; LS.set("treesh_explain_auto",state.explainAuto); toast(state.explainAuto?"Lyric meanings will auto-show":"Auto-show meanings off"); renderView(); if(state.npOpen) renderNP(); break; }
@@ -3297,9 +3342,9 @@ document.addEventListener("click", e=>{
     case "clear-search": state.query=""; const si=$("#search"); if(si)si.value=""; renderView(true); const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.add("hidden"); break;
     case "shuffle-all": { const pool=vis(SONGS); if(!pool.length)break; state.shuffle=true; const r=pool[Math.floor(Math.random()*pool.length)]; playSong(r,pool); break; }
     case "playall-context": { if(state.contextList.length) playSong(state.contextList[0],state.contextList); break; }
-    case "artist-open": navigate("artist",id); break;
-    case "artist-playall": { const songs=vis(SONGS.filter(s=>(s.artistIds||[]).includes(id))); if(songs.length) playSong(songs[0],songs); break; }
-    case "artist-shuffle": { const songs=vis(SONGS.filter(s=>(s.artistIds||[]).includes(id))); if(!songs.length)break; state.shuffle=true; playSong(songs[Math.floor(Math.random()*songs.length)],songs); break; }
+    case "artist-open": { closeModal(); if(state.npOpen) closeNP(); navigate("artist",id); break; }
+    case "artist-playall": { const songs=artistSongs(id); if(songs.length) playSong(songs[0],songs); break; }
+    case "artist-shuffle": { const songs=artistSongs(id); if(!songs.length)break; state.shuffle=true; playSong(songs[Math.floor(Math.random()*songs.length)],songs); break; }
     case "new-playlist": openPrompt("New playlist","",(name)=>{ createPlaylist(name); refreshLists(); }); break;
     case "pl-open": navigate("playlist",id); break;
     case "pl-back": navigate("library"); openProfile("playlists"); break;
