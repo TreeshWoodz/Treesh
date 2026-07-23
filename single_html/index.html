@@ -2220,21 +2220,35 @@ const CARD_THEMES=[
   {name:"Ocean", a:"#0a1f2e", b:"#155e75", accent:"#bfe9ff"},
 ];
 
+function studioDefaults(songId){ return {songId, bgMode:'theme', theme:0, color:'#3a0d6b', coverShape:'full', dim:0, blur:0, edits:{}}; }
 function openLyricStudio(songId){
   const s=SONG_BY_ID[songId]; if(!s) return;
   const existed=!!$("#modal [data-studio-root]");
-  if(!state.studio || state.studio.songId!==songId) state.studio={songId, theme:0};
+  if(!state.studio || state.studio.songId!==songId){ const keepPicked=(state.studio&&state.studio.songId===songId)?state.studio.picked:null; state.studio=studioDefaults(songId); if(keepPicked) state.studio.picked=keepPicked; }
+  const st=state.studio;
+  if(st.bgMode==null) st.bgMode='theme'; if(st.color==null) st.color='#3a0d6b'; if(st.coverShape==null) st.coverShape='full'; if(st.dim==null) st.dim=0; if(st.blur==null) st.blur=0; if(st.edits==null) st.edits={};
   const fav=studioLines(songId);
-  const themeSwatches=CARD_THEMES.map((t,i)=>`<button data-act="card-theme" data-i="${i}" aria-label="${t.name}" class="h-9 w-9 rounded-full border-2 transition ${i===state.studio.theme?'border-white scale-110':'border-white/20 hover:border-white/50'}" style="background:linear-gradient(135deg,${t.a},${t.b})"></button>`).join("");
+  const modeBtn=(m,label,ic)=>`<button data-act="card-bg-mode" data-mode="${m}" data-testid="card-bg-mode-${m}" class="press flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition ${st.bgMode===m?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:bg-white/10'}"><i data-lucide="${ic}" style="width:14px;height:14px"></i>${label}</button>`;
+  const themeSwatches=CARD_THEMES.map((t,i)=>`<button data-act="card-theme" data-i="${i}" aria-label="${t.name}" class="h-9 w-9 rounded-full border-2 transition ${st.bgMode==='theme'&&i===st.theme?'border-white scale-110':'border-white/20 hover:border-white/50'}" style="background:linear-gradient(135deg,${t.a},${t.b})"></button>`).join("");
+  const shapeBtn=(sh,label)=>`<button data-act="card-cover-shape" data-shape="${sh}" data-testid="card-cover-shape-${sh}" class="press rounded-lg px-3 py-1.5 text-xs font-semibold transition ${st.coverShape===sh?'bg-white/20 text-white':'bg-white/5 text-white/60 hover:bg-white/10'}">${label}</button>`;
+  let bgControls='';
+  if(st.bgMode==='theme'){ bgControls=`<div class="flex flex-wrap gap-2">${themeSwatches}</div>`; }
+  else if(st.bgMode==='color'){ bgControls=`<label class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5"><span class="relative inline-block h-9 w-9 overflow-hidden rounded-lg border border-white/20" style="background:${st.color}"><input type="color" data-act="card-color" data-testid="card-color" value="${st.color}" class="absolute -inset-1 h-[calc(100%+8px)] w-[calc(100%+8px)] cursor-pointer opacity-0"></span><span class="text-sm text-white/70">Pick a background color</span></label>`; }
+  else { bgControls=`<div class="flex flex-wrap items-center gap-2">${shapeBtn('full','Full')}${shapeBtn('rounded','Rounded')}${shapeBtn('circle','Circle')}</div><p class="mt-1.5 text-[11px] text-white/40">Uses this song's cover art. Some artwork may not be exportable.</p>`; }
+  const slider=(act,label,val,min,max,step,unit)=>`<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"><span class="w-10 shrink-0 text-xs font-semibold text-white/55">${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${val}" data-act="${act}" data-testid="${act}" aria-label="${label}" class="i-slider flex-1"><span data-fill-label="${act}" class="w-9 shrink-0 text-right text-[11px] text-white/45">${unit==='px'?Math.round(val)+'px':Math.round(val*100)+'%'}</span></div>`;
   const lineList = fav.length
-    ? fav.map(l=>`<div class="flex items-start gap-2 rounded-lg bg-white/5 px-2.5 py-2"><p class="flex-1 text-sm text-white/85">${esc(l.text)}</p><button data-act="studio-remove" data-i="${l.i}" aria-label="Remove" class="press mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"><i data-lucide="x" style="width:14px;height:14px"></i></button></div>`).join("")
+    ? fav.map(l=>{ const txt=(st.edits[l.i]!=null)?st.edits[l.i]:l.text; const rows=Math.max(1,String(txt).split('\n').length); return `<div class="flex items-start gap-2 rounded-lg bg-white/5 px-2.5 py-2"><textarea data-act="studio-edit" data-i="${l.i}" rows="${rows}" spellcheck="false" aria-label="Edit lyric line" class="studio-edit min-w-0 flex-1 resize-none bg-transparent text-sm text-white/85 outline-none placeholder:text-white/30">${esc(txt)}</textarea><button data-act="studio-remove" data-i="${l.i}" aria-label="Remove" class="press mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"><i data-lucide="x" style="width:14px;height:14px"></i></button></div>`; }).join("")
     : `<div class="rounded-xl border border-dashed border-white/15 p-5 text-center text-sm text-white/50"><i data-lucide="heart" style="width:20px;height:20px" class="mx-auto mb-2"></i>Tap the <span class="text-white/80">heart</span> on any lyric line to feature it here.</div>`;
   const inner=`<div data-studio-root>
     <div class="mb-3 flex items-center justify-between"><div><p class="font-display text-xs uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Lyric Card</p><p class="clamp-1 text-sm font-semibold">${esc(s.title)} \u00B7 ${esc(s.artist)}</p></div><button data-act="modal-close" aria-label="Close" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
     <div class="max-h-[76vh] space-y-4 overflow-y-auto no-scrollbar pr-1">
       <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/40"><canvas id="lyric-canvas" width="1080" height="1080" class="block w-full"></canvas></div>
-      <div><p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">Background</p><div class="flex flex-wrap gap-2">${themeSwatches}</div></div>
-      <div><p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">Featured lyrics ${fav.length?`(${fav.length})`:""}</p><div class="space-y-1.5">${lineList}</div></div>
+      <div><p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">Background</p>
+        <div class="mb-2.5 flex gap-1 rounded-xl bg-black/30 p-1">${modeBtn('theme','Theme','palette')}${modeBtn('color','Color','pipette')}${modeBtn('cover','Cover art','image')}</div>
+        ${bgControls}
+      </div>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">${slider('card-dim','Dim',st.dim,0,0.85,0.05,'%')}${slider('card-blur','Blur',st.blur,0,40,1,'px')}</div>
+      <div><p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-white/45">Featured lyrics ${fav.length?`(${fav.length})`:""}<span class="ml-1.5 font-normal normal-case tracking-normal text-white/35">\u00b7 press Enter for a line break</span></p><div class="space-y-1.5">${lineList}</div></div>
       <div class="flex gap-2 pt-1">
         <button data-act="card-download" data-testid="card-download" class="press flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 py-3 text-sm font-bold ${fav.length?'':'pointer-events-none opacity-40'}"><i data-lucide="download" style="width:16px;height:16px"></i>Download</button>
         <button data-act="card-share" data-testid="card-share" class="press flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[color:var(--treesh-purple)] py-3 text-sm font-bold glow-purple ${fav.length?'':'pointer-events-none opacity-40'}"><i data-lucide="share-2" style="width:16px;height:16px"></i>Share</button>
@@ -2242,6 +2256,7 @@ function openLyricStudio(songId){
     </div>
   </div>`;
   $("#modal").innerHTML=modalWrap(inner,"lyric-studio","lg"); icons();
+  document.querySelectorAll(".studio-edit").forEach(ta=>{ ta.style.height='auto'; ta.style.height=(ta.scrollHeight)+'px'; });
   if(existed){ const p=$("#modal [data-act='modal-stop']"); if(p) p.classList.remove("panel-in"); }
   drawLyricCard();
 }
@@ -2255,50 +2270,81 @@ function wrapCanvasText(ctx, lines, maxW){
   });
   return out;
 }
+function shadeHex(hex, amt){ try{ const {r,g,b}=hexToRgb(hex); const f=v=>Math.max(0,Math.min(255,Math.round(v+amt))); return `rgb(${f(r)},${f(g)},${f(b)})`; }catch(e){ return hex; } }
+function drawImageCover(ctx, img, x, y, w, h){ const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height; if(!iw||!ih) return; const scale=Math.max(w/iw, h/ih); const dw=iw*scale, dh=ih*scale; ctx.drawImage(img, x+(w-dw)/2, y+(h-dh)/2, dw, dh); }
+function roundRectPath(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+let _studioCover=null;
+function ensureStudioCover(url){
+  if(_studioCover && _studioCover.url===url) return _studioCover;
+  const rec={url, img:null, ok:false, tainted:false}; _studioCover=rec;
+  const tryLoad=(useCors)=>{ const im=new Image(); if(useCors) im.crossOrigin='anonymous'; im.onload=()=>{ if(_studioCover!==rec) return; rec.img=im; rec.ok=true; rec.tainted=!useCors; drawLyricCard(); }; im.onerror=()=>{ if(_studioCover!==rec) return; if(useCors){ tryLoad(false); } else { rec.ok=false; drawLyricCard(); } }; im.src=url; };
+  tryLoad(true); return rec;
+}
 function drawLyricCard(){
   const cv=$("#lyric-canvas"); if(!cv) return;
   const s=SONG_BY_ID[state.studio.songId]; if(!s) return;
-  const lines=studioLines(s.id).map(x=>x.text);
-  const th=CARD_THEMES[state.studio.theme]||CARD_THEMES[0];
+  const st=state.studio;
+  const items=studioLines(s.id);
+  const rawLines=items.map(x=> (st.edits && st.edits[x.i]!=null) ? st.edits[x.i] : x.text);
+  const th=CARD_THEMES[st.theme]||CARD_THEMES[0];
+  const accent = st.bgMode==='theme' ? (th.accent||'#fff') : '#ffffff';
   const ctx=cv.getContext("2d"); const W=1080,H=1080;
-  const draw=()=>{
-    ctx.clearRect(0,0,W,H);
-    const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,th.a); g.addColorStop(1,th.b);
-    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    // soft glow
-    const rg=ctx.createRadialGradient(W*0.2,H*0.15,50,W*0.2,H*0.15,700); rg.addColorStop(0,"rgba(255,255,255,0.14)"); rg.addColorStop(1,"rgba(255,255,255,0)"); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
-    // decorative quote
+  const paint=()=>{
+    ctx.clearRect(0,0,W,H); ctx.filter='none';
+    // ---- background ----
+    if(st.bgMode==='cover'){
+      const rec=s.coverArt ? ensureStudioCover(s.coverArt) : null;
+      if(rec && rec.ok && rec.img){
+        ctx.fillStyle='#0c0c0f'; ctx.fillRect(0,0,W,H);
+        ctx.save();
+        if(st.coverShape==='circle'){ ctx.beginPath(); ctx.arc(W/2,H/2,Math.min(W,H)*0.47,0,Math.PI*2); ctx.clip(); }
+        else if(st.coverShape==='rounded'){ roundRectPath(ctx,64,64,W-128,H-128,72); ctx.clip(); }
+        if(st.blur>0) ctx.filter=`blur(${st.blur}px)`;
+        const b=st.blur||0; drawImageCover(ctx, rec.img, -b, -b, W+b*2, H+b*2);
+        ctx.restore(); ctx.filter='none';
+      } else { const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,'#1a1030'); g.addColorStop(1,'#0c0c0f'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
+    } else if(st.bgMode==='color'){
+      const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,st.color); g.addColorStop(1, shadeHex(st.color,-48)); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    } else {
+      const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,th.a); g.addColorStop(1,th.b); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    }
+    // ---- dim overlay ----
+    if(st.dim>0){ ctx.fillStyle=`rgba(0,0,0,${st.dim})`; ctx.fillRect(0,0,W,H); }
+    // ---- readability scrims ----
+    const rg=ctx.createRadialGradient(W*0.2,H*0.15,50,W*0.2,H*0.15,700); rg.addColorStop(0,"rgba(255,255,255,0.10)"); rg.addColorStop(1,"rgba(255,255,255,0)"); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
+    const bs=ctx.createLinearGradient(0,H*0.52,0,H); bs.addColorStop(0,'rgba(0,0,0,0)'); bs.addColorStop(1,'rgba(0,0,0,0.55)'); ctx.fillStyle=bs; ctx.fillRect(0,0,W,H);
+    // ---- decorative quote ----
     ctx.fillStyle="rgba(255,255,255,0.13)"; ctx.font='900 300px Georgia, serif'; ctx.textBaseline="alphabetic"; ctx.fillText("\u201C", 60, 340);
-    // top label
-    ctx.fillStyle=th.accent||"#fff"; ctx.font='800 26px Manrope, sans-serif';
-    ctx.fillText("T R E E S H   \u00B7   L Y R I C S", 96, 150);
-    // lyric body
-    const body = lines.length ? lines : ["Select lyrics to feature\u2026"];
-    let fs = 76; const total=body.join(" ").length;
+    // ---- top label ----
+    ctx.fillStyle=accent; ctx.font='800 26px Manrope, sans-serif'; ctx.fillText("T R E E S H   \u00B7   L Y R I C S", 96, 150);
+    // ---- lyric body (respect manual line breaks via \n) ----
+    const body = rawLines.length ? rawLines.reduce((acc,l)=>acc.concat(String(l).split('\n')),[]) : ["Select lyrics to feature\u2026"];
+    let fs=76; const total=body.join(" ").length;
     if(total>60) fs=62; if(total>120) fs=52; if(total>200) fs=44; if(total>320) fs=36;
     ctx.font=`800 ${fs}px Manrope, sans-serif`;
     let wrapped=wrapCanvasText(ctx, body, W-192);
-    // shrink if too many lines
     while(wrapped.length*(fs*1.28) > 560 && fs>26){ fs-=4; ctx.font=`800 ${fs}px Manrope, sans-serif`; wrapped=wrapCanvasText(ctx, body, W-192); }
-    const lh=fs*1.3; const blockH=wrapped.length*lh; let y=Math.max(360, (H-260)/2 - blockH/2 + fs);
+    const lh=fs*1.3; const blockH=wrapped.length*lh; let y=Math.max(360,(H-260)/2 - blockH/2 + fs);
     ctx.fillStyle="#ffffff"; ctx.textBaseline="alphabetic";
-    wrapped.forEach(ln=>{ ctx.fillText(ln, 96, y); y+=lh; });
-    // divider + attribution
-    ctx.fillStyle="rgba(255,255,255,0.25)"; ctx.fillRect(96, H-190, 90, 4);
-    ctx.fillStyle="#ffffff"; ctx.font='800 42px Manrope, sans-serif'; ctx.fillText(s.title.slice(0,40), 96, H-120);
-    ctx.fillStyle="rgba(255,255,255,0.75)"; ctx.font='500 32px Manrope, sans-serif'; ctx.fillText(s.artist.slice(0,44), 96, H-72);
+    if(st.bgMode==='cover'){ ctx.shadowColor='rgba(0,0,0,0.4)'; ctx.shadowBlur=14; ctx.shadowOffsetY=2; }
+    wrapped.forEach(ln=>{ ctx.fillText(ln,96,y); y+=lh; });
+    ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+    // ---- attribution ----
+    ctx.fillStyle="rgba(255,255,255,0.25)"; ctx.fillRect(96,H-190,90,4);
+    ctx.fillStyle="#ffffff"; ctx.font='800 42px Manrope, sans-serif'; ctx.fillText(s.title.slice(0,40),96,H-120);
+    ctx.fillStyle="rgba(255,255,255,0.75)"; ctx.font='500 32px Manrope, sans-serif'; ctx.fillText(s.artist.slice(0,44),96,H-72);
   };
-  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(draw); draw(); } else draw();
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(paint); paint(); } else paint();
 }
-function cardBlob(cb){ const cv=$("#lyric-canvas"); if(!cv){ cb(null); return; } cv.toBlob(cb, "image/png"); }
+function cardBlob(cb){ const cv=$("#lyric-canvas"); if(!cv){ cb(null); return; } try{ cv.toBlob(b=>cb(b), "image/png"); }catch(e){ cb(null); } }
 function downloadLyricCard(){
   const s=SONG_BY_ID[state.studio.songId];
-  cardBlob(blob=>{ if(!blob) return; const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`treesh-lyric-${slug(s.title)||"card"}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500); toast("Lyric card saved"); });
+  cardBlob(blob=>{ if(!blob){ toast("Couldn\u2019t export card","This cover art is protected \u2014 try a Color or Theme background."); return; } const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`treesh-lyric-${slug(s.title)||"card"}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500); toast("Lyric card saved"); });
 }
 async function shareLyricCard(){
   const s=SONG_BY_ID[state.studio.songId]; const lines=studioLines(s.id).map(x=>x.text);
   cardBlob(async blob=>{
-    if(!blob) return;
+    if(!blob){ toast("Couldn\u2019t export card","This cover art is protected \u2014 try a Color or Theme background."); return; }
     const file=new File([blob], `treesh-lyric-${slug(s.title)||"card"}.png`, {type:"image/png"});
     const text=`"${lines.join(" / ")}" \u2014 ${s.artist}`;
     if(navigator.canShare && navigator.canShare({files:[file]})){
@@ -3329,7 +3375,9 @@ document.addEventListener("click", e=>{
     case "fav-lyric": { const s=curSong(); if(s){ const i=+t.dataset.li; const willFav=!isFavLyric(s.id,i); const r=t.getBoundingClientRect(); heartBurst(r.left+r.width/2, r.top+r.height/2, willFav); toggleFavLyric(s.id,i); const on=isFavLyric(s.id,i); t.dataset.fav=on?"1":""; t.classList.toggle("opacity-100",on); t.classList.toggle("is-liked",on); const sv=t.querySelector("svg"); if(sv){ sv.classList.remove("heart-pop","heart-unpop"); void sv.offsetWidth; sv.classList.add(on?"heart-pop":"heart-unpop"); } toast(on?"Lyric favorited":"Removed from favorites"); } break; }
     case "open-lyric-studio": { const s=curSong(); if(s) openLyricStudio(s.id); break; }
     case "studio-remove": { const ri=+t.dataset.i; if(state.studio&&state.studio.picked) state.studio.picked=state.studio.picked.filter(x=>x.i!==ri); if(isFavLyric(state.studio.songId,ri)) toggleFavLyric(state.studio.songId, ri); openLyricStudio(state.studio.songId); break; }
-    case "card-theme": state.studio.theme=+t.dataset.i; openLyricStudio(state.studio.songId); break;
+    case "card-theme": state.studio.theme=+t.dataset.i; state.studio.bgMode='theme'; openLyricStudio(state.studio.songId); break;
+    case "card-bg-mode": state.studio.bgMode=t.dataset.mode; openLyricStudio(state.studio.songId); break;
+    case "card-cover-shape": state.studio.coverShape=t.dataset.shape; openLyricStudio(state.studio.songId); break;
     case "card-download": downloadLyricCard(); break;
     case "card-share": shareLyricCard(); break;
     case "make-lyric-card": openLyricStudio(id); break;
@@ -3439,6 +3487,12 @@ document.addEventListener("input", e=>{
   else if(e.target.id==="np-seek"){ fillSlider(e.target); if(state.duration) seekTo(e.target.value/100*state.duration); }
   else if(e.target.id==="np-vol"){ fillSlider(e.target); setVolume(e.target.value/100); }
   else if(e.target.id==="game-search"){ state.gameQuery=e.target.value; const c=$("#game-song-list"); if(c){ c.innerHTML=gameSongListHtml(); icons(); } const cb=$('[data-act="game-clear-search"]'); if(cb) cb.classList.toggle("hidden",!state.gameQuery); }
+  else { const a=e.target.dataset&&e.target.dataset.act;
+    if(a==="card-dim"){ state.studio.dim=+e.target.value; const l=document.querySelector('[data-fill-label="card-dim"]'); if(l) l.textContent=Math.round(state.studio.dim*100)+'%'; drawLyricCard(); }
+    else if(a==="card-blur"){ state.studio.blur=+e.target.value; const l=document.querySelector('[data-fill-label="card-blur"]'); if(l) l.textContent=Math.round(state.studio.blur)+'px'; drawLyricCard(); }
+    else if(a==="card-color"){ state.studio.color=e.target.value; const sw=e.target.closest("label"); const box=sw&&sw.querySelector("span"); if(box) box.style.background=e.target.value; drawLyricCard(); }
+    else if(a==="studio-edit"){ const i=+e.target.dataset.i; if(!state.studio.edits) state.studio.edits={}; state.studio.edits[i]=e.target.value; e.target.style.height='auto'; e.target.style.height=e.target.scrollHeight+'px'; drawLyricCard(); }
+  }
 });
 
 /* ---- Draggable / tappable scrubbers (mini player progress bar) ---- */
