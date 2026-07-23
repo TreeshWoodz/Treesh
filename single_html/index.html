@@ -851,6 +851,8 @@ const state = {
   theme: LS.get("treesh_theme", "dark"),
   bg: LS.get("treesh_bg", "mono"),
   bgImage: LS.get("treesh_bg_image", ""),
+  bgImages: (function(){ let a=LS.get("treesh_bg_images",null); if(!Array.isArray(a)){ const s=LS.get("treesh_bg_image",""); a=s?[s]:[]; } return a.filter(Boolean).slice(0,3); })(),
+  bgIndex: (function(){ let i=parseInt(LS.get("treesh_bg_index",0),10); return (isNaN(i)||i<0)?0:i; })(),
   bgOverlay: LS.get("treesh_bg_overlay", true),
   textSize: LS.get("treesh_text_size", "md"),
   animBg: LS.get("treesh_anim_bg", true),
@@ -882,7 +884,7 @@ const state = {
   karaoke: false, lyricsEdit: false, lyricEdits: LS.get("treesh_lyric_edits", {}),
   studio: null, game: null, tot: null,
   perfMode: LS.get("treesh_perf", false),
-  perfOpts: Object.assign({show:true, size:"md", scheme:"accent", layout:"pill", pos:"top"}, LS.get("treesh_perf_opts", {})),
+  perfOpts: Object.assign({show:true, size:"md", scheme:"accent", layout:"pill", pos:"top", rolePos:"inline", customColor:"#c3ab69", bgColor:"#000000", pillColor:"#ffffff"}, LS.get("treesh_perf_opts", {})),
   explainAuto: LS.get("treesh_explain_auto", false),
   viz: Object.assign({enabled:true, style:"bars", color:"accent", customColor:"#9328ff", mirror:true, glow:true, sensitivity:1.3, bgStyle:"bars"}, LS.get("treesh_viz", {})),
   beats: LS.get("treesh_beats", []),
@@ -904,6 +906,18 @@ const state = {
 
 /* one-time default migration: move users still on the old default background ("space") to the new default ("mono"). Anyone who explicitly picked another background is left untouched. */
 if(!LS.get("treesh_bg_default_v2", false)){ if(LS.get("treesh_bg","space")==="space"){ state.bg="mono"; LS.set("treesh_bg","mono"); } LS.set("treesh_bg_default_v2", true); }
+
+/* background image slots (up to 3): keep state.bgImage synced to the active slot */
+if(state.bgIndex>Math.max(0,state.bgImages.length-1)) state.bgIndex=0;
+state.bgImage=state.bgImages[state.bgIndex]||"";
+function bgSaveImages(){
+  state.bgImages=(state.bgImages||[]).filter(Boolean).slice(0,3);
+  if(state.bgIndex>state.bgImages.length-1) state.bgIndex=Math.max(0,state.bgImages.length-1);
+  state.bgImage=state.bgImages[state.bgIndex]||"";
+  LS.set("treesh_bg_images",state.bgImages);
+  LS.set("treesh_bg_index",state.bgIndex);
+  LS.set("treesh_bg_image",state.bgImage);
+}
 
 /* ---------- theme ---------- */
 function hexToRgb(hex){ const c=hex.replace("#",""); const n=c.length===3?c.split("").map(x=>x+x).join(""):c; return {r:parseInt(n.slice(0,2),16),g:parseInt(n.slice(2,4),16),b:parseInt(n.slice(4,6),16)}; }
@@ -1711,7 +1725,7 @@ function viewSettings(){
   const tab=state.settingsTab||"display";
   let TABS=[["display","Appearance","palette"],["sleep","Sleep","moon-star"],["account","Account","user"],["privacy","Privacy","lock"],["about","About","info"]];
   if(!VOICE_OK){ TABS=TABS.filter(t=>t[0]!=='voice'); }
-  const hero=`<div class="relative overflow-hidden rounded-[28px] border border-white/12 p-6 sm:p-8">
+  const hero=`<div class="relative overflow-hidden rounded-[28px] border border-white/12 bg-white/[0.04] p-6 sm:p-8">
      <div class="pointer-events-none absolute inset-0" style="background:radial-gradient(130% 130% at 0% 0%, var(--treesh-purple-soft), transparent 52%)"></div>
      <div class="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full opacity-25 blur-3xl" style="background:var(--treesh-purple)"></div>
      <div class="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
@@ -1781,9 +1795,19 @@ function viewSettings(){
            ${BACKGROUNDS.map(b=>{ const on=state.bg===b.id; return `<button data-act="set-bg" data-val="${b.id}" data-testid="bg-option-${b.id}" aria-pressed="${on}" class="dark-surface press group relative overflow-hidden rounded-2xl border ${on?'border-[color:var(--treesh-purple)] ring-2 ring-[color:var(--treesh-purple)]/40':'border-white/12'} transition"><div class="aspect-[4/3] w-full" style="${bgPreviewStyle(b.id)}"></div><div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/45 px-2 py-1 backdrop-blur"><span class="clamp-1 text-[11px] font-semibold text-white">${b.name}</span>${on?`<i data-lucide="check" class="text-white" style="width:14px;height:14px"></i>`:''}</div>${b.id==='custom'&&!state.bgImage?`<span class="absolute inset-0 grid place-items-center text-white/70"><i data-lucide="plus" style="width:22px;height:22px"></i></span>`:''}</button>`; }).join("")}
          </div>
          ${state.bg==='custom'?`<div class="mt-3 space-y-2.5">
-           <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-             <label class="press inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="upload" style="width:15px;height:15px"></i>${state.bgImage?'Replace image':'Upload image'}<input type="file" accept="image/*" id="set-bg-image-input" class="hidden"></label>
-             ${state.bgImage?`<button data-act="remove-bg-image" class="press ml-auto inline-flex items-center gap-1.5 rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm font-semibold text-rose-300 hover:bg-white/10"><i data-lucide="trash-2" style="width:14px;height:14px"></i>Remove</button>`:''}
+           <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-3" data-testid="bg-image-manager">
+             <div class="mb-2 flex items-center justify-between"><p class="text-xs font-semibold uppercase tracking-wide text-white/50">Your images</p><span class="text-[11px] font-semibold text-white/40" data-testid="bg-image-count">${state.bgImages.length}/3</span></div>
+             <div class="grid grid-cols-3 gap-2.5">
+               ${[0,1,2].map(i=>{ const src=state.bgImages[i]; const on=!!src&&i===state.bgIndex;
+                 if(src){ return `<div class="group relative overflow-hidden rounded-xl border ${on?'border-[color:var(--treesh-purple)] ring-2 ring-[color:var(--treesh-purple)]/40':'border-white/12'}">
+                   <button data-act="bg-select-image" data-idx="${i}" data-testid="bg-image-slot-${i}" aria-label="Use background image ${i+1}" aria-pressed="${on}" class="press block aspect-[4/3] w-full"><img src="${src}" alt="Background ${i+1}" draggable="false" class="h-full w-full object-cover"></button>
+                   ${on?`<span class="pointer-events-none absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-[color:var(--treesh-purple)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow"><i data-lucide="check" style="width:10px;height:10px"></i>Active</span>`:''}
+                   <button data-act="bg-remove-image" data-idx="${i}" data-testid="bg-remove-image-${i}" aria-label="Remove background image ${i+1}" class="press absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-black/55 text-white/85 backdrop-blur hover:bg-black/75 hover:text-rose-300"><i data-lucide="x" style="width:14px;height:14px"></i></button>
+                 </div>`; }
+                 return `<label data-testid="bg-add-image-${i}" class="press grid aspect-[4/3] cursor-pointer place-items-center rounded-xl border border-dashed border-white/20 bg-white/[0.02] text-white/55 transition hover:bg-white/5 hover:text-white/80"><span class="flex flex-col items-center gap-1"><i data-lucide="image-plus" style="width:20px;height:20px"></i><span class="text-[10px] font-semibold">Add</span></span><input type="file" accept="image/*" class="hidden bg-image-input"></label>`;
+               }).join("")}
+             </div>
+             <p class="mt-2 text-[11px] text-white/40">Save up to 3 images, then tap one to use it. Max 4.5&nbsp;MB each.</p>
            </div>
            ${state.bgImage?toggleCard('toggle-bg-overlay','settings-toggle-bg-overlay',!!state.bgOverlay,'contrast','Dim overlay','Darken the image so text stays easy to read'):''}
          </div>`:''}
@@ -1855,13 +1879,17 @@ function viewSettings(){
     <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6" data-testid="settings-perf">
       <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="mic-vocal" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Verse performer</h2></div>
       <p class="mb-4 pl-11 text-sm text-white/50">The badge in the lyrics view that shows who\u2019s performing each section.</p>
-      <div id="perf-preview" class="mb-4 flex min-h-[68px] items-center justify-center rounded-2xl border border-white/10 bg-black/40 p-3">${perfPreviewHtml()}</div>
+      <div id="perf-preview" class="pointer-events-none mb-4 flex min-h-[68px] items-center justify-center rounded-2xl border border-white/10 bg-black/40 p-3">${perfPreviewHtml()}</div>
       ${toggleCard('perf-opt-show','perf-show-toggle',perfOpts().show,'eye','Show performer badge','Display the active artist while lyrics play')}
       <div id="perf-controls" class="mt-3 space-y-3 ${perfOpts().show?'':'pointer-events-none opacity-40'}">
         <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Size</p>${pseg('perf-opt-size',perfOpts().size,[['sm','Small'],['md','Medium'],['lg','Large']])}</div>
         <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Layout</p>${pseg('perf-opt-layout',perfOpts().layout,[['pill','Pills'],['text','Text'],['minimal','Minimal']])}</div>
-        <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Color scheme</p>${pseg('perf-opt-scheme',perfOpts().scheme,[['accent','Accent'],['gold','Gold'],['rose','Rose'],['mono','Mono']])}</div>
-        <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Position</p>${pseg('perf-opt-pos',perfOpts().pos,[['top','Top'],['bottom','Bottom']])}</div>
+        ${perfOpts().layout!=='minimal'?`<div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Text placement</p>${pseg('perf-opt-rolepos',perfOpts().rolePos||'inline',[['inline','Inline'],['above','Above'],['below','Below']])}</div>`:''}
+        <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Name color</p>${pseg('perf-opt-scheme',perfOpts().scheme,[['accent','Accent'],['rose','Rose'],['mono','Mono'],['custom','Custom']])}</div>
+        ${perfOpts().scheme==='custom'?colorRow('perf-opt-custom-color',null,perfOpts().customColor||'#c3ab69','pipette','Name color','Custom performer name & ring color'):''}
+        ${colorRow('perf-opt-bg-color',null,perfOpts().bgColor||'#000000','square','Badge background','Backdrop color of the performer badge')}
+        ${colorRow('perf-opt-pill-color',null,perfOpts().pillColor||'#ffffff','pill','Pill background','Background color of the artist pills')}
+        <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Screen position</p>${pseg('perf-opt-pos',perfOpts().pos,[['top','Top'],['bottom','Bottom']])}</div>
       </div>
     </div>
   </section>
@@ -1956,7 +1984,7 @@ function renderView(animate=false){
   // wire settings live zodiac + avatar preview
   const bday=$("#set-bday"); if(bday){ const updSB=()=>{ syncDateField(bday); const z=zodiac(bday.value); const el=$("#set-zodiac"); if(el) el.textContent=z; const zw=$("#set-zodiac-wrap"); if(zw) zw.classList.toggle("hidden",!z); }; bday.addEventListener("input",updSB); bday.addEventListener("change",updSB); }
   const ai=$("#set-avatar-input"); if(ai){ ai.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ state._tmpAvatar=r.result; const av=$("#set-avatar"); if(av) av.innerHTML=img(r.result,'h-full w-full object-cover'); }; r.readAsDataURL(f); }); }
-  const bgi=$("#set-bg-image-input"); if(bgi){ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>4.5*1024*1024){ toast("Image too large","Use one under 4.5 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.bgImage=r.result; state.bg="custom"; LS.set("treesh_bg_image",state.bgImage); LS.set("treesh_bg","custom"); applyTheme(); renderView(); toast("Background updated"); }catch(err){ toast("Couldn\u2019t save image","It may be too large"); } }; r.readAsDataURL(f); }); }
+  document.querySelectorAll(".bg-image-input").forEach(bgi=>{ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>4.5*1024*1024){ toast("Image too large","Use one under 4.5 MB"); return; } if((state.bgImages||[]).length>=3){ toast("Limit reached","You can save up to 3 images"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.bgImages=(state.bgImages||[]).filter(Boolean); state.bgImages.push(r.result); state.bgIndex=state.bgImages.length-1; state.bg="custom"; LS.set("treesh_bg","custom"); bgSaveImages(); applyTheme(); renderView(); toast("Background added", `Image ${state.bgIndex+1} of ${state.bgImages.length}`); }catch(err){ toast("Couldn\u2019t save image","It may be too large"); } }; r.readAsDataURL(f); }); });
   const ff=$("#set-font-file"); if(ff){ ff.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>3*1024*1024){ toast("Font too large","Use one under 3 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.customFont={data:r.result, name:(f.name||'Custom').replace(/\.[^.]+$/,'')}; state.uiFont=""; _customFontLoaded=false; LS.set("treesh_custom_font",state.customFont); applyUiFont(); renderView(); toast("Custom font applied", state.customFont.name); }catch(err){ toast("Couldn\u2019t load font"); } }; r.readAsDataURL(f); }); }
   iRenderMenu();
   if(state.view==="settings" && (state.settingsTab||"display")==="account") updateStorageEstimate();
@@ -2609,39 +2637,58 @@ function parseSection(sec){
   names.forEach(n=>{ const k=normKey(n); if(!k||seen.has(k)) return; seen.add(k); const ic=findArtist(n); artists.push(ic?{name:ic.name,image:ic.image,id:ic.id}:{name:n,image:null,id:null}); });
   return {role, artists};
 }
-function perfOpts(){ return state.perfOpts||{show:true,size:"md",scheme:"accent",layout:"pill",pos:"top"}; }
+function perfOpts(){ return state.perfOpts||{show:true,size:"md",scheme:"accent",layout:"pill",pos:"top",rolePos:"inline",customColor:"#c3ab69",bgColor:"#000000",pillColor:"#ffffff"}; }
 function savePerfOpts(){ LS.set("treesh_perf_opts", state.perfOpts); if(typeof refreshPerformer==="function") refreshPerformer(); }
 function refreshPerfSettings(){ renderView(); if(typeof refreshPerformer==="function") refreshPerformer(); }
-function perfSchemeVars(scheme){
-  if(scheme==="gold") return {role:"var(--treesh-gold)", ring:"var(--treesh-gold)"};
+function perfSchemeVars(scheme, custom){
+  if(scheme==="custom"){ const c=custom||"#c3ab69"; return {role:c, ring:c}; }
   if(scheme==="mono") return {role:"rgba(255,255,255,0.72)", ring:"rgba(255,255,255,0.35)"};
   if(scheme==="rose") return {role:"#fb7ba8", ring:"#fb7ba8"};
   return {role:"var(--treesh-purple)", ring:"var(--treesh-purple)"};
 }
-function buildPerformerHtml(info,o){
+function buildPerformerHtml(info,o,preview){
   o=o||perfOpts();
-  const sv=perfSchemeVars(o.scheme);
-  const S = o.size==="sm" ? {av:"h-5 w-5", nameTx:"text-[11px]", roleTx:"text-[7px]", pad:"py-0.5 pl-0.5 pr-2", gap:"gap-1", box:"py-0.5 pl-2 pr-1"} :
-            o.size==="lg" ? {av:"h-8 w-8", nameTx:"text-sm", roleTx:"text-[10px]", pad:"py-1 pl-1 pr-3", gap:"gap-2", box:"py-1.5 pl-3 pr-2"} :
-                            {av:"h-6 w-6", nameTx:"text-xs", roleTx:"text-[8px]", pad:"py-1 pl-1 pr-2.5", gap:"gap-1.5", box:"py-1 pl-2.5 pr-1.5"};
+  const sv=perfSchemeVars(o.scheme, o.customColor);
+  const badgeBg=hexA(o.bgColor||"#000000", 0.5);
+  const pillBg=hexA(o.pillColor||"#ffffff", 0.16);
+  const pe=preview?"pointer-events-none":"pointer-events-auto";
+  const S = o.size==="sm" ? {av:"h-5 w-5", nameTx:"text-[11px]", roleTx:"text-[7px]", pad:"py-0.5 pl-0.5 pr-2", gap:"gap-1", box:"py-0.5 pl-2 pr-1", stackBox:"px-2 py-1.5"} :
+            o.size==="lg" ? {av:"h-8 w-8", nameTx:"text-sm", roleTx:"text-[10px]", pad:"py-1 pl-1 pr-3", gap:"gap-2", box:"py-1.5 pl-3 pr-2", stackBox:"px-3.5 py-2.5"} :
+                            {av:"h-6 w-6", nameTx:"text-xs", roleTx:"text-[8px]", pad:"py-1 pl-1 pr-2.5", gap:"gap-1.5", box:"py-1 pl-2.5 pr-1.5", stackBox:"px-3 py-2"};
   const roleSpan=`<span class="shrink-0 font-semibold uppercase tracking-[0.22em] ${S.roleTx}" style="color:${sv.role}">${esc(info.role||'Performing')}</span>`;
   if(o.layout==="text"){
     const names=info.artists.map(a=>esc(a.name)).join("  &  ");
-    return `<div class="perf-swap pointer-events-auto flex max-w-[86vw] items-center ${S.gap} rounded-full border border-white/12 bg-black/50 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl">${roleSpan}<span class="clamp-1 ${S.nameTx} font-bold text-white">${names}</span></div>`;
+    const nameSpan=`<span class="clamp-1 ${S.nameTx} font-bold text-white">${names}</span>`;
+    const rp0=o.rolePos||"inline";
+    if(rp0==="above"||rp0==="below"){
+      const stacked = rp0==="above" ? `${roleSpan}${nameSpan}` : `${nameSpan}${roleSpan}`;
+      return `<div class="perf-swap ${pe} flex max-w-[86vw] flex-col items-center ${S.gap} rounded-2xl border border-white/12 ${S.stackBox} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${stacked}</div>`;
+    }
+    return `<div class="perf-swap ${pe} flex max-w-[86vw] items-center ${S.gap} rounded-full border border-white/12 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${roleSpan}${nameSpan}</div>`;
   }
   if(o.layout==="minimal"){
     const names=info.artists.map(a=>esc(a.name)).join(" \u00B7 ");
-    return `<div class="perf-swap pointer-events-auto flex max-w-[86vw] items-center gap-1.5"><span class="${S.nameTx} font-bold text-white" style="text-shadow:0 2px 14px rgba(0,0,0,0.6)">${names}</span></div>`;
+    return `<div class="perf-swap ${pe} flex max-w-[86vw] items-center gap-1.5"><span class="${S.nameTx} font-bold text-white" style="text-shadow:0 2px 14px rgba(0,0,0,0.6)">${names}</span></div>`;
   }
-  const pills=info.artists.map(a=>`<button data-act="perf-artist" data-name="${esc(a.name)}" data-id="${a.id||''}" data-testid="perf-pill-${slug(a.name)}" aria-label="About ${esc(a.name)}" class="press flex shrink-0 items-center ${S.gap} rounded-full bg-white/10 ${S.pad} hover:bg-white/15">${a.image?`<span class="${S.av} shrink-0 overflow-hidden rounded-full ring-1" style="--tw-ring-color:${sv.ring}">${img(a.image,'h-full w-full object-cover')}</span>`:`<span class="grid ${S.av} shrink-0 place-items-center rounded-full bg-white/15 text-[10px] font-bold text-white ring-1" style="--tw-ring-color:${sv.ring}">${esc((a.name||'?').charAt(0).toUpperCase())}</span>`}<span class="clamp-1 ${S.nameTx} font-bold text-white">${esc(a.name)}</span></button>`).join("");
-  return `<div class="perf-swap pointer-events-auto flex max-w-[86vw] flex-wrap items-center justify-center ${S.gap} rounded-full border border-white/12 bg-black/50 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl">${roleSpan}${pills}</div>`;
+  const pills=info.artists.map(a=>{
+    const attrs=preview ? `data-testid="perf-preview-pill-${slug(a.name)}" tabindex="-1" aria-hidden="true"` : `data-act="perf-artist" data-name="${esc(a.name)}" data-id="${a.id||''}" data-testid="perf-pill-${slug(a.name)}" aria-label="About ${esc(a.name)}"`;
+    const cls=preview ? `flex shrink-0 items-center pointer-events-none` : `press flex shrink-0 items-center`;
+    return `<button ${attrs} class="${cls} ${S.gap} rounded-full ${S.pad}" style="background:${pillBg}">${a.image?`<span class="${S.av} shrink-0 overflow-hidden rounded-full ring-1" style="--tw-ring-color:${sv.ring}">${img(a.image,'h-full w-full object-cover')}</span>`:`<span class="grid ${S.av} shrink-0 place-items-center rounded-full bg-white/15 text-[10px] font-bold text-white ring-1" style="--tw-ring-color:${sv.ring}">${esc((a.name||'?').charAt(0).toUpperCase())}</span>`}<span class="clamp-1 ${S.nameTx} font-bold text-white">${esc(a.name)}</span></button>`;
+  }).join("");
+  const rp=o.rolePos||"inline";
+  if(rp==="above"||rp==="below"){
+    const pillsWrap=`<div class="flex flex-wrap items-center justify-center ${S.gap}">${pills}</div>`;
+    const stacked = rp==="above" ? `${roleSpan}${pillsWrap}` : `${pillsWrap}${roleSpan}`;
+    return `<div class="perf-swap ${pe} flex max-w-[86vw] flex-col items-center ${S.gap} rounded-2xl border border-white/12 ${S.stackBox} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${stacked}</div>`;
+  }
+  return `<div class="perf-swap ${pe} flex max-w-[86vw] flex-wrap items-center justify-center ${S.gap} rounded-full border border-white/12 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${roleSpan}${pills}</div>`;
 }
-function perfPreviewHtml(){ const o=perfOpts(); const pick=(ARTISTS||[]).slice(0,2); const arts = pick.length? pick.map(a=>({name:a.name,image:a.image,id:a.id})) : [{name:"Zuubandz",image:null,id:null},{name:"Black Barbie",image:null,id:null}]; return buildPerformerHtml({role:"Verse 1", artists:arts}, o); }
+function perfPreviewHtml(){ const o=perfOpts(); const pick=(ARTISTS||[]).slice(0,2); const arts = pick.length? pick.map(a=>({name:a.name,image:a.image,id:a.id})) : [{name:"Zuubandz",image:null,id:null},{name:"Black Barbie",image:null,id:null}]; return buildPerformerHtml({role:"Verse 1", artists:arts}, o, true); }
 function updatePerformer(sec){
   const box=document.getElementById("np-performer"); if(!box) return;
   const o=perfOpts();
   box.className="pointer-events-none absolute inset-x-0 z-20 flex justify-center px-2 "+(o.pos==="bottom"?"bottom-1 pb-1":"top-0 pt-1");
-  const key=(sec||"")+"|"+o.size+"|"+o.scheme+"|"+o.layout+"|"+o.pos+"|"+(o.show?1:0);
+  const key=(sec||"")+"|"+o.size+"|"+o.scheme+"|"+o.layout+"|"+o.pos+"|"+(o.rolePos||"inline")+"|"+(o.customColor||"")+"|"+(o.bgColor||"")+"|"+(o.pillColor||"")+"|"+(o.show?1:0);
   if(_perfKey===key) return; _perfKey=key;
   if(!o.show){ box.innerHTML=""; return; }
   const info=parseSection(sec);
@@ -3050,6 +3097,7 @@ document.addEventListener("input", e=>{
   if(act==="set-label-text"){ state.label.text=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   if(act==="set-label-bg"){ state.label.bg=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   if(act==="set-label-border-color"){ state.label.borderColor=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
+  if(act==="perf-opt-custom-color"||act==="perf-opt-bg-color"||act==="perf-opt-pill-color"){ const key=act==="perf-opt-bg-color"?"bgColor":act==="perf-opt-pill-color"?"pillColor":"customColor"; state.perfOpts[key]=el.value; savePerfOpts(); const lbl=el.closest("label"); if(lbl) lbl.style.background=el.value; const pv=document.getElementById("perf-preview"); if(pv){ pv.innerHTML=perfPreviewHtml(); icons(); } return; }
   if(act==="set-label-bg-opacity"){ state.label.bgA=+el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   const S=state.instrum; if(!S) return; const p=S.project; const ti=+el.dataset.ti;
   if(act==="i-bpm"){ p.bpm=Math.max(40,Math.min(220,parseInt(el.value)||90)); document.querySelectorAll('[data-act="i-bpm"]').forEach(x=>{ if(x!==el) x.value=p.bpm; }); }
@@ -3097,6 +3145,7 @@ document.addEventListener("click", e=>{
     case "perf-opt-size": { state.perfOpts.size=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "perf-opt-layout": { state.perfOpts.layout=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "perf-opt-scheme": { state.perfOpts.scheme=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
+    case "perf-opt-rolepos": { state.perfOpts.rolePos=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "perf-opt-pos": { state.perfOpts.pos=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "toggle-anim-bg": { state.animBg=!state.animBg; LS.set("treesh_anim_bg",state.animBg); applyUiPrefs(); toast(state.animBg?"Animated background on":"Animated background off"); renderView(); break; }
     case "toggle-ui-glow": { state.uiGlow=!state.uiGlow; LS.set("treesh_ui_glow",state.uiGlow); applyUiPrefs(); toast(state.uiGlow?"Interface glow on":"Interface glow off"); renderView(); break; }
@@ -3275,7 +3324,9 @@ document.addEventListener("click", e=>{
     case "set-bg": { state.bg=t.dataset.val; LS.set("treesh_bg",state.bg); applyTheme(); renderView(); break; }
     case "set-textsize": { state.textSize=t.dataset.val; LS.set("treesh_text_size",state.textSize); applyTextSize(); renderView(); break; }
     case "toggle-bg-overlay": { state.bgOverlay=!state.bgOverlay; LS.set("treesh_bg_overlay",state.bgOverlay); renderBackground(); renderView(); break; }
-    case "remove-bg-image": { state.bgImage=""; LS.set("treesh_bg_image",""); renderBackground(); renderView(); break; }
+    case "bg-select-image": { const i=parseInt(t.dataset.idx,10)||0; if(state.bgImages[i]){ state.bgIndex=i; state.bg="custom"; LS.set("treesh_bg","custom"); bgSaveImages(); applyTheme(); renderView(); } break; }
+    case "bg-remove-image": { const i=parseInt(t.dataset.idx,10)||0; if(state.bgImages[i]!=null){ state.bgImages.splice(i,1); if(state.bgIndex>=state.bgImages.length) state.bgIndex=Math.max(0,state.bgImages.length-1); bgSaveImages(); renderBackground(); renderView(); toast(state.bgImages.length?"Image removed":"All images removed"); } break; }
+    case "remove-bg-image": { state.bgImages=[]; state.bgIndex=0; bgSaveImages(); renderBackground(); renderView(); break; }
     case "set-sleep": { state.sleepMin=parseInt(t.dataset.val,10)||0; LS.set("treesh_sleep",state.sleepMin); resetSleepTimer(); toast(state.sleepMin?("Sleep timer set to "+state.sleepMin+" min"):"Sleep timer off"); renderView(); break; }
     case "set-settings-tab": { state.settingsTab=t.dataset.val; renderView(true); break; }
     case "set-font": { state.uiFont=t.dataset.val; state.customFont=null; LS.set("treesh_font",state.uiFont); LS.set("treesh_custom_font",null); applyUiFont(); renderView(); break; }
