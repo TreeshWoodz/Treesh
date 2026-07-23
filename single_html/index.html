@@ -44,13 +44,17 @@
   ::selection{ background:var(--treesh-purple-soft); color:#fff; }
 
   /* range sliders */
-  input[type=range].tr{ -webkit-appearance:none; appearance:none; height:6px; border-radius:999px; background:rgba(255,255,255,0.16); outline:none; cursor:pointer; width:100%; }
+  input[type=range].tr{ -webkit-appearance:none; appearance:none; height:6px; border-radius:999px; background:linear-gradient(to right, var(--treesh-purple) var(--fill,0%), rgba(255,255,255,0.16) var(--fill,0%)); outline:none; cursor:pointer; width:100%; }
   input[type=range].tr::-webkit-slider-runnable-track{ -webkit-appearance:none; appearance:none; height:6px; border-radius:999px; background:transparent; border:none; }
   input[type=range].tr::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; margin-top:-4px; width:14px; height:14px; border-radius:50%; background:#fff; box-shadow:0 0 10px var(--treesh-purple); border:none; }
   input[type=range].tr::-moz-range-track{ height:6px; border-radius:999px; background:transparent; border:none; }
   input[type=range].tr::-moz-range-thumb{ width:14px; height:14px; border:none; border-radius:50%; background:#fff; box-shadow:0 0 10px var(--treesh-purple); }
-  input[type=range].tr:focus,input[type=range].tr:hover,input[type=range].tr:active{ outline:none; box-shadow:none; background:rgba(255,255,255,0.16); }
+  input[type=range].tr:focus,input[type=range].tr:hover,input[type=range].tr:active{ outline:none; box-shadow:none; background:linear-gradient(to right, var(--treesh-purple) var(--fill,0%), rgba(255,255,255,0.16) var(--fill,0%)); }
   input[type=range].tr:focus::-webkit-slider-runnable-track,input[type=range].tr:active::-webkit-slider-runnable-track,input[type=range].tr:hover::-webkit-slider-runnable-track{ background:transparent; }
+  @property --ab-charge{ syntax:'<angle>'; inherits:false; initial-value:0deg; }
+  .ab-charging{ position:relative; }
+  .ab-charging::after{ content:""; position:absolute; inset:-4px; border-radius:9999px; pointer-events:none; background:conic-gradient(var(--treesh-purple) var(--ab-charge,0deg), rgba(255,255,255,0.14) 0deg); -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); animation:abCharge 1.5s linear forwards; }
+  @keyframes abCharge{ from{ --ab-charge:0deg; } to{ --ab-charge:360deg; } }
   input[type=range].tr:focus-visible{ outline:none; }
 
   /* vinyl */
@@ -490,7 +494,7 @@
   html.theme-light [class~="bg-[color:var(--treesh-purple)]"]{ color:#fff !important; }
   html.theme-light [class~="bg-[color:var(--treesh-purple)]"] :is(.text-white,.text-white\/90,.text-white\/80,.text-white\/70,.text-white\/60,.text-white\/55,.text-white\/50){ color:#fff !important; }
   /* range sliders readable on light surfaces */
-  html.theme-light input[type=range].tr{ background:rgba(17,17,20,0.16) !important; }
+  html.theme-light input[type=range].tr{ background:linear-gradient(to right, var(--treesh-purple) var(--fill,0%), rgba(17,17,20,0.16) var(--fill,0%)) !important; }
 
   /* --- Full-screen player (#np) adopts light theme --- */
   html.theme-light #np [data-np-root]{ background:#f4f4f7 !important; }
@@ -559,6 +563,8 @@
   html.has-bg-image.theme-light .glass-strong{ background:rgba(252,252,254,0.92) !important; }
   html.has-bg-image #app :is(.bg-white\/5,.bg-white\/10,.bg-white\/\[0\.02\],.bg-white\/\[0\.03\],.bg-white\/\[0\.04\],.bg-white\/\[0\.05\],.bg-white\/\[0\.06\]){ background-color:rgba(12,12,16,0.58) !important; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
   html.has-bg-image.theme-light #app :is(.bg-white\/5,.bg-white\/10,.bg-white\/\[0\.02\],.bg-white\/\[0\.03\],.bg-white\/\[0\.04\],.bg-white\/\[0\.05\],.bg-white\/\[0\.06\]){ background-color:rgba(250,250,252,0.74) !important; }
+  html.has-bg-image #app .bg-rose-500\/\[0\.05\]{ background-color:rgba(60,16,26,0.60) !important; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
+  html.has-bg-image.theme-light #app .bg-rose-500\/\[0\.05\]{ background-color:rgba(255,235,238,0.82) !important; }
   /* mini player + queue readable over image bg */
   html.has-bg-image #mini .bg-white\/\[0\.06\], html.has-bg-image [data-mini-root] > div{ background-color:rgba(12,12,16,0.74) !important; }
   html.has-bg-image.theme-light #mini .bg-white\/\[0\.06\], html.has-bg-image.theme-light [data-mini-root] > div{ background-color:rgba(250,250,252,0.86) !important; }
@@ -880,7 +886,7 @@ const state = {
   audio: new Audio(),
   queue: [], base: [], index: -1,
   isPlaying: false, duration: 0, currentTime: 0, volume: 1,
-  shuffle: false, repeat: "off",
+  shuffle: false, repeat: "off", abA: null, abB: null,
   // now playing UI
   npOpen: false, showLyrics: false, vinylMode: LS.get("treesh_vinyl", false), queueOpen: false,
   palette: null, lyricLines: [],
@@ -967,6 +973,7 @@ function compressImageDataUrl(dataUrl, maxDim, quality){
 function hexToRgb(hex){ const c=hex.replace("#",""); const n=c.length===3?c.split("").map(x=>x+x).join(""):c; return {r:parseInt(n.slice(0,2),16),g:parseInt(n.slice(2,4),16),b:parseInt(n.slice(4,6),16)}; }
 function applyAccent(hex){ const {r,g,b}=hexToRgb(hex); const root=document.documentElement.style; root.setProperty("--treesh-purple",hex); root.setProperty("--treesh-purple-soft",`rgba(${r},${g},${b},0.22)`); root.setProperty("--treesh-glow-purple",`0 0 0 1px rgba(${r},${g},${b},0.28),0 0 28px rgba(${r},${g},${b},0.24)`); }
 function hexA(hex,a){ try{ const {r,g,b}=hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
+function brandFallback(img){ try{ img.style.display='none'; const p=img.parentElement; const f=p&&p.querySelector('.brand-fallback'); if(f) f.style.display=''; }catch(e){} }
 
 /* ---------- fonts ---------- */
 const FONTS=[
@@ -1154,7 +1161,7 @@ function popDislike(id, on){ requestAnimationFrame(()=>{ $$('[data-act="dislike"
 const audio = state.audio; audio.preload="metadata";
 function shuffleKeepFirst(arr, i){ let rest=arr.filter((_,x)=>x!==i); rest=rest.filter(s=>!(s&&s.id&&state.dislikes.has(s.id))); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
 function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
-function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; _starLastTU=-1; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl) audio.src=song.audioUrl; audio.load(); if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } }
+function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; _starLastTU=-1; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl) audio.src=song.audioUrl; audio.load(); if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } }
 function playSong(song, list){ const src=(list&&list.length)?list:[song]; state.base=src; let order=src, idx=Math.max(0,src.findIndex(s=>s.id===song.id)); if(state.shuffle){ order=shuffleKeepFirst(src,idx); idx=0; } state.queue=order; loadIndex(idx,order,true); state.npOpen=false; renderMini(); renderNP(); }
 function togglePlay(){ if(!curSong()) return; if(audio.paused){ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); } else audio.pause(); }
 function nextTrack(manual=false){ const q=state.queue; if(!q.length) return; if(state.repeat==="one"&&!manual){ loadIndex(state.index,q,true); return; } let n=state.index+1; if(n>=q.length){ if(state.repeat==="all"||manual) n=0; else { audio.pause(); return; } } loadIndex(n,q,true); }
@@ -1170,8 +1177,8 @@ function moveQueue(id, dir){ const i=state.queue.findIndex(s=>s.id===id); const 
 audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="playing"; });
 audio.addEventListener("pause", ()=>{ state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
 let _starLastTU=-1;
-audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); });
-audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); });
+audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); });
+audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); updateABMarkers(); });
 audio.addEventListener("ended", ()=>nextTrack(false));
 audio.addEventListener("error", ()=>{ state.isPlaying=false; });
 
@@ -1300,7 +1307,7 @@ function renderShell(){
   const p=state.profile||{};
   $("#app").innerHTML=`
   <aside class="nav-glass fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
-    <div class="px-6 pb-4 pt-6"><p class="font-display text-2xl uppercase tracking-[0.1em] text-white">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Music to Live For</p></div>
+    <div class="px-6 pb-4 pt-6"><img src="treesh_logo.png" alt="Treesh" draggable="false" class="h-9 w-auto select-none object-contain" onerror="brandFallback(this)"><p class="brand-fallback font-display text-2xl uppercase tracking-[0.1em] text-white" style="display:none">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Music to Live For</p></div>
     <nav class="flex flex-col gap-1 px-3">${NAV.map(n=>navItem(n[0],n[1],n[2],false)).join("")}</nav>
     <div class="mx-3 my-2 h-px bg-white/8"></div>
     ${sidebarLibraryHtml()}
@@ -1310,7 +1317,7 @@ function renderShell(){
   <div class="relative z-10 lg:ml-[240px]">
     <header class="sticky top-0 z-30 px-4 pt-3 sm:px-6 lg:px-8">
       <div class="nav-glass topbar-surface mx-auto flex max-w-6xl items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5 backdrop-blur-2xl">
-        <span class="shrink-0 font-display text-lg uppercase tracking-[0.12em] text-white lg:hidden">Treesh</span>
+        <span class="flex shrink-0 items-center lg:hidden"><img src="treesh_logo.png" alt="Treesh" draggable="false" class="h-7 w-auto select-none object-contain" onerror="brandFallback(this)"><span class="brand-fallback font-display text-lg uppercase tracking-[0.12em] text-white" style="display:none">Treesh</span></span>
         <div id="nav-notif" class="min-w-0 flex-1"></div>
         <button data-act="open-search" aria-label="Search" data-testid="open-search-overlay-button" class="press grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="search" style="width:18px;height:18px"></i></button>
         ${VOICE_OK?`<button data-act="voice-toggle" id="mic-btn" aria-label="Voice" data-testid="voice-mic-button" class="press grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="mic" style="width:18px;height:18px"></i></button>`:''}
@@ -2649,7 +2656,7 @@ function renderMini(){
   c.innerHTML=`<div data-mini-root data-testid="mini-player" class="fixed bottom-[calc(var(--nav-h,68px)+10px)] left-0 right-0 z-40 px-3 lg:bottom-4 lg:pl-[264px] lg:pr-6 ${wasShown?'':'mini-in'}"><div class="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] backdrop-blur-2xl shadow-[var(--treesh-shadow)]"><div class="flex items-center gap-3 p-2.5">
     <button data-act="mini-open" data-testid="mini-player-expand-button" class="flex min-w-0 flex-1 items-center gap-3 text-left"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></button>
     <div class="flex items-center gap-1"><button data-act="toggle-play" id="mini-pp" data-testid="mini-player-play-pause-button" class="press grid h-10 w-10 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white glow-purple"><i data-lucide="${state.isPlaying?'pause':'play'}" style="width:18px;height:18px"></i></button><button data-act="next" data-testid="mini-player-next-button" class="hidden sm:grid h-10 w-10 place-items-center rounded-full text-white/75 hover:bg-white/10"><i data-lucide="skip-forward" style="width:18px;height:18px"></i></button><button data-act="mini-open" class="grid h-10 w-10 place-items-center rounded-full text-white/75 hover:bg-white/10"><i data-lucide="chevron-up" style="width:20px;height:20px"></i></button></div>
-  </div><div class="h-1 w-full bg-white/10"><div id="mini-prog" class="h-full bg-[color:var(--treesh-purple)] transition-[width] duration-200 ease-linear" style="width:${state.duration?(state.currentTime/state.duration*100):0}%"></div></div></div></div>`;
+  </div><div data-scrub="mini" data-testid="mini-scrubber" role="slider" aria-label="Seek track" tabindex="0" class="group relative h-3 w-full cursor-pointer touch-none"><div class="absolute inset-x-0 bottom-0 h-1 bg-white/10 transition-[height] duration-150 group-hover:h-1.5"><div id="mini-prog" class="h-full bg-[color:var(--treesh-purple)] transition-[width] duration-200 ease-linear" style="width:${state.duration?(state.currentTime/state.duration*100):0}%"></div></div></div></div></div>`;
   icons();
 }
 
@@ -2847,13 +2854,13 @@ function renderNP(){
   state._npMode = npMode;
   const pal=state.palette; const c0=pal&&pal[0],c1=pal&&(pal[1]||pal[0]),c2=pal&&(pal[2]||pal[1]||pal[0]);
   const controls=`
-    <div class="flex items-center gap-3"><span id="np-cur" class="font-doto w-9 text-right text-[11px] text-white/70">${fmt(state.currentTime)}</span><input id="np-seek" data-testid="now-playing-seek-slider" class="tr flex-1" type="range" min="0" max="100" step="0.1" value="${state.duration?(state.currentTime/state.duration*100):0}"><span class="font-doto w-9 text-[11px] text-white/70">${fmt(state.duration)}</span></div>
+    <div class="flex items-center gap-3"><span id="np-cur" class="font-doto w-9 text-right text-[11px] text-white/70">${fmt(state.currentTime)}</span><div class="relative flex-1"><input id="np-seek" data-testid="now-playing-seek-slider" class="tr w-full" type="range" min="0" max="100" step="0.1" value="${state.duration?(state.currentTime/state.duration*100):0}"><div id="np-ab-markers" class="pointer-events-none absolute inset-0"></div></div><span class="font-doto w-9 text-[11px] text-white/70">${fmt(state.duration)}</span></div>
     <div class="mt-3 flex items-center justify-center gap-2 sm:mt-4 sm:gap-6">
       <button data-act="shuffle" data-testid="now-playing-shuffle-button" class="press grid h-10 w-10 place-items-center rounded-full sm:h-11 sm:w-11 ${state.shuffle?'text-white bg-white/15':'text-white/60 hover:bg-white/10'}"><i data-lucide="shuffle" style="width:18px;height:18px"></i></button>
       <button data-act="prev" data-testid="now-playing-prev-button" class="press grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10 sm:h-12 sm:w-12"><i data-lucide="skip-back" style="width:22px;height:22px" class="fill-current"></i></button>
       <button data-act="toggle-play" id="np-pp" data-testid="now-playing-play-pause-button" class="press grid h-[58px] w-[58px] place-items-center rounded-full bg-white text-black shadow-[0_10px_40px_rgba(255,255,255,0.25)] sm:h-[68px] sm:w-[68px]"><i data-lucide="${state.isPlaying?'pause':'play'}" style="width:28px;height:28px" class="fill-current"></i></button>
       <button data-act="next" data-testid="now-playing-next-button" class="press grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10 sm:h-12 sm:w-12"><i data-lucide="skip-forward" style="width:22px;height:22px" class="fill-current"></i></button>
-      <button data-act="repeat" data-testid="now-playing-repeat-button" class="press grid h-10 w-10 place-items-center rounded-full sm:h-11 sm:w-11 ${state.repeat!=='off'?'text-white bg-white/15':'text-white/60 hover:bg-white/10'}"><i data-lucide="${state.repeat==='one'?'repeat-1':'repeat'}" style="width:18px;height:18px"></i></button>
+      <button data-act="repeat" id="np-repeat" data-testid="now-playing-repeat-button" aria-label="Repeat (hold 1.5s for A\u2013B loop)" class="ab-holdable press relative grid h-10 w-10 place-items-center rounded-full sm:h-11 sm:w-11 ${(state.abA!=null||state.repeat!=='off')?'text-white bg-white/15':'text-white/60 hover:bg-white/10'}">${state.abA!=null?`<span data-ab-label class="text-[11px] font-extrabold tracking-tight">${state.abB==null?'A\u2022':'A-B'}</span>`:`<i data-lucide="${state.repeat==='one'?'repeat-1':'repeat'}" style="width:18px;height:18px"></i>`}</button>
     </div>
     <div class="mt-3 flex items-center justify-center gap-1.5 sm:mt-5 sm:gap-3">
       <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="now-playing-like-button" class="tr-like${isFav(s.id)?' is-liked':''} press grid h-10 w-10 place-items-center rounded-full border transition sm:h-11 sm:w-11 ${isFav(s.id)?'border-white/25 bg-white/10':'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="heart" style="width:17px;height:17px"></i></button>
@@ -2920,6 +2927,7 @@ function renderNP(){
       <div class="mx-auto w-full max-w-3xl shrink-0 pt-2">${controls}</div>
     </div></div>`;
   icons();
+  fillSlider($("#np-seek")); fillSlider($("#np-vol")); updateABMarkers();
   // cache lyric line nodes + fill like icon
   state.lyricLines=[...c.querySelectorAll('#np-lyrics .np-line')];
   _perfKey="__init__"; _lyricUserScrollUntil=0;
@@ -3058,9 +3066,12 @@ function updatePlayIcons(){
   updateVinylSpin();
 }
 function updateVinylSpin(){ const v=$("#np .vinyl"); if(v){ v.classList.toggle("spin-paused",!state.isPlaying); } }
+function fillSlider(el){ if(!el) return; const min=+el.min||0,max=+el.max||100,v=+el.value; const p=max>min?((v-min)/(max-min)*100):0; el.style.setProperty('--fill', p+'%'); }
+function abActive(){ return state.abA!=null && state.abB!=null; }
+function updateABMarkers(){ const m=$("#np-ab-markers"); if(!m) return; const d=state.duration||0; if(!d || state.abA==null){ m.innerHTML=""; return; } const clamp=x=>Math.max(0,Math.min(100,x)); const aP=clamp(state.abA/d*100); let html=""; if(state.abB!=null){ const bP=clamp(state.abB/d*100); html+=`<span class="absolute top-1/2 -translate-y-1/2 rounded-full bg-[color:var(--treesh-purple)]/25" style="left:${aP}%;width:${Math.max(0,bP-aP)}%;height:6px"></span>`; html+=`<span class="absolute top-1/2 -translate-y-1/2 h-3.5 w-[3px] rounded-full bg-white shadow" style="left:${bP}%"></span><span class="absolute -top-3.5 -translate-x-1/2 text-[9px] font-extrabold text-white" style="left:${bP}%">B</span>`; } html+=`<span class="absolute top-1/2 -translate-y-1/2 h-3.5 w-[3px] rounded-full bg-white shadow" style="left:${aP}%"></span><span class="absolute -top-3.5 -translate-x-1/2 text-[9px] font-extrabold text-white" style="left:${aP}%">A</span>`; m.innerHTML=html; }
 function updateProgress(){ const s=curSong(); const d=state.duration||0,cur=state.currentTime||0; const pct=d?(cur/d*100):0;
   const mp=$("#mini-prog"); if(mp) mp.style.width=pct+"%";
-  const seek=$("#np-seek"); if(seek && document.activeElement!==seek){ seek.value=pct; }
+  const seek=$("#np-seek"); if(seek){ if(document.activeElement!==seek){ seek.value=pct; } fillSlider(seek); }
   const curEl=$("#np-cur"); if(curEl) curEl.textContent=fmt(cur);
   updateLyricHighlight();
   updateKaraoke();
@@ -3258,7 +3269,14 @@ document.addEventListener("click", e=>{
     case "next": nextTrack(true); break;
     case "prev": prevTrack(); break;
     case "shuffle": toggleShuffle(); break;
-    case "repeat": cycleRepeat(); break;
+    case "repeat": {
+      if(_repeatLongPressed){ _repeatLongPressed=false; break; }
+      if(state.abA!=null){
+        if(state.abB==null){ const t=state.currentTime||0; if(t<=state.abA+0.8){ toast("Move ahead first","Point B must be after A"); } else { state.abB=t; toast("A\u2013B loop on","Repeating this section"); renderNP(); } }
+        else { state.abA=null; state.abB=null; toast("A\u2013B loop cleared"); renderNP(); }
+      } else { cycleRepeat(); }
+      break;
+    }
     case "mini-open": state.npOpen=true; renderNP(); break;
     case "np-close": closeNP(); break;
     case "toggle-lyrics": state.showLyrics=!state.showLyrics; if(!state.showLyrics){ state.karaoke=false; state.karFull=false; state.lyricsEdit=false; } renderNP(); break;
@@ -3418,10 +3436,27 @@ document.addEventListener("input", e=>{
   else if(e.target.id==="search-input"){ state.searchQuery=e.target.value; refreshSearchResults(); }
   else if(e.target.id==="set-custom-color"){ const hex=(e.target.value||"").toLowerCase(); state.accent=hex; LS.set("treesh_accent",hex); applyAccent(hex); const ht=$("#set-custom-hex"); if(ht) ht.value=hex.replace('#',''); const lbl=e.target.closest("label"); if(lbl) lbl.style.background=hex; }
   else if(e.target.id==="set-custom-hex"){ const v=(e.target.value||"").trim(); if(/^#?[0-9a-fA-F]{6}$/.test(v)){ const hex=(v[0]==="#"?v:("#"+v)).toLowerCase(); const cc=$("#set-custom-color"); if(cc) cc.value=hex; const lbl=cc?cc.closest("label"):null; if(lbl) lbl.style.background=hex; } }
-  else if(e.target.id==="np-seek"){ if(state.duration) seekTo(e.target.value/100*state.duration); }
-  else if(e.target.id==="np-vol"){ setVolume(e.target.value/100); }
+  else if(e.target.id==="np-seek"){ fillSlider(e.target); if(state.duration) seekTo(e.target.value/100*state.duration); }
+  else if(e.target.id==="np-vol"){ fillSlider(e.target); setVolume(e.target.value/100); }
   else if(e.target.id==="game-search"){ state.gameQuery=e.target.value; const c=$("#game-song-list"); if(c){ c.innerHTML=gameSongListHtml(); icons(); } const cb=$('[data-act="game-clear-search"]'); if(cb) cb.classList.toggle("hidden",!state.gameQuery); }
 });
+
+/* ---- Draggable / tappable scrubbers (mini player progress bar) ---- */
+let _scrubbing=null;
+function _scrubPct(el, clientX){ const r=el.getBoundingClientRect(); if(!r.width) return 0; return Math.max(0,Math.min(1,(clientX-r.left)/r.width)); }
+function _scrubApply(el, p){ if(el.getAttribute("data-scrub")==="mini"){ const mp=document.getElementById("mini-prog"); if(mp) mp.style.width=(p*100)+"%"; } if(state.duration){ try{ audio.currentTime=p*state.duration; }catch(_){} state.currentTime=p*state.duration; } }
+document.addEventListener("pointerdown", e=>{ const el=e.target&&e.target.closest&&e.target.closest("[data-scrub]"); if(!el) return; _scrubbing=el; try{ el.setPointerCapture(e.pointerId); }catch(_){} _scrubApply(el,_scrubPct(el,e.clientX)); e.preventDefault(); }, {passive:false});
+document.addEventListener("pointermove", e=>{ if(!_scrubbing) return; _scrubApply(_scrubbing,_scrubPct(_scrubbing,e.clientX)); });
+document.addEventListener("pointerup", e=>{ if(!_scrubbing) return; _scrubApply(_scrubbing,_scrubPct(_scrubbing,e.clientX)); _scrubbing=null; });
+document.addEventListener("pointercancel", ()=>{ _scrubbing=null; });
+
+/* ---- Hold the repeat button 3s to arm an A\u2013B loop (keeps the player uncluttered) ---- */
+let _repeatHoldTimer=null, _repeatLongPressed=false, _repeatHoldEl=null, _repeatHoldXY=null;
+function _cancelRepeatHold(){ clearTimeout(_repeatHoldTimer); _repeatHoldTimer=null; if(_repeatHoldEl){ _repeatHoldEl.classList.remove("ab-charging"); _repeatHoldEl=null; } _repeatHoldXY=null; }
+document.addEventListener("pointerdown", e=>{ const rb=e.target&&e.target.closest&&e.target.closest("#np-repeat"); if(!rb) return; _repeatLongPressed=false; _repeatHoldEl=rb; _repeatHoldXY={x:e.clientX,y:e.clientY}; rb.classList.add("ab-charging"); clearTimeout(_repeatHoldTimer); _repeatHoldTimer=setTimeout(()=>{ _repeatLongPressed=true; if(_repeatHoldEl) _repeatHoldEl.classList.remove("ab-charging"); _repeatHoldEl=null; state.abA=state.currentTime||0; state.abB=null; if(navigator.vibrate){ try{navigator.vibrate(18);}catch(_){} } toast("Loop point A set","Tap repeat again to set point B"); renderNP(); }, 1500); });
+document.addEventListener("pointermove", e=>{ if(!_repeatHoldEl||!_repeatHoldXY) return; const dx=e.clientX-_repeatHoldXY.x, dy=e.clientY-_repeatHoldXY.y; if(dx*dx+dy*dy>196) _cancelRepeatHold(); });
+document.addEventListener("pointerup", _cancelRepeatHold);
+document.addEventListener("pointercancel", _cancelRepeatHold);
 
 /* keyboard shortcuts */
 document.addEventListener("keydown", e=>{
