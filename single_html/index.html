@@ -882,6 +882,7 @@ const state = {
   karaoke: false, lyricsEdit: false, lyricEdits: LS.get("treesh_lyric_edits", {}),
   studio: null, game: null, tot: null,
   perfMode: LS.get("treesh_perf", false),
+  perfOpts: Object.assign({show:true, size:"md", scheme:"accent", layout:"pill", pos:"top"}, LS.get("treesh_perf_opts", {})),
   explainAuto: LS.get("treesh_explain_auto", false),
   viz: Object.assign({enabled:true, style:"bars", color:"accent", customColor:"#9328ff", mirror:true, glow:true, sensitivity:1.3, bgStyle:"bars"}, LS.get("treesh_viz", {})),
   beats: LS.get("treesh_beats", []),
@@ -1656,8 +1657,8 @@ function lockSettingsSection(tab){
 function toggleCard(act,testid,on,ic,title,desc){ return `<button data-act="${act}" data-testid="${testid}" aria-pressed="${on}" role="switch" aria-checked="${on}" class="press flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition ${on?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/[0.12]':'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'}"><div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg ${on?'bg-[color:var(--treesh-purple)] text-white':'bg-white/10 text-white/60'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i></div><div class="min-w-0 flex-1"><p class="text-sm font-semibold">${title}</p><p class="text-xs text-white/50">${desc}</p></div><div class="grid h-5 w-5 shrink-0 place-items-center rounded-full border ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25'}">${on?'<i data-lucide="check" style="width:12px;height:12px"></i>':''}</div></button>`; }
 function colorRow(act, resetAct, value, ic, title, desc){ const v=value||'#000000'; return `<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10 text-white/60"><i data-lucide="${ic}" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">${title}</p>${desc?`<p class="text-xs text-white/50">${desc}</p>`:''}</div>${(resetAct&&value)?`<button data-act="${resetAct}" aria-label="Reset ${title}" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10"><i data-lucide="rotate-ccw" style="width:14px;height:14px"></i></button>`:''}<label class="relative h-9 w-12 shrink-0 overflow-hidden rounded-lg border border-white/20" style="background:${v}"><input type="color" value="${v}" data-act="${act}" data-testid="${act}" class="absolute -inset-2 h-[200%] w-[200%] cursor-pointer opacity-0"></label></div>`; }
 /* ---------- storage & data management ---------- */
-/* ---------- custom date field (native picker under a fully-styled box; avoids cross-browser date-input quirks) ---------- */
-function fmtDateDisplay(v){ if(!v) return ""; const p=(""+v).split("-"); if(p.length!==3) return v; const y=+p[0],m=+p[1],d=+p[2]; if(!y||!m||!d) return v; const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return MO[m-1]+" "+d+", "+y; }
+function pseg(act, current, opts){ return `<div class="flex gap-1 rounded-xl border border-white/10 bg-white/5 p-1">${opts.map(([v,l])=>{const on=current===v;return `<button data-act="${act}" data-val="${v}" data-testid="${act}-${v}" aria-pressed="${on}" class="press h-8 flex-1 rounded-lg px-2 text-xs font-semibold transition-colors ${on?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:text-white'}">${l}</button>`;}).join("")}</div>`; }
+/* ---------- custom date field (native picker under a fully-styled box; avoids cross-browser date-input quirks) ---------- */function fmtDateDisplay(v){ if(!v) return ""; const p=(""+v).split("-"); if(p.length!==3) return v; const y=+p[0],m=+p[1],d=+p[2]; if(!y||!m||!d) return v; const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return MO[m-1]+" "+d+", "+y; }
 function dateFieldHTML(o){ o=o||{}; const id=o.id, v=o.value||"", tid=o.testid?`data-testid="${o.testid}"`:"", ph=o.placeholder||"Select date", center=!!o.center, disabled=!!o.disabled; const box=o.boxClass||"h-11 rounded-xl border border-white/15 bg-white/5 text-sm"; const shown=fmtDateDisplay(v); const minA=o.min?`min="${o.min}"`:"", maxA=o.max?`max="${o.max}"`:""; return `<div class="tdf relative box-border w-full max-w-full overflow-hidden ${box} ${disabled?'opacity-60':''}"><input type="date" id="${id}" value="${esc(v)}" data-ph="${esc(ph)}" ${tid} ${minA} ${maxA} ${disabled?'disabled':''} class="tdf-native absolute inset-0 z-10 m-0 h-full w-full border-0 bg-transparent p-0 opacity-0 ${disabled?'pointer-events-none':'cursor-pointer'}"><div class="pointer-events-none absolute inset-0 flex items-center gap-2 pl-3.5 pr-10 ${center?'justify-center':'justify-start'}"><span class="tdf-val block max-w-full truncate ${shown?'text-white':'text-white/40'} ${center?'text-center':''}">${shown?esc(shown):esc(ph)}</span></div><i data-lucide="calendar" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40" style="width:16px;height:16px"></i></div>`; }
 function syncDateField(inp){ if(!inp) return; const wrap=inp.closest(".tdf"); if(!wrap) return; const span=wrap.querySelector(".tdf-val"); if(!span) return; const shown=fmtDateDisplay(inp.value); span.textContent = shown || (inp.getAttribute("data-ph")||"Select date"); span.classList.toggle("text-white", !!shown); span.classList.toggle("text-white/40", !shown); }
 
@@ -1665,7 +1666,7 @@ const STORAGE_GROUPS=[
   { id:"library", label:"Library & playlists", icon:"library-big", desc:"Playlists, favorites, dislikes & lyric edits", keys:["treesh_playlists","treesh_favorites","treesh_dislikes","treesh_fav_lyrics","treesh_lyric_edits"] },
   { id:"beats", label:"Beats & presets", icon:"drum", desc:"Instrum projects and your custom presets", keys:["treesh_beats","treesh_user_presets"] },
   { id:"activity", label:"Games & rewards", icon:"trophy", desc:"Game stats, This or That & Starlites", keys:["treesh_game_stats","treesh_game_opts","treesh_tot","treesh_stars","treesh_stats"] },
-  { id:"personalize", label:"Appearance & profile", icon:"palette", desc:"Profile, theme, colors, fonts & background", keys:["treesh_profile","treesh_accent","treesh_theme","treesh_bg","treesh_bg_image","treesh_bg_overlay","treesh_text_size","treesh_anim_bg","treesh_ui_glow","treesh_sleep","treesh_vinyl","treesh_lib_grid","treesh_game_grid","treesh_viz","treesh_nav_color","treesh_topbar_color","treesh_row_color","treesh_font","treesh_custom_font","treesh_label","treesh_notif_nav","treesh_explain_auto","treesh_perf","treesh_bday_edits"] },
+  { id:"personalize", label:"Appearance & profile", icon:"palette", desc:"Profile, theme, colors, fonts & background", keys:["treesh_profile","treesh_accent","treesh_theme","treesh_bg","treesh_bg_image","treesh_bg_overlay","treesh_text_size","treesh_anim_bg","treesh_ui_glow","treesh_sleep","treesh_vinyl","treesh_lib_grid","treesh_game_grid","treesh_viz","treesh_nav_color","treesh_topbar_color","treesh_row_color","treesh_font","treesh_custom_font","treesh_label","treesh_notif_nav","treesh_explain_auto","treesh_perf","treesh_perf_opts","treesh_bday_edits"] },
   { id:"cache", label:"Cache", icon:"database", desc:"Offline catalog copy & recent searches", keys:[CATALOG_KEY,"treesh_recent_searches"] },
   { id:"security", label:"Security", icon:"shield", desc:"App lock & parent PIN", keys:["treesh_lock","treesh_parent_pin"] },
 ];
@@ -1848,6 +1849,19 @@ function viewSettings(){
         ${toggleCard('toggle-label-border','label-border-toggle',state.label.border!==false,'square-dashed-bottom','Border','Show a border around labels')}
         ${state.label.border!==false?colorRow('set-label-border-color',null,state.label.borderColor||'#ffffff','frame','Border color',''):''}
         ${toggleCard('toggle-label-shadow','label-shadow-toggle',state.label.shadow!==false,'sun','Drop shadow','Add a soft shadow to labels')}
+      </div>
+    </div>
+
+    <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6" data-testid="settings-perf">
+      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="mic-vocal" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Verse performer</h2></div>
+      <p class="mb-4 pl-11 text-sm text-white/50">The badge in the lyrics view that shows who\u2019s performing each section.</p>
+      <div id="perf-preview" class="mb-4 flex min-h-[68px] items-center justify-center rounded-2xl border border-white/10 bg-black/40 p-3">${perfPreviewHtml()}</div>
+      ${toggleCard('perf-opt-show','perf-show-toggle',perfOpts().show,'eye','Show performer badge','Display the active artist while lyrics play')}
+      <div id="perf-controls" class="mt-3 space-y-3 ${perfOpts().show?'':'pointer-events-none opacity-40'}">
+        <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Size</p>${pseg('perf-opt-size',perfOpts().size,[['sm','Small'],['md','Medium'],['lg','Large']])}</div>
+        <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Layout</p>${pseg('perf-opt-layout',perfOpts().layout,[['pill','Pills'],['text','Text'],['minimal','Minimal']])}</div>
+        <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Color scheme</p>${pseg('perf-opt-scheme',perfOpts().scheme,[['accent','Accent'],['gold','Gold'],['rose','Rose'],['mono','Mono']])}</div>
+        <div><p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-white/45">Position</p>${pseg('perf-opt-pos',perfOpts().pos,[['top','Top'],['bottom','Bottom']])}</div>
       </div>
     </div>
   </section>
@@ -2579,25 +2593,63 @@ function parseSection(sec){
   const ci=sec.indexOf(":");
   if(ci>=0){ role=sec.slice(0,ci).trim(); who=sec.slice(ci+1).trim(); }
   if(!who) return {role, artists:[]};
-  const names=who.replace(/[()]/g," & ").split(/\s*(?:&|,|\/|\+|\bx\b|feat\.?|ft\.?|with|and)\s*/i).map(s=>s.trim()).filter(Boolean);
+  who=who.replace(/[\[\]()]/g," ").replace(/\s+/g," ").trim();
+  const findArtist=(name)=>{ const k=normKey(name); if(!k) return null; let a=(ARTISTS||[]).find(x=>normKey(x.name)===k); if(!a){ const kc=k.replace(/[^a-z0-9]/g,""); a=(ARTISTS||[]).find(x=>normKey(x.name).replace(/[^a-z0-9]/g,"")===kc); } return a||null; };
+  // 1) Whole label may itself be a known artist/group (e.g. "PerfekTenz", "AC/DC") \u2014 don't split those.
+  const whole=findArtist(who);
+  let names;
+  if(whole){ names=[whole.name]; }
+  else {
+    // Split ONLY on real separators: symbols, or connector words that are standalone tokens
+    // (whitespace on both sides) so names containing "and"/"x"/"with" (e.g. "Zuubandz") stay intact.
+    names=who.split(/\s*[,&\/+\u00d7]\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|vs\.?|x)\s+/i).map(s=>s.trim()).filter(Boolean);
+    if(!names.length) names=[who];
+  }
   const seen=new Set(); const artists=[];
-  names.forEach(n=>{ const k=normKey(n); if(!k||seen.has(k)) return; seen.add(k); const ic=(ARTISTS||[]).find(a=>normKey(a.name)===k); artists.push(ic?{name:ic.name,image:ic.image,id:ic.id}:{name:n,image:null,id:null}); });
+  names.forEach(n=>{ const k=normKey(n); if(!k||seen.has(k)) return; seen.add(k); const ic=findArtist(n); artists.push(ic?{name:ic.name,image:ic.image,id:ic.id}:{name:n,image:null,id:null}); });
   return {role, artists};
 }
+function perfOpts(){ return state.perfOpts||{show:true,size:"md",scheme:"accent",layout:"pill",pos:"top"}; }
+function savePerfOpts(){ LS.set("treesh_perf_opts", state.perfOpts); if(typeof refreshPerformer==="function") refreshPerformer(); }
+function refreshPerfSettings(){ renderView(); if(typeof refreshPerformer==="function") refreshPerformer(); }
+function perfSchemeVars(scheme){
+  if(scheme==="gold") return {role:"var(--treesh-gold)", ring:"var(--treesh-gold)"};
+  if(scheme==="mono") return {role:"rgba(255,255,255,0.72)", ring:"rgba(255,255,255,0.35)"};
+  if(scheme==="rose") return {role:"#fb7ba8", ring:"#fb7ba8"};
+  return {role:"var(--treesh-purple)", ring:"var(--treesh-purple)"};
+}
+function buildPerformerHtml(info,o){
+  o=o||perfOpts();
+  const sv=perfSchemeVars(o.scheme);
+  const S = o.size==="sm" ? {av:"h-5 w-5", nameTx:"text-[11px]", roleTx:"text-[7px]", pad:"py-0.5 pl-0.5 pr-2", gap:"gap-1", box:"py-0.5 pl-2 pr-1"} :
+            o.size==="lg" ? {av:"h-8 w-8", nameTx:"text-sm", roleTx:"text-[10px]", pad:"py-1 pl-1 pr-3", gap:"gap-2", box:"py-1.5 pl-3 pr-2"} :
+                            {av:"h-6 w-6", nameTx:"text-xs", roleTx:"text-[8px]", pad:"py-1 pl-1 pr-2.5", gap:"gap-1.5", box:"py-1 pl-2.5 pr-1.5"};
+  const roleSpan=`<span class="shrink-0 font-semibold uppercase tracking-[0.22em] ${S.roleTx}" style="color:${sv.role}">${esc(info.role||'Performing')}</span>`;
+  if(o.layout==="text"){
+    const names=info.artists.map(a=>esc(a.name)).join("  &  ");
+    return `<div class="perf-swap pointer-events-auto flex max-w-[86vw] items-center ${S.gap} rounded-full border border-white/12 bg-black/50 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl">${roleSpan}<span class="clamp-1 ${S.nameTx} font-bold text-white">${names}</span></div>`;
+  }
+  if(o.layout==="minimal"){
+    const names=info.artists.map(a=>esc(a.name)).join(" \u00B7 ");
+    return `<div class="perf-swap pointer-events-auto flex max-w-[86vw] items-center gap-1.5"><span class="${S.nameTx} font-bold text-white" style="text-shadow:0 2px 14px rgba(0,0,0,0.6)">${names}</span></div>`;
+  }
+  const pills=info.artists.map(a=>`<button data-act="perf-artist" data-name="${esc(a.name)}" data-id="${a.id||''}" data-testid="perf-pill-${slug(a.name)}" aria-label="About ${esc(a.name)}" class="press flex shrink-0 items-center ${S.gap} rounded-full bg-white/10 ${S.pad} hover:bg-white/15">${a.image?`<span class="${S.av} shrink-0 overflow-hidden rounded-full ring-1" style="--tw-ring-color:${sv.ring}">${img(a.image,'h-full w-full object-cover')}</span>`:`<span class="grid ${S.av} shrink-0 place-items-center rounded-full bg-white/15 text-[10px] font-bold text-white ring-1" style="--tw-ring-color:${sv.ring}">${esc((a.name||'?').charAt(0).toUpperCase())}</span>`}<span class="clamp-1 ${S.nameTx} font-bold text-white">${esc(a.name)}</span></button>`).join("");
+  return `<div class="perf-swap pointer-events-auto flex max-w-[86vw] flex-wrap items-center justify-center ${S.gap} rounded-full border border-white/12 bg-black/50 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl">${roleSpan}${pills}</div>`;
+}
+function perfPreviewHtml(){ const o=perfOpts(); const pick=(ARTISTS||[]).slice(0,2); const arts = pick.length? pick.map(a=>({name:a.name,image:a.image,id:a.id})) : [{name:"Zuubandz",image:null,id:null},{name:"Black Barbie",image:null,id:null}]; return buildPerformerHtml({role:"Verse 1", artists:arts}, o); }
 function updatePerformer(sec){
   const box=document.getElementById("np-performer"); if(!box) return;
-  const key=sec||"";
+  const o=perfOpts();
+  box.className="pointer-events-none absolute inset-x-0 z-20 flex justify-center px-2 "+(o.pos==="bottom"?"bottom-1 pb-1":"top-0 pt-1");
+  const key=(sec||"")+"|"+o.size+"|"+o.scheme+"|"+o.layout+"|"+o.pos+"|"+(o.show?1:0);
   if(_perfKey===key) return; _perfKey=key;
+  if(!o.show){ box.innerHTML=""; return; }
   const info=parseSection(sec);
   if(!info || !info.artists.length){ box.innerHTML=""; return; }
-  const avatars=info.artists.map(a=> a.image
-    ? `<span class="h-8 w-8 shrink-0 overflow-hidden rounded-full border-2 border-black/50 ring-1 ring-white/15">${img(a.image,'h-full w-full object-cover')}</span>`
-    : `<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-black/50 bg-white/12 text-[11px] font-bold text-white ring-1 ring-white/15">${esc((a.name||'?').charAt(0).toUpperCase())}</span>`
-  ).join("");
-  const names=info.artists.map(a=>esc(a.name)).join(" & ");
-  box.innerHTML=`<div class="perf-swap pointer-events-auto flex max-w-[86vw] flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/12 bg-black/50 py-1 pl-2.5 pr-1.5 shadow-[var(--treesh-shadow)] backdrop-blur-xl"><span class="shrink-0 text-[8px] font-semibold uppercase tracking-[0.22em] text-[color:var(--treesh-purple)]">${esc(info.role||'Performing')}</span>${info.artists.map(a=>`<button data-act="perf-artist" data-name="${esc(a.name)}" data-id="${a.id||''}" data-testid="perf-pill-${slug(a.name)}" aria-label="About ${esc(a.name)}" class="press flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 py-1 pl-1 pr-2.5 hover:bg-white/15">${a.image?`<span class="h-6 w-6 shrink-0 overflow-hidden rounded-full ring-1 ring-white/20">${img(a.image,'h-full w-full object-cover')}</span>`:`<span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/15 text-[10px] font-bold text-white">${esc((a.name||'?').charAt(0).toUpperCase())}</span>`}<span class="clamp-1 text-xs font-bold text-white">${esc(a.name)}</span></button>`).join("")}</div>`;
+  box.innerHTML=buildPerformerHtml(info,o);
   icons();
 }
+function refreshPerformer(){ _perfKey="__force__"; const s=curSong(); const lines=(s&&s.lyrics)||[]; let idx=-1; const t=state.currentTime; for(let i=0;i<lines.length;i++){ if(lines[i].t<=t+0.15) idx=i; else break; } updatePerformer(idx>=0?(lines[idx]&&lines[idx].sec):null); }
 function copyLyrics(songId){
   const s=SONG_BY_ID[songId]; if(!s) return;
   let sel=""; try{ sel=String(window.getSelection?window.getSelection():"").trim(); }catch(e){}
@@ -3041,6 +3093,11 @@ document.addEventListener("click", e=>{
     case "song-facts": openSongFacts(t.dataset.name, t.dataset.id||null); break;
     case "play-song": { const s=SONG_BY_ID[id]; if(s){ closeModal(); playSong(s,[s]); } break; }
     case "perf-mode-toggle": { state.perfMode=!state.perfMode; LS.set("treesh_perf",state.perfMode); applyPerfMode(); toast(state.perfMode?"Performance mode on":"Performance mode off"); renderView(); break; }
+    case "perf-opt-show": { state.perfOpts.show=!state.perfOpts.show; savePerfOpts(); const pc=$("#perf-controls"); if(pc) pc.classList.toggle("opacity-40",!state.perfOpts.show); if(pc) pc.classList.toggle("pointer-events-none",!state.perfOpts.show); const btn=$('#perf-show-toggle'); if(btn) btn.setAttribute("aria-checked",state.perfOpts.show); renderView(); break; }
+    case "perf-opt-size": { state.perfOpts.size=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
+    case "perf-opt-layout": { state.perfOpts.layout=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
+    case "perf-opt-scheme": { state.perfOpts.scheme=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
+    case "perf-opt-pos": { state.perfOpts.pos=t.dataset.val; savePerfOpts(); refreshPerfSettings(); break; }
     case "toggle-anim-bg": { state.animBg=!state.animBg; LS.set("treesh_anim_bg",state.animBg); applyUiPrefs(); toast(state.animBg?"Animated background on":"Animated background off"); renderView(); break; }
     case "toggle-ui-glow": { state.uiGlow=!state.uiGlow; LS.set("treesh_ui_glow",state.uiGlow); applyUiPrefs(); toast(state.uiGlow?"Interface glow on":"Interface glow off"); renderView(); break; }
     case "toggle-explain-auto": { state.explainAuto=!state.explainAuto; LS.set("treesh_explain_auto",state.explainAuto); toast(state.explainAuto?"Lyric meanings will auto-show":"Auto-show meanings off"); renderView(); if(state.npOpen) renderNP(); break; }
