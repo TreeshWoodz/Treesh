@@ -1,354 +1,151 @@
-# Treesh 3.0 — Bug Fixes, Instrum Overhaul, Storage Mgmt, + LyricFlow Integration
+# Treesh 3.0 — Development Plan (Single-file SPA)
 
-## Ground Rules
-- Single file only: `/app/single_html/index.html` (Vanilla JS + Tailwind CDN + localStorage). No build step.
-- Served by python `http.server` on `:3000` from `/app/single_html`.
-- Light mode class = `html.theme-light` (NOT `.light`).
-- DO NOT touch `/app/frontend` or `/app/backend`.
-- DO NOT run parallel `search_replace` on `index.html` (race conditions → corruption). **Sequential edits only.**
-- English-only UI copy.
-- Styling: Tailwind CDN utilities + existing `<style>` block only.
-- All new interactive/key UI elements must include `data-testid`.
+## 1. Objectives
+- Deliver a **P0 Accessibility suite** (all requested toggles) that applies instantly and persists to `localStorage`.
+- Add **Nav label toggle** (icons-only vs icons+labels) with default “shown”.
+- Add **optional floating Accessibility quick button** (enabled/disabled from Settings).
+- Fix **Lyric Card “Options” scroll-to-top** bug (preserve scroll/viewport position).
+- Add **Lyric Card font size control** (user-adjustable, persisted).
+- (Acknowledged) Verse performer missing on `NEVER (Rock Version)` is due to **no section tags in source lyrics**; will be addressed later via Custom Lyrics Studio (tagging/heuristics).
 
----
+## 2. Implementation Steps
 
-## ACTIVE WORKSTREAM — Batch 2 (Lyrics/Performer/Card/Settings + Creator features)
-User-confirmed scope (English-only UI). Sequential edits only on index.html.
+### Phase 1 — Core POC (Isolation): IndexedDB upload/storage pipeline (needed)
+Core risk is **custom music uploads** (blobs + persistence). Prove the IndexedDB layer before building UI.
 
-### PHASE 4 — Now Playing lyric interaction (IN PROGRESS)
-- 4.1 Replace 2 inline per-line buttons with ONE "⋯" kebab (+ long-press on line) → popover: Favorite, Add note, Make card, Select lines. Frees space → tighter line spacing. Liked lines show a persistent purple heart badge.
-- 4.2 Multi-select mode: "Select" toggle in lyrics toolbar; tap lines to check; bottom action bar → Make card / Add grouped note / Cancel.
-- 4.3 Grouped note applied to all selected lines; Make card from selection uses ORIGINAL text.
+**User stories (POC)**
+1. As a user, I can select an audio file and it stores successfully without LocalStorage quota issues.
+2. As a user, I can reload the app and still see the stored item.
+3. As a user, I can delete a stored audio item and reclaim space.
+4. As a user, I can store cover art (optional) alongside audio.
+5. As a user, I can safely handle large files (fail gracefully with an error message if too big).
 
-### PHASE 5 — Verse Performer (global) + parser fix
-- 5.1 parseSection: treat parentheses/brackets as SEPARATE artists — `[Verse 2: GHumble (London Llaflare)]` → GHumble + London Llaflare (2 artists), not one.
-- 5.2 Global for any song with [Verse x]/[Chorus] markers: no-feature sections show a subtle tappable role label (opens song-facts); pills only when features exist. Tapping pill → artist profile (existing).
+**POC tasks**
+- Add a small **IndexedDB utility module** inside `index.html`:
+  - DB name `treesh_db_v1`
+  - Stores:
+    - `user_audio` (keyPath `id`) → `{id, title, artist, album, duration?, addedAt, audioBlob, coverBlob?}`
+    - `user_audio_meta` (optional if needed) or keep meta in same record
+- Create minimal functions (no UI dependencies):
+  - `idbOpen()`, `idbPutAudio(rec)`, `idbGetAllAudio()`, `idbDeleteAudio(id)`
+- Add a **dev-only POC trigger** in Settings (hidden behind a toggle / only in console) or a small temporary button that:
+  - stores 1 selected file
+  - lists stored records
+  - deletes selected
+- Validate via manual reload + screenshot_tool.
 
-### PHASE 6 — Lyric Card maker
-- 6.1 Cards ALWAYS use the artist's ORIGINAL line (fallback current text if never edited); show a small "edited → shown as original" note. Never export user-edited words.
-- 6.2 Optional cover-art thumbnail at bottom-left inline with title/artist; shape (Circle/Rounded/Full) applies ONLY to this thumbnail. Remove shape selector from full-bleed background cover mode.
-- 6.3 Overlay/scrim color customizable (default black + swatches + custom color).
+### Phase 2 — V1 App Development (Accessibility + Lyric Cards + Nav labels)
 
-### PHASE 7 — Settings revamp (intelligent reorg + progressive disclosure, keep theme)
+#### Phase 2A — Accessibility settings (instant apply + persist)
+**User stories**
+1. As a user, I can enable high-contrast mode to improve readability.
+2. As a user, I can enable reduced motion to avoid nausea and improve performance.
+3. As a user, I can increase global text size beyond current presets.
+4. As a user, I can enable a dyslexia-friendly font to reduce reading strain.
+5. As a keyboard user, I can clearly see focus outlines and navigate confidently.
 
-### PHASE 8 — Creator features (NEW, big)
-- 8.1 Add lyrics to songs that have none (reuse NP "Edit" → "Add lyrics"), with optional per-line timestamping. Shared engine to be reused by LyricFlow.
-- 8.2 If a song later gains official lyrics, prompt user: switch to original OR keep their custom lyrics.
-- 8.3 Upload own music (device-only): title, artist, metadata, cover art, lyrics (with/without timestamps). Heavy blobs (audio + cover) stored in IndexedDB (localStorage 5MB cap can't hold audio); metadata index in localStorage/IndexedDB.
+**Implementation**
+- Add new `state` keys + `localStorage` keys:
+  - `state.a11y = LS.get('treesh_a11y', { highContrast:false, reducedMotion:false, textScale:1, dyslexiaFont:false, lyricSpacing:'normal', focusRings:true, underlineLinks:false, boldText:false, cbPalette:'default', quickBtn:false, hideNavNames:false })`
+  - Also store `treesh_hide_nav_names` separately if preferred for backward compatibility.
+- Add `applyA11y()`:
+  - Toggle classes on `document.documentElement` (preferred) e.g. `a11y-contrast`, `a11y-reduce-motion`, `a11y-dyslexia`, `a11y-focus`, `a11y-underline`, `a11y-bold`, `a11y-cb-*`, `a11y-nav-icons`.
+  - Set CSS vars for scalable font sizing: `--a11y-scale` and apply via `html{ font-size: calc(var(--base-font, 16px) * var(--a11y-scale)); }` while keeping existing `applyTextSize()` intact (map to `--base-font`).
+  - Reduced motion:
+    - Add CSS override: `html.a11y-reduce-motion *, html.a11y-reduce-motion *::before, html.a11y-reduce-motion *::after { animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important; }`
+  - High contrast + color-blind palette:
+    - Override core tokens: `--app-bg`, `--app-text`, `--treesh-stroke`, accent variants.
+- Add a new **Settings → Accessibility** section (same card style, using `toggleCard()`):
+  - Toggles: High contrast, Reduced motion, Dyslexia font, Strong focus rings, Underline links, Bold text, Floating quick button, Hide nav names.
+  - Controls:
+    - Text scale slider (e.g. 1.0–1.35)
+    - Lyric spacing segmented (Normal / Spacious)
+    - Color-blind palette segmented (Default / Deuteranopia / Protanopia / Tritanopia-friendly presets)
+- Ensure every toggle:
+  - applies immediately (`applyA11y()`)
+  - persists immediately (`LS.set('treesh_a11y', state.a11y)`)
+  - triggers minimal rerender when needed (`renderShell()` for nav label change; `renderView()` otherwise).
 
-### PHASE 9 — Remaining backlog
-- Karaoke choppy fix + exit-fullscreen button; Instrum Studio overhaul; offline rule-based Voice Controls; Music Library filters; LyricFlow integration.
+#### Phase 2B — Nav label toggle (icons-only)
+**User stories**
+1. As a user, I can hide page names in the sidebar to save space.
+2. As a user, I can keep labels visible by default.
+3. As a user, mobile nav stays usable even without labels.
+4. As a user, tooltips/aria-labels still explain icons.
+5. As a user, setting persists across reloads.
 
----
+**Implementation**
+- Modify `navItem()` to conditionally render label text:
+  - When `state.a11y.hideNavNames` is true, hide label span and add `title`/`aria-label`.
+- Adjust sidebar width if desired (optional MVP: keep width, just hide labels).
 
-## PHASE 1 — Bug Fixes & UI Polish (Status: PARTIALLY COMPLETE)
-### Completed in this workstream
-1. Light-mode Profile modal theming (`#profile-panel` stays dark in light mode) — fixed via theme-light overrides. ✅
-2. Karaoke: smoother animations (rAF loop), add full-screen karaoke mode. ✅
-3. Lyric editing save: preserve metadata/section markers + do not strip structure. ✅
-4. Lyric lines: edited indicator + merged explanation/original panel. ✅
-5. Lyric lines: user notes (user-authored) + indicator + merged panel. ✅
-6. This-or-That champion: correctly resolves current run winner by most wins. ✅
-7. Fix “choppy jump/refresh” by preserving scroll-lock state during `renderView()`. ✅
-8. Starlites reward system implemented (listening/games/beats + daily gating until profile exists). ✅
-9. UI customization: label styling (default white text + customization), custom colors, custom font upload. ✅
-10. Voice gating: remove/hide mic UI globally when SpeechRecognition unsupported. ✅
-11. App & Page Password Protection shipped earlier in this workstream + lock screen redesign shipped earlier. ✅
-12. Settings tab polish: Voice tab removed earlier (no meaningful settings at the time). ✅
-13. **Global UX protections shipped (new):** ✅
-   - Disable zoom: viewport `maximum-scale=1.0, user-scalable=no` + gesture/wheel/keyboard zoom blockers.
-   - Disable text selection globally except editable fields (`input/textarea/select/contenteditable`).
-   - Disable image dragging + disable right-click/context menu outside editable fields.
-14. **Birthday UX fixes shipped (revised, new):** ✅
-   - Replaced brittle native date inputs with a **custom date field** (`dateFieldHTML`) using a fully-styled container + transparent native `input[type=date]` overlay.
-   - Prevents overflow on all viewports (Welcome/Onboarding/Settings/Parent-DOB).
-   - Picker no longer closes instantly (removed destructive re-render; updates happen in-place).
-   - Clean placeholders (e.g., “Select your birthday” / “Set birthday”) and formatted display (e.g., “Jun 15, 1995”).
-   - `showPicker()` on click best-effort for browsers that support it.
-15. **Welcome birthday overflow regression fixed (new):** ✅ via the custom date field approach.
+#### Phase 2C — Floating accessibility quick button (optional)
+**User stories**
+1. As a user, I can quickly access accessibility toggles from any view.
+2. As a user, I can disable the floating button from Settings.
+3. As a user, the button doesn’t block Now Playing controls.
+4. As a user, the menu is keyboard accessible.
+5. As a user, changes apply instantly.
 
-### Still pending in Phase 1 (carry-forward)
-1. Queue / “Up Next”: allow tapping any song in the list to play it (verify `q-jump` handler). (P2)
-2. Mobile mini-bar overlapping bottom navigation (validate at 390×844). (P2)
-3. Desktop BPM input: remove/restyle native number spinner arrows. (P3/polish)
-4. NEEDS-CLARIFICATION: “best lyrics” setting option the user referenced earlier (ask at checkpoint). (P2)
+**Implementation**
+- If `state.a11y.quickBtn`:
+  - Render a small fixed button (bottom-right above mobile nav) opening a compact popover with the most-used toggles.
 
----
+#### Phase 2D — Lyric Card fixes + font size control
+**User stories**
+1. As a user, opening Lyric Card options should not jump the page to the top.
+2. As a user, I can increase/decrease Lyric Card font size.
+3. As a user, my chosen size persists for exports.
+4. As a user, previews update live.
+5. As a user, defaults still look great (auto-fit remains baseline).
 
-## PHASE 2 — Instrum (Beat Studio) Overhaul (Status: IN PROGRESS)
-### Completed (new in this iteration)
-1. File Menu dropdown (New/Open/Save/Import/Export + Guide) shipped previously. ✅
-2. Bugfix: File dropdown behind grid / clicks not working ✅
-3. Bugfix: Presets strip not working ✅
-4. **Rename:** “Treesh Studio” → **“Instrum Studio”** (UI labels). ✅
+**Implementation**
+- Scroll-jump fix:
+  - Identify the lyric card “options” click handler.
+  - Preserve scroll position before opening modal/popover (`const y=window.scrollY`), then restore after DOM mutation (`requestAnimationFrame(()=>window.scrollTo(0,y))`).
+  - If the jump is caused by an `<a href="#">`, change to `<button>` or `preventDefault()`.
+- Font size control:
+  - Add `state.cardFontScale` or include inside an existing lyric-card settings object, persist in `localStorage`.
+  - Update the card canvas text sizing logic: apply multiplier to the computed auto-fit font size, with clamps.
+  - Add a slider in the Lyric Card studio UI (and/or Settings) to control it.
 
-### Still pending in Phase 2 (carry-forward backlog)
-1. **Open Studio transition:** add seamless animated transition into the studio. (P1)
-2. **Top control row scroll + overflow:** horizontal-only scrolling; fix play/pause overflow + clipped radial glow. (P1)
-3. **Presets visible in fullscreen mode**. (P1)
-4. **Fullscreen UI cleanup:** remove redundant X button (keep minimize) + smoother fullscreen/minimize transition. (P1)
-5. Row labels overlap at medium/large font sizes. (P1)
-6. First cell width smaller than rest (verify intention; fix if unintended). (P2)
-7. Playback step indicator should highlight active beats properly (currently makes them look invisible/outlined). (P1)
-8. Guide & FAQ: expand content, organize into tabs, add legend key, add more FAQs/hints. (P2)
-9. Add more instruments incl. Piano/Keys (melodic). (P2)
-10. Ensure saving projects persists reliably to `treesh_beats` across refreshes (re-test). (P2)
-11. Custom audio stems / record vocals (BandLab-style). (P2) *(also aligns with broader app “custom audio uploads” effort)*
+### Phase 3 — Adding More Features (after V1 is stable)
 
----
+#### Phase 3A — Custom Music Upload (full feature using proven POC)
+**User stories**
+1. As a user, I can tap “Add your music” in Library and import audio.
+2. As a user, I can attach cover art and edit metadata.
+3. As a user, imported tracks appear in Library and are playable.
+4. As a user, I can remove imported tracks.
+5. As a user, app remains fast even with many imports.
 
-## PHASE A — Immediate: Lock Screen Polish (Status: COMPLETED)
-**User-confirmed fixes:**
-1. When lock screen is shown, **background app is non-scrollable**.
-2. **Clock/date removed** from lock screen UI.
-3. Lock screen **fits all viewports** (mobile/desktop) with no overflow/scroll.
+**Implementation**
+- Add Library CTA → import modal.
+- Use IndexedDB POC functions for storage.
+- Extend SONGS in-memory with `source:'user'` entries loaded from IDB on startup.
 
-What was implemented
-1. Scroll-lock integration
-   - `overlaysOpen()` now includes `state._lockActive` so `syncScrollLock()` locks the background.
-2. UI changes
-   - Removed `#lock-clock` and `#lock-date` from the template.
-   - Tightened spacing so keypad fits small heights.
-3. Viewport-fit
-   - Lock inner layout uses `h-[100dvh]` and centered `m-auto` content to prevent clipping.
+#### Phase 3B — Karaoke fixes (next priority)
+**User stories**
+1. As a user, karaoke highlighting is smooth.
+2. As a user, fullscreen karaoke has a clear exit button.
+3. As a user, reduced motion disables karaoke animations.
+4. As a user, performance is stable on mobile.
+5. As a user, returning from fullscreen restores layout.
 
-Testing (automation)
-- Verified lock screen shows and blocks scroll (`body.position=fixed`, `scrollY` stays `0`).
-- Wrong PIN shows error; correct PIN (`0000`) unlocks and restores scroll.
-- Verified no overflow on small viewport tests.
+(Other future items remain queued: Instrum Studio, Voice controls, Custom Lyrics Studio, etc.)
 
----
+## 3. Next Actions
+1. Implement **IndexedDB POC** utilities and verify persistence via reload.
+2. Add `state.a11y` schema + `applyA11y()` + CSS class overrides.
+3. Add **Settings → Accessibility** section + floating button toggle.
+4. Implement **nav label hide** in `navItem()` and rerender shell.
+5. Fix **lyric card options scroll jump**.
+6. Add **lyric card font size control** and persist.
+7. Run screenshot_tool checks across: Settings, Nav, Now Playing lyrics, Lyric Card studio.
 
-## PHASE B — P0: Storage Management (Status: COMPLETED)
-**User confirmed scope:** Visual gauge + breakdown + delete controls + clear-all.
-
-What was implemented
-1. Added **Settings → Account → “Storage & data”** section.
-2. Computed usage
-   - Treesh usage estimate via `localStorage` key/value length UTF-16 bytes.
-   - Device estimate via `navigator.storage.estimate()` (best-effort), shown as “~X free on device”.
-3. UI
-   - Usage gauge (Treesh used) + estimate text.
-   - 6 category cards: **Library & playlists**, **Beats & presets**, **Games & rewards**, **Appearance & profile**, **Cache**, **Security**.
-   - Each card shows size + per-group delete button (empty groups are dimmed/disabled).
-   - “Clear all Treesh data” button.
-4. Deletion behavior
-   - Group delete and clear-all use confirm dialog.
-   - Clear-all and “Erase everything” remove **all** `treesh*` keys, then reload.
-
-Testing (automation)
-- Storage UI rendered and displayed correct totals.
-- Cache group clear removed `treesh_recent_searches` (catalog cache repopulates as expected).
-
----
-
-## PHASE C — P1 Bugs: Overflow Fixes (Status: COMPLETED)
-### 1) Welcome/Onboarding birthday input overflow
-Fix implemented (final)
-- Migrated all birthday/date inputs to the **custom date field** wrapper:
-  - No overflow in layout.
-  - Picker does not close due to DOM re-render.
-  - Clean placeholder + formatted display.
-
-Testing
-- Verified no horizontal overflow in automation.
-- Verified picker stability by eliminating full re-render on date change.
-
-### 2) Desktop Now Playing cover art overflow
-Fix implemented
-- Reduced artwork `vh` cap:
-  - Mobile: `42vh → 40vh`
-  - Desktop (`lg:`): `64vh → 48vh`
-- Prevents cover art from overlapping seek/controls on short laptop heights.
-
-Testing
-- Verified at `1280×620`: cover art no longer overlaps seek bar.
-
----
-
-## PHASE D — P1: Song Metadata (`data-bio` / `data-desc`) (Status: COMPLETED)
-What was implemented
-1. Parsing
-   - `parseSongs()` now reads `data-desc` into `song.desc` (existing `song.bio` preserved).
-2. Song Details modal
-   - Added an “About” section to `openMetadata()` modal.
-3. Now Playing
-   - **Removed** “About this track” under cover art per user preference (About remains in Metadata modal only). ✅
-
-Testing
-- Verified metadata “About” renders when `desc` is present.
-
----
-
-## >>> CHECKPOINT: PAUSE & USER REVIEW (Status: UPDATED) <<<
-User cadence: **review after each phase**.
-
-### Ready for review (already implemented)
-- Lock screen: no background scrolling, no clock/date, fits all screens, unlock works with `0000`.
-- Storage & data UI: gauge + device estimate + breakdown + clear buttons.
-- Birthday/date fields (all places): no overflow, consistent width, placeholders, formatted display, picker stable.
-- Global protections: no zoom, no accidental text selection, image drag disabled, right click disabled.
-- Desktop cover art overflow fixed.
-- Metadata: `data-desc` parsing + About shown in Metadata modal (not in Now Playing).
-
-### Newly completed and ready for review
-- **PHASE 3 Global Search overhaul** (below).
-
----
-
-## PHASE 3 — Global Search Overhaul (Status: COMPLETED)
-### Goals (delivered)
-1. Smooth open/close transition (blur + fade + panel motion together; avoid “text appears before blur”). ✅
-2. Mobile keyboard behavior (best-effort): only the search dock rises; avoid whole app shifting. ✅
-3. Layout: results area fills available space (remove large bottom gap). ✅
-4. Extremely smart search (accent/punct/case-insensitive + fuzzy/partial matching). ✅
-5. Filters in search results + sorting controls. ✅
-6. Recently searched positioned just above search box (not centered). ✅
-7. Lyrics actions in Search:
-   - Favorite/unfavorite lyrics from search. ✅
-   - Create lyric cards without requiring favorite. ✅
-
-### What was implemented
-1. **Smart fuzzy search engine**
-   - `normStr()` strips diacritics/accents and punctuation, normalizes whitespace.
-   - Token scoring: exact match + prefix + substring + subsequence bonus.
-   - `"<song> by <artist>"` query parsing (`parseByQuery`).
-   - Song scoring considers: title, artist, featuring, writtenBy, genre, mood, album.
-   - Artist scoring considers: name + role.
-   - Lyrics search matches normalized lyric text.
-
-2. **UI overhaul**
-   - New flex layout: results `flex-1` fill available space; dock pinned bottom.
-   - Recent searches moved into a horizontal chip bar **directly above the search box**.
-   - Added songs-only filter chips: All / Picks / Explicit / Clean.
-   - Added sort chips: Top / A–Z / Artist.
-
-3. **Smooth open transition**
-   - Split overlay into:
-     - `.search-backdrop` (blur/fade establishes first)
-     - `.search-content` (content fades/slides in with delay)
-   - Fixes “text appears before blur” jank.
-
-4. **Lyrics results actions**
-   - Each lyric result row now has:
-     - Heart toggle (favorite/unfavorite lyric)
-     - “Make card” button
-   - Implemented `state.studio.picked` + `studioLines()` to allow building lyric cards **without** favoriting.
-   - Updated builder/draw/share logic to use `studioLines()`.
-
-### Verification (automation)
-- Confirmed no results/dock gap (gap = 0).
-- Confirmed recent chip placement above search box.
-- Confirmed fuzzy matching for user examples:
-  - “mona lisa by savionce” → Moné A. Lisa by SAVIONCE (1 result)
-  - “mone alisa”, “mone a lisa”, “MONE A. LISA” all top-match.
-  - Typos/partials/no punctuation also work.
-- Confirmed Lyrics tab: favorite toggle + make-card present for each row.
-- Confirmed make-card does not require favoriting (favCount remains 0).
-
----
-
-## PHASE 4 — Music Library Filters/Sorting (Status: NOT STARTED)
-- Add sort/filter controls to Library:
-  - Sort: recently added, title A→Z, artist A→Z, most played.
-  - Filter: explicit, Treesh Pick, genre, mood.
-
----
-
-## PHASE 5 — Now Playing / Lyrics UX Upgrades (Status: NEXT UP)
-**User priority order after Search:** Now Playing upgrades → Instrum fixes → Lyric Cards overhaul → Voice overhaul.
-
-1. Edited lyrics should reflect immediately after save.
-2. Add transition when launching “WHAT’S NEXT?” game from lyrics.
-3. Karaoke:
-   - Make letter-by-letter animation smoother.
-   - Add exit-fullscreen button in fullscreen karaoke.
-4. Fix lyric line spacing bug (edit/like buttons shouldn’t change line spacing).
-5. Scrubber:
-   - Add accent-colored progress fill.
-   - Add A↔B loop (set start/end, repeat until disabled).
-6. Minibar:
-   - Allow scrubbing while minimized.
-
-Implementation notes (planned)
-- Identify lyric edit save flow; ensure `renderLyrics()` / NP lyric panel refreshes immediately after save.
-- Add transition classes for game open (overlay fade/scale) before navigation/state switch.
-- Karaoke performance:
-  - Reduce DOM churn; prefer transform/opacity + requestAnimationFrame; cache measurements.
-  - Add obvious exit-fullscreen control in fullscreen karaoke.
-- Lyric line spacing:
-  - Move edit/like controls to absolute-positioned overlay or fixed-width inline container that doesn’t change line height.
-- Scrubber progress fill:
-  - Use CSS background-size or a sibling progress element synced to currentTime/duration.
-- A–B loop:
-  - Store `state.abLoop={on,a,b}`; clamp seeking and loop on `timeupdate`.
-- Minibar scrubbing:
-  - Add pointer handlers for the mini seek slider; sync with main player.
-
----
-
-## PHASE 6 — Lyric Cards Overhaul (Status: NOT STARTED)
-1. Preserve/render line breaks (verse/hook/chorus spacing) in cards.
-2. More background options:
-   - More presets + custom color picker.
-   - Image background (cover art and/or artist photos when available).
-   - Overlay controls: darken/gradient + blur.
-3. Layout options:
-   - If not using image bg: keep cover art + title/artist bottom-left.
-   - Cover art shape options: rounded, sharp, heart, triangle, diamond, oval, star, cloud, circle.
-
-*(Note: Phase 3 already enabled “make card without favoriting” by introducing `picked` lines; Phase 6 expands visual customization and line-break fidelity.)*
-
----
-
-## PHASE 7 — Voice Controls Overhaul (Status: DECIDED / NOT STARTED)
-Decision (user)
-- **Offline / rule-based approach confirmed** (private, offline; no API key).
-
-Requested capabilities
-- Smart voice commands:
-  - play / pause
-  - play `<song>` [by `<artist>`] (with disambiguation UI if needed)
-  - play `<artist>` (shuffle all tracks by/with artist)
-  - open `<page>` (natural phrasing like “go to the studio”, “change settings”)
-  - close `<module>`
-- Bring back Voice settings tab with:
-  - Guide/help + examples
-  - Custom phrases → actions (automation)
-
-Planned approach
-- Implement deterministic intent parser + fuzzy matcher (reuse Search normalization/scoring).
-- Add disambiguation modal when multiple candidates match.
-- Re-add Voice settings tab containing:
-  - Toggle + permission status
-  - Command guide
-  - Custom phrase manager (phrase → action mapping)
-
----
-
-## PHASE 8 — Custom Audio Uploads + Instrum Imports (Status: NOT STARTED)
-- Upload own audio with metadata + lyrics (stored locally).
-- Import Instrum projects into library with metadata/custom lyrics.
-
----
-
-## PHASE 9 — LyricFlow Integration (Status: NOT STARTED)
-**Blocked until higher-priority UX issues are addressed.**
-- Add top-level nav section.
-- Port `/app/lyricflow_reference.txt` into `index.html` (Vanilla JS + Tailwind).
-- Persist under `treesh_lyricflow_*` keys (localStorage preferred; IndexedDB only if required and consistent with constraints).
-
----
-
-## Testing
-- Screenshot tool for visual validation (desktop 1440×900 + mobile 390×844 + small 320×568 + landscape 812×375).
-- testing_agent for complex interaction flows after each phase:
-  - Search interactions (completed), lyric save-refresh, scrubber A↔B loop, minibar scrubbing, karaoke fullscreen exit, studio fullscreen/minimize.
-- No build tools; rely on browser console logs + cautious sequential edits.
-
-## Notes / Decisions (from user)
-- Storage UI must include: **visual gauge + breakdown + delete + clear buttons** (done).
-- Test PIN: `0000`.
-- Keep current player look as the default; customization options should be opt-in.
-- Voice approach: **offline/rule-based** confirmed; conversational LLM mode not in scope.
-- Delivery cadence: **review after each major phase**.
+## 4. Success Criteria
+- Accessibility toggles apply instantly, persist across reload, and don’t break existing styles.
+- Nav labels hide/show correctly on desktop + mobile, with tooltips/aria-labels intact.
+- Floating accessibility button appears only when enabled; popover is usable and non-blocking.
+- Lyric card options no longer jump to top; font size control affects preview/export and persists.
+- No regressions in Now Playing / lyric line interactions; shimmer remains smooth (already fixed).
