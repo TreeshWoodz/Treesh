@@ -12,6 +12,35 @@
 
 ---
 
+## ACTIVE WORKSTREAM — Batch 2 (Lyrics/Performer/Card/Settings + Creator features)
+User-confirmed scope (English-only UI). Sequential edits only on index.html.
+
+### PHASE 4 — Now Playing lyric interaction (IN PROGRESS)
+- 4.1 Replace 2 inline per-line buttons with ONE "⋯" kebab (+ long-press on line) → popover: Favorite, Add note, Make card, Select lines. Frees space → tighter line spacing. Liked lines show a persistent purple heart badge.
+- 4.2 Multi-select mode: "Select" toggle in lyrics toolbar; tap lines to check; bottom action bar → Make card / Add grouped note / Cancel.
+- 4.3 Grouped note applied to all selected lines; Make card from selection uses ORIGINAL text.
+
+### PHASE 5 — Verse Performer (global) + parser fix
+- 5.1 parseSection: treat parentheses/brackets as SEPARATE artists — `[Verse 2: GHumble (London Llaflare)]` → GHumble + London Llaflare (2 artists), not one.
+- 5.2 Global for any song with [Verse x]/[Chorus] markers: no-feature sections show a subtle tappable role label (opens song-facts); pills only when features exist. Tapping pill → artist profile (existing).
+
+### PHASE 6 — Lyric Card maker
+- 6.1 Cards ALWAYS use the artist's ORIGINAL line (fallback current text if never edited); show a small "edited → shown as original" note. Never export user-edited words.
+- 6.2 Optional cover-art thumbnail at bottom-left inline with title/artist; shape (Circle/Rounded/Full) applies ONLY to this thumbnail. Remove shape selector from full-bleed background cover mode.
+- 6.3 Overlay/scrim color customizable (default black + swatches + custom color).
+
+### PHASE 7 — Settings revamp (intelligent reorg + progressive disclosure, keep theme)
+
+### PHASE 8 — Creator features (NEW, big)
+- 8.1 Add lyrics to songs that have none (reuse NP "Edit" → "Add lyrics"), with optional per-line timestamping. Shared engine to be reused by LyricFlow.
+- 8.2 If a song later gains official lyrics, prompt user: switch to original OR keep their custom lyrics.
+- 8.3 Upload own music (device-only): title, artist, metadata, cover art, lyrics (with/without timestamps). Heavy blobs (audio + cover) stored in IndexedDB (localStorage 5MB cap can't hold audio); metadata index in localStorage/IndexedDB.
+
+### PHASE 9 — Remaining backlog
+- Karaoke choppy fix + exit-fullscreen button; Instrum Studio overhaul; offline rule-based Voice Controls; Music Library filters; LyricFlow integration.
+
+---
+
 ## PHASE 1 — Bug Fixes & UI Polish (Status: PARTIALLY COMPLETE)
 ### Completed in this workstream
 1. Light-mode Profile modal theming (`#profile-panel` stays dark in light mode) — fixed via theme-light overrides. ✅
