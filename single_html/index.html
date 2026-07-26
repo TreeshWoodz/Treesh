@@ -335,10 +335,9 @@
   html.has-mini #a11y-quick{ bottom:calc(env(safe-area-inset-bottom) + var(--nav-h,68px) + 100px); }
   @media (min-width:1024px){ #a11y-quick{ bottom:22px; } html.has-mini #a11y-quick{ bottom:106px; } }
   #a11y-quick .a11y-fab{ box-shadow:0 10px 30px rgba(0,0,0,0.45); }
-  /* sticky settings tabs */
-  .settings-tabs-bar{ position:sticky; top:68px; z-index:20; border-radius:16px; background:rgba(10,10,11,0.74); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
-  html.theme-light .settings-tabs-bar{ background:rgba(250,250,252,0.85); }
-  @media (min-width:1024px){ .settings-tabs-bar{ top:74px; } }
+  /* sticky settings tabs (transparent bar; pills blur content behind them) */
+  .settings-tabs-bar{ position:sticky; top:88px; z-index:20; }
+  @media (min-width:1024px){ .settings-tabs-bar{ top:94px; } }
 
   /* animated gaussian background (game screens only) */
   @keyframes trGauss{ 0%{transform:translate3d(-6%,-4%,0) scale(1)} 50%{transform:translate3d(6%,4%,0) scale(1.08)} 100%{transform:translate3d(-6%,-4%,0) scale(1)} }
@@ -728,7 +727,7 @@ function bumpBdayEdits(){ state.bdayEdits=bdayEditCount()+1; LS.set("treesh_bday
    HTML, normalized, and cached to localStorage. This keeps the app
    in sync with the live Treesh catalog with zero backend.
    ============================================================ */
-let SONGS = [], ARTISTS = [], GENRES = [], SONG_BY_ID = {}, ARTIST_BY_ID = {}, ARTIST_SONG_IDS = {};
+let SONGS = [], ARTISTS = [], GENRES = [], SONG_BY_ID = {}, ARTIST_BY_ID = {}, ARTIST_SONG_IDS = {}, USER_SONGS = [];
 
 const CONTENT_SOURCES = {
   songs:  ["content/songs",  "/content/songs",  "https://treesh.app/content/songs"],
@@ -862,6 +861,65 @@ function buildArtistSongIndex(){
   });
 }
 function applyLyricEdits(){ try{ const ed=(state&&state.lyricEdits)||{}; for(const id in ed){ if(SONG_BY_ID[id] && Array.isArray(ed[id])) SONG_BY_ID[id].lyrics=ed[id]; } }catch(e){} }
+
+/* ================= Custom Music (IndexedDB) =================
+   User-uploaded tracks are stored as Blobs in IndexedDB (bypasses the
+   localStorage quota). They live in USER_SONGS (separate from the parsed
+   catalog) and are merged into SONGS after every catalog (re)load so the
+   60s catalog refresh never wipes them, and they never leak into the
+   localStorage catalog cache. Object URLs are (re)generated on each load. */
+const IDB_NAME="treesh_media", IDB_VER=1, IDB_STORE="tracks";
+const USER_MAX_BYTES=30*1024*1024; // ~30 MB per track
+let _idbPromise=null;
+function idbOpen(){
+  if(_idbPromise) return _idbPromise;
+  _idbPromise=new Promise((res,rej)=>{
+    let rq; try{ rq=indexedDB.open(IDB_NAME, IDB_VER); }catch(e){ return rej(e); }
+    rq.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE,{keyPath:"id"}); };
+    rq.onsuccess=e=>res(e.target.result);
+    rq.onerror=e=>rej(e.target.error||new Error("IndexedDB open failed"));
+  });
+  return _idbPromise;
+}
+function idbTx(mode){ return idbOpen().then(db=>db.transaction(IDB_STORE, mode).objectStore(IDB_STORE)); }
+function idbPut(rec){ return idbTx("readwrite").then(store=>new Promise((res,rej)=>{ const r=store.put(rec); r.onsuccess=()=>res(true); r.onerror=()=>rej(r.error); })); }
+function idbGetAll(){ return idbTx("readonly").then(store=>new Promise((res,rej)=>{ const r=store.getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); })); }
+function idbDelete(id){ return idbTx("readwrite").then(store=>new Promise((res,rej)=>{ const r=store.delete(id); r.onsuccess=()=>res(true); r.onerror=()=>rej(r.error); })); }
+
+function userRecToSong(rec){
+  const m=rec.meta||{};
+  let audioUrl="", coverArt=FALLBACK;
+  try{ if(rec.audioBlob) audioUrl=URL.createObjectURL(rec.audioBlob); }catch(e){}
+  try{ if(rec.coverBlob) coverArt=URL.createObjectURL(rec.coverBlob); }catch(e){}
+  return {
+    id:rec.id, _user:true, source:"user",
+    title:m.title||"Untitled", artist:m.artist||"You", artistIds:[],
+    genre:m.genre||"My Music", mood:m.mood||"", creationDate:m.creationDate||"",
+    writtenBy:m.writtenBy||"", producer:m.producer||"", mixer:m.mixer||"",
+    videographer:m.videographer||"", featuring:m.featuring||"",
+    album:m.album||"", label:m.label||"", coverArt, audioUrl, videoId:"",
+    bio:"", desc:m.desc||"", explicit:!!m.explicit,
+    treeshChoice:false, exclusive:false, lyrics:[], duration:rec.duration||0,
+    _urls:[audioUrl, coverArt!==FALLBACK?coverArt:null].filter(Boolean)
+  };
+}
+/* Rebuild SONGS as (catalog + user tracks) and re-index everything. */
+function mergeUserSongs(){
+  SONGS = SONGS.filter(s=>!s._user).concat(USER_SONGS);
+  indexCatalog();
+}
+async function loadUserSongs(){
+  try{
+    const recs=await idbGetAll();
+    recs.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0));
+    // revoke any previously-created object URLs before regenerating
+    USER_SONGS.forEach(s=>(s._urls||[]).forEach(u=>{ try{ URL.revokeObjectURL(u); }catch(e){} }));
+    USER_SONGS=recs.map(userRecToSong);
+    mergeUserSongs();
+    if(typeof softRefresh==="function") softRefresh();
+  }catch(e){ console.warn("Custom music load failed:", e); }
+}
+
 let _catalogSig = "";
 function catalogSig(songs, artists){
   const str = songs.map(x=>x.id).join(",") + "~" + artists.map(x=>x.id).join(",");
@@ -882,7 +940,8 @@ async function loadCatalog(){
   const changed = sig !== _catalogSig;
   SONGS = songs; ARTISTS = artists; indexCatalog(); _catalogSig = sig;
   if(changed){ state._wnBuilt=null; state._picks=null; }
-  try{ localStorage.setItem(CATALOG_KEY, JSON.stringify({ songs: SONGS, artists: ARTISTS, ts: Date.now() })); }catch(e){}
+  try{ localStorage.setItem(CATALOG_KEY, JSON.stringify({ songs: songs, artists: artists, ts: Date.now() })); }catch(e){}
+  mergeUserSongs();
   return { changed };
 }
 function loadCatalogCache(){
@@ -1201,6 +1260,17 @@ function _a11yQuickOutside(e){ const pop=document.getElementById("a11y-quick-pop
 function _a11yQuickKey(e){ if(e.key==="Escape") closeA11yQuick(); }
 function closeA11yQuick(){ const p=document.getElementById("a11y-quick-pop"); if(p) p.remove(); document.removeEventListener("click", _a11yQuickOutside, true); document.removeEventListener("keydown", _a11yQuickKey, true); }
 function refreshA11yQuick(){ if(document.getElementById("a11y-quick-pop")) openA11yQuick(); }
+/* Scroll so the sticky tab bar pins just under the fixed top bar (shows the
+   active tab's content from its top). Uses offsetTop (natural layout position),
+   which — unlike getBoundingClientRect — is not affected by sticky pinning. */
+function scrollToStickyTabs(){
+  const bar=document.querySelector('.settings-tabs-bar'); const rm=state.a11y&&state.a11y.reduceMotion;
+  if(!bar){ try{ window.scrollTo({top:0, behavior: rm?'auto':'smooth'}); }catch(_){ window.scrollTo(0,0); } return; }
+  const stickyTop=window.innerWidth>=1024?94:88;
+  let y=0, el=bar; while(el){ y+=el.offsetTop||0; el=el.offsetParent; }
+  const target=Math.max(0, Math.round(y - stickyTop));
+  try{ window.scrollTo({top:target, behavior: rm?'auto':'smooth'}); }catch(_){ window.scrollTo(0,target); }
+}
 
 /* ---------- SLEEP TIMER (ambient now-playing clock after inactivity) ---------- */
 let _sleepTO=null,_sleepClk=null,_sleepSig="",_lastMove=0;
@@ -1619,20 +1689,27 @@ function wireWN(){
 function viewLibrary(){
   let list=vis(SONGS.slice());
   if(state.query){ const q=state.query.toLowerCase(); list=list.filter(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q)||(s.writtenBy||"").toLowerCase().includes(q)); }
+  else if(state.genre==="__mine"){ list=list.filter(s=>s._user); }
   else if(state.genre!=="all"){ list=list.filter(s=>s.genre===state.genre); }
   state.contextList=list;
   const browse=!state.query;
-  const chips=["all",...GENRES].map(g=>`<button data-act="genre" data-genre="${g}" class="shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition ${state.genre===g?'border-white/25 bg-white/10 text-white glow-purple':'border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]'}">${g}</button>`).join("");
+  const mineOn=state.genre==="__mine";
+  const mineChip=`<button data-act="genre" data-genre="__mine" data-testid="genre-my-music" class="shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${mineOn?'border-white/25 bg-white/10 text-white glow-purple':'border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]'}"><i data-lucide="music" style="width:13px;height:13px"></i>My Music</button>`;
+  const chips=mineChip+["all",...GENRES].map(g=>`<button data-act="genre" data-genre="${g}" class="shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition ${state.genre===g?'border-white/25 bg-white/10 text-white glow-purple':'border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]'}">${g}</button>`).join("");
   let html=`<div class="space-y-7">`;
-  if(browse){ html+=`<section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div><div class="relative"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh 3.0</p><h1 class="mt-2 max-w-lg text-3xl font-bold leading-tight sm:text-4xl">Music to <span class="shimmer">Live For</span></h1><p class="mt-2 max-w-md text-sm text-white/60">Stream the underground. ${vis(SONGS).length} tracks from the Icons, ready to play.</p><button data-act="shuffle-all" class="mt-4 inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle all</button></div></section>`;
+  if(browse){ html+=`<section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div><div class="relative"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh 3.0</p><h1 class="mt-2 max-w-lg text-3xl font-bold leading-tight sm:text-4xl">Music to <span class="shimmer">Live For</span></h1><p class="mt-2 max-w-md text-sm text-white/60">Stream the underground. ${vis(SONGS).length} tracks from the Icons, ready to play.</p><button data-act="shuffle-all" class="mt-4 inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle all</button><button data-act="add-music-open" data-testid="add-music-button" class="mt-4 ml-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="upload" style="width:16px;height:16px"></i> Add your music</button></div></section>`;
     if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); }
     html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; }
   if(state.query){ html+=`<div class="flex items-center gap-2 text-sm text-white/60"><i data-lucide="search" style="width:16px;height:16px"></i> Results for <span class="font-semibold text-white">\u201C${esc(state.query)}\u201D</span></div>`; }
-  if(!list.length){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><i data-lucide="search" class="text-white/30" style="width:40px;height:40px"></i><p class="text-lg font-semibold">No matches found</p><p class="text-sm text-white/50">Try a different search or genre.</p></div>`; }
+  if(!list.length){
+    if(mineOn){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-16 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="upload" style="width:26px;height:26px"></i></span><p class="text-lg font-semibold">Add your own music</p><p class="max-w-sm text-sm text-white/50">Upload audio with cover art and full details. Tracks are saved on this device and play right inside Treesh.</p><button data-act="add-music-open" data-testid="add-music-empty-btn" class="mt-1 inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i> Add your music</button></div>`; }
+    else{ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><i data-lucide="search" class="text-white/30" style="width:40px;height:40px"></i><p class="text-lg font-semibold">No matches found</p><p class="text-sm text-white/50">Try a different search or genre.</p></div>`; }
+  }
   else{
     const listHtml = state.libGrid ? grid(list) : songList(list,false);
-    const heading = state.query ? "" : (state.genre!=="all" ? state.genre : "All Music");
-    html+=`<section><div class="mb-3 flex items-center justify-between gap-3">${heading?`<h2 class="text-lg font-bold capitalize">${esc(heading)}</h2>`:`<span></span>`}${viewToggle("lib-view",state.libGrid)}</div>${listHtml}</section>`;
+    const heading = state.query ? "" : (mineOn ? "My Music" : (state.genre!=="all" ? state.genre : "All Music"));
+    const actions = mineOn ? `<button data-act="add-music-open" data-testid="add-music-inline" class="press inline-flex h-9 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 text-xs font-semibold hover:bg-white/10"><i data-lucide="plus" style="width:14px;height:14px"></i>Add</button><button data-act="manage-uploads" data-testid="manage-uploads-btn" class="press inline-flex h-9 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 text-xs font-semibold hover:bg-white/10"><i data-lucide="settings-2" style="width:14px;height:14px"></i>Manage</button>` : '';
+    html+=`<section><div class="mb-3 flex items-center justify-between gap-3">${heading?`<h2 class="text-lg font-bold capitalize">${esc(heading)}</h2>`:`<span></span>`}<div class="flex items-center gap-2">${actions}${viewToggle("lib-view",state.libGrid)}</div></div>${listHtml}</section>`;
   }
   html+=`</div>`;
   return html;
@@ -1898,9 +1975,9 @@ function viewSettings(){
        </div>
      </div>
    </div>`;
-  const tabBar=`<div class="settings-tabs-bar -mx-1 mt-6" data-testid="settings-tabs"><div class="no-scrollbar flex gap-2 overflow-x-auto px-2 py-2">${TABS.map(([id,label,ic])=>{const on=tab===id;return `<button data-act="set-settings-tab" data-val="${id}" data-testid="settings-tab-${id}" aria-pressed="${on}" class="press inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${on?'border-transparent bg-[color:var(--treesh-purple)] text-white glow-purple':'border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;}).join("")}</div></div>`;
+  const tabBar=`<div class="settings-tabs-bar -mx-1 mt-6" data-testid="settings-tabs"><div class="no-scrollbar flex gap-2 overflow-x-auto px-1 py-2">${TABS.map(([id,label,ic])=>{const on=tab===id;return `<button data-act="set-settings-tab" data-val="${id}" data-testid="settings-tab-${id}" aria-pressed="${on}" class="press inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${on?'border-transparent bg-[color:var(--treesh-purple)] text-white glow-purple backdrop-blur-lg':'border-white/15 bg-white/10 text-white/70 shadow-[0_4px_18px_rgba(0,0,0,0.28)] backdrop-blur-lg hover:bg-white/20 hover:text-white'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;}).join("")}</div></div>`;
   return `<div class="mx-auto max-w-4xl pb-6">${hero}${tabBar}
-   <div class="mt-5 space-y-6 tr-fade-in" data-testid="settings-panel-${tab}">
+   <div class="mt-5 min-h-[85vh] space-y-6 tr-fade-in" data-testid="settings-panel-${tab}">
    <section data-testid="settings-profile" class="${tab==='account'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
      <div class="mb-5 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="user" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Profile</h2></div>
      <div class="flex flex-col gap-6 sm:flex-row">
@@ -2693,7 +2770,7 @@ function gameVoiceInput(){
     gameRecog.start(); const mb=$("#game-mic"); if(mb) mb.classList.add("voice-pulse","border-[color:var(--treesh-purple)]","text-white");
   }catch(e){}
 }
-function gameTabBar(){ const tab=state.gameTab||"home"; const tabs=[["home","Home","layout-grid"],["lyrics","What\u2019s Next?","gamepad-2"],["tot","This or That","swords"]]; return `<div class="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" data-testid="game-tabs">${tabs.map(([id,label,ic])=>{const on=tab===id;return `<button data-act="game-tab" data-val="${id}" data-testid="game-tab-${id}" aria-pressed="${on}" class="press inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${on?'border-transparent bg-[color:var(--treesh-purple)] text-white glow-purple':'border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;}).join("")}</div>`; }
+function gameTabBar(){ const tab=state.gameTab||"home"; const tabs=[["home","Home","layout-grid"],["lyrics","What\u2019s Next?","gamepad-2"],["tot","This or That","swords"]]; return `<div class="settings-tabs-bar -mx-1" data-testid="game-tabs"><div class="no-scrollbar flex gap-2 overflow-x-auto px-1 py-2">${tabs.map(([id,label,ic])=>{const on=tab===id;return `<button data-act="game-tab" data-val="${id}" data-testid="game-tab-${id}" aria-pressed="${on}" class="press inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${on?'border-transparent bg-[color:var(--treesh-purple)] text-white glow-purple backdrop-blur-lg':'border-white/15 bg-white/10 text-white/70 shadow-[0_4px_18px_rgba(0,0,0,0.28)] backdrop-blur-lg hover:bg-white/20 hover:text-white'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;}).join("")}</div></div>`; }
 function gameHomeHtml(){ const st=state.gameStats||{}; const tw=state.totWins||{wins:{}};
   return `<div class="space-y-5">
     <button data-act="game-tab" data-val="lyrics" data-testid="game-hero-lyrics" class="dark-surface press card-lift relative block w-full overflow-hidden rounded-3xl border border-white/10 p-6 text-left sm:p-8" style="background:linear-gradient(135deg,var(--treesh-purple),rgba(12,12,14,0.42))">
@@ -2730,7 +2807,7 @@ function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.
     ${board.length?`<section data-testid="tot-leaderboard"><h2 class="mb-2 flex items-center gap-2 text-lg font-bold"><i data-lucide="trophy" style="width:18px;height:18px" class="text-[color:var(--treesh-gold)]"></i>Most loved</h2><div class="space-y-1.5">${board.map((x,i)=>`<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2"><span class="w-5 text-center font-doto text-sm font-bold ${i===0?'text-[color:var(--treesh-gold)]':'text-white/45'}">${i+1}</span><div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg">${img(x.s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(x.s.title)}</p><p class="clamp-1 text-xs text-white/50">${esc(x.s.artist)}</p></div><span class="shrink-0 rounded-full bg-[color:var(--treesh-purple)]/20 px-2.5 py-1 text-xs font-bold text-[color:var(--treesh-purple)]">${x.w} win${x.w!==1?'s':''}</span></div>`).join("")}</div></section>`:`<div class="rounded-2xl border border-dashed border-white/12 bg-white/[0.03] p-6 text-center text-sm text-white/45">No battles yet \u2014 start a round to build your leaderboard.</div>`}
   </div>`;
 }
-function viewGame(){ const tab=state.gameTab||"home"; return `<div class="space-y-6"><div><p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh Games</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">Games</h1></div>${gameTabBar()}<div class="tr-fade-in" data-testid="game-panel-${tab}">${tab==='lyrics'?gameLyricsHtml():tab==='tot'?gameTotHtml():gameHomeHtml()}</div></div>`; }
+function viewGame(){ const tab=state.gameTab||"home"; return `<div class="space-y-6"><div><p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh Games</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">Games</h1></div>${gameTabBar()}<div class="min-h-[85vh] tr-fade-in" data-testid="game-panel-${tab}">${tab==='lyrics'?gameLyricsHtml():tab==='tot'?gameTotHtml():gameHomeHtml()}</div></div>`; }
 function gameLyricsHtml(){
   const st=state.gameStats; const songs=gameEligibleSongs();
   const acc = st.rounds? Math.round(st.correct/st.rounds*100):0;
@@ -3399,6 +3476,7 @@ function closeQueue(){
    ============================================================ */
 function closeModal(){
   if(state.tot){ try{ totStopPreview(); }catch(e){} state.tot=null; }
+  if(typeof _amCoverURL!=="undefined" && _amCoverURL){ try{ URL.revokeObjectURL(_amCoverURL); }catch(e){} _amCoverURL=null; }
   const wrap = $("#modal > [data-act='modal-backdrop']");
   if(!wrap){ $("#modal").innerHTML=""; syncScrollLock(); return; }
   const panel = wrap.querySelector("[data-act='modal-stop']");
@@ -3407,6 +3485,121 @@ function closeModal(){
   setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); syncScrollLock(); }, 210);
 }
 function modalWrap(inner, testid, size){ const mw=size==="lg"?"max-w-lg":size==="xl"?"max-w-xl":"max-w-md"; return `<div data-act="modal-backdrop" class="fixed inset-0 z-[210] grid place-items-center bg-black/60 p-4 backdrop-blur-sm backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="glass-strong panel-in relative w-full ${mw} rounded-2xl border-white/15 p-5 text-white">${inner}</div></div>`; }
+
+/* ================= Custom Studio (custom music uploader) ================= */
+var _amCoverURL=null;
+function _amVal(id){ const el=document.getElementById(id); return el?(el.value||'').trim():''; }
+function amField(id,label,ph,val,opts){ opts=opts||{}; return `<label class="block"><span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">${label}${opts.req?' <span class="text-[color:var(--treesh-purple)]">*</span>':''}</span><input id="${id}" type="${opts.type||'text'}" ${opts.attrs||''} placeholder="${ph||''}" value="${val?esc(val):''}" class="w-full rounded-xl border border-white/12 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]"></label>`; }
+function manageUploadsHtml(){
+  if(!USER_SONGS.length) return `<div class="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-12 text-center text-sm text-white/50"><i data-lucide="disc-3" class="mx-auto mb-2 text-white/25" style="width:30px;height:30px"></i>No uploads yet. Add your first track.</div>`;
+  return `<div class="space-y-2">${USER_SONGS.slice().reverse().map(s=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5" data-testid="upload-row-${s.id}"><span class="grid h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/45">${esc(s.artist)}${s.album?' \u00B7 '+esc(s.album):''}${s.genre?' \u00B7 '+esc(s.genre):''}</p></div><button data-act="upload-play" data-id="${s.id}" aria-label="Play" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="play" style="width:15px;height:15px"></i></button><button data-act="delete-upload" data-id="${s.id}" data-testid="delete-upload-${s.id}" aria-label="Delete" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`;
+}
+function openAddMusic(tab){
+  tab=tab||'add';
+  const GEN=["Rap","Hip-Hop","R&B","Pop","Afrobeats","Drill","Trap","Rock","Electronic","Reggae","Country","Jazz","Gospel","Other"];
+  const genOpts=GEN.map(g=>`<option value="${g}">${g}</option>`).join("");
+  const inner=`<div data-testid="custom-studio-dialog" class="w-full">
+    <div class="mb-4 flex items-center gap-3">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:20px;height:20px"></i></span>
+      <div class="min-w-0"><h2 class="text-lg font-bold leading-tight">Custom Studio</h2><p class="text-xs text-white/45">Upload your own tracks \u2014 saved on this device</p></div>
+      <button data-act="modal-close" aria-label="Close" data-testid="custom-studio-close" class="press ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10"><i data-lucide="x" style="width:17px;height:17px"></i></button>
+    </div>
+    <div class="mb-4 flex gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
+      <button data-act="am-tab" data-val="add" data-testid="am-tab-add" class="am-tab flex-1 rounded-full px-3 py-2 text-sm font-semibold ${tab==='add'?'bg-[color:var(--treesh-purple)] text-white glow-purple':'text-white/60 hover:text-white'}">Add track</button>
+      <button data-act="am-tab" data-val="manage" data-testid="am-tab-manage" class="am-tab flex-1 rounded-full px-3 py-2 text-sm font-semibold ${tab==='manage'?'bg-[color:var(--treesh-purple)] text-white glow-purple':'text-white/60 hover:text-white'}">Manage <span class="opacity-60">(${USER_SONGS.length})</span></button>
+    </div>
+    <div id="am-panel-add" class="${tab==='add'?'':'hidden'} max-h-[64vh] space-y-4 overflow-y-auto overflow-x-hidden no-scrollbar pr-0.5">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-[132px_minmax(0,1fr)]">
+        <div>
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">Cover art</span>
+          <label for="am-cover" class="relative grid aspect-square w-full cursor-pointer place-items-center overflow-hidden rounded-2xl border border-dashed border-white/20 bg-white/[0.03] hover:border-[color:var(--treesh-purple)]"><img id="am-cover-preview" alt="" class="absolute inset-0 h-full w-full object-cover" style="display:none"><div id="am-cover-ph" class="flex flex-col items-center gap-1 text-white/40"><i data-lucide="image-plus" style="width:22px;height:22px"></i><span class="text-[11px]">Add cover</span></div></label>
+          <input id="am-cover" type="file" accept="image/*,.png,.jpg,.jpeg,.webp,.heic,.heif" class="sr-only">
+        </div>
+        <div class="min-w-0 space-y-3">
+          ${amField('am-title','Title','Track title','',{req:true})}
+          ${amField('am-artist','Artist','Artist name','You')}
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block"><span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">Genre</span><select id="am-genre" class="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]"><option value="">Select</option>${genOpts}</select></label>
+            ${amField('am-album','Album','Album / EP','')}
+          </div>
+        </div>
+      </div>
+      <label for="am-audio" class="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-white/20 bg-white/[0.03] p-3.5 hover:border-[color:var(--treesh-purple)]"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="file-audio-2" style="width:20px;height:20px"></i></span><span class="min-w-0 flex-1"><span id="am-audio-name" class="clamp-1 block text-sm font-semibold text-white">Choose an audio file <span class="text-[color:var(--treesh-purple)]">*</span></span><span class="block text-[11px] text-white/45">MP3, WAV, M4A, OGG \u2014 up to 30 MB</span></span><i data-lucide="upload" class="shrink-0 text-white/40" style="width:18px;height:18px"></i></label>
+      <input id="am-audio" type="file" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.oga,.flac,.opus,audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg,audio/flac" class="sr-only">
+      <details class="rounded-2xl border border-white/10 bg-white/[0.02] px-3.5 py-2">
+        <summary class="cursor-pointer list-none py-1 text-sm font-semibold text-white/70">More details (optional)</summary>
+        <div class="grid grid-cols-1 gap-3 pb-2 pt-3 sm:grid-cols-2">
+          ${amField('am-featuring','Featuring','Guest artists','')}
+          ${amField('am-writtenBy','Written by','Songwriters','')}
+          ${amField('am-producer','Producer','Producer','')}
+          ${amField('am-mixer','Mixed by','Mix engineer','')}
+          ${amField('am-label','Label','Record label','')}
+          ${amField('am-mood','Mood','e.g. Chill','')}
+          ${amField('am-videographer','Videographer','Video credit','')}
+          ${amField('am-date','Release date','','',{type:'date'})}
+        </div>
+        <label class="block pb-2"><span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">Description</span><textarea id="am-desc" rows="2" placeholder="Notes about this track" class="w-full resize-none rounded-xl border border-white/12 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]"></textarea></label>
+        <button type="button" data-act="am-explicit" id="am-explicit" data-on="0" class="press mb-1 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70"><span class="grid h-4 w-4 place-items-center rounded border border-white/30 text-transparent"><i data-lucide="check" style="width:11px;height:11px"></i></span>Explicit content</button>
+      </details>
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button data-act="modal-close" class="press rounded-full border border-white/12 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/70 hover:bg-white/10">Cancel</button>
+        <button data-act="am-save" data-testid="am-save-btn" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i> Save track</button>
+      </div>
+    </div>
+    <div id="am-panel-manage" class="${tab==='manage'?'':'hidden'} max-h-[64vh] overflow-y-auto overflow-x-hidden no-scrollbar pr-0.5" data-testid="am-panel-manage">${manageUploadsHtml()}</div>
+  </div>`;
+  $("#modal").innerHTML=modalWrap(inner,"custom-studio","lg");
+  icons(); syncScrollLock();
+  const cov=document.getElementById('am-cover');
+  if(cov) cov.addEventListener('change', e=>{ const f=e.target.files&&e.target.files[0]; const pv=document.getElementById('am-cover-preview'), ph=document.getElementById('am-cover-ph'); if(f){ if(_amCoverURL){ try{ URL.revokeObjectURL(_amCoverURL); }catch(_){} } _amCoverURL=URL.createObjectURL(f); if(pv){ pv.src=_amCoverURL; pv.style.display='block'; } if(ph) ph.style.display='none'; } });
+  const aud=document.getElementById('am-audio');
+  if(aud) aud.addEventListener('change', e=>{ const f=e.target.files&&e.target.files[0]; const nm=document.getElementById('am-audio-name'); if(f && nm) nm.textContent=f.name; });
+}
+function amSwitchTab(v){
+  document.querySelectorAll('.am-tab').forEach(b=>{ const on=b.dataset.val===v; b.classList.toggle('bg-[color:var(--treesh-purple)]',on); b.classList.toggle('text-white',on); b.classList.toggle('glow-purple',on); b.classList.toggle('text-white/60',!on); });
+  const pa=document.getElementById('am-panel-add'), pm=document.getElementById('am-panel-manage');
+  if(pa) pa.classList.toggle('hidden', v!=='add');
+  if(pm){ pm.classList.toggle('hidden', v!=='manage'); if(v==='manage'){ pm.innerHTML=manageUploadsHtml(); icons(); } }
+}
+function amToggleExplicit(btn){ const on=btn.dataset.on!=='1'; btn.dataset.on=on?'1':'0'; const box=btn.querySelector('span'); if(box){ box.classList.toggle('bg-[color:var(--treesh-purple)]',on); box.classList.toggle('border-[color:var(--treesh-purple)]',on); box.classList.toggle('text-white',on); box.classList.toggle('text-transparent',!on); } }
+function probeAudioDuration(file){ return new Promise(res=>{ try{ const a=document.createElement('audio'); a.preload='metadata'; const u=URL.createObjectURL(file); const done=v=>{ try{ URL.revokeObjectURL(u); }catch(_){} res(v); }; a.onloadedmetadata=()=>{ const d=a.duration||0; done(isFinite(d)?d:0); }; a.onerror=()=>done(0); a.src=u; setTimeout(()=>done(0),8000); }catch(e){ res(0); } }); }
+async function saveCustomTrack(){
+  const title=_amVal('am-title');
+  const audioEl=document.getElementById('am-audio'); const coverEl=document.getElementById('am-cover');
+  const audioFile=audioEl&&audioEl.files&&audioEl.files[0];
+  if(!title){ toast("Add a title"); const t=document.getElementById('am-title'); if(t) t.focus(); return; }
+  if(!audioFile){ toast("Choose an audio file"); return; }
+  if(!/^audio\//.test(audioFile.type||'') && !/\.(mp3|wav|m4a|aac|ogg|flac|opus|webm)$/i.test(audioFile.name||'')){ toast("That doesn\u2019t look like an audio file"); return; }
+  if(audioFile.size>USER_MAX_BYTES){ toast("File too large","Max 30 MB per track"); return; }
+  const coverFile=coverEl&&coverEl.files&&coverEl.files[0];
+  if(coverFile && coverFile.size>10*1024*1024){ toast("Cover too large","Max 10 MB"); return; }
+  const explicitBtn=document.getElementById('am-explicit');
+  const meta={ title, artist:_amVal('am-artist')||'You', album:_amVal('am-album'), genre:_amVal('am-genre'), featuring:_amVal('am-featuring'), writtenBy:_amVal('am-writtenBy'), producer:_amVal('am-producer'), mixer:_amVal('am-mixer'), label:_amVal('am-label'), mood:_amVal('am-mood'), videographer:_amVal('am-videographer'), creationDate:_amVal('am-date'), desc:_amVal('am-desc'), explicit:!!(explicitBtn&&explicitBtn.dataset.on==='1') };
+  const btn=document.querySelector('[data-act="am-save"]'); if(btn){ btn.disabled=true; btn.classList.add('opacity-60'); btn.innerHTML='<i data-lucide="loader" style="width:16px;height:16px"></i> Saving\u2026'; icons(); }
+  let duration=0; try{ duration=await probeAudioDuration(audioFile); }catch(e){}
+  const id='u-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+  const rec={ id, meta, audioBlob:audioFile, audioType:audioFile.type||'', coverBlob:coverFile||null, coverType:coverFile?coverFile.type:'', duration, addedAt:Date.now() };
+  try{
+    await idbPut(rec);
+    await loadUserSongs();
+    toast("Track added", title);
+    closeModal();
+    state.genre="__mine"; state.query="";
+    navigate('library');
+  }catch(e){ console.error("save track failed",e); toast("Couldn\u2019t save","Storage error"); if(btn){ btn.disabled=false; btn.classList.remove('opacity-60'); btn.innerHTML='<i data-lucide="check" style="width:16px;height:16px"></i> Save track'; icons(); } }
+}
+async function deleteUpload(id){
+  const s=USER_SONGS.find(x=>x.id===id); const nm=s?s.title:'';
+  try{
+    const cur=curSong(); if(cur && cur.id===id){ try{ audio.pause(); }catch(e){} }
+    if(state.favorites&&state.favorites.has&&state.favorites.has(id)){ state.favorites.delete(id); saveFav(); }
+    await idbDelete(id);
+    await loadUserSongs();
+    const pm=document.getElementById('am-panel-manage'); if(pm && !pm.classList.contains('hidden')){ pm.innerHTML=manageUploadsHtml(); icons(); }
+    const cnt=document.querySelector('[data-testid="am-tab-manage"] span'); if(cnt) cnt.textContent='('+USER_SONGS.length+')';
+    toast("Removed", nm);
+  }catch(e){ console.error("delete upload failed",e); toast("Couldn\u2019t remove"); }
+}
 
 let onboard={step:0,nick:"",bday:"",avatar:""};
 function obZodiacHtml(z){ return z?`<div class="ob-anim flex items-center gap-3 rounded-2xl border border-[color:var(--treesh-gold)]/30 bg-[color:var(--treesh-gold)]/[0.08] p-4"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:22px;height:22px"></i></div><div><p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--treesh-gold)]">Your sign</p><p class="text-lg font-bold">${z}</p></div></div>`:`<p class="pl-1 text-xs text-white/40">We\u2019ll reveal your zodiac \u2014 and keep explicit tracks age-appropriate.</p>`; }
@@ -3453,7 +3646,7 @@ function renderOnboarding(){
 
 function openSongMenu(id){ const s=SONG_BY_ID[id]; if(!s) return; const opt=(act,ic,label,extra="")=>`<button data-act="${act}" data-id="${id}" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-white/10">${extra}<i data-lucide="${ic}" style="width:16px;height:16px"></i> ${label}</button>`;
   const inner=`<div class="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2"><div class="h-11 w-11 overflow-hidden rounded-md">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></div>
-  <div class="space-y-0.5">${opt('m-play-next','list-end','Play next')}${opt('m-add-queue','list-plus','Add to queue')}<div class="my-1 h-px bg-white/10"></div>${opt('m-add-pl','list-music','Add to playlist')}${opt('like','heart',isFav(id)?'Remove favorite':'Add to favorites')}${opt('dislike','heart-crack',isDisliked(id)?'Remove dislike':'Dislike')}<div class="my-1 h-px bg-white/10"></div>${opt('m-share','share-2','Share')}</div>`;
+  <div class="space-y-0.5">${opt('m-play-next','list-end','Play next')}${opt('m-add-queue','list-plus','Add to queue')}<div class="my-1 h-px bg-white/10"></div>${opt('m-add-pl','list-music','Add to playlist')}${opt('like','heart',isFav(id)?'Remove favorite':'Add to favorites')}${opt('dislike','heart-crack',isDisliked(id)?'Remove dislike':'Dislike')}<div class="my-1 h-px bg-white/10"></div>${opt('m-share','share-2','Share')}${s._user?('<div class="my-1 h-px bg-white/10"></div>'+opt('m-remove-upload','trash-2','Remove upload')):''}</div>`;
   $("#modal").innerHTML=modalWrap(inner); icons();
 }
 
@@ -3755,6 +3948,7 @@ document.addEventListener("click", e=>{
     case "m-add-queue": { const s=SONG_BY_ID[id]; const ok=addToQueue(s,false); toast(ok===false?"Already in queue":"Added to queue",s.title); closeModal(); break; }
     case "m-add-pl": closeModal(); openAddToPlaylist(id); break;
     case "m-share": { const s=SONG_BY_ID[id]; closeModal(); shareTrack(s); break; }
+    case "m-remove-upload": { const rid=id; closeModal(); openConfirm("Remove upload?","This permanently deletes the track from this device.",()=>{ deleteUpload(rid); }); break; }
     case "lyric-seek": { if(Date.now()-_lyricLP<700) break; seekTo(parseFloat(t.dataset.t)); break; }
     case "lyric-detail": { if(Date.now()-_lyricLP<700) break; const i=+t.dataset.i; const panel=document.querySelector('[data-detail-panel="'+i+'"]'); if(panel){ const willOpen=panel.classList.contains("hidden"); document.querySelectorAll('#np-lyrics [data-detail-panel]').forEach(p=>{ if(p!==panel) p.classList.add("hidden"); }); panel.classList.toggle("hidden",!willOpen); if(willOpen){ void panel.offsetWidth; panel.style.animation="none"; requestAnimationFrame(()=>panel.style.animation=""); } } seekTo(parseFloat(t.dataset.t)); break; }
     case "lyric-line-menu": { const s=curSong(); if(s) openLyricPop(+t.dataset.i, t); break; }
@@ -3795,7 +3989,7 @@ document.addEventListener("click", e=>{
     case "game-opt": { const k=t.dataset.opt; state.gameOpts[k]=!state.gameOpts[k]; LS.set("treesh_game_opts",state.gameOpts); renderView(); break; }
     case "start-game-current": { const s=curSong(); if(s) startGame(s.id); break; }
     case "game-random": { const songs=gameEligibleSongs(); if(songs.length) startGame(songs[Math.floor(Math.random()*songs.length)].id); break; }
-    case "game-tab": { state.gameTab=t.dataset.val||"home"; renderView(true); break; }
+    case "game-tab": { const nv=t.dataset.val||"home"; const changed=(state.gameTab||"home")!==nv; state.gameTab=nv; renderView(true); if(changed){ requestAnimationFrame(scrollToStickyTabs); } break; }
     case "tot-start": startTot(); break;
     case "tot-pick": totPick(t.dataset.side); break;
     case "tot-skip": totSkip(); break;
@@ -3855,7 +4049,7 @@ document.addEventListener("click", e=>{
     case "bg-remove-image": { const i=parseInt(t.dataset.idx,10)||0; if(state.bgImages[i]!=null){ state.bgImages.splice(i,1); if(state.bgIndex>=state.bgImages.length) state.bgIndex=Math.max(0,state.bgImages.length-1); bgSaveImages(); renderBackground(); renderView(); toast(state.bgImages.length?"Image removed":"All images removed"); } break; }
     case "remove-bg-image": { state.bgImages=[]; state.bgIndex=0; bgSaveImages(); renderBackground(); renderView(); break; }
     case "set-sleep": { state.sleepMin=parseInt(t.dataset.val,10)||0; LS.set("treesh_sleep",state.sleepMin); resetSleepTimer(); toast(state.sleepMin?("Sleep timer set to "+state.sleepMin+" min"):"Sleep timer off"); renderView(); break; }
-    case "set-settings-tab": { state.settingsTab=t.dataset.val; renderView(true); break; }
+    case "set-settings-tab": { const nv=t.dataset.val; const changed=state.settingsTab!==nv; state.settingsTab=nv; renderView(true); if(changed){ requestAnimationFrame(scrollToStickyTabs); } break; }
     case "set-font": { state.uiFont=t.dataset.val; state.customFont=null; LS.set("treesh_font",state.uiFont); LS.set("treesh_custom_font",null); applyUiFont(); renderView(); break; }
     case "clear-custom-font": { state.customFont=null; LS.set("treesh_custom_font",null); _customFontLoaded=false; applyUiFont(); renderView(); toast("Custom font removed"); break; }
     case "apply-google-font": { const inp=$("#google-font-input"); const name=inp?inp.value.trim():""; if(!name){ toast("Enter a font name"); break; } state.customFont={google:name.replace(/\s+/g,'+'), name}; state.uiFont=""; LS.set("treesh_custom_font",state.customFont); applyUiFont(); renderView(); toast("Custom font applied", name); break; }
@@ -3875,6 +4069,13 @@ document.addEventListener("click", e=>{
     case "prompt-ok": { const v=$("#prompt-input").value.trim(); if(v&&state._promptCb){ state._promptCb(v); closeModal(); } break; }
     case "confirm-ok": { const cb=state._confirmCb; state._confirmCb=null; closeModal(); if(cb) cb(); break; }
     case "modal-close": closeModal(); break;
+    case "add-music-open": openAddMusic('add'); break;
+    case "manage-uploads": openAddMusic('manage'); break;
+    case "am-tab": amSwitchTab(t.dataset.val); break;
+    case "am-explicit": amToggleExplicit(t); break;
+    case "am-save": saveCustomTrack(); break;
+    case "delete-upload": deleteUpload(t.dataset.id); break;
+    case "upload-play": { const s=SONG_BY_ID[t.dataset.id]; if(s){ playSong(s,[s]); toast("Playing",s.title); } break; }
     case "modal-stop": break;
     case "modal-backdrop": closeModal(); break;
     case "voice-toggle": toggleVoice(); break;
@@ -4304,10 +4505,11 @@ async function boot(){
   const cachedTs = loadCatalogCache();
   if(cachedTs){
     init();                                  // instant boot from cache
+    loadUserSongs();                         // load custom tracks from IndexedDB
     loadCatalog().then(res=>{ if(res.changed) softRefresh(); }).catch(()=>{}); // stale-while-revalidate
   } else {
     renderBootLoading();
-    try{ await loadCatalog(); init(); }
+    try{ await loadCatalog(); init(); loadUserSongs(); }
     catch(e){ console.error("Catalog load failed:", e); renderBootError(); }
   }
   startCatalogPolling();
