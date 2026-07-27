@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Treesh Blog — Post Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Special+Gothic+Expanded+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+    <style>
+        /* ===== Reset & Base ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --treesh-bg: #0a0a0b;
+            --treesh-card: rgba(255, 255, 255, 0.045);
+            --treesh-border: rgba(255, 255, 255, 0.08);
+            --treesh-purple: #9328ff;
+            --treesh-purple-soft: rgba(147, 40, 255, 0.2);
+            --treesh-gold: #c3ab69;
+            --treesh-text: #f0f0f5;
+            --treesh-text-dim: rgba(255, 255, 255, 0.55);
+            --treesh-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+            --font-stack: 'Manrope', system-ui, sans-serif;
+        }
+
+        body {
+            background: var(--treesh-bg);
+            color: var(--treesh-text);
+            font-family: var(--font-stack);
+            line-height: 1.6;
+            padding: 1.5rem;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .app-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ===== Form Panel ===== */
+        .form-panel {
+            background: var(--treesh-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--treesh-border);
+            border-radius: 24px;
+            padding: 1.8rem 1.8rem 2.2rem;
+            box-shadow: var(--treesh-shadow);
+            max-height: 90vh;
+            overflow-y: auto;
+            position: sticky;
+            top: 1rem;
+        }
+        .form-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        .form-panel::-webkit-scrollbar-thumb {
+            background: var(--treesh-purple-soft);
+            border-radius: 10px;
+        }
+
+        .form-panel h2 {
+            font-family: 'Special Gothic Expanded One', var(--font-stack);
+            font-size: 1.4rem;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.2rem;
+        }
+        .form-panel .sub {
+            color: var(--treesh-text-dim);
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--treesh-text-dim);
+            margin-bottom: 0.25rem;
+        }
+        .form-group .hint {
+            font-size: 0.7rem;
+            color: var(--treesh-text-dim);
+            opacity: 0.6;
+            margin-top: 0.15rem;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--treesh-border);
+            border-radius: 12px;
+            padding: 0.6rem 0.9rem;
+            color: var(--treesh-text);
+            font-family: var(--font-stack);
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--treesh-purple);
+            box-shadow: 0 0 0 3px var(--treesh-purple-soft);
+        }
+        .form-control::placeholder {
+            color: var(--treesh-text-dim);
+            opacity: 0.4;
+        }
+        textarea.form-control {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .inline-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .inline-group .form-group {
+            flex: 1;
+            min-width: 140px;
+        }
+
+        /* ===== Toolbar ===== */
+        .markdown-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-bottom: 0.4rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--treesh-border);
+        }
+        .markdown-toolbar button {
+            background: transparent;
+            border: none;
+            color: var(--treesh-text-dim);
+            font-size: 0.9rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            font-family: var(--font-stack);
+        }
+        .markdown-toolbar button:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--treesh-text);
+        }
+        .markdown-toolbar .sep {
+            width: 1px;
+            background: var(--treesh-border);
+            margin: 0 0.2rem;
+        }
+
+        /* ===== Sections List ===== */
+        .sections-list {
+            margin-top: 0.5rem;
+        }
+        .section-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--treesh-border);
+            border-radius: 14px;
+            padding: 1rem 1rem 0.8rem;
+            margin-bottom: 0.8rem;
+            transition: border-color 0.2s;
+        }
+        .section-item:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .section-item .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+        }
+        .section-item .section-header .section-title {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .section-item .section-header .section-actions {
+            display: flex;
+            gap: 0.3rem;
+        }
+        .section-item .section-header .section-actions button {
+            background: transparent;
+            border: none;
+            color: var(--treesh-text-dim);
+            cursor: pointer;
+            padding: 0.1rem 0.4rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: background 0.15s, color 0.15s;
+        }
+        .section-item .section-header .section-actions button:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--treesh-text);
+        }
+        .section-item .section-header .section-actions .del-btn:hover {
+            color: #ff6b6b;
+        }
+        .section-item .form-group {
+            margin-bottom: 0.6rem;
+        }
+        .section-item .form-group label {
+            font-size: 0.6rem;
+        }
+        .section-item .form-group .form-control {
+            font-size: 0.85rem;
+            padding: 0.4rem 0.7rem;
+        }
+        .section-item .form-group textarea.form-control {
+            min-height: 40px;
+        }
+        .section-item .badge-group {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .section-item .badge-group input {
+            flex: 1;
+            min-width: 100px;
+        }
+        .section-item .badge-group .badge-preview {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 0.15rem 0.6rem;
+            border-radius: 100px;
+            background: var(--treesh-purple-soft);
+            color: var(--treesh-purple);
+            border: 1px solid rgba(147, 40, 255, 0.25);
+            display: inline-block;
+        }
+        .section-item .badge-group .badge-preview.gold {
+            background: rgba(195, 171, 105, 0.15);
+            color: var(--treesh-gold);
+            border-color: rgba(195, 171, 105, 0.25);
+        }
+        .section-item .readmore-check {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--treesh-text-dim);
+            margin-top: 0.3rem;
+        }
+        .section-item .readmore-check input[type="checkbox"] {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--treesh-border);
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .section-item .readmore-check input[type="checkbox"]:checked {
+            background: var(--treesh-purple);
+            border-color: var(--treesh-purple);
+        }
+        .section-item .readmore-check input[type="checkbox"]:checked::after {
+            content: "✓";
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .add-section-btn {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px dashed var(--treesh-border);
+            border-radius: 14px;
+            padding: 0.8rem;
+            color: var(--treesh-text-dim);
+            font-family: var(--font-stack);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .add-section-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--treesh-purple);
+            color: var(--treesh-text);
+        }
+
+        /* ===== Form Actions ===== */
+        .form-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--treesh-border);
+        }
+        .btn-primary {
+            background: var(--treesh-purple);
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.8rem;
+            border-radius: 100px;
+            font-weight: 700;
+            font-family: var(--font-stack);
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: var(--treesh-glow);
+            transition: transform 0.15s, box-shadow 0.2s;
+        }
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 0 1px rgba(147, 40, 255, 0.5), 0 0 40px rgba(147, 40, 255, 0.35);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--treesh-text);
+            border: 1px solid var(--treesh-border);
+            padding: 0.6rem 1.4rem;
+            border-radius: 100px;
+            font-weight: 600;
+            font-family: var(--font-stack);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .btn-success {
+            background: #2b9e5c;
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.8rem;
+            border-radius: 100px;
+            font-weight: 700;
+            font-family: var(--font-stack);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s;
+        }
+        .btn-success:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(43, 158, 92, 0.3);
+        }
+
+        /* ===== Preview Panel ===== */
+        .preview-panel {
+            background: var(--treesh-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--treesh-border);
+            border-radius: 24px;
+            padding: 1.8rem 2rem 2rem;
+            box-shadow: var(--treesh-shadow);
+        }
+        .preview-panel h2 {
+            font-family: 'Special Gothic Expanded One', var(--font-stack);
+            font-size: 1.2rem;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .preview-panel .sub {
+            color: var(--treesh-text-dim);
+            font-size: 0.8rem;
+            margin-bottom: 1.2rem;
+        }
+        .preview-panel .preview-actions {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .preview-panel .preview-actions .btn-sm {
+            padding: 0.3rem 1.2rem;
+            font-size: 0.8rem;
+        }
+
+        .preview-container {
+            background: var(--treesh-bg);
+            border-radius: 16px;
+            padding: 2rem 1.5rem;
+            max-height: 75vh;
+            overflow-y: auto;
+            border: 1px solid var(--treesh-border);
+            margin-top: 0.8rem;
+        }
+        .preview-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .preview-container::-webkit-scrollbar-thumb {
+            background: var(--treesh-purple-soft);
+            border-radius: 10px;
+        }
+
+        .preview-container .glass,
+        .preview-container .glass-strong {
+            opacity: 1 !important;
+            transform: none !important;
+        }
+
+        /* ===== Copy feedback ===== */
+        .copy-feedback {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--treesh-card);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--treesh-border);
+            border-radius: 16px;
+            padding: 0.8rem 1.8rem;
+            color: var(--treesh-text);
+            font-weight: 600;
+            box-shadow: var(--treesh-shadow);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 999;
+        }
+        .copy-feedback.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 1024px) {
+            .form-panel {
+                position: static;
+                max-height: none;
+            }
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 0.8rem;
+            }
+            .form-panel,
+            .preview-panel {
+                padding: 1.2rem 1rem;
+            }
+            .inline-group {
+                flex-direction: column;
+            }
+            .preview-container {
+                padding: 1rem 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Copy Feedback Toast ===== -->
+    <div class="copy-feedback" id="copyFeedback">Copied to clipboard</div>
+
+    <div class="app-layout">
+
+        <!-- =========================================================
+               FORM PANEL
+               ========================================================= -->
+        <div class="form-panel" id="formPanel">
+            <h2>✎ Blog Post Generator</h2>
+            <p class="sub">Fill in the fields below, then preview and copy the final HTML.</p>
+
+            <!-- Post Meta -->
+            <div class="form-group">
+                <label for="postTitle">Title</label>
+                <input type="text" class="form-control" id="postTitle" placeholder="e.g. Treesh 3.0" value="Treesh 3.0" />
+            </div>
+            <div class="form-group">
+                <label for="postHighlight">Highlight word (gradient)</label>
+                <input type="text" class="form-control" id="postHighlight" placeholder="e.g. 3.0" value="3.0" />
+            </div>
+            <div class="form-group">
+                <label for="postSubtitle">Subtitle</label>
+                <input type="text" class="form-control" id="postSubtitle" placeholder="e.g. Music to Live For — now with more of everything" value="Music to Live For — now with more of everything" />
+            </div>
+
+            <div class="inline-group">
+                <div class="form-group">
+                    <label for="postDate">Date</label>
+                    <input type="date" class="form-control" id="postDate" value="2026-07-27" />
+                </div>
+                <div class="form-group">
+                    <label for="postTime">Time</label>
+                    <input type="time" class="form-control" id="postTime" value="11:30" />
+                </div>
+                <div class="form-group">
+                    <label for="postTimezone">Timezone</label>
+                    <input type="text" class="form-control" id="postTimezone" placeholder="e.g. EST" value="EST" />
+                </div>
+            </div>
+
+            <!-- Intro -->
+            <div class="form-group">
+                <label for="postIntro">Intro</label>
+                <div class="markdown-toolbar" data-target="postIntro">
+                    <button type="button" data-cmd="bold"><b>B</b></button>
+                    <button type="button" data-cmd="italic"><i>I</i></button>
+                    <button type="button" data-cmd="link">🔗</button>
+                    <span class="sep"></span>
+                    <button type="button" data-cmd="ul">• list</button>
+                    <button type="button" data-cmd="ol">1. list</button>
+                </div>
+                <textarea class="form-control" id="postIntro" rows="3" placeholder="Intro paragraph(s)…">If you've been here for a minute, you know Treesh is built around the Icons—the artists we actually listen to, not what gets pushed on us.
+
+We just pushed 3.0 live, and it's a lot. Instead of rambling, here's what actually changed.</textarea>
+            </div>
+
+            <!-- Sections -->
+            <div class="form-group">
+                <label>Post Sections</label>
+                <p class="hint">Each section becomes a card. Add badges like "Player" or "NEW" (use "gold" class for gold badges).</p>
+                <div class="sections-list" id="sectionsList">
+                    <!-- Sections will be rendered by JS -->
+                </div>
+                <button class="add-section-btn" id="addSectionBtn">+ Add section</button>
+            </div>
+
+            <!-- Bottom Line / CTA -->
+            <div class="form-group">
+                <label for="bottomHeading">Bottom line heading</label>
+                <input type="text" class="form-control" id="bottomHeading" placeholder="e.g. Bottom Line" value="Bottom Line" />
+            </div>
+            <div class="form-group">
+                <label for="bottomText">Bottom line text</label>
+                <textarea class="form-control" id="bottomText" rows="2" placeholder="Closing statement…">Treesh is black‑owned, independent, and built for the underground—artists and listeners who want something real.</textarea>
+            </div>
+            <div class="form-group">
+                <label for="ctaText">CTA button text</label>
+                <input type="text" class="form-control" id="ctaText" placeholder="e.g. → treesh.app" value="→ treesh.app" />
+            </div>
+            <div class="form-group">
+                <label for="ctaUrl">CTA URL</label>
+                <input type="text" class="form-control" id="ctaUrl" placeholder="https://treesh.app" value="https://treesh.app" />
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <button class="btn-primary" id="previewBtn">Preview</button>
+                <button class="btn-success" id="copyHtmlBtn">Copy HTML</button>
+                <button class="btn-secondary" id="resetBtn">Reset</button>
+            </div>
+        </div>
+
+        <!-- =========================================================
+               PREVIEW PANEL
+               ========================================================= -->
+        <div class="preview-panel">
+            <h2>
+                <span>Preview</span>
+                <span class="preview-actions">
+                    <button class="btn-secondary btn-sm" id="refreshPreviewBtn">⟳ Refresh</button>
+                </span>
+            </h2>
+            <p class="sub">Your blog post will appear here as you fill out the form.</p>
+            <div class="preview-container" id="previewContainer">
+                <!-- Rendered preview will go here -->
+                <div style="text-align:center; padding:2rem; color:var(--treesh-text-dim);">Fill out the form to generate a preview.</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- =========================================================
+           JAVASCRIPT
+           ========================================================= -->
+    <script>
+        (function() {
+            'use strict';
+
+            // ---- State ----
+            const state = {
+                sections: []
+            };
+
+            // ---- DOM refs ----
+            const sectionsList = document.getElementById('sectionsList');
+            const addSectionBtn = document.getElementById('addSectionBtn');
+            const previewContainer = document.getElementById('previewContainer');
+            const copyFeedback = document.getElementById('copyFeedback');
+
+            // ---- Default sections (matches the original blog post) ----
+            const defaultSections = [{
+                id: 'section-player',
+                heading: 'The Player Is Now Full Screen (Finally)',
+                badges: ['Player'],
+                content: 'No more squinting at a little mini-player. Tap any track and the player takes over the whole screen. The artwork fills the background, the vinyl spins in real time (no gimmicks—it matches the playback), and the colour scheme shifts with whatever you\'re playing. It feels like the song has its own space now.',
+                readMore: false
+            }, {
+                id: 'section-karaoke',
+                heading: 'Karaoke Mode, For Real',
+                badges: ['Karaoke', 'gold'],
+                content: 'You can follow lyrics word‑by‑word as the track plays. Not the old‑school scrolling kind—it highlights each syllable as it hits. Perfect for learning verses, rapping along, or just showing off. You can even blow it up to full‑screen karaoke if that\'s your thing.',
+                readMore: false
+            }, {
+                id: 'section-instrum',
+                heading: 'Instrum: A Beat Studio Inside the App',
+                badges: ['Studio', 'NEW', 'gold'],
+                content: 'This is the one we\'re most excited about. Instrum is a full step sequencer built straight into Treesh. No downloads, no external gear—just your browser.\n\n• 10 instruments — kick, snare, hats, 808 bass, synth leads, pads, and more\n• Layer them on the grid, adjust BPM, swing, and volume\n• Play it live, save your project, or export it as a WAV\n\nIt\'s a pocket studio, and it actually works.',
+                readMore: false
+            }, {
+                id: 'section-upload',
+                heading: 'Upload Your Own Tracks',
+                badges: ['Custom', 'gold'],
+                content: 'We finally added the ability to add your own music. MP3, WAV, M4A, OGG—drop your file, add cover art, fill in the metadata, and it lives right next to the Icons\' catalog. Your personal library, fully integrated.',
+                readMore: true
+            }, {
+                id: 'section-lyric-game',
+                heading: 'What\'s Next? (The Lyric Game)',
+                badges: ['Game'],
+                content: 'Pick a song. We show you a line, you guess the next one. Type it or say it out loud—voice recognition works. Build streaks, earn points, and test how well you actually know these tracks. It\'s harder than it sounds.',
+                readMore: true
+            }, {
+                id: 'section-this-or-that',
+                heading: 'This or That: Head‑to‑Head Listening',
+                badges: ['Versus', 'gold'],
+                content: 'Two tracks, 30‑second snippets, one choice. Pick which one you\'re feeling more. Your winner keeps racking up wins, and three skips ends your run. It\'s a quick way to figure out what you actually like without overthinking it.',
+                readMore: true
+            }, {
+                id: 'section-lyric-cards',
+                heading: 'Lyric Cards You Can Share',
+                badges: ['Share'],
+                content: 'Found a line that hit different? Now you can turn it into a shareable image card. Pick a theme, tweak the background, adjust the text size—make it yours and send it out.',
+                readMore: true
+            }, {
+                id: 'section-customize',
+                heading: 'You Can Actually Make It Look Like You Want',
+                badges: [],
+                content: 'We added a ton of customisation because not everybody wants the same setup.\n\n• Pick any accent colour (not just the default purple)\n• Swap the background between space, aurora, solid, or upload your own image\n• Change the app font (Google Fonts or your own uploaded file)\n• Light mode, dark mode, or surface colours for the nav and song rows',
+                readMore: true
+            }, {
+                id: 'section-accessibility',
+                heading: 'Accessibility Is Built In, Not Bolted On',
+                badges: [],
+                content: 'High contrast, reduced motion, a dyslexia‑friendly font (Atkinson Hyperlegible), text scaling, and proper keyboard focus rings. If you need it, it\'s there.',
+                readMore: true
+            }, {
+                id: 'section-parental',
+                heading: 'Parental Controls That Actually Work',
+                badges: [],
+                content: 'Age gate is enforced. If you\'re under 18, explicit tracks stay hidden until a parent or guardian unlocks them with a PIN. No workarounds.',
+                readMore: true
+            }, {
+                id: 'section-performance',
+                heading: 'Performance',
+                badges: [],
+                content: '• Cached catalog — loads instantly offline\n• Performance mode for older devices\n• Real‑time visualiser\n• Touch‑optimised (no accidental zoom)',
+                readMore: true
+            }, {
+                id: 'section-privacy',
+                heading: 'Privacy, No Catch',
+                badges: [],
+                content: 'Everything stays on your device. No accounts, no servers, no tracking. Favourites, playlists, uploads, settings—all local. You\'re not the product.',
+                readMore: true
+            }, {
+                id: 'section-starlites',
+                heading: 'Starlites Rewards',
+                badges: [],
+                content: 'You earn points for listening, discovering new songs, playing games, and making beats. Daily check‑ins keep your streak going. It\'s small, but it\'s a nice nod to the people actually using the app.',
+                readMore: true
+            }, {
+                id: 'section-cleanup',
+                heading: 'What We Cleaned Up',
+                badges: [],
+                content: '• Library loads faster now with real‑time sync\n• Search is smarter—typos don\'t break it\n• Queue management is smoother (drag, reorder, remove)\n• Playlist sharing works with one tap\n• Some lyrics now come with explanations for context',
+                readMore: true
+            }, {
+                id: 'section-whats-next',
+                heading: 'What\'s Next?',
+                badges: [],
+                content: 'We\'re already working on collaborative playlists, live listening parties, more Instrum instruments, and deeper artist profiles with event info.',
+                readMore: true
+            }];
+
+            // ---- Utility: generate a slug from heading ----
+            function slugify(text) {
+                return text
+                    .toLowerCase()
+                    .replace(/[^a-z0-9\s-]/g, '')
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-');
+            }
+
+            // ---- Render sections in the form ----
+            function renderSections() {
+                if (!state.sections.length) {
+                    // Load defaults if empty
+                    state.sections = JSON.parse(JSON.stringify(defaultSections));
+                }
+
+                let html = '';
+                state.sections.forEach((sec, idx) => {
+                    const badgeStr = sec.badges ? sec.badges.join(', ') : '';
+                    const isGold = sec.badges && sec.badges.includes('gold');
+                    const badgePreview = sec.badges && sec.badges.filter(b => b !== 'gold').length ?
+                        `<span class="badge-preview${isGold ? ' gold' : ''}">${sec.badges.filter(b => b !== 'gold').join(' ')}</span>` :
+                        '';
+
+                    html += `
+                        <div class="section-item" data-index="${idx}">
+                            <div class="section-header">
+                                <span class="section-title">${sec.heading || 'Untitled'}</span>
+                                <div class="section-actions">
+                                    <button class="move-up" data-idx="${idx}" title="Move up">↑</button>
+                                    <button class="move-down" data-idx="${idx}" title="Move down">↓</button>
+                                    <button class="del-btn" data-idx="${idx}" title="Delete section">✕</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Heading</label>
+                                <input type="text" class="form-control section-heading" value="${escAttr(sec.heading)}" data-idx="${idx}" placeholder="Section heading" />
+                            </div>
+                            <div class="form-group">
+                                <label>Section ID (auto‑generated from heading if left empty)</label>
+                                <input type="text" class="form-control section-id" value="${escAttr(sec.id || '')}" data-idx="${idx}" placeholder="e.g. section-player" />
+                            </div>
+                            <div class="form-group">
+                                <label>Badges (comma separated, use "gold" for gold style)</label>
+                                <div class="badge-group">
+                                    <input type="text" class="form-control section-badges" value="${escAttr(badgeStr)}" data-idx="${idx}" placeholder="Player, gold" />
+                                    <span class="badge-preview-wrap">${badgePreview}</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Content (supports <b>bold</b>, <i>italic</i>, links, bullet lists)</label>
+                                <div class="markdown-toolbar" data-target="section-${idx}">
+                                    <button type="button" data-cmd="bold"><b>B</b></button>
+                                    <button type="button" data-cmd="italic"><i>I</i></button>
+                                    <button type="button" data-cmd="link">🔗</button>
+                                    <span class="sep"></span>
+                                    <button type="button" data-cmd="ul">• list</button>
+                                    <button type="button" data-cmd="ol">1. list</button>
+                                </div>
+                                <textarea class="form-control section-content" rows="4" data-idx="${idx}" placeholder="Content…">${escAttr(sec.content || '')}</textarea>
+                            </div>
+                            <div class="readmore-check">
+                                <input type="checkbox" class="section-readmore" data-idx="${idx}" ${sec.readMore ? 'checked' : ''} />
+                                <label>Include in "Read more" section</label>
+                            </div>
+                        </div>
+                    `;
+                });
+                sectionsList.innerHTML = html;
+
+                // Re-bind events
+                bindSectionEvents();
+                // Auto-generate preview
+                generatePreview();
+            }
+
+            // ---- HTML escaping for form values ----
+            function escAttr(str) {
+                if (!str) return '';
+                return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            // ---- Bind section events (move, delete, input changes) ----
+            function bindSectionEvents() {
+                // Move up
+                document.querySelectorAll('.move-up').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        if (idx > 0) {
+                            [state.sections[idx], state.sections[idx - 1]] = [state.sections[idx - 1], state
+                                .sections[idx]];
+                            renderSections();
+                        }
+                    });
+                });
+
+                // Move down
+                document.querySelectorAll('.move-down').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        if (idx < state.sections.length - 1) {
+                            [state.sections[idx], state.sections[idx + 1]] = [state.sections[idx + 1], state
+                                .sections[idx]];
+                            renderSections();
+                        }
+                    });
+                });
+
+                // Delete
+                document.querySelectorAll('.del-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        if (state.sections.length <= 1) {
+                            alert('You need at least one section.');
+                            return;
+                        }
+                        if (confirm(`Delete section "${state.sections[idx].heading}"?`)) {
+                            state.sections.splice(idx, 1);
+                            renderSections();
+                        }
+                    });
+                });
+
+                // Input events: update state and preview
+                document.querySelectorAll('.section-heading').forEach(inp => {
+                    inp.addEventListener('input', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        state.sections[idx].heading = this.value;
+                        // Auto-generate ID if empty
+                        if (!state.sections[idx].id || state.sections[idx].id === '') {
+                            state.sections[idx].id = slugify(this.value);
+                            // Update the ID field
+                            const idField = document.querySelector(`.section-id[data-idx="${idx}"]`);
+                            if (idField) idField.value = state.sections[idx].id;
+                        }
+                        generatePreview();
+                        // Update section title in header
+                        const header = this.closest('.section-item').querySelector('.section-title');
+                        if (header) header.textContent = this.value || 'Untitled';
+                    });
+                });
+
+                document.querySelectorAll('.section-id').forEach(inp => {
+                    inp.addEventListener('input', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        state.sections[idx].id = this.value.trim() || slugify(state.sections[idx].heading || '');
+                        generatePreview();
+                    });
+                });
+
+                document.querySelectorAll('.section-badges').forEach(inp => {
+                    inp.addEventListener('input', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        const raw = this.value;
+                        state.sections[idx].badges = raw.split(',').map(s => s.trim()).filter(Boolean);
+                        // Update badge preview
+                        const wrap = this.closest('.badge-group').querySelector('.badge-preview-wrap');
+                        const isGold = state.sections[idx].badges.includes('gold');
+                        const filtered = state.sections[idx].badges.filter(b => b !== 'gold');
+                        if (filtered.length) {
+                            wrap.innerHTML =
+                                `<span class="badge-preview${isGold ? ' gold' : ''}">${filtered.join(' ')}</span>`;
+                        } else {
+                            wrap.innerHTML = '';
+                        }
+                        generatePreview();
+                    });
+                });
+
+                document.querySelectorAll('.section-content').forEach(inp => {
+                    inp.addEventListener('input', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        state.sections[idx].content = this.value;
+                        generatePreview();
+                    });
+                });
+
+                document.querySelectorAll('.section-readmore').forEach(chk => {
+                    chk.addEventListener('change', function() {
+                        const idx = parseInt(this.dataset.idx);
+                        state.sections[idx].readMore = this.checked;
+                        generatePreview();
+                    });
+                });
+
+                // Markdown toolbar for section content
+                document.querySelectorAll('.markdown-toolbar[data-target^="section-"]').forEach(toolbar => {
+                    const targetId = toolbar.dataset.target;
+                    const idx = parseInt(targetId.replace('section-', ''));
+                    const textarea = document.querySelector(`.section-content[data-idx="${idx}"]`);
+                    if (textarea) {
+                        toolbar.querySelectorAll('[data-cmd]').forEach(btn => {
+                            btn.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                applyMarkdown(textarea, this.dataset.cmd);
+                            });
+                        });
+                    }
+                });
+            }
+
+            // ---- Markdown toolbar for intro ----
+            const introToolbar = document.querySelector('.markdown-toolbar[data-target="postIntro"]');
+            const introTextarea = document.getElementById('postIntro');
+            if (introToolbar && introTextarea) {
+                introToolbar.querySelectorAll('[data-cmd]').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        applyMarkdown(introTextarea, this.dataset.cmd);
+                    });
+                });
+            }
+
+            // ---- Apply markdown formatting to a textarea ----
+            function applyMarkdown(textarea, cmd) {
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const selected = textarea.value.substring(start, end);
+                let replacement = '';
+                let cursorOffset = 0;
+
+                switch (cmd) {
+                    case 'bold':
+                        replacement = `**${selected}**`;
+                        cursorOffset = 2;
+                        break;
+                    case 'italic':
+                        replacement = `*${selected}*`;
+                        cursorOffset = 1;
+                        break;
+                    case 'link':
+                        if (selected) {
+                            replacement = `[${selected}](url)`;
+                            cursorOffset = 0;
+                        } else {
+                            replacement = '[Link text](url)';
+                            cursorOffset = 1;
+                        }
+                        break;
+                    case 'ul':
+                        if (selected) {
+                            const lines = selected.split('\n').filter(l => l.trim());
+                            replacement = lines.map(l => `• ${l}`).join('\n');
+                        } else {
+                            replacement = '• Item 1\n• Item 2\n• Item 3';
+                        }
+                        cursorOffset = 0;
+                        break;
+                    case 'ol':
+                        if (selected) {
+                            const lines = selected.split('\n').filter(l => l.trim());
+                            replacement = lines.map((l, i) => `${i+1}. ${l}`).join('\n');
+                        } else {
+                            replacement = '1. Item 1\n2. Item 2\n3. Item 3';
+                        }
+                        cursorOffset = 0;
+                        break;
+                    default:
+                        return;
+                }
+
+                textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+                const newCursor = start + replacement.length + cursorOffset;
+                textarea.selectionStart = textarea.selectionEnd = newCursor;
+                textarea.focus();
+                textarea.dispatchEvent(new Event('input'));
+            }
+
+            // ---- Generate the full blog post HTML ----
+            function generatePostHTML() {
+                const title = document.getElementById('postTitle').value.trim() || 'Untitled';
+                const highlight = document.getElementById('postHighlight').value.trim() || '';
+                const subtitle = document.getElementById('postSubtitle').value.trim() || '';
+                const date = document.getElementById('postDate').value;
+                const time = document.getElementById('postTime').value;
+                const tz = document.getElementById('postTimezone').value.trim() || 'EST';
+                let intro = document.getElementById('postIntro').value || '';
+                const bottomHeading = document.getElementById('bottomHeading').value.trim() || 'Bottom Line';
+                const bottomText = document.getElementById('bottomText').value || '';
+                const ctaText = document.getElementById('ctaText').value.trim() || '→ treesh.app';
+                const ctaUrl = document.getElementById('ctaUrl').value.trim() || 'https://treesh.app';
+
+                // Build date/time string
+                let dateStr = '';
+                if (date) {
+                    const d = new Date(date + 'T' + (time || '00:00'));
+                    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                    dateStr = d.toLocaleDateString('en-US', options);
+                    if (time) {
+                        const tParts = time.split(':');
+                        let hrs = parseInt(tParts[0]);
+                        const mins = tParts[1];
+                        const ampm = hrs >= 12 ? 'PM' : 'AM';
+                        hrs = hrs % 12 || 12;
+                        dateStr += ` — ${hrs}:${mins} ${ampm} ${tz}`;
+                    }
+                }
+
+                // Convert markdown-like content to HTML
+                function renderMarkdown(text) {
+                    if (!text) return '';
+                    let html = text;
+                    // Bold: **text** → <b>text</b>
+                    html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+                    // Italic: *text* → <i>text</i>
+                    html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
+                    // Links: [text](url) → <a href="url">text</a>
+                    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+                    // Bullet lists: • item → <ul><li>item</li></ul>
+                    html = html.replace(/^• (.+)$/gm, '<li>$1</li>');
+                    html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, '<ul>$1</ul>');
+                    // Numbered lists: 1. item → <ol><li>item</li></ol>
+                    html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+                    html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, function(match) {
+                        // Only wrap if it's not already wrapped (avoid double wrapping)
+                        if (match.includes('<ul>') || match.includes('<ol>')) return match;
+                        return '<ol>' + match + '</ol>';
+                    });
+                    // Paragraphs: split by double newline
+                    html = html.split('\n\n').filter(p => p.trim()).map(p => `<p>${p.trim()}</p>`).join('');
+                    // Single newline → <br> (but only if not already wrapped)
+                    html = html.replace(/\n/g, '<br />');
+                    return html;
+                }
+
+                // Build sections HTML
+                let sectionsHTML = '';
+                let readMoreSections = [];
+                let beforeReadMore = [];
+                let afterReadMore = [];
+
+                state.sections.forEach(sec => {
+                    const id = sec.id || slugify(sec.heading || 'section');
+                    const heading = sec.heading || 'Untitled';
+                    const content = sec.content || '';
+                    const badges = sec.badges || [];
+                    const isGold = badges.includes('gold');
+                    const filteredBadges = badges.filter(b => b !== 'gold');
+
+                    const badgeHTML = filteredBadges.length ?
+                        `<div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.2rem;">${filteredBadges.map(b => `<span class="badge${isGold ? ' gold' : ''}">${b}</span>`).join('')}</div>` :
+                        '';
+
+                    const glassClass = sec.readMore ? 'glass' : 'glass-strong';
+                    const extraStyle = (!sec.readMore && sec.id === 'section-instrum') ? ' style="border-left:3px solid var(--treesh-purple);"' :
+                        '';
+
+                    const contentHTML = renderMarkdown(content);
+
+                    const sectionHTML = `
+                        <div class="${glassClass}" id="${id}"${extraStyle}>
+                            ${badgeHTML}
+                            <h2 style="margin-top:0.2rem;">${heading}</h2>
+                            ${contentHTML}
+                        </div>
+                    `;
+
+                    if (sec.readMore) {
+                        afterReadMore.push(sectionHTML);
+                    } else {
+                        beforeReadMore.push(sectionHTML);
+                    }
+                });
+
+                // Build the full content
+                const beforeHTML = beforeReadMore.join('');
+                const afterHTML = afterReadMore.join('');
+
+                // TOC / Legend
+                const tocLinks = state.sections.map(sec => {
+                    const id = sec.id || slugify(sec.heading || 'section');
+                    return `<a href="#${id}" class="toc-link">${sec.heading || 'Untitled'}</a>`;
+                }).join('');
+
+                const tocHTML = `
+                    <div class="glass legend-toc visible">
+                        <div class="legend-title">Jump to</div>
+                        <div class="toc-grid">${tocLinks}</div>
+                    </div>
+                `;
+
+                // Read more toggle
+                const readMoreHTML = afterReadMore.length ? `
+                    <div class="read-more-wrap" id="readMoreWrap">
+                        ${afterHTML}
+                    </div>
+                    <div style="text-align:center; margin:0.5rem 0 1.5rem;">
+                        <button class="read-more-toggle" id="readMoreToggle" aria-expanded="false">Read more</button>
+                    </div>
+                ` : '';
+
+                // Intro HTML
+                const introHTML = intro ? renderMarkdown(intro) : '';
+
+                // Bottom line
+                const bottomHTML = `
+                    <div class="glass-strong" style="text-align:center; padding:2.5rem 1.5rem; border:1px solid rgba(147,40,255,0.15);">
+                        <h2 style="margin-top:0; font-size:2rem;">${bottomHeading}</h2>
+                        <p style="font-size:1.1rem; max-width:600px; margin:0.5rem auto 1.8rem;">${bottomText}</p>
+                        <p style="font-size:1.4rem; font-weight:700; margin-bottom:0.5rem;">3.0 is live. Go stream.</p>
+                        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:0.8rem; margin-top:1rem;">
+                            <a href="${ctaUrl}" class="cta">${ctaText}</a>
+                            <span class="cta-outline" style="pointer-events:none;">Music to Live For.™</span>
+                        </div>
+                    </div>
+                `;
+
+                // Assemble full post
+                const titleDisplay = highlight ? title.replace(highlight, `<span class="highlight">${highlight}</span>`) :
+                title;
+
+                return `
+                    <div style="margin-bottom:1rem; padding-top:0.5rem;">
+                        <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem;">
+                            <span style="background:var(--treesh-purple); width:8px; height:8px; border-radius:50%; display:inline-block; box-shadow:0 0 12px var(--treesh-purple);"></span>
+                            <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:rgba(255,255,255,0.3);">Release Notes</span>
+                        </div>
+                        <h1 class="display-font glow-text">
+                            ${titleDisplay}
+                            <small>${subtitle}</small>
+                        </h1>
+                        <div class="divider"></div>
+                    </div>
+
+                    <div class="byline">
+                        <div class="date">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <time datetime="${date}T${time||'00:00'}">${dateStr || 'Date TBD'}</time>
+                        </div>
+                        <div style="display:flex; gap:0.6rem; align-items:center;">
+                            <span style="font-size:0.75rem; background:var(--treesh-purple-soft); padding:0.2rem 0.8rem; border-radius:100px; color:var(--treesh-purple);">3.0</span>
+                        </div>
+                    </div>
+
+                    <div class="glass visible" style="margin-top:0.5rem;">
+                        ${introHTML}
+                    </div>
+
+                    ${tocHTML}
+
+                    <div id="postContent">
+                        ${beforeHTML}
+                        ${readMoreHTML}
+                    </div>
+
+                    ${bottomHTML}
+                `;
+            }
+
+            // ---- Generate full standalone HTML page ----
+            function generateStandaloneHTML() {
+                const postContent = generatePostHTML();
+
+                // We need to embed the full CSS and structure.
+                // We'll use the same CSS as the blog site, but we need to include it inline.
+                // We'll grab the CSS from the document's <style> tags, but that includes the generator styles too.
+                // Better: we'll use a minimal set of the blog styles. Since the generator itself is built on the same design system, we can just use the existing styles + some overrides.
+
+                // For simplicity, we'll build a self-contained HTML that includes the post content
+                // with the blog's CSS. We'll copy the CSS from the current page's <style> elements,
+                // but we need to filter out generator-specific styles (like .form-panel, .app-layout, etc.)
+                // or just keep them since they won't affect the post rendering.
+
+                // Let's just embed the post content in a template with the blog CSS.
+                // We'll use the same style definitions but with a wrapper.
+
+                const styleTags = document.querySelectorAll('style');
+                let css = '';
+                styleTags.forEach(tag => {
+                    let content = tag.textContent;
+                    // Remove any styles that are specific to the generator layout
+                    // (we'll just keep everything, it shouldn't break the post)
+                    css += content + '\n';
+                });
+
+                // Add a small override to make sure the post renders properly
+                const overrideCSS = `
+                    body {
+                        padding: 2rem 1.5rem;
+                        background: #0a0a0b;
+                    }
+                    .container {
+                        max-width: 880px;
+                        margin: 0 auto;
+                    }
+                    .glass, .glass-strong {
+                        opacity: 1 !important;
+                        transform: none !important;
+                    }
+                    .read-more-wrap {
+                        max-height: 0;
+                        overflow: hidden;
+                        transition: max-height 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+                    }
+                    .read-more-wrap.open {
+                        max-height: 6000px;
+                    }
+                    .read-more-toggle::after {
+                        content: " ▾";
+                        display: inline-block;
+                        transition: transform 0.4s ease;
+                    }
+                    .read-more-toggle.open::after {
+                        transform: rotate(180deg);
+                    }
+                    .legend-toc .toc-link {
+                        cursor: pointer;
+                    }
+                    .badge {
+                        display: inline-block;
+                        font-size: 0.6rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.08em;
+                        padding: 0.2rem 0.8rem;
+                        border-radius: 100px;
+                        background: var(--treesh-purple-soft);
+                        color: var(--treesh-purple);
+                        border: 1px solid rgba(147, 40, 255, 0.25);
+                        margin-right: 0.4rem;
+                    }
+                    .badge.gold {
+                        background: rgba(195, 171, 105, 0.15);
+                        color: var(--treesh-gold);
+                        border-color: rgba(195, 171, 105, 0.25);
+                    }
+                    .display-font {
+                        font-family: 'Special Gothic Expanded One', 'Manrope', sans-serif;
+                        letter-spacing: 0.02em;
+                    }
+                    .glow-text {
+                        text-shadow: 0 0 40px rgba(147, 40, 255, 0.25);
+                    }
+                    .highlight {
+                        background: linear-gradient(135deg, var(--treesh-purple), #b77aff);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    }
+                    .divider {
+                        width: 60px;
+                        height: 3px;
+                        background: linear-gradient(90deg, var(--treesh-purple), transparent);
+                        border-radius: 10px;
+                        margin: 1.2rem 0 0.8rem;
+                    }
+                    .byline {
+                        display: flex;
+                        flex-wrap: wrap;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 0.8rem 0 0.2rem;
+                        border-bottom: 1px solid var(--treesh-border);
+                        margin-bottom: 1.5rem;
+                        font-size: 0.85rem;
+                        color: var(--treesh-text-dim);
+                    }
+                    .cta {
+                        display: inline-block;
+                        background: var(--treesh-purple);
+                        color: #fff;
+                        font-weight: 700;
+                        padding: 0.9rem 2.2rem;
+                        border-radius: 100px;
+                        box-shadow: var(--treesh-glow);
+                        transition: transform 0.15s ease, box-shadow 0.2s ease;
+                        border: none;
+                        font-family: var(--font-stack);
+                        font-size: 1rem;
+                        text-decoration: none;
+                    }
+                    .cta-outline {
+                        display: inline-block;
+                        background: transparent;
+                        color: var(--treesh-text);
+                        font-weight: 600;
+                        padding: 0.9rem 2rem;
+                        border-radius: 100px;
+                        border: 1px solid rgba(255, 255, 255, 0.12);
+                        transition: background 0.2s ease, border-color 0.2s ease;
+                        text-decoration: none;
+                    }
+                    .toc-grid {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 0.5rem 0.6rem;
+                    }
+                    .toc-link {
+                        font-size: 0.8rem;
+                        font-weight: 600;
+                        color: var(--treesh-text-dim);
+                        background: var(--treesh-card);
+                        padding: 0.25rem 1rem;
+                        border-radius: 100px;
+                        border: 1px solid var(--treesh-border);
+                        transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s;
+                        display: inline-block;
+                        text-decoration: none;
+                        cursor: pointer;
+                    }
+                    .toc-link:hover {
+                        background: var(--treesh-purple-soft);
+                        color: var(--treesh-text);
+                        border-color: var(--treesh-purple);
+                        transform: scale(1.02);
+                        text-decoration: none;
+                    }
+                    .legend-toc {
+                        padding: 1.2rem 1.5rem !important;
+                        margin: 1.2rem 0 1.8rem !important;
+                    }
+                    .legend-title {
+                        font-size: 0.7rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.1em;
+                        color: var(--treesh-text-dim);
+                        margin-bottom: 0.8rem;
+                        font-weight: 700;
+                    }
+                `;
+
+                const html = `
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8" />
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                        <title>${document.getElementById('postTitle').value || 'Blog Post'} — Treesh</title>
+                        <link rel="preconnect" href="https://fonts.googleapis.com" />
+                        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+                        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Special+Gothic+Expanded+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+                        <style>
+                            ${css}
+                            ${overrideCSS}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="bg-layer" aria-hidden="true">
+                            <div class="bg-blob bg-blob-1"></div>
+                            <div class="bg-blob bg-blob-2"></div>
+                            <div class="bg-blob bg-blob-3"></div>
+                        </div>
+                        <div class="container">
+                            ${postContent}
+                        </div>
+                        <script>
+                            // Minimal JS for read-more toggle and TOC scrolling
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const toggle = document.getElementById('readMoreToggle');
+                                const wrap = document.getElementById('readMoreWrap');
+                                if (toggle && wrap) {
+                                    toggle.addEventListener('click', function() {
+                                        const isOpen = wrap.classList.toggle('open');
+                                        this.classList.toggle('open', isOpen);
+                                        this.setAttribute('aria-expanded', isOpen);
+                                        this.textContent = isOpen ? 'Read less' : 'Read more';
+                                    });
+                                }
+                                document.querySelectorAll('.toc-link').forEach(link => {
+                                    link.addEventListener('click', function(e) {
+                                        e.preventDefault();
+                                        const target = document.querySelector(this.getAttribute('href'));
+                                        if (target) {
+                                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        }
+                                    });
+                                });
+                            });
+                        <\/script>
+                    </body>
+                    </html>
+                `;
+
+                return html;
+            }
+
+            // ---- Generate preview ----
+            function generatePreview() {
+                const html = `
+                    <div style="padding:0.5rem 0;">
+                        ${generatePostHTML()}
+                    </div>
+                `;
+                previewContainer.innerHTML = html;
+            }
+
+            // ---- Copy HTML to clipboard ----
+            function copyHTML() {
+                const fullHTML = generateStandaloneHTML();
+                navigator.clipboard.writeText(fullHTML).then(() => {
+                    copyFeedback.textContent = 'Copied to clipboard!';
+                    copyFeedback.classList.add('show');
+                    setTimeout(() => copyFeedback.classList.remove('show'), 2500);
+                }).catch(() => {
+                    // Fallback
+                    const textarea = document.createElement('textarea');
+                    textarea.value = fullHTML;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    copyFeedback.textContent = 'Copied to clipboard!';
+                    copyFeedback.classList.add('show');
+                    setTimeout(() => copyFeedback.classList.remove('show'), 2500);
+                });
+            }
+
+            // ---- Reset to defaults ----
+            function resetForm() {
+                if (!confirm('Reset all fields to default values?')) return;
+                state.sections = JSON.parse(JSON.stringify(defaultSections));
+                document.getElementById('postTitle').value = 'Treesh 3.0';
+                document.getElementById('postHighlight').value = '3.0';
+                document.getElementById('postSubtitle').value = 'Music to Live For — now with more of everything';
+                document.getElementById('postDate').value = '2026-07-27';
+                document.getElementById('postTime').value = '11:30';
+                document.getElementById('postTimezone').value = 'EST';
+                document.getElementById('postIntro').value =
+                    `If you've been here for a minute, you know Treesh is built around the Icons—the artists we actually listen to, not what gets pushed on us.\n\nWe just pushed 3.0 live, and it's a lot. Instead of rambling, here's what actually changed.`;
+                document.getElementById('bottomHeading').value = 'Bottom Line';
+                document.getElementById('bottomText').value =
+                    'Treesh is black‑owned, independent, and built for the underground—artists and listeners who want something real.';
+                document.getElementById('ctaText').value = '→ treesh.app';
+                document.getElementById('ctaUrl').value = 'https://treesh.app';
+                renderSections();
+                generatePreview();
+            }
+
+            // ---- Event listeners ----
+            document.getElementById('previewBtn').addEventListener('click', generatePreview);
+            document.getElementById('refreshPreviewBtn').addEventListener('click', generatePreview);
+            document.getElementById('copyHtmlBtn').addEventListener('click', copyHTML);
+            document.getElementById('resetBtn').addEventListener('click', resetForm);
+
+            // Auto-update preview on any input change
+            document.querySelectorAll('.form-control').forEach(el => {
+                el.addEventListener('input', generatePreview);
+                el.addEventListener('change', generatePreview);
+            });
+
+            // Add section
+            addSectionBtn.addEventListener('click', function() {
+                const newSec = {
+                    id: 'section-' + (state.sections.length + 1),
+                    heading: 'New Section',
+                    badges: [],
+                    content: 'Add your content here.',
+                    readMore: true
+                };
+                state.sections.push(newSec);
+                renderSections();
+                // Scroll to the new section
+                const items = document.querySelectorAll('.section-item');
+                if (items.length) {
+                    items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                generatePreview();
+            });
+
+            // ---- Init ----
+            renderSections();
+            generatePreview();
+
+        })();
+    </script>
+
+</body>
+</html>
