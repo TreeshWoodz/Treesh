@@ -178,6 +178,8 @@
 
         .gen-control {
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--treesh-border);
             border-radius: 12px;
@@ -209,6 +211,38 @@
         .gen-inline .gen-group {
             flex: 1;
             min-width: 140px;
+        }
+        .gen-inline .gen-group .gen-control {
+            width: 100%;
+        }
+
+        /* Date/time inline with Now button */
+        .datetime-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .datetime-group .gen-control {
+            flex: 1;
+        }
+        .now-btn {
+            background: transparent;
+            border: 1px solid var(--treesh-border);
+            color: var(--treesh-text-dim);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            transition: background 0.2s, color 0.2s;
+            white-space: nowrap;
+        }
+        .now-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--treesh-text);
         }
 
         /* ===== Toolbar ===== */
@@ -554,6 +588,13 @@
                 font-size: 0.7rem;
                 padding: 0.15rem 0.35rem;
             }
+            .datetime-group {
+                flex-wrap: wrap;
+            }
+            .datetime-group .now-btn {
+                flex: 1;
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -595,11 +636,17 @@
             <div class="gen-inline">
                 <div class="gen-group">
                     <label for="postDate">Date</label>
-                    <input type="date" class="gen-control" id="postDate" />
+                    <div class="datetime-group">
+                        <input type="date" class="gen-control" id="postDate" />
+                        <button class="now-btn" id="nowDateBtn">Now</button>
+                    </div>
                 </div>
                 <div class="gen-group">
                     <label for="postTime">Time</label>
-                    <input type="time" class="gen-control" id="postTime" />
+                    <div class="datetime-group">
+                        <input type="time" class="gen-control" id="postTime" step="60" />
+                        <button class="now-btn" id="nowTimeBtn">Now</button>
+                    </div>
                 </div>
                 <div class="gen-group">
                     <label for="postTimezone">Timezone</label>
@@ -777,7 +824,7 @@
                         replacement = lines.map(l => l.trim() ? '- ' + l.replace(/^[-*]\s+/, '') : '').join('\n');
                     } else if (cmd === 'ol') {
                         replacement = lines.map((l, i) => l.trim() ? (i + 1) + '. ' + l.replace(/^\d+\.\s+/, '') : '')
-                        .join('\n');
+                            .join('\n');
                     } else {
                         const prefix = tool.prefix;
                         replacement = lines.map(l => l.trim() ? prefix + l.replace(new RegExp('^' + prefix), '') : '')
@@ -849,7 +896,6 @@
             // ---- Render sections in the form ----
             function renderSections() {
                 if (!state.sections.length) {
-                    // Start with one empty section
                     state.sections.push({
                         id: '',
                         heading: '',
@@ -942,12 +988,6 @@
             function escAttr(str) {
                 if (!str) return '';
                 return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            }
-
-            // ---- Escape for JS string ----
-            function escJs(str) {
-                if (!str) return '';
-                return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
             }
 
             // ---- Slugify ----
@@ -1108,19 +1148,20 @@
                 html = html.replace(/<\/ul>\s*<\/ul>/g, '</ul>');
                 html = html.replace(/<ol>\s*<ol>/g, '<ol>');
                 html = html.replace(/<\/ol>\s*<\/ol>/g, '</ol>');
-                // Paragraphs: split by double newline
-                html = html.split('\n\n').filter(p => p.trim()).map(p => {
-                    // Skip if already wrapped in block-level tag
+                // Paragraphs: split by double newline, but avoid wrapping block-level elements
+                const blocks = html.split('\n\n').filter(p => p.trim());
+                const processed = blocks.map(p => {
                     const trimmed = p.trim();
                     if (trimmed.startsWith('<') && (trimmed.startsWith('<h') || trimmed.startsWith('<p') ||
                             trimmed.startsWith('<ul') || trimmed.startsWith('<ol') || trimmed.startsWith(
-                            '<blockquote') || trimmed.startsWith('<pre') || trimmed.startsWith('<hr'))) {
+                            '<blockquote') || trimmed.startsWith('<pre') || trimmed.startsWith('<hr') ||
+                            trimmed.startsWith('<div'))) {
                         return p;
                     }
                     return `<p>${p}</p>`;
                 }).join('');
                 // Single newline → <br> (but only if not already wrapped)
-                html = html.replace(/\n/g, '<br />');
+                html = processed.replace(/\n/g, '<br />');
                 return html;
             }
 
@@ -1276,7 +1317,6 @@
             function generateStandaloneHTML() {
                 const postContent = generatePostHTML();
 
-                // We need to embed the blog CSS + the post content
                 // Grab the CSS from the current page's styles
                 const styleTags = document.querySelectorAll('style');
                 let css = '';
@@ -1556,14 +1596,14 @@
             // ---- Update the iframe preview ----
             function updatePreview() {
                 const postHTML = generatePostHTML();
-                // Build a full document for the iframe with the blog CSS
+
+                // Build the full document for the iframe
                 const styleTags = document.querySelectorAll('style');
                 let css = '';
                 styleTags.forEach(tag => {
                     css += tag.textContent + '\n';
                 });
 
-                // Add the same blog overrides
                 const blogCSS = `
                     body {
                         padding: 2rem 1.5rem;
@@ -1881,13 +1921,32 @@
                 updatePreview();
             }
 
+            // ---- Set current date/time ----
+            function setNowDate() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                document.getElementById('postDate').value = `${year}-${month}-${day}`;
+                updatePreview();
+            }
+            function setNowTime() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const mins = String(now.getMinutes()).padStart(2, '0');
+                document.getElementById('postTime').value = `${hours}:${mins}`;
+                updatePreview();
+            }
+
             // ---- Event listeners ----
             document.getElementById('previewBtn').addEventListener('click', updatePreview);
             document.getElementById('refreshPreviewBtn').addEventListener('click', updatePreview);
             document.getElementById('copyHtmlBtn').addEventListener('click', copyHTML);
             document.getElementById('clearBtn').addEventListener('click', clearAll);
+            document.getElementById('nowDateBtn').addEventListener('click', setNowDate);
+            document.getElementById('nowTimeBtn').addEventListener('click', setNowTime);
 
-            // Auto-update preview on any form input
+            // Auto-update preview on any form input (except buttons)
             document.querySelectorAll('.gen-control').forEach(el => {
                 el.addEventListener('input', updatePreview);
                 el.addEventListener('change', updatePreview);
@@ -1920,8 +1979,8 @@
 
             // ---- Init ----
             renderSections();
-            // Don't auto-preview on init — user should click Preview.
-            // But we'll show a placeholder.
+            // Start with a default preview placeholder — the iframe already shows a message.
+            // Optionally, we can auto-preview on first load, but we'll leave it manual.
 
         })();
     </script>
