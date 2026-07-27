@@ -2,14 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Treesh Blog — Post Generator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Special+Gothic+Expanded+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
     <style>
         /* ===== Reset & Base ===== */
-        * {
+        *,
+        *::before,
+        *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -27,6 +29,14 @@
             --treesh-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
             --treesh-glow: 0 0 0 1px rgba(147, 40, 255, 0.28), 0 0 28px rgba(147, 40, 255, 0.24);
             --font-stack: 'Manrope', system-ui, sans-serif;
+            --nav-height: 0px;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
         }
 
         body {
@@ -34,12 +44,11 @@
             color: var(--treesh-text);
             font-family: var(--font-stack);
             line-height: 1.6;
-            padding: 1.5rem;
             -webkit-font-smoothing: antialiased;
-            min-height: 100vh;
+            position: relative;
         }
 
-        /* ===== Background Blobs (same as blog) ===== */
+        /* ===== Background Blobs ===== */
         .bg-layer {
             position: fixed;
             inset: 0;
@@ -106,39 +115,111 @@
             pointer-events: none;
         }
 
-        .app-layout {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            max-width: 1600px;
-            margin: 0 auto;
-            align-items: start;
+        /* ===== App Layout ===== */
+        .app {
+            display: flex;
+            height: 100vh;
             position: relative;
             z-index: 1;
+            overflow: hidden;
         }
 
-        @media (max-width: 1024px) {
-            .app-layout {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* ===== Form Panel ===== */
-        .form-panel {
+        /* ===== Preview Panel (Left on desktop) ===== */
+        .preview-panel {
+            flex: 1;
+            min-width: 0;
+            padding: 1.5rem 1.5rem 1.5rem 2rem;
+            display: flex;
+            flex-direction: column;
             background: var(--treesh-card);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--treesh-border);
+            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+        }
+        .preview-panel .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            margin-bottom: 0.8rem;
+        }
+        .preview-panel .preview-header h2 {
+            font-family: 'Special Gothic Expanded One', var(--font-stack);
+            font-size: 1.2rem;
+            letter-spacing: 0.02em;
+            color: var(--treesh-text);
+        }
+        .preview-panel .preview-header .badge-version {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 0.2rem 0.8rem;
+            border-radius: 100px;
+            background: var(--treesh-purple-soft);
+            color: var(--treesh-purple);
+            border: 1px solid rgba(147, 40, 255, 0.25);
+        }
+        .preview-panel .preview-sub {
+            color: var(--treesh-text-dim);
+            font-size: 0.75rem;
+            flex-shrink: 0;
+            margin-bottom: 0.8rem;
+        }
+        .preview-panel .preview-iframe-wrap {
+            flex: 1;
+            min-height: 0;
+            border-radius: 16px;
+            overflow: hidden;
             border: 1px solid var(--treesh-border);
-            border-radius: 24px;
-            padding: 1.8rem 1.8rem 2.2rem;
-            box-shadow: var(--treesh-shadow);
-            max-height: 90vh;
+            background: var(--treesh-bg);
+            position: relative;
+        }
+        .preview-panel .preview-iframe-wrap iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: var(--treesh-bg);
+            display: block;
+        }
+        .preview-panel .preview-iframe-wrap .preview-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: var(--treesh-text-dim);
+            font-size: 0.95rem;
+            text-align: center;
+            padding: 2rem;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+        .preview-panel .preview-iframe-wrap .preview-placeholder svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+            stroke: var(--treesh-text-dim);
+        }
+
+        /* ===== Form Panel (Right on desktop) ===== */
+        .form-panel {
+            width: 520px;
+            min-width: 380px;
+            max-width: 45vw;
+            padding: 1.5rem 2rem 2rem 1.5rem;
             overflow-y: auto;
-            position: sticky;
-            top: 1rem;
+            flex-shrink: 0;
+            background: var(--treesh-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-left: 1px solid var(--treesh-border);
         }
         .form-panel::-webkit-scrollbar {
-            width: 6px;
+            width: 4px;
         }
         .form-panel::-webkit-scrollbar-thumb {
             background: var(--treesh-purple-soft);
@@ -153,40 +234,41 @@
         }
         .form-panel .gen-sub {
             color: var(--treesh-text-dim);
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             margin-bottom: 1.5rem;
         }
 
+        /* ===== Form Elements ===== */
         .gen-group {
-            margin-bottom: 1.2rem;
+            margin-bottom: 1rem;
         }
         .gen-group label {
             display: block;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: var(--treesh-text-dim);
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.2rem;
         }
         .gen-group .gen-hint {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: var(--treesh-text-dim);
-            opacity: 0.6;
-            margin-top: 0.15rem;
+            opacity: 0.5;
+            margin-top: 0.1rem;
         }
 
         .gen-control {
             width: 100%;
             max-width: 100%;
             box-sizing: border-box;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--treesh-border);
-            border-radius: 12px;
-            padding: 0.6rem 0.9rem;
+            border-radius: 10px;
+            padding: 0.5rem 0.8rem;
             color: var(--treesh-text);
             font-family: var(--font-stack);
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
         .gen-control:focus {
@@ -196,31 +278,30 @@
         }
         .gen-control::placeholder {
             color: var(--treesh-text-dim);
-            opacity: 0.35;
+            opacity: 0.3;
         }
         textarea.gen-control {
             resize: vertical;
-            min-height: 60px;
+            min-height: 50px;
         }
 
         .gen-inline {
             display: flex;
-            gap: 1rem;
+            gap: 0.8rem;
             flex-wrap: wrap;
         }
         .gen-inline .gen-group {
             flex: 1;
-            min-width: 140px;
+            min-width: 120px;
         }
         .gen-inline .gen-group .gen-control {
             width: 100%;
         }
 
-        /* Date/time inline with Now button */
         .datetime-group {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
         }
         .datetime-group .gen-control {
             flex: 1;
@@ -229,40 +310,42 @@
             background: transparent;
             border: 1px solid var(--treesh-border);
             color: var(--treesh-text-dim);
-            padding: 0.4rem 0.8rem;
+            padding: 0.35rem 0.7rem;
             border-radius: 8px;
             cursor: pointer;
             font-family: var(--font-stack);
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            transition: background 0.2s, color 0.2s;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
             white-space: nowrap;
+            flex-shrink: 0;
         }
         .now-btn:hover {
             background: rgba(255, 255, 255, 0.06);
             color: var(--treesh-text);
+            border-color: var(--treesh-purple);
         }
 
         /* ===== Toolbar ===== */
         .gen-toolbar {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.2rem;
-            margin-bottom: 0.4rem;
+            gap: 0.15rem;
+            margin-bottom: 0.3rem;
             background: rgba(255, 255, 255, 0.03);
-            border-radius: 10px;
-            padding: 0.3rem 0.5rem;
+            border-radius: 8px;
+            padding: 0.2rem 0.4rem;
             border: 1px solid var(--treesh-border);
         }
         .gen-toolbar button {
             background: transparent;
             border: none;
             color: var(--treesh-text-dim);
-            font-size: 0.8rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 6px;
+            font-size: 0.75rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 5px;
             cursor: pointer;
             transition: background 0.15s, color 0.15s;
             font-family: var(--font-stack);
@@ -275,46 +358,58 @@
         .gen-toolbar .sep {
             width: 1px;
             background: var(--treesh-border);
-            margin: 0 0.15rem;
+            margin: 0 0.1rem;
         }
 
         /* ===== Sections ===== */
         .gen-sections {
-            margin-top: 0.5rem;
+            margin-top: 0.3rem;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 0.2rem;
         }
+        .gen-sections::-webkit-scrollbar {
+            width: 3px;
+        }
+        .gen-sections::-webkit-scrollbar-thumb {
+            background: var(--treesh-purple-soft);
+            border-radius: 10px;
+        }
+
         .gen-section-item {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--treesh-border);
-            border-radius: 14px;
-            padding: 1rem 1rem 0.8rem;
-            margin-bottom: 0.8rem;
+            border-radius: 12px;
+            padding: 0.7rem 0.8rem 0.6rem;
+            margin-bottom: 0.6rem;
             transition: border-color 0.2s;
         }
         .gen-section-item:hover {
-            border-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.12);
         }
         .gen-section-item .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.6rem;
+            margin-bottom: 0.4rem;
         }
         .gen-section-item .section-header .section-title {
             font-weight: 700;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
+            color: var(--treesh-text);
         }
         .gen-section-item .section-header .section-actions {
             display: flex;
-            gap: 0.3rem;
+            gap: 0.2rem;
         }
         .gen-section-item .section-header .section-actions button {
             background: transparent;
             border: none;
             color: var(--treesh-text-dim);
             cursor: pointer;
-            padding: 0.1rem 0.4rem;
-            border-radius: 6px;
-            font-size: 0.9rem;
+            padding: 0.05rem 0.3rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
             transition: background 0.15s, color 0.15s;
         }
         .gen-section-item .section-header .section-actions button:hover {
@@ -325,34 +420,34 @@
             color: #ff6b6b;
         }
         .gen-section-item .gen-group {
-            margin-bottom: 0.6rem;
+            margin-bottom: 0.4rem;
         }
         .gen-section-item .gen-group label {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
         }
         .gen-section-item .gen-group .gen-control {
-            font-size: 0.85rem;
-            padding: 0.4rem 0.7rem;
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
         }
         .gen-section-item .gen-group textarea.gen-control {
-            min-height: 40px;
+            min-height: 32px;
         }
         .gen-section-item .badge-group {
             display: flex;
-            gap: 0.4rem;
+            gap: 0.3rem;
             flex-wrap: wrap;
             align-items: center;
         }
         .gen-section-item .badge-group input {
             flex: 1;
-            min-width: 100px;
+            min-width: 80px;
         }
         .gen-section-item .badge-group .badge-preview {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            padding: 0.15rem 0.6rem;
+            padding: 0.1rem 0.5rem;
             border-radius: 100px;
             background: var(--treesh-purple-soft);
             color: var(--treesh-purple);
@@ -367,20 +462,21 @@
         .gen-section-item .readmore-check {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.8rem;
+            gap: 0.4rem;
+            font-size: 0.7rem;
             color: var(--treesh-text-dim);
-            margin-top: 0.3rem;
+            margin-top: 0.2rem;
         }
         .gen-section-item .readmore-check input[type="checkbox"] {
             appearance: none;
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             border: 2px solid var(--treesh-border);
             border-radius: 4px;
             background: transparent;
             cursor: pointer;
             flex-shrink: 0;
+            position: relative;
         }
         .gen-section-item .readmore-check input[type="checkbox"]:checked {
             background: var(--treesh-purple);
@@ -392,20 +488,23 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 10px;
+            position: absolute;
+            inset: 0;
         }
 
         .gen-add-section {
             width: 100%;
             background: rgba(255, 255, 255, 0.04);
             border: 1px dashed var(--treesh-border);
-            border-radius: 14px;
-            padding: 0.8rem;
+            border-radius: 12px;
+            padding: 0.6rem;
             color: var(--treesh-text-dim);
             font-family: var(--font-stack);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             cursor: pointer;
             transition: background 0.2s, border-color 0.2s;
+            margin-top: 0.2rem;
         }
         .gen-add-section:hover {
             background: rgba(255, 255, 255, 0.06);
@@ -417,20 +516,20 @@
         .gen-actions {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.6rem;
-            margin-top: 1.5rem;
-            padding-top: 1rem;
+            gap: 0.5rem;
+            margin-top: 1.2rem;
+            padding-top: 0.8rem;
             border-top: 1px solid var(--treesh-border);
         }
         .btn-primary {
             background: var(--treesh-purple);
             color: #fff;
             border: none;
-            padding: 0.6rem 1.8rem;
+            padding: 0.5rem 1.5rem;
             border-radius: 100px;
             font-weight: 700;
             font-family: var(--font-stack);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             cursor: pointer;
             box-shadow: var(--treesh-glow);
             transition: transform 0.15s, box-shadow 0.2s;
@@ -439,31 +538,15 @@
             transform: scale(1.02);
             box-shadow: 0 0 0 1px rgba(147, 40, 255, 0.5), 0 0 40px rgba(147, 40, 255, 0.35);
         }
-        .btn-secondary {
-            background: transparent;
-            color: var(--treesh-text);
-            border: 1px solid var(--treesh-border);
-            padding: 0.6rem 1.4rem;
-            border-radius: 100px;
-            font-weight: 600;
-            font-family: var(--font-stack);
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: background 0.2s, border-color 0.2s;
-        }
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(255, 255, 255, 0.2);
-        }
         .btn-success {
             background: #2b9e5c;
             color: #fff;
             border: none;
-            padding: 0.6rem 1.8rem;
+            padding: 0.5rem 1.5rem;
             border-radius: 100px;
             font-weight: 700;
             font-family: var(--font-stack);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             cursor: pointer;
             transition: transform 0.15s, box-shadow 0.2s;
         }
@@ -475,11 +558,11 @@
             background: transparent;
             color: #ff6b6b;
             border: 1px solid rgba(255, 107, 107, 0.3);
-            padding: 0.6rem 1.4rem;
+            padding: 0.5rem 1.2rem;
             border-radius: 100px;
             font-weight: 600;
             font-family: var(--font-stack);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             cursor: pointer;
             transition: background 0.2s, border-color 0.2s;
         }
@@ -487,56 +570,21 @@
             background: rgba(255, 107, 107, 0.1);
             border-color: rgba(255, 107, 107, 0.5);
         }
-
-        /* ===== Preview Panel ===== */
-        .preview-panel {
-            background: var(--treesh-card);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+        .btn-secondary {
+            background: transparent;
+            color: var(--treesh-text);
             border: 1px solid var(--treesh-border);
-            border-radius: 24px;
-            padding: 1.8rem 2rem 2rem;
-            box-shadow: var(--treesh-shadow);
-        }
-        .preview-panel .preview-header {
-            font-family: 'Special Gothic Expanded One', var(--font-stack);
-            font-size: 1.2rem;
-            letter-spacing: 0.02em;
-            margin-bottom: 0.2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .preview-panel .preview-sub {
-            color: var(--treesh-text-dim);
+            padding: 0.5rem 1.2rem;
+            border-radius: 100px;
+            font-weight: 600;
+            font-family: var(--font-stack);
             font-size: 0.8rem;
-            margin-bottom: 1.2rem;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
         }
-        .preview-panel .preview-actions {
-            display: flex;
-            gap: 0.6rem;
-            flex-wrap: wrap;
-        }
-        .preview-panel .preview-actions .btn-sm {
-            padding: 0.3rem 1.2rem;
-            font-size: 0.8rem;
-        }
-
-        .preview-iframe-wrap {
-            position: relative;
-            width: 100%;
-            border-radius: 16px;
-            overflow: hidden;
-            border: 1px solid var(--treesh-border);
-            background: var(--treesh-bg);
-        }
-        .preview-iframe-wrap iframe {
-            display: block;
-            width: 100%;
-            height: 75vh;
-            border: none;
-            background: var(--treesh-bg);
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         /* ===== Copy feedback ===== */
@@ -548,8 +596,8 @@
             background: var(--treesh-card);
             backdrop-filter: blur(24px);
             border: 1px solid var(--treesh-border);
-            border-radius: 16px;
-            padding: 0.8rem 1.8rem;
+            border-radius: 14px;
+            padding: 0.6rem 1.6rem;
             color: var(--treesh-text);
             font-weight: 600;
             box-shadow: var(--treesh-shadow);
@@ -557,44 +605,340 @@
             pointer-events: none;
             transition: opacity 0.3s, transform 0.3s;
             z-index: 999;
+            font-size: 0.9rem;
         }
         .copy-feedback.show {
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
 
-        /* ===== Responsive ===== */
-        @media (max-width: 1024px) {
-            .form-panel {
-                position: static;
-                max-height: none;
+        /* =========================================================
+               MOBILE FLOATING PREVIEW BUTTON & OVERLAY
+               ========================================================= */
+        .preview-toggle-btn {
+            display: none;
+            position: fixed;
+            bottom: calc(1.5rem + var(--safe-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: var(--treesh-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--treesh-border);
+            border-radius: 100px;
+            padding: 0.7rem 1.8rem;
+            color: var(--treesh-text);
+            font-family: var(--font-stack);
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), var(--treesh-glow);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            white-space: nowrap;
+        }
+        .preview-toggle-btn:hover {
+            transform: translateX(-50%) scale(1.04);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(147, 40, 255, 0.3), 0 0 40px rgba(147, 40, 255, 0.15);
+        }
+        .preview-toggle-btn:active {
+            transform: translateX(-50%) scale(0.94);
+            transition-duration: 0.1s;
+        }
+        .preview-toggle-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex-shrink: 0;
+        }
+        .preview-toggle-btn .badge-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--treesh-purple);
+            box-shadow: 0 0 12px var(--treesh-purple);
+            animation: pulse-dot 2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.4;
+                transform: scale(0.7);
             }
         }
-        @media (max-width: 600px) {
-            body {
-                padding: 0.8rem;
+
+        /* Mobile Preview Overlay */
+        .preview-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 90;
+            background: var(--treesh-bg);
+            transform: translateY(100%);
+            transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+            overflow: hidden;
+            flex-direction: column;
+        }
+        .preview-overlay.open {
+            transform: translateY(0);
+        }
+        .preview-overlay .overlay-header {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1.2rem;
+            border-bottom: 1px solid var(--treesh-border);
+            background: var(--treesh-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .preview-overlay .overlay-header h2 {
+            font-family: 'Special Gothic Expanded One', var(--font-stack);
+            font-size: 1.1rem;
+            letter-spacing: 0.02em;
+        }
+        .preview-overlay .overlay-header .close-overlay-btn {
+            background: transparent;
+            border: none;
+            color: var(--treesh-text-dim);
+            cursor: pointer;
+            padding: 0.3rem 0.6rem;
+            border-radius: 8px;
+            font-size: 1.4rem;
+            transition: background 0.2s, color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-family: var(--font-stack);
+        }
+        .preview-overlay .overlay-header .close-overlay-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--treesh-text);
+        }
+        .preview-overlay .overlay-body {
+            flex: 1;
+            min-height: 0;
+            padding: 0.8rem 1rem 1rem;
+            overflow: hidden;
+        }
+        .preview-overlay .overlay-body .preview-iframe-wrap {
+            width: 100%;
+            height: 100%;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid var(--treesh-border);
+            background: var(--treesh-bg);
+        }
+        .preview-overlay .overlay-body .preview-iframe-wrap iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: var(--treesh-bg);
+            display: block;
+        }
+
+        /* =========================================================
+               RESPONSIVE
+               ========================================================= */
+
+        /* Desktop & Landscape */
+        @media (min-width: 1025px) {
+            .app {
+                flex-direction: row;
             }
-            .form-panel,
             .preview-panel {
-                padding: 1.2rem 1rem;
+                display: flex !important;
+            }
+            .form-panel {
+                width: 520px;
+                min-width: 380px;
+                max-width: 45vw;
+            }
+            .preview-toggle-btn {
+                display: none !important;
+            }
+            .preview-overlay {
+                display: none !important;
+            }
+        }
+
+        /* Tablet & Mobile */
+        @media (max-width: 1024px) {
+            .app {
+                flex-direction: column;
+                height: 100vh;
+                overflow: hidden;
+            }
+            .form-panel {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+                flex: 1;
+                padding: 1rem 1.2rem 1.5rem;
+                border-left: none;
+                overflow-y: auto;
+                padding-bottom: 5.5rem;
+            }
+            .preview-panel {
+                display: none !important;
+            }
+
+            .preview-toggle-btn {
+                display: flex !important;
+            }
+
+            .preview-overlay {
+                display: flex !important;
+            }
+
+            .gen-sections {
+                max-height: 200px;
+            }
+
+            .form-panel .gen-header {
+                font-size: 1.2rem;
+            }
+            .form-panel .gen-sub {
+                font-size: 0.75rem;
+                margin-bottom: 1rem;
+            }
+            .gen-group {
+                margin-bottom: 0.7rem;
             }
             .gen-inline {
-                flex-direction: column;
+                gap: 0.5rem;
             }
-            .preview-iframe-wrap iframe {
-                height: 60vh;
+            .gen-inline .gen-group {
+                min-width: 80px;
+            }
+            .gen-control {
+                font-size: 0.85rem;
+                padding: 0.4rem 0.7rem;
             }
             .gen-toolbar button {
                 font-size: 0.7rem;
-                padding: 0.15rem 0.35rem;
+                padding: 0.1rem 0.35rem;
             }
-            .datetime-group {
-                flex-wrap: wrap;
+            .gen-section-item {
+                padding: 0.5rem 0.6rem 0.4rem;
             }
-            .datetime-group .now-btn {
-                flex: 1;
-                text-align: center;
+            .gen-section-item .gen-group .gen-control {
+                font-size: 0.75rem;
+                padding: 0.25rem 0.5rem;
             }
+            .gen-actions {
+                gap: 0.4rem;
+                padding-top: 0.6rem;
+                margin-top: 0.8rem;
+            }
+            .btn-primary,
+            .btn-success,
+            .btn-danger,
+            .btn-secondary {
+                font-size: 0.75rem;
+                padding: 0.4rem 1rem;
+            }
+
+            .preview-overlay .overlay-header {
+                padding: 0.6rem 1rem;
+            }
+            .preview-overlay .overlay-body {
+                padding: 0.5rem 0.6rem 0.6rem;
+            }
+        }
+
+        /* Small phones */
+        @media (max-width: 480px) {
+            .form-panel {
+                padding: 0.8rem 0.8rem 5rem;
+            }
+            .gen-inline {
+                flex-direction: column;
+                gap: 0.4rem;
+            }
+            .gen-inline .gen-group {
+                min-width: 0;
+            }
+            .preview-toggle-btn {
+                padding: 0.5rem 1.2rem;
+                font-size: 0.8rem;
+                bottom: calc(1rem + var(--safe-bottom));
+            }
+            .preview-toggle-btn svg {
+                width: 17px;
+                height: 17px;
+            }
+            .preview-overlay .overlay-header h2 {
+                font-size: 0.95rem;
+            }
+            .preview-overlay .overlay-body {
+                padding: 0.3rem 0.4rem 0.4rem;
+            }
+        }
+
+        /* Landscape phones */
+        @media (max-width: 1024px) and (orientation: landscape) {
+            .form-panel {
+                padding: 0.8rem 1.2rem 5rem;
+            }
+            .gen-sections {
+                max-height: 140px;
+            }
+            .gen-section-item {
+                padding: 0.3rem 0.5rem 0.3rem;
+            }
+            .gen-section-item .gen-group textarea.gen-control {
+                min-height: 24px;
+            }
+            .gen-group {
+                margin-bottom: 0.4rem;
+            }
+            .gen-actions {
+                padding-top: 0.4rem;
+                margin-top: 0.5rem;
+            }
+            .preview-overlay .overlay-body {
+                padding: 0.3rem 0.4rem 0.4rem;
+            }
+            .preview-overlay .overlay-header {
+                padding: 0.4rem 0.8rem;
+            }
+        }
+
+        /* =========================================================
+               UTILITY
+               ========================================================= */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+
+        .preview-iframe-wrap .preview-placeholder svg {
+            width: 48px;
+            height: 48px;
+            stroke: var(--treesh-text-dim);
+            stroke-width: 1.5;
+            fill: none;
         }
     </style>
 </head>
@@ -610,14 +954,31 @@
     <!-- ===== Copy Feedback Toast ===== -->
     <div class="copy-feedback" id="copyFeedback">Copied to clipboard</div>
 
-    <div class="app-layout">
+    <!-- =========================================================
+           APP
+           ========================================================= -->
+    <div class="app">
 
-        <!-- =========================================================
-               FORM PANEL
-               ========================================================= -->
+        <!-- ===== PREVIEW PANEL (Desktop Left) ===== -->
+        <div class="preview-panel" id="previewPanel">
+            <div class="preview-header">
+                <h2>Preview</h2>
+                <span class="badge-version">Live</span>
+            </div>
+            <div class="preview-sub">Updates automatically as you type on desktop.</div>
+            <div class="preview-iframe-wrap">
+                <iframe id="desktopIframe" srcdoc="<html><body style='background:#0a0a0b;color:#f0f0f5;font-family:Manrope,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:2rem;'><div style='text-align:center;'><svg width='56' height='56' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.15)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='2' width='20' height='20' rx='2.18'/><line x1='8' y1='2' x2='8' y2='22'/><line x1='16' y1='2' x2='16' y2='22'/><line x1='2' y1='8' x2='22' y2='8'/><line x1='2' y1='16' x2='22' y2='16'/></svg><p style='color:rgba(255,255,255,0.25);font-size:1.1rem;margin-top:1rem;'>Fill out the form to see a live preview.</p></div></body></html>"></iframe>
+                <div class="preview-placeholder" id="desktopPlaceholder">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="2" y1="8" x2="22" y2="8"/><line x1="2" y1="16" x2="22" y2="16"/></svg>
+                    <span>Fill out the form to preview your post.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== FORM PANEL (Desktop Right / Mobile Full) ===== -->
         <div class="form-panel" id="formPanel">
             <div class="gen-header">✎ Blog Post Generator</div>
-            <p class="gen-sub">Start from scratch — fill in the fields, preview, and copy the final HTML.</p>
+            <p class="gen-sub">Fill in the fields, preview, and copy the final HTML.</p>
 
             <!-- Post Meta -->
             <div class="gen-group">
@@ -715,28 +1076,38 @@
 
             <!-- Form Actions -->
             <div class="gen-actions">
-                <button class="btn-primary" id="previewBtn">Preview</button>
                 <button class="btn-success" id="copyHtmlBtn">Copy HTML</button>
                 <button class="btn-danger" id="clearBtn">Start fresh</button>
             </div>
         </div>
 
-        <!-- =========================================================
-               PREVIEW PANEL (iframe)
-               ========================================================= -->
-        <div class="preview-panel">
-            <div class="preview-header">
-                <span>Preview</span>
-                <span class="preview-actions">
-                    <button class="btn-secondary btn-sm" id="refreshPreviewBtn">⟳ Refresh</button>
-                </span>
-            </div>
-            <p class="preview-sub">This preview renders exactly as the post will appear on the blog.</p>
+    </div>
+
+    <!-- =========================================================
+           MOBILE FLOATING PREVIEW BUTTON
+           ========================================================= -->
+    <button class="preview-toggle-btn" id="previewToggleBtn" aria-label="Toggle preview">
+        <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="2" y1="8" x2="22" y2="8"/><line x1="2" y1="16" x2="22" y2="16"/></svg>
+        <span id="previewBtnLabel">Preview</span>
+        <span class="badge-dot" id="previewDot"></span>
+    </button>
+
+    <!-- =========================================================
+           MOBILE PREVIEW OVERLAY
+           ========================================================= -->
+    <div class="preview-overlay" id="previewOverlay">
+        <div class="overlay-header">
+            <h2>Preview</h2>
+            <button class="close-overlay-btn" id="closeOverlayBtn">
+                <span>Close</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="overlay-body">
             <div class="preview-iframe-wrap">
-                <iframe id="previewIframe" srcdoc="<html><body style='background:#0a0a0b;color:#f0f0f5;font-family:Manrope,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:2rem;'><p style='color:rgba(255,255,255,0.3);font-size:1.2rem;text-align:center;'>Fill out the form and click Preview.</p></body></html>"></iframe>
+                <iframe id="mobileIframe" srcdoc="<html><body style='background:#0a0a0b;color:#f0f0f5;font-family:Manrope,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:2rem;'><div style='text-align:center;'><svg width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.15)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='2' width='20' height='20' rx='2.18'/><line x1='8' y1='2' x2='8' y2='22'/><line x1='16' y1='2' x2='16' y2='22'/><line x1='2' y1='8' x2='22' y2='8'/><line x1='2' y1='16' x2='22' y2='16'/></svg><p style='color:rgba(255,255,255,0.25);font-size:1rem;margin-top:0.8rem;'>Tap Preview to generate the post.</p></div></body></html>"></iframe>
             </div>
         </div>
-
     </div>
 
     <!-- =========================================================
@@ -750,12 +1121,22 @@
             const state = {
                 sections: []
             };
+            let cachedHTML = '';
+            let isMobile = window.innerWidth < 1025;
+            let previewOpen = false;
 
             // ---- DOM refs ----
             const sectionsList = document.getElementById('sectionsList');
             const addSectionBtn = document.getElementById('addSectionBtn');
-            const previewIframe = document.getElementById('previewIframe');
+            const desktopIframe = document.getElementById('desktopIframe');
+            const mobileIframe = document.getElementById('mobileIframe');
+            const desktopPlaceholder = document.getElementById('desktopPlaceholder');
             const copyFeedback = document.getElementById('copyFeedback');
+            const previewToggleBtn = document.getElementById('previewToggleBtn');
+            const previewOverlay = document.getElementById('previewOverlay');
+            const closeOverlayBtn = document.getElementById('closeOverlayBtn');
+            const previewBtnLabel = document.getElementById('previewBtnLabel');
+            const previewDot = document.getElementById('previewDot');
 
             // ---- Markdown tool definitions ----
             const MARKDOWN_TOOLS = {
@@ -777,7 +1158,7 @@
                 clear: { prefix: '', suffix: '', label: 'clear', clear: true }
             };
 
-            // ---- Apply markdown formatting to a textarea ----
+            // ---- Apply markdown formatting ----
             function applyMarkdown(textarea, cmd) {
                 if (!textarea) return;
                 const start = textarea.selectionStart;
@@ -787,7 +1168,6 @@
                 if (!tool) return;
 
                 if (tool.clear) {
-                    // Clear formatting: remove markdown from selected text
                     if (selected) {
                         let cleaned = selected
                             .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -810,7 +1190,6 @@
                     return;
                 }
 
-                // For heading/list/blockquote: if line-based, apply to current line(s)
                 if (['h1', 'h2', 'h3', 'h4', 'blockquote', 'ul', 'ol'].includes(cmd)) {
                     const before = textarea.value.substring(0, start);
                     const after = textarea.value.substring(end);
@@ -838,7 +1217,6 @@
                     return;
                 }
 
-                // For code block: handle multi-line
                 if (cmd === 'code') {
                     if (selected) {
                         const lines = selected.split('\n');
@@ -855,7 +1233,6 @@
                     }
                 }
 
-                // Default: wrap selection
                 let replacement = tool.prefix + selected + tool.suffix;
                 if (cmd === 'link' && !selected) {
                     replacement = '[Link text](url)';
@@ -865,7 +1242,6 @@
                 }
                 if (cmd === 'hr') {
                     replacement = '\n---\n';
-                    // Insert at cursor position
                     textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
                     const newPos = start + replacement.length;
                     textarea.selectionStart = textarea.selectionEnd = newPos;
@@ -893,7 +1269,7 @@
                 });
             }
 
-            // ---- Render sections in the form ----
+            // ---- Render sections ----
             function renderSections() {
                 if (!state.sections.length) {
                     state.sections.push({
@@ -920,7 +1296,7 @@
                                 <div class="section-actions">
                                     <button class="move-up" data-idx="${idx}" title="Move up">↑</button>
                                     <button class="move-down" data-idx="${idx}" title="Move down">↓</button>
-                                    <button class="del-btn" data-idx="${idx}" title="Delete section">✕</button>
+                                    <button class="del-btn" data-idx="${idx}" title="Delete">✕</button>
                                 </div>
                             </div>
                             <div class="gen-group">
@@ -928,11 +1304,11 @@
                                 <input type="text" class="gen-control section-heading" value="${escAttr(sec.heading)}" data-idx="${idx}" placeholder="Section heading" />
                             </div>
                             <div class="gen-group">
-                                <label>Section ID (auto‑generated if left blank)</label>
+                                <label>ID (auto if blank)</label>
                                 <input type="text" class="gen-control section-id" value="${escAttr(sec.id || '')}" data-idx="${idx}" placeholder="e.g. section-player" />
                             </div>
                             <div class="gen-group">
-                                <label>Badges (comma separated, use "gold" for gold style)</label>
+                                <label>Badges (comma, use "gold" for gold)</label>
                                 <div class="badge-group">
                                     <input type="text" class="gen-control section-badges" value="${escAttr(badgeStr)}" data-idx="${idx}" placeholder="Player, gold" />
                                     <span class="badge-preview-wrap">${badgePreview}</span>
@@ -967,42 +1343,32 @@
                             </div>
                             <div class="readmore-check">
                                 <input type="checkbox" class="section-readmore" data-idx="${idx}" ${sec.readMore ? 'checked' : ''} />
-                                <label>Include in "Read more" section</label>
+                                <label>Include in "Read more"</label>
                             </div>
                         </div>
                     `;
                 });
                 sectionsList.innerHTML = html;
 
-                // Wire up toolbars for each section
                 document.querySelectorAll('.section-toolbar').forEach((toolbar, idx) => {
                     const textarea = document.querySelector(`.section-content[data-idx="${idx}"]`);
                     wireToolbar(toolbar, textarea);
                 });
 
-                // Re-bind events
                 bindSectionEvents();
             }
 
-            // ---- HTML escaping for form values ----
             function escAttr(str) {
                 if (!str) return '';
                 return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             }
 
-            // ---- Slugify ----
             function slugify(text) {
                 if (!text) return 'section-' + Date.now().toString(36);
-                return text
-                    .toLowerCase()
-                    .replace(/[^a-z0-9\s-]/g, '')
-                    .replace(/\s+/g, '-')
-                    .replace(/-+/g, '-');
+                return text.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
             }
 
-            // ---- Bind section events ----
             function bindSectionEvents() {
-                // Move up
                 document.querySelectorAll('.move-up').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const idx = parseInt(this.dataset.idx);
@@ -1010,12 +1376,10 @@
                             [state.sections[idx], state.sections[idx - 1]] = [state.sections[idx - 1], state
                                 .sections[idx]];
                             renderSections();
-                            updatePreview();
+                            onFormChange();
                         }
                     });
                 });
-
-                // Move down
                 document.querySelectorAll('.move-down').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const idx = parseInt(this.dataset.idx);
@@ -1023,28 +1387,22 @@
                             [state.sections[idx], state.sections[idx + 1]] = [state.sections[idx + 1], state
                                 .sections[idx]];
                             renderSections();
-                            updatePreview();
+                            onFormChange();
                         }
                     });
                 });
-
-                // Delete
                 document.querySelectorAll('.del-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const idx = parseInt(this.dataset.idx);
-                        if (state.sections.length <= 1) {
-                            alert('You need at least one section.');
-                            return;
-                        }
-                        if (confirm(`Delete section "${state.sections[idx].heading || 'Untitled'}"?`)) {
+                        if (state.sections.length <= 1) { alert('Need at least one section.'); return; }
+                        if (confirm(`Delete "${state.sections[idx].heading || 'Untitled'}"?`)) {
                             state.sections.splice(idx, 1);
                             renderSections();
-                            updatePreview();
+                            onFormChange();
                         }
                     });
                 });
 
-                // Input events
                 document.querySelectorAll('.section-heading').forEach(inp => {
                     inp.addEventListener('input', function() {
                         const idx = parseInt(this.dataset.idx);
@@ -1056,18 +1414,16 @@
                         }
                         const header = this.closest('.gen-section-item').querySelector('.section-title');
                         if (header) header.textContent = this.value || 'Untitled';
-                        updatePreview();
+                        onFormChange();
                     });
                 });
-
                 document.querySelectorAll('.section-id').forEach(inp => {
                     inp.addEventListener('input', function() {
                         const idx = parseInt(this.dataset.idx);
                         state.sections[idx].id = this.value.trim() || slugify(state.sections[idx].heading || '');
-                        updatePreview();
+                        onFormChange();
                     });
                 });
-
                 document.querySelectorAll('.section-badges').forEach(inp => {
                     inp.addEventListener('input', function() {
                         const idx = parseInt(this.dataset.idx);
@@ -1076,79 +1432,60 @@
                         const wrap = this.closest('.badge-group').querySelector('.badge-preview-wrap');
                         const isGold = state.sections[idx].badges.includes('gold');
                         const filtered = state.sections[idx].badges.filter(b => b !== 'gold');
-                        if (filtered.length) {
-                            wrap.innerHTML =
-                                `<span class="badge-preview${isGold ? ' gold' : ''}">${filtered.join(' ')}</span>`;
-                        } else {
-                            wrap.innerHTML = '';
-                        }
-                        updatePreview();
+                        wrap.innerHTML = filtered.length ?
+                            `<span class="badge-preview${isGold ? ' gold' : ''}">${filtered.join(' ')}</span>` :
+                            '';
+                        onFormChange();
                     });
                 });
-
                 document.querySelectorAll('.section-content').forEach(inp => {
                     inp.addEventListener('input', function() {
                         const idx = parseInt(this.dataset.idx);
                         state.sections[idx].content = this.value;
-                        updatePreview();
+                        onFormChange();
                     });
                 });
-
                 document.querySelectorAll('.section-readmore').forEach(chk => {
                     chk.addEventListener('change', function() {
                         const idx = parseInt(this.dataset.idx);
                         state.sections[idx].readMore = this.checked;
-                        updatePreview();
+                        onFormChange();
                     });
                 });
             }
 
-            // ---- Markdown to HTML converter ----
+            // ---- Markdown to HTML ----
             function renderMarkdown(text) {
                 if (!text) return '';
                 let html = text;
-                // Code blocks first
                 html = html.replace(/```\n?([\s\S]*?)\n?```/g, '<pre><code>$1</code></pre>');
-                // Inline code
                 html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-                // Bold
                 html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-                // Italic
                 html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
-                // Strikethrough
                 html = html.replace(/~~(.+?)~~/g, '<s>$1</s>');
-                // Links
                 html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-                // Images
                 html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
-                // Horizontal rule
                 html = html.replace(/^---$/gm, '<hr />');
-                // Headings
                 html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
                 html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
                 html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
                 html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-                // Blockquotes
                 html = html.replace(/^> (.+)$/gm, '<blockquote><p>$1</p></blockquote>');
-                // Lists: bullet
                 html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
                 html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, function(match) {
                     if (match.includes('<ol>') || match.includes('<ul>')) return match;
                     return '<ul>' + match + '</ul>';
                 });
-                // Lists: numbered
                 html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
                 html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, function(match) {
                     if (match.includes('<ol>') || match.includes('<ul>')) return match;
                     if (match.includes('<ul>')) return match;
                     return '<ol>' + match + '</ol>';
                 });
-                // Clean up nested lists
                 html = html.replace(/<ul>\s*<ul>/g, '<ul>');
                 html = html.replace(/<\/ul>\s*<\/ul>/g, '</ul>');
                 html = html.replace(/<ol>\s*<ol>/g, '<ol>');
                 html = html.replace(/<\/ol>\s*<\/ol>/g, '</ol>');
-                // Paragraphs: split by double newline, but avoid wrapping block-level elements
                 const blocks = html.split('\n\n').filter(p => p.trim());
                 const processed = blocks.map(p => {
                     const trimmed = p.trim();
@@ -1160,12 +1497,11 @@
                     }
                     return `<p>${p}</p>`;
                 }).join('');
-                // Single newline → <br> (but only if not already wrapped)
                 html = processed.replace(/\n/g, '<br />');
                 return html;
             }
 
-            // ---- Generate the post HTML (for preview and export) ----
+            // ---- Generate post HTML ----
             function generatePostHTML() {
                 const title = document.getElementById('postTitle').value.trim() || 'Untitled';
                 const highlight = document.getElementById('postHighlight').value.trim() || '';
@@ -1179,7 +1515,6 @@
                 const ctaText = document.getElementById('ctaText').value.trim() || '→ treesh.app';
                 const ctaUrl = document.getElementById('ctaUrl').value.trim() || 'https://treesh.app';
 
-                // Build date string
                 let dateStr = '';
                 if (date) {
                     const d = new Date(date + 'T' + (time || '00:00'));
@@ -1195,10 +1530,8 @@
                     }
                 }
 
-                // Build sections
-                let beforeSections = [];
-                let afterSections = [];
-
+                let beforeSections = [],
+                    afterSections = [];
                 state.sections.forEach(sec => {
                     const id = sec.id || slugify(sec.heading || 'section');
                     const heading = sec.heading || 'Untitled';
@@ -1206,109 +1539,55 @@
                     const badges = sec.badges || [];
                     const isGold = badges.includes('gold');
                     const filteredBadges = badges.filter(b => b !== 'gold');
-
                     const badgeHTML = filteredBadges.length ?
                         `<div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.2rem;">${filteredBadges.map(b => `<span class="badge${isGold ? ' gold' : ''}">${b}</span>`).join('')}</div>` :
                         '';
-
                     const glassClass = sec.readMore ? 'glass' : 'glass-strong';
                     const contentHTML = renderMarkdown(content);
-
-                    const sectionHTML = `
-                        <div class="${glassClass}" id="${id}">
-                            ${badgeHTML}
-                            <h2 style="margin-top:0.2rem;">${heading}</h2>
-                            ${contentHTML}
-                        </div>
-                    `;
-
-                    if (sec.readMore) {
-                        afterSections.push(sectionHTML);
-                    } else {
-                        beforeSections.push(sectionHTML);
-                    }
+                    const sectionHTML =
+                        `<div class="${glassClass}" id="${id}">${badgeHTML}<h2 style="margin-top:0.2rem;">${heading}</h2>${contentHTML}</div>`;
+                    if (sec.readMore) afterSections.push(sectionHTML);
+                    else beforeSections.push(sectionHTML);
                 });
 
                 const beforeHTML = beforeSections.join('');
                 const afterHTML = afterSections.join('');
-
-                // TOC
                 const tocLinks = state.sections.map(sec => {
                     const id = sec.id || slugify(sec.heading || 'section');
                     return `<a href="#${id}" class="toc-link">${sec.heading || 'Untitled'}</a>`;
                 }).join('');
-
-                const tocHTML = `
-                    <div class="glass legend-toc visible">
-                        <div class="legend-title">Jump to</div>
-                        <div class="toc-grid">${tocLinks}</div>
-                    </div>
-                `;
-
-                // Read more
-                const readMoreHTML = afterSections.length ? `
-                    <div class="read-more-wrap" id="readMoreWrap">
-                        ${afterHTML}
-                    </div>
-                    <div style="text-align:center; margin:0.5rem 0 1.5rem;">
-                        <button class="read-more-toggle" id="readMoreToggle" aria-expanded="false">Read more</button>
-                    </div>
-                ` : '';
-
-                // Intro
+                const tocHTML =
+                    `<div class="glass legend-toc visible"><div class="legend-title">Jump to</div><div class="toc-grid">${tocLinks}</div></div>`;
+                const readMoreHTML = afterSections.length ?
+                    `<div class="read-more-wrap" id="readMoreWrap">${afterHTML}</div><div style="text-align:center;margin:0.5rem 0 1.5rem;"><button class="read-more-toggle" id="readMoreToggle" aria-expanded="false">Read more</button></div>` :
+                    '';
                 const introHTML = intro ? renderMarkdown(intro) : '';
-
-                // Bottom
-                const bottomHTML = `
-                    <div class="glass-strong" style="text-align:center; padding:2.5rem 1.5rem; border:1px solid rgba(147,40,255,0.15);">
-                        <h2 style="margin-top:0; font-size:2rem;">${bottomHeading}</h2>
-                        <p style="font-size:1.1rem; max-width:600px; margin:0.5rem auto 1.8rem;">${bottomText}</p>
-                        <p style="font-size:1.4rem; font-weight:700; margin-bottom:0.5rem;">3.0 is live. Go stream.</p>
-                        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:0.8rem; margin-top:1rem;">
-                            <a href="${ctaUrl}" class="cta">${ctaText}</a>
-                            <span class="cta-outline" style="pointer-events:none;">Music to Live For.™</span>
-                        </div>
-                    </div>
-                `;
-
-                // Title
+                const bottomHTML =
+                    `<div class="glass-strong" style="text-align:center;padding:2.5rem 1.5rem;border:1px solid rgba(147,40,255,0.15);"><h2 style="margin-top:0;font-size:2rem;">${bottomHeading}</h2><p style="font-size:1.1rem;max-width:600px;margin:0.5rem auto 1.8rem;">${bottomText}</p><p style="font-size:1.4rem;font-weight:700;margin-bottom:0.5rem;">3.0 is live. Go stream.</p><div style="display:flex;flex-wrap:wrap;justify-content:center;gap:0.8rem;margin-top:1rem;"><a href="${ctaUrl}" class="cta">${ctaText}</a><span class="cta-outline" style="pointer-events:none;">Music to Live For.™</span></div></div>`;
                 const titleDisplay = highlight ? title.replace(highlight, `<span class="highlight">${highlight}</span>`) :
-                title;
+                    title;
 
                 return `
-                    <div style="margin-bottom:1rem; padding-top:0.5rem;">
-                        <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem;">
-                            <span style="background:var(--treesh-purple); width:8px; height:8px; border-radius:50%; display:inline-block; box-shadow:0 0 12px var(--treesh-purple);"></span>
-                            <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:rgba(255,255,255,0.3);">Release Notes</span>
+                    <div style="margin-bottom:1rem;padding-top:0.5rem;">
+                        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+                            <span style="background:var(--treesh-purple);width:8px;height:8px;border-radius:50%;display:inline-block;box-shadow:0 0 12px var(--treesh-purple);"></span>
+                            <span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:rgba(255,255,255,0.3);">Release Notes</span>
                         </div>
-                        <h1 class="display-font glow-text">
-                            ${titleDisplay}
-                            <small>${subtitle}</small>
-                        </h1>
+                        <h1 class="display-font glow-text">${titleDisplay}<small>${subtitle}</small></h1>
                         <div class="divider"></div>
                     </div>
-
                     <div class="byline">
                         <div class="date">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                             <time datetime="${date}T${time||'00:00'}">${dateStr || 'Date TBD'}</time>
                         </div>
-                        <div style="display:flex; gap:0.6rem; align-items:center;">
-                            <span style="font-size:0.75rem; background:var(--treesh-purple-soft); padding:0.2rem 0.8rem; border-radius:100px; color:var(--treesh-purple);">3.0</span>
+                        <div style="display:flex;gap:0.6rem;align-items:center;">
+                            <span style="font-size:0.75rem;background:var(--treesh-purple-soft);padding:0.2rem 0.8rem;border-radius:100px;color:var(--treesh-purple);">3.0</span>
                         </div>
                     </div>
-
-                    <div class="glass visible" style="margin-top:0.5rem;">
-                        ${introHTML}
-                    </div>
-
+                    <div class="glass visible" style="margin-top:0.5rem;">${introHTML}</div>
                     ${tocHTML}
-
-                    <div id="postContent">
-                        ${beforeHTML}
-                        ${readMoreHTML}
-                    </div>
-
+                    <div id="postContent">${beforeHTML}${readMoreHTML}</div>
                     ${bottomHTML}
                 `;
             }
@@ -1316,566 +1595,117 @@
             // ---- Generate full standalone HTML ----
             function generateStandaloneHTML() {
                 const postContent = generatePostHTML();
-
-                // Grab the CSS from the current page's styles
                 const styleTags = document.querySelectorAll('style');
                 let css = '';
-                styleTags.forEach(tag => {
-                    css += tag.textContent + '\n';
-                });
-
-                // Add the blog-specific overrides
+                styleTags.forEach(tag => { css += tag.textContent + '\n'; });
                 const blogCSS = `
-                    body {
-                        padding: 2rem 1.5rem;
-                        background: #0a0a0b;
-                        min-height: 100vh;
-                    }
-                    .container {
-                        max-width: 880px;
-                        margin: 0 auto;
-                        position: relative;
-                        z-index: 1;
-                    }
-                    .glass, .glass-strong {
-                        opacity: 1 !important;
-                        transform: none !important;
-                    }
-                    .read-more-wrap {
-                        max-height: 0;
-                        overflow: hidden;
-                        transition: max-height 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-                    }
-                    .read-more-wrap.open {
-                        max-height: 6000px;
-                    }
-                    .read-more-toggle::after {
-                        content: " ▾";
-                        display: inline-block;
-                        transition: transform 0.4s ease;
-                    }
-                    .read-more-toggle.open::after {
-                        transform: rotate(180deg);
-                    }
-                    .legend-toc .toc-link {
-                        cursor: pointer;
-                    }
-                    .badge {
-                        display: inline-block;
-                        font-size: 0.6rem;
-                        font-weight: 700;
-                        text-transform: uppercase;
-                        letter-spacing: 0.08em;
-                        padding: 0.2rem 0.8rem;
-                        border-radius: 100px;
-                        background: var(--treesh-purple-soft);
-                        color: var(--treesh-purple);
-                        border: 1px solid rgba(147, 40, 255, 0.25);
-                        margin-right: 0.4rem;
-                    }
-                    .badge.gold {
-                        background: rgba(195, 171, 105, 0.15);
-                        color: var(--treesh-gold);
-                        border-color: rgba(195, 171, 105, 0.25);
-                    }
-                    .display-font {
-                        font-family: 'Special Gothic Expanded One', 'Manrope', sans-serif;
-                        letter-spacing: 0.02em;
-                    }
-                    .glow-text {
-                        text-shadow: 0 0 40px rgba(147, 40, 255, 0.25);
-                    }
-                    .highlight {
-                        background: linear-gradient(135deg, var(--treesh-purple), #b77aff);
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        background-clip: text;
-                    }
-                    .divider {
-                        width: 60px;
-                        height: 3px;
-                        background: linear-gradient(90deg, var(--treesh-purple), transparent);
-                        border-radius: 10px;
-                        margin: 1.2rem 0 0.8rem;
-                    }
-                    .byline {
-                        display: flex;
-                        flex-wrap: wrap;
-                        justify-content: space-between;
-                        align-items: center;
-                        padding: 0.8rem 0 0.2rem;
-                        border-bottom: 1px solid var(--treesh-border);
-                        margin-bottom: 1.5rem;
-                        font-size: 0.85rem;
-                        color: var(--treesh-text-dim);
-                    }
-                    .cta {
-                        display: inline-block;
-                        background: var(--treesh-purple);
-                        color: #fff;
-                        font-weight: 700;
-                        padding: 0.9rem 2.2rem;
-                        border-radius: 100px;
-                        box-shadow: var(--treesh-glow);
-                        transition: transform 0.15s ease, box-shadow 0.2s ease;
-                        border: none;
-                        font-family: var(--font-stack);
-                        font-size: 1rem;
-                        text-decoration: none;
-                    }
-                    .cta-outline {
-                        display: inline-block;
-                        background: transparent;
-                        color: var(--treesh-text);
-                        font-weight: 600;
-                        padding: 0.9rem 2rem;
-                        border-radius: 100px;
-                        border: 1px solid rgba(255, 255, 255, 0.12);
-                        transition: background 0.2s ease, border-color 0.2s ease;
-                        text-decoration: none;
-                    }
-                    .toc-grid {
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 0.5rem 0.6rem;
-                    }
-                    .toc-link {
-                        font-size: 0.8rem;
-                        font-weight: 600;
-                        color: var(--treesh-text-dim);
-                        background: var(--treesh-card);
-                        padding: 0.25rem 1rem;
-                        border-radius: 100px;
-                        border: 1px solid var(--treesh-border);
-                        transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s;
-                        display: inline-block;
-                        text-decoration: none;
-                        cursor: pointer;
-                    }
-                    .toc-link:hover {
-                        background: var(--treesh-purple-soft);
-                        color: var(--treesh-text);
-                        border-color: var(--treesh-purple);
-                        transform: scale(1.02);
-                        text-decoration: none;
-                    }
-                    .legend-toc {
-                        padding: 1.2rem 1.5rem !important;
-                        margin: 1.2rem 0 1.8rem !important;
-                    }
-                    .legend-title {
-                        font-size: 0.7rem;
-                        text-transform: uppercase;
-                        letter-spacing: 0.1em;
-                        color: var(--treesh-text-dim);
-                        margin-bottom: 0.8rem;
-                        font-weight: 700;
-                    }
-                    .bg-layer {
-                        position: fixed;
-                        inset: 0;
-                        z-index: 0;
-                        pointer-events: none;
-                        overflow: hidden;
-                    }
-                    .bg-blob {
-                        position: absolute;
-                        border-radius: 50%;
-                        filter: blur(90px);
-                        will-change: transform, opacity;
-                        animation: blobFloat 16s ease-in-out infinite alternate;
-                    }
-                    .bg-blob-1 {
-                        width: 60vh;
-                        height: 60vh;
-                        left: -10%;
-                        top: -8%;
-                        background: var(--treesh-purple);
-                        opacity: 0.25;
-                        animation-duration: 18s;
-                    }
-                    .bg-blob-2 {
-                        width: 50vh;
-                        height: 50vh;
-                        right: -8%;
-                        top: 30%;
-                        background: var(--treesh-gold);
-                        opacity: 0.15;
-                        animation-duration: 22s;
-                        animation-delay: -3s;
-                    }
-                    .bg-blob-3 {
-                        width: 70vh;
-                        height: 70vh;
-                        left: 10%;
-                        bottom: -15%;
-                        background: var(--treesh-purple);
-                        opacity: 0.18;
-                        animation-duration: 20s;
-                        animation-delay: -6s;
-                    }
-                    @keyframes blobFloat {
-                        0% { transform: translate(0,0) scale(1) rotate(0deg); }
-                        33% { transform: translate(8%,-6%) scale(1.08) rotate(5deg); }
-                        66% { transform: translate(-6%,10%) scale(0.95) rotate(-3deg); }
-                        100% { transform: translate(4%,-4%) scale(1.04) rotate(4deg); }
-                    }
-                    .bg-layer::after {
-                        content: '';
-                        position: absolute;
-                        inset: 0;
-                        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.035'/%3E%3C/svg%3E");
-                        opacity: 0.5;
-                        pointer-events: none;
-                    }
-                    .container {
-                        max-width: 880px;
-                        margin: 0 auto;
-                        padding: 0 1.5rem 2.5rem;
-                        position: relative;
-                        z-index: 1;
-                    }
-                    @media (max-width: 640px) {
-                        body { padding: 1rem; }
-                        .container { padding: 0 1rem 2rem; }
-                        h1 { font-size: 2.2rem; }
-                        h2 { font-size: 1.4rem; }
-                        .glass, .glass-strong { padding: 1.2rem; }
-                    }
+                    body { padding:2rem 1.5rem; background:#0a0a0b; min-height:100vh; }
+                    .container { max-width:880px; margin:0 auto; position:relative; z-index:1; }
+                    .glass, .glass-strong { opacity:1 !important; transform:none !important; }
+                    .read-more-wrap { max-height:0; overflow:hidden; transition:max-height 0.8s cubic-bezier(0.22,1,0.36,1); }
+                    .read-more-wrap.open { max-height:6000px; }
+                    .read-more-toggle::after { content:" ▾"; display:inline-block; transition:transform 0.4s ease; }
+                    .read-more-toggle.open::after { transform:rotate(180deg); }
+                    .badge { display:inline-block; font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; padding:0.2rem 0.8rem; border-radius:100px; background:var(--treesh-purple-soft); color:var(--treesh-purple); border:1px solid rgba(147,40,255,0.25); margin-right:0.4rem; }
+                    .badge.gold { background:rgba(195,171,105,0.15); color:var(--treesh-gold); border-color:rgba(195,171,105,0.25); }
+                    .display-font { font-family:'Special Gothic Expanded One','Manrope',sans-serif; letter-spacing:0.02em; }
+                    .glow-text { text-shadow:0 0 40px rgba(147,40,255,0.25); }
+                    .highlight { background:linear-gradient(135deg,var(--treesh-purple),#b77aff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+                    .divider { width:60px; height:3px; background:linear-gradient(90deg,var(--treesh-purple),transparent); border-radius:10px; margin:1.2rem 0 0.8rem; }
+                    .byline { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; padding:0.8rem 0 0.2rem; border-bottom:1px solid var(--treesh-border); margin-bottom:1.5rem; font-size:0.85rem; color:var(--treesh-text-dim); }
+                    .cta { display:inline-block; background:var(--treesh-purple); color:#fff; font-weight:700; padding:0.9rem 2.2rem; border-radius:100px; box-shadow:var(--treesh-glow); transition:transform 0.15s ease,box-shadow 0.2s ease; border:none; font-family:var(--font-stack); font-size:1rem; text-decoration:none; }
+                    .cta-outline { display:inline-block; background:transparent; color:var(--treesh-text); font-weight:600; padding:0.9rem 2rem; border-radius:100px; border:1px solid rgba(255,255,255,0.12); transition:background 0.2s ease,border-color 0.2s ease; text-decoration:none; }
+                    .toc-grid { display:flex; flex-wrap:wrap; gap:0.5rem 0.6rem; }
+                    .toc-link { font-size:0.8rem; font-weight:600; color:var(--treesh-text-dim); background:var(--treesh-card); padding:0.25rem 1rem; border-radius:100px; border:1px solid var(--treesh-border); transition:background 0.2s,color 0.2s,border-color 0.2s,transform 0.15s; display:inline-block; text-decoration:none; cursor:pointer; }
+                    .toc-link:hover { background:var(--treesh-purple-soft); color:var(--treesh-text); border-color:var(--treesh-purple); transform:scale(1.02); text-decoration:none; }
+                    .legend-toc { padding:1.2rem 1.5rem !important; margin:1.2rem 0 1.8rem !important; }
+                    .legend-title { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--treesh-text-dim); margin-bottom:0.8rem; font-weight:700; }
+                    .bg-layer { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+                    .bg-blob { position:absolute; border-radius:50%; filter:blur(90px); will-change:transform,opacity; animation:blobFloat 16s ease-in-out infinite alternate; }
+                    .bg-blob-1 { width:60vh; height:60vh; left:-10%; top:-8%; background:var(--treesh-purple); opacity:0.25; animation-duration:18s; }
+                    .bg-blob-2 { width:50vh; height:50vh; right:-8%; top:30%; background:var(--treesh-gold); opacity:0.15; animation-duration:22s; animation-delay:-3s; }
+                    .bg-blob-3 { width:70vh; height:70vh; left:10%; bottom:-15%; background:var(--treesh-purple); opacity:0.18; animation-duration:20s; animation-delay:-6s; }
+                    @keyframes blobFloat { 0%{transform:translate(0,0) scale(1) rotate(0deg)} 33%{transform:translate(8%,-6%) scale(1.08) rotate(5deg)} 66%{transform:translate(-6%,10%) scale(0.95) rotate(-3deg)} 100%{transform:translate(4%,-4%) scale(1.04) rotate(4deg)} }
+                    .bg-layer::after { content:''; position:absolute; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.035'/%3E%3C/svg%3E"); opacity:0.5; pointer-events:none; }
+                    .container { max-width:880px; margin:0 auto; padding:0 1.5rem 2.5rem; position:relative; z-index:1; }
+                    @media (max-width:640px) { body{padding:1rem;} .container{padding:0 1rem 2rem;} h1{font-size:2.2rem;} h2{font-size:1.4rem;} .glass,.glass-strong{padding:1.2rem;} }
                 `;
-
                 const fullCSS = css + '\n' + blogCSS;
-
                 return `<!DOCTYPE html>
                 <html lang="en">
-                <head>
-                    <meta charset="UTF-8" />
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                    <title>${document.getElementById('postTitle').value || 'Blog Post'} — Treesh</title>
-                    <link rel="preconnect" href="https://fonts.googleapis.com" />
-                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-                    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Special+Gothic+Expanded+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-                    <style>${fullCSS}</style>
-                </head>
-                <body>
-                    <div class="bg-layer" aria-hidden="true">
-                        <div class="bg-blob bg-blob-1"></div>
-                        <div class="bg-blob bg-blob-2"></div>
-                        <div class="bg-blob bg-blob-3"></div>
-                    </div>
-                    <div class="container">
-                        ${postContent}
-                    </div>
-                    <script>
-                        document.addEventListener('DOMContentLoaded', function() {
-                            const toggle = document.getElementById('readMoreToggle');
-                            const wrap = document.getElementById('readMoreWrap');
-                            if (toggle && wrap) {
-                                toggle.addEventListener('click', function() {
-                                    const isOpen = wrap.classList.toggle('open');
-                                    this.classList.toggle('open', isOpen);
-                                    this.setAttribute('aria-expanded', isOpen);
-                                    this.textContent = isOpen ? 'Read less' : 'Read more';
-                                });
-                            }
-                            document.querySelectorAll('.toc-link').forEach(link => {
-                                link.addEventListener('click', function(e) {
-                                    e.preventDefault();
-                                    const target = document.querySelector(this.getAttribute('href'));
-                                    if (target) {
-                                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                    }
-                                });
-                            });
-                        });
-                    <\/script>
-                </body>
-                </html>`;
+                <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>${document.getElementById('postTitle').value || 'Blog Post'} — Treesh</title>
+                <link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+                <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Special+Gothic+Expanded+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet"/>
+                <style>${fullCSS}</style></head>
+                <body><div class="bg-layer" aria-hidden="true"><div class="bg-blob bg-blob-1"></div><div class="bg-blob bg-blob-2"></div><div class="bg-blob bg-blob-3"></div></div>
+                <div class="container">${postContent}</div>
+                <script>document.addEventListener('DOMContentLoaded',function(){const t=document.getElementById('readMoreToggle'),w=document.getElementById('readMoreWrap');if(t&&w){t.addEventListener('click',function(){const o=w.classList.toggle('open');this.classList.toggle('open',o);this.setAttribute('aria-expanded',o);this.textContent=o?'Read less':'Read more';});}document.querySelectorAll('.toc-link').forEach(l=>{l.addEventListener('click',function(e){e.preventDefault();const target=document.querySelector(this.getAttribute('href'));if(target){target.scrollIntoView({behavior:'smooth',block:'start'});}});});});<\/script>
+                </body></html>`;
             }
 
-            // ---- Update the iframe preview ----
-            function updatePreview() {
-                const postHTML = generatePostHTML();
-
-                // Build the full document for the iframe
-                const styleTags = document.querySelectorAll('style');
-                let css = '';
-                styleTags.forEach(tag => {
-                    css += tag.textContent + '\n';
-                });
-
-                const blogCSS = `
-                    body {
-                        padding: 2rem 1.5rem;
-                        background: #0a0a0b;
-                        min-height: 100vh;
-                    }
-                    .container {
-                        max-width: 880px;
-                        margin: 0 auto;
-                        position: relative;
-                        z-index: 1;
-                    }
-                    .glass, .glass-strong {
-                        opacity: 1 !important;
-                        transform: none !important;
-                    }
-                    .read-more-wrap {
-                        max-height: 0;
-                        overflow: hidden;
-                        transition: max-height 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-                    }
-                    .read-more-wrap.open {
-                        max-height: 6000px;
-                    }
-                    .read-more-toggle::after {
-                        content: " ▾";
-                        display: inline-block;
-                        transition: transform 0.4s ease;
-                    }
-                    .read-more-toggle.open::after {
-                        transform: rotate(180deg);
-                    }
-                    .legend-toc .toc-link {
-                        cursor: pointer;
-                    }
-                    .badge {
-                        display: inline-block;
-                        font-size: 0.6rem;
-                        font-weight: 700;
-                        text-transform: uppercase;
-                        letter-spacing: 0.08em;
-                        padding: 0.2rem 0.8rem;
-                        border-radius: 100px;
-                        background: var(--treesh-purple-soft);
-                        color: var(--treesh-purple);
-                        border: 1px solid rgba(147, 40, 255, 0.25);
-                        margin-right: 0.4rem;
-                    }
-                    .badge.gold {
-                        background: rgba(195, 171, 105, 0.15);
-                        color: var(--treesh-gold);
-                        border-color: rgba(195, 171, 105, 0.25);
-                    }
-                    .display-font {
-                        font-family: 'Special Gothic Expanded One', 'Manrope', sans-serif;
-                        letter-spacing: 0.02em;
-                    }
-                    .glow-text {
-                        text-shadow: 0 0 40px rgba(147, 40, 255, 0.25);
-                    }
-                    .highlight {
-                        background: linear-gradient(135deg, var(--treesh-purple), #b77aff);
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        background-clip: text;
-                    }
-                    .divider {
-                        width: 60px;
-                        height: 3px;
-                        background: linear-gradient(90deg, var(--treesh-purple), transparent);
-                        border-radius: 10px;
-                        margin: 1.2rem 0 0.8rem;
-                    }
-                    .byline {
-                        display: flex;
-                        flex-wrap: wrap;
-                        justify-content: space-between;
-                        align-items: center;
-                        padding: 0.8rem 0 0.2rem;
-                        border-bottom: 1px solid var(--treesh-border);
-                        margin-bottom: 1.5rem;
-                        font-size: 0.85rem;
-                        color: var(--treesh-text-dim);
-                    }
-                    .cta {
-                        display: inline-block;
-                        background: var(--treesh-purple);
-                        color: #fff;
-                        font-weight: 700;
-                        padding: 0.9rem 2.2rem;
-                        border-radius: 100px;
-                        box-shadow: var(--treesh-glow);
-                        transition: transform 0.15s ease, box-shadow 0.2s ease;
-                        border: none;
-                        font-family: var(--font-stack);
-                        font-size: 1rem;
-                        text-decoration: none;
-                    }
-                    .cta-outline {
-                        display: inline-block;
-                        background: transparent;
-                        color: var(--treesh-text);
-                        font-weight: 600;
-                        padding: 0.9rem 2rem;
-                        border-radius: 100px;
-                        border: 1px solid rgba(255, 255, 255, 0.12);
-                        transition: background 0.2s ease, border-color 0.2s ease;
-                        text-decoration: none;
-                    }
-                    .toc-grid {
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 0.5rem 0.6rem;
-                    }
-                    .toc-link {
-                        font-size: 0.8rem;
-                        font-weight: 600;
-                        color: var(--treesh-text-dim);
-                        background: var(--treesh-card);
-                        padding: 0.25rem 1rem;
-                        border-radius: 100px;
-                        border: 1px solid var(--treesh-border);
-                        transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s;
-                        display: inline-block;
-                        text-decoration: none;
-                        cursor: pointer;
-                    }
-                    .toc-link:hover {
-                        background: var(--treesh-purple-soft);
-                        color: var(--treesh-text);
-                        border-color: var(--treesh-purple);
-                        transform: scale(1.02);
-                        text-decoration: none;
-                    }
-                    .legend-toc {
-                        padding: 1.2rem 1.5rem !important;
-                        margin: 1.2rem 0 1.8rem !important;
-                    }
-                    .legend-title {
-                        font-size: 0.7rem;
-                        text-transform: uppercase;
-                        letter-spacing: 0.1em;
-                        color: var(--treesh-text-dim);
-                        margin-bottom: 0.8rem;
-                        font-weight: 700;
-                    }
-                    .bg-layer {
-                        position: fixed;
-                        inset: 0;
-                        z-index: 0;
-                        pointer-events: none;
-                        overflow: hidden;
-                    }
-                    .bg-blob {
-                        position: absolute;
-                        border-radius: 50%;
-                        filter: blur(90px);
-                        will-change: transform, opacity;
-                        animation: blobFloat 16s ease-in-out infinite alternate;
-                    }
-                    .bg-blob-1 {
-                        width: 60vh;
-                        height: 60vh;
-                        left: -10%;
-                        top: -8%;
-                        background: var(--treesh-purple);
-                        opacity: 0.25;
-                        animation-duration: 18s;
-                    }
-                    .bg-blob-2 {
-                        width: 50vh;
-                        height: 50vh;
-                        right: -8%;
-                        top: 30%;
-                        background: var(--treesh-gold);
-                        opacity: 0.15;
-                        animation-duration: 22s;
-                        animation-delay: -3s;
-                    }
-                    .bg-blob-3 {
-                        width: 70vh;
-                        height: 70vh;
-                        left: 10%;
-                        bottom: -15%;
-                        background: var(--treesh-purple);
-                        opacity: 0.18;
-                        animation-duration: 20s;
-                        animation-delay: -6s;
-                    }
-                    @keyframes blobFloat {
-                        0% { transform: translate(0,0) scale(1) rotate(0deg); }
-                        33% { transform: translate(8%,-6%) scale(1.08) rotate(5deg); }
-                        66% { transform: translate(-6%,10%) scale(0.95) rotate(-3deg); }
-                        100% { transform: translate(4%,-4%) scale(1.04) rotate(4deg); }
-                    }
-                    .bg-layer::after {
-                        content: '';
-                        position: absolute;
-                        inset: 0;
-                        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.035'/%3E%3C/svg%3E");
-                        opacity: 0.5;
-                        pointer-events: none;
-                    }
-                    .container {
-                        max-width: 880px;
-                        margin: 0 auto;
-                        padding: 0 1.5rem 2.5rem;
-                        position: relative;
-                        z-index: 1;
-                    }
-                    @media (max-width: 640px) {
-                        body { padding: 1rem; }
-                        .container { padding: 0 1rem 2rem; }
-                        h1 { font-size: 2.2rem; }
-                        h2 { font-size: 1.4rem; }
-                        .glass, .glass-strong { padding: 1.2rem; }
-                    }
-                `;
-
-                const fullCSS = css + '\n' + blogCSS;
-
-                const doc = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <link rel="preconnect" href="https://fonts.googleapis.com">
-                        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Special+Gothic+Expanded+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-                        <style>${fullCSS}</style>
-                    </head>
-                    <body>
-                        <div class="bg-layer" aria-hidden="true">
-                            <div class="bg-blob bg-blob-1"></div>
-                            <div class="bg-blob bg-blob-2"></div>
-                            <div class="bg-blob bg-blob-3"></div>
-                        </div>
-                        <div class="container">
-                            ${postHTML}
-                        </div>
-                        <script>
-                            document.addEventListener('DOMContentLoaded', function() {
-                                const toggle = document.getElementById('readMoreToggle');
-                                const wrap = document.getElementById('readMoreWrap');
-                                if (toggle && wrap) {
-                                    toggle.addEventListener('click', function() {
-                                        const isOpen = wrap.classList.toggle('open');
-                                        this.classList.toggle('open', isOpen);
-                                        this.setAttribute('aria-expanded', isOpen);
-                                        this.textContent = isOpen ? 'Read less' : 'Read more';
-                                    });
-                                }
-                                document.querySelectorAll('.toc-link').forEach(link => {
-                                    link.addEventListener('click', function(e) {
-                                        e.preventDefault();
-                                        const target = document.querySelector(this.getAttribute('href'));
-                                        if (target) {
-                                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                        }
-                                    });
-                                });
-                            });
-                        <\/script>
-                    </body>
-                    </html>
-                `;
-
-                previewIframe.srcdoc = doc;
+            // ---- Render preview to iframes ----
+            function renderPreview(html) {
+                if (!html) return;
+                // Desktop preview (always visible on desktop)
+                desktopIframe.srcdoc = html;
+                // Hide placeholder
+                if (desktopPlaceholder) desktopPlaceholder.style.display = 'none';
+                // Mobile preview (only if open)
+                if (previewOpen) {
+                    mobileIframe.srcdoc = html;
+                }
             }
 
-            // ---- Copy HTML to clipboard ----
+            // ---- On form change (desktop: auto-update; mobile: cache only) ----
+            function onFormChange() {
+                cachedHTML = generatePostHTML();
+                if (!isMobile) {
+                    // Desktop: auto-update
+                    renderPreview(cachedHTML);
+                }
+                // On mobile: just cache it; preview updates when opened
+                // We already cached above.
+                // Also update the dot to indicate fresh content is available.
+                if (isMobile) {
+                    previewDot.style.animation = 'none';
+                    setTimeout(() => {
+                        previewDot.style.animation = 'pulse-dot 2s ease-in-out infinite';
+                    }, 10);
+                }
+            }
+
+            // ---- Update preview (for mobile button click) ----
+            function updateMobilePreview() {
+                // Generate fresh HTML
+                cachedHTML = generatePostHTML();
+                // Show the overlay and render
+                previewOpen = true;
+                previewOverlay.classList.add('open');
+                previewBtnLabel.textContent = 'Close';
+                renderPreview(cachedHTML);
+                // Hide dot since we just updated
+                previewDot.style.opacity = '0.4';
+                setTimeout(() => { previewDot.style.opacity = '1'; }, 300);
+            }
+
+            // ---- Close mobile preview ----
+            function closeMobilePreview() {
+                previewOpen = false;
+                previewOverlay.classList.remove('open');
+                previewBtnLabel.textContent = 'Preview';
+                // Don't update the iframe while closed
+            }
+
+            // ---- Toggle mobile preview ----
+            function toggleMobilePreview() {
+                if (previewOpen) {
+                    closeMobilePreview();
+                } else {
+                    updateMobilePreview();
+                }
+            }
+
+            // ---- Copy HTML ----
             function copyHTML() {
                 const fullHTML = generateStandaloneHTML();
                 navigator.clipboard.writeText(fullHTML).then(() => {
@@ -1883,7 +1713,6 @@
                     copyFeedback.classList.add('show');
                     setTimeout(() => copyFeedback.classList.remove('show'), 2500);
                 }).catch(() => {
-                    // Fallback
                     const textarea = document.createElement('textarea');
                     textarea.value = fullHTML;
                     document.body.appendChild(textarea);
@@ -1896,9 +1725,9 @@
                 });
             }
 
-            // ---- Clear everything (Start fresh) ----
+            // ---- Clear all ----
             function clearAll() {
-                if (!confirm('Clear all fields and start fresh? This cannot be undone.')) return;
+                if (!confirm('Clear all fields and start fresh?')) return;
                 document.getElementById('postTitle').value = '';
                 document.getElementById('postHighlight').value = '';
                 document.getElementById('postSubtitle').value = '';
@@ -1910,15 +1739,17 @@
                 document.getElementById('bottomText').value = '';
                 document.getElementById('ctaText').value = '';
                 document.getElementById('ctaUrl').value = '';
-                state.sections = [{
-                    id: '',
-                    heading: '',
-                    badges: [],
-                    content: '',
-                    readMore: true
-                }];
+                state.sections = [{ id: '', heading: '', badges: [], content: '', readMore: true }];
                 renderSections();
-                updatePreview();
+                // Clear preview
+                cachedHTML = '';
+                desktopIframe.srcdoc =
+                    `<html><body style='background:#0a0a0b;color:#f0f0f5;font-family:Manrope,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:2rem;'><div style='text-align:center;'><svg width='56' height='56' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.15)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='2' width='20' height='20' rx='2.18'/><line x1='8' y1='2' x2='8' y2='22'/><line x1='16' y1='2' x2='16' y2='22'/><line x1='2' y1='8' x2='22' y2='8'/><line x1='2' y1='16' x2='22' y2='16'/></svg><p style='color:rgba(255,255,255,0.25);font-size:1.1rem;margin-top:1rem;'>Fill out the form to see a live preview.</p></div></body></html>`;
+                if (desktopPlaceholder) desktopPlaceholder.style.display = 'flex';
+                if (previewOpen) {
+                    mobileIframe.srcdoc =
+                        `<html><body style='background:#0a0a0b;color:#f0f0f5;font-family:Manrope,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:2rem;'><div style='text-align:center;'><svg width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.15)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='2' width='20' height='20' rx='2.18'/><line x1='8' y1='2' x2='8' y2='22'/><line x1='16' y1='2' x2='16' y2='22'/><line x1='2' y1='8' x2='22' y2='8'/><line x1='2' y1='16' x2='22' y2='16'/></svg><p style='color:rgba(255,255,255,0.25);font-size:1rem;margin-top:0.8rem;'>Tap Preview to generate the post.</p></div></body></html>`;
+                }
             }
 
             // ---- Set current date/time ----
@@ -1928,59 +1759,93 @@
                 const month = String(now.getMonth() + 1).padStart(2, '0');
                 const day = String(now.getDate()).padStart(2, '0');
                 document.getElementById('postDate').value = `${year}-${month}-${day}`;
-                updatePreview();
+                onFormChange();
             }
+
             function setNowTime() {
                 const now = new Date();
                 const hours = String(now.getHours()).padStart(2, '0');
                 const mins = String(now.getMinutes()).padStart(2, '0');
                 document.getElementById('postTime').value = `${hours}:${mins}`;
-                updatePreview();
+                onFormChange();
+            }
+
+            // ---- Check screen size ----
+            function checkScreenSize() {
+                const wasMobile = isMobile;
+                isMobile = window.innerWidth < 1025;
+                if (isMobile !== wasMobile) {
+                    // Switched between desktop and mobile
+                    if (!isMobile) {
+                        // Switched to desktop: show preview panel, close overlay
+                        if (previewOpen) closeMobilePreview();
+                        // Auto-update desktop preview with latest cached content
+                        if (cachedHTML) {
+                            renderPreview(cachedHTML);
+                        } else {
+                            onFormChange(); // generate first preview
+                        }
+                    } else {
+                        // Switched to mobile: preview panel hidden, overlay closed
+                        previewOpen = false;
+                        previewOverlay.classList.remove('open');
+                        previewBtnLabel.textContent = 'Preview';
+                    }
+                }
             }
 
             // ---- Event listeners ----
-            document.getElementById('previewBtn').addEventListener('click', updatePreview);
-            document.getElementById('refreshPreviewBtn').addEventListener('click', updatePreview);
+            document.querySelectorAll('.gen-control').forEach(el => {
+                el.addEventListener('input', onFormChange);
+                el.addEventListener('change', onFormChange);
+            });
+
             document.getElementById('copyHtmlBtn').addEventListener('click', copyHTML);
             document.getElementById('clearBtn').addEventListener('click', clearAll);
             document.getElementById('nowDateBtn').addEventListener('click', setNowDate);
             document.getElementById('nowTimeBtn').addEventListener('click', setNowTime);
 
-            // Auto-update preview on any form input (except buttons)
-            document.querySelectorAll('.gen-control').forEach(el => {
-                el.addEventListener('input', updatePreview);
-                el.addEventListener('change', updatePreview);
+            previewToggleBtn.addEventListener('click', toggleMobilePreview);
+            closeOverlayBtn.addEventListener('click', closeMobilePreview);
+
+            // Also close overlay when clicking outside (on the backdrop)
+            previewOverlay.addEventListener('click', function(e) {
+                if (e.target === this) closeMobilePreview();
             });
 
             // Add section
             addSectionBtn.addEventListener('click', function() {
-                state.sections.push({
-                    id: '',
-                    heading: '',
-                    badges: [],
-                    content: '',
-                    readMore: true
-                });
+                state.sections.push({ id: '', heading: '', badges: [], content: '', readMore: true });
                 renderSections();
-                // Scroll to new section
                 const items = document.querySelectorAll('.gen-section-item');
-                if (items.length) {
-                    items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-                updatePreview();
+                if (items.length) items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                onFormChange();
             });
 
             // Wire up intro toolbar
             const introToolbar = document.querySelector('.gen-toolbar[data-target="postIntro"]');
             const introTextarea = document.getElementById('postIntro');
-            if (introToolbar && introTextarea) {
-                wireToolbar(introToolbar, introTextarea);
-            }
+            if (introToolbar && introTextarea) wireToolbar(introToolbar, introTextarea);
+
+            // Resize observer for screen changes
+            window.addEventListener('resize', checkScreenSize);
 
             // ---- Init ----
             renderSections();
-            // Start with a default preview placeholder — the iframe already shows a message.
-            // Optionally, we can auto-preview on first load, but we'll leave it manual.
+            // Generate initial preview for desktop
+            if (!isMobile) {
+                onFormChange();
+            } else {
+                // On mobile, just cache empty preview
+                cachedHTML = generatePostHTML();
+            }
+
+            // Handle escape key to close mobile preview
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && previewOpen) {
+                    closeMobilePreview();
+                }
+            });
 
         })();
     </script>
