@@ -8,7 +8,13 @@
 - Add **Lyric Card font size control** (user-adjustable, persisted; affects preview + export).
 - Add **sticky tabs behavior** for Settings and Games, with blur pills (no sticky-bar background) and correct scroll positioning.
 - Add **Custom Studio**: fully offline, client-side **custom music uploader** using IndexedDB for audio/cover blobs, integrated into Library as **My Music**.
-- (Acknowledged) Verse performer missing on `NEVER (Rock Version)` is due to **no section tags in source lyrics**; will be addressed later via Custom Lyrics Studio (tagging/heuristics).
+- Expand Custom Studio into a combined **Custom Studio → Lyric Studio** workflow (timestamped lyrics + verse labeling) and a standalone Lyric Studio entry.
+- Improve Library UX: filters, pagination, and empty-playlist “Add songs” flow.
+- Polish key playback UX: **Karaoke mode** smoothing + exit fullscreen.
+
+Constraints / non-goals:
+- **SoundCloud import is SKIPPED** (not freely feasible; API registration closed; ToS concerns).
+- No backend, no build steps, no npm/yarn. Single source of truth remains `/app/single_html/index.html`.
 
 ## 2. Implementation Steps
 
@@ -80,7 +86,7 @@
 - Canvas render applies `fontScale` multiplier while still respecting auto-fit & bounds.
 - Also fixed lyric line shimmer to be seamless (no abrupt restart).
 
-### Phase 2E — Sticky tabs (Settings + Games)
+#### Phase 2E — Sticky tabs (Settings + Games)
 **Status: DONE**
 
 **Settings**
@@ -96,10 +102,10 @@
 - Ensured sufficient scroll room via `min-h-[85vh]` on the game panel.
 
 ### Phase 3 — Custom Studio (Custom Music Upload)
-**Status: DONE (fully implemented and verified)**
+**Status: DONE (V1 implemented and verified)**
 
 **User stories**
-1. Tap “Add your music” in Library to import audio.
+1. Tap “Custom Studio” in Library to import audio.
 2. Attach cover art and edit full metadata.
 3. Imported tracks appear in Library under **My Music** and are playable.
 4. Remove imported tracks via Manage panel or song menu.
@@ -112,13 +118,11 @@
   - Prevents user tracks from being overwritten by the 60s catalog refresh.
   - User tracks never leak into localStorage catalog cache.
 
-- **Library UX**
-  - Added **My Music** chip (`__mine`) + dedicated heading.
-  - Hero CTA: **Add your music**.
-  - My Music section shows **Add** + **Manage** buttons.
-  - My Music empty-state CTA.
+- **Library UX (current)**
+  - Added **My Music** filter and UI.
+  - Hero CTA button renamed to **Custom Studio** (icon updated) and wrap alignment fixed.
 
-- **Custom Studio dialog**
+- **Custom Studio dialog (current)**
   - Tabs: Add track / Manage.
   - Full metadata fields: title*, artist, genre, album, featuring, writtenBy, producer, mixer, label, mood, videographer, release date, description, explicit.
   - Cover + Audio pickers.
@@ -128,48 +132,121 @@
     - Broadened `accept` to include MP3/M4A/etc MIME types + extensions.
   - Fixed dialog horizontal scrolling via `overflow-x-hidden` and shrinkable grid (`minmax(0,1fr)` + `min-w-0`).
 
-- **Manage uploads**
+- **Manage uploads (current)**
   - List uploads with play + delete.
   - Delete also available from track “⋯” menu as “Remove upload” with confirmation.
 
 **Verification done**
 - Upload → appears in My Music → plays (blob URL) → persists across reload → delete removes.
 
-### Phase 4 — Adding More Features (after V1 is stable)
+**Known issue / work in progress**
+- **Edit upload flow is IN PROGRESS** (edit button wiring + IDB update path).
 
-#### Phase 4A — Karaoke fixes (next priority)
+### Phase 4 — New Large Scope (user-approved; build in order; test each phase)
+
+> Global additions for this phase:
+> - **Badge text for user uploads:** `YOURS`
+> - **Library pagination setting:** options **12/24/50** (default **24**)
+> - **Multi-upload:** both supported:
+>   1) multi-file pick → editable list → **Save all**
+>   2) multi-file pick → **quick-save** (filename as title) → edit later
+> - **Lyric Studio:** both timestamping modes + more tools; integrate LyricFlow (user will resend file when needed)
+> - **SoundCloud import:** SKIPPED
+
+#### Phase 4A — Custom Studio core (V2)
+**Status: COMPLETED (verified via node --check + screenshot flows; no console errors)**
+
+**Delivered**
+1. Edit mode end-to-end: prefill all metadata + genre + cover, replace audio (optional), IndexedDB record updated in place via `idbGet`/`idbPut`. New `edit-upload` action wired.
+2. Audio preview player (play/pause + seek + duration) inside Custom Studio, for both a newly picked file and the existing track in edit mode. Cleaned up on modal close.
+3. Mobile layout: cover art capped/centered on phones, larger scroll area, no horizontal overflow.
+4. Duplicate "My Music" fixed: removed the `__mine` filter chip, filtered "My Music" out of catalog GENRES chips, added a dedicated **My Music section** (with YOURS cards) above the genre chips plus a dedicated full `viewMyMusic()` page reached via "See all".
+5. Custom-music storage indicator card in Account → Storage (track count, bytes used, gauge, free-space hint) via `updateCustomMusicStorage()`.
+
+**Extra user requests (same session) — COMPLETED**
+- Welcome/onboarding modal: removed the "Treesh 3.0" badge/text, replaced with the Treesh logo image (`treesh_logo.png`) and a "TREESH" text fallback (`brandFallback`) matching the top bar. Welcome heading is now "Welcome to Treesh".
+- Removed ALL em-dashes across the app (28 escaped + 8 literal) and reworded the affected copy to read naturally. Verified 0 remaining.
+
+#### Phase 4B — Power features
 **Status: NOT STARTED**
 
 **Goals**
-1. Smooth karaoke letter-by-letter highlight.
-2. Fullscreen karaoke has a clear exit button.
-3. Reduced motion disables karaoke animations.
+1. Multiple uploads at once:
+   - Select multiple files
+   - Show queue list with per-item editable metadata
+   - Save all / quick-save mode
+2. `YOURS` badge for user songs (especially when artist name matches an existing icon)
+3. Exclude custom songs from real artist/icon profile:
+   - When viewing an artist profile, filter out `song._user===true`
+   - Still allow these songs to exist in Library and My Music
+
+#### Phase 4C — Library UX upgrades
+**Status: NOT STARTED**
+
+**Goals**
+1. Empty playlist view → “Add songs” CTA
+2. “Add songs” modal:
+   - List **all songs**
+   - Search
+   - Filter/sort
+   - Multi-select + add to playlist
+3. New Library filter options
+4. Pagination:
+   - Show N at a time (setting: 12/24/50; default 24)
+   - “Load more” adds the next N
+   - Setting location: Settings → Library (new section) or Appearance (confirm placement during implementation)
+
+#### Phase 4D — Lyric Studio (LyricFlow integration)
+**Status: NOT STARTED**
+
+**Goals**
+- Integrate a full **Lyric Studio** into Custom Studio:
+  - Create/edit lyrics for tracks without them (e.g., `NEVER` by Savionce)
+  - Timestamp lyric lines while audio plays
+  - Ignore bracketed tags (e.g., `[Verse 1]`) during timestamp capture **but keep them as section labels**
+  - Verse labeling enables Verse Performer even when the source lyrics have no tags
+- Provide a standalone entry point for Lyric Studio (button somewhere appropriate)
+- Support timestamping modes:
+  1) Tap “Set time” while playing + nudge ±0.1s + manual edit
+  2) Manual mm:ss entry
+- Add rich tools inspired by the user’s **LyricFlow** file (user to resend when Phase 4D begins)
+
+### Phase 5 — Karaoke Polish
+**Status: NOT STARTED**
+
+**Goals**
+1. Smooth karaoke word-by-word highlight (remove choppiness)
+2. Fullscreen karaoke has a clear exit button
+3. Reduced motion disables karaoke animations
 
 **Implementation sketch**
 - Inspect karaoke highlight loop (CSS vs rAF); ensure stable frame scheduling.
 - Replace abrupt animation resets with continuous progress mapping.
-- Add an always-visible “Exit fullscreen” control.
+- Add always-visible “Exit fullscreen” control.
 
-#### Phase 4B — Custom Lyrics Creation Studio
+### Phase 6 — Instrum Studio Polish
 **Status: NOT STARTED**
 
 **Goals**
-- Create lyrics for tracks without them, with timestamping while audio plays.
-- Ignore bracketed tags like `[Verse 1]` during timestamping.
-- Enable verse/section labeling for tagless songs (e.g. `NEVER` by Savionce).
-
-#### Phase 4C — Instrum Studio Overhaul
-**Status: NOT STARTED**
-
-#### Phase 4D — Offline Rule-based Voice Controls Overhaul
-**Status: NOT STARTED**
-
-(Other future items remain queued: Library filters, LyricFlow integration, etc.)
+1. Smooth open transition
+2. Fix top row horizontal scroll
+3. Fix overlapping labels
 
 ## 3. Next Actions
-1. **Karaoke mode**: smooth letter animation + exit fullscreen.
-2. Start **Custom Lyrics Creation Studio** (timestamping + section tagging; fixes verse-label gaps).
-3. Proceed with Instrum Studio + Voice controls overhauls.
+1. **Phase 4A (Custom Studio core V2)**
+   - Finish Edit mode end-to-end (ALL metadata + cover + audio replace)
+   - Add audio preview before saving
+   - Fix My Music duplication + restructure My Music as a top section
+   - Add storage capacity indicator (Custom Studio) in Account settings
+2. **Phase 4B (Power features)**
+   - Multi-upload queue + Save all / quick-save
+   - `YOURS` badge + exclude user uploads from real icon profiles
+3. **Phase 4C (Library UX)**
+   - Empty-playlist add-songs modal
+   - Library filters + pagination setting (12/24/50)
+4. **Phase 4D (Lyric Studio)**
+   - Ask user to resend LyricFlow file and integrate
+5. Karaoke, then Instrum Studio polish
 
 ## 4. Success Criteria
 - Accessibility toggles apply instantly, persist across reload, and do not break layout.
@@ -178,7 +255,13 @@
 - Floating accessibility button is non-blocking and respects mini player.
 - Lyric card options do not jump to top; font size control persists and affects export.
 - Settings + Games tabs are sticky, visually consistent, blur behind pills, and tab switching scrolls to content top.
-- Custom Studio: upload/play/persist/delete works; stored blobs live in IndexedDB; survives catalog refresh; no console errors.
+- Custom Studio V1: upload/play/persist/delete works; stored blobs live in IndexedDB; survives catalog refresh; no console errors.
+- Custom Studio V2: edit works (all metadata + cover + audio replace), pre-save audio preview works, mobile layout is clean.
+- My Music is a single, clear top section (no duplicates) and user genres do not pollute catalog genres.
+- Multi-upload supports queue editing + Save all and quick-save.
+- User uploads show `YOURS` badge and do not appear as official tracks in icon profiles.
+- Library has add-songs modal for empty playlists, new filters, and pagination via settings.
+- Lyric Studio supports timestamping + section labels, enabling verse performer for tagless songs.
 
 ---
 **Notes / Constraints**
