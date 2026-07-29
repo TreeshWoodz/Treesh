@@ -333,3 +333,33 @@ Constraints / non-goals:
 - LyricFlow reference: `/app/lyricflow_reference.txt`.
 - **Critical**: All edits on `index.html` must be done via **strictly sequential** operations to avoid file corruption.
 - Testing after each milestone via screenshot tool + `node --check`.
+
+---
+
+## Phase 4E — Continuation (New Session)  (Status: In Progress)
+
+Confirmed with user (order + choices):
+
+### Task 1 — Verify Word Sync & LRC Import (P0)  [Status: In Progress]
+- Code already injected (`lsOpenWordSync`, `lswSetWord`, `lswSave`, `lsParseLRC`, `lsLoadLRC`).
+- Verify via screenshot: word-sync modal opens from sync-row button, spacebar sets words, save persists `words[]`.
+- Verify LRC paste/drop import parses `[mm:ss.xx]` lines and section `[tags]`.
+
+### Task 2 — Blog Page (P0)  [Status: Not Started]
+- Add new nav view `blog` (icon: newspaper) into `NAV` array.
+- `viewBlog()` renders an iframe of `https://treesh.app/blog` (post-redirect URL; confirmed no X-Frame-Options / CSP → embeddable).
+- Fallback: on iframe load error / timeout, show an "Open blog in new tab" button (user choice A).
+- Wire into `renderView` switch + route handling.
+
+### Task 3 — Instrum Studio Polish (P1)  [Status: Not Started]
+- Smooth the open animation (landing → studio).
+- Fix overlapping lane labels.
+- Fix top-row (transport) horizontal scrolling behavior.
+
+### Task 4 — Custom Music storage setting fix (P1)  [Status: Not Started]
+- Remove the progress bar + "About # MB of space is still free…" text from the Custom music card in Settings → Account → Storage & data.
+- Restyle Custom music into a normal storage-group-style row with a trash button (matches the other rows).
+- Trash button → delete ALL custom music (with confirm).
+- Provide a way to select/delete each track individually (open a manage modal listing each track with a delete button).
+
+**Testing:** Frontend via screenshot tool + `node --check` after each task. Onboarding must be Skipped in automation (click "Skip").
