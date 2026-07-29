@@ -268,3 +268,13 @@ Constraints / non-goals:
 - Single source of truth: `/app/single_html/index.html` (no backend).
 - Vanilla JS + Tailwind CDN only; no build steps.
 - All edits on `index.html` must be done via **strictly sequential** operations to avoid file corruption.
+
+---
+## Phase 4B / 4C - COMPLETED (verified via node --check + screenshot flows, 0 console errors)
+- **Artist Badge**: custom uploads are excluded from real Icon profiles (`buildArtistSongIndex` skips `_user` songs) and show a `YOURS` badge in both grid cards and list rows.
+- **Multiple uploads**: audio input accepts several files; picking 2+ opens an editable queue (title/artist/genre per track, remove, Start over) with "Save all"; single file keeps the normal detailed form.
+- **Library paging**: keyed pagination; default is **All** (options All/12/24/50 in Settings > Appearance) with a "Load N more" button + "Showing X of Y".
+- **My Music redesign**: the section now renders with the SAME song grid/list components as the library, with its own grid/list toggle (`state.mineGrid`) and pagination.
+- **Entry point simplified**: removed every "Custom Studio" button (hero + section + full view). The only entry is a single round **+** inline with the "My Music" heading.
+- **Cover Color Glow**: dominant cover color softly tints the Custom Studio (studio glow). Per the "look like the regular library" request, per-card glow was dropped so My Music cards match the standard library cards.
+- **Add form reordered**: Step 1 = Audio file (+ live preview), Step 2 = Track details (cover, title, artist, genre, album). Audio is chosen first, then details.
