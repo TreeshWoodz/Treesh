@@ -675,6 +675,47 @@
   input[type="date"].tdf-native::-webkit-calendar-picker-indicator{ opacity:0; }
   input[type="date"].tdf-native::-webkit-date-and-time-value{ color:transparent; }
 
+  /* ============================================================
+     LYRIC STUDIO (native LyricFlow rebuild)
+     ============================================================ */
+  #ls [data-ls-root]{ animation:lsIn .34s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes lsIn{ from{opacity:0;transform:translateY(2%)} to{opacity:1;transform:none} }
+  html.perf-mode #ls [data-ls-root]{ animation:none; }
+  .ls-tab{ position:relative; }
+  .ls-tab[aria-selected="true"]{ color:#fff; background:rgba(147,40,255,0.18); box-shadow:var(--treesh-glow-purple); }
+  .ls-tab[aria-selected="false"]{ color:rgba(255,255,255,0.6); }
+  /* sync line rows */
+  .ls-line{ transition:background-color .18s ease, border-color .18s ease; }
+  .ls-line.active{ background:rgba(147,40,255,0.16); border-color:rgba(147,40,255,0.55); box-shadow:inset 0 0 0 1px rgba(147,40,255,0.25); }
+  .ls-line.done .ls-ts{ color:var(--treesh-purple); }
+  .ls-ts{ font-family:'Doto','Manrope',monospace; }
+  .ls-section-row{ background:linear-gradient(90deg, rgba(147,40,255,0.12), transparent); }
+  /* big "set time" pulse */
+  @keyframes lsTap{ 0%{transform:scale(1)} 45%{transform:scale(0.94)} 100%{transform:scale(1)} }
+  .ls-tap-anim{ animation:lsTap .18s ease; }
+  html.perf-mode .ls-tap-anim{ animation:none; }
+
+  /* ============================================================
+     KARAOKE STAGE (LyricFlow-style) - used inside #np-karaoke
+     ============================================================ */
+  #np-karaoke.kstage{ display:block; position:relative; }
+  .kstage-glow{ position:absolute; top:22%; left:50%; width:min(560px,80vw); height:min(560px,80vw); transform:translate(-50%,-50%); background:radial-gradient(circle, var(--treesh-purple-soft) 0%, transparent 62%); filter:blur(90px); pointer-events:none; opacity:.6; animation:kGlow 6s ease-in-out infinite alternate; z-index:0; }
+  @keyframes kGlow{ 0%{transform:translate(-50%,-50%) scale(1);opacity:.4} 100%{transform:translate(-50%,-56%) scale(1.14);opacity:.7} }
+  html.perf-mode .kstage-glow{ animation:none; }
+  .kstage-scroll{ position:absolute; left:0; right:0; top:0; z-index:1; width:100%; display:flex; flex-direction:column; align-items:center; gap:0; padding:44vh 0; transition:transform .5s cubic-bezier(.22,1,.36,1); }
+  html.perf-mode .kstage-scroll{ transition:none; }
+  .k-line{ width:100%; max-width:min(92vw,52rem); box-sizing:border-box; text-align:center; font-weight:700; color:rgba(255,255,255,0.20); padding:12px 20px; line-height:1.5; border-radius:16px; font-size:1.15rem; overflow-wrap:anywhere; transition:color .35s ease, font-size .35s ease, opacity .35s ease, transform .45s cubic-bezier(.22,1,.36,1), background-color .35s ease; will-change:transform,opacity; }
+  .k-line .k-char{ transition:color .09s ease, text-shadow .14s ease; }
+  .k-line.active .k-char{ color:rgba(255,255,255,0.4); }
+  .k-line.active .k-char.lit{ color:#fff; text-shadow:0 0 18px var(--treesh-purple-soft), 0 0 44px rgba(147,40,255,0.30); }
+  .k-line.active .k-char.lit-edge{ color:#f0e4ff; text-shadow:0 0 12px var(--treesh-purple-soft); }
+  .k-line.active{ color:rgba(255,255,255,0.98); font-size:clamp(1.6rem,5.4vw,2.6rem); padding:18px 26px; background:linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); border:1px solid rgba(255,255,255,0.08); box-shadow:0 4px 46px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.05); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .k-line.near{ color:rgba(255,255,255,0.42); font-size:clamp(1.05rem,3.2vw,1.35rem); }
+  .k-line.past{ color:rgba(255,255,255,0.28); }
+  .k-line.past .k-char.lit{ color:rgba(255,255,255,0.34); text-shadow:none; }
+  html.perf-mode .k-line{ transition:color .12s linear, font-size .12s linear; }
+  [data-theme="light"] .k-line, html.theme-light .k-line{ color:rgba(0,0,0,0.16); }
+  [data-np-root].np-kar-full .kstage-scroll{ gap:0; }
 
 </style>
 </head>
@@ -687,6 +728,7 @@
   <div id="profile"></div>
   <div id="searchlay"></div>
   <div id="modal"></div>
+  <div id="ls"></div>
   <div id="instrum-fs"></div>
   <div id="lock"></div>
   <div id="imenu"></div>
@@ -1063,6 +1105,7 @@ const state = {
   profileOpen: false, profileTab: "favorites", settingsTab: "display",
   searchOpen: false, searchTab: "songs", searchQuery: "", searchFilter: "all", searchSort: "relevance", recentSearches: LS.get("treesh_recent_searches", []),
   karaoke: false, lyricsEdit: false, lyricEdits: LS.get("treesh_lyric_edits", {}),
+  lsOpen: false, ls: null,
   lyricSelect: false, lyricSel: [],
   studio: null, game: null, tot: null,
   perfMode: LS.get("treesh_perf", false),
@@ -1176,7 +1219,7 @@ function applyLabelStyle(){ const L=state.label||{}; const rs=document.documentE
 
 /* ---------- scroll lock (blocks background scroll under overlays on mobile) ---------- */
 let _locked=false, _scrollLockY=0;
-function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
+function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.lsOpen||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
 function syncScrollLock(){ const on=overlaysOpen(); if(on===_locked) return; _locked=on; const b=document.body; if(on){ _scrollLockY=window.scrollY||window.pageYOffset||0; b.style.top="-"+_scrollLockY+"px"; b.style.left="0"; b.style.right="0"; b.style.width="100%"; b.style.position="fixed"; b.classList.add("tr-locked"); } else { b.classList.remove("tr-locked"); b.style.position=""; b.style.top=""; b.style.left=""; b.style.right=""; b.style.width=""; window.scrollTo(0,_scrollLockY); } }
 
 /* ---------- Starlites reward points ---------- */
@@ -1522,7 +1565,9 @@ function renderShell(){
   $("#app").innerHTML=`
   <aside class="nav-glass fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
     <div class="px-6 pb-4 pt-6"><img src="treesh_logo.png" alt="Treesh" draggable="false" class="h-9 w-auto select-none object-contain" onerror="brandFallback(this)"><p class="brand-fallback font-display text-2xl uppercase tracking-[0.1em] text-white" style="display:none">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Music to Live For</p></div>
-    <nav class="flex flex-col gap-1 px-3">${NAV.map(n=>navItem(n[0],n[1],n[2],false)).join("")}</nav>
+    <nav class="flex flex-col gap-1 px-3">${NAV.map(n=>navItem(n[0],n[1],n[2],false)).join("")}
+      <button data-act="ls-picker" data-testid="nav-lyric-studio" aria-label="Lyric Studio" title="Lyric Studio" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"><i data-lucide="captions" style="width:18px;height:18px"></i><span class="nav-label">Lyric Studio</span></button>
+    </nav>
     <div class="mx-3 my-2 h-px bg-white/8"></div>
     ${sidebarLibraryHtml()}
     <div class="px-3 pb-2 pt-2"><button data-act="open-profile" data-testid="sidebar-profile-button" class="press flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.07]"><span class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-white/15 bg-white/5">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="text-sm font-semibold text-white/70">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(p.nickname||'Treesh Fan')}</span><span class="clamp-1 block text-[11px] text-white/50">${(()=>{const z=zodiac(p.birthday);return z?esc(z)+' \u00B7 View profile':'View profile';})()}</span></span><i data-lucide="chevron-right" style="width:16px;height:16px" class="shrink-0 text-white/40"></i></button></div>
@@ -1765,7 +1810,7 @@ function viewMyMusic(){
   const mmPlus=`<button data-act="add-music-open" data-testid="add-music-inline" aria-label="Open Custom Studio to add music" class="press grid h-8 w-8 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white hover:opacity-90 glow-purple align-middle"><i data-lucide="plus" style="width:17px;height:17px"></i></button>`;
   let html=`<div class="space-y-6"><button data-act="genre" data-genre="all" data-testid="my-music-back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back to Library</button>
     <section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div>
-      <div class="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">On this device</p><h1 class="mt-2 flex items-center gap-2 text-3xl font-bold sm:text-4xl"><i data-lucide="disc-3" class="text-[color:var(--treesh-purple)]" style="width:28px;height:28px"></i>My Music ${mmPlus}</h1><p class="mt-1 text-sm text-white/60">${list.length} custom track${list.length!==1?'s':''}</p></div></div>
+      <div class="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">On this device</p><h1 class="mt-2 flex items-center gap-2 text-3xl font-bold sm:text-4xl"><i data-lucide="disc-3" class="text-[color:var(--treesh-purple)]" style="width:28px;height:28px"></i>My Music ${mmPlus}<button data-act="ls-picker" data-testid="my-music-lyric-studio" aria-label="Open Lyric Studio" title="Lyric Studio" class="press grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10 align-middle"><i data-lucide="captions" style="width:16px;height:16px"></i></button></h1><p class="mt-1 text-sm text-white/60">${list.length} custom track${list.length!==1?'s':''}</p></div></div>
     </section>`;
   if(!list.length){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-16 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="upload" style="width:26px;height:26px"></i></span><p class="text-lg font-semibold">No custom tracks yet</p><p class="max-w-sm text-sm text-white/50">Tap the + above to upload audio with cover art and full details. Tracks are saved on this device and play right inside Treesh.</p></div>`; }
   else{ html+=`<section><div class="mb-3 flex items-center justify-between gap-3"><span></span><div class="flex items-center gap-2">${viewToggle("mine-view",state.mineGrid)}</div></div>${listHtml}${loadMoreBar(pg)}</section>`; }
@@ -3171,46 +3216,53 @@ function copyLyricLines(songId, idxs){ const s=SONG_BY_ID[songId]; if(!s||!idxs|
 function pauseLyricAutoScroll(){ _lyricUserScrollUntil=Date.now()+15000; const rb=document.getElementById("lyric-resume"); if(rb) rb.classList.remove("hidden"); }
 function resumeLyricAutoScroll(){ _lyricUserScrollUntil=0; const rb=document.getElementById("lyric-resume"); if(rb) rb.classList.add("hidden"); updateLyricHighlight(true); }
 
-function karaokeStageHtml(){ return `<div class="relative min-h-0 flex-1 overflow-hidden"><div id="np-karaoke" data-testid="karaoke-stage" class="flex h-full w-full flex-col items-center justify-center gap-4 overflow-hidden px-3 text-center sm:gap-6"></div></div>`; }
-let _karRAF=null, _karSpans=null;
+function karaokeStageHtml(){ return `<div class="relative min-h-0 flex-1 overflow-hidden"><div class="kstage-glow"></div><div id="np-karaoke" data-testid="karaoke-stage" class="kstage relative h-full w-full overflow-hidden px-2"><div id="kstage-scroll" class="kstage-scroll"></div></div></div>`; }
+let _karRAF=null, _karSpans=null, _karLineEls=[], _karTimes=[], _karSongSig="";
 function karaokeActive(){ return !!(state.npOpen && state.showLyrics && state.karaoke); }
-function buildKaraokeLine(force){
-  const stage=$("#np-karaoke"); if(!stage) return -1;
+/* Build the full stacked lyric stage once (persistent DOM); rebuilt only when the
+   song or line count changes. Each line pre-rendered as char spans for smooth fill. */
+function buildKaraokeStage(){
+  const scroll=$("#kstage-scroll"); if(!scroll) return false;
   const s=curSong(); const lines=(s&&s.lyrics)||[];
-  if(!lines.length){ if(force){ stage.innerHTML=`<div class="flex flex-col items-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available.</p></div>`; icons(); } _karSpans=null; _karIdx=-1; return -1; }
-  const t=state.currentTime; let idx=-1; for(let i=0;i<lines.length;i++){ if(lines[i].t<=t) idx=i; else break; }
-  if(idx<0) idx=0;
-  if(idx!==_karIdx||force){
-    _karIdx=idx;
-    const prev=lines[idx-1], cur=lines[idx], next=lines[idx+1];
-    const curText=(cur&&cur.text)||"";
-    const chars=[...curText].map((ch)=> ch===" " ? " " : `<span class="kar-ch">${esc(ch)}</span>`).join("");
-    stage.innerHTML=`<p class="clamp-2 min-h-[1.4em] w-full max-w-[92vw] break-words px-2 text-base text-white/25 sm:max-w-2xl sm:text-lg">${prev?esc(prev.text||""):""}</p>
-      <p id="kar-cur" class="kar-line-in w-full max-w-[92vw] break-words px-1 text-[24px] font-extrabold leading-tight tracking-tight sm:max-w-3xl sm:text-4xl lg:text-5xl">${chars||"&nbsp;"}</p>
-      <p class="clamp-2 min-h-[1.4em] w-full max-w-[92vw] break-words px-2 text-base text-white/25 sm:max-w-2xl sm:text-lg">${next?esc(next.text||""):""}</p>`;
-    _karSpans=stage.querySelectorAll("#kar-cur .kar-ch");
-    updatePerformer(cur&&cur.sec);
-  }
-  return idx;
-}
-function paintKaraoke(idx){
-  const s=curSong(); const lines=(s&&s.lyrics)||[]; if(!lines.length) return;
-  const cur=lines[idx], next=lines[idx+1];
-  const start=cur?cur.t:0; const end=next?next.t:((state.duration||start+3));
-  let span=(end-start); if(!isFinite(span)||span<=0) span=3;
-  const dur=Math.max(0.4, span-0.12);
-  let p=(state.currentTime-start)/dur; p=Math.max(0,Math.min(1,p));
-  const spans=_karSpans; if(!spans||!spans.length) return;
-  const N=spans.length; const fpos=p*N; const perf=state.perfMode;
-  for(let i=0;i<N;i++){ let cp=fpos-i; cp=cp<0?0:(cp>1?1:cp); if(perf) cp=cp>=0.5?1:0; const sp=spans[i]; sp.style.setProperty("--cp",cp.toFixed(3)); const lit=cp>=0.999; if(lit!==sp._lit){ sp._lit=lit; sp.classList.toggle("lit",lit); } }
+  const sig=(s?s.id:'')+'|'+lines.length;
+  if(sig===_karSongSig && _karLineEls.length===lines.length && scroll.childElementCount){ return true; }
+  _karSongSig=sig;
+  if(!lines.length){ scroll.innerHTML=`<div class="flex flex-col items-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available.</p></div>`; icons(); _karLineEls=[]; _karTimes=[]; _karSpans=null; _karIdx=-1; return false; }
+  _karTimes=lines.map(l=>l.t||0);
+  scroll.innerHTML=lines.map((l,i)=>{ const txt=(l.text||""); const chars=[...txt].map(ch=> ch===" " ? '<span class="k-char">&nbsp;</span>' : `<span class="k-char">${esc(ch)}</span>`).join(""); return `<div class="k-line" data-k="${i}">${chars||'&nbsp;'}</div>`; }).join("");
+  _karLineEls=[...scroll.querySelectorAll(".k-line")];
+  _karSpans=null; _karIdx=-1;
+  return true;
 }
 function updateKaraoke(force){
   if(!karaokeActive()) return;
-  const idx=buildKaraokeLine(force);
-  if(idx>=0) paintKaraoke(idx);
+  if(force || !_karLineEls.length){ if(!buildKaraokeStage()) return; }
+  const scroll=$("#kstage-scroll"), stage=$("#np-karaoke"); if(!scroll||!stage||!_karLineEls.length) return;
+  const s=curSong(); const lines=(s&&s.lyrics)||[];
+  const perf=state.perfMode;
+  const t=state.currentTime; let idx=-1; for(let i=0;i<_karTimes.length;i++){ if(_karTimes[i]<=t) idx=i; else break; }
+  if(idx<0) idx=0;
+  if(idx!==_karIdx||force){
+    _karIdx=idx;
+    _karLineEls.forEach((el,i)=>{ const a=(i===idx); const p=(i<idx); if(el._a!==a){ el._a=a; el.classList.toggle("active",a); } if(el._p!==p){ el._p=p; el.classList.toggle("past",p); }
+      if(i<idx){ el.querySelectorAll(".k-char:not(.lit)").forEach(c=>{ c.classList.add("lit"); c.classList.remove("lit-edge"); c._lit=true; c._edge=false; }); }
+      else if(i>idx){ el.querySelectorAll(".k-char.lit,.k-char.lit-edge").forEach(c=>{ c.classList.remove("lit","lit-edge"); c._lit=false; c._edge=false; }); }
+    });
+    const el=_karLineEls[idx]; if(el){ const target=(stage.clientHeight/2)-(el.offsetTop+el.offsetHeight/2); scroll.style.transform="translateY("+target+"px)"; }
+    _karSpans=el?[...el.querySelectorAll(".k-char")]:null;
+    updatePerformer((lines[idx]||{}).sec);
+  }
+  const spans=_karSpans; if(spans&&spans.length){
+    const start=_karTimes[idx]||0; const next=(idx+1<_karTimes.length)?_karTimes[idx+1]:((state.duration||start+3));
+    let span=next-start; if(!isFinite(span)||span<=0) span=3;
+    const dur=Math.max(0.4, span-0.12);
+    let p=(state.currentTime-start)/dur; p=Math.max(0,Math.min(1,p));
+    const N=spans.length; const litCount=p*N;
+    for(let i=0;i<N;i++){ const sp=spans[i]; let lit=false, edge=false; if(perf){ lit=(i<Math.round(litCount)); } else { if(i<Math.floor(litCount)) lit=true; else if(i<Math.ceil(litCount)&&(litCount%1)>0.15) edge=true; } if(sp._lit!==lit){ sp._lit=lit; sp.classList.toggle("lit",lit); } if(sp._edge!==edge){ sp._edge=edge; sp.classList.toggle("lit-edge",edge); } }
+  }
 }
 function karLoop(){ if(!karaokeActive()){ _karRAF=null; return; } updateKaraoke(false); _karRAF=requestAnimationFrame(karLoop); }
-function startKaraokeLoop(){ if(_karRAF||!karaokeActive()||state.perfMode) return; _karRAF=requestAnimationFrame(karLoop); }
+function startKaraokeLoop(){ if(_karRAF||!karaokeActive()) return; _karRAF=requestAnimationFrame(karLoop); }
 function stopKaraokeLoop(){ if(_karRAF){ cancelAnimationFrame(_karRAF); _karRAF=null; } }
 function lyricsEditorHtml(s){ const lines=(s.lyrics||[]); return `<div class="relative min-h-0 flex-1"><div id="np-lyrics-edit" class="no-scrollbar h-full space-y-1.5 overflow-y-auto px-1 py-2">${ lines.length ? lines.map((l,i)=>`<div class="flex items-center gap-2"><span class="w-6 shrink-0 text-right font-doto text-[11px] text-white/30">${i+1}</span><input data-li="${i}" data-t="${l.t}" value="${esc(l.text)}" data-testid="lyric-edit-input-${i}" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-base text-white outline-none focus:border-white/30"></div>`).join("") : `<p class="py-10 text-center text-sm text-white/50">No lyrics available to edit.</p>` }</div></div>`; }
 function reportLyrics(s){ if(!s) return; let lines; const inputs=[...document.querySelectorAll("#np-lyrics-edit [data-li]")]; if(inputs.length){ lines=inputs.map(i=>i.value); } else { lines=(s.lyrics||[]).map(l=>l.text); } const body=`Song: ${s.title}\nArtist: ${s.artist}\n\n--- Corrected lyrics ---\n${lines.join("\n")}\n\n--- What was wrong? ---\n`; const url=`mailto:${REPORT_EMAIL}?subject=${encodeURIComponent("Lyric correction: "+s.title+" by "+s.artist)}&body=${encodeURIComponent(body)}`; window.location.href=url; toast("Opening your email app\u2026","Report for "+s.title); }
@@ -3442,7 +3494,7 @@ function lyricBodyHtml(s){
      <button data-act="sel-make-card" data-sel-needs data-testid="sel-make-card" class="press flex-1 inline-flex flex-col items-center justify-center gap-1 rounded-xl bg-[color:var(--treesh-purple)] py-2 text-[11px] font-bold text-white glow-purple ${needCls}"><i data-lucide="wand-sparkles" style="width:16px;height:16px"></i>Card</button>
    </div>` : '';
   const scrollPad = sel ? 'pt-3 pb-24' : 'py-[30%] lg:py-[22%]';
-  const emptyMsg = `<div class="flex h-full flex-col items-center justify-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p></div>`;
+  const emptyMsg = `<div class="flex h-full flex-col items-center justify-center gap-4 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p><button data-act="ls-open" data-id="${s.id}" data-testid="np-add-lyrics" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold text-white glow-purple"><i data-lucide="captions" style="width:16px;height:16px"></i>Add lyrics</button><p class="max-w-[16rem] text-center text-xs text-white/35">Open Lyric Studio to type and time lyrics for this song.</p></div>`;
   const resumeBtn = sel ? '' : `<button id="lyric-resume" data-act="lyric-resume" data-testid="lyric-resume-button" class="lyric-resume-in absolute bottom-3 left-1/2 z-20 hidden inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-3.5 py-2 text-xs font-semibold text-white shadow-[var(--treesh-shadow)] backdrop-blur-xl hover:bg-black/70"><i data-lucide="arrow-down-to-line" style="width:14px;height:14px"></i>Resume auto-scroll</button>`;
   const lyricsScroller=`<div class="relative min-h-0 flex-1"><div id="np-lyrics" class="h-full overflow-y-auto no-scrollbar px-1 ${scrollPad}">${ lines.length ? lines.map((l,i)=>npLyricLineHtml(s,l,i)).join("") : emptyMsg }</div>
     ${resumeBtn}${selBar}</div>`;
@@ -3601,6 +3653,341 @@ function closeModal(){
 }
 function modalWrap(inner, testid, size){ const mw=size==="lg"?"max-w-lg":size==="xl"?"max-w-xl":"max-w-md"; return `<div data-act="modal-backdrop" class="fixed inset-0 z-[210] grid place-items-center bg-black/60 p-4 backdrop-blur-sm backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="glass-strong panel-in relative w-full ${mw} rounded-2xl border-white/15 p-5 text-white">${inner}</div></div>`; }
 
+/* ============================================================
+   LYRIC STUDIO  (native LyricFlow rebuild - timestamp lyrics)
+   Bridges into Treesh's existing lyric system:
+     state.lyricEdits[songId] = [{t,text,sec,explain}]  (persisted)
+   Uses a DEDICATED audio element so it never fights the main player.
+   ============================================================ */
+const _lsAudio = new Audio(); _lsAudio.preload="metadata";
+
+function lsFmt(t){ if(!isFinite(t)||t<0) t=0; const m=Math.floor(t/60), s=Math.floor(t%60); return m+":"+(s<10?"0":"")+s; }
+function lsFmtLRC(t){ if(!isFinite(t)||t<0) t=0; const m=Math.floor(t/60), s=Math.floor(t%60), cs=Math.floor((t%1)*100); return ("0"+m).slice(-2)+":"+("0"+s).slice(-2)+"."+("0"+cs).slice(-2); }
+function lsParseTS(str){ if(str==null) return null; str=String(str).replace(/[\[\]]/g,"").trim(); if(!str) return null; const m=str.match(/^(\d+):(\d+(?:\.\d+)?)$/); if(m) return parseInt(m[1],10)*60+parseFloat(m[2]); const n=parseFloat(str); return isNaN(n)?null:n; }
+function lsIsSection(text){ return /^\s*\[[^\]]+\]\s*$/.test(text||""); }
+function lsSectionLabel(text){ const m=(text||"").match(/^\s*\[([^\]]+)\]\s*$/); return m?m[1].trim():(text||"").trim(); }
+
+/* Convert a song's stored lyrics into editable session items (keeps sections) */
+function lsItemsFromSong(s){
+  const items=[]; const lines=(s&&s.lyrics)||[]; let lastSec=null;
+  lines.forEach(l=>{
+    if(l.sec && l.sec!==lastSec){ items.push({type:'section', text:l.sec}); lastSec=l.sec; }
+    if(l.text && String(l.text).trim()) items.push({type:'line', t:(typeof l.t==='number'?l.t:null), text:l.text, explain:l.explain||""});
+  });
+  return items;
+}
+/* Parse the Write-mode textarea into items, preserving timestamps for line rows
+   that stayed at the same relative position (by order among line rows). */
+function lsParseWriteText(text, prevItems){
+  const prevTimes=(prevItems||[]).filter(it=>it.type==='line').map(it=>({t:it.t,text:(it.text||'').trim()}));
+  const items=[]; let li=0;
+  (text||'').split(/\r?\n/).forEach(raw=>{
+    const line=raw.replace(/\s+$/,'');
+    if(!line.trim()) return;
+    if(lsIsSection(line)){ items.push({type:'section', text:lsSectionLabel(line)}); return; }
+    let t=null;
+    if(prevTimes[li]){ if(prevTimes[li].text===line.trim()) t=prevTimes[li].t; }
+    items.push({type:'line', t, text:line.trim(), explain:''}); li++;
+  });
+  return items;
+}
+function lsItemsToText(items){ return (items||[]).map(it=> it.type==='section' ? ('['+ (it.text||'').replace(/^\[|\]$/g,'') +']') : (it.text||'')).join("\n"); }
+function lsLineRows(){ const out=[]; (state.ls.items||[]).forEach((it,i)=>{ if(it.type==='line') out.push(i); }); return out; }
+function lsFirstUnstamped(){ const items=state.ls.items||[]; for(let i=0;i<items.length;i++){ if(items[i].type==='line' && items[i].t==null) return i; } const rows=lsLineRows(); return rows.length?rows[0]:-1; }
+function lsStampedCount(){ return (state.ls.items||[]).filter(it=>it.type==='line' && it.t!=null).length; }
+
+/* ---- open / close ---- */
+function openLyricSync(songId){
+  const s=SONG_BY_ID[songId]; if(!s){ toast("Song not found"); return; }
+  try{ if(typeof audio!=='undefined') audio.pause(); }catch(e){}
+  const items=lsItemsFromSong(s);
+  const hasAudio=!!s.audioUrl;
+  state.ls={ songId, title:s.title||"", artist:s.artist||"", album:s.album||"",
+    mode: items.some(it=>it.type==='line'&&it.t!=null) ? 'sync' : (items.length? 'sync':'write'),
+    items, idx:-1, cur:0, dur:0, playing:false, rate:1, hasAudio, dirty:false };
+  if(!items.length) state.ls.mode='write';
+  state.ls.idx = lsFirstUnstamped();
+  state.lsOpen=true;
+  try{ _lsAudio.pause(); }catch(e){}
+  if(hasAudio){ try{ if(_lsAudio.src!==s.audioUrl) _lsAudio.src=s.audioUrl; _lsAudio.load(); }catch(e){} }
+  else { try{ _lsAudio.removeAttribute('src'); }catch(e){} }
+  _lsAudio.playbackRate=1;
+  renderLS(); syncScrollLock();
+}
+function closeLS(force){
+  if(state.ls && state.ls.dirty && !force){
+    openConfirm("Discard lyric changes?","Your unsaved timestamps and edits will be lost.",()=>{ closeLS(true); });
+    return;
+  }
+  try{ _lsAudio.pause(); }catch(e){}
+  if(_lsRAFrame){ cancelAnimationFrame(_lsRAFrame); _lsRAFrame=null; }
+  state.lsOpen=false; state.ls=null;
+  const c=$("#ls"); if(c) c.innerHTML="";
+  syncScrollLock();
+}
+
+/* ---- transport ---- */
+let _lsRAFrame=null;
+function lsTogglePlay(){ if(!state.ls||!state.ls.hasAudio) { toast("No audio for this track","Add lyrics manually in Write mode"); return; } if(_lsAudio.paused){ const p=_lsAudio.play(); if(p&&p.catch) p.catch(()=>{}); } else _lsAudio.pause(); }
+function lsSeekBy(d){ if(!state.ls||!state.ls.hasAudio) return; try{ _lsAudio.currentTime=Math.max(0,Math.min((_lsAudio.duration||0),(_lsAudio.currentTime||0)+d)); }catch(e){} }
+function lsSeekTo(t){ if(!state.ls||!state.ls.hasAudio) return; try{ _lsAudio.currentTime=Math.max(0,t||0); }catch(e){} }
+function lsSetRate(){ if(!state.ls) return; const cyc={1:0.75,0.75:0.5,0.5:1}; state.ls.rate=cyc[state.ls.rate]||1; _lsAudio.playbackRate=state.ls.rate; const b=$("#ls-rate"); if(b) b.textContent=state.ls.rate+"x"; }
+_lsAudio.addEventListener("timeupdate",()=>{ if(!state.lsOpen||!state.ls) return; state.ls.cur=_lsAudio.currentTime||0; lsUpdateTransport(); });
+_lsAudio.addEventListener("loadedmetadata",()=>{ if(!state.lsOpen||!state.ls) return; state.ls.dur=_lsAudio.duration||0; lsUpdateTransport(); });
+_lsAudio.addEventListener("play",()=>{ if(!state.lsOpen||!state.ls) return; state.ls.playing=true; lsUpdatePlayIcon(); });
+_lsAudio.addEventListener("pause",()=>{ if(!state.lsOpen||!state.ls) return; state.ls.playing=false; lsUpdatePlayIcon(); });
+_lsAudio.addEventListener("ended",()=>{ if(!state.lsOpen||!state.ls) return; state.ls.playing=false; lsUpdatePlayIcon(); });
+function lsUpdatePlayIcon(){ const b=$("#ls-play i"); if(b){ b.setAttribute("data-lucide", state.ls.playing?"pause":"play"); icons(); } }
+function lsUpdateTransport(){ if(!state.ls) return; const cur=state.ls.cur||0, dur=state.ls.dur||0; const cE=$("#ls-cur"); if(cE) cE.textContent=lsFmt(cur); const dE=$("#ls-dur"); if(dE) dE.textContent=lsFmt(dur); const sk=$("#ls-seek"); if(sk && !sk._drag){ sk.value=dur?(cur/dur*100):0; fillSlider(sk); } }
+
+/* ---- sync editing ---- */
+function lsMarkDirty(){ if(state.ls) state.ls.dirty=true; const d=$("#ls-dirty"); if(d) d.classList.remove("hidden"); }
+function lsSetActive(i, scroll){ const rows=$$("#ls-lines .ls-line"); rows.forEach(r=>r.classList.toggle("active", +r.dataset.lsI===i)); if(state.ls) state.ls.idx=i; const stamp=$("#ls-next-label"); if(stamp){ const it=state.ls.items[i]; stamp.textContent= it? (it.type==='line'? '"'+((it.text||'').slice(0,42)||'(empty line)')+'"' : '['+it.text+']') : 'End of lyrics'; } if(scroll!==false){ const el=$('#ls-lines .ls-line[data-ls-i="'+i+'"]'); const cont=$("#ls-lines"); if(el&&cont){ const cr=cont.getBoundingClientRect(), er=el.getBoundingClientRect(); const target=cont.scrollTop+(er.top-cr.top)-cont.clientHeight/2+er.height/2; cont.scrollTo({top:Math.max(0,target), behavior: state.perfMode?'auto':'smooth'}); } } }
+function lsNextLineRow(from){ const items=state.ls.items||[]; for(let i=from+1;i<items.length;i++){ if(items[i].type==='line') return i; } return -1; }
+function lsRefreshRowTs(i){ const el=$('#ls-lines .ls-line[data-ls-i="'+i+'"]'); if(!el) return; const it=state.ls.items[i]; const ts=el.querySelector(".ls-ts"); if(ts){ ts.textContent= (it.t!=null)? lsFmt(it.t) : '\u2013\u2013:\u2013\u2013'; el.classList.toggle("done", it.t!=null); } }
+function lsStampCurrent(){
+  if(!state.ls) return;
+  let i=state.ls.idx; const items=state.ls.items;
+  if(i<0 || !items[i] || items[i].type!=='line'){ i=lsFirstUnstamped(); if(i<0){ toast("No lines to time"); return; } }
+  items[i].t=+(state.ls.hasAudio? (_lsAudio.currentTime||0) : (state.ls.cur||0)).toFixed(2);
+  lsMarkDirty(); lsRefreshRowTs(i);
+  const btn=$("#ls-set-btn"); if(btn){ btn.classList.remove("ls-tap-anim"); void btn.offsetWidth; btn.classList.add("ls-tap-anim"); }
+  if(navigator.vibrate){ try{ navigator.vibrate(8); }catch(e){} }
+  const nxt=lsNextLineRow(i);
+  lsSetActive(nxt>=0?nxt:i);
+  lsUpdateProgressPill();
+}
+function lsUpdateProgressPill(){ const p=$("#ls-progress-pill"); if(p){ p.textContent=lsStampedCount()+" / "+lsLineRows().length+" timed"; } }
+function lsNudge(i,d){ const it=state.ls.items[i]; if(!it) return; it.t=Math.max(0, +(((it.t!=null?it.t:(state.ls.cur||0))+d)).toFixed(2)); lsMarkDirty(); lsRefreshRowTs(i); }
+function lsDeleteItem(i){ state.ls.items.splice(i,1); lsMarkDirty(); if(state.ls.idx>=state.ls.items.length) state.ls.idx=state.ls.items.length-1; lsRenderBody(); }
+function lsInsertItem(i, type, where){ const at= where==='above'? i : i+1; state.ls.items.splice(at,0, type==='section'?{type:'section',text:'Section'}:{type:'line',t:null,text:'',explain:''}); lsMarkDirty(); lsRenderBody(); setTimeout(()=>{ const el=$('#ls-lines [data-ls-text="'+at+'"]'); if(el){ el.focus(); } },30); }
+function lsToggleType(i){ const it=state.ls.items[i]; if(!it) return; if(it.type==='line'){ it.type='section'; it.text=(it.text||'Section').replace(/^\[|\]$/g,''); delete it.t; } else { it.type='line'; it.t=null; } lsMarkDirty(); lsRenderBody(); }
+function lsEditTime(i){ const it=state.ls.items[i]; if(!it||it.type!=='line') return; openPrompt("Timestamp (m:ss or m:ss.xx)", it.t!=null? lsFmtLRC(it.t):"", (v)=>{ const t=lsParseTS(v); if(t==null){ toast("Invalid time"); return; } it.t=+t.toFixed(2); lsMarkDirty(); lsRefreshRowTs(i); }); }
+function lsLineMenu(i){ const it=state.ls.items[i]; if(!it) return; const isLine=it.type==='line';
+  const opt=(act,ic,label,extra='')=>`<button data-act="${act}" data-i="${i}" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-white/10">${extra}<i data-lucide="${ic}" style="width:16px;height:16px"></i> ${label}</button>`;
+  const inner=`<h3 class="mb-2 text-base font-bold">Line ${i+1} \u00b7 ${isLine?'Lyric':'Section'}</h3>
+   <div class="space-y-0.5">
+    ${isLine?opt('ls-line-set','crosshair','Set time to current position'):''}
+    ${isLine?opt('ls-line-nudge-back','rewind','Nudge \u22120.1s'):''}
+    ${isLine?opt('ls-line-nudge-fwd','fast-forward','Nudge +0.1s'):''}
+    ${isLine?opt('ls-line-edittime','clock','Edit time manually'):''}
+    <div class="my-1 h-px bg-white/10"></div>
+    ${opt('ls-line-insert-above','arrow-up-to-line','Insert line above')}
+    ${opt('ls-line-insert-below','arrow-down-to-line','Insert line below')}
+    ${opt('ls-line-toggle','type', isLine?'Convert to section label':'Convert to lyric line')}
+    <div class="my-1 h-px bg-white/10"></div>
+    ${opt('ls-line-delete','trash-2','Delete '+(isLine?'line':'section'))}
+   </div>`;
+  $("#modal").innerHTML=modalWrap(inner,"ls-line-menu"); icons();
+}
+
+/* ---- save / bridge into Treesh ---- */
+function lsBuildLyrics(){
+  const out=[]; let curSec=null; let lastT=0;
+  (state.ls.items||[]).forEach(it=>{
+    if(it.type==='section'){ curSec=(it.text||'').trim()||null; return; }
+    const text=(it.text||'').trim(); if(!text) return;
+    let t=(it.t!=null)? it.t : lastT; // untimed lines inherit the previous time so they still display
+    lastT=t;
+    const line={ t:+t, text, sec:curSec };
+    if(it.explain) line.explain=it.explain;
+    out.push(line);
+  });
+  out.sort((a,b)=>a.t-b.t);
+  return out;
+}
+function lsSave(){
+  if(!state.ls) return;
+  lsSyncTextInputs();
+  const s=SONG_BY_ID[state.ls.songId]; if(!s){ toast("Song not found"); return; }
+  const lines=lsBuildLyrics();
+  if(!lines.length){ toast("Nothing to save","Add at least one lyric line"); return; }
+  s.lyrics=lines;
+  state.lyricEdits[s.id]=lines;
+  try{ LS.set("treesh_lyric_edits", state.lyricEdits); }catch(e){}
+  state.ls.dirty=false; const d=$("#ls-dirty"); if(d) d.classList.add("hidden");
+  toast("Lyrics saved on this device", s.title);
+  // if this song is the one playing, refresh Now Playing
+  if(curSong() && curSong().id===s.id){ if(state.npOpen) renderNP(); }
+}
+function lsSyncTextInputs(){ if(!state.ls) return; $$("#ls-lines [data-ls-text]").forEach(inp=>{ const i=+inp.dataset.lsText; if(state.ls.items[i]) state.ls.items[i].text=inp.value; }); }
+
+/* ---- import from Treesh (copy another song's lyrics in) ---- */
+function lsOpenImport(){
+  const pool=vis(SONGS.filter(s=>(s.lyrics||[]).some(l=>l.text&&l.text.trim())));
+  const rows=pool.map(s=>`<button data-act="ls-import-pick" data-id="${s.id}" class="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2 text-left hover:bg-white/10"><span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}</span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(s.title)}</span><span class="clamp-1 block text-xs text-white/50">${esc(s.artist)} \u00b7 ${(s.lyrics||[]).length} lines</span></span><i data-lucide="download" class="shrink-0 text-white/40" style="width:16px;height:16px"></i></button>`).join("");
+  const inner=`<h3 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="import" style="width:18px;height:18px"></i>Import lyrics</h3>
+   <p class="mb-3 text-xs text-white/55">Copy an existing track's lyrics into this session, then re-time them.</p>
+   <input id="ls-import-search" placeholder="Search songs with lyrics\u2026" class="mb-2 h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">
+   <div id="ls-import-list" class="max-h-[52vh] space-y-1.5 overflow-y-auto soft-scroll pr-1">${rows||'<p class="py-8 text-center text-sm text-white/50">No songs with lyrics found.</p>'}</div>`;
+  $("#modal").innerHTML=modalWrap(inner,"ls-import-modal","lg"); icons();
+  const si=$("#ls-import-search"); if(si){ si.addEventListener("input",()=>{ const q=si.value.toLowerCase().trim(); const list=pool.filter(s=>!q||s.title.toLowerCase().includes(q)||(s.artist||'').toLowerCase().includes(q)); const c=$("#ls-import-list"); if(c){ c.innerHTML=list.map(s=>`<button data-act="ls-import-pick" data-id="${s.id}" class="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2 text-left hover:bg-white/10"><span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}</span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(s.title)}</span><span class="clamp-1 block text-xs text-white/50">${esc(s.artist)} \u00b7 ${(s.lyrics||[]).length} lines</span></span><i data-lucide="download" class="shrink-0 text-white/40" style="width:16px;height:16px"></i></button>`).join("")||'<p class="py-8 text-center text-sm text-white/50">No matches.</p>'; icons(); } }); }
+}
+function lsImportFrom(songId){ const s=SONG_BY_ID[songId]; if(!s) return; const items=lsItemsFromSong(s).map(it=> it.type==='line'? {type:'line', t:null, text:it.text, explain:it.explain} : it); if(!items.length){ toast("That track has no lyrics"); return; } state.ls.items=items; state.ls.idx=lsFirstUnstamped(); state.ls.mode='sync'; lsMarkDirty(); closeModal(); renderLS(); toast("Lyrics imported","Now set the timings"); }
+
+/* ---- export ---- */
+function lsBuildLRC(){
+  const items=state.ls.items||[]; const t=state.ls.title, a=state.ls.artist, al=state.ls.album;
+  let out=""; if(t) out+="[ti:"+t+"]\n"; if(a) out+="[ar:"+a+"]\n"; if(al) out+="[al:"+al+"]\n"; out+="[by:Treesh Lyric Studio]\n\n";
+  let pendingSec=null;
+  items.forEach((it,idx)=>{
+    if(it.type==='section'){ pendingSec=it.text; return; }
+    const text=(it.text||'').trim(); if(!text) return;
+    const t2=(it.t!=null)? it.t : 0;
+    if(pendingSec){ out+="["+lsFmtLRC(Math.max(0,t2-0.01))+"]["+pendingSec+"]\n"; pendingSec=null; }
+    out+="["+lsFmtLRC(t2)+"]"+text+"\n";
+  });
+  return out.trim();
+}
+function lsOpenExport(){
+  lsSyncTextInputs();
+  const lrc=lsBuildLRC();
+  const inner=`<h3 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="file-down" style="width:18px;height:18px"></i>Export .LRC</h3>
+   <p class="mb-3 text-xs text-white/55">Standard timed-lyric format. Copy it or download the file.</p>
+   <textarea id="ls-export-text" readonly class="no-scrollbar h-[46vh] w-full resize-none rounded-xl border border-white/12 bg-black/30 px-3 py-2.5 font-doto text-[12px] leading-relaxed text-white/85 outline-none">${esc(lrc)}</textarea>
+   <div class="mt-4 flex justify-end gap-2">
+     <button data-act="modal-close" class="press rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm">Close</button>
+     <button data-act="ls-export-copy" data-testid="ls-export-copy" class="press inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10"><i data-lucide="copy" style="width:15px;height:15px"></i>Copy</button>
+     <button data-act="ls-export-download" data-testid="ls-export-download" class="press inline-flex items-center gap-1.5 rounded-lg bg-[color:var(--treesh-purple)] px-4 py-2 text-sm font-semibold text-white glow-purple"><i data-lucide="download" style="width:15px;height:15px"></i>Download</button>
+   </div>`;
+  $("#modal").innerHTML=modalWrap(inner,"ls-export-modal","lg"); icons();
+}
+function lsExportCopy(){ const ta=$("#ls-export-text"); if(!ta) return; const txt=ta.value; const done=()=>toast("Copied .LRC to clipboard"); try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done).catch(()=>{ ta.select(); document.execCommand&&document.execCommand("copy"); done(); }); } else { ta.select(); document.execCommand&&document.execCommand("copy"); done(); } }catch(e){ ta.select(); try{ document.execCommand("copy"); done(); }catch(_){} } }
+function lsExportDownload(){ const lrc=lsBuildLRC(); const safe=(state.ls.title||"lyrics").replace(/[^a-z0-9\-_ ]/gi,'').trim()||"lyrics"; try{ const blob=new Blob([lrc],{type:"text/plain"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=safe+".lrc"; document.body.appendChild(a); a.click(); setTimeout(()=>{ try{ document.body.removeChild(a); URL.revokeObjectURL(url); }catch(e){} },200); toast("Downloaded "+safe+".lrc"); }catch(e){ toast("Download not supported here"); } }
+
+/* ---- song picker (entry point) ---- */
+function openLSPicker(){
+  const users=SONGS.filter(s=>s._user);
+  const cat=vis(SONGS.filter(s=>!s._user));
+  const rowHtml=(s)=>{ const has=(s.lyrics||[]).some(l=>l.text&&l.text.trim()); return `<button data-act="ls-pick" data-id="${s.id}" data-testid="ls-pick-${s.id}" class="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2 text-left hover:bg-white/10"><span class="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}</span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(s.title)}${s._user?' <span class="ml-1 align-middle rounded bg-[color:var(--treesh-purple)]/25 px-1 text-[8px] font-bold text-[color:var(--treesh-purple)]">YOURS</span>':''}</span><span class="clamp-1 block text-xs text-white/50">${esc(s.artist)}</span></span><span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${has?'bg-white/10 text-white/55':'bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]'}">${has?'Re-sync':'Add lyrics'}</span></button>`; };
+  const section=(label,arr)=> arr.length? `<p class="mb-1.5 mt-2 px-0.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">${label}</p><div class="space-y-1.5">${arr.map(rowHtml).join("")}</div>`:"";
+  const inner=`<h3 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="captions" style="width:18px;height:18px"></i>Lyric Studio</h3>
+   <p class="mb-3 text-xs text-white/55">Pick a song to add or re-time lyrics.</p>
+   <input id="ls-pick-search" data-testid="ls-pick-search" placeholder="Search your music & the catalog\u2026" class="mb-2 h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">
+   <div id="ls-pick-list" class="max-h-[54vh] space-y-1 overflow-y-auto soft-scroll pr-1">${section('My Music',users)}${section('Catalog',cat)}</div>`;
+  $("#modal").innerHTML=modalWrap(inner,"ls-pick-modal","lg"); icons();
+  const si=$("#ls-pick-search"); if(si){ si.addEventListener("input",()=>{ const q=si.value.toLowerCase().trim(); const fu=users.filter(s=>!q||s.title.toLowerCase().includes(q)||(s.artist||'').toLowerCase().includes(q)); const fc=cat.filter(s=>!q||s.title.toLowerCase().includes(q)||(s.artist||'').toLowerCase().includes(q)); const c=$("#ls-pick-list"); if(c){ c.innerHTML=(section('My Music',fu)+section('Catalog',fc))||'<p class="py-8 text-center text-sm text-white/50">No matches.</p>'; icons(); } }); }
+}
+
+/* ---- render overlay ---- */
+function renderLS(){
+  const c=$("#ls"); if(!c) return;
+  if(!state.lsOpen||!state.ls){ c.innerHTML=""; return; }
+  const ls=state.ls;
+  const tab=(id,label,ic)=>`<button data-act="ls-mode" data-mode="${id}" data-testid="ls-tab-${id}" role="tab" aria-selected="${ls.mode===id}" class="ls-tab press inline-flex h-10 items-center gap-2 rounded-full border border-white/12 px-4 text-sm font-semibold transition-colors"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;
+  const header=`<div class="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-3 sm:px-5">
+     <button data-act="ls-close" data-testid="ls-close" aria-label="Close" class="press grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85 hover:bg-white/10"><i data-lucide="chevron-down" style="width:20px;height:20px"></i></button>
+     <div class="min-w-0 flex-1">
+       <p class="flex items-center gap-2 font-display text-[11px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Lyric Studio <span id="ls-dirty" class="${ls.dirty?'':'hidden'} inline-block h-1.5 w-1.5 rounded-full bg-[color:var(--treesh-gold)]" title="Unsaved changes"></span></p>
+       <p class="clamp-1 text-sm font-bold">${esc(ls.title||'Untitled')} <span class="font-normal text-white/50">\u00b7 ${esc(ls.artist||'')}</span></p>
+     </div>
+     <button data-act="ls-import" data-testid="ls-import" aria-label="Import lyrics" class="press hidden h-10 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-sm font-semibold text-white/85 hover:bg-white/10 sm:inline-flex"><i data-lucide="import" style="width:15px;height:15px"></i>Import</button>
+     <button data-act="ls-export" data-testid="ls-export" aria-label="Export LRC" class="press hidden h-10 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-sm font-semibold text-white/85 hover:bg-white/10 sm:inline-flex"><i data-lucide="file-down" style="width:15px;height:15px"></i>Export</button>
+     <button data-act="ls-save" data-testid="ls-save" class="press inline-flex h-10 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-4 text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Save</button>
+   </div>`;
+  const tabs=`<div class="flex shrink-0 items-center gap-2 px-3 pt-3 sm:px-5">${tab('write','Write','pencil')}${tab('sync','Sync','clock')}
+     <div class="ml-auto flex items-center gap-2 sm:hidden">
+       <button data-act="ls-import" aria-label="Import" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="import" style="width:16px;height:16px"></i></button>
+       <button data-act="ls-export" aria-label="Export" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="file-down" style="width:16px;height:16px"></i></button>
+     </div>
+   </div>`;
+  c.innerHTML=`<div data-ls-root data-testid="lyric-studio" class="fixed inset-0 z-[200] flex flex-col bg-[#08080a] text-white">
+     <div class="pointer-events-none absolute inset-0"><div class="absolute -right-16 -top-24 h-72 w-72 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div></div>
+     <div class="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col">
+       ${header}
+       ${tabs}
+       <div id="ls-body" class="min-h-0 flex-1 overflow-hidden px-3 sm:px-5">${ls.mode==='write'?lsWriteHtml():lsSyncHtml()}</div>
+     </div>
+   </div>`;
+  icons();
+  lsWireBody();
+  syncScrollLock();
+}
+function lsRenderBody(){ const b=$("#ls-body"); if(!b||!state.ls) return; b.innerHTML= state.ls.mode==='write'?lsWriteHtml():lsSyncHtml(); icons(); lsWireBody(); }
+function lsWriteHtml(){
+  const txt=lsItemsToText(state.ls.items);
+  return `<div class="flex h-full flex-col py-3">
+     <div class="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55"><i data-lucide="info" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i>One lyric per line. Wrap section names in brackets, e.g. <span class="mx-1 rounded bg-white/10 px-1.5 py-0.5 font-doto text-white/80">[Verse 1]</span></div>
+     <textarea id="ls-write" data-testid="ls-write-textarea" placeholder="[Verse 1]\nType or paste your lyrics here\u2026\nOne line at a time" class="no-scrollbar min-h-0 flex-1 w-full resize-none rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(txt)}</textarea>
+     <div class="mt-3 flex shrink-0 items-center justify-between gap-2 pb-3">
+       <span id="ls-write-count" class="text-xs text-white/45">${txt.split(/\r?\n/).filter(l=>l.trim()).length} lines</span>
+       <button data-act="ls-goto-sync" data-testid="ls-goto-sync" class="press inline-flex h-11 items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 text-sm font-semibold text-white glow-purple">Continue to timing<i data-lucide="arrow-right" style="width:16px;height:16px"></i></button>
+     </div>
+   </div>`;
+}
+function lsSyncHtml(){
+  const ls=state.ls; const rows=lsLineRows();
+  const noAudio=!ls.hasAudio;
+  const linesHtml=(ls.items||[]).map((it,i)=>{
+    if(it.type==='section'){
+      return `<div class="ls-line ls-section-row flex items-center gap-2 rounded-xl border border-white/10 px-2.5 py-2" data-ls-i="${i}">
+        <span class="shrink-0 rounded-md bg-[color:var(--treesh-purple)]/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[color:var(--treesh-purple)]">Section</span>
+        <input data-ls-text="${i}" value="${esc(it.text)}" class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white/85 outline-none" placeholder="Section name">
+        <button data-act="ls-line-menu" data-i="${i}" aria-label="Line options" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10"><i data-lucide="ellipsis-vertical" style="width:16px;height:16px"></i></button>
+      </div>`;
+    }
+    return `<div class="ls-line flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-2 py-1.5 ${it.t!=null?'done':''}" data-ls-i="${i}">
+       <button data-act="ls-seek-line" data-i="${i}" class="ls-ts shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[12px] font-bold text-white/70 hover:bg-white/10" title="Tap to jump here">${it.t!=null?lsFmt(it.t):'\u2013\u2013:\u2013\u2013'}</button>
+       <input data-ls-text="${i}" value="${esc(it.text)}" class="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder-white/30" placeholder="(empty line)">
+       <button data-act="ls-line-set" data-i="${i}" aria-label="Set time" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"><i data-lucide="crosshair" style="width:15px;height:15px"></i></button>
+       <button data-act="ls-line-menu" data-i="${i}" aria-label="Line options" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10"><i data-lucide="ellipsis-vertical" style="width:16px;height:16px"></i></button>
+     </div>`;
+  }).join("");
+  const transport=`<div class="shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+     ${noAudio?`<div class="mb-2 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/60"><i data-lucide="volume-x" style="width:14px;height:14px"></i>No audio for this track \u2013 enter timings manually.</div>`:''}
+     <div class="flex items-center gap-2">
+       <button data-act="ls-seek-back" aria-label="Back 5s" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 ${noAudio?'opacity-40 pointer-events-none':''}"><i data-lucide="rotate-ccw" style="width:17px;height:17px"></i></button>
+       <button data-act="ls-play" id="ls-play" data-testid="ls-play" aria-label="Play/Pause" class="press grid h-12 w-12 place-items-center rounded-full bg-white text-black shadow-lg ${noAudio?'opacity-40 pointer-events-none':''}"><i data-lucide="${ls.playing?'pause':'play'}" style="width:22px;height:22px" class="fill-current"></i></button>
+       <button data-act="ls-seek-fwd" aria-label="Forward 5s" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 ${noAudio?'opacity-40 pointer-events-none':''}"><i data-lucide="rotate-cw" style="width:17px;height:17px"></i></button>
+       <div class="flex flex-1 items-center gap-2">
+         <span id="ls-cur" class="font-doto w-9 text-right text-[11px] text-white/70">0:00</span>
+         <input id="ls-seek" data-testid="ls-seek" type="range" min="0" max="100" step="0.1" value="0" class="tr flex-1 ${noAudio?'opacity-40 pointer-events-none':''}">
+         <span id="ls-dur" class="font-doto w-9 text-[11px] text-white/70">0:00</span>
+       </div>
+       <button data-act="ls-rate" id="ls-rate" aria-label="Playback speed" class="press h-10 shrink-0 rounded-full border border-white/12 bg-white/5 px-2.5 text-xs font-bold text-white/80 hover:bg-white/10 ${noAudio?'opacity-40 pointer-events-none':''}">${ls.rate}x</button>
+     </div>
+     <button data-act="ls-stamp" id="ls-set-btn" data-testid="ls-stamp" class="press mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set time to current line <span class="ml-1 rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold">Space</span></button>
+     <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span id="ls-next-label" class="text-white/70"></span></span><span id="ls-progress-pill">${lsStampedCount()} / ${rows.length} timed</span></div>
+   </div>`;
+  return `<div class="flex h-full flex-col py-3">
+     ${transport}
+     <div id="ls-lines" class="no-scrollbar mt-3 min-h-0 flex-1 space-y-1.5 overflow-y-auto pb-6">${linesHtml||'<p class="py-10 text-center text-sm text-white/45">No lines yet. Switch to Write to add lyrics.</p>'}</div>
+   </div>`;
+}
+function lsWireBody(){
+  if(!state.ls) return;
+  if(state.ls.mode==='write'){
+    const ta=$("#ls-write"); if(ta){ ta.addEventListener("input",()=>{ const cnt=$("#ls-write-count"); if(cnt) cnt.textContent=ta.value.split(/\r?\n/).filter(l=>l.trim()).length+" lines"; lsMarkDirty(); }); }
+  } else {
+    // commit inline text edits to the model without re-rendering
+    $$("#ls-lines [data-ls-text]").forEach(inp=>{ inp.addEventListener("input",()=>{ const i=+inp.dataset.lsText; if(state.ls.items[i]){ state.ls.items[i].text=inp.value; lsMarkDirty(); } }); });
+    // set active line / transport
+    if(state.ls.idx>=0) lsSetActive(state.ls.idx, false);
+    lsUpdateTransport(); lsUpdateProgressPill();
+    const sk=$("#ls-seek"); if(sk){ sk.addEventListener("input",()=>{ sk._drag=true; fillSlider(sk); if(state.ls.dur){ const cE=$("#ls-cur"); if(cE) cE.textContent=lsFmt(sk.value/100*state.ls.dur); } }); sk.addEventListener("change",()=>{ if(state.ls.dur) lsSeekTo(sk.value/100*state.ls.dur); sk._drag=false; }); }
+  }
+}
+function lsGoToSync(){ const ta=$("#ls-write"); if(ta){ state.ls.items=lsParseWriteText(ta.value, state.ls.items); } state.ls.mode='sync'; state.ls.idx=lsFirstUnstamped(); lsMarkDirty(); lsRenderBody(); }
+function lsSetMode(m){ if(!state.ls||state.ls.mode===m) return; if(m==='sync'){ const ta=$("#ls-write"); if(ta){ state.ls.items=lsParseWriteText(ta.value, state.ls.items); } state.ls.idx=lsFirstUnstamped(); } else { lsSyncTextInputs(); } state.ls.mode=m; lsRenderBody(); }
+
+/* ---- keyboard (sync) ---- */
+function lsKeydown(e){
+  if(!state.lsOpen||!state.ls) return false;
+  if($("#modal") && $("#modal").childElementCount>0) return false; // let modals handle keys
+  const tag=(e.target.tagName||""); const typing=["INPUT","TEXTAREA","SELECT"].includes(tag)||e.target.isContentEditable;
+  if(e.key==="Escape"){ e.preventDefault(); closeLS(); return true; }
+  if(typing) return true; // don't hijack typing
+  if(state.ls.mode!=='sync') return true;
+  if(e.code==="Space"){ e.preventDefault(); lsStampCurrent(); return true; }
+  if(e.code==="Enter"){ e.preventDefault(); lsTogglePlay(); return true; }
+  if(e.code==="ArrowRight"){ e.preventDefault(); lsSeekBy(3); return true; }
+  if(e.code==="ArrowLeft"){ e.preventDefault(); lsSeekBy(-3); return true; }
+  if(e.code==="ArrowDown"){ e.preventDefault(); const n=lsNextLineRow(state.ls.idx); if(n>=0) lsSetActive(n); return true; }
+  if(e.code==="ArrowUp"){ e.preventDefault(); const items=state.ls.items; for(let i=state.ls.idx-1;i>=0;i--){ if(items[i]&&items[i].type==='line'){ lsSetActive(i); break; } } return true; }
+  return true;
+}
+
+
 /* ================= Custom Studio (custom music uploader) ================= */
 var _amCoverURL=null;
 var _amEditId=null;
@@ -3608,7 +3995,7 @@ function _amVal(id){ const el=document.getElementById(id); return el?(el.value||
 function amField(id,label,ph,val,opts){ opts=opts||{}; return `<label class="block"><span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">${label}${opts.req?' <span class="text-[color:var(--treesh-purple)]">*</span>':''}</span><input id="${id}" type="${opts.type||'text'}" ${opts.attrs||''} placeholder="${ph||''}" value="${val?esc(val):''}" class="w-full rounded-xl border border-white/12 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]"></label>`; }
 function manageUploadsHtml(){
   if(!USER_SONGS.length) return `<div class="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-12 text-center text-sm text-white/50"><i data-lucide="disc-3" class="mx-auto mb-2 text-white/25" style="width:30px;height:30px"></i>No uploads yet. Add your first track.</div>`;
-  return `<div class="space-y-2">${USER_SONGS.slice().reverse().map(s=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5" data-testid="upload-row-${s.id}"><span class="grid h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/45">${esc(s.artist)}${s.album?' \u00B7 '+esc(s.album):''}${s.genre?' \u00B7 '+esc(s.genre):''}</p></div><button data-act="upload-play" data-id="${s.id}" aria-label="Play" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="play" style="width:15px;height:15px"></i></button><button data-act="edit-upload" data-id="${s.id}" data-testid="edit-upload-${s.id}" aria-label="Edit" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="delete-upload" data-id="${s.id}" data-testid="delete-upload-${s.id}" aria-label="Delete" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`;
+  return `<div class="space-y-2">${USER_SONGS.slice().reverse().map(s=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5" data-testid="upload-row-${s.id}"><span class="grid h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/45">${esc(s.artist)}${s.album?' \u00B7 '+esc(s.album):''}${s.genre?' \u00B7 '+esc(s.genre):''}</p></div><button data-act="upload-play" data-id="${s.id}" aria-label="Play" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="play" style="width:15px;height:15px"></i></button><button data-act="ls-open" data-id="${s.id}" data-testid="upload-lyrics-${s.id}" aria-label="Add lyrics" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="captions" style="width:15px;height:15px"></i></button><button data-act="edit-upload" data-id="${s.id}" data-testid="edit-upload-${s.id}" aria-label="Edit" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="delete-upload" data-id="${s.id}" data-testid="delete-upload-${s.id}" aria-label="Delete" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`;
 }
 function openAddMusic(tab, editId){
   tab=tab||'add'; _amEditId=editId||null;
@@ -3874,7 +4261,7 @@ function renderOnboarding(){
 
 function openSongMenu(id){ const s=SONG_BY_ID[id]; if(!s) return; const opt=(act,ic,label,extra="")=>`<button data-act="${act}" data-id="${id}" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-white/10">${extra}<i data-lucide="${ic}" style="width:16px;height:16px"></i> ${label}</button>`;
   const inner=`<div class="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2"><div class="h-11 w-11 overflow-hidden rounded-md">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></div>
-  <div class="space-y-0.5">${opt('m-play-next','list-end','Play next')}${opt('m-add-queue','list-plus','Add to queue')}<div class="my-1 h-px bg-white/10"></div>${opt('m-add-pl','list-music','Add to playlist')}${opt('like','heart',isFav(id)?'Remove favorite':'Add to favorites')}${opt('dislike','heart-crack',isDisliked(id)?'Remove dislike':'Dislike')}<div class="my-1 h-px bg-white/10"></div>${opt('m-share','share-2','Share')}${s._user?('<div class="my-1 h-px bg-white/10"></div>'+opt('m-remove-upload','trash-2','Remove upload')):''}</div>`;
+  <div class="space-y-0.5">${opt('m-play-next','list-end','Play next')}${opt('m-add-queue','list-plus','Add to queue')}<div class="my-1 h-px bg-white/10"></div>${opt('m-add-pl','list-music','Add to playlist')}${opt('like','heart',isFav(id)?'Remove favorite':'Add to favorites')}${opt('dislike','heart-crack',isDisliked(id)?'Remove dislike':'Dislike')}<div class="my-1 h-px bg-white/10"></div>${opt('ls-open','captions', (s.lyrics||[]).some(l=>l.text&&l.text.trim())?'Edit / sync lyrics':'Add lyrics')}${opt('m-share','share-2','Share')}${s._user?('<div class="my-1 h-px bg-white/10"></div>'+opt('m-remove-upload','trash-2','Remove upload')):''}</div>`;
   $("#modal").innerHTML=modalWrap(inner); icons();
 }
 
@@ -4318,6 +4705,34 @@ document.addEventListener("click", e=>{
     case "voice-retry": voiceRetry(); break;
     case "retry-load": retryLoad(); break;
     case "refresh-catalog": { toast("Refreshing catalog\u2026"); loadCatalog().then(()=>{ softRefresh(); toast("Catalog updated", SONGS.length+" tracks"); }).catch(()=>toast("Couldn\u2019t refresh","Check your connection")); break; }
+    /* ---- Lyric Studio ---- */
+    case "ls-picker": openLSPicker(); break;
+    case "ls-pick": { closeModal(); openLyricSync(t.dataset.id); break; }
+    case "ls-open": { const sid=t.dataset.id; if($("#modal")&&$("#modal").childElementCount>0) closeModal(); if(state.searchOpen) closeSearch(true); openLyricSync(sid); break; }
+    case "ls-close": closeLS(); break;
+    case "ls-mode": lsSetMode(t.dataset.mode); break;
+    case "ls-goto-sync": lsGoToSync(); break;
+    case "ls-save": lsSave(); break;
+    case "ls-import": lsOpenImport(); break;
+    case "ls-import-pick": lsImportFrom(t.dataset.id); break;
+    case "ls-export": lsOpenExport(); break;
+    case "ls-export-copy": lsExportCopy(); break;
+    case "ls-export-download": lsExportDownload(); break;
+    case "ls-play": lsTogglePlay(); break;
+    case "ls-seek-back": lsSeekBy(-5); break;
+    case "ls-seek-fwd": lsSeekBy(5); break;
+    case "ls-rate": lsSetRate(); break;
+    case "ls-stamp": lsStampCurrent(); break;
+    case "ls-seek-line": { const it=state.ls&&state.ls.items[+t.dataset.i]; if(it&&it.t!=null) lsSeekTo(it.t); lsSetActive(+t.dataset.i); break; }
+    case "ls-line-set": { const i=+t.dataset.i; if(state.ls&&state.ls.items[i]){ state.ls.items[i].t=+(state.ls.hasAudio?(_lsAudio.currentTime||0):(state.ls.cur||0)).toFixed(2); lsMarkDirty(); lsRefreshRowTs(i); lsSetActive(i,false); lsUpdateProgressPill(); } break; }
+    case "ls-line-menu": lsLineMenu(+t.dataset.i); break;
+    case "ls-line-nudge-back": { lsNudge(+t.dataset.i,-0.1); lsLineMenu(+t.dataset.i); break; }
+    case "ls-line-nudge-fwd": { lsNudge(+t.dataset.i,0.1); lsLineMenu(+t.dataset.i); break; }
+    case "ls-line-edittime": { const i=+t.dataset.i; closeModal(); lsEditTime(i); break; }
+    case "ls-line-insert-above": { const i=+t.dataset.i; closeModal(); lsInsertItem(i,'line','above'); break; }
+    case "ls-line-insert-below": { const i=+t.dataset.i; closeModal(); lsInsertItem(i,'line','below'); break; }
+    case "ls-line-toggle": { const i=+t.dataset.i; closeModal(); lsToggleType(i); break; }
+    case "ls-line-delete": { const i=+t.dataset.i; closeModal(); lsDeleteItem(i); break; }
   }
   syncScrollLock();
 });
@@ -4359,6 +4774,7 @@ document.addEventListener("pointercancel", _cancelRepeatHold);
 
 /* keyboard shortcuts */
 document.addEventListener("keydown", e=>{
+  if(state.lsOpen){ if(lsKeydown(e)) return; }
   const tag=(e.target.tagName||""); if(["INPUT","TEXTAREA","SELECT"].includes(tag)||e.target.isContentEditable) return;
   if(e.key==="Escape"){ if($("#modal").innerHTML){ closeModal(); return; } if(state.searchOpen){ closeSearch(); return; } if(state.profileOpen){ closeProfile(); return; } if(state.queueOpen){ closeQueue(); return; } if(state.npOpen){ closeNP(); return; } }
   if(!curSong()) return;
