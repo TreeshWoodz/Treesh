@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Treesh</title>
-<meta name="description" content="Treesh 3.0. Stream the underground. Music to Live For." />
+<meta name="description" content="Treesh. Stream the underground. Music to Live For." />
 <meta name="theme-color" content="#0a0a0b" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -738,18 +738,18 @@
   html.perf-mode .kstage-glow{ animation:none; }
   .kstage-scroll{ position:absolute; left:0; right:0; top:0; z-index:1; width:100%; display:flex; flex-direction:column; align-items:center; gap:0; padding:44vh 0; transition:transform .5s cubic-bezier(.22,1,.36,1); }
   html.perf-mode .kstage-scroll{ transition:none; }
-  .k-line{ width:100%; max-width:min(92vw,52rem); box-sizing:border-box; text-align:center; font-weight:700; color:rgba(255,255,255,0.20); padding:12px 20px; line-height:1.5; border-radius:16px; font-size:1.15rem; overflow-wrap:normal; word-break:keep-all; hyphens:none; transition:color .35s ease, font-size .35s ease, opacity .35s ease, transform .45s cubic-bezier(.22,1,.36,1), background-color .35s ease; will-change:transform,opacity; }
+  .k-line{ width:100%; max-width:min(92vw,52rem); box-sizing:border-box; text-align:center; font-weight:700; color:rgba(255,255,255,0.55); padding:7px 22px; line-height:1.32; border-radius:18px; font-size:clamp(1.5rem,4.6vw,2.25rem); overflow-wrap:normal; word-break:keep-all; hyphens:none; transform:scale(0.62); transform-origin:center center; opacity:.42; transition:transform .4s cubic-bezier(.22,1,.36,1), opacity .4s ease, color .35s ease, background-color .35s ease, border-color .35s ease; will-change:transform,opacity; }
   .k-word{ display:inline-block; white-space:nowrap; }
   .k-line .k-char{ transition:color .09s ease, text-shadow .14s ease; }
   .k-line.active .k-char{ color:rgba(255,255,255,0.4); }
   .k-line.active .k-char.lit{ color:#fff; text-shadow:0 0 18px var(--treesh-purple-soft), 0 0 44px rgba(147,40,255,0.30); }
   .k-line.active .k-char.lit-edge{ color:#f0e4ff; text-shadow:0 0 12px var(--treesh-purple-soft); }
-  .k-line.active{ color:rgba(255,255,255,0.98); font-size:clamp(1.6rem,5.4vw,2.6rem); padding:18px 26px; background:linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); border:1px solid rgba(255,255,255,0.08); box-shadow:0 4px 46px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.05); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
-  .k-line.near{ color:rgba(255,255,255,0.42); font-size:clamp(1.05rem,3.2vw,1.35rem); }
-  .k-line.past{ color:rgba(255,255,255,0.28); }
+  .k-line.active{ color:rgba(255,255,255,0.98); transform:scale(1); opacity:1; padding:12px 26px; background:linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); border:1px solid rgba(255,255,255,0.08); box-shadow:0 4px 46px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.05); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .k-line.past{ opacity:.3; }
   .k-line.past .k-char.lit{ color:rgba(255,255,255,0.34); text-shadow:none; }
-  html.perf-mode .k-line{ transition:color .12s linear, font-size .12s linear; }
-  [data-theme="light"] .k-line, html.theme-light .k-line{ color:rgba(0,0,0,0.16); }
+  html.perf-mode .k-line, html.a11y-reduce-motion .k-line{ transition:color .12s linear, opacity .12s linear; }
+  [data-theme="light"] .k-line, html.theme-light .k-line{ color:rgba(0,0,0,0.42); }
+  [data-np-root].np-kar-full .k-line{ font-size:clamp(1.85rem,6vw,3rem); }
   [data-np-root].np-kar-full .kstage-scroll{ gap:0; }
 
 </style>
@@ -769,7 +769,7 @@
   <div id="imenu"></div>
   <div id="toast" class="fixed left-1/2 top-4 z-[320] flex -translate-x-1/2 flex-col items-center gap-2"></div>
 
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js';s.onload=function(){try{lucide.createIcons();}catch(e){}};document.head.appendChild(s);"></script>
 <script>
 /* ============================================================
    TREESH 3.0 - single-file build. Data embedded below.
@@ -780,6 +780,22 @@
 const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const icons = () => { try { if (window.lucide) lucide.createIcons(); } catch(e){} };
+/* Global icon safety net: some render paths insert <i data-lucide> placeholders
+   without a follow-up icons() call, so icons could vanish after scrolling / modal
+   churn. Watch for newly inserted <i data-lucide> (placeholders only, never the
+   converted <svg>) and convert them on the next frame. Debounced; cannot loop. */
+let _iconTimer=null;
+function scheduleIcons(){ if(_iconTimer) return; _iconTimer=setTimeout(()=>{ _iconTimer=null; if(window.lucide && document.querySelector('i[data-lucide]')) icons(); }, 30); }
+function initIconWatch(){
+  try{
+    const mo=new MutationObserver(muts=>{
+      for(let i=0;i<muts.length;i++){ const a=muts[i].addedNodes; if(!a||!a.length) continue;
+        for(let x=0;x<a.length;x++){ const n=a[x]; if(!n||n.nodeType!==1) continue;
+          if((n.tagName==='I' && n.hasAttribute('data-lucide')) || (n.querySelector && n.querySelector('i[data-lucide]'))){ scheduleIcons(); return; } } }
+    });
+    mo.observe(document.body,{childList:true,subtree:true});
+  }catch(e){}
+}
 const esc = (s) => String(s==null?"":s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const slug = (t) => (t||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || Math.random().toString(36).slice(2,8);
 const VOICE_OK = (typeof window!=='undefined') && !!(window.SpeechRecognition||window.webkitSpeechRecognition);
@@ -886,7 +902,7 @@ function parseLyrics(doc){
   doc.querySelectorAll("div.lyric").forEach(el => {
     const track = attr(el,"data-track"), artist = attr(el,"data-artist");
     const lines = [];
-    let curSec = null;
+    let curSec = null, pendingSec = null;
     el.querySelectorAll("p").forEach(p => {
       const text = p.textContent.trim(); if(!text) return;
       const dm = p.getAttribute("data-minutes"), ds = p.getAttribute("data-seconds");
@@ -896,16 +912,17 @@ function parseLyrics(doc){
       if(hm){
         const inside = hm[1].trim();
         // section marker (e.g. "Verse 1: Artist"); skip pure repeat/adlib markers like "x2"
-        if(/[a-zA-Z]/.test(inside) && !/^x\s*\d+$/i.test(inside)) curSec = inside;
+        if(/[a-zA-Z]/.test(inside) && !/^x\s*\d+$/i.test(inside)){ curSec = inside; pendingSec = inside; }
         return; // bracket lines are markers, not sung lyric lines
       }
       const t = hasM ? (dm.includes(":") ? parseTimecode(dm) : (parseFloat(dm)||0)) : (hasS ? (parseFloat(ds)||0) : null);
       if(t==null) return; // skip untimed, non-header text
       const explain = (p.getAttribute("data-explain")||"").trim();
-      lines.push({ t, text, sec: curSec, explain });
+      lines.push({ t, text, sec: curSec, explain }); pendingSec = null;
     });
     if(!lines.length) return;
     lines.sort((a,b) => a.t - b.t);
+    if(pendingSec){ lines.push({ t:(lines.length?lines[lines.length-1].t:0)+0.01, text:"", sec:pendingSec, secOnly:true }); }
     byKey[normKey(track) + "|" + normKey(artist)] = lines;
     if(!byTitle[normKey(track)]) byTitle[normKey(track)] = lines;
   });
@@ -1593,7 +1610,7 @@ function detachSearchViewport(){ if(_svpHandler&&window.visualViewport){ window.
 /* ============================================================
    RENDER: SHELL
    ============================================================ */
-const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["instrum","Instrum","sliders-horizontal"],["game","Game","gamepad-2"],["blog","Blog","newspaper"],["settings","Settings","settings"]];
+const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["instrum","Instrum","sliders-horizontal"],["game","Game","gamepad-2"],["settings","Settings","settings"]];
 function navItem(v,label,ic,mobile){ const active=state.view===v; const badge=wnUnseen(v)?wnBadge(v):''; if(mobile){ return `<button data-act="nav" data-view="${v}" data-testid="nav-mobile-${v}" aria-label="${label}" title="${label}" class="flex flex-1 min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium transition-colors ${active?'text-[color:var(--treesh-purple)]':'text-white/55'}"><span class="relative inline-flex"><i data-lucide="${ic}" style="width:20px;height:20px"></i>${badge}</span><span class="nav-label max-w-full truncate">${label}</span></button>`; }
   return `<button data-act="nav" data-view="${v}" data-testid="nav-${v}" aria-label="${label}" title="${label}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${active?'bg-white/10 text-white glow-purple':'text-white/60 hover:bg-white/5 hover:text-white'}"><span class="relative inline-flex"><i data-lucide="${ic}" style="width:18px;height:18px"></i>${badge}</span><span class="nav-label">${label}</span></button>`; }
 
@@ -2458,10 +2475,6 @@ const WHATS_NEW = {
     { icon:"hard-drive", title:"Storage and data", desc:"See what is saved on this device and clear any part of it whenever you like." },
     { icon:"lock", title:"App and page locks", desc:"Add a PIN or password to keep the app or single pages private." },
   ]},
-  blog: { v:1, title:"Blog", sub:"Treesh News, keep up to the know!", items:[
-    { icon:"newspaper", title:"The Treesh Blog is here", desc:"Read the latest news, drops and stories right inside the app." },
-    { icon:"external-link", title:"Open it anywhere", desc:"Tap Open in new tab to read the full site in your browser whenever you prefer." },
-  ]},
   player: { v:1, title:"Music Player", sub:"A richer way to listen.", items:[
     { icon:"mic-vocal", title:"Smooth karaoke", desc:"Lyrics now glide line by line and highlight word by word as the song plays." },
     { icon:"captions", title:"Lyric meanings", desc:"Tap a line to see what it means, or let meanings reveal themselves as you listen." },
@@ -2886,7 +2899,7 @@ function drawLyricCard(){
   let hasFeatures=!!(s.featuring && String(s.featuring).trim());
   const groups=[]; let cur=null;
   items.forEach(x=>{ const ln=songLines[x.i]||{}; const sec=ln.sec||null; const text=origLineTextFor(s.id,x.i, x.text!=null?x.text:''); if(!text||!text.trim()) return; if(/^\s*\[[^\]]*\]\s*$/.test(text)) return; if(!cur || cur.sec!==sec){ cur={sec, artists:[], lines:[]}; groups.push(cur); } cur.lines.push(text); });
-  groups.forEach(g=>{ const info=g.sec?parseSection(g.sec):null; const arts=(info&&info.artists)||[]; if(arts.some(a=>normKey(a.name)!==mainKey)) hasFeatures=true; g.artists=arts; });
+  groups.forEach(g=>{ const info=g.sec?parseSection(g.sec, s):null; const arts=(info&&info.artists)||[]; if(arts.some(a=>normKey(a.name)!==mainKey)) hasFeatures=true; g.artists=arts; });
   const segs=[];
   groups.forEach((g,gi)=>{ if(gi>0) segs.push({type:'gap'}); if(hasFeatures && g.artists && g.artists.length){ segs.push({type:'label', text:g.artists.map(a=>a.name).join(' & ')}); } g.lines.forEach(t=>segs.push({type:'line', text:t})); });
   if(!segs.length) segs.push({type:'line', text:'Add lyrics to feature\u2026'});
@@ -3322,7 +3335,7 @@ let _karIdx=-1;
 /* ---------- featured-artist performer pill + lyric copy + auto-scroll pause ---------- */
 let _perfKey="__init__";
 let _lyricUserScrollUntil=0;
-function parseSection(sec){
+function parseSection(sec, song){
   if(!sec) return null;
   let role=sec, who="";
   const ci=sec.indexOf(":");
@@ -3341,9 +3354,10 @@ function parseSection(sec){
   while((pm=parenRe.exec(who))){ if(pm[1] && pm[1].trim()) groups.push(pm[1].trim()); }
   const outside=who.replace(/[\(\[][^\)\]]*[\)\]]/g," ").replace(/\s+/g," ").trim();
   const rawNames=[]; splitNames(outside).forEach(n=>rawNames.push(n)); groups.forEach(g=>splitNames(g).forEach(n=>rawNames.push(n)));
-  const seen=new Set(); const artists=[];
-  rawNames.forEach(n=>{ const k=normKey(n); if(!k||seen.has(k)) return; seen.add(k); const ic=findArtist(n); artists.push(ic?{name:ic.name,image:ic.image,id:ic.id}:{name:n,image:null,id:null}); });
-  return {role, artists};
+  const seen=new Set(); const artists=[]; const descNames=[];
+  const featKeys=(()=>{ const set={}; if(song){ if(song.artist) set[normKey(song.artist)]=1; if(song.featuring){ String(song.featuring).split(/\s*[,&\/+\u00d7]\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|vs\.?|x)\s+/i).forEach(p=>{ const k=normKey(p); if(k) set[k]=1; }); } } return set; })();
+  rawNames.forEach(n=>{ const k=normKey(n); if(!k||seen.has(k)) return; seen.add(k); const ic=findArtist(n); if(ic){ artists.push({name:ic.name,image:ic.image,id:ic.id}); } else if(featKeys[k]){ artists.push({name:n,image:null,id:null}); } else { descNames.push(n); } });
+  return {role, artists, desc:descNames.join(", ")};
 }
 function perfOpts(){ return state.perfOpts||{show:true,size:"md",scheme:"accent",layout:"pill",pos:"top",rolePos:"inline",customColor:"#c3ab69",bgColor:"#000000",pillColor:"#ffffff",bgOpacity:0.5,pillBorder:false,pillBorderColor:"#ffffff",pillBorderOpacity:1}; }
 function savePerfOpts(){ LS.set("treesh_perf_opts", state.perfOpts); if(typeof refreshPerformer==="function") refreshPerformer(); }
@@ -3365,10 +3379,11 @@ function buildPerformerHtml(info,o,preview){
             o.size==="lg" ? {av:"h-8 w-8", nameTx:"text-sm", roleTx:"text-[10px]", pad:"py-1 pl-1 pr-3", gap:"gap-2", box:"py-1.5 pl-3 pr-2", stackBox:"px-3.5 py-2.5"} :
                             {av:"h-6 w-6", nameTx:"text-xs", roleTx:"text-[8px]", pad:"py-1 pl-1 pr-2.5", gap:"gap-1.5", box:"py-1 pl-2.5 pr-1.5", stackBox:"px-3 py-2"};
   const roleSpan=`<span class="shrink-0 font-semibold uppercase tracking-[0.22em] ${S.roleTx}" style="color:${sv.role}">${esc(info.role||'Performing')}</span>`;
+  const descSpan = info.desc ? `<span class="clamp-1 ${S.nameTx} font-semibold text-white/70">${esc(info.desc)}</span>` : '';
   if(!info.artists || !info.artists.length){
-    if(!info.role) return "";
-    const attrs = preview ? `tabindex="-1" aria-hidden="true"` : `data-act="perf-section" data-role="${esc(info.role)}" data-testid="perf-section-label" aria-label="Section: ${esc(info.role)}, song facts"`;
-    return `<button ${attrs} class="perf-swap ${pe} press flex max-w-[86vw] items-center gap-1.5 rounded-full border border-white/12 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${roleSpan}</button>`;
+    if(!info.role && !info.desc) return "";
+    const attrs = preview ? `tabindex="-1" aria-hidden="true"` : `data-act="perf-section" data-role="${esc(info.role)}" data-testid="perf-section-label" aria-label="Section: ${esc(info.role||'')}${info.desc?(', '+esc(info.desc)):''}, song facts"`;
+    return `<button ${attrs} class="perf-swap ${pe} press flex max-w-[86vw] items-center ${S.gap} rounded-full border border-white/12 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${roleSpan}${descSpan}</button>`;
   }
   if(o.layout==="text"){
     const names=info.artists.map(a=>esc(a.name)).join("  &  ");
@@ -3395,7 +3410,7 @@ function buildPerformerHtml(info,o,preview){
     const stacked = rp==="above" ? `${roleSpan}${pillsWrap}` : `${pillsWrap}${roleSpan}`;
     return `<div class="perf-swap ${pe} flex max-w-[86vw] flex-col items-center ${S.gap} rounded-2xl border border-white/12 ${S.stackBox} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${stacked}</div>`;
   }
-  return `<div class="perf-swap ${pe} flex max-w-[86vw] flex-wrap items-center justify-center ${S.gap} rounded-full border border-white/12 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${roleSpan}${pills}</div>`;
+  return `<div class="perf-swap ${pe} flex max-w-[86vw] flex-wrap items-center justify-center ${S.gap} rounded-full border border-white/12 ${S.box} shadow-[var(--treesh-shadow)] backdrop-blur-xl" style="background:${badgeBg}">${roleSpan}${pills}${descSpan}</div>`;
 }
 function perfPreviewHtml(){ const o=perfOpts(); const pick=(ARTISTS||[]).slice(0,2); const arts = pick.length? pick.map(a=>({name:a.name,image:a.image,id:a.id})) : [{name:"Zuubandz",image:null,id:null},{name:"Black Barbie",image:null,id:null}]; return buildPerformerHtml({role:"Verse 1", artists:arts}, o, true); }
 function updatePerformer(sec){
@@ -3405,8 +3420,8 @@ function updatePerformer(sec){
   const key=(sec||"")+"|"+o.size+"|"+o.scheme+"|"+o.layout+"|"+o.pos+"|"+(o.rolePos||"inline")+"|"+(o.customColor||"")+"|"+(o.bgColor||"")+"|"+(o.pillColor||"")+"|"+(o.bgOpacity==null?0.5:o.bgOpacity)+"|"+(o.pillBorder?1:0)+"|"+(o.pillBorderColor||"")+"|"+(o.pillBorderOpacity==null?1:o.pillBorderOpacity)+"|"+(o.show?1:0);
   if(_perfKey===key) return; _perfKey=key;
   if(!o.show){ box.innerHTML=""; return; }
-  const info=parseSection(sec);
-  if(!info || (!info.artists.length && !info.role)){ box.innerHTML=""; return; }
+  const info=parseSection(sec, curSong());
+  if(!info || (!info.artists.length && !info.role && !info.desc)){ box.innerHTML=""; return; }
   box.innerHTML=buildPerformerHtml(info,o);
   icons();
 }
@@ -3448,7 +3463,7 @@ function karaokeActive(){ return !!(state.npOpen && state.showLyrics && state.ka
    song or line count changes. Each line pre-rendered as char spans for smooth fill. */
 function buildKaraokeStage(){
   const scroll=$("#kstage-scroll"); if(!scroll) return false;
-  const s=curSong(); const lines=(s&&s.lyrics)||[];
+  const s=curSong(); const lines=((s&&s.lyrics)||[]).filter(l=>!l.secOnly);
   const sig=(s?s.id:'')+'|'+lines.length;
   if(sig===_karSongSig && _karLineEls.length===lines.length && scroll.childElementCount){ return true; }
   _karSongSig=sig;
@@ -3505,6 +3520,12 @@ function reportLyrics(s){ if(!s) return; let lines; const inputs=[...document.qu
 function saveLyricEdits(s){ if(!s) return; const inputs=[...document.querySelectorAll("#np-lyrics-edit [data-li]")]; if(!inputs.length){ state.lyricsEdit=false; refreshLyricsRegion(); return; } const prev=s.lyrics||[]; const newLines=inputs.map(inp=>{ const i=+inp.dataset.li; const o=prev[i]||{}; const text=inp.value; let orig=o.orig; if(orig==null && text!==(o.text||"")) orig=(o.text||""); const line={ t: parseFloat(inp.dataset.t)||o.t||0, text, sec:o.sec, explain:o.explain }; if(o.note!=null) line.note=o.note; if(orig!=null) line.orig=orig; return line; }); s.lyrics=newLines; state.lyricEdits[s.id]=newLines; LS.set("treesh_lyric_edits",state.lyricEdits); state.lyricsEdit=false; _karIdx=-1; toast("Lyrics saved on this device", s.title); refreshLyricsRegion(); }
 /* ---------- per-line: edited indicator + original reveal + user notes ---------- */
 function npLyricLineHtml(s,l,i){
+  if(l.secOnly){
+    const info=parseSection(l.sec, s);
+    const names=(info&&info.artists||[]).map(a=>esc(a.name)).join(' & ');
+    const label=[info&&info.role?esc(info.role):'', names, info&&info.desc?esc(info.desc):''].filter(Boolean).join(' \u00b7 ') || 'Section';
+    return `<div class="group/l" data-line-wrap="${i}"><div class="flex items-center justify-center gap-2.5 py-3"><span class="h-px w-8 bg-white/12"></span><span class="np-line text-[11px] font-bold uppercase tracking-[0.26em] text-white/45">${label}</span><span class="h-px w-8 bg-white/12"></span></div></div>`;
+  }
   const favd=isFavLyric(s.id,i);
   const hasEx=!!(l.explain&&String(l.explain).trim());
   const edited=(l.orig!=null && String(l.orig)!==String(l.text));
@@ -3707,7 +3728,7 @@ function lyricToolsHtml(s){
        <button data-act="lyrics-save" data-id="${s.id}" data-testid="lyrics-save-button" class="press inline-flex h-10 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-3.5 text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Save</button>
        <button data-act="lyrics-edit-cancel" aria-label="Close editing" data-testid="lyrics-edit-cancel-button" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="x" style="width:17px;height:17px"></i></button>
      </div>`
-   : `<div class="flex shrink-0 items-center gap-1.5">
+   : `<div class="flex shrink-0 items-center gap-1.5 lg:hidden">
     <button data-act="lyrics-tools-menu" data-testid="lyrics-tools-menu-button" aria-label="Lyrics options" class="press lg:hidden inline-flex h-10 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3.5 text-sm font-semibold text-white/80 hover:bg-white/10"><i data-lucide="sliders-horizontal" style="width:16px;height:16px"></i>Options${(hasLyrics&&favCount)?`<span class="grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--treesh-purple)] px-1 text-[9px] font-bold text-white">${favCount}</span>`:""}</button>
     <div class="hidden lg:flex flex-wrap items-center gap-1.5">
     ${hasLyrics?`<button data-act="open-lyric-studio" aria-label="Create lyric card" data-testid="open-lyric-studio" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="wand-sparkles" style="width:17px;height:17px"></i>${favCount?`<span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--treesh-purple)] px-1 text-[9px] font-bold text-white">${favCount}</span>`:""}</button>
@@ -3719,6 +3740,24 @@ function lyricToolsHtml(s){
     <button data-act="copy-lyrics" data-id="${s.id}" aria-label="Copy lyrics" data-testid="copy-lyrics-button" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="copy" style="width:16px;height:16px"></i></button>`:''}
     <button data-act="${hasLyrics?'lyrics-edit':'ls-open'}" data-id="${s.id}" aria-label="${hasLyrics?'Fix lyrics':'Add lyrics'}" data-testid="lyrics-edit-button" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="${hasLyrics?'pencil':'captions'}" style="width:16px;height:16px"></i>${edited?`<span class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[color:var(--treesh-gold)]"></span>`:""}</button>
     </div>
+  </div>`;
+}
+function lyricToolsDesktopRow(s){
+  if(state.lyricSelect||state.lyricsEdit) return '';
+  const favCount=favLyricsForSong(s.id).length;
+  const edited = state.lyricEdits && state.lyricEdits[s.id];
+  const hasLyrics=((s.lyrics||[]).filter(l=>l.text&&l.text.trim()).length)>0;
+  const b="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-black/45 text-white/85 backdrop-blur-md hover:bg-white/15";
+  const bOn="press grid h-10 w-10 place-items-center rounded-full border border-white/25 bg-white/20 text-white backdrop-blur-md hover:bg-white/25";
+  return `<div class="pointer-events-auto flex flex-wrap items-center justify-end gap-1.5">
+    ${hasLyrics?`<button data-act="open-lyric-studio" aria-label="Create lyric card" data-testid="open-lyric-studio-d" class="relative ${b}"><i data-lucide="wand-sparkles" style="width:17px;height:17px"></i>${favCount?`<span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--treesh-purple)] px-1 text-[9px] font-bold text-white">${favCount}</span>`:""}</button>
+    <button data-act="lyrics-select-toggle" aria-label="Select lines" data-testid="lyrics-select-button-d" class="${b}"><i data-lucide="list-checks" style="width:17px;height:17px"></i></button>
+    <button data-act="start-game-current" aria-label="Play What\u2019s Next game" data-testid="start-game-current-d" class="${b}"><i data-lucide="gamepad-2" style="width:17px;height:17px"></i></button>
+    <button data-act="toggle-karaoke" aria-label="Karaoke mode" data-testid="toggle-karaoke-button-d" class="${state.karaoke?bOn:b}"><i data-lucide="mic-vocal" style="width:17px;height:17px"></i></button>
+    ${state.karaoke?`<button data-act="toggle-kar-full" aria-label="Fullscreen karaoke" data-testid="toggle-kar-full-button-d" class="${state.karFull?bOn:b}"><i data-lucide="${state.karFull?'minimize':'maximize'}" style="width:16px;height:16px"></i></button>`:''}
+    ${state.karaoke?`<button data-act="toggle-countin" aria-label="Count-in" title="Count-in: ${['Off','Visual','Visual + tick'][state.karCountIn||0]}" data-testid="toggle-countin-button-d" class="${(state.karCountIn||0)>0?bOn:b}"><i data-lucide="${['timer-off','timer','bell-ring'][state.karCountIn||0]}" style="width:16px;height:16px"></i></button>`:''}
+    <button data-act="copy-lyrics" data-id="${s.id}" aria-label="Copy lyrics" data-testid="copy-lyrics-button-d" class="${b}"><i data-lucide="copy" style="width:16px;height:16px"></i></button>`:''}
+    <button data-act="${hasLyrics?'lyrics-edit':'ls-open'}" data-id="${s.id}" aria-label="${hasLyrics?'Fix lyrics':'Add lyrics'}" data-testid="lyrics-edit-button-d" class="relative ${b}"><i data-lucide="${hasLyrics?'pencil':'captions'}" style="width:16px;height:16px"></i>${edited?`<span class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[color:var(--treesh-gold)]"></span>`:""}</button>
   </div>`;
 }
 function lyricBodyHtml(s){
@@ -3749,7 +3788,7 @@ function refreshLyricsRegion(){
   const _prevScroll=(()=>{ const c=$("#np-lyrics"); return c?c.scrollTop:0; })();
   const _prevPause=_lyricUserScrollUntil;
   toolsWrap.innerHTML=lyricToolsHtml(s);
-  region.innerHTML=`<div id="np-performer" class="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-2 pt-1"></div>${lyricBodyHtml(s)}`;
+  region.innerHTML=`<div class="pointer-events-none absolute right-0 top-0 z-30 hidden max-w-[72%] lg:block">${lyricToolsDesktopRow(s)}</div><div id="np-performer" class="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center lg:justify-start px-2 pt-1 lg:pl-3 lg:pr-[24rem]"></div>${lyricBodyHtml(s)}`;
   icons();
   state.lyricLines=[...document.querySelectorAll('#np-lyrics .np-line')];
   _perfKey="__init__"; _lyricUserScrollUntil=_prevPause;
@@ -3800,14 +3839,15 @@ function renderNP(){
   let mainInner;
   if(state.showLyrics){
     mainInner=`<div class="flex min-h-0 flex-1 flex-col pt-1 lg:flex-row lg:gap-12 lg:pt-3">
-      <div class="flex shrink-0 flex-col lg:w-[330px] lg:justify-center np-side">
-        <div class="mb-3 flex shrink-0 items-center justify-between gap-2 lg:mb-0 lg:flex-col lg:items-stretch lg:gap-6">
-          <button data-act="toggle-lyrics" class="flex min-w-0 items-center gap-3 text-left lg:flex-col lg:items-start lg:gap-4"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg shadow-lg lg:h-auto lg:w-full lg:rounded-3xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 lg:mt-1"><p class="clamp-1 text-base font-bold lg:text-2xl">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60 lg:text-base">${esc(s.artist)}</p></div></button>
+      <div class="flex shrink-0 flex-col lg:w-[330px] lg:min-h-0 lg:overflow-y-auto no-scrollbar np-side">
+        <div class="mb-3 flex shrink-0 items-center justify-between gap-2 lg:mb-0 lg:my-auto lg:flex-col lg:items-stretch lg:gap-5">
+          <button data-act="toggle-lyrics" class="flex min-w-0 items-center gap-3 text-left lg:flex-col lg:items-start lg:gap-4"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg shadow-lg lg:aspect-square lg:h-auto lg:w-[min(300px,26vh)] lg:rounded-3xl">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 lg:mt-1"><p class="clamp-1 text-base font-bold lg:text-2xl">${esc(s.title)}</p><p class="clamp-1 text-sm text-white/60 lg:text-base">${esc(s.artist)}</p></div></button>
           <div id="np-lyric-tools">${lyricTools}</div>
         </div>
       </div>
       <div id="np-lyric-region" class="relative flex min-h-0 flex-1 flex-col">
-        <div id="np-performer" class="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-2 pt-1"></div>
+        <div class="pointer-events-none absolute right-0 top-0 z-30 hidden max-w-[72%] lg:block">${lyricToolsDesktopRow(s)}</div>
+        <div id="np-performer" class="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center lg:justify-start px-2 pt-1 lg:pl-3 lg:pr-[24rem]"></div>
         ${lyricBody}
       </div>
     </div>`;
@@ -3917,18 +3957,43 @@ function lsItemsFromSong(s){
   });
   return items;
 }
-/* Parse the Write-mode textarea into items, preserving timestamps for line rows
-   that stayed at the same relative position (by order among line rows). */
+/* Align new write-mode line texts to previous line items so timestamps (and word
+   timings / explanations) survive edits. Unchanged lines keep their exact stamp
+   (LCS anchors); edited-in-place lines keep their stamp positionally; only brand
+   new lines start unstamped, and only removed lines lose their stamp. */
+function lsAlignLines(oldItems, newTexts){
+  const o=(oldItems||[]).map(it=>(it.text||'').trim()); const n=newTexts;
+  const O=o.length, N=n.length;
+  const res=new Array(N).fill(null); // {item, exact}
+  if(!O){ return res; }
+  // LCS dp on trimmed text
+  const dp=Array.from({length:O+1},()=>new Array(N+1).fill(0));
+  for(let i=O-1;i>=0;i--) for(let j=N-1;j>=0;j--){ dp[i][j]= o[i]===n[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]); }
+  const usedOld=new Array(O).fill(false); let i=0,j=0;
+  while(i<O && j<N){ if(o[i]===n[j]){ res[j]={item:oldItems[i],exact:true}; usedOld[i]=true; i++; j++; } else if(dp[i+1][j]>=dp[i][j+1]){ i++; } else { j++; } }
+  // positional fallback: leftover old line items -> unmatched new lines, in order (in-place edits)
+  const leftover=[]; for(let x=0;x<O;x++) if(!usedOld[x]) leftover.push(oldItems[x]);
+  let up=0;
+  for(let k=0;k<N;k++){ if(res[k]==null && up<leftover.length){ res[k]={item:leftover[up++],exact:false}; } }
+  return res;
+}
 function lsParseWriteText(text, prevItems){
-  const prevTimes=(prevItems||[]).filter(it=>it.type==='line').map(it=>({t:it.t,text:(it.text||'').trim()}));
-  const items=[]; let li=0;
+  const prevLineItems=(prevItems||[]).filter(it=>it.type==='line');
+  const parsed=[]; // {isSection, text}
   (text||'').split(/\r?\n/).forEach(raw=>{
-    const line=raw.replace(/\s+$/,'');
-    if(!line.trim()) return;
-    if(lsIsSection(line)){ items.push({type:'section', text:lsSectionLabel(line)}); return; }
-    let t=null;
-    if(prevTimes[li]){ if(prevTimes[li].text===line.trim()) t=prevTimes[li].t; }
-    items.push({type:'line', t, text:line.trim(), explain:''}); li++;
+    const line=raw.replace(/\s+$/,''); if(!line.trim()) return;
+    if(lsIsSection(line)) parsed.push({isSection:true, text:lsSectionLabel(line)});
+    else parsed.push({isSection:false, text:line.trim()});
+  });
+  const newTexts=parsed.filter(p=>!p.isSection).map(p=>p.text);
+  const aligned=lsAlignLines(prevLineItems, newTexts);
+  const items=[]; let li=0;
+  parsed.forEach(p=>{
+    if(p.isSection){ items.push({type:'section', text:p.text}); return; }
+    const a=aligned[li++]; const src=a&&a.item;
+    const it={type:'line', t:(src&&src.t!=null?src.t:null), text:p.text, explain:(src&&src.explain)||''};
+    if(src && a.exact && src.words && src.words.length) it.words=src.words.slice();
+    items.push(it);
   });
   return items;
 }
@@ -4025,18 +4090,19 @@ function lsLineMenu(i){ const it=state.ls.items[i]; if(!it) return; const isLine
 
 /* ---- save / bridge into Treesh ---- */
 function lsBuildLyrics(){
-  const out=[]; let curSec=null; let lastT=0;
+  const out=[]; let curSec=null; let lastT=0; let pendingSec=null;
   (state.ls.items||[]).forEach(it=>{
-    if(it.type==='section'){ curSec=(it.text||'').trim()||null; return; }
+    if(it.type==='section'){ curSec=(it.text||'').trim()||null; pendingSec=curSec; return; }
     const text=(it.text||'').trim(); if(!text) return;
     let t=(it.t!=null)? it.t : lastT; // untimed lines inherit the previous time so they still display
-    lastT=t;
+    lastT=t; pendingSec=null;
     const line={ t:+t, text, sec:curSec };
     if(it.explain) line.explain=it.explain;
     if(it.words && it.words.length) line.words=it.words.slice();
     out.push(line);
   });
   out.sort((a,b)=>a.t-b.t);
+  if(pendingSec){ out.push({ t:(out.length?out[out.length-1].t:0)+0.01, text:"", sec:pendingSec, secOnly:true }); }
   return out;
 }
 function lsSave(){
@@ -5280,8 +5346,8 @@ function openPerfMenu(name,id){ const ic=id?ARTIST_BY_ID[id]:null; const av=ic&&
   $("#modal").innerHTML=modalWrap(inner,"performer-menu"); icons();
 }
 function wordCount(str){ return ((str||"").trim().match(/[^\s]+/g)||[]).length; }
-function songArtistStats(song,name){ const k=normKey(name); let verses=0, words=0, prev="__x"; (song.lyrics||[]).forEach(l=>{ const info=parseSection(l.sec); const has=info&&info.artists.some(a=>normKey(a.name)===k); if(l.sec!==prev){ if(has) verses++; prev=l.sec; } if(has) words+=wordCount(l.text); }); return {verses,words}; }
-function songHasArtist(song,id,name){ const k=normKey(name); if(id&&(song.artistIds||[]).indexOf(id)>=0) return true; if(normKey(song.artist)===k) return true; if(song.featuring&&normKey(song.featuring).indexOf(k)>=0) return true; return (song.lyrics||[]).some(l=>{ const info=parseSection(l.sec); return info&&info.artists.some(a=>normKey(a.name)===k); }); }
+function songArtistStats(song,name){ const k=normKey(name); let verses=0, words=0, prev="__x"; (song.lyrics||[]).forEach(l=>{ const info=parseSection(l.sec, song); const has=info&&info.artists.some(a=>normKey(a.name)===k); if(l.sec!==prev){ if(has) verses++; prev=l.sec; } if(has) words+=wordCount(l.text); }); return {verses,words}; }
+function songHasArtist(song,id,name){ const k=normKey(name); if(id&&(song.artistIds||[]).indexOf(id)>=0) return true; if(normKey(song.artist)===k) return true; if(song.featuring&&normKey(song.featuring).indexOf(k)>=0) return true; return (song.lyrics||[]).some(l=>{ const info=parseSection(l.sec, song); return info&&info.artists.some(a=>normKey(a.name)===k); }); }
 function openSongFacts(name,id){ const s=curSong(); if(!s){ toast("Play a song first"); return; } const st=songArtistStats(s,name); const ic=id?ARTIST_BY_ID[id]:null;
   const others=vis(SONGS.filter(so=>so.id!==s.id && songHasArtist(so,id,name))).slice(0,10);
   const stat=(v,l,ico)=>`<div class="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center"><div class="mx-auto mb-1.5 grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="${ico}" style="width:17px;height:17px"></i></div><p class="text-2xl font-extrabold">${v}</p><p class="text-[11px] uppercase tracking-wide text-white/45">${l}</p></div>`;
@@ -5529,6 +5595,8 @@ async function boot(){
   applyAccent(state.accent);
   applyTheme();
   starfield();
+  initIconWatch();
+  if(!window.lucide){ let _lt=0; const _li=setInterval(()=>{ _lt++; if(window.lucide){ clearInterval(_li); icons(); } else if(_lt>60){ clearInterval(_li); } }, 120); }
   const cachedTs = loadCatalogCache();
   if(cachedTs){
     init();                                  // instant boot from cache
