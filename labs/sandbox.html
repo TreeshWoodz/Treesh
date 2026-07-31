@@ -2,251 +2,342 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paranormal Entity Sandbox - Three.js</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Paranormal RPG - Three.js Mobile</title>
     <style>
         :root {
-            --bg: #0a0a0f;
-            --card-bg: rgba(15, 15, 30, 0.75);
-            --text: #d4d4e8;
+            --bg: #000008;
+            --text: #e8e0f0;
             --glow: #9966ff;
         }
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
         }
-
         body {
             background: var(--bg);
             overflow: hidden;
-            font-family: 'Segoe UI', 'Georgia', 'Times New Roman', serif;
+            font-family: 'Segoe UI', 'Georgia', serif;
             height: 100vh;
             width: 100vw;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            cursor: grab;
-        }
-        body:active {
-            cursor: grabbing;
-        }
-        body.dragging {
-            cursor: grabbing;
-        }
-
-        canvas {
-            display: block;
-        }
-
-        /* Overlay UI */
-        #ui-overlay {
             position: fixed;
             inset: 0;
-            pointer-events: none;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            touch-action: manipulation;
+        }
+        canvas {
+            display: block;
+            position: fixed;
+            inset: 0;
+            z-index: 1;
         }
 
-        /* Title */
-        #title-area {
-            text-align: center;
-            padding: 20px 20px 0;
+        #hud {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
             pointer-events: none;
         }
-        #title-area h1 {
-            font-size: clamp(1.8rem, 4vw, 3rem);
+
+        #top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 12px 14px;
+            gap: 10px;
+        }
+        #health-mana {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 110px;
+        }
+        .bar-container {
+            background: rgba(0, 0, 0, 0.55);
+            border-radius: 10px;
+            height: 14px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        .bar-fill.hp {
+            background: linear-gradient(90deg, #cc2244, #ff4466);
+        }
+        .bar-fill.mp {
+            background: linear-gradient(90deg, #2244cc, #4488ff);
+        }
+        .bar-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            color: #fff;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-shadow: 0 0 6px rgba(0, 0, 0, 0.7);
+            pointer-events: none;
+        }
+
+        #score-area {
+            text-align: center;
+            color: #ffd;
+            text-shadow: 0 0 20px rgba(255, 220, 100, 0.6);
+            pointer-events: none;
+        }
+        #score-area .wave {
+            font-size: 0.75rem;
+            letter-spacing: 0.06em;
+            opacity: 0.85;
+        }
+        #score-area .score {
+            font-size: 1.2rem;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+        }
+
+        #entity-name-display {
+            font-size: 0.8rem;
             font-weight: 300;
             letter-spacing: 0.08em;
             color: #e8e0f0;
-            text-shadow: 0 0 30px rgba(170, 130, 255, 0.7), 0 0 80px rgba(140, 100, 240, 0.4),
-                0 0 120px rgba(120, 80, 220, 0.3);
-            margin: 0;
-            animation: titleFloat 4s ease-in-out infinite;
-        }
-        @keyframes titleFloat {
-            0%,
-            100% {
-                transform: translateY(0);
-            }
-            50% {
-                transform: translateY(-8px);
-            }
-        }
-        #title-area .subtitle {
-            font-size: 0.85rem;
-            letter-spacing: 0.15em;
-            color: rgba(200, 190, 230, 0.7);
-            text-shadow: 0 0 15px rgba(150, 120, 220, 0.4);
-            margin-top: 2px;
+            text-shadow: 0 0 25px currentColor;
+            text-align: right;
+            min-width: 70px;
         }
 
-        /* Entity info display */
-        #entity-info {
+        #ability-panel {
             position: fixed;
-            top: 50%;
-            left: 30px;
-            transform: translateY(-50%);
-            pointer-events: none;
+            bottom: 100px;
+            right: 10px;
             z-index: 11;
-            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: all;
         }
-        #entity-info .entity-name {
-            font-size: 2.5rem;
-            font-weight: 200;
-            letter-spacing: 0.06em;
+        .ability-btn {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            background: rgba(20, 15, 35, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
             color: #fff;
-            text-shadow: 0 0 40px currentColor;
-            transition: all 0.5s ease;
+            position: relative;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
-        #entity-info .entity-desc {
-            font-size: 0.9rem;
-            letter-spacing: 0.1em;
-            color: rgba(220, 210, 240, 0.8);
-            margin-top: 4px;
-            transition: all 0.5s ease;
+        .ability-btn:active {
+            transform: scale(0.88);
+            border-color: #fff;
+            box-shadow: 0 0 30px rgba(180, 140, 255, 0.6);
+        }
+        .ability-btn.on-cooldown {
+            opacity: 0.4;
+            filter: grayscale(0.6);
+        }
+        .ability-btn .cd-overlay {
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .ability-label {
+            position: absolute;
+            bottom: -16px;
+            font-size: 0.5rem;
+            color: #ccc;
+            letter-spacing: 0.03em;
+            text-align: center;
+            width: 100%;
+            pointer-events: none;
         }
 
-        /* Bottom card selector */
-        #card-selector {
+        #entity-switch-row {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 11;
             display: flex;
+            gap: 8px;
+            pointer-events: all;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 12px;
-            padding: 12px 16px 20px;
-            pointer-events: all;
-            z-index: 12;
+            max-width: 95vw;
         }
-        .entity-card {
-            background: var(--card-bg);
-            border: 1.5px solid rgba(255, 255, 255, 0.15);
-            border-radius: 16px;
-            padding: 12px 16px;
+        .entity-dot {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(255, 255, 255, 0.3);
+            background: rgba(10, 8, 20, 0.65);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             cursor: pointer;
-            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-            text-align: center;
-            min-width: 80px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            position: relative;
-            overflow: hidden;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
-        .entity-card:hover {
-            border-color: rgba(255, 255, 255, 0.45);
-            transform: translateY(-6px);
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(160, 120, 255, 0.3);
+        .entity-dot.active {
+            border-color: #fff;
+            box-shadow: 0 0 18px var(--dot-glow, rgba(180, 140, 255, 0.7));
+            transform: scale(1.15);
+            background: rgba(30, 20, 50, 0.8);
         }
-        .entity-card:active {
-            transform: scale(0.94);
-            transition: all 0.1s ease;
-        }
-        .entity-card.selected {
-            border-color: rgba(255, 255, 255, 0.7);
-            box-shadow: 0 0 35px var(--card-glow, rgba(160, 120, 255, 0.7)),
-                0 0 70px var(--card-glow, rgba(140, 100, 240, 0.4)), 0 12px 30px rgba(0, 0, 0, 0.5);
-            transform: translateY(-8px);
-            animation: cardPulse 2s ease-in-out infinite;
-        }
-        @keyframes cardPulse {
-            0%,
-            100% {
-                box-shadow: 0 0 35px var(--card-glow, rgba(160, 120, 255, 0.7)),
-                    0 0 70px var(--card-glow, rgba(140, 100, 240, 0.4)), 0 12px 30px rgba(0, 0, 0, 0.5);
-            }
-            50% {
-                box-shadow: 0 0 50px var(--card-glow, rgba(180, 140, 255, 0.9)),
-                    0 0 100px var(--card-glow, rgba(160, 120, 255, 0.6)), 0 12px 35px rgba(0, 0, 0, 0.55);
-            }
-        }
-        .entity-card .card-emoji {
-            font-size: 2rem;
-            display: block;
-            margin-bottom: 4px;
-            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
-            transition: transform 0.3s ease;
-        }
-        .entity-card:hover .card-emoji {
-            transform: scale(1.2);
-        }
-        .entity-card .card-label {
-            font-size: 0.7rem;
-            letter-spacing: 0.08em;
-            color: #ccc;
-            text-transform: uppercase;
-            font-weight: 500;
+        .entity-dot:active {
+            transform: scale(0.9);
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            #card-selector {
-                gap: 8px;
-                padding: 8px 10px 14px;
-            }
-            .entity-card {
-                padding: 10px 10px;
-                min-width: 55px;
-                border-radius: 12px;
-            }
-            .entity-card .card-emoji {
-                font-size: 1.5rem;
-            }
-            .entity-card .card-label {
-                font-size: 0.6rem;
-            }
-            #entity-info {
-                left: 12px;
-            }
-            #entity-info .entity-name {
-                font-size: 1.6rem;
-            }
-            #title-area h1 {
-                font-size: 1.4rem;
-            }
+        #joystick-zone {
+            position: fixed;
+            bottom: 30px;
+            left: 10px;
+            width: 130px;
+            height: 130px;
+            z-index: 9;
+            pointer-events: all;
         }
+        #joystick-base {
+            position: absolute;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        #joystick-knob {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(220, 210, 255, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 0 20px rgba(180, 150, 255, 0.5);
+        }
+
+        #death-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(80, 0, 0, 0.5);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            font-size: 2rem;
+            color: #fff;
+            letter-spacing: 0.1em;
+            text-shadow: 0 0 60px #ff0000;
+        }
+
         @media (max-width: 480px) {
-            #card-selector {
+            .ability-btn {
+                width: 42px;
+                height: 42px;
+                font-size: 1rem;
+            }
+            #ability-panel {
+                bottom: 85px;
+                right: 6px;
+                gap: 8px;
+            }
+            .entity-dot {
+                width: 30px;
+                height: 30px;
+                font-size: 0.85rem;
+            }
+            #entity-switch-row {
                 gap: 5px;
-                padding: 6px 4px 10px;
+                bottom: 12px;
             }
-            .entity-card {
-                padding: 8px 7px;
-                min-width: 44px;
-                border-radius: 10px;
+            #joystick-zone {
+                width: 110px;
+                height: 110px;
+                bottom: 20px;
+                left: 4px;
             }
-            .entity-card .card-emoji {
-                font-size: 1.2rem;
+            #joystick-base {
+                width: 70px;
+                height: 70px;
             }
-            .entity-card .card-label {
-                font-size: 0.55rem;
-                letter-spacing: 0.04em;
-            }
-            #entity-info .entity-name {
-                font-size: 1.3rem;
+            #joystick-knob {
+                width: 32px;
+                height: 32px;
             }
         }
     </style>
 </head>
 <body>
 
-    <!-- UI Overlay -->
-    <div id="ui-overlay">
-        <div id="title-area">
-            <h1>✦ Paranormal Realm ✦</h1>
-            <p class="subtitle">Choose your ethereal form</p>
-        </div>
-        <div id="entity-info">
-            <div class="entity-name" id="info-name">Ghost</div>
-            <div class="entity-desc" id="info-desc">Wandering Spirit</div>
-        </div>
-        <div id="card-selector">
-            <!-- Cards injected by JS -->
+    <div id="hud">
+        <div id="top-bar">
+            <div id="health-mana">
+                <div class="bar-container" id="hp-container">
+                    <div class="bar-fill hp" id="hp-fill" style="width:100%"></div>
+                    <span class="bar-label">❤️ 100</span>
+                </div>
+                <div class="bar-container" id="mp-container">
+                    <div class="bar-fill mp" id="mp-fill" style="width:100%"></div>
+                    <span class="bar-label">💎 100</span>
+                </div>
+            </div>
+            <div id="score-area">
+                <div class="wave" id="wave-text">Wave 1</div>
+                <div class="score" id="score-text">0 pts</div>
+            </div>
+            <div id="entity-name-display">👻 Ghost</div>
         </div>
     </div>
 
-    <!-- Three.js Import Map -->
+    <div id="ability-panel">
+        <button class="ability-btn" id="ability-0" data-slot="0"><span>⚡</span><span class="ability-label">Skill 1</span></button>
+        <button class="ability-btn" id="ability-1" data-slot="1"><span>💥</span><span class="ability-label">Skill 2</span></button>
+        <button class="ability-btn" id="ability-2" data-slot="2"><span>🛡️</span><span class="ability-label">Skill 3</span></button>
+    </div>
+
+    <div id="entity-switch-row"></div>
+
+    <div id="joystick-zone">
+        <div id="joystick-base"></div>
+        <div id="joystick-knob"></div>
+    </div>
+
+    <div id="death-overlay">💀 DEFEATED</div>
+
     <script type="importmap">
         {
             "imports": {
@@ -258,1230 +349,1265 @@
 
     <script type="module">
         import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // ─────────────────────────────────────
-        // DOM ELEMENTS
+        // DOM REFS
         // ─────────────────────────────────────
-        const cardSelector = document.getElementById('card-selector');
-        const infoName = document.getElementById('info-name');
-        const infoDesc = document.getElementById('info-desc');
-
-        // ─────────────────────────────────────
-        // ENTITY CONFIGURATIONS
-        // ─────────────────────────────────────
-        const entityConfigs = {
-            ghost: {
-                name: 'Ghost',
-                emoji: '👻',
-                desc: 'Wandering Spirit',
-                coreColor: 0xaaccff,
-                glowColor: 0x8899dd,
-                particleColors: [0xaaccff, 0xccddff, 0x8899cc, 0xffffff],
-                particleCount: 400,
-                particleSpeed: 0.6,
-                particleSpread: 3.5,
-                ringColor: 0x8899dd,
-                ringGlow: 0xaaccff,
-                cardGlow: 'rgba(140,170,240,0.7)',
-                ambientLight: 0x334466,
-                pointLightColor: 0xaaccff,
-                pointLightIntensity: 18,
-                coreType: 'ghost',
-                fogColor: 0x1a1a2e,
-            },
-            demon: {
-                name: 'Demon',
-                emoji: '👹',
-                desc: 'Infernal Power',
-                coreColor: 0xdd2200,
-                glowColor: 0xff4400,
-                particleColors: [0xff4400, 0xff6622, 0xcc2200, 0xffaa00],
-                particleCount: 550,
-                particleSpeed: 2.2,
-                particleSpread: 3.8,
-                ringColor: 0xff3300,
-                ringGlow: 0xff5500,
-                cardGlow: 'rgba(255,80,30,0.7)',
-                ambientLight: 0x331111,
-                pointLightColor: 0xff4400,
-                pointLightIntensity: 22,
-                coreType: 'demon',
-                fogColor: 0x1a0a0a,
-            },
-            apparition: {
-                name: 'Apparition',
-                emoji: '🫥',
-                desc: 'Flickering Phantasm',
-                coreColor: 0x9966cc,
-                glowColor: 0xbb88ee,
-                particleColors: [0x9966cc, 0xbb88ee, 0x44aa66, 0x8866dd],
-                particleCount: 350,
-                particleSpeed: 1.3,
-                particleSpread: 3.2,
-                ringColor: 0x8855cc,
-                ringGlow: 0xaa77ee,
-                cardGlow: 'rgba(150,100,210,0.7)',
-                ambientLight: 0x221133,
-                pointLightColor: 0x9966dd,
-                pointLightIntensity: 16,
-                coreType: 'apparition',
-                fogColor: 0x181022,
-            },
-            deity: {
-                name: 'Deity',
-                emoji: '✨',
-                desc: 'Divine Radiance',
-                coreColor: 0xffcc44,
-                glowColor: 0xffeebb,
-                particleColors: [0xffcc44, 0xffeebb, 0xffaa00, 0xffffff],
-                particleCount: 500,
-                particleSpeed: 0.8,
-                particleSpread: 4.5,
-                ringColor: 0xffbb22,
-                ringGlow: 0xffdd88,
-                cardGlow: 'rgba(255,200,80,0.8)',
-                ambientLight: 0x332211,
-                pointLightColor: 0xffdd88,
-                pointLightIntensity: 26,
-                coreType: 'deity',
-                fogColor: 0x1a1810,
-            },
-            god: {
-                name: 'God',
-                emoji: '👁️',
-                desc: 'Cosmic Omnipotence',
-                coreColor: 0xffffff,
-                glowColor: 0xeeeeff,
-                particleColors: [0xffffff, 0xeeccff, 0xccddff, 0xffeebb, 0xaaddff],
-                particleCount: 650,
-                particleSpeed: 1.0,
-                particleSpread: 5.5,
-                ringColor: 0xeeeeff,
-                ringGlow: 0xffffff,
-                cardGlow: 'rgba(255,255,255,0.9)',
-                ambientLight: 0x222233,
-                pointLightColor: 0xffffff,
-                pointLightIntensity: 30,
-                coreType: 'god',
-                fogColor: 0x141420,
-            },
-            energyBeing: {
-                name: 'Energy Being',
-                emoji: '⚡',
-                desc: 'Pure Living Energy',
-                coreColor: 0x00ccff,
-                glowColor: 0x44eeff,
-                particleColors: [0x00ccff, 0x44eeff, 0x00ffcc, 0x88ffff, 0x0066ff],
-                particleCount: 500,
-                particleSpeed: 2.8,
-                particleSpread: 4.0,
-                ringColor: 0x00ddff,
-                ringGlow: 0x55eeff,
-                cardGlow: 'rgba(0,210,255,0.8)',
-                ambientLight: 0x112233,
-                pointLightColor: 0x44ddff,
-                pointLightIntensity: 24,
-                coreType: 'energyBeing',
-                fogColor: 0x101a22,
-            },
-        };
-
-        const entityKeys = ['ghost', 'demon', 'apparition', 'deity', 'god', 'energyBeing'];
-        let currentEntityKey = 'ghost';
-        let targetEntityKey = 'ghost';
-        let transitionProgress = 1.0; // 0=transitioning, 1=stable
-        let transitionDirection = 0; // -1 fading out, 1 fading in
+        const hpFill = document.getElementById('hp-fill');
+        const mpFill = document.getElementById('mp-fill');
+        const hpLabel = document.querySelector('#hp-container .bar-label');
+        const mpLabel = document.querySelector('#mp-container .bar-label');
+        const waveText = document.getElementById('wave-text');
+        const scoreText = document.getElementById('score-text');
+        const entityNameDisplay = document.getElementById('entity-name-display');
+        const abilityBtns = [document.getElementById('ability-0'), document.getElementById('ability-1'), document
+            .getElementById('ability-2')
+        ];
+        const entitySwitchRow = document.getElementById('entity-switch-row');
+        const joystickBase = document.getElementById('joystick-base');
+        const joystickKnob = document.getElementById('joystick-knob');
+        const joystickZone = document.getElementById('joystick-zone');
+        const deathOverlay = document.getElementById('death-overlay');
 
         // ─────────────────────────────────────
         // THREE.JS SETUP
         // ─────────────────────────────────────
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
+        renderer.toneMappingExposure = 1.0;
         document.body.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x1a1a2e, 0.00025);
+        scene.background = new THREE.Color(0x050510);
+        scene.fog = new THREE.FogExp2(0x0a0a18, 0.00018);
 
-        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.3, 80);
-        camera.position.set(4, 2.5, 8);
-        camera.lookAt(0, 0.5, 0);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 70);
+        camera.position.set(0, 9, 11);
+        camera.lookAt(0, 0, 0);
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.target.set(0, 0.6, 0);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
-        controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.4;
-        controls.minDistance = 3.5;
-        controls.maxDistance = 16;
-        controls.maxPolarAngle = Math.PI * 0.7;
-        controls.minPolarAngle = 0.25;
-        controls.update();
-
-        // ─────────────────────────────────────
-        // LIGHTING
-        // ─────────────────────────────────────
-        const ambientLight = new THREE.AmbientLight(0x334466, 2.5);
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x1a1a3a, 2.5);
         scene.add(ambientLight);
+        const moonLight = new THREE.DirectionalLight(0x8899cc, 3.5);
+        moonLight.position.set(8, 14, 4);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.width = 1024;
+        moonLight.shadow.mapSize.height = 1024;
+        moonLight.shadow.camera.near = 0.5;
+        moonLight.shadow.camera.far = 50;
+        moonLight.shadow.camera.left = -20;
+        moonLight.shadow.camera.right = 20;
+        moonLight.shadow.camera.top = 20;
+        moonLight.shadow.camera.bottom = -20;
+        moonLight.shadow.bias = -0.0003;
+        scene.add(moonLight);
 
-        const pointLight = new THREE.PointLight(0xaaccff, 18, 20, 1.5);
-        pointLight.position.set(0, 3, 2);
-        pointLight.castShadow = true;
-        pointLight.shadow.mapSize.width = 1024;
-        pointLight.shadow.mapSize.height = 1024;
-        pointLight.shadow.camera.near = 0.3;
-        pointLight.shadow.camera.far = 40;
-        pointLight.shadow.bias = -0.0004;
-        pointLight.shadow.radius = 2;
-        scene.add(pointLight);
-
-        const secondaryLight = new THREE.PointLight(0x664488, 8, 14, 1.8);
-        secondaryLight.position.set(-3, 1.5, -2);
-        scene.add(secondaryLight);
-
-        const rimLight = new THREE.PointLight(0x4488cc, 6, 10, 2);
-        rimLight.position.set(0, -0.5, -4);
-        scene.add(rimLight);
+        const playerLight = new THREE.PointLight(0xffffff, 15, 14, 1.5);
+        playerLight.position.set(0, 2, 0);
+        playerLight.castShadow = true;
+        playerLight.shadow.mapSize.width = 512;
+        playerLight.shadow.mapSize.height = 512;
+        scene.add(playerLight);
 
         // ─────────────────────────────────────
-        // GLOW TEXTURE GENERATOR
+        // WORLD
         // ─────────────────────────────────────
-        function createGlowTexture(innerColor, outerColor, size = 128) {
-            const canvas = document.createElement('canvas');
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            const half = size / 2;
-            const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-            gradient.addColorStop(0, innerColor);
-            gradient.addColorStop(0.15, innerColor);
-            gradient.addColorStop(0.5, outerColor);
-            gradient.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, size, size);
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.needsUpdate = true;
-            tex.minFilter = THREE.LinearFilter;
-            tex.magFilter = THREE.LinearFilter;
-            return tex;
+        const WORLD_SIZE = 45;
+        const groundGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x0d0d18, roughness: 0.55, metalness: 0.3 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.15;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Grid lines on ground
+        const gridHelper = new THREE.PolarGridHelper(WORLD_SIZE / 2, 36, 20, 64, 0x222244, 0x222244);
+        gridHelper.position.y = -0.13;
+        scene.add(gridHelper);
+
+        // Boundary ring
+        const boundaryGeo = new THREE.TorusGeometry(WORLD_SIZE / 2 - 1, 0.15, 16, 100);
+        const boundaryMat = new THREE.MeshBasicMaterial({ color: 0x334466, transparent: true, opacity: 0.5, depthWrite: false });
+        const boundaryRing = new THREE.Mesh(boundaryGeo, boundaryMat);
+        boundaryRing.rotation.x = -Math.PI / 2;
+        boundaryRing.position.y = -0.1;
+        boundaryRing.renderOrder = 1;
+        scene.add(boundaryRing);
+
+        // Environmental props
+        const propsGroup = new THREE.Group();
+        scene.add(propsGroup);
+        const obstacleData = [];
+
+        function addTree(x, z) {
+            const group = new THREE.Group();
+            const trunkGeo = new THREE.CylinderGeometry(0.15, 0.22, 2.5 + Math.random() * 2, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x332211, roughness: 0.7 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1.3;
+            trunk.castShadow = true;
+            group.add(trunk);
+            const foliageGeo = new THREE.ConeGeometry(0.8 + Math.random() * 0.6, 2.5 + Math.random() * 2, 10);
+            const foliageMat = new THREE.MeshStandardMaterial({ color: 0x0a1a0a, roughness: 0.6, emissive: 0x001100,
+                emissiveIntensity: 0.3 });
+            const foliage = new THREE.Mesh(foliageGeo, foliageMat);
+            foliage.position.y = 2.8;
+            foliage.castShadow = true;
+            group.add(foliage);
+            group.position.set(x, -0.15, z);
+            propsGroup.add(group);
+            obstacleData.push({ x, z, radius: 1.0, group });
         }
 
-        function createSparkTexture(size = 64) {
-            const canvas = document.createElement('canvas');
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            const half = size / 2;
-            const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-            gradient.addColorStop(0, 'rgba(255,255,255,1)');
-            gradient.addColorStop(0.03, 'rgba(255,255,255,0.95)');
-            gradient.addColorStop(0.15, 'rgba(255,255,255,0.5)');
-            gradient.addColorStop(0.4, 'rgba(255,255,255,0.08)');
-            gradient.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, size, size);
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.needsUpdate = true;
-            tex.minFilter = THREE.LinearFilter;
-            tex.magFilter = THREE.LinearFilter;
-            return tex;
-        }
-
-        const glowTexWhite = createGlowTexture('rgba(255,255,255,1)', 'rgba(180,180,220,0.5)');
-        const sparkTex = createSparkTexture();
-
-        // ─────────────────────────────────────
-        // ENVIRONMENT - GROUND PLATFORM
-        // ─────────────────────────────────────
-        const environmentGroup = new THREE.Group();
-        scene.add(environmentGroup);
-
-        // Main platform disc
-        const platformGeo = new THREE.CylinderGeometry(2.8, 3.0, 0.25, 64);
-        const platformMat = new THREE.MeshStandardMaterial({
-            color: 0x1a1a28,
-            roughness: 0.35,
-            metalness: 0.6,
-        });
-        const platform = new THREE.Mesh(platformGeo, platformMat);
-        platform.position.y = -0.6;
-        platform.castShadow = true;
-        platform.receiveShadow = true;
-        environmentGroup.add(platform);
-
-        // Upper decorative disc
-        const upperDiscGeo = new THREE.CylinderGeometry(2.65, 2.7, 0.08, 64);
-        const upperDiscMat = new THREE.MeshStandardMaterial({
-            color: 0x2a2a3a,
-            roughness: 0.25,
-            metalness: 0.7,
-        });
-        const upperDisc = new THREE.Mesh(upperDiscGeo, upperDiscMat);
-        upperDisc.position.y = -0.44;
-        upperDisc.receiveShadow = true;
-        environmentGroup.add(upperDisc);
-
-        // Ground glow rings (3 concentric)
-        const groundRings = [];
-        const ringRadii = [1.2, 1.9, 2.55];
-        const ringHeights = [-0.38, -0.39, -0.40];
-        const ringTubeRadii = [0.03, 0.04, 0.05];
-
-        for (let i = 0; i < 3; i++) {
-            const ringGeo = new THREE.TorusGeometry(ringRadii[i], ringTubeRadii[i], 32, 120);
-            const ringMat = new THREE.MeshBasicMaterial({
-                color: 0x8899dd,
-                transparent: true,
-                opacity: 0.7,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-            });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.rotation.x = -Math.PI / 2;
-            ring.position.y = ringHeights[i];
-            ring.renderOrder = 1;
-            environmentGroup.add(ring);
-            groundRings.push({ mesh: ring, material: ringMat, baseRadius: ringRadii[i], baseY: ringHeights[i] });
-        }
-
-        // Floating crystals around platform
-        const crystals = [];
-        const crystalCount = 8;
-        for (let i = 0; i < crystalCount; i++) {
-            const angle = (i / crystalCount) * Math.PI * 2;
-            const radius = 3.1;
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-            const crystalGroup = new THREE.Group();
-
-            // Main crystal (octahedron)
-            const crystalGeo = new THREE.OctahedronGeometry(0.18 + Math.random() * 0.2, 0);
-            const crystalMat = new THREE.MeshStandardMaterial({
-                color: 0x445577,
+        function addCrystal(x, z) {
+            const group = new THREE.Group();
+            const h = 1.2 + Math.random() * 2.5;
+            const geo = new THREE.OctahedronGeometry(0.25 + Math.random() * 0.35, 0);
+            const mat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(0.65 + Math.random() * 0.2, 0.7, 0.5 + Math.random() * 0.4),
                 roughness: 0.2,
-                metalness: 0.4,
-                emissive: 0x223344,
-                emissiveIntensity: 0.6,
+                metalness: 0.5,
+                emissive: new THREE.Color().setHSL(0.65, 0.8, 0.3),
+                emissiveIntensity: 0.7
             });
-            const crystalMesh = new THREE.Mesh(crystalGeo, crystalMat);
-            crystalMesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            crystalMesh.castShadow = true;
-            crystalGroup.add(crystalMesh);
-
-            // Small glow orb on top
-            const orbGeo = new THREE.SphereGeometry(0.08, 16, 16);
-            const orbMat = new THREE.MeshBasicMaterial({
-                color: 0x8899cc,
-                transparent: true,
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-            });
-            const orb = new THREE.Mesh(orbGeo, orbMat);
-            orb.position.y = 0.25;
-            orb.renderOrder = 2;
-            crystalGroup.add(orb);
-
-            crystalGroup.position.set(x, -0.35 + Math.random() * 0.2, z);
-            environmentGroup.add(crystalGroup);
-            crystals.push({
-                group: crystalGroup,
-                orbMaterial: orbMat,
-                crystalMaterial: crystalMat,
-                baseY: crystalGroup.position.y,
-                phase: Math.random() * Math.PI * 2,
-            });
+            const crystal = new THREE.Mesh(geo, mat);
+            crystal.scale.set(1, h / 0.5, 1);
+            crystal.position.y = h / 2;
+            crystal.castShadow = true;
+            group.add(crystal);
+            const glowGeo = new THREE.SphereGeometry(0.4, 8, 8);
+            const glowMat = new THREE.MeshBasicMaterial({ color: mat.emissive, transparent: true, opacity: 0.25, blending: THREE
+                    .AdditiveBlending, depthWrite: false });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.position.y = h / 2;
+            group.add(glow);
+            group.position.set(x, -0.15, z);
+            propsGroup.add(group);
+            obstacleData.push({ x, z, radius: 0.7, group });
         }
 
-        // ─────────────────────────────────────
-        // STARFIELD
-        // ─────────────────────────────────────
-        const starCount = 2000;
+        function addPillar(x, z) {
+            const group = new THREE.Group();
+            const h = 3 + Math.random() * 4;
+            const geo = new THREE.CylinderGeometry(0.3, 0.45, h, 12);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x3a3a4a, roughness: 0.35, metalness: 0.5 });
+            const pillar = new THREE.Mesh(geo, mat);
+            pillar.position.y = h / 2;
+            pillar.castShadow = true;
+            group.add(pillar);
+            const topGeo = new THREE.TorusGeometry(0.5, 0.08, 8, 16);
+            const topMat = new THREE.MeshBasicMaterial({ color: 0x8866aa, transparent: true, opacity: 0.6, blending: THREE
+                    .AdditiveBlending, depthWrite: false });
+            const topRing = new THREE.Mesh(topGeo, topMat);
+            topRing.position.y = h;
+            topRing.renderOrder = 2;
+            group.add(topRing);
+            group.position.set(x, -0.15, z);
+            propsGroup.add(group);
+            obstacleData.push({ x, z, radius: 0.8, group });
+        }
+
+        for (let i = 0; i < 22; i++) {
+            const x = (Math.random() - 0.5) * (WORLD_SIZE - 8);
+            const z = (Math.random() - 0.5) * (WORLD_SIZE - 8);
+            const r = Math.random();
+            if (r < 0.4) addTree(x, z);
+            else if (r < 0.75) addCrystal(x, z);
+            else addPillar(x, z);
+        }
+
+        // Starfield
         const starGeo = new THREE.BufferGeometry();
-        const starPositions = new Float32Array(starCount * 3);
-        const starSizes = new Float32Array(starCount);
+        const starCount = 1500;
+        const starPositionsArr = new Float32Array(starCount * 3);
         for (let i = 0; i < starCount; i++) {
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(2 * Math.random() - 1);
-            const r = 18 + Math.random() * 25;
-            starPositions[i * 3] = Math.sin(phi) * Math.cos(theta) * r;
-            starPositions[i * 3 + 1] = Math.sin(phi) * Math.sin(theta) * r;
-            starPositions[i * 3 + 2] = Math.cos(phi) * r;
-            starSizes[i] = Math.random() * 2.5 + 0.3;
+            const r = 28 + Math.random() * 22;
+            starPositionsArr[i * 3] = Math.sin(phi) * Math.cos(theta) * r;
+            starPositionsArr[i * 3 + 1] = Math.abs(Math.sin(phi) * Math.sin(theta) * r) + 2;
+            starPositionsArr[i * 3 + 2] = Math.cos(phi) * r;
         }
-        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-        starGeo.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
-        const starMat = new THREE.PointsMaterial({
-            map: sparkTex,
-            color: 0xccccff,
-            size: 0.12,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            transparent: true,
-            opacity: 0.75,
-        });
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositionsArr, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xccccff, size: 0.08, blending: THREE.AdditiveBlending,
+            depthWrite: false, transparent: true, opacity: 0.7 });
         const starfield = new THREE.Points(starGeo, starMat);
         starfield.renderOrder = 0;
         scene.add(starfield);
 
         // ─────────────────────────────────────
-        // AMBIENT FLOATING PARTICLES (wisps)
+        // ENTITY CONFIGS
         // ─────────────────────────────────────
-        const wispCount = 150;
-        const wispGeo = new THREE.BufferGeometry();
-        const wispPositionsArr = new Float32Array(wispCount * 3);
-        const wispData = [];
-        for (let i = 0; i < wispCount; i++) {
-            wispPositionsArr[i * 3] = (Math.random() - 0.5) * 14;
-            wispPositionsArr[i * 3 + 1] = Math.random() * 7 - 1;
-            wispPositionsArr[i * 3 + 2] = (Math.random() - 0.5) * 14;
-            wispData.push({
-                baseX: wispPositionsArr[i * 3],
-                baseY: wispPositionsArr[i * 3 + 1],
-                baseZ: wispPositionsArr[i * 3 + 2],
-                speedX: (Math.random() - 0.5) * 0.4,
-                speedY: (Math.random() - 0.5) * 0.25 + 0.1,
-                speedZ: (Math.random() - 0.5) * 0.4,
-                amplitude: Math.random() * 1.5 + 0.3,
-                phase: Math.random() * Math.PI * 2,
-            });
-        }
-        wispGeo.setAttribute('position', new THREE.BufferAttribute(wispPositionsArr, 3));
-        const wispMat = new THREE.PointsMaterial({
-            map: glowTexWhite,
-            color: 0x8899cc,
-            size: 0.22,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            transparent: true,
-            opacity: 0.5,
-        });
-        const wispPoints = new THREE.Points(wispGeo, wispMat);
-        wispPoints.renderOrder = 1;
-        scene.add(wispPoints);
+        const entityConfigs = {
+            ghost: {
+                name: 'Ghost',
+                emoji: '👻',
+                coreColor: 0xaaccff,
+                glowColor: 0x8899dd,
+                particleColors: [0xaaccff, 0xccddff, 0xffffff],
+                cardGlow: 'rgba(140,170,240,0.8)',
+                speed: 6.5,
+                maxHp: 90,
+                maxMp: 110,
+                mpRegen: 8,
+                abilities: [
+                    { name: 'Fear Bolt', icon: '👁️', type: 'projectile', color: 0xbbaaff, dmg: 18, cost: 20, cd: 1.8,
+                        speed: 14, size: 0.25 },
+                    { name: 'Spectral Dash', icon: '💨', type: 'dash', color: 0x88ccff, dmg: 10, cost: 25, cd: 3.5,
+                        distance: 7 },
+                    { name: 'Ghostly Wail', icon: '🌫️', type: 'aoe', color: 0xeeeeff, dmg: 22, cost: 30, cd: 5.0,
+                        radius: 4.5 },
+                ],
+            },
+            demon: {
+                name: 'Demon',
+                emoji: '👹',
+                coreColor: 0xdd2200,
+                glowColor: 0xff4400,
+                particleColors: [0xff4400, 0xff6622, 0xffaa00],
+                cardGlow: 'rgba(255,80,30,0.8)',
+                speed: 5.8,
+                maxHp: 120,
+                maxMp: 90,
+                mpRegen: 6,
+                abilities: [
+                    { name: 'Fireball', icon: '🔥', type: 'projectile', color: 0xff4400, dmg: 25, cost: 18, cd: 1.5,
+                        speed: 12, size: 0.35, explosive: true },
+                    { name: 'Hell Stomp', icon: '💢', type: 'aoe', color: 0xff3300, dmg: 30, cost: 28, cd: 4.5,
+                    radius: 5 },
+                    { name: 'Demon Rush', icon: '🏃', type: 'dash', color: 0xcc2200, dmg: 20, cost: 22, cd: 3.0,
+                        distance: 8 },
+                ],
+            },
+            apparition: {
+                name: 'Apparition',
+                emoji: '🫥',
+                coreColor: 0x9966cc,
+                glowColor: 0xbb88ee,
+                particleColors: [0x9966cc, 0xbb88ee, 0x44aa66],
+                cardGlow: 'rgba(150,100,210,0.8)',
+                speed: 7.2,
+                maxHp: 75,
+                maxMp: 120,
+                mpRegen: 10,
+                abilities: [
+                    { name: 'Psychic Blast', icon: '🧠', type: 'projectile', color: 0xcc88ff, dmg: 16, cost: 15, cd: 1.2,
+                        speed: 16, size: 0.2 },
+                    { name: 'Teleport', icon: '✨', type: 'dash', color: 0xdd99ff, dmg: 0, cost: 20, cd: 2.5,
+                    distance: 10 },
+                    { name: 'Phantom Nova', icon: '💫', type: 'aoe', color: 0x9966dd, dmg: 24, cost: 32, cd: 4.8,
+                        radius: 5.5 },
+                ],
+            },
+            deity: {
+                name: 'Deity',
+                emoji: '🌟',
+                coreColor: 0xffcc44,
+                glowColor: 0xffeebb,
+                particleColors: [0xffcc44, 0xffeebb, 0xffffff],
+                cardGlow: 'rgba(255,200,80,0.9)',
+                speed: 5.5,
+                maxHp: 100,
+                maxMp: 100,
+                mpRegen: 7,
+                abilities: [
+                    { name: 'Divine Beam', icon: '☀️', type: 'beam', color: 0xffee88, dmg: 20, cost: 22, cd: 2.0,
+                        range: 10, width: 0.6 },
+                    { name: 'Healing Light', icon: '💖', type: 'heal', color: 0xffeedd, heal: 35, cost: 25, cd: 6.0 },
+                    { name: 'Radiant Nova', icon: '🌅', type: 'aoe', color: 0xffdd66, dmg: 28, cost: 30, cd: 5.5,
+                        radius: 5 },
+                ],
+            },
+            god: {
+                name: 'God',
+                emoji: '👁️',
+                coreColor: 0xffffff,
+                glowColor: 0xeeeeff,
+                particleColors: [0xffffff, 0xeeccff, 0xaaddff, 0xffeebb],
+                cardGlow: 'rgba(255,255,255,0.95)',
+                speed: 5.0,
+                maxHp: 140,
+                maxMp: 130,
+                mpRegen: 5,
+                abilities: [
+                    { name: 'Lightning Strike', icon: '⚡', type: 'targeted_aoe', color: 0xffffff, dmg: 35, cost: 28,
+                        cd: 4.0, radius: 3.5, range: 13 },
+                    { name: 'Cosmic Shield', icon: '🛡️', type: 'shield', color: 0xeeeeff, shield: 50, cost: 30, cd: 7.0,
+                        duration: 4 },
+                    { name: 'Gravity Well', icon: '🌀', type: 'aoe', color: 0x9988cc, dmg: 18, cost: 25, cd: 5.0,
+                        radius: 6, pull: true },
+                ],
+            },
+            energyBeing: {
+                name: 'Energy Being',
+                emoji: '⚡',
+                coreColor: 0x00ccff,
+                glowColor: 0x44eeff,
+                particleColors: [0x00ccff, 0x44eeff, 0x00ffcc, 0x0066ff],
+                cardGlow: 'rgba(0,210,255,0.9)',
+                speed: 7.8,
+                maxHp: 85,
+                maxMp: 115,
+                mpRegen: 9,
+                abilities: [
+                    { name: 'Lightning Bolt', icon: '🔵', type: 'projectile', color: 0x00ddff, dmg: 20, cost: 16, cd: 1.0,
+                        speed: 20, size: 0.22, chain: 3 },
+                    { name: 'Energy Shield', icon: '🔷', type: 'shield', color: 0x44eeff, shield: 35, cost: 22, cd: 5.5,
+                        duration: 3.5 },
+                    { name: 'Overcharge', icon: '⚡', type: 'buff', color: 0x88ffff, buffSpeed: 1.6, buffDmg: 1.5,
+                        cost: 28, cd: 8.0, duration: 4 },
+                ],
+            },
+        };
+
+        const entityKeys = ['ghost', 'demon', 'apparition', 'deity', 'god', 'energyBeing'];
+        let currentEntityKey = 'ghost';
+        let playerHp, playerMp, playerMaxHp, playerMaxMp;
+        let playerShield = 0;
+        let playerBuff = null; // { speedMul, dmgMul, endTime }
+        let score = 0;
+        let wave = 1;
+        let enemiesRemaining = 0;
+        let waveActive = false;
+        let waveDelay = 2.0;
+        let deathTimer = 0;
+        let playerDead = false;
 
         // ─────────────────────────────────────
-        // ENTITY DISPLAY GROUP
+        // PLAYER
         // ─────────────────────────────────────
-        const entityGroup = new THREE.Group();
-        entityGroup.position.set(0, 0.7, 0);
-        scene.add(entityGroup);
+        const playerGroup = new THREE.Group();
+        playerGroup.position.set(0, 0.5, 0);
+        scene.add(playerGroup);
+        let playerVelocity = new THREE.Vector3();
+        let playerFacing = new THREE.Vector3(0, 0, -1);
+        let coreMesh, coreGlowMesh;
+        let playerParticleSystem, playerParticleData = [];
+        const playerSecondaryMeshes = [];
 
-        // Core mesh references (for animation)
-        let coreMesh = null;
-        let coreGlowMesh = null;
-        let secondaryMeshes = [];
-        let entityParticleSystem = null;
-        let entityParticleData = [];
-        let ghostSheetMesh = null;
-        let ghostSheetGeo = null;
-        let ghostSheetBasePositions = null;
-        let demonSpikes = [];
-        let deityOrbiters = [];
-        let godRings = [];
-        let energyTendrils = [];
-        let apparitionPointCloud = null;
-        let apparitionData = [];
-
-        // ─────────────────────────────────────
-        // PARTICLE SYSTEM FOR ENTITY
-        // ─────────────────────────────────────
-        function createEntityParticleSystem(config) {
-            if (entityParticleSystem) {
-                entityGroup.remove(entityParticleSystem);
-                if (entityParticleSystem.geometry) entityParticleSystem.geometry.dispose();
-                if (entityParticleSystem.material) entityParticleSystem.material.dispose();
-                entityParticleSystem = null;
-            }
-            entityParticleData = [];
-
-            const count = config.particleCount;
-            const geo = new THREE.BufferGeometry();
-            const positions = new Float32Array(count * 3);
-            const sizes = new Float32Array(count);
-
-            for (let i = 0; i < count; i++) {
-                const spread = config.particleSpread;
-                positions[i * 3] = (Math.random() - 0.5) * spread * 2;
-                positions[i * 3 + 1] = (Math.random() - 0.5) * spread * 2;
-                positions[i * 3 + 2] = (Math.random() - 0.5) * spread * 2;
-                sizes[i] = Math.random() * 1.8 + 0.2;
-                entityParticleData.push({
-                    baseX: positions[i * 3],
-                    baseY: positions[i * 3 + 1],
-                    baseZ: positions[i * 3 + 2],
-                    speed: Math.random() * config.particleSpeed + config.particleSpeed * 0.3,
-                    phase: Math.random() * Math.PI * 2,
-                    orbitRadius: Math.random() * config.particleSpread * 0.7,
-                    orbitSpeed: (Math.random() - 0.5) * 1.5,
-                    verticalDrift: (Math.random() - 0.5) * config.particleSpeed,
-                });
-            }
-
-            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-
-            const mat = new THREE.PointsMaterial({
-                map: sparkTex,
-                color: config.particleColors[0],
-                size: 0.18,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-                transparent: true,
-                opacity: 0.85,
-                vertexColors: false,
-            });
-
-            const points = new THREE.Points(geo, mat);
-            points.renderOrder = 3;
-            entityGroup.add(points);
-            entityParticleSystem = points;
-            return { points, geo, mat, data: entityParticleData };
-        }
-
-        // ─────────────────────────────────────
-        // BUILD ENTITY BASED ON TYPE
-        // ─────────────────────────────────────
-        function clearEntity() {
-            // Remove core
-            if (coreMesh) { entityGroup.remove(coreMesh);
+        function clearPlayerVisual() {
+            if (coreMesh) { playerGroup.remove(coreMesh);
                 coreMesh.geometry?.dispose();
                 coreMesh.material?.dispose();
                 coreMesh = null; }
-            if (coreGlowMesh) { entityGroup.remove(coreGlowMesh);
+            if (coreGlowMesh) { playerGroup.remove(coreGlowMesh);
                 coreGlowMesh.geometry?.dispose();
                 coreGlowMesh.material?.dispose();
                 coreGlowMesh = null; }
-
-            // Remove secondary meshes
-            secondaryMeshes.forEach(m => {
-                entityGroup.remove(m);
-                if (m.geometry) m.geometry.dispose();
-                if (m.material) m.material.dispose();
-            });
-            secondaryMeshes = [];
-
-            // Remove ghost sheet
-            if (ghostSheetMesh) {
-                entityGroup.remove(ghostSheetMesh);
-                ghostSheetMesh.geometry?.dispose();
-                ghostSheetMesh.material?.dispose();
-                ghostSheetMesh = null;
-                ghostSheetGeo = null;
-                ghostSheetBasePositions = null;
-            }
-
-            // Remove demon spikes
-            demonSpikes.forEach(s => {
-                entityGroup.remove(s);
-                s.geometry?.dispose();
-                s.material?.dispose();
-            });
-            demonSpikes = [];
-
-            // Remove deity orbiters
-            deityOrbiters.forEach(o => {
-                entityGroup.remove(o.mesh);
-                o.mesh.geometry?.dispose();
-                o.mesh.material?.dispose();
-            });
-            deityOrbiters = [];
-
-            // Remove god rings
-            godRings.forEach(r => {
-                entityGroup.remove(r);
-                r.geometry?.dispose();
-                r.material?.dispose();
-            });
-            godRings = [];
-
-            // Remove energy tendrils
-            energyTendrils.forEach(t => {
-                entityGroup.remove(t);
-                t.geometry?.dispose();
-                t.material?.dispose();
-            });
-            energyTendrils = [];
-
-            // Remove apparition cloud
-            if (apparitionPointCloud) {
-                entityGroup.remove(apparitionPointCloud);
-                apparitionPointCloud.geometry?.dispose();
-                apparitionPointCloud.material?.dispose();
-                apparitionPointCloud = null;
-                apparitionData = [];
-            }
-
-            // Remove particle system
-            if (entityParticleSystem) {
-                entityGroup.remove(entityParticleSystem);
-                entityParticleSystem.geometry?.dispose();
-                entityParticleSystem.material?.dispose();
-                entityParticleSystem = null;
-                entityParticleData = [];
-            }
+            playerSecondaryMeshes.forEach(m => { playerGroup.remove(m);
+                m.geometry?.dispose();
+                m.material?.dispose(); });
+            playerSecondaryMeshes.length = 0;
+            if (playerParticleSystem) { playerGroup.remove(playerParticleSystem);
+                playerParticleSystem.geometry?.dispose();
+                playerParticleSystem.material?.dispose();
+                playerParticleSystem = null;
+                playerParticleData = []; }
         }
 
-        function buildEntity(entityKey) {
-            clearEntity();
-            const config = entityConfigs[entityKey];
-            const coreType = config.coreType;
-
-            // ── COMMON: Inner core sphere ──
-            const coreGeo = new THREE.SphereGeometry(0.35, 48, 48);
-            const coreMat = new THREE.MeshStandardMaterial({
-                color: config.coreColor,
-                roughness: 0.15,
-                metalness: 0.2,
-                emissive: config.glowColor,
-                emissiveIntensity: 1.5,
-            });
+        function buildPlayerVisual(key) {
+            clearPlayerVisual();
+            const cfg = entityConfigs[key];
+            const coreGeo = new THREE.SphereGeometry(0.3, 32, 32);
+            const coreMat = new THREE.MeshStandardMaterial({ color: cfg.coreColor, roughness: 0.15, metalness: 0.2,
+                emissive: cfg.glowColor, emissiveIntensity: 1.8 });
             coreMesh = new THREE.Mesh(coreGeo, coreMat);
             coreMesh.castShadow = true;
-            entityGroup.add(coreMesh);
+            playerGroup.add(coreMesh);
 
-            // ── COMMON: Outer glow ──
-            const glowGeo = new THREE.SphereGeometry(0.6, 32, 32);
-            const glowMat = new THREE.MeshBasicMaterial({
-                color: config.glowColor,
-                transparent: true,
-                opacity: 0.35,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-            });
+            const glowGeo = new THREE.SphereGeometry(0.5, 24, 24);
+            const glowMat = new THREE.MeshBasicMaterial({ color: cfg.glowColor, transparent: true, opacity: 0.35,
+                blending: THREE.AdditiveBlending, depthWrite: false });
             coreGlowMesh = new THREE.Mesh(glowGeo, glowMat);
             coreGlowMesh.renderOrder = 2;
-            entityGroup.add(coreGlowMesh);
+            playerGroup.add(coreGlowMesh);
 
-            // Larger outer glow halo
-            const haloGeo = new THREE.SphereGeometry(0.85, 32, 32);
-            const haloMat = new THREE.MeshBasicMaterial({
-                color: config.glowColor,
-                transparent: true,
-                opacity: 0.13,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-            });
-            const haloMesh = new THREE.Mesh(haloGeo, haloMat);
-            haloMesh.renderOrder = 1;
-            entityGroup.add(haloMesh);
-            secondaryMeshes.push(haloMesh);
+            const haloGeo = new THREE.SphereGeometry(0.7, 16, 16);
+            const haloMat = new THREE.MeshBasicMaterial({ color: cfg.glowColor, transparent: true, opacity: 0.13,
+                blending: THREE.AdditiveBlending, depthWrite: false });
+            const halo = new THREE.Mesh(haloGeo, haloMat);
+            halo.renderOrder = 1;
+            playerGroup.add(halo);
+            playerSecondaryMeshes.push(halo);
 
-            // ── TYPE-SPECIFIC GEOMETRY ──
-            switch (coreType) {
-                case 'ghost':
-                    buildGhostForm(config);
-                    break;
-                case 'demon':
-                    buildDemonForm(config);
-                    break;
-                case 'apparition':
-                    buildApparitionForm(config);
-                    break;
-                case 'deity':
-                    buildDeityForm(config);
-                    break;
-                case 'god':
-                    buildGodForm(config);
-                    break;
-                case 'energyBeing':
-                    buildEnergyBeingForm(config);
-                    break;
+            const ringGeo = new THREE.TorusGeometry(0.55, 0.04, 16, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: cfg.glowColor, transparent: true, opacity: 0.6,
+                blending: THREE.AdditiveBlending, depthWrite: false });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.renderOrder = 3;
+            ring.rotation.x = Math.PI * 0.5;
+            playerGroup.add(ring);
+            playerSecondaryMeshes.push(ring);
+
+            const pc = 80;
+            const pGeo = new THREE.BufferGeometry();
+            const pPos = new Float32Array(pc * 3);
+            playerParticleData = [];
+            for (let i = 0; i < pc; i++) {
+                const r = 0.4 + Math.random() * 1.5;
+                const th = Math.random() * Math.PI * 2;
+                const ph = Math.random() * Math.PI;
+                pPos[i * 3] = Math.sin(ph) * Math.cos(th) * r;
+                pPos[i * 3 + 1] = Math.sin(ph) * Math.sin(th) * r;
+                pPos[i * 3 + 2] = Math.cos(ph) * r;
+                playerParticleData.push({ baseR: r, baseTh: th, basePh: ph, speed: 0.5 + Math.random() * 2, phase: Math
+                        .random() * Math.PI * 2 });
             }
-
-            // ── PARTICLE SYSTEM ──
-            createEntityParticleSystem(config);
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            const pMat = new THREE.PointsMaterial({ color: cfg.particleColors[0], size: 0.08, blending: THREE
+                    .AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.8 });
+            playerParticleSystem = new THREE.Points(pGeo, pMat);
+            playerParticleSystem.renderOrder = 4;
+            playerGroup.add(playerParticleSystem);
         }
 
-        // ── GHOST FORM: Flowing wavy sheet ──
-        function buildGhostForm(config) {
-            const widthSegs = 40;
-            const heightSegs = 60;
-            const geo = new THREE.PlaneGeometry(2.2, 3.2, widthSegs, heightSegs);
-            const mat = new THREE.MeshPhongMaterial({
-                color: config.coreColor,
-                emissive: config.glowColor,
-                emissiveIntensity: 0.5,
-                transparent: true,
-                opacity: 0.55,
-                side: THREE.DoubleSide,
-                depthWrite: false,
-                specular: 0xffffff,
-                shininess: 80,
-            });
-            ghostSheetMesh = new THREE.Mesh(geo, mat);
-            ghostSheetMesh.renderOrder = 2;
-            ghostSheetMesh.position.y = 0.3;
-            entityGroup.add(ghostSheetMesh);
-            ghostSheetGeo = geo;
-            // Store base positions
-            ghostSheetBasePositions = new Float32Array(geo.attributes.position.array);
-            secondaryMeshes.push(ghostSheetMesh);
+        function resetPlayerStats() {
+            const cfg = entityConfigs[currentEntityKey];
+            playerMaxHp = cfg.maxHp;
+            playerMaxMp = cfg.maxMp;
+            playerHp = playerMaxHp;
+            playerMp = playerMaxMp;
+            playerShield = 0;
+            playerBuff = null;
+            playerDead = false;
+            deathTimer = 0;
+            playerGroup.position.set((Math.random() - 0.5) * 20, 0.5, (Math.random() - 0.5) * 20);
+            playerGroup.visible = true;
+            playerGroup.scale.setScalar(1);
+            deathOverlay.style.opacity = '0';
         }
 
-        // ── DEMON FORM: Spiky sphere ──
-        function buildDemonForm(config) {
-            const spikeCount = 28;
-            // Fibonacci sphere for spike distribution
-            const phi_golden = Math.PI * (3 - Math.sqrt(5));
-            for (let i = 0; i < spikeCount; i++) {
-                const y = 1 - (i / (spikeCount - 1)) * 2;
-                const radiusAtY = Math.sqrt(1 - y * y);
-                const theta = phi_golden * i;
-                const x = Math.cos(theta) * radiusAtY;
-                const z = Math.sin(theta) * radiusAtY;
-                const dir = new THREE.Vector3(x, y, z).normalize();
+        buildPlayerVisual('ghost');
+        resetPlayerStats();
 
-                const spikeLength = 0.35 + Math.random() * 0.55;
-                const spikeGeo = new THREE.ConeGeometry(0.06, spikeLength, 8, 8);
-                const spikeMat = new THREE.MeshStandardMaterial({
-                    color: 0x331111,
-                    roughness: 0.3,
-                    metalness: 0.5,
-                    emissive: config.coreColor,
-                    emissiveIntensity: 0.7,
-                });
-                const spike = new THREE.Mesh(spikeGeo, spikeMat);
-                spike.position.copy(dir.clone().multiplyScalar(0.38 + spikeLength / 2));
-                // Orient spike outward
-                const up = new THREE.Vector3(0, 1, 0);
-                const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
-                spike.setRotationFromQuaternion(quat);
-                spike.castShadow = true;
-                entityGroup.add(spike);
-                demonSpikes.push(spike);
+        // ─────────────────────────────────────
+        // ENEMIES
+        // ─────────────────────────────────────
+        const enemies = [];
+        const enemyGroup = new THREE.Group();
+        scene.add(enemyGroup);
+
+        const enemyTypes = [
+            { name: 'Shadow Wisp', hp: 25, speed: 3.5, dmg: 8, size: 0.5, color: 0x331144, glow: 0x662288, score: 10 },
+            { name: 'Dark Phantom', hp: 45, speed: 4.5, dmg: 14, size: 0.7, color: 0x220022, glow: 0x883355, score: 25 },
+            { name: 'Corrupted Knight', hp: 75, speed: 2.8, dmg: 22, size: 0.9, color: 0x1a0000, glow: 0xcc3333, score: 50 },
+        ];
+
+        function spawnEnemy(typeIndex) {
+            const type = enemyTypes[Math.min(typeIndex, enemyTypes.length - 1)];
+            const angle = Math.random() * Math.PI * 2;
+            const dist = WORLD_SIZE / 2 - 3 + Math.random() * 5;
+            const x = Math.cos(angle) * dist;
+            const z = Math.sin(angle) * dist;
+            const group = new THREE.Group();
+            const bodyGeo = new THREE.SphereGeometry(type.size, 12, 12);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: type.color, roughness: 0.4, metalness: 0.3,
+                emissive: type.glow, emissiveIntensity: 0.6 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            group.add(body);
+            const eyeGeo = new THREE.SphereGeometry(type.size * 0.35, 8, 8);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: type.glow, blending: THREE.AdditiveBlending,
+                depthWrite: false });
+            const eye = new THREE.Mesh(eyeGeo, eyeMat);
+            eye.position.y = type.size * 0.4;
+            eye.renderOrder = 2;
+            group.add(eye);
+            group.position.set(x, type.size * 0.9, z);
+            enemyGroup.add(group);
+            const enemy = {
+                group,
+                body,
+                eye,
+                type,
+                hp: type.hp,
+                maxHp: type.hp,
+                speed: type.speed + Math.random() * 1.5,
+                dmg: type.dmg,
+                attackCooldown: 0,
+                stuckTimer: 0,
+                stuckDir: Math.random() * Math.PI * 2,
+            };
+            enemies.push(enemy);
+            enemiesRemaining++;
+            return enemy;
+        }
+
+        function spawnWave(waveNum) {
+            const count = 3 + waveNum * 2;
+            enemiesRemaining = 0;
+            for (let i = 0; i < count; i++) {
+                let typeIdx = 0;
+                if (waveNum >= 3 && i % 3 === 0) typeIdx = 2;
+                else if (waveNum >= 2 && i % 2 === 0) typeIdx = 1;
+                spawnEnemy(typeIdx);
             }
-            // Add a fiery inner glow ring
-            const fireRingGeo = new THREE.TorusGeometry(0.5, 0.06, 16, 40);
-            const fireRingMat = new THREE.MeshBasicMaterial({
-                color: 0xff4400,
-                transparent: true,
-                opacity: 0.7,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-            });
-            const fireRing = new THREE.Mesh(fireRingGeo, fireRingMat);
-            fireRing.renderOrder = 3;
-            fireRing.rotation.x = Math.PI * 0.35;
-            entityGroup.add(fireRing);
-            secondaryMeshes.push(fireRing);
+            waveActive = true;
+            waveText.textContent = `Wave ${waveNum}`;
         }
 
-        // ── APPARITION FORM: Flickering point-cloud humanoid ──
-        function buildApparitionForm(config) {
-            const totalPoints = 600;
-            const geo = new THREE.BufferGeometry();
-            const positions = new Float32Array(totalPoints * 3);
-            apparitionData = [];
-            for (let i = 0; i < totalPoints; i++) {
-                // Sample within humanoid volume
-                let px, py, pz;
-                const part = Math.random();
-                if (part < 0.2) {
-                    // Head
-                    const r = 0.3 * Math.cbrt(Math.random());
-                    const th = Math.random() * Math.PI * 2;
-                    const ph = Math.acos(2 * Math.random() - 1);
-                    px = Math.sin(ph) * Math.cos(th) * r;
-                    py = Math.sin(ph) * Math.sin(th) * r + 1.3;
-                    pz = Math.cos(ph) * r;
-                } else if (part < 0.6) {
-                    // Body
-                    px = (Math.random() - 0.5) * 0.55;
-                    py = Math.random() * 1.2 - 0.1;
-                    pz = (Math.random() - 0.5) * 0.4;
-                } else if (part < 0.8) {
-                    // Left arm
-                    const t = Math.random();
-                    px = -0.45 - t * 0.5 + (Math.random() - 0.5) * 0.2;
-                    py = 0.8 - t * 0.7;
-                    pz = (Math.random() - 0.5) * 0.3;
-                } else {
-                    // Right arm
-                    const t = Math.random();
-                    px = 0.45 + t * 0.5 + (Math.random() - 0.5) * 0.2;
-                    py = 0.8 - t * 0.7;
-                    pz = (Math.random() - 0.5) * 0.3;
+        function clearAllEnemies() {
+            while (enemies.length > 0) {
+                const e = enemies.pop();
+                enemyGroup.remove(e.group);
+                e.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            }
+            enemiesRemaining = 0;
+        }
+
+        // ─────────────────────────────────────
+        // PROJECTILES & EFFECTS
+        // ─────────────────────────────────────
+        const projectiles = [];
+        const aoeEffects = [];
+        const projectileGroup = new THREE.Group();
+        scene.add(projectileGroup);
+
+        function createProjectile(origin, dir, config, isPlayer = true) {
+            const geo = new THREE.SphereGeometry(config.size || 0.22, 8, 8);
+            const mat = new THREE.MeshBasicMaterial({ color: config.color, blending: THREE.AdditiveBlending,
+                depthWrite: false, transparent: true, opacity: 0.9 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(origin);
+            mesh.renderOrder = 5;
+            projectileGroup.add(mesh);
+            const proj = {
+                mesh,
+                dir: dir.clone().normalize(),
+                speed: config.speed || 12,
+                dmg: config.dmg || 15,
+                color: config.color,
+                isPlayer,
+                lifetime: 2.5,
+                chain: config.chain || 0,
+                chained: [],
+                explosive: config.explosive || false,
+                explodeRadius: config.explosive ? 3 : 0,
+            };
+            projectiles.push(proj);
+            return proj;
+        }
+
+        function createAoeEffect(position, color, radius, duration = 0.6) {
+            const geo = new THREE.RingGeometry(0.1, radius, 32);
+            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, blending: THREE
+                    .AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(geo, mat);
+            ring.position.copy(position);
+            ring.position.y += 0.1;
+            ring.rotation.x = -Math.PI / 2;
+            ring.renderOrder = 5;
+            scene.add(ring);
+            const effect = { mesh: ring, material: mat, duration, elapsed: 0, radius, color, position: position.clone() };
+            aoeEffects.push(effect);
+            return effect;
+        }
+
+        // ─────────────────────────────────────
+        // GAME LOGIC
+        // ─────────────────────────────────────
+        function damagePlayer(amount) {
+            if (playerDead) return;
+            if (playerShield > 0) {
+                const absorbed = Math.min(playerShield, amount);
+                playerShield -= absorbed;
+                amount -= absorbed;
+            }
+            if (amount > 0) {
+                playerHp -= amount;
+                if (playerHp <= 0) {
+                    playerHp = 0;
+                    killPlayer();
                 }
-                positions[i * 3] = px;
-                positions[i * 3 + 1] = py;
-                positions[i * 3 + 2] = pz;
-                apparitionData.push({
-                    baseX: px,
-                    baseY: py,
-                    baseZ: pz,
-                    flickerSpeed: Math.random() * 8 + 3,
-                    flickerAmp: Math.random() * 0.3,
-                    phase: Math.random() * Math.PI * 2,
-                });
             }
-            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const mat = new THREE.PointsMaterial({
-                map: sparkTex,
-                color: config.particleColors[0],
-                size: 0.06,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-                transparent: true,
-                opacity: 0.75,
-            });
-            apparitionPointCloud = new THREE.Points(geo, mat);
-            apparitionPointCloud.renderOrder = 3;
-            apparitionPointCloud.position.y = -0.3;
-            entityGroup.add(apparitionPointCloud);
+            updateHUD();
         }
 
-        // ── DEITY FORM: Sacred geometry ──
-        function buildDeityForm(config) {
-            // Wireframe icosahedron
-            const icoGeo = new THREE.IcosahedronGeometry(0.55, 1);
-            const icoMat = new THREE.MeshBasicMaterial({
-                color: config.glowColor,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.7,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-            });
-            const icoMesh = new THREE.Mesh(icoGeo, icoMat);
-            icoMesh.renderOrder = 3;
-            entityGroup.add(icoMesh);
-            secondaryMeshes.push(icoMesh);
-
-            // Orbiting small tetrahedrons
-            const orbiterCount = 6;
-            for (let i = 0; i < orbiterCount; i++) {
-                const orbGeo = new THREE.TetrahedronGeometry(0.1, 0);
-                const orbMat = new THREE.MeshStandardMaterial({
-                    color: config.coreColor,
-                    roughness: 0.1,
-                    metalness: 0.3,
-                    emissive: config.glowColor,
-                    emissiveIntensity: 1.2,
-                });
-                const orbMesh = new THREE.Mesh(orbGeo, orbMat);
-                orbMesh.castShadow = true;
-                entityGroup.add(orbMesh);
-                deityOrbiters.push({
-                    mesh: orbMesh,
-                    radius: 0.75 + Math.random() * 0.35,
-                    speed: 0.6 + Math.random() * 0.9,
-                    phase: Math.random() * Math.PI * 2,
-                    tilt: (Math.random() - 0.5) * Math.PI * 0.7,
-                    yOffset: (Math.random() - 0.5) * 0.5,
-                });
-            }
+        function killPlayer() {
+            playerDead = true;
+            deathTimer = 1.5;
+            playerGroup.visible = false;
+            deathOverlay.style.opacity = '1';
+            createAoeEffect(playerGroup.position.clone(), 0xff0000, 3, 1.2);
+            clearAllEnemies();
+            waveActive = false;
+            enemiesRemaining = 0;
+            score = Math.max(0, score - 30);
+            updateHUD();
         }
 
-        // ── GOD FORM: Massive sphere with orbiting rings ──
-        function buildGodForm(config) {
-            // Make core larger
-            if (coreMesh) {
-                coreMesh.scale.set(1.4, 1.4, 1.4);
-            }
-            if (coreGlowMesh) {
-                coreGlowMesh.scale.set(1.5, 1.5, 1.5);
-                coreGlowMesh.material.opacity = 0.5;
-            }
-
-            // Orbiting rings at different angles
-            const ringConfigs = [
-                { radius: 0.75, tube: 0.025, tiltX: Math.PI * 0.4, tiltY: 0, speed: 0.7 },
-                { radius: 0.9, tube: 0.02, tiltX: Math.PI * 0.25, tiltY: Math.PI * 0.35, speed: -0.5 },
-                { radius: 0.68, tube: 0.03, tiltX: Math.PI * 0.55, tiltY: Math.PI * 0.2, speed: 0.9 },
-                { radius: 1.0, tube: 0.018, tiltX: Math.PI * 0.15, tiltY: Math.PI * 0.6, speed: -0.65 },
-            ];
-            ringConfigs.forEach(rc => {
-                const ringGeo = new THREE.TorusGeometry(rc.radius, rc.tube, 32, 100);
-                const ringMat = new THREE.MeshBasicMaterial({
-                    color: config.glowColor,
-                    transparent: true,
-                    opacity: 0.6,
-                    blending: THREE.AdditiveBlending,
-                    depthWrite: false,
-                });
-                const ring = new THREE.Mesh(ringGeo, ringMat);
-                ring.renderOrder = 3;
-                ring.rotation.x = rc.tiltX;
-                ring.rotation.y = rc.tiltY;
-                entityGroup.add(ring);
-                godRings.push({ mesh: ring, speed: rc.speed, axis: new THREE.Vector3(
-                        Math.sin(rc.tiltY) * Math.cos(rc.tiltX),
-                        Math.sin(rc.tiltX),
-                        Math.cos(rc.tiltY) * Math.cos(rc.tiltX)
-                    ).normalize() });
-            });
+        function healPlayer(amount) {
+            playerHp = Math.min(playerMaxHp, playerHp + amount);
+            updateHUD();
         }
 
-        // ── ENERGY BEING FORM: Torus knot + tendrils ──
-        function buildEnergyBeingForm(config) {
-            // Torus knot core
-            const knotGeo = new THREE.TorusKnotGeometry(0.4, 0.08, 100, 16, 2, 3);
-            const knotMat = new THREE.MeshStandardMaterial({
-                color: config.coreColor,
-                roughness: 0.1,
-                metalness: 0.3,
-                emissive: config.glowColor,
-                emissiveIntensity: 2.0,
-            });
-            const knotMesh = new THREE.Mesh(knotGeo, knotMat);
-            knotMesh.renderOrder = 2;
-            knotMesh.castShadow = true;
-            entityGroup.add(knotMesh);
-            secondaryMeshes.push(knotMesh);
+        function useMana(amount) {
+            if (playerMp >= amount) {
+                playerMp -= amount;
+                updateHUD();
+                return true;
+            }
+            return false;
+        }
 
-            // Energy tendrils (thin curved tubes)
-            const tendrilCount = 6;
-            for (let t = 0; t < tendrilCount; t++) {
-                const curvePoints = [];
-                const startAngle = (t / tendrilCount) * Math.PI * 2;
-                const startDir = new THREE.Vector3(Math.cos(startAngle), (Math.random() - 0.5) * 0.8, Math.sin(
-                    startAngle)).normalize();
-                const length = 1.2 + Math.random() * 1.5;
-                const segments = 40;
-                for (let s = 0; s <= segments; s++) {
-                    const frac = s / segments;
-                    const pt = startDir.clone().multiplyScalar(0.5 + frac * length);
-                    // Add waviness
-                    pt.x += Math.sin(frac * 8 + t) * 0.2 * (1 - frac);
-                    pt.y += Math.cos(frac * 7 + t) * 0.25 * (1 - frac);
-                    pt.z += Math.sin(frac * 6 + t + 1) * 0.2 * (1 - frac);
-                    curvePoints.push(pt);
+        function updateHUD() {
+            const hpPct = Math.max(0, playerHp / playerMaxHp * 100);
+            const mpPct = Math.max(0, playerMp / playerMaxMp * 100);
+            hpFill.style.width = hpPct + '%';
+            mpFill.style.width = mpPct + '%';
+            hpLabel.textContent = `❤️ ${Math.ceil(playerHp)}${playerShield>0?' 🛡️':''}`;
+            mpLabel.textContent = `💎 ${Math.ceil(playerMp)}`;
+            scoreText.textContent = `${Math.floor(score)} pts`;
+        }
+
+        function getNearestEnemy(pos, maxRange = 20) {
+            let nearest = null;
+            let nearestDist = maxRange;
+            for (const e of enemies) {
+                const d = pos.distanceTo(e.group.position);
+                if (d < nearestDist) { nearestDist = d;
+                    nearest = e; }
+            }
+            return nearest;
+        }
+
+        function useAbility(slotIndex) {
+            if (playerDead) return;
+            const cfg = entityConfigs[currentEntityKey];
+            const ability = cfg.abilities[slotIndex];
+            if (!ability) return;
+            if (!useMana(ability.cost)) return;
+            if (abilityBtnCooldowns[slotIndex] > 0) return;
+            abilityBtnCooldowns[slotIndex] = ability.cd;
+
+            const pos = playerGroup.position.clone();
+            const facing = playerFacing.clone();
+
+            switch (ability.type) {
+                case 'projectile': {
+                    const origin = pos.clone().add(new THREE.Vector3(0, 0.8, 0)).add(facing.clone().multiplyScalar(0.6));
+                    createProjectile(origin, facing, ability, true);
+                    break;
                 }
-                const curve = new THREE.CatmullRomCurve3(curvePoints);
-                const tubeGeo = new THREE.TubeGeometry(curve, 40, 0.025, 8, false);
-                const tubeMat = new THREE.MeshBasicMaterial({
-                    color: config.glowColor,
-                    transparent: true,
-                    opacity: 0.5,
-                    blending: THREE.AdditiveBlending,
-                    depthWrite: false,
-                });
-                const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
-                tubeMesh.renderOrder = 3;
-                entityGroup.add(tubeMesh);
-                energyTendrils.push(tubeMesh);
+                case 'dash': {
+                    const dashDir = facing.clone();
+                    const endPos = pos.clone().add(dashDir.multiplyScalar(ability.distance));
+                    endPos.x = THREE.MathUtils.clamp(endPos.x, -WORLD_SIZE / 2 + 2, WORLD_SIZE / 2 - 2);
+                    endPos.z = THREE.MathUtils.clamp(endPos.z, -WORLD_SIZE / 2 + 2, WORLD_SIZE / 2 - 2);
+                    for (const ob of obstacleData) {
+                        const dx = endPos.x - ob.x;
+                        const dz = endPos.z - ob.z;
+                        if (Math.sqrt(dx * dx + dz * dz) < ob.radius + 0.6) {
+                            endPos.x = pos.x;
+                            endPos.z = pos.z;
+                            break;
+                        }
+                    }
+                    playerGroup.position.copy(endPos);
+                    playerGroup.position.y = 0.5;
+                    createAoeEffect(pos, ability.color, 2, 0.4);
+                    if (ability.dmg > 0) {
+                        for (const e of enemies) {
+                            if (e.group.position.distanceTo(endPos) < 2.5) {
+                                e.hp -= ability.dmg;
+                                if (e.hp <= 0) killEnemy(e);
+                            }
+                        }
+                    }
+                    break;
+                }
+                case 'aoe': {
+                    createAoeEffect(pos, ability.color, ability.radius, 0.7);
+                    for (const e of enemies) {
+                        if (e.group.position.distanceTo(pos) < ability.radius) {
+                            e.hp -= ability.dmg;
+                            if (e.hp <= 0) killEnemy(e);
+                        }
+                    }
+                    if (ability.pull) {
+                        for (const e of enemies) {
+                            if (e.group.position.distanceTo(pos) < ability.radius) {
+                                const pullDir = pos.clone().sub(e.group.position).normalize();
+                                e.group.position.add(pullDir.multiplyScalar(3));
+                            }
+                        }
+                    }
+                    break;
+                }
+                case 'beam': {
+                    const beamEnd = pos.clone().add(facing.clone().multiplyScalar(ability.range));
+                    createAoeEffect(beamEnd, ability.color, 1.5, 0.5);
+                    for (const e of enemies) {
+                        const closestPt = new THREE.Vector3();
+                        const line = new THREE.Line3(pos, beamEnd);
+                        line.closestPointToPoint(e.group.position, true, closestPt);
+                        if (closestPt.distanceTo(e.group.position) < ability.width + 0.5) {
+                            e.hp -= ability.dmg;
+                            if (e.hp <= 0) killEnemy(e);
+                        }
+                    }
+                    break;
+                }
+                case 'heal': {
+                    healPlayer(ability.heal);
+                    createAoeEffect(pos, ability.color, 3, 0.6);
+                    break;
+                }
+                case 'shield': {
+                    playerShield = ability.shield;
+                    createAoeEffect(pos, ability.color, 2.5, 0.5);
+                    break;
+                }
+                case 'buff': {
+                    playerBuff = { speedMul: ability.buffSpeed || 1.5, dmgMul: ability.buffDmg || 1.5, endTime: performance
+                            .now() / 1000 + ability.duration };
+                    createAoeEffect(pos, ability.color, 3, 0.5);
+                    break;
+                }
+                case 'targeted_aoe': {
+                    const nearest = getNearestEnemy(pos, ability.range);
+                    const targetPos = nearest ? nearest.group.position.clone() : pos.clone().add(facing.clone().multiplyScalar(
+                        8));
+                    createAoeEffect(targetPos, ability.color, ability.radius, 0.7);
+                    for (const e of enemies) {
+                        if (e.group.position.distanceTo(targetPos) < ability.radius) {
+                            e.hp -= ability.dmg;
+                            if (e.hp <= 0) killEnemy(e);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        function killEnemy(enemy) {
+            createAoeEffect(enemy.group.position.clone(), enemy.type.glow, 1.5, 0.5);
+            score += enemy.type.score;
+            enemyGroup.remove(enemy.group);
+            enemy.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            const idx = enemies.indexOf(enemy);
+            if (idx >= 0) enemies.splice(idx, 1);
+            enemiesRemaining--;
+            updateHUD();
+            if (enemiesRemaining <= 0 && waveActive) {
+                waveActive = false;
+                waveDelay = 2.5;
+                wave++;
+                waveText.textContent = `Wave ${wave} incoming...`;
             }
         }
 
         // ─────────────────────────────────────
-        // INITIAL BUILD
+        // INPUT HANDLING
         // ─────────────────────────────────────
-        buildEntity('ghost');
-        updateUIForEntity('ghost');
+        let joystickActive = false;
+        let joystickTouchId = null;
+        let joystickBasePos = { x: 0, y: 0 };
+        let joystickInput = { x: 0, y: 0 };
+        const JOYSTICK_MAX_R = 40;
 
-        // ─────────────────────────────────────
-        // UI CARD CREATION
-        // ─────────────────────────────────────
-        function createEntityCards() {
-            cardSelector.innerHTML = '';
+        const abilityBtnCooldowns = [0, 0, 0];
+        const abilityBtnElements = abilityBtns;
+
+        function getTouchPos(touch) {
+            return { x: touch.clientX, y: touch.clientY };
+        }
+
+        joystickZone.addEventListener('touchstart', (e) => {
+            if (joystickActive) return;
+            const t = e.changedTouches[0];
+            joystickTouchId = t.identifier;
+            joystickActive = true;
+            const rect = joystickZone.getBoundingClientRect();
+            joystickBasePos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            joystickBase.style.opacity = '1';
+            joystickKnob.style.opacity = '1';
+            joystickBase.style.left = '50%';
+            joystickBase.style.top = '50%';
+            joystickKnob.style.left = '50%';
+            joystickKnob.style.top = '50%';
+            joystickInput = { x: 0, y: 0 };
+            e.preventDefault();
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!joystickActive || joystickTouchId === null) return;
+            for (const t of e.changedTouches) {
+                if (t.identifier === joystickTouchId) {
+                    const dx = t.clientX - joystickBasePos.x;
+                    const dy = t.clientY - joystickBasePos.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const clampedDist = Math.min(dist, JOYSTICK_MAX_R);
+                    const angle = Math.atan2(dy, dx);
+                    const cx = Math.cos(angle) * clampedDist;
+                    const cy = Math.sin(angle) * clampedDist;
+                    joystickKnob.style.left = `calc(50% + ${cx}px)`;
+                    joystickKnob.style.top = `calc(50% + ${cy}px)`;
+                    joystickInput = { x: cx / JOYSTICK_MAX_R, y: cy / JOYSTICK_MAX_R };
+                    e.preventDefault();
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', (e) => {
+            for (const t of e.changedTouches) {
+                if (t.identifier === joystickTouchId) {
+                    joystickActive = false;
+                    joystickTouchId = null;
+                    joystickBase.style.opacity = '0';
+                    joystickKnob.style.opacity = '0';
+                    joystickKnob.style.left = '50%';
+                    joystickKnob.style.top = '50%';
+                    joystickInput = { x: 0, y: 0 };
+                }
+            }
+            // Check ability buttons
+            for (const t of e.changedTouches) {
+                const pos = getTouchPos(t);
+                abilityBtns.forEach((btn, i) => {
+                    const rect = btn.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    const d = Math.sqrt((pos.x - cx) ** 2 + (pos.y - cy) ** 2);
+                    if (d < rect.width * 1.2) {
+                        useAbility(i);
+                    }
+                });
+                // Check entity switch dots
+                document.querySelectorAll('.entity-dot').forEach(dot => {
+                    const rect = dot.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    const d = Math.sqrt((pos.x - cx) ** 2 + (pos.y - cy) ** 2);
+                    if (d < rect.width * 1.3 && dot.dataset.key) {
+                        switchEntity(dot.dataset.key);
+                    }
+                });
+            }
+        });
+
+        window.addEventListener('touchcancel', () => {
+            joystickActive = false;
+            joystickTouchId = null;
+            joystickBase.style.opacity = '0';
+            joystickKnob.style.opacity = '0';
+            joystickInput = { x: 0, y: 0 };
+        });
+
+        // Mouse support for desktop
+        let mouseDown = false;
+        window.addEventListener('mousedown', (e) => {
+            const x = e.clientX;
+            if (x < window.innerWidth * 0.4) {
+                mouseDown = true;
+                joystickBasePos = { x: e.clientX, y: e.clientY };
+                joystickBase.style.opacity = '1';
+                joystickKnob.style.opacity = '1';
+                joystickBase.style.left = '50%';
+                joystickBase.style.top = '50%';
+                joystickInput = { x: 0, y: 0 };
+            }
+            // Check ability buttons
+            abilityBtns.forEach((btn, i) => {
+                const rect = btn.getBoundingClientRect();
+                if (x >= rect.left && x <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                    useAbility(i);
+                }
+            });
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!mouseDown) return;
+            const dx = e.clientX - joystickBasePos.x;
+            const dy = e.clientY - joystickBasePos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clampedDist = Math.min(dist, JOYSTICK_MAX_R);
+            const angle = Math.atan2(dy, dx);
+            const cx = Math.cos(angle) * clampedDist;
+            const cy = Math.sin(angle) * clampedDist;
+            joystickKnob.style.left = `calc(50% + ${cx}px)`;
+            joystickKnob.style.top = `calc(50% + ${cy}px)`;
+            joystickInput = { x: cx / JOYSTICK_MAX_R, y: cy / JOYSTICK_MAX_R };
+        });
+        window.addEventListener('mouseup', () => {
+            mouseDown = false;
+            joystickBase.style.opacity = '0';
+            joystickKnob.style.opacity = '0';
+            joystickInput = { x: 0, y: 0 };
+        });
+
+        // Keyboard support
+        const keys = {};
+        window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true;
+            e.preventDefault(); });
+        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false;
+            e.preventDefault(); });
+        window.addEventListener('keydown', e => {
+            if (e.key >= '1' && e.key <= '3') useAbility(parseInt(e.key) - 1);
+            if (e.key >= '4' && e.key <= '9' && parseInt(e.key) - 4 < entityKeys.length) switchEntity(entityKeys[
+                parseInt(e.key) - 4]);
+        });
+
+        function switchEntity(key) {
+            if (key === currentEntityKey) return;
+            currentEntityKey = key;
+            buildPlayerVisual(key);
+            const cfg = entityConfigs[key];
+            playerMaxHp = cfg.maxHp;
+            playerMaxMp = cfg.maxMp;
+            playerHp = Math.min(playerHp, playerMaxHp);
+            playerMp = Math.min(playerMp, playerMaxMp);
+            playerShield = 0;
+            playerBuff = null;
+            abilityBtnCooldowns[0] = abilityBtnCooldowns[1] = abilityBtnCooldowns[2] = 0;
+            entityNameDisplay.textContent = cfg.emoji + ' ' + cfg.name;
+            entityNameDisplay.style.color = '#' + cfg.glowColor.toString(16).padStart(6, '0');
+            updateAbilityButtonLabels();
+            updateEntityDots();
+            updateHUD();
+            createAoeEffect(playerGroup.position.clone(), cfg.glowColor, 2, 0.4);
+        }
+
+        function updateAbilityButtonLabels() {
+            const cfg = entityConfigs[currentEntityKey];
+            abilityBtns.forEach((btn, i) => {
+                const ab = cfg.abilities[i];
+                btn.querySelector('span:first-child').textContent = ab.icon;
+                btn.querySelector('.ability-label').textContent = ab.name;
+                btn.style.borderColor = '#' + ab.color.toString(16).padStart(6, '0');
+            });
+        }
+
+        function updateEntityDots() {
+            document.querySelectorAll('.entity-dot').forEach(dot => {
+                dot.classList.toggle('active', dot.dataset.key === currentEntityKey);
+            });
+        }
+
+        function createEntityDots() {
+            entitySwitchRow.innerHTML = '';
             entityKeys.forEach(key => {
-                const config = entityConfigs[key];
-                const card = document.createElement('div');
-                card.className = 'entity-card';
-                card.dataset.entityKey = key;
-                card.style.setProperty('--card-glow', config.cardGlow);
-                card.innerHTML = `
-                    <span class="card-emoji">${config.emoji}</span>
-                    <span class="card-label">${config.name}</span>
-                `;
-                card.addEventListener('click', () => selectEntity(key));
-                cardSelector.appendChild(card);
+                const cfg = entityConfigs[key];
+                const dot = document.createElement('div');
+                dot.className = 'entity-dot';
+                dot.dataset.key = key;
+                dot.textContent = cfg.emoji;
+                dot.style.setProperty('--dot-glow', cfg.cardGlow);
+                dot.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    switchEntity(key);
+                });
+                if (key === currentEntityKey) dot.classList.add('active');
+                entitySwitchRow.appendChild(dot);
             });
         }
-
-        function updateUIForEntity(key) {
-            const config = entityConfigs[key];
-            infoName.textContent = config.name;
-            infoName.style.color = '#' + config.glowColor.toString(16).padStart(6, '0');
-            infoName.style.textShadow = `0 0 40px #${config.glowColor.toString(16).padStart(6, '0')}`;
-            infoDesc.textContent = config.desc;
-            // Update cards
-            document.querySelectorAll('.entity-card').forEach(card => {
-                card.classList.remove('selected');
-                if (card.dataset.entityKey === key) {
-                    card.classList.add('selected');
-                    card.style.setProperty('--card-glow', config.cardGlow);
-                }
-            });
-        }
-
-        function selectEntity(key) {
-            if (key === currentEntityKey && transitionProgress >= 1.0) return;
-            if (transitionProgress < 1.0) return; // Wait for current transition
-            targetEntityKey = key;
-            transitionDirection = -1; // Start fading out
-            transitionProgress = 0.999; // Trigger fade-out
-        }
-
-        createEntityCards();
-        // Mark initial selection
-        const initialCard = document.querySelector(`[data-entity-key="ghost"]`);
-        if (initialCard) initialCard.classList.add('selected');
+        createEntityDots();
+        updateAbilityButtonLabels();
+        entityNameDisplay.textContent = '👻 Ghost';
+        entityNameDisplay.style.color = '#aaccff';
+        updateHUD();
 
         // ─────────────────────────────────────
-        // ANIMATION LOOP
+        // GAME LOOP
         // ─────────────────────────────────────
         const clock = new THREE.Clock();
-        let elapsedTotal = 0;
+        let autoAttackTimer = 0;
+        const AUTO_ATTACK_INTERVAL = 0.7;
 
         function animate(timestamp) {
             requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.2);
+            const now = timestamp / 1000;
 
-            const dt = Math.min(clock.getDelta(), 0.15);
-            elapsedTotal += dt;
+            // Death handling
+            if (playerDead) {
+                deathTimer -= dt;
+                if (deathTimer <= 0) {
+                    resetPlayerStats();
+                    wave = Math.max(1, wave - 1);
+                    clearAllEnemies();
+                    waveActive = false;
+                    waveDelay = 1.5;
+                    waveText.textContent = `Wave ${wave}`;
+                }
+                updateHUD();
+                // Still update effects
+                updateAoeEffects(dt);
+                updateProjectiles(dt);
+                renderer.render(scene, camera);
+                return;
+            }
 
-            controls.update();
+            // Buff check
+            if (playerBuff && now > playerBuff.endTime) {
+                playerBuff = null;
+            }
 
-            // ── TRANSITION HANDLING ──
-            if (transitionProgress < 1.0) {
-                if (transitionDirection === -1) {
-                    // Fading out
-                    transitionProgress -= dt * 3.5;
-                    if (transitionProgress <= 0.0) {
-                        transitionProgress = 0.0;
-                        // Switch entity
-                        currentEntityKey = targetEntityKey;
-                        buildEntity(currentEntityKey);
-                        updateUIForEntity(currentEntityKey);
-                        transitionDirection = 1; // Start fading in
+            // Mana regen
+            const cfg = entityConfigs[currentEntityKey];
+            playerMp = Math.min(playerMaxMp, playerMp + cfg.mpRegen * dt);
+            if (playerShield > 0 && playerBuff === null) playerShield = Math.max(0, playerShield - dt * 3);
+
+            // Ability cooldowns
+            for (let i = 0; i < 3; i++) {
+                if (abilityBtnCooldowns[i] > 0) {
+                    abilityBtnCooldowns[i] -= dt;
+                    if (abilityBtnCooldowns[i] < 0) abilityBtnCooldowns[i] = 0;
+                    abilityBtns[i].classList.toggle('on-cooldown', abilityBtnCooldowns[i] > 0);
+                }
+            }
+
+            // Keyboard input
+            let kx = 0,
+                ky = 0;
+            if (keys['w'] || keys['arrowup']) ky += 1;
+            if (keys['s'] || keys['arrowdown']) ky -= 1;
+            if (keys['a'] || keys['arrowleft']) kx -= 1;
+            if (keys['d'] || keys['arrowright']) kx += 1;
+            const kLen = Math.sqrt(kx * kx + ky * ky);
+            if (kLen > 1) { kx /= kLen;
+                ky /= kLen; }
+            if (kLen > 0.1) { joystickInput.x = kx;
+                joystickInput.y = ky; } else if (!joystickActive && !mouseDown && kLen < 0.05) {
+                joystickInput.x *= 0.85;
+                joystickInput.y *= 0.85;
+            }
+
+            // Player movement
+            const camForward = new THREE.Vector3();
+            camera.getWorldDirection(camForward);
+            camForward.y = 0;
+            camForward.normalize();
+            const camRight = new THREE.Vector3().crossVectors(camForward, new THREE.Vector3(0, 1, 0)).normalize();
+            const moveDir = new THREE.Vector3()
+                .addScaledVector(camForward, -joystickInput.y)
+                .addScaledVector(camRight, joystickInput.x);
+            const moveLen = moveDir.length();
+            if (moveLen > 1) moveDir.normalize();
+            const speed = cfg.speed * (playerBuff ? playerBuff.speedMul : 1);
+            const velocity = moveDir.multiplyScalar(speed * moveLen);
+            const newPos = playerGroup.position.clone().add(velocity.clone().multiplyScalar(dt));
+            newPos.x = THREE.MathUtils.clamp(newPos.x, -WORLD_SIZE / 2 + 1.5, WORLD_SIZE / 2 - 1.5);
+            newPos.z = THREE.MathUtils.clamp(newPos.z, -WORLD_SIZE / 2 + 1.5, WORLD_SIZE / 2 - 1.5);
+            newPos.y = 0.5;
+            let blocked = false;
+            for (const ob of obstacleData) {
+                const dx = newPos.x - ob.x;
+                const dz = newPos.z - ob.z;
+                if (Math.sqrt(dx * dx + dz * dz) < ob.radius + 0.55) { blocked = true; break; }
+            }
+            if (!blocked) playerGroup.position.copy(newPos);
+            if (moveLen > 0.15) {
+                playerFacing.copy(moveDir.normalize());
+                const targetAngle = Math.atan2(playerFacing.x, playerFacing.z);
+                playerGroup.rotation.y = THREE.MathUtils.lerp(playerGroup.rotation.y, targetAngle, dt * 10);
+            }
+
+            // Auto-attack
+            autoAttackTimer -= dt;
+            if (autoAttackTimer <= 0) {
+                const nearest = getNearestEnemy(playerGroup.position, 11);
+                if (nearest) {
+                    autoAttackTimer = AUTO_ATTACK_INTERVAL;
+                    const dir = nearest.group.position.clone().sub(playerGroup.position).normalize();
+                    const origin = playerGroup.position.clone().add(new THREE.Vector3(0, 0.7, 0)).add(dir.clone().multiplyScalar(
+                        0.5));
+                    const dmg = 8 * (playerBuff ? playerBuff.dmgMul : 1);
+                    createProjectile(origin, dir, { color: cfg.glowColor, dmg, speed: 16, size: 0.15 }, true);
+                }
+            }
+
+            // Update player particles
+            if (playerParticleSystem && playerParticleData.length > 0) {
+                const pPos = playerParticleSystem.geometry.attributes.position.array;
+                for (let i = 0; i < playerParticleData.length; i++) {
+                    const pd = playerParticleData[i];
+                    const angle = pd.baseTh + now * pd.speed;
+                    const r = pd.baseR + Math.sin(now * 3 + pd.phase) * 0.3;
+                    pPos[i * 3] = Math.sin(pd.basePh) * Math.cos(angle) * r;
+                    pPos[i * 3 + 1] = Math.sin(pd.basePh) * Math.sin(angle) * r;
+                    pPos[i * 3 + 2] = Math.cos(pd.basePh) * r;
+                }
+                playerParticleSystem.geometry.attributes.position.needsUpdate = true;
+                const ci = Math.floor(now * 0.6) % cfg.particleColors.length;
+                playerParticleSystem.material.color.set(cfg.particleColors[ci]);
+            }
+            if (coreGlowMesh) {
+                const pulse = 1 + Math.sin(now * 3) * 0.08;
+                coreGlowMesh.scale.setScalar(pulse);
+            }
+            playerLight.position.copy(playerGroup.position).add(new THREE.Vector3(0, 2, 0));
+            playerLight.color.set(cfg.glowColor);
+            playerLight.intensity = 12 + Math.sin(now * 2) * 3;
+
+            // Camera follow
+            const camTarget = playerGroup.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+            const camOffset = playerFacing.clone().multiplyScalar(-7).add(new THREE.Vector3(0, 5.5, 0));
+            const desiredCamPos = camTarget.clone().add(camOffset);
+            camera.position.lerp(desiredCamPos, dt * 3.5);
+            camera.lookAt(camTarget);
+
+            // Update projectiles
+            updateProjectiles(dt);
+
+            // Update AoE effects
+            updateAoeEffects(dt);
+
+            // Enemy AI
+            for (const e of enemies) {
+                const toPlayer = playerGroup.position.clone().sub(e.group.position);
+                const dist = toPlayer.length();
+                toPlayer.normalize();
+                if (dist > 1.2) {
+                    const moveSpeed = e.speed * dt;
+                    const desired = e.group.position.clone().add(toPlayer.clone().multiplyScalar(moveSpeed));
+                    let eBlocked = false;
+                    for (const ob of obstacleData) {
+                        const dx = desired.x - ob.x;
+                        const dz = desired.z - ob.z;
+                        if (Math.sqrt(dx * dx + dz * dz) < ob.radius + e.type.size * 0.9) { eBlocked = true; break; }
                     }
-                } else if (transitionDirection === 1) {
-                    // Fading in
-                    transitionProgress += dt * 3.0;
-                    if (transitionProgress >= 1.0) {
-                        transitionProgress = 1.0;
-                        transitionDirection = 0;
+                    if (!eBlocked) {
+                        e.group.position.copy(desired);
+                        e.stuckTimer = 0;
+                    } else {
+                        e.stuckTimer += dt;
+                        if (e.stuckTimer > 0.8) {
+                            e.stuckDir += (Math.random() - 0.5) * 1.5;
+                            e.stuckTimer = 0;
+                        }
+                        const strafe = new THREE.Vector3(Math.cos(e.stuckDir), 0, Math.sin(e.stuckDir)).multiplyScalar(
+                            moveSpeed * 0.6);
+                        const altPos = e.group.position.clone().add(strafe);
+                        altPos.x = THREE.MathUtils.clamp(altPos.x, -WORLD_SIZE / 2 + 2, WORLD_SIZE / 2 - 2);
+                        altPos.z = THREE.MathUtils.clamp(altPos.z, -WORLD_SIZE / 2 + 2, WORLD_SIZE / 2 - 2);
+                        e.group.position.copy(altPos);
                     }
                 }
-                // Apply scale
-                const scale = transitionDirection === -1 ?
-                    Math.max(0.01, transitionProgress) :
-                    Math.min(1.0, transitionProgress);
-                const easedScale = easeInOutCubic(scale);
-                entityGroup.scale.setScalar(easedScale);
-                entityGroup.visible = scale > 0.02;
-            }
-
-            // ── UPDATE ENTITY-SPECIFIC ANIMATIONS ──
-            const config = entityConfigs[currentEntityKey];
-            const t = elapsedTotal;
-
-            // Ghost sheet animation
-            if (ghostSheetGeo && ghostSheetBasePositions && currentEntityKey === 'ghost') {
-                const posArr = ghostSheetGeo.attributes.position.array;
-                const baseArr = ghostSheetBasePositions;
-                for (let i = 0; i < posArr.length; i += 3) {
-                    const bx = baseArr[i];
-                    const by = baseArr[i + 1];
-                    const bz = baseArr[i + 2];
-                    const waveX = Math.sin(by * 3.5 + t * 1.3) * 0.25;
-                    const waveZ = Math.cos(bx * 2.8 + t * 1.1) * 0.3;
-                    const waveY = Math.sin(bx * 2.2 + bz * 2.2 + t * 0.9) * 0.2;
-                    posArr[i] = bx + waveX;
-                    posArr[i + 1] = by + waveY;
-                    posArr[i + 2] = bz + waveZ;
+                e.group.position.y = e.type.size * 0.9;
+                e.group.lookAt(playerGroup.position);
+                // Attack
+                e.attackCooldown -= dt;
+                if (dist < 1.8 && e.attackCooldown <= 0) {
+                    e.attackCooldown = 1.3 + Math.random() * 0.5;
+                    damagePlayer(e.dmg);
+                    createAoeEffect(playerGroup.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 0xff3333, 1, 0.3);
                 }
-                ghostSheetGeo.attributes.position.needsUpdate = true;
-                ghostSheetGeo.computeVertexNormals();
+                // Update eye glow
+                e.eye.material.opacity = 0.5 + Math.sin(now * 6 + e.group.position.x) * 0.4;
             }
 
-            // Demon spikes pulse
-            if (demonSpikes.length > 0 && currentEntityKey === 'demon') {
-                demonSpikes.forEach((spike, i) => {
-                    const pulse = 1 + Math.sin(t * 4 + i * 0.7) * 0.15;
-                    spike.scale.setScalar(pulse);
-                });
-            }
-
-            // Apparition flicker
-            if (apparitionPointCloud && apparitionData.length > 0 && currentEntityKey === 'apparition') {
-                const posArr = apparitionPointCloud.geometry.attributes.position.array;
-                for (let i = 0; i < apparitionData.length; i++) {
-                    const d = apparitionData[i];
-                    const flicker = Math.sin(t * d.flickerSpeed + d.phase) * d.flickerAmp;
-                    posArr[i * 3] = d.baseX + (Math.random() - 0.5) * flicker * 0.5;
-                    posArr[i * 3 + 1] = d.baseY + flicker;
-                    posArr[i * 3 + 2] = d.baseZ + (Math.random() - 0.5) * flicker * 0.5;
+            // Wave management
+            if (!waveActive && enemies.length === 0) {
+                waveDelay -= dt;
+                if (waveDelay <= 0) {
+                    spawnWave(wave);
+                    waveDelay = 999;
                 }
-                apparitionPointCloud.geometry.attributes.position.needsUpdate = true;
-                apparitionPointCloud.material.opacity = 0.55 + Math.sin(t * 5.5) * 0.25;
             }
 
-            // Deity orbiters
-            if (deityOrbiters.length > 0 && currentEntityKey === 'deity') {
-                deityOrbiters.forEach(o => {
-                    const angle = o.phase + t * o.speed;
-                    const x = Math.cos(angle) * o.radius;
-                    const z = Math.sin(angle) * o.radius;
-                    o.mesh.position.set(x, o.yOffset + Math.sin(t * 1.5 + o.phase) * 0.2, z);
-                    o.mesh.rotation.x += dt * 1.5;
-                    o.mesh.rotation.y += dt * 2.0;
-                });
-            }
+            // Update HUD periodically
+            updateHUD();
+            starfield.rotation.y += dt * 0.015;
 
-            // God rings rotation
-            if (godRings.length > 0 && currentEntityKey === 'god') {
-                godRings.forEach(r => {
-                    r.mesh.rotateOnWorldAxis(r.axis, r.speed * dt);
-                });
-            }
-
-            // Energy tendrils gentle rotation
-            if (energyTendrils.length > 0 && currentEntityKey === 'energyBeing') {
-                energyTendrils.forEach((tendril, i) => {
-                    tendril.rotation.y += dt * 0.6;
-                    tendril.rotation.x += dt * 0.25 * (i % 2 === 0 ? 1 : -1);
-                });
-            }
-
-            // Core gentle pulse
-            if (coreMesh && transitionProgress > 0.5) {
-                const pulse = 1 + Math.sin(t * 2.5) * 0.06;
-                coreMesh.scale.setScalar(pulse);
-            }
-            if (coreGlowMesh && transitionProgress > 0.5) {
-                const glowPulse = 1 + Math.sin(t * 2.0 + 1) * 0.1;
-                coreGlowMesh.scale.setScalar(glowPulse);
-                coreGlowMesh.material.opacity = 0.3 + Math.sin(t * 2.5) * 0.08;
-            }
-
-            // ── UPDATE ENTITY PARTICLES ──
-            if (entityParticleSystem && entityParticleData.length > 0) {
-                const posArr = entityParticleSystem.geometry.attributes.position.array;
-                for (let i = 0; i < entityParticleData.length; i++) {
-                    const d = entityParticleData[i];
-                    const orbitAngle = t * d.orbitSpeed + d.phase;
-                    const ox = Math.cos(orbitAngle) * d.orbitRadius;
-                    const oz = Math.sin(orbitAngle) * d.orbitRadius;
-                    const oy = Math.sin(t * d.verticalDrift + d.phase) * 1.2;
-                    posArr[i * 3] = d.baseX + ox;
-                    posArr[i * 3 + 1] = d.baseY + oy + (d.verticalDrift * t * 0.4) % 3;
-                    posArr[i * 3 + 2] = d.baseZ + oz;
-                    // Wrap vertically
-                    if (posArr[i * 3 + 1] > config.particleSpread) posArr[i * 3 + 1] -= config.particleSpread * 2;
-                    if (posArr[i * 3 + 1] < -config.particleSpread) posArr[i * 3 + 1] += config.particleSpread * 2;
-                }
-                entityParticleSystem.geometry.attributes.position.needsUpdate = true;
-                // Particle color lerp
-                const colorIndex = Math.floor((t * 0.5) % config.particleColors.length);
-                const nextIndex = (colorIndex + 1) % config.particleColors.length;
-                const colorFrac = (t * 0.5) % 1;
-                const c1 = new THREE.Color(config.particleColors[colorIndex]);
-                const c2 = new THREE.Color(config.particleColors[nextIndex]);
-                entityParticleSystem.material.color.copy(c1).lerp(c2, colorFrac);
-            }
-
-            // ── UPDATE GROUND RINGS ──
-            const targetRingColor = new THREE.Color(config.ringColor);
-            const targetRingGlow = new THREE.Color(config.ringGlow);
-            groundRings.forEach((ringData, i) => {
-                const currentColor = new THREE.Color(ringData.material.color);
-                const lerpedColor = currentColor.lerp(targetRingColor, dt * 3);
-                ringData.material.color.copy(lerpedColor);
-                ringData.material.opacity = 0.5 + Math.sin(t * 2 + i * 1.5) * 0.25;
-                const scalePulse = 1 + Math.sin(t * 1.8 + i) * 0.03;
-                ringData.mesh.scale.setScalar(scalePulse);
-                ringData.mesh.position.y = ringData.baseY + Math.sin(t * 2.2 + i) * 0.04;
-            });
-
-            // ── UPDATE CRYSTALS ──
-            crystals.forEach(crystal => {
-                const floatY = Math.sin(t * 1.5 + crystal.phase) * 0.15;
-                crystal.group.position.y = crystal.baseY + floatY;
-                crystal.group.rotation.y += dt * 0.3;
-                crystal.orbMaterial.color.copy(targetRingGlow);
-                crystal.orbMaterial.opacity = 0.5 + Math.sin(t * 3 + crystal.phase) * 0.35;
-            });
-
-            // ── UPDATE WISP PARTICLES ──
-            const wispPos = wispPoints.geometry.attributes.position.array;
-            for (let i = 0; i < wispCount; i++) {
-                const wd = wispData[i];
-                wispPos[i * 3] = wd.baseX + Math.sin(t * wd.speedX + wd.phase) * wd.amplitude;
-                wispPos[i * 3 + 1] = wd.baseY + Math.cos(t * wd.speedY + wd.phase) * wd.amplitude * 0.7;
-                wispPos[i * 3 + 2] = wd.baseZ + Math.cos(t * wd.speedZ + wd.phase + 1) * wd.amplitude;
-                // Wrap
-                if (wispPos[i * 3 + 1] > 6) wispPos[i * 3 + 1] = -2;
-                if (wispPos[i * 3 + 1] < -2) wispPos[i * 3 + 1] = 6;
-            }
-            wispPoints.geometry.attributes.position.needsUpdate = true;
-            wispMat.color.copy(targetRingGlow).multiplyScalar(0.6);
-
-            // ── UPDATE LIGHTING ──
-            ambientLight.color.copy(new THREE.Color(config.ambientLight));
-            pointLight.color.copy(new THREE.Color(config.pointLightColor));
-            pointLight.intensity += (config.pointLightIntensity - pointLight.intensity) * dt * 3;
-            scene.fog.color.copy(new THREE.Color(config.fogColor));
-            scene.fog.density = 0.00025;
-
-            // ── STARFIELD SLOW ROTATION ──
-            starfield.rotation.y += dt * 0.03;
-            starfield.rotation.x += dt * 0.008;
-
-            // ── RENDER ──
             renderer.render(scene, camera);
         }
 
-        function easeInOutCubic(t) {
-            return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        function updateProjectiles(dt) {
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.mesh.position.add(p.dir.clone().multiplyScalar(p.speed * dt));
+                p.lifetime -= dt;
+                if (p.lifetime <= 0) {
+                    removeProjectile(i);
+                    continue;
+                }
+                // Check collision with enemies (player projectiles)
+                if (p.isPlayer) {
+                    for (const e of enemies) {
+                        if (p.chain && p.chained.includes(e)) continue;
+                        if (p.mesh.position.distanceTo(e.group.position) < 1.0) {
+                            const dmg = p.dmg * (playerBuff ? playerBuff.dmgMul : 1);
+                            e.hp -= dmg;
+                            createAoeEffect(p.mesh.position.clone(), p.color, 0.6, 0.25);
+                            if (e.hp <= 0) killEnemy(e);
+                            if (p.chain && p.chained.length < p.chain) {
+                                p.chained.push(e);
+                                const nextEnemy = getNearestEnemy(p.mesh.position, 8);
+                                if (nextEnemy && !p.chained.includes(nextEnemy)) {
+                                    p.dir = nextEnemy.group.position.clone().sub(p.mesh.position).normalize();
+                                    p.lifetime = Math.max(p.lifetime, 0.6);
+                                } else { removeProjectile(i); break; }
+                            } else if (p.explosive) {
+                                for (const e2 of enemies) {
+                                    if (p.mesh.position.distanceTo(e2.group.position) < p.explodeRadius) {
+                                        e2.hp -= p.dmg * 0.7;
+                                        if (e2.hp <= 0) killEnemy(e2);
+                                    }
+                                }
+                                createAoeEffect(p.mesh.position.clone(), p.color, p.explodeRadius, 0.5);
+                                removeProjectile(i);
+                                break;
+                            } else { removeProjectile(i); break; }
+                        }
+                    }
+                }
+                // Boundary check
+                if (Math.abs(p.mesh.position.x) > WORLD_SIZE / 2 || Math.abs(p.mesh.position.z) > WORLD_SIZE / 2) {
+                    removeProjectile(i);
+                }
+            }
+        }
+
+        function removeProjectile(index) {
+            const p = projectiles[index];
+            projectileGroup.remove(p.mesh);
+            p.mesh.geometry.dispose();
+            p.mesh.material.dispose();
+            projectiles.splice(index, 1);
+        }
+
+        function updateAoeEffects(dt) {
+            for (let i = aoeEffects.length - 1; i >= 0; i--) {
+                const e = aoeEffects[i];
+                e.elapsed += dt;
+                const progress = e.elapsed / e.duration;
+                e.material.opacity = Math.max(0, 0.8 * (1 - progress));
+                e.mesh.scale.setScalar(1 + progress * 2);
+                if (progress >= 1) {
+                    scene.remove(e.mesh);
+                    e.mesh.geometry.dispose();
+                    e.material.dispose();
+                    aoeEffects.splice(i, 1);
+                }
+            }
         }
 
         // ─────────────────────────────────────
-        // RESIZE HANDLER
+        // STARTUP
         // ─────────────────────────────────────
+        spawnWave(1);
+        waveDelay = 999;
+        updateHUD();
+
+        // Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // ─────────────────────────────────────
-        // KEYBOARD SHORTCUTS
-        // ─────────────────────────────────────
-        window.addEventListener('keydown', (e) => {
-            const index = parseInt(e.key);
-            if (index >= 1 && index <= entityKeys.length) {
-                selectEntity(entityKeys[index - 1]);
-            }
-        });
-
-        // ─────────────────────────────────────
-        // START
-        // ─────────────────────────────────────
-        // Add subtle initial camera animation
-        camera.position.set(5, 3, 9);
-        controls.target.set(0, 0.5, 0);
-        controls.update();
-
         requestAnimationFrame(animate);
 
-        // ─────────────────────────────────────
-        // TOUCH / MOBILE DOUBLE-TAP FOR ZOOM
-        // ─────────────────────────────────────
-        let lastTap = 0;
-        window.addEventListener('touchend', (e) => {
-            const now = Date.now();
-            if (now - lastTap < 300 && e.target === renderer.domElement) {
-                // Double tap - reset view
-                const targetPos = new THREE.Vector3(4, 2.5, 8);
-                camera.position.lerp(targetPos, 0.5);
-                controls.target.set(0, 0.6, 0);
-                controls.update();
-            }
-            lastTap = now;
-        });
-
-        console.log('🕯️✨ Paranormal Entity Sandbox Ready ✨🕯️');
-        console.log('👻 Choose your form: Ghost | Demon | Apparition | Deity | God | Energy Being');
-        console.log('🖱️ Drag to orbit | Scroll to zoom | Press 1-6 to switch entities');
-        console.log('👆 Double-tap (mobile) to reset view');
+        console.log('🕯️✨ Paranormal RPG Ready! ✨🕯️');
+        console.log('👻 Choose your entity | 🕹️ Joystick to move | 🔮 Tap ability buttons');
+        console.log('💀 Defeat shadow creatures | 🌟 Survive the waves');
+        console.log('Desktop: WASD move | 1-3 abilities | 4-9 switch entities');
     </script>
 </body>
 </html>
