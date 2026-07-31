@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ethereal Realms · Paranormal Sandbox</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0b0a12;
+    font-family: 'Georgia', serif;
+    color: #e0d7ff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-image: radial-gradient(circle at 20% 30%, #2a1a3a 0%, #0b0a12 80%);
+  }
+  .container {
+    max-width: 700px;
+    width: 95%;
+    background: rgba(20, 15, 30, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid #4a3e6b;
+    border-radius: 2rem;
+    padding: 2rem;
+    box-shadow: 0 0 40px rgba(160, 120, 255, 0.25);
+  }
+  h1 {
+    text-align: center;
+    font-size: 2.6rem;
+    font-weight: normal;
+    letter-spacing: 0.2em;
+    text-shadow: 0 0 25px #b79fe0;
+    margin-bottom: 1.5rem;
+  }
+  .narrative {
+    background: #19122b;
+    border-left: 4px solid #9b7ed9;
+    padding: 1.2rem;
+    border-radius: 1rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.8;
+    font-size: 1.1rem;
+    min-height: 140px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.2rem;
+  }
+  .stat {
+    background: #2b1e3a;
+    padding: 0.5rem 1.2rem;
+    border-radius: 2rem;
+    font-size: 0.9rem;
+    border: 1px solid #5e4a7a;
+    color: #dccaff;
+  }
+  .choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-top: 0.5rem;
+  }
+  button {
+    background: #2a1f40;
+    border: 1px solid #6d5a8f;
+    color: #f0e6ff;
+    padding: 0.9rem 1.2rem;
+    border-radius: 2rem;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    font-family: inherit;
+    backdrop-filter: blur(6px);
+  }
+  button:hover {
+    background: #4e3880;
+    border-color: #b494ff;
+    box-shadow: 0 0 18px #b494ff;
+    transform: scale(1.02);
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+  }
+  .entity-select {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+    margin: 1.5rem 0;
+  }
+  .entity-select button {
+    background: #1f1530;
+    border: 1px solid #8a6bb0;
+  }
+  .reset {
+    margin-top: 1.5rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🌙 Ethereal Realms</h1>
+  <div id="game"></div>
+</div>
+<script>
+  // ----- GAME ENGINE -----
+  const gameState = {
+    entity: null,
+    name: '',
+    influence: 0,   // general power / reach
+    fear: 0,        // mortals' dread
+    belief: 0,      // worship / legend
+    energy: 5,      // personal mojo for actions
+    eventLog: []
+  };
+
+  const entities = {
+    demon: {
+      title: '🔥 Demon',
+      desc: 'Infernal trickster bound by pacts. You crave souls and exquisite bargains.',
+      stats: ['influence', 'fear', 'energy'],
+      init: { influence: 3, fear: 4, belief: 1, energy: 6 }
+    },
+    ghost: {
+      title: '👻 Ghost',
+      desc: 'Echo of sorrow, tethered to a locket. You manipulate the material world through memory.',
+      stats: ['fear', 'belief', 'energy'],
+      init: { influence: 2, fear: 5, belief: 3, energy: 4 }
+    },
+    apparition: {
+      title: '🌌 Apparition',
+      desc: 'A flicker in peripheral vision. You feed on belief and blur the real.',
+      stats: ['belief', 'influence', 'energy'],
+      init: { influence: 4, fear: 2, belief: 5, energy: 5 }
+    },
+    deity: {
+      title: '🌠 Deity',
+      desc: 'Newborn godling. Miracles bloom where mortals whisper your name.',
+      stats: ['belief', 'influence', 'energy'],
+      init: { influence: 4, fear: 1, belief: 5, energy: 6 }
+    },
+    elder_god: {
+      title: '☄️ Elder God',
+      desc: 'Cosmic slumberer. Reality bends around you; time is a suggestion.',
+      stats: ['influence', 'fear', 'energy'],
+      init: { influence: 5, fear: 5, belief: 2, energy: 7 }
+    },
+    energy_being: {
+      title: '⚡ Energy Being',
+      desc: 'Sentient static and neon consciousness. You ride the grid.',
+      stats: ['energy', 'influence', 'fear'],
+      init: { influence: 3, fear: 3, belief: 2, energy: 8 }
+    }
+  };
+
+  function resetGame() {
+    gameState.entity = null;
+    gameState.name = '';
+    gameState.influence = 0;
+    gameState.fear = 0;
+    gameState.belief = 0;
+    gameState.energy = 5;
+    gameState.eventLog = [];
+    render();
+  }
+
+  function chooseEntity(key) {
+    const data = entities[key];
+    gameState.entity = key;
+    gameState.name = data.title;
+    gameState.influence = data.init.influence;
+    gameState.fear = data.init.fear;
+    gameState.belief = data.init.belief;
+    gameState.energy = data.init.energy;
+    gameState.eventLog = [`You awaken as a ${data.title}. ${data.desc}`];
+    render();
+  }
+
+  function modifyStat(stat, delta) {
+    gameState[stat] = Math.max(0, gameState[stat] + delta);
+  }
+
+  function addLog(text) {
+    gameState.eventLog.push(text);
+    if (gameState.eventLog.length > 6) gameState.eventLog.shift();
+  }
+
+  // ----- EVENT GENERATOR -----
+  function generateEvent() {
+    const e = gameState.entity;
+    // random mortal scenario
+    const mortalNames = ['Elara', 'Marcus', 'Lena', 'Theo', 'Nadia', 'Old Maddie'];
+    const mortal = mortalNames[Math.floor(Math.random() * mortalNames.length)];
+    const places = ['dilapidated theater', 'midnight diner', 'subway station', 'foggy park', 'apartment 4B'];
+    const place = places[Math.floor(Math.random() * places.length)];
+
+    if (e === 'demon') {
+      return {
+        text: `${mortal} is desperate in the ${place}, whispering for a way out. Their soul glimmers like ripe fruit.`,
+        choices: [
+          { text: '🍷 Offer a pact (gain influence, lose energy)', action: () => { modifyStat('influence', 3); modifyStat('energy', -1); addLog('You sealed a sly bargain. They are now yours.'); } },
+          { text: '😈 Possess them outright (fear +, energy --)', action: () => { modifyStat('fear', 4); modifyStat('energy', -2); addLog('You ride their flesh like a fever dream.'); } },
+          { text: '🕯️ Whisper temptation (belief +, subtle)', action: () => { modifyStat('belief', 2); modifyStat('energy', 0); addLog('A seed of corruption planted.'); } }
+        ]
+      };
+    } else if (e === 'ghost') {
+      return {
+        text: `The ${place} holds a forgotten memory of ${mortal}. The air grows cold around them.`,
+        choices: [
+          { text: '❄️ Manifest a weeping apparition (fear +, energy -)', action: () => { modifyStat('fear', 4); modifyStat('energy', -1); addLog('Tears trace invisible cheeks. They flee, heart pounding.'); } },
+          { text: '📻 Loop a memory (belief +, influence +)', action: () => { modifyStat('belief', 3); modifyStat('influence', 2); addLog('A broken song replays, pulling them into your story.'); } },
+          { text: '🪑 Possess an object (influence +)', action: () => { modifyStat('influence', 3); modifyStat('energy', 0); addLog('The chair creaks their name. Now your anchor spreads.'); } }
+        ]
+      };
+    } else if (e === 'apparition') {
+      return {
+        text: `You flicker at the edge of ${mortal}'s vision in the ${place}. They rub their eyes.`,
+        choices: [
+          { text: '🪞 Step through a mirror (fast travel, belief +)', action: () => { modifyStat('belief', 4); modifyStat('energy', -1); addLog('You leave a handprint on the glass that will become legend.'); } },
+          { text: '🌫️ Create a doppelgänger echo (fear +, energy --)', action: () => { modifyStat('fear', 3); modifyStat('energy', -2); addLog('They see themselves walking away. Sanity cracks.'); } },
+          { text: '🗣️ Start an urban legend (influence +, belief +)', action: () => { modifyStat('influence', 3); modifyStat('belief', 3); addLog('A story is born tonight. It will spread like mist.'); } }
+        ]
+      };
+    } else if (e === 'deity') {
+      return {
+        text: `A quiet prayer rises from ${mortal} in the ${place}. "Please, just a sign."`,
+        choices: [
+          { text: '✨ Grant a small miracle (belief +++, energy -)', action: () => { modifyStat('belief', 5); modifyStat('energy', -2); addLog('A lost locket reappears. They weep with gratitude. Your power swells.'); } },
+          { text: '🌿 Send a cryptic vision (influence +, belief +)', action: () => { modifyStat('influence', 3); modifyStat('belief', 2); addLog('They dream of a white stag. Prophecy blooms.'); } },
+          { text: '🏛️ Inspire a shrine (influence ++)', action: () => { modifyStat('influence', 4); addLog('They build a small altar with candles and a sketch of you.'); } }
+        ]
+      };
+    } else if (e === 'elder_god') {
+      return {
+        text: `Reality shudders. The ${place} experiences a time slip. ${mortal} sees impossible geometries.`,
+        choices: [
+          { text: '🌀 Warp local physics (influence ++, energy --)', action: () => { modifyStat('influence', 5); modifyStat('energy', -3); addLog('Gravity forgets itself. They float for a heartbeat.'); } },
+          { text: '🕰️ Create a time loop (belief +, fear +)', action: () => { modifyStat('belief', 3); modifyStat('fear', 3); addLog('The same moment repeats seven times. Mortals will write about this.'); } },
+          { text: '👁️ Bestow a mark (influence +, cult grows)', action: () => { modifyStat('influence', 4); modifyStat('energy', -1); addLog('A symbol glows on their skin. They are now your herald.'); } }
+        ]
+      };
+    } else if (e === 'energy_being') {
+      return {
+        text: `The grid hums. ${mortal} stares at a glitching screen in the ${place}. You are the static.`,
+        choices: [
+          { text: '📱 Send a message through data (influence +, belief +)', action: () => { modifyStat('influence', 3); modifyStat('belief', 3); addLog('A text arrives from an unknown number: "I am everywhere."'); } },
+          { text: '⚡ EMP surge (fear +, energy --)', action: () => { modifyStat('fear', 4); modifyStat('energy', -2); addLog('Lights explode. The city block goes dark. You dance in the wires.'); } },
+          { text: '🌟 Merge with a satellite (influence ++, energy ---)', action: () => { modifyStat('influence', 5); modifyStat('energy', -3); addLog('You kiss the stars. For a moment, your consciousness spans the sky.'); } }
+        ]
+      };
+    }
+
+    // fallback
+    return {
+      text: `The veil ripples around ${mortal} in the ${place}.`,
+      choices: [
+        { text: '🌀 Interfere subtly', action: () => { modifyStat('influence', 2); addLog('Reality adjusted.'); } }
+      ]
+    };
+  }
+
+  // ----- RENDER -----
+  let currentEvent = null;
+
+  function nextEvent() {
+    currentEvent = generateEvent();
+    render();
+  }
+
+  function handleChoice(actionFn) {
+    actionFn();
+    // energy regeneration tiny
+    gameState.energy = Math.min(12, gameState.energy + 1);
+    if (gameState.energy <= 0) {
+      addLog('⚠️ Your energy is drained. You fade momentarily...');
+      gameState.energy = 1;
+    }
+    currentEvent = null;
+    render();
+  }
+
+  function render() {
+    const container = document.getElementById('game');
+    if (!gameState.entity) {
+      container.innerHTML = `
+        <div class="narrative">Choose your supernatural form to enter the Ethereal Realms.</div>
+        <div class="entity-select">
+          ${Object.entries(entities).map(([key, val]) => 
+            `<button onclick="chooseEntity('${key}')">${val.title}<br><small>${val.desc}</small></button>`
+          ).join('')}
+        </div>
+      `;
+      return;
+    }
+
+    // Active game
+    const statsHtml = `
+      <div class="stats">
+        <span class="stat">✨ Influence ${gameState.influence}</span>
+        <span class="stat">👁️ Fear ${gameState.fear}</span>
+        <span class="stat">🙏 Belief ${gameState.belief}</span>
+        <span class="stat">⚡ Energy ${gameState.energy}</span>
+      </div>
+    `;
+
+    const logHtml = gameState.eventLog.length ? 
+      `<div style="margin-top:1rem; font-size:0.9rem; color:#b9a4e0;">${gameState.eventLog.slice(-3).map(t => '· '+t).join('<br>')}</div>` : '';
+
+    if (currentEvent) {
+      container.innerHTML = `
+        <div class="narrative">${currentEvent.text}</div>
+        ${statsHtml}
+        <div class="choices">
+          ${currentEvent.choices.map((c, idx) => 
+            `<button onclick="handleChoice(choices[${idx}].action)" id="choice${idx}">${c.text}</button>`
+          ).join('')}
+        </div>
+        ${logHtml}
+      `;
+      // store choices globally for onclick
+      window.choices = currentEvent.choices;
+    } else {
+      container.innerHTML = `
+        <div class="narrative">You exist between moments. The mortal world breathes, unaware.</div>
+        ${statsHtml}
+        <div class="choices">
+          <button onclick="nextEvent()">🌌 Reach into the mortal plane</button>
+          <button onclick="resetGame()">🔄 Shed this form</button>
+        </div>
+        ${logHtml}
+      `;
+    }
+
+    // special unlock hint based on stats
+    if (gameState.belief >= 12 && gameState.entity === 'apparition') {
+      const hint = document.createElement('div');
+      hint.style.marginTop = '1rem';
+      hint.style.color = '#c8a2ff';
+      hint.innerText = '🌟 Your legend is strong. You feel yourself becoming something more... perhaps a Deity?';
+      container.appendChild(hint);
+    }
+    if (gameState.fear >= 12 && gameState.entity === 'ghost') {
+      const hint = document.createElement('div');
+      hint.style.marginTop = '1rem';
+      hint.style.color = '#c8a2ff';
+      hint.innerText = '💀 The terror you command borders on infernal. A demonic evolution whispers.';
+      container.appendChild(hint);
+    }
+  }
+
+  // Initialize
+  window.onload = resetGame;
+</script>
+</body>
+</html>
