@@ -2,6 +2,25 @@
 <html lang="en" class="dark">
 <head>
 <meta charset="UTF-8" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<script>
+/* Force-clear any stale service worker + caches from earlier versions so updates always load */
+(function(){ try{
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(rs){
+      var had = rs && rs.length>0;
+      (rs||[]).forEach(function(r){ try{ r.unregister(); }catch(e){} });
+      if(window.caches && caches.keys){ caches.keys().then(function(ks){ (ks||[]).forEach(function(k){ try{ caches.delete(k); }catch(e){} }); }).catch(function(){}); }
+      if(had && navigator.serviceWorker.controller && !sessionStorage.getItem('treesh_sw_cleared')){
+        try{ sessionStorage.setItem('treesh_sw_cleared','1'); }catch(e){}
+        setTimeout(function(){ location.reload(); }, 400);
+      }
+    }).catch(function(){});
+  } else if(window.caches && caches.keys){ caches.keys().then(function(ks){ (ks||[]).forEach(function(k){ try{ caches.delete(k); }catch(e){} }); }).catch(function(){}); }
+}catch(e){} })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Treesh 3.0 · Music to Live For</title>
 <meta name="description" content="Treesh 3.0. Stream the underground. Music to Live For." />
@@ -542,14 +561,6 @@
   #instrum-fs{ position:fixed; inset:0; z-index:150; }
   #instrum-fs .fs-shell{ position:absolute; inset:0; display:flex; flex-direction:column; background:#08080a; }
   html.theme-light #instrum-fs .fs-shell{ background:#f4f4f6; }
-  /* game iframe overlay */
-  #game-frame:empty{ display:none !important; }
-  #game-frame .gf-shell{ position:fixed; inset:0; z-index:160; display:flex; flex-direction:column; background:#08080a; transition:transform var(--treesh-dur-3,320ms) var(--treesh-ease,ease), opacity var(--treesh-dur-3,320ms) var(--treesh-ease,ease); }
-  html.theme-light #game-frame .gf-shell{ background:#f4f4f6; }
-  #game-frame .gf-shell.gf-min{ inset:auto; right:14px; bottom:calc(96px + env(safe-area-inset-bottom)); width:min(360px,88vw); height:230px; border-radius:22px; overflow:hidden; border:1px solid rgba(255,255,255,0.14); box-shadow:0 24px 70px rgba(0,0,0,0.62); }
-  @media (min-width:1024px){ #game-frame .gf-shell.gf-min{ bottom:calc(24px + env(safe-area-inset-bottom)); } }
-  #game-frame .gf-shell.gf-min .gf-head{ padding:8px 8px 8px 12px; }
-  #game-frame .gf-shell.gf-min .gf-title-sub{ display:none; }
   /* lightweight tooltip */
   .tip{ position:relative; }
   .tip::after{ content:attr(data-tip); position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%) translateY(4px); white-space:nowrap; padding:5px 9px; border-radius:8px; background:rgba(20,20,24,0.96); color:#fff; font-size:11px; font-weight:600; letter-spacing:.01em; border:1px solid rgba(255,255,255,0.12); box-shadow:0 8px 24px rgba(0,0,0,0.4); opacity:0; pointer-events:none; transition:opacity .14s ease, transform .14s ease; z-index:400; }
@@ -773,7 +784,6 @@
   <div id="modal"></div>
   <div id="ls"></div>
   <div id="instrum-fs"></div>
-  <div id="game-frame"></div>
   <div id="lock"></div>
   <div id="imenu"></div>
   <div id="toast" class="fixed left-1/2 top-4 z-[320] flex -translate-x-1/2 flex-col items-center gap-2"></div>
@@ -1282,7 +1292,7 @@ function applyLabelStyle(){ const L=state.label||{}; const rs=document.documentE
 
 /* ---------- scroll lock (blocks background scroll under overlays on mobile) ---------- */
 let _locked=false, _scrollLockY=0;
-function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.lsOpen||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(state.gameFrame&&!state.gameFrame.min)||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
+function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.lsOpen||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
 function syncScrollLock(){ const on=overlaysOpen(); if(on===_locked) return; _locked=on; const b=document.body; if(on){ _scrollLockY=window.scrollY||window.pageYOffset||0; b.style.top="-"+_scrollLockY+"px"; b.style.left="0"; b.style.right="0"; b.style.width="100%"; b.style.position="fixed"; b.classList.add("tr-locked"); } else { b.classList.remove("tr-locked"); b.style.position=""; b.style.top=""; b.style.left=""; b.style.right=""; b.style.width=""; window.scrollTo(0,_scrollLockY); } }
 
 /* ---------- Starlites reward points ---------- */
@@ -2565,62 +2575,6 @@ function viewBlog(){
   </div>`;
 }
 
-/* ---------- Games arcade (embedded iframe games) ---------- */
-const GAMES=[
-  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', mono:'C', a:'#9328ff', b:'#4d128f'},
-  {key:'frea', name:'FREA', url:'https://treesh.app/games/frea', logo:'', mono:'F', a:'#c3ab69', b:'#7c6626'},
-  {key:'nects', name:'Nects', url:'https://treesh.app/games/nects', logo:'https://64.media.tumblr.com/1262b7cc04c787803b22c81af52e91a7/f03bc58006e10b13-94/s1280x1920/3f25f6b1f824f57464f60a2220db75167ad18e21.png', mono:'N', a:'#1f9a9a', b:'#0d5757'}
-];
-const GAME_BY_KEY={}; GAMES.forEach(g=>GAME_BY_KEY[g.key]=g);
-function gameTile(g){
-  return `<button data-act="game-open" data-key="${g.key}" data-testid="game-open-${g.key}" aria-label="Play ${esc(g.name)}" class="dark-surface press card-lift group relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border border-white/10 p-4 text-center">
-    <span class="pointer-events-none absolute inset-x-0 -top-8 h-20 opacity-40 blur-2xl" style="background:linear-gradient(135deg,${g.a},${g.b})"></span>
-    <span class="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/12 text-3xl font-extrabold text-white" style="background:linear-gradient(135deg,${g.a},${g.b})">${g.logo?`<img src="${g.logo}" alt="${esc(g.name)} logo" loading="lazy" class="h-full w-full object-cover">`:`<span class="font-display">${g.mono}</span>`}</span>
-    <span class="relative w-full min-w-0"><span class="block truncate text-sm font-bold">${esc(g.name)}</span><span class="mt-0.5 inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-white/55 transition-colors group-hover:text-[color:var(--treesh-purple)]"><i data-lucide="play" class="fill-current" style="width:11px;height:11px"></i>Play</span></span>
-  </button>`;
-}
-function gamesArcadeHtml(){
-  return `<div data-testid="games-arcade">
-    <div class="mb-2 flex items-center gap-2"><i data-lucide="joystick" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i><h2 class="text-lg font-bold">Arcade</h2></div>
-    <p class="mb-3 text-sm text-white/55">More Treesh games, right here. Minimize any game to keep browsing while you play.</p>
-    <div class="grid grid-cols-3 gap-3">${GAMES.map(gameTile).join("")}</div>
-  </div>`;
-}
-function gfLoaded(){ state._gfLoaded=true; const l=document.getElementById("gf-loader"); if(l) l.style.display="none"; if(state._gfTimer){ clearTimeout(state._gfTimer); state._gfTimer=null; } }
-function gfInitFallbackTimer(){ state._gfLoaded=false; if(state._gfTimer) clearTimeout(state._gfTimer); state._gfTimer=setTimeout(()=>{ if(!state._gfLoaded){ const fb=document.getElementById("gf-fallback"); const l=document.getElementById("gf-loader"); if(fb){ fb.classList.remove("hidden"); fb.classList.add("flex"); } if(l) l.style.display="none"; } }, 9000); }
-function openGameFrame(key){ const g=GAME_BY_KEY[key]; if(!g) return; state.gameFrame={key:g.key, name:g.name, url:g.url, min:false}; renderGameFrame(); syncScrollLock(); }
-function renderGameFrame(){
-  const c=document.getElementById("game-frame"); if(!c) return; const G=state.gameFrame; if(!G){ c.innerHTML=""; return; }
-  const g=GAME_BY_KEY[G.key]||G; const grad=`linear-gradient(135deg,${g.a||'#9328ff'},${g.b||'#4d128f'})`;
-  const badge=g.logo?`<img src="${g.logo}" alt="" class="h-full w-full object-cover">`:`<span class="font-display">${g.mono||(g.name||'?').charAt(0)}</span>`;
-  c.innerHTML=`<div class="gf-shell ${G.min?'gf-min':''}" data-testid="game-frame">
-    <div class="gf-head flex items-center gap-2 border-b border-white/10 bg-black/40 px-3 py-2.5 backdrop-blur">
-      <span class="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/12 text-sm font-extrabold text-white" style="background:${grad}">${badge}</span>
-      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-bold leading-tight">${esc(g.name)}</p><p class="gf-title-sub clamp-1 text-[11px] text-white/45">Treesh Arcade</p></div>
-      <a href="${g.url}" target="_blank" rel="noopener noreferrer" data-testid="game-frame-newtab" aria-label="Open in new tab" title="Open in new tab" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="external-link" style="width:16px;height:16px"></i></a>
-      <button data-act="game-frame-min" data-testid="game-frame-min" aria-label="${G.min?'Restore':'Minimize'}" title="${G.min?'Restore':'Minimize'}" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="${G.min?'maximize-2':'minimize-2'}" style="width:16px;height:16px"></i></button>
-      <button data-act="game-frame-fs" data-testid="game-frame-fs" aria-label="Fullscreen" title="Fullscreen" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 ${G.min?'hidden':''}"><i data-lucide="maximize" style="width:16px;height:16px"></i></button>
-      <button data-act="game-frame-close" data-testid="game-frame-close" aria-label="Exit game" title="Exit" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 hover:text-rose-300"><i data-lucide="x" style="width:16px;height:16px"></i></button>
-    </div>
-    <div class="relative min-h-0 flex-1 bg-[#0b0b0d]">
-      <div id="gf-loader" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#0b0b0d]"><span class="h-9 w-9 animate-spin rounded-full border-2 border-white/15" style="border-top-color:var(--treesh-purple)"></span><p class="text-sm text-white/50">Loading ${esc(g.name)}\u2026</p></div>
-      <div id="gf-fallback" class="absolute inset-0 z-20 hidden flex-col items-center justify-center gap-4 bg-[#0b0b0d] px-6 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl text-white" style="background:${grad}"><i data-lucide="gamepad-2" style="width:26px;height:26px"></i></span><div><p class="text-base font-bold">Couldn\u2019t load ${esc(g.name)} here</p><p class="mt-1 text-sm text-white/55">Open it in a new tab to play.</p></div><a href="${g.url}" target="_blank" rel="noopener noreferrer" data-testid="game-frame-fallback-link" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple"><i data-lucide="external-link" style="width:16px;height:16px"></i>Open in new tab</a></div>
-      <iframe id="gf-frame" data-testid="game-frame-iframe" title="${esc(g.name)}" src="${g.url}" class="relative z-0 h-full w-full border-0" allow="fullscreen; autoplay; gamepad; clipboard-write" referrerpolicy="no-referrer-when-downgrade" onload="gfLoaded()"></iframe>
-    </div>
-  </div>`;
-  icons(); gfInitFallbackTimer();
-}
-function gameFrameToggleMin(){
-  if(!state.gameFrame) return; const c=document.getElementById("game-frame"); const shell=c&&c.querySelector(".gf-shell"); if(!shell) return;
-  state.gameFrame.min=!state.gameFrame.min; shell.classList.toggle("gf-min",state.gameFrame.min);
-  const minBtn=shell.querySelector('[data-act="game-frame-min"]'); if(minBtn){ minBtn.innerHTML=`<i data-lucide="${state.gameFrame.min?'maximize-2':'minimize-2'}" style="width:16px;height:16px"></i>`; minBtn.setAttribute("aria-label",state.gameFrame.min?"Restore":"Minimize"); minBtn.setAttribute("title",state.gameFrame.min?"Restore":"Minimize"); }
-  const fsBtn=shell.querySelector('[data-act="game-frame-fs"]'); if(fsBtn) fsBtn.classList.toggle("hidden",state.gameFrame.min);
-  if(state.gameFrame.min && document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
-  icons(); syncScrollLock();
-}
-function gameFrameToggleFS(){ const c=document.getElementById("game-frame"); const shell=c&&c.querySelector(".gf-shell"); if(!shell) return; try{ if(document.fullscreenElement){ document.exitFullscreen(); } else if(shell.requestFullscreen){ shell.requestFullscreen(); } else { toast("Fullscreen not supported here"); } }catch(e){ toast("Fullscreen not supported here"); } }
-function closeGameFrame(){ if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} } state.gameFrame=null; if(state._gfTimer){ clearTimeout(state._gfTimer); state._gfTimer=null; } const c=document.getElementById("game-frame"); if(c) c.innerHTML=""; syncScrollLock(); }
-
 function renderView(animate=false){
   const v=$("#view"); if(!v) return;
   const _scrollMap=captureScroll(v);
@@ -3003,6 +2957,8 @@ function drawLyricCard(){
     const anchorY = showThumb ? (H-182+70) : (H-96);
     ctx.fillStyle="#ffffff"; ctx.font='800 42px Manrope, sans-serif'; ctx.fillText((s.title||'').slice(0,38), txx, anchorY-8);
     ctx.fillStyle="rgba(255,255,255,0.78)"; ctx.font='500 32px Manrope, sans-serif'; ctx.fillText((s.artist||'').slice(0,42), txx, anchorY+38);
+    const _isCustom=!!s._user, _isEdited=!!(state.lyricEdits && state.lyricEdits[s.id]);
+    if(_isCustom||_isEdited){ ctx.save(); ctx.textAlign='right'; ctx.fillStyle=hexA('#ffffff',0.6); ctx.font='600 22px Manrope, sans-serif'; ctx.fillText('Custom or user-edited \u2014 not official', W-96, H-44); ctx.textAlign='left'; ctx.restore(); }
   };
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(paint); paint(); } else paint();
 }
@@ -3220,7 +3176,6 @@ function gameHomeHtml(){ const st=state.gameStats||{}; const tw=state.totWins||{
       </div>
       <div class="relative mt-4 flex flex-wrap gap-2 text-[11px] font-semibold text-white/70"><span class="rounded-full bg-black/25 px-2.5 py-1">${tw.plays||0} rounds played</span><span class="rounded-full bg-black/25 px-2.5 py-1">Best streak ${tw.bestStreak||0}</span></div>
     </button>
-    ${gamesArcadeHtml()}
   </div>`;
 }
 function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.totWins||{wins:{}}; const wins=tw.wins||{};
@@ -4321,9 +4276,12 @@ function lsWriteHtml(){
   const txt=lsItemsToText(state.ls.items);
   const TAGCHIPS=[['Verse',true],['Chorus',false],['Pre-Chorus',false],['Hook',false],['Bridge',false],['Intro',false],['Outro',false],['Refrain',false]];
   const chips=`<div class="no-scrollbar -mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1">${TAGCHIPS.map(([tag,num])=>`<button data-act="ls-insert-tag" data-tag="${tag}" data-num="${num?1:0}" data-testid="ls-tag-${tag}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10"><span class="text-[color:var(--treesh-purple)]">[</span>${tag}${num?' #':''}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>`;
+  const PERFCHIPS=[['Verse',1,'FEATURED ARTIST'],['Verse',1,'ALL ARTISTS'],['Chorus',0,'ALL ARTISTS'],['Outro',0,'Instrumental']];
+  const perfChips=`<div class="no-scrollbar -mx-1 mb-2 flex items-center gap-1.5 overflow-x-auto px-1 pb-1"><span class="shrink-0 pr-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/35">Who</span>${PERFCHIPS.map(([tag,num,suf])=>`<button data-act="ls-insert-tag" data-tag="${tag}" data-num="${num?1:0}" data-suffix="${suf}" data-testid="ls-perf-${tag}-${suf.replace(/\s+/g,'-')}" class="press shrink-0 whitespace-nowrap rounded-full border border-[color:var(--treesh-purple)]/25 bg-[color:var(--treesh-purple)]/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-[color:var(--treesh-purple)]/20"><span class="text-[color:var(--treesh-purple)]">[</span>${tag}${num?' #':''}: ${suf}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>`;
   return `<div class="flex h-full flex-col py-3">
      <div class="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55"><i data-lucide="info" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i><span>One lyric per line. Wrap section names in brackets, e.g. <span class="mx-0.5 inline-block whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 font-doto text-white/80">[Verse&nbsp;1]</span></span></div>
      ${chips}
+     ${perfChips}
      <textarea id="ls-write" data-testid="ls-write-textarea" placeholder="[Verse 1]\nType or paste your lyrics here\u2026\nOne line at a time" class="no-scrollbar min-h-0 flex-1 w-full resize-none rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(txt)}</textarea>
      <div class="mt-3 flex shrink-0 items-center justify-between gap-2 pb-3">
        <span id="ls-write-count" class="text-xs text-white/45">${txt.split(/\r?\n/).filter(l=>l.trim()).length} lines</span>
@@ -4331,10 +4289,11 @@ function lsWriteHtml(){
      </div>
    </div>`;
 }
-function lsInsertTag(tag, autonum){
+function lsInsertTag(tag, autonum, suffix){
   const ta=$("#ls-write"); if(!ta) return;
   let label=tag;
   if(autonum){ const re=new RegExp('\\['+tag.replace(/[-/\\^$*+?.()|[\]{}]/g,'\\$&')+'\\b','gi'); const n=((ta.value.match(re)||[]).length)+1; label=tag+' '+n; }
+  if(suffix){ label=label+': '+suffix; }
   const ins='['+label+']';
   const start=(ta.selectionStart!=null)?ta.selectionStart:ta.value.length;
   const end=(ta.selectionEnd!=null)?ta.selectionEnd:ta.value.length;
@@ -4367,7 +4326,7 @@ function lsSyncHtml(){
      </div>`;
   }).join("");
   const control=`<div class="shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-     <button data-act="ls-stamp" id="ls-set-btn" data-testid="ls-stamp" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set time to current line <span class="ml-1 rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold">Space</span></button>
+     <button data-act="ls-stamp" id="ls-set-btn" data-testid="ls-stamp" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set time to current line <span class="ml-1 hidden rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold sm:inline-block">Space</span></button>
      <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span id="ls-next-label" class="text-white/70"></span></span><span id="ls-progress-pill">${lsStampedCount()} / ${rows.length} timed</span></div>
    </div>`;
   return `<div class="flex h-full flex-col py-3">
@@ -4442,7 +4401,7 @@ function lsRenderWordSync(){
      <button data-act="ls-seek-fwd" aria-label="Forward 10s" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="rotate-cw" style="width:19px;height:19px"></i><span class="pointer-events-none absolute inset-0 grid place-items-center text-[8px] font-bold">10</span></button>
      <div class="ml-1 flex-1 text-right font-doto text-xs text-white/60"><span id="lsw-cur">0:00</span> / <span id="lsw-dur">0:00</span></div>
    </div>
-   <button data-act="lsw-set" id="lsw-set-btn" data-testid="lsw-set" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set word <span class="ml-1 rounded bg-black/25 px-1.5 py-0.5 text-[10px]">Space</span></button>
+   <button data-act="lsw-set" id="lsw-set-btn" data-testid="lsw-set" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set word <span class="ml-1 hidden rounded bg-black/25 px-1.5 py-0.5 text-[10px] sm:inline-block">Space</span></button>
    <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span class="text-white/70">${esc(w.wi<w.words.length?w.words[w.wi].text:'\u2014')}</span></span><span>${doneN} / ${w.words.length} words</span></div>
    <div class="mt-4 flex justify-between gap-2">
      <button data-act="lsw-clear" class="press rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/70 hover:bg-white/10">Clear</button>
@@ -5100,10 +5059,6 @@ document.addEventListener("click", e=>{
     case "game-random": { const songs=gameEligibleSongs(); if(songs.length) startGame(songs[Math.floor(Math.random()*songs.length)].id); break; }
     case "game-tab": { const nv=t.dataset.val||"home"; const changed=(state.gameTab||"home")!==nv; state.gameTab=nv; renderView(true); if(changed){ requestAnimationFrame(scrollToStickyTabs); } break; }
     case "game-stats-toggle": { state.gameStatsOpen=!state.gameStatsOpen; renderView(); break; }
-    case "game-open": openGameFrame(t.dataset.key); break;
-    case "game-frame-min": gameFrameToggleMin(); break;
-    case "game-frame-fs": gameFrameToggleFS(); break;
-    case "game-frame-close": closeGameFrame(); break;
     case "tot-start": startTot(); break;
     case "tot-pick": totPick(t.dataset.side); break;
     case "tot-skip": totSkip(); break;
@@ -5242,7 +5197,7 @@ document.addEventListener("click", e=>{
     case "lsw-clear": lswClear(); break;
     case "lsw-close": lsCloseWordSync(); break;
     case "ls-lrc-load": lsLoadLRC(); break;
-    case "ls-insert-tag": lsInsertTag(t.dataset.tag, t.dataset.num==='1'); break;
+    case "ls-insert-tag": lsInsertTag(t.dataset.tag, t.dataset.num==='1', t.dataset.suffix||''); break;
   }
   syncScrollLock();
 });

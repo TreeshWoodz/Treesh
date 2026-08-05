@@ -13,14 +13,21 @@
 - Add **Lyric Studio (Write/Sync)** and **Karaoke Stage** upgrade (LyricFlow-inspired) with full on-device persistence.
 
 ### New objectives (current work)
-**Phase 5: Games + Storage + Lyric UX Polish**
-1. Expand Games home with 3 new iframe games (**Chainz**, **FREA**, **Nects**) presented as **monogram tiles** (C/F/N) with colored gradient backgrounds.
-2. Add an in-app **iframe overlay** for games (reusing Blog iframe pattern) with **minimize (PiP)**, **native fullscreen**, and **exit** controls, plus loader + fallback.
-3. Rework **Custom Music storage** settings UX to remove the progress bar and “free space” text, replacing it with a standard **bulk + individual delete** flow.
+**Phase 5: Games + Library + Queue + Storage + Lyric UX Polish**
+1. Expand Games home with 3 new iframe games (**Chainz**, **FREA**, **Nects**) and an in-app iframe overlay (minimize/fullscreen/exit).
+2. Major Library/My Music UX upgrades:
+   - My Music controls: **collapse**, **Play (hold-to-shuffle)**, **multi-select + bulk delete**, and **mobile dropdown controls**.
+   - Library + My Music per-section sort/filter: **Recent**, **A–Z**, **Z–A**, **Artist**, **Lyrics**, with animated rearrange.
+   - Playlists appear directly on the Library page in their own section (no need to visit Profile).
+   - Fix Play-next/Add-to-queue for custom tracks (ensure action always has a visible effect).
+3. Rework **Custom Music storage** settings UX to remove the progress bar and “free space” text; replace with a standard **checkbox bulk + individual delete** flow.
 4. Improve Lyric Studio UX:
    - On mobile, remove “Space” shortcut pills from stamping CTAs.
    - Add helpful bracket insertion snippet buttons.
 5. Add **Lyric Card disclaimer** to exports when the song is custom or lyrics were user-edited.
+6. Queue + player mobile polish:
+   - Add **queue reorder** (menu Move up/down and drag-to-reorder).
+   - Add **swipe down to close** Now Playing on mobile.
 
 Constraints / non-goals:
 - No backend, no build steps, no npm/yarn. Single source of truth remains `/app/single_html/index.html`.
@@ -83,12 +90,12 @@ Constraints / non-goals:
 
 **Status: IN PROGRESS**
 
-Completed in this continuation:
-- **Verified Word Sync & LRC Import** (Write/Sync) flows.
+Completed earlier in the continuation:
+- Verified **Word Sync & LRC Import** (Write/Sync) flows.
 - Added **What’s New** system (badges + auto-popup + settings toggle), fixed related regressions.
 - Instrum Studio polish (open animation, mobile label overlap, mobile wrap for controls).
 - Games page polish: fixed duplicate heading and added **inline Starlites counter** with expandable stats panel.
-- Critical UI fixes already completed earlier in the continuation:
+- Critical UI fixes:
   - Global Lucide icon persistence via MutationObserver.
   - Now Playing desktop layout adjustments.
   - Karaoke reflow stabilized via `transform: scale()`.
@@ -97,56 +104,100 @@ Completed in this continuation:
 
 ---
 
-## Phase 5 — Games + Storage + Lyric UX Polish (NEW)
+## Phase 5 — Games + Library + Queue + Storage + Lyric UX Polish
 
 **Status: IN PROGRESS**
 
-Priority order confirmed with user: **New Games first**, then the rest.
+Priority order updated with user: Library/My Music and UX upgrades are now top priority, but Games P0 was completed first.
 
 ### Task 1 — Add 3 new games + in-app game iframe overlay (P0)
-**Status: NOT STARTED**
+**Status: COMPLETED & VERIFIED**
 
-**Goal**
-- Add **Chainz**, **FREA**, **Nects** to Games → Home as monogram tiles.
-- Clicking a tile opens an in-app iframe overlay with:
-  - **Loader + fallback** (same model as Blog iframe)
-  - **Minimize** (PiP-like floating mini window)
-  - **Fullscreen** (native `requestFullscreen`)
-  - **Exit**
+**Delivered**
+- Added **Chainz**, **FREA**, **Nects** to Games → Home (Arcade section).
+- Tile visuals:
+  - **Chainz** uses provided logo image URL.
+  - **Nects** uses provided logo image URL.
+  - **FREA** uses a monogram placeholder until logo arrives.
+- Built in-app game overlay:
+  - Root container: `#game-frame`
+  - Loader + fallback (new-tab CTA)
+  - Minimize to PiP (keeps iframe alive; does not lock scroll)
+  - Native fullscreen (where supported)
+  - Exit
 
-**Implementation details**
-- **UI**: Extend `gameHomeHtml()` with a “More games” / “Arcade” section containing 3 tiles.
-  - Tile style: `press` + `card-lift`, monogram block (C/F/N) with gradient background and game name.
-  - URLs:
-    - `https://treesh.app/games/chainz`
-    - `https://treesh.app/games/frea`
-    - `https://treesh.app/games/nects`
-- **Data**: Add `GAMES` array with `key`, `name`, `url`, `mono`, and gradient colors.
-- **Overlay container**: Add `#game-frame` root near `#instrum-fs` in `<body>`.
-- **State**: `state.gameFrame = { key, name, url, min:false, loaded:false }`.
-- **Functions**:
-  - `openGameFrame(key)`
-  - `renderGameFrame()` (injects overlay HTML)
-  - `gameFrameToggleMin()` (toggle PiP without reloading iframe)
-  - `gameFrameToggleFS()` (native fullscreen on container)
-  - `closeGameFrame()`
-  - `gfLoaded()` + `gfInitFallbackTimer()` (loader/fallback, parallel to blog)
-- **Actions**: Add switch cases:
-  - `game-open`
-  - `game-frame-min`
-  - `game-frame-fs`
-  - `game-frame-close`
-- **Scroll lock integration**:
-  - Update `overlaysOpen()` to include `state.gameFrame && !state.gameFrame.min`.
+**Key implementation**
+- `GAMES` data array + helpers (`openGameFrame`, `renderGameFrame`, `gfLoaded`, `gfInitFallbackTimer`, `gameFrameToggleMin`, `gameFrameToggleFS`, `closeGameFrame`).
+- Updated action switch cases:
+  - `game-open`, `game-frame-min`, `game-frame-fs`, `game-frame-close`.
+- Updated `overlaysOpen()` to include `state.gameFrame && !state.gameFrame.min`.
 
 **Testing**
-- Screenshot tool:
-  - Games → Home shows 3 new tiles.
-  - Open each game: loader appears, iframe loads.
-  - Minimize: becomes floating window and does **not** block scroll.
-  - Restore: returns to full overlay and iframe is still alive.
-  - Fullscreen: enters/exits native fullscreen (where supported).
-  - Exit: overlay removed.
+- Screenshot tool: verified tiles render, overlay opens, loader works, game runs, minimize keeps game running, fullscreen works (when supported), exit works.
+
+---
+
+### Task B — Library / My Music / Playlists upgrades (P0/P1 blended)
+**Status: COMPLETED & VERIFIED (delivered this session)**
+
+#### B1) My Music upgrades
+**Delivered**
+- My Music section now includes:
+  - **Collapse/expand toggle** persisted to `treesh_mine_collapsed`.
+  - **Play button**: click = play in order; **hold 1.5s = shuffle** (pointer-based hold).
+  - **Multi-select** mode with checkbox list and **bulk Delete**.
+  - Each upload’s song menu now includes **Edit details**.
+
+#### B2) Fix: “Play next” / “Add to queue” for My Music
+**Delivered**
+- Root cause: duplicate prevention made actions appear to “do nothing” when the song was already somewhere in queue.
+- Updated `addToQueue()` to **remove existing instance and reinsert** at the requested position (play-next or append), so the action always visibly works.
+- Updated `loadIndex()` to resolve a **fresh `audioUrl` from `SONG_BY_ID`**, protecting user-song blob URLs.
+
+#### B3) Sort/filter for My Music + Library (per-section, remembered)
+**Delivered**
+- Per-section sort/filter:
+  - **Recent**, **A–Z**, **Z–A**, **Artist**, **Lyrics**
+- State persisted separately:
+  - `treesh_lib_sort`, `treesh_mine_sort`
+- Added animated rearrange:
+  - `flipRerender()` uses FLIP transforms on `[data-fkey]` elements.
+
+#### B4) Playlists on Library page
+**Delivered**
+- Added **Playlists** section below **My Music** on Library.
+- Section only shows if `state.playlists.length > 0`.
+- Reuses existing playlist actions: open/share/rename/delete + New.
+
+#### B6) Mobile My Music header dropdown
+**Delivered**
+- On mobile, My Music header controls are replaced by:
+  - A standalone **Play** button (still supports hold-to-shuffle)
+  - A **⋮ menu button** opening a modal dropdown (`openMineMenu`) styled like existing menus.
+- Dropdown options include: Shuffle, Select tracks, View toggle, Add music, Collapse/expand.
+- **Play is intentionally NOT included inside the dropdown**.
+
+**Testing**
+- Desktop + mobile screenshot tool:
+  - My Music header is no longer cramped on mobile.
+  - Dropdown styling matches existing menus.
+  - Sort buttons animate rearrange.
+  - Playlist section appears only when playlists exist.
+
+---
+
+### Task B5 — What’s New desktop cover art fix (P1)
+**Status: COMPLETED & VERIFIED**
+
+**Goal**
+- Desktop What’s New slides should show the full cover/artist photo (not just a wide-cropped background).
+
+**Delivered**
+- Each slide now includes a **desktop-only thumbnail** (sm:block) displayed bottom-left inline with title/subtitle/meta/Play.
+- Background image and gradients remain unchanged.
+
+**Testing**
+- Screenshot tool verified thumbnail is present on desktop and hidden on mobile.
 
 ---
 
@@ -162,25 +213,21 @@ Priority order confirmed with user: **New Games first**, then the rest.
     - **Delete All**
 
 **Implementation details**
-- Update `storageSection()` and `updateCustomMusicStorage()`:
+- Update `storageSection()` and related UI:
   - Keep the top overall “Treesh storage used” summary intact.
   - Replace the existing custom music bar/hint area with a list UI.
-- Build a lightweight UI model:
-  - Render checkbox rows using `USER_SONGS` metadata.
-  - Each row includes title/artist and optional size (if easy; can rely on IDB rec sizes).
+- Render checkbox rows from `USER_SONGS` metadata.
 - Deletion wiring:
-  - Use existing IDB delete primitives: `idbDelete(id)` + `loadUserSongs()`.
-  - Reuse the behavioral expectations from `deleteUpload()` (pause if currently playing, remove from favorites if needed).
-  - Add confirm modals:
+  - Use `idbDelete(id)` + `loadUserSongs()`.
+  - Mirror safety behaviors from upload deletion (pause if currently playing, update favorites).
+  - Confirm modals:
     - Delete Selected
     - Delete All
 
 **Testing**
 - Screenshot tool:
-  - Settings → Account shows new Custom music UI.
-  - Select some songs → Delete Selected deletes only those.
-  - Delete All removes all.
-  - UI updates counts without reload (or reload if necessary, but prefer in-place refresh).
+  - Storage UI reflects new layout.
+  - Deletes update counts and list.
 
 ---
 
@@ -188,19 +235,16 @@ Priority order confirmed with user: **New Games first**, then the rest.
 **Status: NOT STARTED**
 
 **Goal**
-- Remove/hide the “Space” pill from mobile Lyric Studio CTAs (mobile keyboards do not map well to Spacebar behavior).
+- Hide the “Space” pill from mobile Lyric Studio CTAs.
 
 **Implementation details**
 - In `lsSyncHtml()` and Word Sync modal UI:
   - Wrap the “Space” hint pills with Tailwind responsive classes: `hidden sm:inline-block`.
-  - Target locations:
-    - `#ls-set-btn` label (“Set time to current line”)
-    - Word sync “Set word” button
 
 **Testing**
 - Screenshot tool:
-  - Mobile viewport: pills hidden.
-  - Desktop viewport: pills visible.
+  - Mobile: pills hidden.
+  - Desktop: pills visible.
 
 ---
 
@@ -209,44 +253,84 @@ Priority order confirmed with user: **New Games first**, then the rest.
 
 #### 4A) Bracket snippet buttons
 **Goal**
-- Add helpful bracket insertion buttons in Lyric Studio Write mode beyond the basic section chips.
-
-**Implementation details**
-- Update `lsWriteHtml()` to add additional snippet controls:
+- Add bracket insertion buttons in Lyric Studio Write mode:
   - `[Verse #: FEATURED ARTIST]`
   - `[Verse #: ALL ARTISTS]`
-- Use existing insert plumbing (`lsInsertTag`) or add a small new insert helper that:
-  - Auto-increments verse number.
-  - Inserts the exact string into the write textarea with proper newlines.
+
+**Implementation details**
+- Update `lsWriteHtml()` to add snippet controls.
+- Reuse existing insertion plumbing (or add a small helper) to insert text with proper newlines.
 
 #### 4B) Lyric Card export disclaimer
 **Goal**
-- If the song is custom (`s._user`) OR lyrics were edited/added on-device (`state.lyricEdits[s.id]`), add a subtle disclaimer to the lyric card canvas.
+- If the song is custom (`s._user`) OR lyrics were edited/added on-device (`state.lyricEdits[s.id]`), add a disclaimer to the lyric card canvas.
 
 **Implementation details**
 - In `drawLyricCard()`:
-  - Detect: `const needsDisclaimer = !!s._user || !!(state.lyricEdits && state.lyricEdits[s.id]);`
-  - Render a small footer line (low opacity) near the bottom edge:
-    - Text: `Custom or user-edited lyrics — not official.`
-  - Ensure it stays within the 1080x1080 safe margins and does not overlap the title block.
+  - `const needsDisclaimer = !!s._user || !!(state.lyricEdits && state.lyricEdits[s.id]);`
+  - Render footer text (low opacity): `Custom or user-edited lyrics — not official.`
 
 **Testing**
 - Screenshot tool:
-  - Custom song card export preview shows disclaimer.
-  - Edited official song lyric card preview shows disclaimer.
-  - Unedited official song: no disclaimer.
+  - Custom song shows disclaimer.
+  - Edited song shows disclaimer.
+  - Unedited official song does not.
+
+---
+
+### Task C1 — Queue reorder (P1)
+**Status: NOT STARTED**
+
+**Goal**
+- Let users reorder the queue via:
+  - Menu options **Move up / Move down**
+  - **Drag-to-reorder** (tap/click and drag)
+
+**Implementation details**
+- Verify existing queue UI and enhance:
+  - Add drag handle UI and HTML `draggable` behavior (desktop) + pointer-based drag (mobile).
+  - Update queue state (`state.queue`, `state.base`, and index adjustments) without breaking current playback.
+
+**Testing**
+- Screenshot tool + manual interactions:
+  - Reordering persists within current session.
+  - Current track index updates correctly when items move around it.
+
+---
+
+### Task C2 — Mobile swipe-down to close Now Playing (P1)
+**Status: NOT STARTED**
+
+**Goal**
+- On mobile, allow the Now Playing player to be dismissed by a swipe/drag down gesture.
+
+**Implementation details**
+- Add pointer/touch gesture tracking on the Now Playing sheet/container.
+- Threshold-based close (with reduced motion respect).
+
+**Testing**
+- Screenshot tool + gesture validation:
+  - Swipe down closes.
+  - Normal scroll doesn’t accidentally close.
 
 ---
 
 ## 3. Next Actions
 
-1. **Implement Task 1 (New Games + iframe overlay)** and test all controls.
-2. **Implement Task 2 (Custom Music storage rework)** and test deletion flows.
-3. Implement Task 3 (mobile Space hint removal).
-4. Implement Task 4 (bracket snippets + disclaimer) and test.
-5. After each task:
-   - Run `node --check /app/single_html/index.html`
+1. **Implement Task 2 (Custom Music Storage rework)** and test deletion flows.
+2. Implement Task 3 (mobile Space hint removal).
+3. Implement Task 4 (bracket snippets + disclaimer) and test.
+4. Implement Task C1 (Queue reorder).
+5. Implement Task C2 (Swipe-down close).
+6. After each task:
+   - Run `node --check` on the extracted inline script.
    - Screenshot tool pass for desktop + mobile.
+
+Testing notes:
+- Seed profile to bypass onboarding:
+  - `localStorage.treesh_profile = { nickname: 'Tester' }`
+- Disable What’s New auto-popup during tests:
+  - `localStorage.treesh_whatsnew_off = '1'`
 
 ---
 
@@ -265,15 +349,24 @@ Already achieved:
 - Karaoke stage is smooth and stable; fullscreen exit exists; perf/reduced motion respected.
 
 New (Phase 5) success criteria:
-- Games page shows new tiles for Chainz/FREA/Nects with monogram styling.
+- Games page shows new tiles for Chainz/FREA/Nects (Chainz + Nects logo images; FREA placeholder).
 - Game iframe overlay opens reliably with loader and fallback.
-- Minimize behaves like PiP and does not reload iframe when toggled.
+- Minimize behaves like PiP and does not reload iframe.
 - Fullscreen works where supported and returns correctly.
-- Custom Music storage UI no longer shows the removed progress/free-space text.
-- Users can select multiple custom songs and delete selected/all without breaking favorites/now playing.
+- Library improvements:
+  - My Music supports collapse, play/hold-to-shuffle, select mode + bulk delete.
+  - Mobile My Music header uses a dropdown menu; Play remains standalone and is not inside the menu.
+  - Library and My Music sort/filter work independently and persist.
+  - Rearranging animates smoothly (FLIP).
+  - Playlists are visible on the Library page when any exist.
+  - Play-next/Add-to-queue repositions tracks as expected.
+- What’s New slides show a desktop thumbnail inline with slide content (background kept).
+- Storage settings no longer show progress/free-space text and allow delete selected/all.
 - Mobile Lyric Studio no longer shows “Space” hint pills.
 - Bracket snippet buttons speed up authoring.
-- Lyric Card exports include a disclaimer only when the content is custom or user-edited.
+- Lyric Card exports include a disclaimer only when content is custom or user-edited.
+- Queue reorder works (move up/down and drag) without breaking the current playing index.
+- Mobile swipe-down closes Now Playing reliably.
 
 ---
 
