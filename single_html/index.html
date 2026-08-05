@@ -145,6 +145,11 @@
   .drawer-in{ animation:drawerIn .42s cubic-bezier(.22,1,.36,1) both; }
   .drawer-out{ animation:drawerOut .3s cubic-bezier(.4,0,1,.6) both; }
 
+  /* arcade game overlay */
+  @keyframes arcadeIn{ from{opacity:0;transform:translate(-50%,-50%) scale(.94)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+  .arcade-in{ animation:arcadeIn .3s cubic-bezier(.22,1,.36,1) both; }
+  .arcade-panel.arcade-full{ width:100vw !important; max-width:100vw !important; height:100dvh !important; border-radius:0 !important; border:0 !important; }
+
   /* mini player */
   @keyframes miniUp{ from{opacity:0;transform:translateY(130%)} to{opacity:1;transform:none} }
   .mini-in{ animation:miniUp .5s cubic-bezier(.22,1,.36,1) both; }
@@ -786,6 +791,7 @@
   <div id="instrum-fs"></div>
   <div id="lock"></div>
   <div id="imenu"></div>
+  <div id="gameframe"></div>
   <div id="toast" class="fixed left-1/2 top-4 z-[320] flex -translate-x-1/2 flex-col items-center gap-2"></div>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js';s.onload=function(){try{lucide.createIcons();}catch(e){}};document.head.appendChild(s);"></script>
@@ -1157,6 +1163,7 @@ const state = {
   shuffle: false, repeat: "off", abA: null, abB: null,
   // now playing UI
   npOpen: false, showLyrics: false, vinylMode: LS.get("treesh_vinyl", false), queueOpen: false,
+  arcade: {open:false, id:null, url:null, title:null, minimized:false, loaded:false, failed:false},
   palette: null, lyricLines: [],
   favLyrics: LS.get("treesh_fav_lyrics", []),
   gameStats: LS.get("treesh_game_stats", {games:0,totalScore:0,bestScore:0,rounds:0,correct:0,bestStreak:0,perfects:0,lastPlayed:0,bestSong:null,recent:[]}),
@@ -1292,7 +1299,7 @@ function applyLabelStyle(){ const L=state.label||{}; const rs=document.documentE
 
 /* ---------- scroll lock (blocks background scroll under overlays on mobile) ---------- */
 let _locked=false, _scrollLockY=0;
-function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.lsOpen||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
+function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.lsOpen||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||(state.arcade&&state.arcade.open&&!state.arcade.minimized)||state.tot||state.sleep||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
 function syncScrollLock(){ const on=overlaysOpen(); if(on===_locked) return; _locked=on; const b=document.body; if(on){ _scrollLockY=window.scrollY||window.pageYOffset||0; b.style.top="-"+_scrollLockY+"px"; b.style.left="0"; b.style.right="0"; b.style.width="100%"; b.style.position="fixed"; b.classList.add("tr-locked"); } else { b.classList.remove("tr-locked"); b.style.position=""; b.style.top=""; b.style.left=""; b.style.right=""; b.style.width=""; window.scrollTo(0,_scrollLockY); } }
 
 /* ---------- Starlites reward points ---------- */
@@ -2546,6 +2553,72 @@ function wnMaybeAuto(id){
   wnOpen(id);
 }
 
+/* ---------- Arcade (embedded iframe mini-games) ----------
+   Official Treesh arcade games (self-hosted, embeddable). Add a `logo` url any time. */
+const ARCADE_GAMES=[
+  {id:"chainz", title:"Chainz", mono:"C", accent:"#7a2cff", logo:"", url:"https://treesh.app/games/chainz", desc:"Word-chaining game \u2014 link word to word and keep the streak alive."},
+  {id:"frea",   title:"FREA",   mono:"F", accent:"#c3ab69", logo:"", url:"https://treesh.app/games/frea",   desc:"Hop, dodge and survive \u2014 guide your flea through the chaos."},
+  {id:"nects",  title:"Nects",  mono:"N", accent:"#22d3ee", logo:"", url:"https://treesh.app/games/nects",  desc:"Connect-style face-off \u2014 line up the emoji before your rival does."},
+];
+function arcadeById(id){ return ARCADE_GAMES.find(g=>g.id===id)||null; }
+function arcadeTile(g){
+  const face = g.logo
+    ? `<span class="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/5">${img(g.logo,'h-full w-full object-cover',`alt="${esc(g.title)}"`)}</span>`
+    : `<span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-white/15 font-display text-2xl font-extrabold text-white shadow-inner" style="background:linear-gradient(140deg,${g.accent},rgba(12,12,14,0.55))">${g.mono}</span>`;
+  if(g.soon){
+    return `<div data-testid="arcade-tile-${g.id}" aria-disabled="true" class="relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-4 opacity-70">
+      <span class="absolute right-3 top-3 rounded-full bg-[color:var(--treesh-gold)]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[color:var(--treesh-gold)]">Soon</span>
+      <div class="flex items-center gap-3">${face}<div class="min-w-0"><p class="text-base font-bold">${esc(g.title)}</p><p class="text-[11px] uppercase tracking-wide text-white/40">Coming soon</p></div></div>
+      <p class="clamp-2 text-xs text-white/45">${esc(g.desc)}</p>
+    </div>`;
+  }
+  return `<button data-act="arcade-open" data-id="${g.id}" data-testid="arcade-tile-${g.id}" aria-label="Play ${esc(g.title)}" class="card-lift press group relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:border-white/20 hover:bg-white/[0.06]">
+    <span class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full opacity-30 blur-2xl" style="background:${g.accent}"></span>
+    <div class="relative flex items-center gap-3">${face}<div class="min-w-0"><p class="text-base font-bold">${esc(g.title)}</p><p class="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--treesh-purple)]"><i data-lucide="gamepad-2" style="width:12px;height:12px"></i>Arcade</p></div></div>
+    <p class="clamp-2 text-xs text-white/50">${esc(g.desc)}</p>
+    <span class="relative mt-auto inline-flex items-center gap-1.5 self-start rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition group-hover:bg-[color:var(--treesh-purple)] group-hover:glow-purple"><i data-lucide="play" style="width:13px;height:13px" class="fill-current"></i>Play now</span>
+  </button>`;
+}
+function arcadeSectionHtml(){
+  return `<section data-testid="arcade-section" class="space-y-3">
+    <div class="flex items-center gap-2"><h2 class="flex items-center gap-2 text-lg font-bold"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="joystick" style="width:15px;height:15px"></i></span>Arcade</h2><span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${ARCADE_GAMES.length}</span></div>
+    <p class="text-sm text-white/50">Quick-play mini-games, right inside Treesh.</p>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">${ARCADE_GAMES.map(arcadeTile).join("")}</div>
+  </section>`;
+}
+var _arcTimer=null;
+function arcadeFrameLoaded(){ const a=state.arcade; if(a) a.loaded=true; const l=document.getElementById("arcade-loader"); if(l) l.style.display="none"; if(_arcTimer){ clearTimeout(_arcTimer); _arcTimer=null; } }
+function arcadeInitFallbackTimer(){ if(_arcTimer) clearTimeout(_arcTimer); _arcTimer=setTimeout(()=>{ const a=state.arcade; if(a && !a.loaded){ a.failed=true; const fb=document.getElementById("arcade-fallback"); const l=document.getElementById("arcade-loader"); if(fb){ fb.classList.remove("hidden"); fb.classList.add("flex"); } if(l) l.style.display="none"; } }, 12000); }
+function openArcade(id){ const g=arcadeById(id); if(!g||g.soon||!g.url) return; state.arcade={open:true, id:g.id, url:g.url, title:g.title, minimized:false, loaded:false, failed:false}; renderArcade(); syncScrollLock(); arcadeInitFallbackTimer(); starGamePlayed(g.title); }
+function closeArcade(){ if(_arcTimer){ clearTimeout(_arcTimer); _arcTimer=null; } state.arcade={open:false, id:null, url:null, title:null, minimized:false, loaded:false, failed:false}; const c=$("#gameframe"); if(c) c.innerHTML=""; syncScrollLock(); }
+function arcadeMinimize(){ const a=state.arcade; if(!a||!a.open) return; a.minimized=true; const bd=$("#arcade-backdrop"), pn=$("#arcade-panel"), pill=$("#arcade-restore"); if(bd) bd.classList.add("hidden"); if(pn) pn.classList.add("hidden"); if(pill){ pill.classList.remove("hidden"); pill.classList.add("flex"); } syncScrollLock(); }
+function arcadeRestore(){ const a=state.arcade; if(!a||!a.open) return; a.minimized=false; const bd=$("#arcade-backdrop"), pn=$("#arcade-panel"), pill=$("#arcade-restore"); if(bd) bd.classList.remove("hidden"); if(pn) pn.classList.remove("hidden"); if(pill){ pill.classList.add("hidden"); pill.classList.remove("flex"); } syncScrollLock(); }
+function arcadeToggleFull(){ const a=state.arcade; if(!a||!a.open) return; a.full=!a.full; const pn=$("#arcade-panel"); const ic=$("#arcade-full-icon"); if(pn){ pn.classList.toggle("arcade-full", a.full); } if(ic){ ic.setAttribute("data-lucide", a.full?"minimize-2":"maximize-2"); icons(); } }
+function renderArcade(){
+  const c=$("#gameframe"); if(!c) return; const a=state.arcade;
+  if(!a||!a.open){ c.innerHTML=""; return; }
+  const src=a.url;
+  c.innerHTML=`<div id="arcade-backdrop" data-act="arcade-close" class="arcade-backdrop fixed inset-0 z-[128] bg-black/60 backdrop-blur-sm"></div>
+    <button id="arcade-restore" data-act="arcade-restore" data-testid="arcade-restore" class="fixed bottom-[calc(var(--nav-h,0px)+92px)] right-4 z-[129] hidden items-center gap-2 rounded-full border border-white/15 bg-[#141416]/95 px-3.5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl glow-purple sm:bottom-6"><span class="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white"><i data-lucide="gamepad-2" style="width:14px;height:14px"></i></span>Resume ${esc(a.title)}<i data-lucide="chevron-up" style="width:16px;height:16px" class="text-white/60"></i></button>
+    <div id="arcade-panel" data-testid="arcade-overlay" class="arcade-panel arcade-in fixed left-1/2 top-1/2 z-[129] flex w-[min(96vw,1040px)] max-w-[96vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl border border-white/12 bg-[#0b0b0d] shadow-[0_40px_120px_rgba(0,0,0,0.65)]" style="height:min(86vh,760px)">
+      <div class="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-white/[0.03] px-3 py-2.5">
+        <div class="flex min-w-0 items-center gap-2.5"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="gamepad-2" style="width:16px;height:16px"></i></span><div class="min-w-0"><p class="clamp-1 text-sm font-bold leading-tight">${esc(a.title)}</p><p class="clamp-1 text-[10px] uppercase tracking-wide text-white/40">Treesh Arcade</p></div></div>
+        <div class="flex shrink-0 items-center gap-1.5">
+          <button data-act="arcade-min" data-testid="arcade-minimize" aria-label="Minimize" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="minus" style="width:17px;height:17px"></i></button>
+          <button data-act="arcade-full" data-testid="arcade-fullscreen" aria-label="Toggle fullscreen" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i id="arcade-full-icon" data-lucide="maximize-2" style="width:16px;height:16px"></i></button>
+          <a href="${src}" target="_blank" rel="noopener noreferrer" data-testid="arcade-newtab" aria-label="Open in new tab" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="external-link" style="width:16px;height:16px"></i></a>
+          <button data-act="arcade-close" data-testid="arcade-close" aria-label="Close game" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10 hover:text-rose-300"><i data-lucide="x" style="width:18px;height:18px"></i></button>
+        </div>
+      </div>
+      <div class="relative min-h-0 flex-1 bg-[#0b0b0d]">
+        <div id="arcade-loader" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#0b0b0d]"><span class="h-9 w-9 animate-spin rounded-full border-2 border-white/15" style="border-top-color:var(--treesh-purple)"></span><p class="text-sm text-white/50">Loading ${esc(a.title)}\u2026</p></div>
+        <div id="arcade-fallback" class="absolute inset-0 z-20 hidden flex-col items-center justify-center gap-4 bg-[#0b0b0d] px-6 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="gamepad-2" style="width:26px;height:26px"></i></span><div><p class="text-base font-bold">This game can\u2019t load here</p><p class="mt-1 text-sm text-white/55">Open it in a new tab to play.</p></div><a href="${src}" target="_blank" rel="noopener noreferrer" data-testid="arcade-fallback-link" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple"><i data-lucide="external-link" style="width:16px;height:16px"></i>Open in new tab</a></div>
+        <iframe id="arcade-frame" data-testid="arcade-frame" title="${esc(a.title)}" src="${src}" class="relative z-0 h-full w-full border-0" referrerpolicy="no-referrer-when-downgrade" allow="autoplay; fullscreen; gamepad" onload="arcadeFrameLoaded()"></iframe>
+      </div>
+    </div>`;
+  icons();
+}
+
 /* ---------- Blog (embedded Treesh blog) ---------- */
 var _blogTimer=null, _blogLoaded=false;
 function blogFrameLoaded(){ _blogLoaded=true; const l=document.getElementById("blog-loader"); if(l) l.style.display="none"; if(_blogTimer){ clearTimeout(_blogTimer); _blogTimer=null; } }
@@ -3176,6 +3249,7 @@ function gameHomeHtml(){ const st=state.gameStats||{}; const tw=state.totWins||{
       </div>
       <div class="relative mt-4 flex flex-wrap gap-2 text-[11px] font-semibold text-white/70"><span class="rounded-full bg-black/25 px-2.5 py-1">${tw.plays||0} rounds played</span><span class="rounded-full bg-black/25 px-2.5 py-1">Best streak ${tw.bestStreak||0}</span></div>
     </button>
+    ${arcadeSectionHtml()}
   </div>`;
 }
 function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.totWins||{wins:{}}; const wins=tw.wins||{};
@@ -4983,6 +5057,11 @@ document.addEventListener("click", e=>{
     case "toggle-vinyl": state.vinylMode=!state.vinylMode; LS.set("treesh_vinyl",state.vinylMode); renderNP(); break;
     case "open-queue": state.queueOpen=true; renderQueue(); break;
     case "close-queue": closeQueue(); break;
+    case "arcade-open": openArcade(id); break;
+    case "arcade-close": closeArcade(); break;
+    case "arcade-min": arcadeMinimize(); break;
+    case "arcade-restore": arcadeRestore(); break;
+    case "arcade-full": arcadeToggleFull(); break;
     case "q-up": moveQueue(id,-1); break;
     case "q-down": moveQueue(id,1); break;
     case "q-remove": removeFromQueue(id); break;
