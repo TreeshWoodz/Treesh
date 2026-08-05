@@ -1218,7 +1218,7 @@ const state = {
   _lockActive: false, _lockMode: null, _lockView: null, _lockParam: null, _lockInput: "", _lockErr: "", _lockShow: false,
   storageSel: {}, _userSizes: {},
   mmCollapsed: false, mmSort: "recent", mmSelect: false, mmSel: {},
-  libSort: "default", libLyricsOnly: false,
+  libSort: "default", libLyricsOnly: false, mmLyricsOnly: false,
 };
 
 /* one-time default migration: move users still on the old default background ("space") to the new default ("mono"). Anyone who explicitly picked another background is left untouched. */
@@ -1870,9 +1870,11 @@ function myMusicCard(s){ const active=curSong()&&curSong().id===s.id; const play
   </div>`; }
 function mmSortedList(){
   let list=USER_SONGS.slice();
+  if(state.mmLyricsOnly) list=list.filter(songHasLyrics);
   const mode=state.mmSort||"recent";
   if(mode==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   else if(mode==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
+  else if(mode==="artist") list.sort((a,b)=>{ const c=a.artist.toLowerCase().localeCompare(b.artist.toLowerCase()); return c!==0?c:a.title.toLowerCase().localeCompare(b.title.toLowerCase()); });
   else list.reverse();
   return vis(list);
 }
@@ -1886,17 +1888,14 @@ function myMusicSection(){
   const collapsed=!!state.mmCollapsed;
   const selMode=!!state.mmSelect;
   const selIds=mmSelIds();
-  const sortLabel = state.mmSort==="az" ? "A\u2013Z" : state.mmSort==="za" ? "Z\u2013A" : "Recent";
   const playBtn = count?`<button data-mm-play data-testid="my-music-play" aria-label="Play My Music, hold to shuffle" title="Play \u00B7 hold to shuffle" class="mm-play press inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-4 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="play" class="fill-current" style="width:15px;height:15px"></i>Play</button>`:"";
-  const sortBtn = `<button data-act="mm-sort" data-testid="my-music-sort" title="Sort" class="press inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-xs font-semibold text-white/80 hover:bg-white/10"><i data-lucide="arrow-down-up" style="width:14px;height:14px"></i>${sortLabel}</button>`;
   const selBtn = `<button data-act="mm-select-toggle" data-testid="my-music-select" title="Select" class="press inline-flex h-9 items-center gap-1.5 rounded-full border ${selMode?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]':'border-white/12 bg-white/5 text-white/80'} px-3 text-xs font-semibold hover:bg-white/10"><i data-lucide="list-checks" style="width:14px;height:14px"></i>${selMode?'Done':'Select'}</button>`;
   const addBtn = `<button data-act="add-music-open" data-testid="my-music-add" aria-label="Add music" class="press inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-xs font-semibold text-white/80 hover:bg-white/10"><i data-lucide="plus" style="width:14px;height:14px"></i>Add</button>`;
   const vToggle = count?viewToggle("mine-view",state.mineGrid):"";
-  const desktopActions = count?`<div class="hidden items-center gap-1.5 sm:flex">${sortBtn}${selBtn}${addBtn}${vToggle}</div>`:`<div class="hidden sm:flex">${addBtn}</div>`;
+  const desktopActions = count?`<div class="hidden items-center gap-1.5 sm:flex">${selBtn}${addBtn}${vToggle}</div>`:`<div class="hidden sm:flex">${addBtn}</div>`;
   const mobileMenu = `<details class="mm-menu relative sm:hidden"><summary data-testid="my-music-menu" aria-label="More options" class="press grid h-9 w-9 cursor-pointer list-none place-items-center rounded-full border border-white/12 bg-white/5 text-white/80"><i data-lucide="more-vertical" style="width:16px;height:16px"></i></summary>
      <div class="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-white/12 bg-[#141416]/95 p-1.5 shadow-xl backdrop-blur-xl">
-       ${count?`<button data-act="mm-sort" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="arrow-down-up" style="width:15px;height:15px"></i>Sort: ${sortLabel}</button>
-       <button data-act="mm-select-toggle" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="list-checks" style="width:15px;height:15px"></i>${selMode?'Done selecting':'Select tracks'}</button>`:''}
+       ${count?`<button data-act="mm-select-toggle" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="list-checks" style="width:15px;height:15px"></i>${selMode?'Done selecting':'Select tracks'}</button>`:''}
        <button data-act="add-music-open" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="plus" style="width:15px;height:15px"></i>Add music</button>
        ${count?`<button data-act="mine-view" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="${state.mineGrid?'list':'layout-grid'}" style="width:15px;height:15px"></i>${state.mineGrid?'List view':'Grid view'}</button>`:''}
      </div></details>`;
@@ -1906,7 +1905,8 @@ function myMusicSection(){
   </div>`;
   let body="";
   if(!collapsed){
-    if(!count){ body=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No custom tracks yet. Tap <span class="font-semibold text-white/75">Add</span> to upload your own audio.</div>`; }
+    if(count) body+=`<div class="mb-3">${filterBar('mm')}</div>`;
+    if(!count){ body+=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No custom tracks yet. Tap <span class="font-semibold text-white/75">Add</span> to upload your own audio.</div>`; }
     else if(selMode){
       const n=selIds.length; const allOn=n===count;
       const toolbar=`<div class="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/25 bg-[color:var(--treesh-purple)]/[0.08] p-2">
@@ -1922,9 +1922,9 @@ function myMusicSection(){
         <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span>
         <span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(s.title)}</span><span class="clamp-1 block text-[11px] text-white/45">${esc(s.artist)}</span></span>
       </button>`; }).join("");
-      body=toolbar+`<div class="space-y-1.5" data-testid="mm-select-list">${rows}</div>`;
+      body+=toolbar+`<div class="space-y-1.5" data-testid="mm-select-list">${rows}</div>`;
     }
-    else{ const pg=paginate(mine,"mine"); body=(state.mineGrid?grid(pg.page):songList(pg.page,false))+loadMoreBar(pg); }
+    else{ const pg=paginate(mine,"mine"); body+=(state.mineGrid?grid(pg.page):songList(pg.page,false))+loadMoreBar(pg); }
   }
   return `<section data-testid="my-music-section" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
 }
@@ -1943,19 +1943,10 @@ function loadMoreBar(pg){
   return `<div class="mt-5 flex flex-col items-center gap-2" data-testid="lib-load-more-wrap"><button data-act="lib-load-more" data-key="${esc(pg.key)}" data-testid="lib-load-more" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10"><i data-lucide="plus" style="width:15px;height:15px"></i>Load ${next} more</button><span class="text-[11px] text-white/40">Showing ${pg.shown} of ${pg.total}</span></div>`;
 }
 function viewMyMusic(){
-  const list=vis(SONGS.filter(s=>s._user));
-  state.contextList=list;
-  const pg=paginate(list,"mineFull");
-  const listHtml = state.mineGrid ? grid(pg.page) : songList(pg.page,false);
-  const mmPlus=`<button data-act="add-music-open" data-testid="add-music-inline" aria-label="Open Custom Studio to add music" class="press grid h-8 w-8 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white hover:opacity-90 glow-purple align-middle"><i data-lucide="plus" style="width:17px;height:17px"></i></button>`;
-  let html=`<div class="space-y-6"><button data-act="genre" data-genre="all" data-testid="my-music-back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back to Library</button>
-    <section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div>
-      <div class="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">On this device</p><h1 class="mt-2 flex items-center gap-2 text-3xl font-bold sm:text-4xl"><i data-lucide="disc-3" class="text-[color:var(--treesh-purple)]" style="width:28px;height:28px"></i>My Music ${mmPlus}<button data-act="ls-picker" data-testid="my-music-lyric-studio" aria-label="Open Lyric Studio" title="Lyric Studio" class="press grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10 align-middle"><i data-lucide="captions" style="width:16px;height:16px"></i></button></h1><p class="mt-1 text-sm text-white/60">${list.length} custom track${list.length!==1?'s':''}</p></div></div>
-    </section>`;
-  if(!list.length){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-16 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="upload" style="width:26px;height:26px"></i></span><p class="text-lg font-semibold">No custom tracks yet</p><p class="max-w-sm text-sm text-white/50">Tap the + above to upload audio with cover art and full details. Tracks are saved on this device and play right inside Treesh.</p></div>`; }
-  else{ html+=`<section><div class="mb-3 flex items-center justify-between gap-3"><span></span><div class="flex items-center gap-2">${viewToggle("mine-view",state.mineGrid)}</div></div>${listHtml}${loadMoreBar(pg)}</section>`; }
-  html+=`</div>`;
-  return html;
+  const list=vis(SONGS.filter(s=>s._user)); state.contextList=list;
+  return `<div class="space-y-6"><button data-act="genre" data-genre="all" data-testid="my-music-back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back to Library</button>
+    <div class="flex items-center gap-2"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">On this device</p><button data-act="ls-picker" data-testid="my-music-lyric-studio" aria-label="Open Lyric Studio" title="Lyric Studio" class="press ml-auto grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button></div>
+    ${myMusicSection()}</div>`;
 }
 function libraryPlaylistsSection(){
   const pls=state.playlists||[];
@@ -1970,16 +1961,18 @@ function libraryPlaylistsSection(){
   return `<section data-testid="library-playlists" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
 }
 function songHasLyrics(s){ return !!(s && (s.lyrics||[]).some(l=>l.text && l.text.trim() && !/^\s*\[[^\]]*\]\s*$/.test(l.text))); }
-function libraryFilterBar(){
-  const s=state.libSort||"default"; const lyr=!!state.libLyricsOnly;
-  const pill=(mode,label,icon)=>`<button data-act="lib-sort" data-mode="${mode}" data-testid="lib-sort-${mode}" aria-pressed="${s===mode}" class="press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${s===mode?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${icon}" style="width:13px;height:13px"></i>${label}</button>`;
-  return `<div class="flex flex-wrap items-center gap-2" data-testid="library-filter-bar">
-    <span class="inline-flex items-center gap-1.5 pr-1 text-[11px] font-semibold uppercase tracking-wide text-white/35"><i data-lucide="sliders-horizontal" style="width:13px;height:13px"></i>Filter</span>
+function filterBar(scope){
+  const s=state[scope+"Sort"]||(scope==="mm"?"recent":"default"); const lyr=!!state[scope+"LyricsOnly"];
+  const pill=(mode,label,icon)=>`<button data-act="filter-sort" data-scope="${scope}" data-mode="${mode}" data-testid="${scope}-sort-${mode}" aria-pressed="${s===mode}" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${s===mode?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${icon}" style="width:13px;height:13px"></i>${label}</button>`;
+  const recentPill = scope==="mm" ? pill("recent","Recent","clock-3") : "";
+  return `<div class="-mx-1 flex items-center gap-2 overflow-x-auto px-1 no-scrollbar" data-testid="${scope}-filter-bar">
+    <span class="inline-flex shrink-0 items-center gap-1.5 pr-0.5 text-[11px] font-semibold uppercase tracking-wide text-white/35"><i data-lucide="sliders-horizontal" style="width:13px;height:13px"></i>Filter</span>
+    ${recentPill}
     ${pill("az","A\u2013Z","arrow-down-a-z")}
     ${pill("za","Z\u2013A","arrow-down-z-a")}
     ${pill("artist","Artist","user-round")}
-    <span class="mx-0.5 h-4 w-px bg-white/10"></span>
-    <button data-act="lib-lyrics-toggle" data-testid="lib-lyrics-toggle" aria-pressed="${lyr}" class="press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${lyr?'border-[color:var(--treesh-gold)]/50 bg-[color:var(--treesh-gold)]/12 text-[color:var(--treesh-gold)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="mic-vocal" style="width:13px;height:13px"></i>With lyrics</button>
+    <span class="mx-0.5 h-4 w-px shrink-0 bg-white/10"></span>
+    <button data-act="filter-lyrics" data-scope="${scope}" data-testid="${scope}-lyrics-toggle" aria-pressed="${lyr}" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${lyr?'border-[color:var(--treesh-gold)]/50 bg-[color:var(--treesh-gold)]/12 text-[color:var(--treesh-gold)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="mic-vocal" style="width:13px;height:13px"></i>With lyrics</button>
   </div>`;
 }
 function viewLibrary(){
@@ -1999,7 +1992,7 @@ function viewLibrary(){
   let html=`<div class="space-y-7">`;
   if(browse){ html+=`<section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div><div class="relative"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh 3.0</p><h1 class="mt-2 max-w-lg text-3xl font-bold leading-tight sm:text-4xl">Music to <span class="shimmer">Live For</span></h1><p class="mt-2 max-w-md text-sm text-white/60">Stream the underground. ${vis(SONGS).length} tracks from the Icons, ready to play.</p><div class="mt-4 flex flex-wrap items-center gap-2"><button data-act="shuffle-all" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle all</button></div></div></section>`;
     if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); html+=myMusicSection(); html+=libraryPlaylistsSection(); }
-    html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; html+=libraryFilterBar(); }
+    html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; html+=filterBar('lib'); }
   if(state.query){ html+=`<div class="flex items-center gap-2 text-sm text-white/60"><i data-lucide="search" style="width:16px;height:16px"></i> Results for <span class="font-semibold text-white">\u201C${esc(state.query)}\u201D</span></div>`; }
   if(!list.length){
     if(mineOn){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-16 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="upload" style="width:26px;height:26px"></i></span><p class="text-lg font-semibold">Add your own music</p><p class="max-w-sm text-sm text-white/50">Upload audio with cover art and full details. Tracks are saved on this device and play right inside Treesh.</p><button data-act="add-music-open" data-testid="add-music-empty-btn" class="mt-1 inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i> Add your music</button></div>`; }
@@ -5283,7 +5276,8 @@ document.addEventListener("click", e=>{
     case "wn-play-artist": { const songs=artistSongs(id); if(songs.length) playSong(songs[0], songs); break; }
     case "genre": state.genre=t.dataset.genre; renderView(true); break;
     case "lib-sort": { const m=t.dataset.mode; state.libSort=(state.libSort===m?"default":m); refreshLists(); break; }
-    case "lib-lyrics-toggle": { state.libLyricsOnly=!state.libLyricsOnly; refreshLists(); break; }
+    case "filter-sort": { const sc=t.dataset.scope; const m=t.dataset.mode; const key=sc+"Sort"; const def=sc==="mm"?"recent":"default"; state[key]=(state[key]===m?def:m); refreshLists(); break; }
+    case "filter-lyrics": { const sc=t.dataset.scope; const key=sc+"LyricsOnly"; state[key]=!state[key]; refreshLists(); break; }
     case "picks-shuffle": state._picks=buildPicks(); renderView(true); break;
     case "lib-view": state.libGrid=(t.dataset.mode==="grid"); LS.set("treesh_lib_grid",state.libGrid); renderView(true); break;
     case "mine-view": state.mineGrid=(t.dataset.mode==="grid"); LS.set("treesh_mine_grid",state.mineGrid); renderView(); break;
@@ -5291,7 +5285,6 @@ document.addEventListener("click", e=>{
     case "clear-search": state.query=""; const si=$("#search"); if(si)si.value=""; renderView(true); const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.add("hidden"); break;
     case "shuffle-all": { const pool=vis(SONGS); if(!pool.length)break; state.shuffle=true; const r=pool[Math.floor(Math.random()*pool.length)]; playSong(r,pool); break; }
     case "mm-collapse": state.mmCollapsed=!state.mmCollapsed; refreshLists(); break;
-    case "mm-sort": { state.mmSort = state.mmSort==="recent" ? "az" : state.mmSort==="az" ? "za" : "recent"; refreshLists(); break; }
     case "mm-select-toggle": { state.mmSelect=!state.mmSelect; if(!state.mmSelect) mmSelClear(); refreshLists(); break; }
     case "mm-select-all": { const mine=mmSortedList(); const allOn=mine.length>0 && mine.every(s=>state.mmSel&&state.mmSel[s.id]); state.mmSel={}; if(!allOn){ mine.forEach(s=>{ state.mmSel[s.id]=true; }); } refreshLists(); break; }
     case "mm-row-toggle": { if(!state.mmSel) state.mmSel={}; if(state.mmSel[id]) delete state.mmSel[id]; else state.mmSel[id]=true; refreshLists(); break; }
