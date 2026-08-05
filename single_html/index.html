@@ -145,15 +145,6 @@
   .drawer-in{ animation:drawerIn .42s cubic-bezier(.22,1,.36,1) both; }
   .drawer-out{ animation:drawerOut .3s cubic-bezier(.4,0,1,.6) both; }
 
-  /* arcade game overlay */
-  @keyframes arcadeIn{ from{opacity:0;transform:translate(-50%,-50%) scale(.94)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
-  .arcade-in{ animation:arcadeIn .3s cubic-bezier(.22,1,.36,1) both; }
-  .arcade-panel.arcade-full{ width:100vw !important; max-width:100vw !important; height:100dvh !important; border-radius:0 !important; border:0 !important; }
-  /* queue drag reorder */
-  .q-row{ transition:background-color .18s var(--treesh-ease), border-color .18s var(--treesh-ease); }
-  .q-dragging{ opacity:.9; transform:scale(1.015); box-shadow:0 14px 40px rgba(0,0,0,0.5); background:rgba(255,255,255,0.08) !important; cursor:grabbing; }
-  .q-handle:active{ cursor:grabbing; }
-
   /* mini player */
   @keyframes miniUp{ from{opacity:0;transform:translateY(130%)} to{opacity:1;transform:none} }
   .mini-in{ animation:miniUp .5s cubic-bezier(.22,1,.36,1) both; }
@@ -570,6 +561,14 @@
   #instrum-fs{ position:fixed; inset:0; z-index:150; }
   #instrum-fs .fs-shell{ position:absolute; inset:0; display:flex; flex-direction:column; background:#08080a; }
   html.theme-light #instrum-fs .fs-shell{ background:#f4f4f6; }
+  /* game iframe overlay */
+  #game-frame:empty{ display:none !important; }
+  #game-frame .gf-shell{ position:fixed; inset:0; z-index:160; display:flex; flex-direction:column; background:#08080a; transition:transform var(--treesh-dur-3,320ms) var(--treesh-ease,ease), opacity var(--treesh-dur-3,320ms) var(--treesh-ease,ease); }
+  html.theme-light #game-frame .gf-shell{ background:#f4f4f6; }
+  #game-frame .gf-shell.gf-min{ inset:auto; right:14px; bottom:calc(96px + env(safe-area-inset-bottom)); width:min(360px,88vw); height:230px; border-radius:22px; overflow:hidden; border:1px solid rgba(255,255,255,0.14); box-shadow:0 24px 70px rgba(0,0,0,0.62); }
+  @media (min-width:1024px){ #game-frame .gf-shell.gf-min{ bottom:calc(24px + env(safe-area-inset-bottom)); } }
+  #game-frame .gf-shell.gf-min .gf-head{ padding:8px 8px 8px 12px; }
+  #game-frame .gf-shell.gf-min .gf-title-sub{ display:none; }
   /* lightweight tooltip */
   .tip{ position:relative; }
   .tip::after{ content:attr(data-tip); position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%) translateY(4px); white-space:nowrap; padding:5px 9px; border-radius:8px; background:rgba(20,20,24,0.96); color:#fff; font-size:11px; font-weight:600; letter-spacing:.01em; border:1px solid rgba(255,255,255,0.12); box-shadow:0 8px 24px rgba(0,0,0,0.4); opacity:0; pointer-events:none; transition:opacity .14s ease, transform .14s ease; z-index:400; }
@@ -793,9 +792,9 @@
   <div id="modal"></div>
   <div id="ls"></div>
   <div id="instrum-fs"></div>
+  <div id="game-frame"></div>
   <div id="lock"></div>
   <div id="imenu"></div>
-  <div id="gameframe"></div>
   <div id="toast" class="fixed left-1/2 top-4 z-[320] flex -translate-x-1/2 flex-col items-center gap-2"></div>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js';s.onload=function(){try{lucide.createIcons();}catch(e){}};document.head.appendChild(s);"></script>
@@ -1167,7 +1166,6 @@ const state = {
   shuffle: false, repeat: "off", abA: null, abB: null,
   // now playing UI
   npOpen: false, showLyrics: false, vinylMode: LS.get("treesh_vinyl", false), queueOpen: false,
-  arcade: {open:false, id:null, url:null, title:null, minimized:false, loaded:false, failed:false},
   palette: null, lyricLines: [],
   favLyrics: LS.get("treesh_fav_lyrics", []),
   gameStats: LS.get("treesh_game_stats", {games:0,totalScore:0,bestScore:0,rounds:0,correct:0,bestStreak:0,perfects:0,lastPlayed:0,bestSong:null,recent:[]}),
@@ -1211,7 +1209,6 @@ const state = {
   appUnlocked: false,
   pageUnlocked: [],
   _lockActive: false, _lockMode: null, _lockView: null, _lockParam: null, _lockInput: "", _lockErr: "", _lockShow: false,
-  storageSel: {}, _userSizes: {},
 };
 
 /* one-time default migration: move users still on the old default background ("space") to the new default ("mono"). Anyone who explicitly picked another background is left untouched. */
@@ -1304,7 +1301,7 @@ function applyLabelStyle(){ const L=state.label||{}; const rs=document.documentE
 
 /* ---------- scroll lock (blocks background scroll under overlays on mobile) ---------- */
 let _locked=false, _scrollLockY=0;
-function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.lsOpen||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||(state.arcade&&state.arcade.open&&!state.arcade.minimized)||state.tot||state.sleep||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
+function overlaysOpen(){ const m=document.getElementById("modal"); return !!(state._lockActive||state.lsOpen||state.npOpen||state.queueOpen||state.profileOpen||state.searchOpen||state.game||state.tot||state.sleep||(state.gameFrame&&!state.gameFrame.min)||(state.instrum&&state.instrum.fs)||(typeof listening!=="undefined"&&listening)||document.getElementById("voice-ov")||(m&&m.childElementCount>0)); }
 function syncScrollLock(){ const on=overlaysOpen(); if(on===_locked) return; _locked=on; const b=document.body; if(on){ _scrollLockY=window.scrollY||window.pageYOffset||0; b.style.top="-"+_scrollLockY+"px"; b.style.left="0"; b.style.right="0"; b.style.width="100%"; b.style.position="fixed"; b.classList.add("tr-locked"); } else { b.classList.remove("tr-locked"); b.style.position=""; b.style.top=""; b.style.left=""; b.style.right=""; b.style.width=""; window.scrollTo(0,_scrollLockY); } }
 
 /* ---------- Starlites reward points ---------- */
@@ -2156,52 +2153,13 @@ function storageSection(tab){
       <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10"><div id="storage-gauge-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:${pct}%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
     </div>
     <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-testid="custom-music-storage">
-      <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:18px;height:18px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Custom music</p><p id="custom-music-sub" data-testid="custom-music-sub" class="clamp-1 text-xs text-white/45">${USER_SONGS.length} track${USER_SONGS.length!==1?'s':''} on this device</p></div><span id="custom-music-size" data-testid="custom-music-size" class="shrink-0 font-doto text-sm text-white/70">\u2026</span></div>
-      <div id="custom-music-manage" class="mt-3">${customMusicManageHtml()}</div>
+      <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:18px;height:18px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Custom music</p><p id="custom-music-sub" data-testid="custom-music-sub" class="clamp-1 text-xs text-white/45">${USER_SONGS.length} track${USER_SONGS.length!==1?'s':''} stored on this device</p></div><span id="custom-music-size" data-testid="custom-music-size" class="shrink-0 font-doto text-sm text-white/70">\u2026</span></div>
+      <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10"><div id="custom-music-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:0%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
+      <p id="custom-music-hint" class="mt-2 text-[11px] text-white/40">Audio &amp; cover art live in a separate on-device store from other Treesh data.</p>
     </div>
     <div class="mt-4 space-y-2.5" data-testid="storage-groups">${rows}</div>
     <button data-act="storage-clear-all" data-testid="storage-clear-all-button" class="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3 text-sm font-semibold text-rose-200 transition-colors hover:bg-rose-500/20"><i data-lucide="trash-2" style="width:16px;height:16px"></i>Clear all Treesh data</button>
   </section>`;
-}
-function customMusicManageHtml(){
-  const mine=USER_SONGS.slice().reverse();
-  if(!mine.length){ return `<p class="rounded-xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-6 text-center text-xs text-white/45" data-testid="custom-music-empty">No custom tracks stored yet. Upload audio from Library \u2192 My Music.</p>`; }
-  const sel=state.storageSel||{};
-  const selCount=mine.filter(s=>sel[s.id]).length;
-  const allOn=selCount===mine.length && mine.length>0;
-  const rows=mine.map(s=>{ const on=!!sel[s.id]; const sz=state._userSizes&&state._userSizes[s.id]; return `<div class="flex items-center gap-2.5 rounded-xl border ${on?'border-[color:var(--treesh-purple)]/45 bg-[color:var(--treesh-purple)]/[0.08]':'border-white/10 bg-white/[0.02]'} p-2 transition-colors" data-testid="cms-row-${s.id}">
-      <button data-act="storage-user-toggle" data-id="${s.id}" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(s.title)}" data-testid="cms-check-${s.id}" class="press grid h-5 w-5 shrink-0 place-items-center rounded-[6px] border ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25 text-transparent'}"><i data-lucide="check" style="width:13px;height:13px"></i></button>
-      <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span>
-      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/45">${esc(s.artist)}</p></div>
-      <span class="shrink-0 font-doto text-[11px] text-white/45" data-testid="cms-size-${s.id}" id="cms-size-${s.id}">${sz?fmtBytes(sz):'\u2026'}</span>
-      <button data-act="storage-user-del-one" data-id="${s.id}" data-testid="cms-del-${s.id}" aria-label="Delete ${esc(s.title)}" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/55 transition-colors hover:bg-white/10 hover:text-rose-300"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button>
-    </div>`; }).join("");
-  return `<div class="mb-2 flex items-center justify-between gap-2">
-      <button data-act="storage-user-toggle-all" data-testid="cms-select-all" class="press inline-flex items-center gap-1.5 text-xs font-semibold text-white/60 hover:text-white"><span class="grid h-4 w-4 place-items-center rounded-[5px] border ${allOn?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25 text-transparent'}"><i data-lucide="check" style="width:11px;height:11px"></i></span>${allOn?'Clear all':'Select all'}</button>
-      <span class="text-[11px] text-white/40" data-testid="cms-sel-count">${selCount} selected</span>
-    </div>
-    <div class="max-h-[280px] space-y-1.5 overflow-y-auto soft-scroll pr-1" data-testid="custom-music-list">${rows}</div>
-    <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-      <button data-act="storage-user-del-selected" data-testid="cms-delete-selected" ${selCount?'':'disabled'} class="press inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 text-sm font-semibold text-rose-200 transition-colors hover:bg-rose-500/20 ${selCount?'':'pointer-events-none opacity-40'}"><i data-lucide="trash-2" style="width:15px;height:15px"></i>Delete selected${selCount?` (${selCount})`:''}</button>
-      <button data-act="storage-user-del-all" data-testid="cms-delete-all" class="press inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 py-2.5 text-sm font-semibold text-white/75 transition-colors hover:bg-white/10"><i data-lucide="trash" style="width:15px;height:15px"></i>Delete all</button>
-    </div>`;
-}
-function refreshCustomMusicManage(){ const c=document.getElementById("custom-music-manage"); if(!c) return; c.innerHTML=customMusicManageHtml(); icons(); const subEl=document.getElementById("custom-music-sub"); if(subEl) subEl.textContent=USER_SONGS.length+" track"+(USER_SONGS.length!==1?"s":"")+" on this device"; }
-async function deleteUserSongs(ids){
-  ids=(ids||[]).filter(Boolean); if(!ids.length) return;
-  try{
-    const cur=curSong();
-    for(const id of ids){
-      if(cur && cur.id===id){ try{ audio.pause(); }catch(e){} }
-      if(state.favorites&&state.favorites.has&&state.favorites.has(id)){ state.favorites.delete(id); saveFav(); }
-      if(state.storageSel) delete state.storageSel[id];
-      try{ await idbDelete(id); }catch(e){ console.warn("idbDelete failed",id,e); }
-    }
-    await loadUserSongs();
-    refreshCustomMusicManage();
-    updateCustomMusicStorage();
-    toast(ids.length>1?(ids.length+" tracks removed"):"Track removed");
-  }catch(e){ console.error("deleteUserSongs failed",e); toast("Couldn\u2019t remove"); }
 }
 function updateStorageEstimate(){
   const el=document.getElementById("storage-quota-text"); if(!el) return;
@@ -2210,12 +2168,16 @@ function updateStorageEstimate(){
   } else { el.textContent="Device estimate unavailable"; }
 }
 function updateCustomMusicStorage(){
-  const sizeEl=document.getElementById("custom-music-size"), subEl=document.getElementById("custom-music-sub");
+  const sizeEl=document.getElementById("custom-music-size"), barEl=document.getElementById("custom-music-bar"), subEl=document.getElementById("custom-music-sub"), hintEl=document.getElementById("custom-music-hint");
+  if(!sizeEl && !barEl) return;
   idbGetAll().then(recs=>{
-    recs=recs||[]; let total=0; state._userSizes=state._userSizes||{};
-    recs.forEach(r=>{ let sz=0; if(r.audioBlob&&r.audioBlob.size) sz+=r.audioBlob.size; if(r.coverBlob&&r.coverBlob.size) sz+=r.coverBlob.size; total+=sz; if(r.id){ state._userSizes[r.id]=sz; const el=document.getElementById("cms-size-"+r.id); if(el) el.textContent=fmtBytes(sz); } });
+    recs=recs||[]; let total=0; recs.forEach(r=>{ if(r.audioBlob&&r.audioBlob.size) total+=r.audioBlob.size; if(r.coverBlob&&r.coverBlob.size) total+=r.coverBlob.size; });
     if(sizeEl) sizeEl.textContent=fmtBytes(total);
-    if(subEl) subEl.textContent=recs.length+" track"+(recs.length!==1?"s":"")+" on this device";
+    if(subEl) subEl.textContent=recs.length+" track"+(recs.length!==1?"s":"")+" stored on this device";
+    const finish=(pct,hint)=>{ if(barEl) barEl.style.width=Math.max(total>0?2:0,Math.min(100,Math.round(pct||0)))+"%"; if(hintEl && hint) hintEl.textContent=hint; };
+    if(navigator.storage && navigator.storage.estimate){
+      navigator.storage.estimate().then(est=>{ if(est && est.quota){ const free=Math.max(0,(est.quota||0)-(est.usage||0)); finish(total/est.quota*100, "About "+fmtBytes(free)+" of space is still free on this device"); } else { finish(total/(200*1024*1024)*100); } }).catch(()=>finish(total/(200*1024*1024)*100));
+    } else { finish(total/(200*1024*1024)*100); }
   }).catch(()=>{});
 }
 
@@ -2593,72 +2555,6 @@ function wnMaybeAuto(id){
   wnOpen(id);
 }
 
-/* ---------- Arcade (embedded iframe mini-games) ----------
-   Official Treesh arcade games (self-hosted, embeddable). Add a `logo` url any time. */
-const ARCADE_GAMES=[
-  {id:"chainz", title:"Chainz", mono:"C", accent:"#7a2cff", logo:"", url:"https://treesh.app/games/chainz", desc:"Word-chaining game \u2014 link word to word and keep the streak alive."},
-  {id:"frea",   title:"FREA",   mono:"F", accent:"#c3ab69", logo:"", url:"https://treesh.app/games/frea",   desc:"Hop, dodge and survive \u2014 guide your flea through the chaos."},
-  {id:"nects",  title:"Nects",  mono:"N", accent:"#22d3ee", logo:"", url:"https://treesh.app/games/nects",  desc:"Connect-style face-off \u2014 line up the emoji before your rival does."},
-];
-function arcadeById(id){ return ARCADE_GAMES.find(g=>g.id===id)||null; }
-function arcadeTile(g){
-  const face = g.logo
-    ? `<span class="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/5">${img(g.logo,'h-full w-full object-cover',`alt="${esc(g.title)}"`)}</span>`
-    : `<span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-white/15 font-display text-2xl font-extrabold text-white shadow-inner" style="background:linear-gradient(140deg,${g.accent},rgba(12,12,14,0.55))">${g.mono}</span>`;
-  if(g.soon){
-    return `<div data-testid="arcade-tile-${g.id}" aria-disabled="true" class="relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-4 opacity-70">
-      <span class="absolute right-3 top-3 rounded-full bg-[color:var(--treesh-gold)]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[color:var(--treesh-gold)]">Soon</span>
-      <div class="flex items-center gap-3">${face}<div class="min-w-0"><p class="text-base font-bold">${esc(g.title)}</p><p class="text-[11px] uppercase tracking-wide text-white/40">Coming soon</p></div></div>
-      <p class="clamp-2 text-xs text-white/45">${esc(g.desc)}</p>
-    </div>`;
-  }
-  return `<button data-act="arcade-open" data-id="${g.id}" data-testid="arcade-tile-${g.id}" aria-label="Play ${esc(g.title)}" class="card-lift press group relative flex flex-col gap-3 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:border-white/20 hover:bg-white/[0.06]">
-    <span class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full opacity-30 blur-2xl" style="background:${g.accent}"></span>
-    <div class="relative flex items-center gap-3">${face}<div class="min-w-0"><p class="text-base font-bold">${esc(g.title)}</p><p class="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--treesh-purple)]"><i data-lucide="gamepad-2" style="width:12px;height:12px"></i>Arcade</p></div></div>
-    <p class="clamp-2 text-xs text-white/50">${esc(g.desc)}</p>
-    <span class="relative mt-auto inline-flex items-center gap-1.5 self-start rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition group-hover:bg-[color:var(--treesh-purple)] group-hover:glow-purple"><i data-lucide="play" style="width:13px;height:13px" class="fill-current"></i>Play now</span>
-  </button>`;
-}
-function arcadeSectionHtml(){
-  return `<section data-testid="arcade-section" class="space-y-3">
-    <div class="flex items-center gap-2"><h2 class="flex items-center gap-2 text-lg font-bold"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="joystick" style="width:15px;height:15px"></i></span>Arcade</h2><span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${ARCADE_GAMES.length}</span></div>
-    <p class="text-sm text-white/50">Quick-play mini-games, right inside Treesh.</p>
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">${ARCADE_GAMES.map(arcadeTile).join("")}</div>
-  </section>`;
-}
-var _arcTimer=null;
-function arcadeFrameLoaded(){ const a=state.arcade; if(a) a.loaded=true; const l=document.getElementById("arcade-loader"); if(l) l.style.display="none"; if(_arcTimer){ clearTimeout(_arcTimer); _arcTimer=null; } }
-function arcadeInitFallbackTimer(){ if(_arcTimer) clearTimeout(_arcTimer); _arcTimer=setTimeout(()=>{ const a=state.arcade; if(a && !a.loaded){ a.failed=true; const fb=document.getElementById("arcade-fallback"); const l=document.getElementById("arcade-loader"); if(fb){ fb.classList.remove("hidden"); fb.classList.add("flex"); } if(l) l.style.display="none"; } }, 12000); }
-function openArcade(id){ const g=arcadeById(id); if(!g||g.soon||!g.url) return; state.arcade={open:true, id:g.id, url:g.url, title:g.title, minimized:false, loaded:false, failed:false}; renderArcade(); syncScrollLock(); arcadeInitFallbackTimer(); starGamePlayed(g.title); }
-function closeArcade(){ if(_arcTimer){ clearTimeout(_arcTimer); _arcTimer=null; } state.arcade={open:false, id:null, url:null, title:null, minimized:false, loaded:false, failed:false}; const c=$("#gameframe"); if(c) c.innerHTML=""; syncScrollLock(); }
-function arcadeMinimize(){ const a=state.arcade; if(!a||!a.open) return; a.minimized=true; const bd=$("#arcade-backdrop"), pn=$("#arcade-panel"), pill=$("#arcade-restore"); if(bd) bd.classList.add("hidden"); if(pn) pn.classList.add("hidden"); if(pill){ pill.classList.remove("hidden"); pill.classList.add("flex"); } syncScrollLock(); }
-function arcadeRestore(){ const a=state.arcade; if(!a||!a.open) return; a.minimized=false; const bd=$("#arcade-backdrop"), pn=$("#arcade-panel"), pill=$("#arcade-restore"); if(bd) bd.classList.remove("hidden"); if(pn) pn.classList.remove("hidden"); if(pill){ pill.classList.add("hidden"); pill.classList.remove("flex"); } syncScrollLock(); }
-function arcadeToggleFull(){ const a=state.arcade; if(!a||!a.open) return; a.full=!a.full; const pn=$("#arcade-panel"); const ic=$("#arcade-full-icon"); if(pn){ pn.classList.toggle("arcade-full", a.full); } if(ic){ ic.setAttribute("data-lucide", a.full?"minimize-2":"maximize-2"); icons(); } }
-function renderArcade(){
-  const c=$("#gameframe"); if(!c) return; const a=state.arcade;
-  if(!a||!a.open){ c.innerHTML=""; return; }
-  const src=a.url;
-  c.innerHTML=`<div id="arcade-backdrop" data-act="arcade-close" class="arcade-backdrop fixed inset-0 z-[128] bg-black/60 backdrop-blur-sm"></div>
-    <button id="arcade-restore" data-act="arcade-restore" data-testid="arcade-restore" class="fixed bottom-[calc(var(--nav-h,0px)+92px)] right-4 z-[129] hidden items-center gap-2 rounded-full border border-white/15 bg-[#141416]/95 px-3.5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl glow-purple sm:bottom-6"><span class="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white"><i data-lucide="gamepad-2" style="width:14px;height:14px"></i></span>Resume ${esc(a.title)}<i data-lucide="chevron-up" style="width:16px;height:16px" class="text-white/60"></i></button>
-    <div id="arcade-panel" data-testid="arcade-overlay" class="arcade-panel arcade-in fixed left-1/2 top-1/2 z-[129] flex w-[min(96vw,1040px)] max-w-[96vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl border border-white/12 bg-[#0b0b0d] shadow-[0_40px_120px_rgba(0,0,0,0.65)]" style="height:min(86vh,760px)">
-      <div class="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-white/[0.03] px-3 py-2.5">
-        <div class="flex min-w-0 items-center gap-2.5"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="gamepad-2" style="width:16px;height:16px"></i></span><div class="min-w-0"><p class="clamp-1 text-sm font-bold leading-tight">${esc(a.title)}</p><p class="clamp-1 text-[10px] uppercase tracking-wide text-white/40">Treesh Arcade</p></div></div>
-        <div class="flex shrink-0 items-center gap-1.5">
-          <button data-act="arcade-min" data-testid="arcade-minimize" aria-label="Minimize" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="minus" style="width:17px;height:17px"></i></button>
-          <button data-act="arcade-full" data-testid="arcade-fullscreen" aria-label="Toggle fullscreen" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i id="arcade-full-icon" data-lucide="maximize-2" style="width:16px;height:16px"></i></button>
-          <a href="${src}" target="_blank" rel="noopener noreferrer" data-testid="arcade-newtab" aria-label="Open in new tab" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="external-link" style="width:16px;height:16px"></i></a>
-          <button data-act="arcade-close" data-testid="arcade-close" aria-label="Close game" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10 hover:text-rose-300"><i data-lucide="x" style="width:18px;height:18px"></i></button>
-        </div>
-      </div>
-      <div class="relative min-h-0 flex-1 bg-[#0b0b0d]">
-        <div id="arcade-loader" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#0b0b0d]"><span class="h-9 w-9 animate-spin rounded-full border-2 border-white/15" style="border-top-color:var(--treesh-purple)"></span><p class="text-sm text-white/50">Loading ${esc(a.title)}\u2026</p></div>
-        <div id="arcade-fallback" class="absolute inset-0 z-20 hidden flex-col items-center justify-center gap-4 bg-[#0b0b0d] px-6 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="gamepad-2" style="width:26px;height:26px"></i></span><div><p class="text-base font-bold">This game can\u2019t load here</p><p class="mt-1 text-sm text-white/55">Open it in a new tab to play.</p></div><a href="${src}" target="_blank" rel="noopener noreferrer" data-testid="arcade-fallback-link" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple"><i data-lucide="external-link" style="width:16px;height:16px"></i>Open in new tab</a></div>
-        <iframe id="arcade-frame" data-testid="arcade-frame" title="${esc(a.title)}" src="${src}" class="relative z-0 h-full w-full border-0" referrerpolicy="no-referrer-when-downgrade" allow="autoplay; fullscreen; gamepad" onload="arcadeFrameLoaded()"></iframe>
-      </div>
-    </div>`;
-  icons();
-}
-
 /* ---------- Blog (embedded Treesh blog) ---------- */
 var _blogTimer=null, _blogLoaded=false;
 function blogFrameLoaded(){ _blogLoaded=true; const l=document.getElementById("blog-loader"); if(l) l.style.display="none"; if(_blogTimer){ clearTimeout(_blogTimer); _blogTimer=null; } }
@@ -2687,6 +2583,62 @@ function viewBlog(){
     </div>
   </div>`;
 }
+
+/* ---------- Games arcade (embedded iframe games) ---------- */
+const GAMES=[
+  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', mono:'C', a:'#9328ff', b:'#4d128f'},
+  {key:'frea', name:'FREA', url:'https://treesh.app/games/frea', logo:'', mono:'F', a:'#c3ab69', b:'#7c6626'},
+  {key:'nects', name:'Nects', url:'https://treesh.app/games/nects', logo:'https://64.media.tumblr.com/1262b7cc04c787803b22c81af52e91a7/f03bc58006e10b13-94/s1280x1920/3f25f6b1f824f57464f60a2220db75167ad18e21.png', mono:'N', a:'#1f9a9a', b:'#0d5757'}
+];
+const GAME_BY_KEY={}; GAMES.forEach(g=>GAME_BY_KEY[g.key]=g);
+function gameTile(g){
+  return `<button data-act="game-open" data-key="${g.key}" data-testid="game-open-${g.key}" aria-label="Play ${esc(g.name)}" class="dark-surface press card-lift group relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border border-white/10 p-4 text-center">
+    <span class="pointer-events-none absolute inset-x-0 -top-8 h-20 opacity-40 blur-2xl" style="background:linear-gradient(135deg,${g.a},${g.b})"></span>
+    <span class="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/12 text-3xl font-extrabold text-white" style="background:linear-gradient(135deg,${g.a},${g.b})">${g.logo?`<img src="${g.logo}" alt="${esc(g.name)} logo" loading="lazy" class="h-full w-full object-cover">`:`<span class="font-display">${g.mono}</span>`}</span>
+    <span class="relative w-full min-w-0"><span class="block truncate text-sm font-bold">${esc(g.name)}</span><span class="mt-0.5 inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-white/55 transition-colors group-hover:text-[color:var(--treesh-purple)]"><i data-lucide="play" class="fill-current" style="width:11px;height:11px"></i>Play</span></span>
+  </button>`;
+}
+function gamesArcadeHtml(){
+  return `<div data-testid="games-arcade">
+    <div class="mb-2 flex items-center gap-2"><i data-lucide="joystick" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i><h2 class="text-lg font-bold">Arcade</h2></div>
+    <p class="mb-3 text-sm text-white/55">More Treesh games, right here. Minimize any game to keep browsing while you play.</p>
+    <div class="grid grid-cols-3 gap-3">${GAMES.map(gameTile).join("")}</div>
+  </div>`;
+}
+function gfLoaded(){ state._gfLoaded=true; const l=document.getElementById("gf-loader"); if(l) l.style.display="none"; if(state._gfTimer){ clearTimeout(state._gfTimer); state._gfTimer=null; } }
+function gfInitFallbackTimer(){ state._gfLoaded=false; if(state._gfTimer) clearTimeout(state._gfTimer); state._gfTimer=setTimeout(()=>{ if(!state._gfLoaded){ const fb=document.getElementById("gf-fallback"); const l=document.getElementById("gf-loader"); if(fb){ fb.classList.remove("hidden"); fb.classList.add("flex"); } if(l) l.style.display="none"; } }, 9000); }
+function openGameFrame(key){ const g=GAME_BY_KEY[key]; if(!g) return; state.gameFrame={key:g.key, name:g.name, url:g.url, min:false}; renderGameFrame(); syncScrollLock(); }
+function renderGameFrame(){
+  const c=document.getElementById("game-frame"); if(!c) return; const G=state.gameFrame; if(!G){ c.innerHTML=""; return; }
+  const g=GAME_BY_KEY[G.key]||G; const grad=`linear-gradient(135deg,${g.a||'#9328ff'},${g.b||'#4d128f'})`;
+  const badge=g.logo?`<img src="${g.logo}" alt="" class="h-full w-full object-cover">`:`<span class="font-display">${g.mono||(g.name||'?').charAt(0)}</span>`;
+  c.innerHTML=`<div class="gf-shell ${G.min?'gf-min':''}" data-testid="game-frame">
+    <div class="gf-head flex items-center gap-2 border-b border-white/10 bg-black/40 px-3 py-2.5 backdrop-blur">
+      <span class="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/12 text-sm font-extrabold text-white" style="background:${grad}">${badge}</span>
+      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-bold leading-tight">${esc(g.name)}</p><p class="gf-title-sub clamp-1 text-[11px] text-white/45">Treesh Arcade</p></div>
+      <a href="${g.url}" target="_blank" rel="noopener noreferrer" data-testid="game-frame-newtab" aria-label="Open in new tab" title="Open in new tab" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="external-link" style="width:16px;height:16px"></i></a>
+      <button data-act="game-frame-min" data-testid="game-frame-min" aria-label="${G.min?'Restore':'Minimize'}" title="${G.min?'Restore':'Minimize'}" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="${G.min?'maximize-2':'minimize-2'}" style="width:16px;height:16px"></i></button>
+      <button data-act="game-frame-fs" data-testid="game-frame-fs" aria-label="Fullscreen" title="Fullscreen" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 ${G.min?'hidden':''}"><i data-lucide="maximize" style="width:16px;height:16px"></i></button>
+      <button data-act="game-frame-close" data-testid="game-frame-close" aria-label="Exit game" title="Exit" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 hover:text-rose-300"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div class="relative min-h-0 flex-1 bg-[#0b0b0d]">
+      <div id="gf-loader" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#0b0b0d]"><span class="h-9 w-9 animate-spin rounded-full border-2 border-white/15" style="border-top-color:var(--treesh-purple)"></span><p class="text-sm text-white/50">Loading ${esc(g.name)}\u2026</p></div>
+      <div id="gf-fallback" class="absolute inset-0 z-20 hidden flex-col items-center justify-center gap-4 bg-[#0b0b0d] px-6 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl text-white" style="background:${grad}"><i data-lucide="gamepad-2" style="width:26px;height:26px"></i></span><div><p class="text-base font-bold">Couldn\u2019t load ${esc(g.name)} here</p><p class="mt-1 text-sm text-white/55">Open it in a new tab to play.</p></div><a href="${g.url}" target="_blank" rel="noopener noreferrer" data-testid="game-frame-fallback-link" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple"><i data-lucide="external-link" style="width:16px;height:16px"></i>Open in new tab</a></div>
+      <iframe id="gf-frame" data-testid="game-frame-iframe" title="${esc(g.name)}" src="${g.url}" class="relative z-0 h-full w-full border-0" allow="fullscreen; autoplay; gamepad; clipboard-write" referrerpolicy="no-referrer-when-downgrade" onload="gfLoaded()"></iframe>
+    </div>
+  </div>`;
+  icons(); gfInitFallbackTimer();
+}
+function gameFrameToggleMin(){
+  if(!state.gameFrame) return; const c=document.getElementById("game-frame"); const shell=c&&c.querySelector(".gf-shell"); if(!shell) return;
+  state.gameFrame.min=!state.gameFrame.min; shell.classList.toggle("gf-min",state.gameFrame.min);
+  const minBtn=shell.querySelector('[data-act="game-frame-min"]'); if(minBtn){ minBtn.innerHTML=`<i data-lucide="${state.gameFrame.min?'maximize-2':'minimize-2'}" style="width:16px;height:16px"></i>`; minBtn.setAttribute("aria-label",state.gameFrame.min?"Restore":"Minimize"); minBtn.setAttribute("title",state.gameFrame.min?"Restore":"Minimize"); }
+  const fsBtn=shell.querySelector('[data-act="game-frame-fs"]'); if(fsBtn) fsBtn.classList.toggle("hidden",state.gameFrame.min);
+  if(state.gameFrame.min && document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} }
+  icons(); syncScrollLock();
+}
+function gameFrameToggleFS(){ const c=document.getElementById("game-frame"); const shell=c&&c.querySelector(".gf-shell"); if(!shell) return; try{ if(document.fullscreenElement){ document.exitFullscreen(); } else if(shell.requestFullscreen){ shell.requestFullscreen(); } else { toast("Fullscreen not supported here"); } }catch(e){ toast("Fullscreen not supported here"); } }
+function closeGameFrame(){ if(document.fullscreenElement){ try{ document.exitFullscreen(); }catch(e){} } state.gameFrame=null; if(state._gfTimer){ clearTimeout(state._gfTimer); state._gfTimer=null; } const c=document.getElementById("game-frame"); if(c) c.innerHTML=""; syncScrollLock(); }
 
 function renderView(animate=false){
   const v=$("#view"); if(!v) return;
@@ -3070,8 +3022,6 @@ function drawLyricCard(){
     const anchorY = showThumb ? (H-182+70) : (H-96);
     ctx.fillStyle="#ffffff"; ctx.font='800 42px Manrope, sans-serif'; ctx.fillText((s.title||'').slice(0,38), txx, anchorY-8);
     ctx.fillStyle="rgba(255,255,255,0.78)"; ctx.font='500 32px Manrope, sans-serif'; ctx.fillText((s.artist||'').slice(0,42), txx, anchorY+38);
-    const _isCustom=!!s._user, _isEdited=!!(state.lyricEdits && state.lyricEdits[s.id]);
-    if(_isCustom||_isEdited){ ctx.save(); ctx.textAlign='right'; ctx.fillStyle=hexA('#ffffff',0.6); ctx.font='600 22px Manrope, sans-serif'; ctx.fillText('Custom or user-edited \u2014 not official', W-96, H-44); ctx.textAlign='left'; ctx.restore(); }
   };
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(paint); paint(); } else paint();
 }
@@ -3289,7 +3239,7 @@ function gameHomeHtml(){ const st=state.gameStats||{}; const tw=state.totWins||{
       </div>
       <div class="relative mt-4 flex flex-wrap gap-2 text-[11px] font-semibold text-white/70"><span class="rounded-full bg-black/25 px-2.5 py-1">${tw.plays||0} rounds played</span><span class="rounded-full bg-black/25 px-2.5 py-1">Best streak ${tw.bestStreak||0}</span></div>
     </button>
-    ${arcadeSectionHtml()}
+    ${gamesArcadeHtml()}
   </div>`;
 }
 function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.totWins||{wins:{}}; const wins=tw.wins||{};
@@ -4010,47 +3960,15 @@ function renderNP(){
   if(!state.lyricSelect) updateLyricHighlight();
   if(state.karaoke){ _karIdx=-1; _karSpans=null; updateKaraoke(true); startKaraokeLoop(); }
   syncScrollLock();
-  wireNPSwipe(c.querySelector("[data-np-root]"));
   if(!wasOpen) setTimeout(()=>wnMaybeAuto('player'),480);
 }
-function closeNP(skipAnim){
+function closeNP(){
   const root=$("#np [data-np-root]");
   stopKaraokeLoop();
   state.npOpen=false; state.showLyrics=false; state.karaoke=false; state.karFull=false; state._npMode=null; state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); syncScrollLock();
   if(!root){ $("#np").innerHTML=""; return; }
-  if(skipAnim){ $("#np").innerHTML=""; return; }
   root.classList.remove("np-entering"); root.classList.add("np-leaving");
   setTimeout(()=>{ if(!state.npOpen) $("#np").innerHTML=""; }, 330);
-}
-function wireNPSwipe(root){
-  if(!root) return;
-  let startY=0, startX=0, dragging=false, active=false, pid=null;
-  const canStart=(t)=> t && !t.closest('input, button, a, [data-act], #np-lyric-region, #np-lyrics, .np-side, [data-np-noswipe]');
-  root.addEventListener("pointerdown",(e)=>{
-    if(e.pointerType==="mouse") return;
-    if(!canStart(e.target)) return;
-    startY=e.clientY; startX=e.clientX; dragging=true; active=false; pid=e.pointerId;
-  });
-  root.addEventListener("pointermove",(e)=>{
-    if(!dragging || e.pointerId!==pid) return;
-    const dy=e.clientY-startY, dx=e.clientX-startX;
-    if(!active){ if(dy>10 && Math.abs(dy)>Math.abs(dx)*1.3){ active=true; } else if(Math.abs(dx)>14 || dy<-10){ dragging=false; return; } }
-    if(active){ e.preventDefault(); const d=Math.max(0,dy); root.style.transition="none"; root.style.transform="translateY("+d+"px)"; root.style.opacity=String(Math.max(0.4,1-d/900)); }
-  },{passive:false});
-  const end=(e)=>{
-    if(!dragging) return; const dy=((e&&e.clientY)||startY)-startY; dragging=false;
-    if(active && dy>115){
-      root.style.transition="transform .26s cubic-bezier(.4,0,1,.6), opacity .26s ease";
-      root.style.transform="translateY(100%)"; root.style.opacity="0";
-      setTimeout(()=>closeNP(true), 240);
-    } else {
-      root.style.transition="transform .26s cubic-bezier(.22,1,.36,1), opacity .2s ease";
-      root.style.transform=""; root.style.opacity="";
-    }
-    active=false;
-  };
-  root.addEventListener("pointerup", end);
-  root.addEventListener("pointercancel", end);
 }
 
 /* ============================================================
@@ -4064,19 +3982,14 @@ function renderQueue(){
   c.innerHTML=`<div data-act="close-queue" class="queue-backdrop fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm ${wasOpen?'':'backdrop-in'}"></div>
   <div class="queue-panel fixed right-0 top-0 z-[81] flex h-[100dvh] w-full max-w-md flex-col border-l border-white/12 bg-[#0c0c0e]/95 backdrop-blur-2xl ${wasOpen?'':'drawer-in'}">
     <div class="flex items-center justify-between border-b border-white/10 px-5 py-4"><div class="flex items-center gap-2"><i data-lucide="list-music" class="text-[color:var(--treesh-purple)]" style="width:18px;height:18px"></i><h3 class="text-lg font-bold">Up Next</h3><span class="text-sm text-white/45">${state.queue.length}</span></div><button data-act="close-queue" class="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
-    <div id="queue-list" class="min-h-0 flex-1 overflow-y-auto soft-scroll px-3 py-3 space-y-1">${ state.queue.length? state.queue.map((song,i)=>{ const active=cur&&cur.id===song.id; return `<div data-qid="${song.id}" class="q-row group flex items-center gap-2 rounded-xl border ${active?'border-white/20 bg-white/[0.08]':'border-transparent bg-white/[0.02] hover:bg-white/5'} px-2 py-2">
-      <div class="flex flex-col items-center gap-0.5">
-        <button data-qdrag aria-label="Drag to reorder" title="Drag to reorder" class="q-handle cursor-grab text-white/30 hover:text-white/70" style="touch-action:none"><i data-lucide="grip-vertical" style="width:15px;height:15px"></i></button>
-        <button data-act="q-up" data-id="${song.id}" aria-label="Move up" class="text-white/30 hover:text-white ${i===0?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-up" style="width:13px;height:13px"></i></button>
-        <button data-act="q-down" data-id="${song.id}" aria-label="Move down" class="text-white/30 hover:text-white ${i===state.queue.length-1?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-down" style="width:13px;height:13px"></i></button>
-      </div>
+    <div class="min-h-0 flex-1 overflow-y-auto soft-scroll px-3 py-3 space-y-1">${ state.queue.length? state.queue.map((song,i)=>{ const active=cur&&cur.id===song.id; return `<div class="group flex items-center gap-2 rounded-xl border ${active?'border-white/20 bg-white/[0.08]':'border-transparent bg-white/[0.02] hover:bg-white/5'} px-2 py-2">
+      <div class="flex flex-col"><button data-act="q-up" data-id="${song.id}" class="text-white/30 hover:text-white ${i===0?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-up" style="width:14px;height:14px"></i></button><button data-act="q-down" data-id="${song.id}" class="text-white/30 hover:text-white ${i===state.queue.length-1?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-down" style="width:14px;height:14px"></i></button></div>
       <button data-act="q-jump" data-id="${song.id}" data-testid="queue-item-play-${song.id}" class="group/qart relative h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(song.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition-opacity group-hover/qart:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
       <button data-act="q-jump" data-id="${song.id}" data-testid="queue-item-${song.id}" class="min-w-0 flex-1 cursor-pointer text-left"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(song.title)}</p><p class="clamp-1 text-xs text-white/50">${esc(song.artist)}</p></button>
       ${active?`<span class="eq mr-1 scale-75"><span></span><span></span><span></span><span></span></span>`:''}
       <button data-act="q-remove" data-id="${song.id}" class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>
     </div>`; }).join("") : `<p class="py-16 text-center text-sm text-white/45">Queue is empty.</p>` }</div></div>`;
   icons();
-  wireQueueDrag();
 }
 function closeQueue(){
   const panel=$("#queue .queue-panel"); const bd=$("#queue .queue-backdrop");
@@ -4085,40 +3998,6 @@ function closeQueue(){
   panel.classList.remove("drawer-in"); panel.classList.add("drawer-out");
   if(bd){ bd.classList.remove("backdrop-in"); bd.classList.add("backdrop-out"); }
   setTimeout(()=>{ if(!state.queueOpen) $("#queue").innerHTML=""; }, 300);
-}
-function reorderQueue(ids){
-  const cur=curSong(); const map={}; state.queue.forEach(s=>{ map[s.id]=s; });
-  const next=ids.map(id=>map[id]).filter(Boolean);
-  if(next.length!==state.queue.length) { renderQueue(); return; }
-  const same=next.every((s,i)=>state.queue[i]&&state.queue[i].id===s.id);
-  state.queue=next; state.base=state.queue.slice();
-  if(cur) state.index=state.queue.findIndex(s=>s.id===cur.id);
-  renderQueue(); renderMini(); if(!same) toast("Queue reordered");
-}
-function wireQueueDrag(){
-  const list=document.getElementById("queue-list"); if(!list) return;
-  let dragEl=null;
-  const rows=()=>[...list.querySelectorAll("[data-qid]")];
-  const onMove=(e)=>{
-    if(!dragEl) return; e.preventDefault();
-    const y=e.clientY; let placed=false;
-    for(const sib of rows()){ if(sib===dragEl) continue; const r=sib.getBoundingClientRect(); if(y < r.top + r.height/2){ list.insertBefore(dragEl, sib); placed=true; break; } }
-    if(!placed) list.appendChild(dragEl);
-  };
-  const onUp=()=>{
-    document.removeEventListener("pointermove", onMove);
-    if(!dragEl) return; dragEl.classList.remove("q-dragging");
-    const order=rows().map(r=>r.getAttribute("data-qid")); dragEl=null; reorderQueue(order);
-  };
-  list.addEventListener("pointerdown",(e)=>{
-    const handle=e.target.closest("[data-qdrag]"); if(!handle) return;
-    const row=handle.closest("[data-qid]"); if(!row) return;
-    e.preventDefault(); dragEl=row; dragEl.classList.add("q-dragging");
-    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
-    document.addEventListener("pointermove", onMove, {passive:false});
-    document.addEventListener("pointerup", onUp, {once:true});
-    document.addEventListener("pointercancel", onUp, {once:true});
-  });
 }
 
 /* ============================================================
@@ -4511,7 +4390,7 @@ function lsSyncHtml(){
      </div>`;
   }).join("");
   const control=`<div class="shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-     <button data-act="ls-stamp" id="ls-set-btn" data-testid="ls-stamp" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set time to current line <span class="ml-1 hidden rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold sm:inline-block">Space</span></button>
+     <button data-act="ls-stamp" id="ls-set-btn" data-testid="ls-stamp" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set time to current line <span class="ml-1 rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold">Space</span></button>
      <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span id="ls-next-label" class="text-white/70"></span></span><span id="ls-progress-pill">${lsStampedCount()} / ${rows.length} timed</span></div>
    </div>`;
   return `<div class="flex h-full flex-col py-3">
@@ -4586,7 +4465,7 @@ function lsRenderWordSync(){
      <button data-act="ls-seek-fwd" aria-label="Forward 10s" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="rotate-cw" style="width:19px;height:19px"></i><span class="pointer-events-none absolute inset-0 grid place-items-center text-[8px] font-bold">10</span></button>
      <div class="ml-1 flex-1 text-right font-doto text-xs text-white/60"><span id="lsw-cur">0:00</span> / <span id="lsw-dur">0:00</span></div>
    </div>
-   <button data-act="lsw-set" id="lsw-set-btn" data-testid="lsw-set" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set word <span class="ml-1 hidden rounded bg-black/25 px-1.5 py-0.5 text-[10px] sm:inline-block">Space</span></button>
+   <button data-act="lsw-set" id="lsw-set-btn" data-testid="lsw-set" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set word <span class="ml-1 rounded bg-black/25 px-1.5 py-0.5 text-[10px]">Space</span></button>
    <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span class="text-white/70">${esc(w.wi<w.words.length?w.words[w.wi].text:'\u2014')}</span></span><span>${doneN} / ${w.words.length} words</span></div>
    <div class="mt-4 flex justify-between gap-2">
      <button data-act="lsw-clear" class="press rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/70 hover:bg-white/10">Clear</button>
@@ -5168,11 +5047,6 @@ document.addEventListener("click", e=>{
     case "toggle-vinyl": state.vinylMode=!state.vinylMode; LS.set("treesh_vinyl",state.vinylMode); renderNP(); break;
     case "open-queue": state.queueOpen=true; renderQueue(); break;
     case "close-queue": closeQueue(); break;
-    case "arcade-open": openArcade(id); break;
-    case "arcade-close": closeArcade(); break;
-    case "arcade-min": arcadeMinimize(); break;
-    case "arcade-restore": arcadeRestore(); break;
-    case "arcade-full": arcadeToggleFull(); break;
     case "q-up": moveQueue(id,-1); break;
     case "q-down": moveQueue(id,1); break;
     case "q-remove": removeFromQueue(id); break;
@@ -5249,6 +5123,10 @@ document.addEventListener("click", e=>{
     case "game-random": { const songs=gameEligibleSongs(); if(songs.length) startGame(songs[Math.floor(Math.random()*songs.length)].id); break; }
     case "game-tab": { const nv=t.dataset.val||"home"; const changed=(state.gameTab||"home")!==nv; state.gameTab=nv; renderView(true); if(changed){ requestAnimationFrame(scrollToStickyTabs); } break; }
     case "game-stats-toggle": { state.gameStatsOpen=!state.gameStatsOpen; renderView(); break; }
+    case "game-open": openGameFrame(t.dataset.key); break;
+    case "game-frame-min": gameFrameToggleMin(); break;
+    case "game-frame-fs": gameFrameToggleFS(); break;
+    case "game-frame-close": closeGameFrame(); break;
     case "tot-start": startTot(); break;
     case "tot-pick": totPick(t.dataset.side); break;
     case "tot-skip": totSkip(); break;
@@ -5330,11 +5208,6 @@ document.addEventListener("click", e=>{
     case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const oldB=(state.profile&&state.profile.birthday)||""; let bday=($("#set-bday")&&$("#set-bday").value)||oldB; if(bdayLocked()) bday=oldB; else if(bday!==oldB && bday) bumpBdayEdits(); const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; toast("Profile saved"); renderShell(); renderView(); renderSidebarLibrary(); break; }
     case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists, beats, settings and locks on this device will be reset. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break;
     case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ g.keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); }); break; }
-    case "storage-user-toggle": { if(!state.storageSel) state.storageSel={}; if(state.storageSel[id]) delete state.storageSel[id]; else state.storageSel[id]=true; refreshCustomMusicManage(); break; }
-    case "storage-user-toggle-all": { const mine=USER_SONGS.slice(); const sel=state.storageSel||{}; const allOn=mine.length>0 && mine.every(s=>sel[s.id]); state.storageSel={}; if(!allOn){ mine.forEach(s=>{ state.storageSel[s.id]=true; }); } refreshCustomMusicManage(); break; }
-    case "storage-user-del-one": { const s=USER_SONGS.find(x=>x.id===id); openConfirm("Remove this track?","\u201C"+((s&&s.title)||"This upload")+"\u201D will be permanently deleted from this device.",()=>{ deleteUserSongs([id]); }); break; }
-    case "storage-user-del-selected": { const ids=Object.keys(state.storageSel||{}).filter(k=>state.storageSel[k]); if(!ids.length) break; openConfirm("Delete "+ids.length+" track"+(ids.length!==1?"s":"")+"?","The selected custom tracks will be permanently deleted from this device. This can\u2019t be undone.",()=>{ deleteUserSongs(ids); }); break; }
-    case "storage-user-del-all": { if(!USER_SONGS.length){ toast("No custom music to delete"); break; } openConfirm("Delete all custom music?","Every uploaded track (audio & cover art) will be permanently deleted from this device. This can\u2019t be undone.",()=>{ deleteUserSongs(USER_SONGS.map(s=>s.id)); }); break; }
     case "storage-clear-all": { openConfirm("Clear all Treesh data?","This erases everything saved on this device: profile, playlists, beats, games, appearance and locks. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break; }
     case "prompt-ok": { const v=$("#prompt-input").value.trim(); if(v&&state._promptCb){ state._promptCb(v); closeModal(); } break; }
     case "confirm-ok": { const cb=state._confirmCb; state._confirmCb=null; closeModal(); if(cb) cb(); break; }
