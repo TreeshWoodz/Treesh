@@ -160,6 +160,13 @@
   @media (hover:hover){ .card-lift:hover{ transform:translateY(-5px); } }
   .press{ transition:transform .13s ease; } .press:active{ transform:scale(.93); }
 
+  /* My Music: hold-to-shuffle feedback + dropdown marker */
+  @keyframes mmHold{ from{ box-shadow:0 0 0 0 rgba(147,40,255,0.0);} to{ box-shadow:0 0 0 6px rgba(147,40,255,0.18);} }
+  .mm-play.mm-holding{ animation:mmHold 1.5s ease-out forwards; transform:scale(1.05); }
+  .mm-menu > summary{ list-style:none; }
+  .mm-menu > summary::-webkit-details-marker{ display:none; }
+  .mm-menu > summary::marker{ content:""; }
+
   /* what's new carousel */
   .wn-img{ transform:scale(1.05); }
   .wn-slide.wn-active .wn-img{ animation:wnZoom 7.5s ease-out both; }
@@ -1210,6 +1217,7 @@ const state = {
   pageUnlocked: [],
   _lockActive: false, _lockMode: null, _lockView: null, _lockParam: null, _lockInput: "", _lockErr: "", _lockShow: false,
   storageSel: {}, _userSizes: {},
+  mmCollapsed: false, mmSort: "recent", mmSelect: false, mmSel: {},
 };
 
 /* one-time default migration: move users still on the old default background ("space") to the new default ("mono"). Anyone who explicitly picked another background is left untouched. */
@@ -1859,16 +1867,64 @@ function myMusicCard(s){ const active=curSong()&&curSong().id===s.id; const play
     <div class="relative aspect-square w-full overflow-hidden">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]',`alt="${esc(s.title)}"`)}<div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,0.72) 100%)"></div><span class="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/85 backdrop-blur">Yours</span><button data-act="play" data-id="${s.id}" aria-label="Play ${esc(s.title)}" class="press glass-strong absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full text-white transition hover:glow-purple"><i data-lucide="${playing?'pause':'play'}" class="fill-current" style="width:15px;height:15px"></i></button></div>
     <div class="p-2.5" style="background:linear-gradient(180deg,rgba(${G},0.14),transparent)"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/55">${esc(s.artist)}</p></div>
   </div>`; }
+function mmSortedList(){
+  let list=USER_SONGS.slice();
+  const mode=state.mmSort||"recent";
+  if(mode==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+  else if(mode==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
+  else list.reverse();
+  return vis(list);
+}
+function mmSelIds(){ const sel=state.mmSel||{}; return Object.keys(sel).filter(k=>sel[k]); }
+function mmSelClear(){ state.mmSel={}; }
+function mmPlayAll(){ const list=mmSortedList(); if(!list.length) return; state.shuffle=false; playSong(list[0], list); toast("Playing My Music"); }
+function mmShuffle(){ const list=mmSortedList(); if(!list.length) return; state.shuffle=true; const r=list[Math.floor(Math.random()*list.length)]; playSong(r, list); toast("Shuffling My Music"); }
 function myMusicSection(){
-  const mine=vis(USER_SONGS.slice().reverse());
-  const plus=`<button data-act="add-music-open" data-testid="my-music-add" aria-label="Open Custom Studio to add music" class="press grid h-7 w-7 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:15px;height:15px"></i></button>`;
+  const mine=mmSortedList();
+  const count=mine.length;
+  const collapsed=!!state.mmCollapsed;
+  const selMode=!!state.mmSelect;
+  const selIds=mmSelIds();
+  const sortLabel = state.mmSort==="az" ? "A\u2013Z" : state.mmSort==="za" ? "Z\u2013A" : "Recent";
+  const playBtn = count?`<button data-mm-play data-testid="my-music-play" aria-label="Play My Music, hold to shuffle" title="Play \u00B7 hold to shuffle" class="mm-play press inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-4 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="play" class="fill-current" style="width:15px;height:15px"></i>Play</button>`:"";
+  const sortBtn = `<button data-act="mm-sort" data-testid="my-music-sort" title="Sort" class="press inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-xs font-semibold text-white/80 hover:bg-white/10"><i data-lucide="arrow-down-up" style="width:14px;height:14px"></i>${sortLabel}</button>`;
+  const selBtn = `<button data-act="mm-select-toggle" data-testid="my-music-select" title="Select" class="press inline-flex h-9 items-center gap-1.5 rounded-full border ${selMode?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]':'border-white/12 bg-white/5 text-white/80'} px-3 text-xs font-semibold hover:bg-white/10"><i data-lucide="list-checks" style="width:14px;height:14px"></i>${selMode?'Done':'Select'}</button>`;
+  const addBtn = `<button data-act="add-music-open" data-testid="my-music-add" aria-label="Add music" class="press inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-xs font-semibold text-white/80 hover:bg-white/10"><i data-lucide="plus" style="width:14px;height:14px"></i>Add</button>`;
+  const vToggle = count?viewToggle("mine-view",state.mineGrid):"";
+  const desktopActions = count?`<div class="hidden items-center gap-1.5 sm:flex">${sortBtn}${selBtn}${addBtn}${vToggle}</div>`:`<div class="hidden sm:flex">${addBtn}</div>`;
+  const mobileMenu = `<details class="mm-menu relative sm:hidden"><summary data-testid="my-music-menu" aria-label="More options" class="press grid h-9 w-9 cursor-pointer list-none place-items-center rounded-full border border-white/12 bg-white/5 text-white/80"><i data-lucide="more-vertical" style="width:16px;height:16px"></i></summary>
+     <div class="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-white/12 bg-[#141416]/95 p-1.5 shadow-xl backdrop-blur-xl">
+       ${count?`<button data-act="mm-sort" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="arrow-down-up" style="width:15px;height:15px"></i>Sort: ${sortLabel}</button>
+       <button data-act="mm-select-toggle" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="list-checks" style="width:15px;height:15px"></i>${selMode?'Done selecting':'Select tracks'}</button>`:''}
+       <button data-act="add-music-open" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="plus" style="width:15px;height:15px"></i>Add music</button>
+       ${count?`<button data-act="mine-view" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="${state.mineGrid?'list':'layout-grid'}" style="width:15px;height:15px"></i>${state.mineGrid?'List view':'Grid view'}</button>`:''}
+     </div></details>`;
   const head=`<div class="mb-3 flex items-center justify-between gap-3">
-    <div class="flex items-center gap-2"><h2 class="flex items-center gap-2 text-lg font-bold"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:15px;height:15px"></i></span>My Music</h2>${mine.length?`<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${mine.length}</span>`:''}${plus}</div>
-    ${mine.length?`<div class="flex items-center gap-2">${viewToggle("mine-view",state.mineGrid)}</div>`:''}
+    <button data-act="mm-collapse" data-testid="my-music-collapse" aria-expanded="${!collapsed}" class="flex items-center gap-2 text-left"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:15px;height:15px"></i></span><h2 class="text-lg font-bold">My Music</h2>${count?`<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${count}</span>`:''}<i data-lucide="chevron-${collapsed?'down':'up'}" class="text-white/45" style="width:16px;height:16px"></i></button>
+    <div class="flex items-center gap-1.5">${playBtn}${desktopActions}${mobileMenu}</div>
   </div>`;
-  let body;
-  if(!mine.length){ body=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No custom tracks yet. Tap the <span class="font-semibold text-white/75">+</span> above to upload your own audio.</div>`; }
-  else{ const pg=paginate(mine,"mine"); body=(state.mineGrid?grid(pg.page):songList(pg.page,false))+loadMoreBar(pg); }
+  let body="";
+  if(!collapsed){
+    if(!count){ body=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No custom tracks yet. Tap <span class="font-semibold text-white/75">Add</span> to upload your own audio.</div>`; }
+    else if(selMode){
+      const n=selIds.length; const allOn=n===count;
+      const toolbar=`<div class="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/25 bg-[color:var(--treesh-purple)]/[0.08] p-2">
+        <button data-act="mm-select-all" data-testid="mm-select-all" class="press inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold text-white/80 hover:bg-white/10"><span class="grid h-4 w-4 place-items-center rounded-[5px] border ${allOn?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/30 text-transparent'}"><i data-lucide="check" style="width:11px;height:11px"></i></span>${allOn?'Clear':'All'}</button>
+        <span class="text-xs text-white/55" data-testid="mm-sel-count">${n} selected</span>
+        <div class="ml-auto flex items-center gap-1.5">
+          <button data-act="mm-edit-selected" data-testid="mm-edit-selected" ${n===1?'':'disabled'} class="press inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10 ${n===1?'':'pointer-events-none opacity-40'}"><i data-lucide="pencil" style="width:13px;height:13px"></i>Edit</button>
+          <button data-act="mm-playlist-selected" data-testid="mm-playlist-selected" ${n?'':'disabled'} class="press inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10 ${n?'':'pointer-events-none opacity-40'}"><i data-lucide="list-plus" style="width:13px;height:13px"></i>Playlist</button>
+          <button data-act="mm-delete-selected" data-testid="mm-delete-selected" ${n?'':'disabled'} class="press inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-500/20 ${n?'':'pointer-events-none opacity-40'}"><i data-lucide="trash-2" style="width:13px;height:13px"></i>Delete</button>
+        </div></div>`;
+      const rows=mine.map(s=>{ const on=!!(state.mmSel&&state.mmSel[s.id]); return `<button data-act="mm-row-toggle" data-id="${s.id}" data-testid="mm-select-row-${s.id}" class="flex w-full items-center gap-3 rounded-xl border ${on?'border-[color:var(--treesh-purple)]/45 bg-[color:var(--treesh-purple)]/[0.08]':'border-white/10 bg-white/[0.02]'} p-2 text-left transition-colors hover:bg-white/[0.05]">
+        <span class="grid h-5 w-5 shrink-0 place-items-center rounded-[6px] border ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25 text-transparent'}"><i data-lucide="check" style="width:13px;height:13px"></i></span>
+        <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span>
+        <span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(s.title)}</span><span class="clamp-1 block text-[11px] text-white/45">${esc(s.artist)}</span></span>
+      </button>`; }).join("");
+      body=toolbar+`<div class="space-y-1.5" data-testid="mm-select-list">${rows}</div>`;
+    }
+    else{ const pg=paginate(mine,"mine"); body=(state.mineGrid?grid(pg.page):songList(pg.page,false))+loadMoreBar(pg); }
+  }
   return `<section data-testid="my-music-section" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
 }
 function paginate(list, key){
@@ -4966,6 +5022,17 @@ document.addEventListener("change", e=>{
 /* ============================================================
    EVENT DELEGATION
    ============================================================ */
+/* My Music Play button: tap = play, hold 1.5s = shuffle */
+document.addEventListener("pointerdown", e=>{
+  const el=e.target && e.target.closest && e.target.closest("[data-mm-play]"); if(!el) return;
+  e.preventDefault();
+  let fired=false;
+  const timer=setTimeout(()=>{ fired=true; try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){}; el.classList.remove("mm-holding"); mmShuffle(); }, 1500);
+  el.classList.add("mm-holding");
+  const up=()=>{ clearTimeout(timer); el.classList.remove("mm-holding"); document.removeEventListener("pointerup",up); document.removeEventListener("pointercancel",up); if(!fired) mmPlayAll(); };
+  document.addEventListener("pointerup", up, {once:true});
+  document.addEventListener("pointercancel", up, {once:true});
+});
 document.addEventListener("click", e=>{
   const t=e.target.closest("[data-act]"); if(!t) return; const act=t.dataset.act; const id=t.dataset.id;
   if(t.closest('#lyric-pop') && act!=='lyrics-tools-menu' && act!=='lyric-line-menu'){ setTimeout(closeLyricPop,0); }
@@ -5203,6 +5270,14 @@ document.addEventListener("click", e=>{
     case "game-view": state.gameGrid=(t.dataset.mode==="grid"); LS.set("treesh_game_grid",state.gameGrid); renderView(true); break;
     case "clear-search": state.query=""; const si=$("#search"); if(si)si.value=""; renderView(true); const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.add("hidden"); break;
     case "shuffle-all": { const pool=vis(SONGS); if(!pool.length)break; state.shuffle=true; const r=pool[Math.floor(Math.random()*pool.length)]; playSong(r,pool); break; }
+    case "mm-collapse": state.mmCollapsed=!state.mmCollapsed; refreshLists(); break;
+    case "mm-sort": { state.mmSort = state.mmSort==="recent" ? "az" : state.mmSort==="az" ? "za" : "recent"; refreshLists(); break; }
+    case "mm-select-toggle": { state.mmSelect=!state.mmSelect; if(!state.mmSelect) mmSelClear(); refreshLists(); break; }
+    case "mm-select-all": { const mine=mmSortedList(); const allOn=mine.length>0 && mine.every(s=>state.mmSel&&state.mmSel[s.id]); state.mmSel={}; if(!allOn){ mine.forEach(s=>{ state.mmSel[s.id]=true; }); } refreshLists(); break; }
+    case "mm-row-toggle": { if(!state.mmSel) state.mmSel={}; if(state.mmSel[id]) delete state.mmSel[id]; else state.mmSel[id]=true; refreshLists(); break; }
+    case "mm-edit-selected": { const ids=mmSelIds(); if(ids.length!==1) break; openAddMusic('add', ids[0]); break; }
+    case "mm-playlist-selected": { const ids=mmSelIds(); if(!ids.length) break; openPrompt("New playlist from selection","",(name)=>{ createPlaylist(name, ids); state.mmSelect=false; mmSelClear(); refreshLists(); }); break; }
+    case "mm-delete-selected": { const ids=mmSelIds(); if(!ids.length) break; openConfirm("Delete "+ids.length+" track"+(ids.length!==1?"s":"")+"?","The selected custom tracks will be permanently deleted from this device. This can\u2019t be undone.",()=>{ state.mmSelect=false; mmSelClear(); deleteUserSongs(ids); }); break; }
     case "playall-context": { if(state.contextList.length) playSong(state.contextList[0],state.contextList); break; }
     case "artist-open": { closeModal(); if(state.npOpen) closeNP(); navigate("artist",id); break; }
     case "artist-playall": { const songs=artistSongs(id); if(songs.length) playSong(songs[0],songs); break; }
