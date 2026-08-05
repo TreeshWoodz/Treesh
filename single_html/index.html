@@ -1218,6 +1218,7 @@ const state = {
   _lockActive: false, _lockMode: null, _lockView: null, _lockParam: null, _lockInput: "", _lockErr: "", _lockShow: false,
   storageSel: {}, _userSizes: {},
   mmCollapsed: false, mmSort: "recent", mmSelect: false, mmSel: {},
+  libSort: "default", libLyricsOnly: false,
 };
 
 /* one-time default migration: move users still on the old default background ("space") to the new default ("mono"). Anyone who explicitly picked another background is left untouched. */
@@ -1968,12 +1969,29 @@ function libraryPlaylistsSection(){
     </div>`; }).join("")}</div>`; }
   return `<section data-testid="library-playlists" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
 }
+function songHasLyrics(s){ return !!(s && (s.lyrics||[]).some(l=>l.text && l.text.trim() && !/^\s*\[[^\]]*\]\s*$/.test(l.text))); }
+function libraryFilterBar(){
+  const s=state.libSort||"default"; const lyr=!!state.libLyricsOnly;
+  const pill=(mode,label,icon)=>`<button data-act="lib-sort" data-mode="${mode}" data-testid="lib-sort-${mode}" aria-pressed="${s===mode}" class="press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${s===mode?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${icon}" style="width:13px;height:13px"></i>${label}</button>`;
+  return `<div class="flex flex-wrap items-center gap-2" data-testid="library-filter-bar">
+    <span class="inline-flex items-center gap-1.5 pr-1 text-[11px] font-semibold uppercase tracking-wide text-white/35"><i data-lucide="sliders-horizontal" style="width:13px;height:13px"></i>Filter</span>
+    ${pill("az","A\u2013Z","arrow-down-a-z")}
+    ${pill("za","Z\u2013A","arrow-down-z-a")}
+    ${pill("artist","Artist","user-round")}
+    <span class="mx-0.5 h-4 w-px bg-white/10"></span>
+    <button data-act="lib-lyrics-toggle" data-testid="lib-lyrics-toggle" aria-pressed="${lyr}" class="press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${lyr?'border-[color:var(--treesh-gold)]/50 bg-[color:var(--treesh-gold)]/12 text-[color:var(--treesh-gold)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="mic-vocal" style="width:13px;height:13px"></i>With lyrics</button>
+  </div>`;
+}
 function viewLibrary(){
   if(!state.query && state.genre==="__mine") return viewMyMusic();
   let list=vis(SONGS.slice());
   if(state.query){ const q=state.query.toLowerCase(); list=list.filter(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q)||(s.writtenBy||"").toLowerCase().includes(q)); }
   else if(state.genre==="__mine"){ list=list.filter(s=>s._user); }
   else if(state.genre!=="all"){ list=list.filter(s=>s.genre===state.genre); }
+  if(state.libLyricsOnly){ list=list.filter(songHasLyrics); }
+  if(state.libSort==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+  else if(state.libSort==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
+  else if(state.libSort==="artist") list.sort((a,b)=>{ const c=a.artist.toLowerCase().localeCompare(b.artist.toLowerCase()); return c!==0?c:a.title.toLowerCase().localeCompare(b.title.toLowerCase()); });
   state.contextList=list;
   const browse=!state.query;
   const mineOn=false;
@@ -1981,7 +1999,7 @@ function viewLibrary(){
   let html=`<div class="space-y-7">`;
   if(browse){ html+=`<section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div><div class="relative"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh 3.0</p><h1 class="mt-2 max-w-lg text-3xl font-bold leading-tight sm:text-4xl">Music to <span class="shimmer">Live For</span></h1><p class="mt-2 max-w-md text-sm text-white/60">Stream the underground. ${vis(SONGS).length} tracks from the Icons, ready to play.</p><div class="mt-4 flex flex-wrap items-center gap-2"><button data-act="shuffle-all" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle all</button></div></div></section>`;
     if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); html+=myMusicSection(); html+=libraryPlaylistsSection(); }
-    html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; }
+    html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; html+=libraryFilterBar(); }
   if(state.query){ html+=`<div class="flex items-center gap-2 text-sm text-white/60"><i data-lucide="search" style="width:16px;height:16px"></i> Results for <span class="font-semibold text-white">\u201C${esc(state.query)}\u201D</span></div>`; }
   if(!list.length){
     if(mineOn){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-16 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="upload" style="width:26px;height:26px"></i></span><p class="text-lg font-semibold">Add your own music</p><p class="max-w-sm text-sm text-white/50">Upload audio with cover art and full details. Tracks are saved on this device and play right inside Treesh.</p><button data-act="add-music-open" data-testid="add-music-empty-btn" class="mt-1 inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i> Add your music</button></div>`; }
@@ -5264,6 +5282,8 @@ document.addEventListener("click", e=>{
     case "wn-play-song": { const s=SONG_BY_ID[id]; if(s) playSong(s, SONGS); break; }
     case "wn-play-artist": { const songs=artistSongs(id); if(songs.length) playSong(songs[0], songs); break; }
     case "genre": state.genre=t.dataset.genre; renderView(true); break;
+    case "lib-sort": { const m=t.dataset.mode; state.libSort=(state.libSort===m?"default":m); refreshLists(); break; }
+    case "lib-lyrics-toggle": { state.libLyricsOnly=!state.libLyricsOnly; refreshLists(); break; }
     case "picks-shuffle": state._picks=buildPicks(); renderView(true); break;
     case "lib-view": state.libGrid=(t.dataset.mode==="grid"); LS.set("treesh_lib_grid",state.libGrid); renderView(true); break;
     case "mine-view": state.mineGrid=(t.dataset.mode==="grid"); LS.set("treesh_mine_grid",state.mineGrid); renderView(); break;
