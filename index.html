@@ -6,7 +6,28 @@
 <title>Treesh</title>
 <meta name="description" content="Treesh | Music to Live For. Stream music, play games, give some personality." />
   <link rel="icon" type="image/png" href="https://64.media.tumblr.com/c3a9171b66dff3f4d1b204629d553f62/f0962fce333cd090-3d/s250x400/9cc28d33e0d7075a9d5122424756269c6a0e617c.png">
-
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<script>
+/* Force-clear any stale service worker + caches from earlier versions so updates always load */
+(function(){ try{
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(rs){
+      var had = rs && rs.length>0;
+      (rs||[]).forEach(function(r){ try{ r.unregister(); }catch(e){} });
+      if(window.caches && caches.keys){ caches.keys().then(function(ks){ (ks||[]).forEach(function(k){ try{ caches.delete(k); }catch(e){} }); }).catch(function(){}); }
+      if(had && navigator.serviceWorker.controller && !sessionStorage.getItem('treesh_sw_cleared')){
+        try{ sessionStorage.setItem('treesh_sw_cleared','1'); }catch(e){}
+        setTimeout(function(){ location.reload(); }, 400);
+      }
+    }).catch(function(){});
+  } else if(window.caches && caches.keys){ caches.keys().then(function(ks){ (ks||[]).forEach(function(k){ try{ caches.delete(k); }catch(e){} }); }).catch(function(){}); }
+}catch(e){} })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Treesh 3.0 · Music to Live For</title>
+<meta name="description" content="Treesh 3.0. Stream the underground. Music to Live For." />
 <meta name="theme-color" content="#0a0a0b" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -142,6 +163,13 @@
   .card-lift{ transition:transform .24s cubic-bezier(.22,1,.36,1), box-shadow .24s ease, border-color .24s ease; will-change:transform; }
   @media (hover:hover){ .card-lift:hover{ transform:translateY(-5px); } }
   .press{ transition:transform .13s ease; } .press:active{ transform:scale(.93); }
+
+  /* My Music: hold-to-shuffle feedback + dropdown marker */
+  @keyframes mmHold{ from{ box-shadow:0 0 0 0 rgba(147,40,255,0.0);} to{ box-shadow:0 0 0 6px rgba(147,40,255,0.18);} }
+  .mm-play.mm-holding{ animation:mmHold 1.5s ease-out forwards; transform:scale(1.05); }
+  .mm-menu > summary{ list-style:none; }
+  .mm-menu > summary::-webkit-details-marker{ display:none; }
+  .mm-menu > summary::marker{ content:""; }
 
   /* what's new carousel */
   .wn-img{ transform:scale(1.05); }
@@ -1192,6 +1220,9 @@ const state = {
   appUnlocked: false,
   pageUnlocked: [],
   _lockActive: false, _lockMode: null, _lockView: null, _lockParam: null, _lockInput: "", _lockErr: "", _lockShow: false,
+  storageSel: {}, _userSizes: {},
+  mmCollapsed: false, mmSort: "recent", mmSelect: false, mmSel: {},
+  libSort: "default", libLyricsOnly: false, mmLyricsOnly: false,
 };
 
 /* one-time default migration: move users still on the old default background ("space") to the new default ("mono"). Anyone who explicitly picked another background is left untouched. */
@@ -1841,16 +1872,64 @@ function myMusicCard(s){ const active=curSong()&&curSong().id===s.id; const play
     <div class="relative aspect-square w-full overflow-hidden">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]',`alt="${esc(s.title)}"`)}<div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,0.72) 100%)"></div><span class="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/85 backdrop-blur">Yours</span><button data-act="play" data-id="${s.id}" aria-label="Play ${esc(s.title)}" class="press glass-strong absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full text-white transition hover:glow-purple"><i data-lucide="${playing?'pause':'play'}" class="fill-current" style="width:15px;height:15px"></i></button></div>
     <div class="p-2.5" style="background:linear-gradient(180deg,rgba(${G},0.14),transparent)"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/55">${esc(s.artist)}</p></div>
   </div>`; }
+function mmSortedList(){
+  let list=USER_SONGS.slice();
+  if(state.mmLyricsOnly) list=list.filter(songHasLyrics);
+  const mode=state.mmSort||"recent";
+  if(mode==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+  else if(mode==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
+  else if(mode==="artist") list.sort((a,b)=>{ const c=a.artist.toLowerCase().localeCompare(b.artist.toLowerCase()); return c!==0?c:a.title.toLowerCase().localeCompare(b.title.toLowerCase()); });
+  else list.reverse();
+  return vis(list);
+}
+function mmSelIds(){ const sel=state.mmSel||{}; return Object.keys(sel).filter(k=>sel[k]); }
+function mmSelClear(){ state.mmSel={}; }
+function mmPlayAll(){ const list=mmSortedList(); if(!list.length) return; state.shuffle=false; playSong(list[0], list); toast("Playing My Music"); }
+function mmShuffle(){ const list=mmSortedList(); if(!list.length) return; state.shuffle=true; const r=list[Math.floor(Math.random()*list.length)]; playSong(r, list); toast("Shuffling My Music"); }
 function myMusicSection(){
-  const mine=vis(USER_SONGS.slice().reverse());
-  const plus=`<button data-act="add-music-open" data-testid="my-music-add" aria-label="Open Custom Studio to add music" class="press grid h-7 w-7 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:15px;height:15px"></i></button>`;
+  const mine=mmSortedList();
+  const count=mine.length;
+  const collapsed=!!state.mmCollapsed;
+  const selMode=!!state.mmSelect;
+  const selIds=mmSelIds();
+  const playBtn = count?`<button data-mm-play data-testid="my-music-play" aria-label="Play My Music, hold to shuffle" title="Play \u00B7 hold to shuffle" class="mm-play press inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-4 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="play" class="fill-current" style="width:15px;height:15px"></i>Play</button>`:"";
+  const selBtn = `<button data-act="mm-select-toggle" data-testid="my-music-select" title="Select" class="press inline-flex h-9 items-center gap-1.5 rounded-full border ${selMode?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]':'border-white/12 bg-white/5 text-white/80'} px-3 text-xs font-semibold hover:bg-white/10"><i data-lucide="list-checks" style="width:14px;height:14px"></i>${selMode?'Done':'Select'}</button>`;
+  const addBtn = `<button data-act="add-music-open" data-testid="my-music-add" aria-label="Add music" class="press inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-xs font-semibold text-white/80 hover:bg-white/10"><i data-lucide="plus" style="width:14px;height:14px"></i>Add</button>`;
+  const vToggle = count?viewToggle("mine-view",state.mineGrid):"";
+  const desktopActions = count?`<div class="hidden items-center gap-1.5 sm:flex">${selBtn}${addBtn}${vToggle}</div>`:`<div class="hidden sm:flex">${addBtn}</div>`;
+  const mobileMenu = `<details class="mm-menu relative sm:hidden"><summary data-testid="my-music-menu" aria-label="More options" class="press grid h-9 w-9 cursor-pointer list-none place-items-center rounded-full border border-white/12 bg-white/5 text-white/80"><i data-lucide="more-vertical" style="width:16px;height:16px"></i></summary>
+     <div class="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-white/12 bg-[#141416]/95 p-1.5 shadow-xl backdrop-blur-xl">
+       ${count?`<button data-act="mm-select-toggle" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="list-checks" style="width:15px;height:15px"></i>${selMode?'Done selecting':'Select tracks'}</button>`:''}
+       <button data-act="add-music-open" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="plus" style="width:15px;height:15px"></i>Add music</button>
+       ${count?`<button data-act="mine-view" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="${state.mineGrid?'list':'layout-grid'}" style="width:15px;height:15px"></i>${state.mineGrid?'List view':'Grid view'}</button>`:''}
+     </div></details>`;
   const head=`<div class="mb-3 flex items-center justify-between gap-3">
-    <div class="flex items-center gap-2"><h2 class="flex items-center gap-2 text-lg font-bold"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:15px;height:15px"></i></span>My Music</h2>${mine.length?`<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${mine.length}</span>`:''}${plus}</div>
-    ${mine.length?`<div class="flex items-center gap-2">${viewToggle("mine-view",state.mineGrid)}</div>`:''}
+    <button data-act="mm-collapse" data-testid="my-music-collapse" aria-expanded="${!collapsed}" class="flex items-center gap-2 text-left"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:15px;height:15px"></i></span><h2 class="text-lg font-bold">My Music</h2>${count?`<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${count}</span>`:''}<i data-lucide="chevron-${collapsed?'down':'up'}" class="text-white/45" style="width:16px;height:16px"></i></button>
+    <div class="flex items-center gap-1.5">${playBtn}${desktopActions}${mobileMenu}</div>
   </div>`;
-  let body;
-  if(!mine.length){ body=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No custom tracks yet. Tap the <span class="font-semibold text-white/75">+</span> above to upload your own audio.</div>`; }
-  else{ const pg=paginate(mine,"mine"); body=(state.mineGrid?grid(pg.page):songList(pg.page,false))+loadMoreBar(pg); }
+  let body="";
+  if(!collapsed){
+    if(count) body+=`<div class="mb-3">${filterBar('mm')}</div>`;
+    if(!count){ body+=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No custom tracks yet. Tap <span class="font-semibold text-white/75">Add</span> to upload your own audio.</div>`; }
+    else if(selMode){
+      const n=selIds.length; const allOn=n===count;
+      const toolbar=`<div class="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/25 bg-[color:var(--treesh-purple)]/[0.08] p-2">
+        <button data-act="mm-select-all" data-testid="mm-select-all" class="press inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold text-white/80 hover:bg-white/10"><span class="grid h-4 w-4 place-items-center rounded-[5px] border ${allOn?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/30 text-transparent'}"><i data-lucide="check" style="width:11px;height:11px"></i></span>${allOn?'Clear':'All'}</button>
+        <span class="text-xs text-white/55" data-testid="mm-sel-count">${n} selected</span>
+        <div class="ml-auto flex items-center gap-1.5">
+          <button data-act="mm-edit-selected" data-testid="mm-edit-selected" ${n===1?'':'disabled'} class="press inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10 ${n===1?'':'pointer-events-none opacity-40'}"><i data-lucide="pencil" style="width:13px;height:13px"></i>Edit</button>
+          <button data-act="mm-playlist-selected" data-testid="mm-playlist-selected" ${n?'':'disabled'} class="press inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10 ${n?'':'pointer-events-none opacity-40'}"><i data-lucide="list-plus" style="width:13px;height:13px"></i>Playlist</button>
+          <button data-act="mm-delete-selected" data-testid="mm-delete-selected" ${n?'':'disabled'} class="press inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-500/20 ${n?'':'pointer-events-none opacity-40'}"><i data-lucide="trash-2" style="width:13px;height:13px"></i>Delete</button>
+        </div></div>`;
+      const rows=mine.map(s=>{ const on=!!(state.mmSel&&state.mmSel[s.id]); return `<button data-act="mm-row-toggle" data-id="${s.id}" data-testid="mm-select-row-${s.id}" class="flex w-full items-center gap-3 rounded-xl border ${on?'border-[color:var(--treesh-purple)]/45 bg-[color:var(--treesh-purple)]/[0.08]':'border-white/10 bg-white/[0.02]'} p-2 text-left transition-colors hover:bg-white/[0.05]">
+        <span class="grid h-5 w-5 shrink-0 place-items-center rounded-[6px] border ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25 text-transparent'}"><i data-lucide="check" style="width:13px;height:13px"></i></span>
+        <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span>
+        <span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(s.title)}</span><span class="clamp-1 block text-[11px] text-white/45">${esc(s.artist)}</span></span>
+      </button>`; }).join("");
+      body=toolbar+`<div class="space-y-1.5" data-testid="mm-select-list">${rows}</div>`;
+    }
+    else{ const pg=paginate(mine,"mine"); body=(state.mineGrid?grid(pg.page):songList(pg.page,false))+loadMoreBar(pg); }
+  }
   return `<section data-testid="my-music-section" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
 }
 function paginate(list, key){
@@ -1882,20 +1961,51 @@ function viewMyMusic(){
   html+=`</div>`;
   return html;
 }
+function libraryPlaylistsSection(){
+  const pls=state.playlists||[];
+  const create=`<button data-act="new-playlist" data-testid="lib-playlist-create" class="press inline-flex h-7 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-3 text-xs font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:14px;height:14px"></i>New</button>`;
+  const head=`<div class="mb-3 flex items-center justify-between gap-3"><div class="flex items-center gap-2"><h2 class="flex items-center gap-2 text-lg font-bold"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:15px;height:15px"></i></span>Your Playlists</h2>${pls.length?`<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${pls.length}</span>`:''}</div>${create}</div>`;
+  let body;
+  if(!pls.length){ body=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No playlists yet. Tap <span class="font-semibold text-white/75">New</span> above, or add songs with the \u2022\u2022\u2022 menu on any track.</div>`; }
+  else{ body=`<div class="flex gap-3 overflow-x-auto pb-1 no-scrollbar snap-x" data-testid="lib-playlists-row">${pls.map(pl=>{ const cover=(pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean)[0]; const n=(pl.songIds||[]).length; return `<div class="group relative w-[150px] min-w-[150px] snap-start overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] card-lift" data-testid="lib-playlist-card-${pl.id}">
+      <button data-act="pl-open-lib" data-id="${pl.id}" aria-label="Open ${esc(pl.name)}" class="block w-full text-left"><div class="relative aspect-square w-full overflow-hidden">${cover?img(cover.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105'):`<div class="grid h-full w-full place-items-center bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:30px;height:30px"></i></div>`}<div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 52%,rgba(0,0,0,0.66) 100%)"></div><span class="absolute inset-x-2 bottom-2"><span class="clamp-1 block text-sm font-semibold text-white">${esc(pl.name)}</span><span class="font-doto text-[11px] text-white/70">${n} track${n!==1?'s':''}</span></span></div></button>
+      <div class="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button data-act="pl-share" data-id="${pl.id}" aria-label="Share" class="press grid h-7 w-7 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"><i data-lucide="share-2" style="width:12px;height:12px"></i></button><button data-act="pl-rename" data-id="${pl.id}" aria-label="Rename" class="press grid h-7 w-7 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"><i data-lucide="pencil" style="width:12px;height:12px"></i></button><button data-act="pl-delete" data-id="${pl.id}" aria-label="Delete" class="press grid h-7 w-7 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70 hover:text-red-300"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></div>
+    </div>`; }).join("")}</div>`; }
+  return `<section data-testid="library-playlists" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
+}
+function songHasLyrics(s){ return !!(s && (s.lyrics||[]).some(l=>l.text && l.text.trim() && !/^\s*\[[^\]]*\]\s*$/.test(l.text))); }
+function filterBar(scope){
+  const s=state[scope+"Sort"]||(scope==="mm"?"recent":"default"); const lyr=!!state[scope+"LyricsOnly"];
+  const pill=(mode,label,icon)=>`<button data-act="filter-sort" data-scope="${scope}" data-mode="${mode}" data-testid="${scope}-sort-${mode}" aria-pressed="${s===mode}" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${s===mode?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${icon}" style="width:13px;height:13px"></i>${label}</button>`;
+  const recentPill = scope==="mm" ? pill("recent","Recent","clock-3") : "";
+  return `<div class="-mx-1 flex items-center gap-2 overflow-x-auto px-1 no-scrollbar" data-testid="${scope}-filter-bar">
+    <span class="inline-flex shrink-0 items-center gap-1.5 pr-0.5 text-[11px] font-semibold uppercase tracking-wide text-white/35"><i data-lucide="sliders-horizontal" style="width:13px;height:13px"></i>Filter</span>
+    ${recentPill}
+    ${pill("az","A\u2013Z","arrow-down-a-z")}
+    ${pill("za","Z\u2013A","arrow-down-z-a")}
+    ${pill("artist","Artist","user-round")}
+    <span class="mx-0.5 h-4 w-px shrink-0 bg-white/10"></span>
+    <button data-act="filter-lyrics" data-scope="${scope}" data-testid="${scope}-lyrics-toggle" aria-pressed="${lyr}" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${lyr?'border-[color:var(--treesh-gold)]/50 bg-[color:var(--treesh-gold)]/12 text-[color:var(--treesh-gold)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="mic-vocal" style="width:13px;height:13px"></i>With lyrics</button>
+  </div>`;
+}
 function viewLibrary(){
   if(!state.query && state.genre==="__mine") return viewMyMusic();
   let list=vis(SONGS.slice());
   if(state.query){ const q=state.query.toLowerCase(); list=list.filter(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q)||(s.writtenBy||"").toLowerCase().includes(q)); }
   else if(state.genre==="__mine"){ list=list.filter(s=>s._user); }
   else if(state.genre!=="all"){ list=list.filter(s=>s.genre===state.genre); }
+  if(state.libLyricsOnly){ list=list.filter(songHasLyrics); }
+  if(state.libSort==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+  else if(state.libSort==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
+  else if(state.libSort==="artist") list.sort((a,b)=>{ const c=a.artist.toLowerCase().localeCompare(b.artist.toLowerCase()); return c!==0?c:a.title.toLowerCase().localeCompare(b.title.toLowerCase()); });
   state.contextList=list;
   const browse=!state.query;
   const mineOn=false;
   const chips=["all",...GENRES.filter(g=>g!=="My Music")].map(g=>`<button data-act="genre" data-genre="${g}" class="shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition ${state.genre===g?'border-white/25 bg-white/10 text-white glow-purple':'border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]'}">${g}</button>`).join("");
   let html=`<div class="space-y-7">`;
   if(browse){ html+=`<section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div><div class="relative"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh 3.0</p><h1 class="mt-2 max-w-lg text-3xl font-bold leading-tight sm:text-4xl">Music to <span class="shimmer">Live For</span></h1><p class="mt-2 max-w-md text-sm text-white/60">Stream the underground. ${vis(SONGS).length} tracks from the Icons, ready to play.</p><div class="mt-4 flex flex-wrap items-center gap-2"><button data-act="shuffle-all" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle all</button></div></div></section>`;
-    if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); html+=myMusicSection(); }
-    html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; }
+    if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); html+=myMusicSection(); html+=libraryPlaylistsSection(); }
+    html+=`<div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`; html+=filterBar('lib'); }
   if(state.query){ html+=`<div class="flex items-center gap-2 text-sm text-white/60"><i data-lucide="search" style="width:16px;height:16px"></i> Results for <span class="font-semibold text-white">\u201C${esc(state.query)}\u201D</span></div>`; }
   if(!list.length){
     if(mineOn){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-16 text-center"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="upload" style="width:26px;height:26px"></i></span><p class="text-lg font-semibold">Add your own music</p><p class="max-w-sm text-sm text-white/50">Upload audio with cover art and full details. Tracks are saved on this device and play right inside Treesh.</p><button data-act="add-music-open" data-testid="add-music-empty-btn" class="mt-1 inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i> Add your music</button></div>`; }
@@ -2136,13 +2246,52 @@ function storageSection(tab){
       <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10"><div id="storage-gauge-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:${pct}%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
     </div>
     <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-testid="custom-music-storage">
-      <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:18px;height:18px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Custom music</p><p id="custom-music-sub" data-testid="custom-music-sub" class="clamp-1 text-xs text-white/45">${USER_SONGS.length} track${USER_SONGS.length!==1?'s':''} stored on this device</p></div><span id="custom-music-size" data-testid="custom-music-size" class="shrink-0 font-doto text-sm text-white/70">\u2026</span></div>
-      <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10"><div id="custom-music-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:0%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
-      <p id="custom-music-hint" class="mt-2 text-[11px] text-white/40">Audio &amp; cover art live in a separate on-device store from other Treesh data.</p>
+      <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:18px;height:18px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Custom music</p><p id="custom-music-sub" data-testid="custom-music-sub" class="clamp-1 text-xs text-white/45">${USER_SONGS.length} track${USER_SONGS.length!==1?'s':''} on this device</p></div><span id="custom-music-size" data-testid="custom-music-size" class="shrink-0 font-doto text-sm text-white/70">\u2026</span></div>
+      <div id="custom-music-manage" class="mt-3">${customMusicManageHtml()}</div>
     </div>
     <div class="mt-4 space-y-2.5" data-testid="storage-groups">${rows}</div>
     <button data-act="storage-clear-all" data-testid="storage-clear-all-button" class="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3 text-sm font-semibold text-rose-200 transition-colors hover:bg-rose-500/20"><i data-lucide="trash-2" style="width:16px;height:16px"></i>Clear all Treesh data</button>
   </section>`;
+}
+function customMusicManageHtml(){
+  const mine=USER_SONGS.slice().reverse();
+  if(!mine.length){ return `<p class="rounded-xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-6 text-center text-xs text-white/45" data-testid="custom-music-empty">No custom tracks stored yet. Upload audio from Library \u2192 My Music.</p>`; }
+  const sel=state.storageSel||{};
+  const selCount=mine.filter(s=>sel[s.id]).length;
+  const allOn=selCount===mine.length && mine.length>0;
+  const rows=mine.map(s=>{ const on=!!sel[s.id]; const sz=state._userSizes&&state._userSizes[s.id]; return `<div class="flex items-center gap-2.5 rounded-xl border ${on?'border-[color:var(--treesh-purple)]/45 bg-[color:var(--treesh-purple)]/[0.08]':'border-white/10 bg-white/[0.02]'} p-2 transition-colors" data-testid="cms-row-${s.id}">
+      <button data-act="storage-user-toggle" data-id="${s.id}" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(s.title)}" data-testid="cms-check-${s.id}" class="press grid h-5 w-5 shrink-0 place-items-center rounded-[6px] border ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25 text-transparent'}"><i data-lucide="check" style="width:13px;height:13px"></i></button>
+      <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span>
+      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/45">${esc(s.artist)}</p></div>
+      <span class="shrink-0 font-doto text-[11px] text-white/45" data-testid="cms-size-${s.id}" id="cms-size-${s.id}">${sz?fmtBytes(sz):'\u2026'}</span>
+      <button data-act="storage-user-del-one" data-id="${s.id}" data-testid="cms-del-${s.id}" aria-label="Delete ${esc(s.title)}" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/55 transition-colors hover:bg-white/10 hover:text-rose-300"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button>
+    </div>`; }).join("");
+  return `<div class="mb-2 flex items-center justify-between gap-2">
+      <button data-act="storage-user-toggle-all" data-testid="cms-select-all" class="press inline-flex items-center gap-1.5 text-xs font-semibold text-white/60 hover:text-white"><span class="grid h-4 w-4 place-items-center rounded-[5px] border ${allOn?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/25 text-transparent'}"><i data-lucide="check" style="width:11px;height:11px"></i></span>${allOn?'Clear all':'Select all'}</button>
+      <span class="text-[11px] text-white/40" data-testid="cms-sel-count">${selCount} selected</span>
+    </div>
+    <div class="max-h-[280px] space-y-1.5 overflow-y-auto soft-scroll pr-1" data-testid="custom-music-list">${rows}</div>
+    <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+      <button data-act="storage-user-del-selected" data-testid="cms-delete-selected" ${selCount?'':'disabled'} class="press inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 text-sm font-semibold text-rose-200 transition-colors hover:bg-rose-500/20 ${selCount?'':'pointer-events-none opacity-40'}"><i data-lucide="trash-2" style="width:15px;height:15px"></i>Delete selected${selCount?` (${selCount})`:''}</button>
+      <button data-act="storage-user-del-all" data-testid="cms-delete-all" class="press inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 py-2.5 text-sm font-semibold text-white/75 transition-colors hover:bg-white/10"><i data-lucide="trash" style="width:15px;height:15px"></i>Delete all</button>
+    </div>`;
+}
+function refreshCustomMusicManage(){ const c=document.getElementById("custom-music-manage"); if(!c) return; c.innerHTML=customMusicManageHtml(); icons(); const subEl=document.getElementById("custom-music-sub"); if(subEl) subEl.textContent=USER_SONGS.length+" track"+(USER_SONGS.length!==1?"s":"")+" on this device"; }
+async function deleteUserSongs(ids){
+  ids=(ids||[]).filter(Boolean); if(!ids.length) return;
+  try{
+    const cur=curSong();
+    for(const id of ids){
+      if(cur && cur.id===id){ try{ audio.pause(); }catch(e){} }
+      if(state.favorites&&state.favorites.has&&state.favorites.has(id)){ state.favorites.delete(id); saveFav(); }
+      if(state.storageSel) delete state.storageSel[id];
+      try{ await idbDelete(id); }catch(e){ console.warn("idbDelete failed",id,e); }
+    }
+    await loadUserSongs();
+    refreshCustomMusicManage();
+    updateCustomMusicStorage();
+    toast(ids.length>1?(ids.length+" tracks removed"):"Track removed");
+  }catch(e){ console.error("deleteUserSongs failed",e); toast("Couldn\u2019t remove"); }
 }
 function updateStorageEstimate(){
   const el=document.getElementById("storage-quota-text"); if(!el) return;
@@ -2151,16 +2300,12 @@ function updateStorageEstimate(){
   } else { el.textContent="Device estimate unavailable"; }
 }
 function updateCustomMusicStorage(){
-  const sizeEl=document.getElementById("custom-music-size"), barEl=document.getElementById("custom-music-bar"), subEl=document.getElementById("custom-music-sub"), hintEl=document.getElementById("custom-music-hint");
-  if(!sizeEl && !barEl) return;
+  const sizeEl=document.getElementById("custom-music-size"), subEl=document.getElementById("custom-music-sub");
   idbGetAll().then(recs=>{
-    recs=recs||[]; let total=0; recs.forEach(r=>{ if(r.audioBlob&&r.audioBlob.size) total+=r.audioBlob.size; if(r.coverBlob&&r.coverBlob.size) total+=r.coverBlob.size; });
+    recs=recs||[]; let total=0; state._userSizes=state._userSizes||{};
+    recs.forEach(r=>{ let sz=0; if(r.audioBlob&&r.audioBlob.size) sz+=r.audioBlob.size; if(r.coverBlob&&r.coverBlob.size) sz+=r.coverBlob.size; total+=sz; if(r.id){ state._userSizes[r.id]=sz; const el=document.getElementById("cms-size-"+r.id); if(el) el.textContent=fmtBytes(sz); } });
     if(sizeEl) sizeEl.textContent=fmtBytes(total);
-    if(subEl) subEl.textContent=recs.length+" track"+(recs.length!==1?"s":"")+" stored on this device";
-    const finish=(pct,hint)=>{ if(barEl) barEl.style.width=Math.max(total>0?2:0,Math.min(100,Math.round(pct||0)))+"%"; if(hintEl && hint) hintEl.textContent=hint; };
-    if(navigator.storage && navigator.storage.estimate){
-      navigator.storage.estimate().then(est=>{ if(est && est.quota){ const free=Math.max(0,(est.quota||0)-(est.usage||0)); finish(total/est.quota*100, "About "+fmtBytes(free)+" of space is still free on this device"); } else { finish(total/(200*1024*1024)*100); } }).catch(()=>finish(total/(200*1024*1024)*100));
-    } else { finish(total/(200*1024*1024)*100); }
+    if(subEl) subEl.textContent=recs.length+" track"+(recs.length!==1?"s":"")+" on this device";
   }).catch(()=>{});
 }
 
@@ -4323,9 +4468,12 @@ function lsWriteHtml(){
   const txt=lsItemsToText(state.ls.items);
   const TAGCHIPS=[['Verse',true],['Chorus',false],['Pre-Chorus',false],['Hook',false],['Bridge',false],['Intro',false],['Outro',false],['Refrain',false]];
   const chips=`<div class="no-scrollbar -mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1">${TAGCHIPS.map(([tag,num])=>`<button data-act="ls-insert-tag" data-tag="${tag}" data-num="${num?1:0}" data-testid="ls-tag-${tag}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10"><span class="text-[color:var(--treesh-purple)]">[</span>${tag}${num?' #':''}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>`;
+  const PERFCHIPS=[['Verse',1,'FEATURED ARTIST'],['Verse',1,'ALL ARTISTS'],['Chorus',0,'ALL ARTISTS'],['Outro',0,'Instrumental']];
+  const perfChips=`<div class="no-scrollbar -mx-1 mb-2 flex items-center gap-1.5 overflow-x-auto px-1 pb-1"><span class="shrink-0 pr-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/35">Who</span>${PERFCHIPS.map(([tag,num,suf])=>`<button data-act="ls-insert-tag" data-tag="${tag}" data-num="${num?1:0}" data-suffix="${suf}" data-testid="ls-perf-${tag}-${suf.replace(/\s+/g,'-')}" class="press shrink-0 whitespace-nowrap rounded-full border border-[color:var(--treesh-purple)]/25 bg-[color:var(--treesh-purple)]/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-[color:var(--treesh-purple)]/20"><span class="text-[color:var(--treesh-purple)]">[</span>${tag}${num?' #':''}: ${suf}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>`;
   return `<div class="flex h-full flex-col py-3">
      <div class="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55"><i data-lucide="info" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i><span>One lyric per line. Wrap section names in brackets, e.g. <span class="mx-0.5 inline-block whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 font-doto text-white/80">[Verse&nbsp;1]</span></span></div>
      ${chips}
+     ${perfChips}
      <textarea id="ls-write" data-testid="ls-write-textarea" placeholder="[Verse 1]\nType or paste your lyrics here\u2026\nOne line at a time" class="no-scrollbar min-h-0 flex-1 w-full resize-none rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(txt)}</textarea>
      <div class="mt-3 flex shrink-0 items-center justify-between gap-2 pb-3">
        <span id="ls-write-count" class="text-xs text-white/45">${txt.split(/\r?\n/).filter(l=>l.trim()).length} lines</span>
@@ -4333,10 +4481,11 @@ function lsWriteHtml(){
      </div>
    </div>`;
 }
-function lsInsertTag(tag, autonum){
+function lsInsertTag(tag, autonum, suffix){
   const ta=$("#ls-write"); if(!ta) return;
   let label=tag;
   if(autonum){ const re=new RegExp('\\['+tag.replace(/[-/\\^$*+?.()|[\]{}]/g,'\\$&')+'\\b','gi'); const n=((ta.value.match(re)||[]).length)+1; label=tag+' '+n; }
+  if(suffix){ label=label+': '+suffix; }
   const ins='['+label+']';
   const start=(ta.selectionStart!=null)?ta.selectionStart:ta.value.length;
   const end=(ta.selectionEnd!=null)?ta.selectionEnd:ta.value.length;
@@ -4369,7 +4518,7 @@ function lsSyncHtml(){
      </div>`;
   }).join("");
   const control=`<div class="shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-     <button data-act="ls-stamp" id="ls-set-btn" data-testid="ls-stamp" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set time to current line <span class="ml-1 rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold">Space</span></button>
+     <button data-act="ls-stamp" id="ls-set-btn" data-testid="ls-stamp" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set time to current line <span class="ml-1 hidden rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold sm:inline-block">Space</span></button>
      <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span id="ls-next-label" class="text-white/70"></span></span><span id="ls-progress-pill">${lsStampedCount()} / ${rows.length} timed</span></div>
    </div>`;
   return `<div class="flex h-full flex-col py-3">
@@ -4444,7 +4593,7 @@ function lsRenderWordSync(){
      <button data-act="ls-seek-fwd" aria-label="Forward 10s" class="press relative grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="rotate-cw" style="width:19px;height:19px"></i><span class="pointer-events-none absolute inset-0 grid place-items-center text-[8px] font-bold">10</span></button>
      <div class="ml-1 flex-1 text-right font-doto text-xs text-white/60"><span id="lsw-cur">0:00</span> / <span id="lsw-dur">0:00</span></div>
    </div>
-   <button data-act="lsw-set" id="lsw-set-btn" data-testid="lsw-set" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set word <span class="ml-1 rounded bg-black/25 px-1.5 py-0.5 text-[10px]">Space</span></button>
+   <button data-act="lsw-set" id="lsw-set-btn" data-testid="lsw-set" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set word <span class="ml-1 hidden rounded bg-black/25 px-1.5 py-0.5 text-[10px] sm:inline-block">Space</span></button>
    <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span class="text-white/70">${esc(w.wi<w.words.length?w.words[w.wi].text:'\u2014')}</span></span><span>${doneN} / ${w.words.length} words</span></div>
    <div class="mt-4 flex justify-between gap-2">
      <button data-act="lsw-clear" class="press rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/70 hover:bg-white/10">Clear</button>
@@ -4897,6 +5046,17 @@ document.addEventListener("change", e=>{
 /* ============================================================
    EVENT DELEGATION
    ============================================================ */
+/* My Music Play button: tap = play, hold 1.5s = shuffle */
+document.addEventListener("pointerdown", e=>{
+  const el=e.target && e.target.closest && e.target.closest("[data-mm-play]"); if(!el) return;
+  e.preventDefault();
+  let fired=false;
+  const timer=setTimeout(()=>{ fired=true; try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){}; el.classList.remove("mm-holding"); mmShuffle(); }, 1500);
+  el.classList.add("mm-holding");
+  const up=()=>{ clearTimeout(timer); el.classList.remove("mm-holding"); document.removeEventListener("pointerup",up); document.removeEventListener("pointercancel",up); if(!fired) mmPlayAll(); };
+  document.addEventListener("pointerup", up, {once:true});
+  document.addEventListener("pointercancel", up, {once:true});
+});
 document.addEventListener("click", e=>{
   const t=e.target.closest("[data-act]"); if(!t) return; const act=t.dataset.act; const id=t.dataset.id;
   if(t.closest('#lyric-pop') && act!=='lyrics-tools-menu' && act!=='lyric-line-menu'){ setTimeout(closeLyricPop,0); }
@@ -5128,18 +5288,29 @@ document.addEventListener("click", e=>{
     case "wn-play-song": { const s=SONG_BY_ID[id]; if(s) playSong(s, SONGS); break; }
     case "wn-play-artist": { const songs=artistSongs(id); if(songs.length) playSong(songs[0], songs); break; }
     case "genre": state.genre=t.dataset.genre; renderView(true); break;
+    case "lib-sort": { const m=t.dataset.mode; state.libSort=(state.libSort===m?"default":m); refreshLists(); break; }
+    case "lib-lyrics-toggle": { state.libLyricsOnly=!state.libLyricsOnly; refreshLists(); break; }
     case "picks-shuffle": state._picks=buildPicks(); renderView(true); break;
     case "lib-view": state.libGrid=(t.dataset.mode==="grid"); LS.set("treesh_lib_grid",state.libGrid); renderView(true); break;
     case "mine-view": state.mineGrid=(t.dataset.mode==="grid"); LS.set("treesh_mine_grid",state.mineGrid); renderView(); break;
     case "game-view": state.gameGrid=(t.dataset.mode==="grid"); LS.set("treesh_game_grid",state.gameGrid); renderView(true); break;
     case "clear-search": state.query=""; const si=$("#search"); if(si)si.value=""; renderView(true); const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.add("hidden"); break;
     case "shuffle-all": { const pool=vis(SONGS); if(!pool.length)break; state.shuffle=true; const r=pool[Math.floor(Math.random()*pool.length)]; playSong(r,pool); break; }
+    case "mm-collapse": state.mmCollapsed=!state.mmCollapsed; refreshLists(); break;
+    case "mm-sort": { state.mmSort = state.mmSort==="recent" ? "az" : state.mmSort==="az" ? "za" : "recent"; refreshLists(); break; }
+    case "mm-select-toggle": { state.mmSelect=!state.mmSelect; if(!state.mmSelect) mmSelClear(); refreshLists(); break; }
+    case "mm-select-all": { const mine=mmSortedList(); const allOn=mine.length>0 && mine.every(s=>state.mmSel&&state.mmSel[s.id]); state.mmSel={}; if(!allOn){ mine.forEach(s=>{ state.mmSel[s.id]=true; }); } refreshLists(); break; }
+    case "mm-row-toggle": { if(!state.mmSel) state.mmSel={}; if(state.mmSel[id]) delete state.mmSel[id]; else state.mmSel[id]=true; refreshLists(); break; }
+    case "mm-edit-selected": { const ids=mmSelIds(); if(ids.length!==1) break; openAddMusic('add', ids[0]); break; }
+    case "mm-playlist-selected": { const ids=mmSelIds(); if(!ids.length) break; openPrompt("New playlist from selection","",(name)=>{ createPlaylist(name, ids); state.mmSelect=false; mmSelClear(); refreshLists(); }); break; }
+    case "mm-delete-selected": { const ids=mmSelIds(); if(!ids.length) break; openConfirm("Delete "+ids.length+" track"+(ids.length!==1?"s":"")+"?","The selected custom tracks will be permanently deleted from this device. This can\u2019t be undone.",()=>{ state.mmSelect=false; mmSelClear(); deleteUserSongs(ids); }); break; }
     case "playall-context": { if(state.contextList.length) playSong(state.contextList[0],state.contextList); break; }
     case "artist-open": { closeModal(); if(state.npOpen) closeNP(); navigate("artist",id); break; }
     case "artist-playall": { const songs=artistSongs(id); if(songs.length) playSong(songs[0],songs); break; }
     case "artist-shuffle": { const songs=artistSongs(id); if(!songs.length)break; state.shuffle=true; playSong(songs[Math.floor(Math.random()*songs.length)],songs); break; }
     case "new-playlist": openPrompt("New playlist","",(name)=>{ createPlaylist(name); refreshLists(); }); break;
-    case "pl-open": navigate("playlist",id); break;
+    case "pl-open": state.plOrigin='playlists'; navigate("playlist",id); break;
+    case "pl-open-lib": state.plOrigin='library'; navigate("playlist",id); break;
     case "pl-back": navigate("library"); openProfile("playlists"); break;
     case "pl-rename": { const pl=plById(id); openPrompt("Rename playlist",pl.name,(name)=>{ pl.name=name; savePl(); refreshLists(); }); break; }
     case "pl-delete": { const pl=plById(id); openConfirm("Delete playlist?","\u201C"+pl.name+"\u201D will be permanently removed.",()=>{ state.playlists=state.playlists.filter(p=>p.id!==id); savePl(); closeModal(); refreshLists(); }); break; }
@@ -5187,6 +5358,11 @@ document.addEventListener("click", e=>{
     case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const oldB=(state.profile&&state.profile.birthday)||""; let bday=($("#set-bday")&&$("#set-bday").value)||oldB; if(bdayLocked()) bday=oldB; else if(bday!==oldB && bday) bumpBdayEdits(); const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; toast("Profile saved"); renderShell(); renderView(); renderSidebarLibrary(); break; }
     case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists, beats, settings and locks on this device will be reset. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break;
     case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ g.keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); }); break; }
+    case "storage-user-toggle": { if(!state.storageSel) state.storageSel={}; if(state.storageSel[id]) delete state.storageSel[id]; else state.storageSel[id]=true; refreshCustomMusicManage(); break; }
+    case "storage-user-toggle-all": { const mine=USER_SONGS.slice(); const sel=state.storageSel||{}; const allOn=mine.length>0 && mine.every(s=>sel[s.id]); state.storageSel={}; if(!allOn){ mine.forEach(s=>{ state.storageSel[s.id]=true; }); } refreshCustomMusicManage(); break; }
+    case "storage-user-del-one": { const s=USER_SONGS.find(x=>x.id===id); openConfirm("Remove this track?","\u201C"+((s&&s.title)||"This upload")+"\u201D will be permanently deleted from this device.",()=>{ deleteUserSongs([id]); }); break; }
+    case "storage-user-del-selected": { const ids=Object.keys(state.storageSel||{}).filter(k=>state.storageSel[k]); if(!ids.length) break; openConfirm("Delete "+ids.length+" track"+(ids.length!==1?"s":"")+"?","The selected custom tracks will be permanently deleted from this device. This can\u2019t be undone.",()=>{ deleteUserSongs(ids); }); break; }
+    case "storage-user-del-all": { if(!USER_SONGS.length){ toast("No custom music to delete"); break; } openConfirm("Delete all custom music?","Every uploaded track (audio & cover art) will be permanently deleted from this device. This can\u2019t be undone.",()=>{ deleteUserSongs(USER_SONGS.map(s=>s.id)); }); break; }
     case "storage-clear-all": { openConfirm("Clear all Treesh data?","This erases everything saved on this device: profile, playlists, beats, games, appearance and locks. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break; }
     case "prompt-ok": { const v=$("#prompt-input").value.trim(); if(v&&state._promptCb){ state._promptCb(v); closeModal(); } break; }
     case "confirm-ok": { const cb=state._confirmCb; state._confirmCb=null; closeModal(); if(cb) cb(); break; }
@@ -5244,7 +5420,7 @@ document.addEventListener("click", e=>{
     case "lsw-clear": lswClear(); break;
     case "lsw-close": lsCloseWordSync(); break;
     case "ls-lrc-load": lsLoadLRC(); break;
-    case "ls-insert-tag": lsInsertTag(t.dataset.tag, t.dataset.num==='1'); break;
+    case "ls-insert-tag": lsInsertTag(t.dataset.tag, t.dataset.num==='1', t.dataset.suffix||''); break;
   }
   syncScrollLock();
 });
