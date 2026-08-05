@@ -149,6 +149,10 @@
   @keyframes arcadeIn{ from{opacity:0;transform:translate(-50%,-50%) scale(.94)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
   .arcade-in{ animation:arcadeIn .3s cubic-bezier(.22,1,.36,1) both; }
   .arcade-panel.arcade-full{ width:100vw !important; max-width:100vw !important; height:100dvh !important; border-radius:0 !important; border:0 !important; }
+  /* queue drag reorder */
+  .q-row{ transition:background-color .18s var(--treesh-ease), border-color .18s var(--treesh-ease); }
+  .q-dragging{ opacity:.9; transform:scale(1.015); box-shadow:0 14px 40px rgba(0,0,0,0.5); background:rgba(255,255,255,0.08) !important; cursor:grabbing; }
+  .q-handle:active{ cursor:grabbing; }
 
   /* mini player */
   @keyframes miniUp{ from{opacity:0;transform:translateY(130%)} to{opacity:1;transform:none} }
@@ -4006,15 +4010,47 @@ function renderNP(){
   if(!state.lyricSelect) updateLyricHighlight();
   if(state.karaoke){ _karIdx=-1; _karSpans=null; updateKaraoke(true); startKaraokeLoop(); }
   syncScrollLock();
+  wireNPSwipe(c.querySelector("[data-np-root]"));
   if(!wasOpen) setTimeout(()=>wnMaybeAuto('player'),480);
 }
-function closeNP(){
+function closeNP(skipAnim){
   const root=$("#np [data-np-root]");
   stopKaraokeLoop();
   state.npOpen=false; state.showLyrics=false; state.karaoke=false; state.karFull=false; state._npMode=null; state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); syncScrollLock();
   if(!root){ $("#np").innerHTML=""; return; }
+  if(skipAnim){ $("#np").innerHTML=""; return; }
   root.classList.remove("np-entering"); root.classList.add("np-leaving");
   setTimeout(()=>{ if(!state.npOpen) $("#np").innerHTML=""; }, 330);
+}
+function wireNPSwipe(root){
+  if(!root) return;
+  let startY=0, startX=0, dragging=false, active=false, pid=null;
+  const canStart=(t)=> t && !t.closest('input, button, a, [data-act], #np-lyric-region, #np-lyrics, .np-side, [data-np-noswipe]');
+  root.addEventListener("pointerdown",(e)=>{
+    if(e.pointerType==="mouse") return;
+    if(!canStart(e.target)) return;
+    startY=e.clientY; startX=e.clientX; dragging=true; active=false; pid=e.pointerId;
+  });
+  root.addEventListener("pointermove",(e)=>{
+    if(!dragging || e.pointerId!==pid) return;
+    const dy=e.clientY-startY, dx=e.clientX-startX;
+    if(!active){ if(dy>10 && Math.abs(dy)>Math.abs(dx)*1.3){ active=true; } else if(Math.abs(dx)>14 || dy<-10){ dragging=false; return; } }
+    if(active){ e.preventDefault(); const d=Math.max(0,dy); root.style.transition="none"; root.style.transform="translateY("+d+"px)"; root.style.opacity=String(Math.max(0.4,1-d/900)); }
+  },{passive:false});
+  const end=(e)=>{
+    if(!dragging) return; const dy=((e&&e.clientY)||startY)-startY; dragging=false;
+    if(active && dy>115){
+      root.style.transition="transform .26s cubic-bezier(.4,0,1,.6), opacity .26s ease";
+      root.style.transform="translateY(100%)"; root.style.opacity="0";
+      setTimeout(()=>closeNP(true), 240);
+    } else {
+      root.style.transition="transform .26s cubic-bezier(.22,1,.36,1), opacity .2s ease";
+      root.style.transform=""; root.style.opacity="";
+    }
+    active=false;
+  };
+  root.addEventListener("pointerup", end);
+  root.addEventListener("pointercancel", end);
 }
 
 /* ============================================================
@@ -4028,14 +4064,19 @@ function renderQueue(){
   c.innerHTML=`<div data-act="close-queue" class="queue-backdrop fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm ${wasOpen?'':'backdrop-in'}"></div>
   <div class="queue-panel fixed right-0 top-0 z-[81] flex h-[100dvh] w-full max-w-md flex-col border-l border-white/12 bg-[#0c0c0e]/95 backdrop-blur-2xl ${wasOpen?'':'drawer-in'}">
     <div class="flex items-center justify-between border-b border-white/10 px-5 py-4"><div class="flex items-center gap-2"><i data-lucide="list-music" class="text-[color:var(--treesh-purple)]" style="width:18px;height:18px"></i><h3 class="text-lg font-bold">Up Next</h3><span class="text-sm text-white/45">${state.queue.length}</span></div><button data-act="close-queue" class="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
-    <div class="min-h-0 flex-1 overflow-y-auto soft-scroll px-3 py-3 space-y-1">${ state.queue.length? state.queue.map((song,i)=>{ const active=cur&&cur.id===song.id; return `<div class="group flex items-center gap-2 rounded-xl border ${active?'border-white/20 bg-white/[0.08]':'border-transparent bg-white/[0.02] hover:bg-white/5'} px-2 py-2">
-      <div class="flex flex-col"><button data-act="q-up" data-id="${song.id}" class="text-white/30 hover:text-white ${i===0?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-up" style="width:14px;height:14px"></i></button><button data-act="q-down" data-id="${song.id}" class="text-white/30 hover:text-white ${i===state.queue.length-1?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-down" style="width:14px;height:14px"></i></button></div>
+    <div id="queue-list" class="min-h-0 flex-1 overflow-y-auto soft-scroll px-3 py-3 space-y-1">${ state.queue.length? state.queue.map((song,i)=>{ const active=cur&&cur.id===song.id; return `<div data-qid="${song.id}" class="q-row group flex items-center gap-2 rounded-xl border ${active?'border-white/20 bg-white/[0.08]':'border-transparent bg-white/[0.02] hover:bg-white/5'} px-2 py-2">
+      <div class="flex flex-col items-center gap-0.5">
+        <button data-qdrag aria-label="Drag to reorder" title="Drag to reorder" class="q-handle cursor-grab text-white/30 hover:text-white/70" style="touch-action:none"><i data-lucide="grip-vertical" style="width:15px;height:15px"></i></button>
+        <button data-act="q-up" data-id="${song.id}" aria-label="Move up" class="text-white/30 hover:text-white ${i===0?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-up" style="width:13px;height:13px"></i></button>
+        <button data-act="q-down" data-id="${song.id}" aria-label="Move down" class="text-white/30 hover:text-white ${i===state.queue.length-1?'opacity-30 pointer-events-none':''}"><i data-lucide="chevron-down" style="width:13px;height:13px"></i></button>
+      </div>
       <button data-act="q-jump" data-id="${song.id}" data-testid="queue-item-play-${song.id}" class="group/qart relative h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(song.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition-opacity group-hover/qart:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
       <button data-act="q-jump" data-id="${song.id}" data-testid="queue-item-${song.id}" class="min-w-0 flex-1 cursor-pointer text-left"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(song.title)}</p><p class="clamp-1 text-xs text-white/50">${esc(song.artist)}</p></button>
       ${active?`<span class="eq mr-1 scale-75"><span></span><span></span><span></span><span></span></span>`:''}
       <button data-act="q-remove" data-id="${song.id}" class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>
     </div>`; }).join("") : `<p class="py-16 text-center text-sm text-white/45">Queue is empty.</p>` }</div></div>`;
   icons();
+  wireQueueDrag();
 }
 function closeQueue(){
   const panel=$("#queue .queue-panel"); const bd=$("#queue .queue-backdrop");
@@ -4044,6 +4085,40 @@ function closeQueue(){
   panel.classList.remove("drawer-in"); panel.classList.add("drawer-out");
   if(bd){ bd.classList.remove("backdrop-in"); bd.classList.add("backdrop-out"); }
   setTimeout(()=>{ if(!state.queueOpen) $("#queue").innerHTML=""; }, 300);
+}
+function reorderQueue(ids){
+  const cur=curSong(); const map={}; state.queue.forEach(s=>{ map[s.id]=s; });
+  const next=ids.map(id=>map[id]).filter(Boolean);
+  if(next.length!==state.queue.length) { renderQueue(); return; }
+  const same=next.every((s,i)=>state.queue[i]&&state.queue[i].id===s.id);
+  state.queue=next; state.base=state.queue.slice();
+  if(cur) state.index=state.queue.findIndex(s=>s.id===cur.id);
+  renderQueue(); renderMini(); if(!same) toast("Queue reordered");
+}
+function wireQueueDrag(){
+  const list=document.getElementById("queue-list"); if(!list) return;
+  let dragEl=null;
+  const rows=()=>[...list.querySelectorAll("[data-qid]")];
+  const onMove=(e)=>{
+    if(!dragEl) return; e.preventDefault();
+    const y=e.clientY; let placed=false;
+    for(const sib of rows()){ if(sib===dragEl) continue; const r=sib.getBoundingClientRect(); if(y < r.top + r.height/2){ list.insertBefore(dragEl, sib); placed=true; break; } }
+    if(!placed) list.appendChild(dragEl);
+  };
+  const onUp=()=>{
+    document.removeEventListener("pointermove", onMove);
+    if(!dragEl) return; dragEl.classList.remove("q-dragging");
+    const order=rows().map(r=>r.getAttribute("data-qid")); dragEl=null; reorderQueue(order);
+  };
+  list.addEventListener("pointerdown",(e)=>{
+    const handle=e.target.closest("[data-qdrag]"); if(!handle) return;
+    const row=handle.closest("[data-qid]"); if(!row) return;
+    e.preventDefault(); dragEl=row; dragEl.classList.add("q-dragging");
+    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+    document.addEventListener("pointermove", onMove, {passive:false});
+    document.addEventListener("pointerup", onUp, {once:true});
+    document.addEventListener("pointercancel", onUp, {once:true});
+  });
 }
 
 /* ============================================================
