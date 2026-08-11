@@ -14,8 +14,8 @@ const warmup: Song = { id: "neon-warmup", title: "Neon Warmup", artist: "Treesh 
 
 type AppValue = {
   ready: boolean; songs: Song[]; treeshSongs: Song[]; charts: Record<string, Chart>; scores: ScoreResult[]; settings: GameSettings;
-  selectedSong: Song | null; selectedDifficulty: Difficulty; lastResult: ScoreResult | null;
-  selectSong: (song: Song) => void; setDifficulty: (difficulty: Difficulty) => void;
+  selectedSong: Song | null; selectedDifficulty: Difficulty; lastResult: ScoreResult | null; testChart: Chart | null;
+  selectSong: (song: Song) => void; setDifficulty: (difficulty: Difficulty) => void; setTestChart: (chart: Chart | null) => void;
   importSong: () => Promise<Song | null>; analyzeSong: (song: Song, duration: number, difficulty: Difficulty) => Promise<Chart>;
   saveChart: (chart: Chart) => Promise<void>; saveResult: (result: ScoreResult) => Promise<void>;
   generateAll: (song: Song, duration: number) => Promise<void>;
@@ -35,6 +35,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [selectedDifficulty, setDifficulty] = useState<Difficulty>("Normal");
   const [lastResult, setLastResult] = useState<ScoreResult | null>(null);
+  const [testChart, setTestChart] = useState<Chart | null>(null);
 
   useEffect(() => { (async () => {
     const uri = await ensureWarmupAudio();
@@ -48,7 +49,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     fetchTreeshCatalog().then(list => { setTreeshSongs(list); AsyncStorage.setItem("vocotap_treesh", JSON.stringify(list)); }).catch(() => {});
   })(); }, []);
 
-  const selectSong = useCallback((song: Song) => setSelectedSong(song), []);
+  const selectSong = useCallback((song: Song) => { setTestChart(null); setSelectedSong(song); }, []);
 
   const importSong = useCallback(async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: "audio/*", multiple: false, copyToCacheDirectory: true });
@@ -97,7 +98,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     await Promise.all(Object.values(KEYS).map(key => AsyncStorage.removeItem(key))); setScores([]); setCharts({ "neon-warmup-Normal": trainingChart() }); setSettings(defaultSettings); setSongs(current => current.slice(0, 1));
   }, []);
 
-  const value = useMemo(() => ({ ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, selectSong, setDifficulty, importSong, analyzeSong, saveChart, saveResult, generateAll, updateSettings, clearLocalData }), [ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, selectSong, importSong, analyzeSong, saveChart, saveResult, generateAll, updateSettings, clearLocalData]);
+  const value = useMemo(() => ({ ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, setDifficulty, setTestChart, importSong, analyzeSong, saveChart, saveResult, generateAll, updateSettings, clearLocalData }), [ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, importSong, analyzeSong, saveChart, saveResult, generateAll, updateSettings, clearLocalData]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

@@ -132,10 +132,10 @@ const Backdrop = React.memo(function Backdrop({ coverArt, grayscale }: { coverAr
 export default function GameScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { selectedSong, selectedDifficulty, charts, settings, saveResult } = useAppState();
+  const { selectedSong, selectedDifficulty, charts, settings, saveResult, testChart, setTestChart } = useAppState();
   const { gameComplete, discoverSong, listen } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
-  const chart = selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined;
+  const chart = testChart || (selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined);
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 500 });
   const hitPlayer = useAudioPlayer(null);
 
@@ -151,13 +151,12 @@ export default function GameScreen() {
   const [judgment, setJudgment] = useState<{ grade: Judgment; x: number; y: number; key: number } | null>(null);
   const [windowIds, setWindowIds] = useState<string[]>([]);
   const [activeHold, setActiveHold] = useState<Note | null>(null);
-  const [fingerLane, setFingerLane] = useState(-1);
 
   const clock = useSharedValue(0);
   const clockStart = useRef(0); const pauseAccum = useRef(0); const pauseAt = useRef(0);
   const resolved = useRef(new Set<string>());
   const counts = useRef({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
-  const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false); const pulseBase = useRef(0); const tickCount = useRef(0);
+  const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false); const pulseBase = useRef(0); const tickCount = useRef(0); const rockRef = useRef(70); const judgeRef = useRef<{ grade: Judgment; lane: number } | null>(null);
   const laneFlash = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const pressed = useRef(new Set<number>()).current;
   const judgeAnim = useRef(new Animated.Value(0)).current;
@@ -190,8 +189,8 @@ export default function GameScreen() {
     const acc = total ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / total) * 10000) / 100 : 0;
     const stars = acc >= 97 ? 5 : acc >= 90 ? 4 : acc >= 78 ? 3 : acc >= 60 ? 2 : acc > 0 ? 1 : 0;
     const result: ScoreResult = { songId: selectedSong.id, title: selectedSong.title, difficulty: selectedDifficulty, score: scoreRef.current, accuracy: acc, maxCombo: maxCombo.current, stars, perfect: c.PERFECT, great: c.GREAT, good: c.GOOD, miss: c.MISS, totalNotes: total, createdAt: Date.now() };
-    await saveResult(result); await gameComplete("Vocotap"); await listen(chart.duration); if (chart.duration > 20) await discoverSong(selectedSong.id); router.replace("/results");
-  }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, discoverSong, listen, player, clock]);
+    await saveResult(result); await gameComplete("Vocotap"); await listen(chart.duration); if (chart.duration > 20) await discoverSong(selectedSong.id); setTestChart(null); router.replace("/results");
+  }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, discoverSong, listen, player, clock, setTestChart]);
 
   // Countdown → start audio + clock.
   useEffect(() => {
@@ -220,21 +219,25 @@ export default function GameScreen() {
       const ids: string[] = [];
       for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > lookahead) break; if (!resolved.current.has(n.id)) ids.push(n.id); }
       setWindowIds(prev => (prev.length === ids.length && prev.every((id, i) => id === ids[i])) ? prev : ids);
-      if (missLane >= 0) { setCombo(0); setRock(v => Math.max(0, v - 6)); showJudge("MISS", missLane); pulseBase.current = 0; setPulse(0); }
-      // Throttle the always-changing HUD figures to ~every 3rd tick to cut re-renders.
+      if (missLane >= 0) { rockRef.current = Math.max(0, rockRef.current - 6); pulseBase.current = comboRef.current; judgeRef.current = { grade: "MISS", lane: missLane }; }
+      // Sync HUD from refs (taps only touch refs, so this is the single place we re-render — keeps rapid tapping instant).
+      setCombo(c => (c === comboRef.current ? c : comboRef.current));
+      setRock(r => (r === rockRef.current ? r : rockRef.current));
+      setScore(s => (s === scoreRef.current ? s : scoreRef.current));
+      const pv = Math.min(100, Math.max(0, ((comboRef.current - pulseBase.current) / 25) * 100));
+      setPulse(p => (p === pv ? p : pv));
+      if (judgeRef.current) { showJudge(judgeRef.current.grade, judgeRef.current.lane); judgeRef.current = null; }
       tickCount.current++;
       if (tickCount.current % 3 === 0) {
         const c = counts.current; const done = c.PERFECT + c.GREAT + c.GOOD + c.MISS;
         setAccuracy(done ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / done) * 1000) / 10 : 100);
         setProgress(Math.min(1, t / duration));
       }
-      setScore(s => (s === scoreRef.current ? s : scoreRef.current));
+      if (rockRef.current <= 0 && !settings.noFail) { finish(); return; }
       if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted]);
-
-  useEffect(() => { if (rock <= 0 && !settings.noFail) finish(); }, [rock, settings.noFail, finish]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail]);
 
   // Hold / wavy sustain — finger must stay on the lane for the full tail. Receptor stays lit while held.
   useEffect(() => {
@@ -243,15 +246,14 @@ export default function GameScreen() {
     laneFlash[lane].setValue(1);
     const timer = setInterval(() => {
       const t = jsTime();
-      if (!pressed.has(lane) && t < end - 0.1) { setActiveHold(null); comboRef.current = 0; setCombo(0); showJudge("MISS", lane); pulseBase.current = 0; setPulse(0); return; }
+      if (!pressed.has(lane) && t < end - 0.1) { setActiveHold(null); comboRef.current = 0; pulseBase.current = 0; judgeRef.current = { grade: "MISS", lane }; return; }
       scoreRef.current += Math.round(24 * (pulseActive ? 2 : 1));
-      if (t >= end) { setActiveHold(null); scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1)); setScore(scoreRef.current); setPulse(v => Math.min(100, v + 8)); }
+      if (t >= end) { setActiveHold(null); scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1)); }
     }, 90);
     return () => { clearInterval(timer); Animated.timing(laneFlash[lane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); };
-  }, [activeHold, jsTime, laneFlash, pulseActive, pressed, showJudge]);
+  }, [activeHold, jsTime, laneFlash, pulseActive, pressed]);
 
-  const setPulseFromCombo = useCallback(() => setPulse(Math.min(100, Math.max(0, ((comboRef.current - pulseBase.current) / 25) * 100))), []);
-
+  // Taps only mutate refs + fire native-thread animations — no React state, so rapid/back-to-back tapping stays instant.
   const hitLane = useCallback((lane: number) => {
     if (!chart || countdown > 0 || paused) return;
     const t = jsTime();
@@ -260,19 +262,19 @@ export default function GameScreen() {
     if (!target || best > 0.42) { flashLane(lane); return; }
     const grade: Judgment = best <= 0.11 ? "PERFECT" : best <= 0.24 ? "GREAT" : "GOOD";
     resolved.current.add(target.id); counts.current[grade] += 1;
-    comboRef.current += 1; maxCombo.current = Math.max(maxCombo.current, comboRef.current); setCombo(comboRef.current);
+    comboRef.current += 1; maxCombo.current = Math.max(maxCombo.current, comboRef.current);
     const multiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10)) * (pulseActive ? 2 : 1);
-    scoreRef.current += Math.round(1000 * weights[grade] * multiplier); setScore(scoreRef.current);
-    setRock(v => Math.min(100, v + (grade === "PERFECT" ? 3 : 1))); setPulseFromCombo();
-    showJudge(grade, lane); flashLane(lane);
+    scoreRef.current += Math.round(1000 * weights[grade] * multiplier);
+    rockRef.current = Math.min(100, rockRef.current + (grade === "PERFECT" ? 3 : 1));
+    judgeRef.current = { grade, lane }; flashLane(lane);
     if (settings.hitSfx) { hitPlayer.seekTo(0); hitPlayer.play(); }
     if (target.type === "hold" || target.type === "wavy") setActiveHold(target);
     if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
-  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, showJudge, settings.haptics, settings.hitSfx, hitPlayer, sorted, setPulseFromCombo]);
+  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted]);
 
   const activatePulse = () => { if (pulse < 100 || pulseActive) return; pulseBase.current = comboRef.current; setPulse(0); setPulseActive(true); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setTimeout(() => { setPulseActive(false); pulseBase.current = comboRef.current; setPulse(0); }, 8000); };
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
-  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
+  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
   if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text style={styles.missingTitle}>Chart not ready</Text><Text style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
@@ -329,14 +331,14 @@ export default function GameScreen() {
 
     {/* Tap pads */}
     <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]}>
-      {laneColors.map((c, l) => <Pressable key={l} testID={`lane-${l + 1}-hit-pad`} onPressIn={() => { pressed.add(l); setFingerLane(l); hitLane(l); }} onPressOut={() => { pressed.delete(l); setFingerLane(f => (f === l ? -1 : f)); }} style={{ width: padW, height: "100%" }}>
-        {({ pressed: down }: { pressed: boolean }) => <View style={[styles.pad, { backgroundColor: down || fingerLane === l ? `${c}22` : "transparent" }]} />}
+      {laneColors.map((c, l) => <Pressable key={l} testID={`lane-${l + 1}-hit-pad`} onPressIn={() => { pressed.add(l); hitLane(l); }} onPressOut={() => { pressed.delete(l); }} style={{ width: padW, height: "100%" }}>
+        {({ pressed: down }: { pressed: boolean }) => <View style={[styles.pad, { backgroundColor: down ? `${c}22` : "transparent" }]} />}
       </Pressable>)}
     </View>
 
     {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text key={countdown} style={styles.count}>{countdown}</Text><Text style={styles.readySong}>{selectedSong.title}</Text></View>}
 
-    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text style={styles.pauseTitle}>Paused</Text><Text style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label="Exit song" icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); router.replace("/library"); }} /></View></View></Modal>
+    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text style={styles.pauseTitle}>Paused</Text><Text style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label="Exit song" icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); setTestChart(null); router.replace("/library"); }} /></View></View></Modal>
   </View>;
 }
 

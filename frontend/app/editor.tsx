@@ -31,7 +31,7 @@ function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPre
 
 export default function EditorScreen() {
   const { width, height } = useWindowDimensions();
-  const { selectedSong, selectedDifficulty, setDifficulty, charts, saveChart } = useAppState();
+  const { selectedSong, selectedDifficulty, setDifficulty, charts, saveChart, setTestChart } = useAppState();
   const existing = selectedSong ? charts[`${selectedSong.id}-Custom`] : undefined;
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
@@ -114,13 +114,20 @@ export default function EditorScreen() {
   const eraseSelected = () => { if (!selected.size) return; setNotes(prev => { undo.current.push(prev); redo.current = []; return prev.filter(n => !selected.has(n.id)); }); setSelected(new Set()); setSaved(false); };
   const eraseAll = () => { if (!notes.length) return; setNotes(prev => { undo.current.push(prev); redo.current = []; return []; }); setSelected(new Set()); setSaved(false); };
 
+  const buildChart = (): Chart => ({ songId: selectedSong!.id, difficulty: "Custom", bpm: existing?.bpm || selectedSong!.bpm || 120, duration, notes: [...notes].sort((a, b) => a.time - b.time), waveform: existing?.waveform || Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.5)) * 0.7) });
+
   const save = async () => {
     if (!selectedSong || !notes.length) return;
-    const chart: Chart = { songId: selectedSong.id, difficulty: "Custom", bpm: existing?.bpm || selectedSong.bpm || 120, duration, notes: [...notes].sort((a, b) => a.time - b.time), waveform: existing?.waveform || Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.5)) * 0.7) };
-    await saveChart(chart); setDifficulty("Custom"); setSaved(true); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await saveChart(buildChart()); setDifficulty("Custom"); setSaved(true); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const visible = useMemo(() => notes.filter(n => n.time - nowLabel < lookahead && n.time - nowLabel > -0.4), [notes, nowLabel]);
+  // Play the current in-editor chart immediately — no save required.
+  const test = () => {
+    if (!selectedSong || !notes.length) return;
+    pause(); setTestChart(buildChart()); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/game");
+  };
+
+  const visible = useMemo(() => notes.filter(n => { const end = n.time + ((n.type === "hold" || n.type === "wavy") ? (n.duration || 0) : 0); return n.time - nowLabel < lookahead && end - nowLabel > -0.4; }), [notes, nowLabel]);
 
   if (!selectedSong) return <SafeAreaView style={styles.safe} edges={["top"]}><ScreenHeader title="Chart Editor" /><View style={styles.empty}><Ionicons name="musical-notes-outline" size={44} color={colors.purple} /><Text style={styles.emptyTitle}>Choose a track first</Text><Text style={styles.emptyCopy}>Pick a song to build a custom chart for.</Text><NeonButton testID="editor-open-library-button" label="Choose a track" icon="library" onPress={() => router.replace("/library")} /></View></SafeAreaView>;
 
@@ -158,6 +165,7 @@ export default function EditorScreen() {
 
     {/* Transport */}
     <View style={styles.transport}>
+      <Pressable testID="editor-test-button" onPress={test} style={styles.testBtn}><Ionicons name="game-controller" size={15} color={colors.bg} /><Text style={styles.testText}>Test</Text></Pressable>
       <Text style={styles.time}>{Math.floor(nowLabel / 60)}:{String(Math.floor(nowLabel % 60)).padStart(2, "0")}</Text>
       <Pressable testID="editor-play-button" onPress={togglePlay} style={styles.playBtn}><Ionicons name={playing ? "pause" : "play"} size={26} color={colors.bg} /></Pressable>
       <Pressable testID="editor-restart-button" onPress={() => seek(0)} style={styles.tBtn}><Ionicons name="refresh" size={20} color={colors.text} /></Pressable>
@@ -182,7 +190,7 @@ const styles = StyleSheet.create({
   boardWrap: { flex: 1, alignItems: "center", backgroundColor: "#08080C", overflow: "hidden" }, board: { flex: 1, overflow: "hidden" }, boardDiv: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.08)" }, laneCol: { position: "absolute", top: 0, bottom: 0 }, laneNo: { position: "absolute", top: 8, alignItems: "center" }, laneNoText: { fontSize: 11, fontFamily: fonts.heavy, opacity: 0.5 }, hitLineFull: { position: "absolute", left: 0, right: 0, bottom: "16%", height: 2, backgroundColor: "rgba(255,255,255,0.4)" }, eNote: { alignItems: "center", justifyContent: "center" },
   recBadge: { position: "absolute", top: 8, right: 10, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, height: 24, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: colors.pink }, recBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.pink }, recBadgeText: { color: colors.text, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
   seekRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, marginTop: 6 }, seekBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
-  transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 18, paddingVertical: 6 }, time: { color: colors.muted, fontSize: 13, fontFamily: fonts.bold, width: 44, textAlign: "center" }, playBtn: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: colors.purple, shadowColor: colors.purple, shadowOpacity: 0.5, shadowRadius: 14, elevation: 8 }, tBtn: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
+  transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, paddingVertical: 6 }, testBtn: { flexDirection: "row", alignItems: "center", gap: 5, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: colors.lime }, testText: { color: colors.bg, fontSize: 13, fontFamily: fonts.heavy }, time: { color: colors.muted, fontSize: 13, fontFamily: fonts.bold, width: 40, textAlign: "center" }, playBtn: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: colors.purple, shadowColor: colors.purple, shadowOpacity: 0.5, shadowRadius: 14, elevation: 8 }, tBtn: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
   controls: { flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingBottom: 8, paddingTop: 2 }, ctrl: { flex: 1, height: 54, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 3, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, ctrlText: { color: colors.text, fontSize: 11, fontFamily: fonts.bold },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", padding: 28, gap: 14 }, emptyTitle: { color: colors.text, fontSize: 24, fontFamily: fonts.display, textAlign: "center" }, emptyCopy: { color: colors.muted, fontSize: 14, textAlign: "center", lineHeight: 20, marginBottom: 6, fontFamily: fonts.body },
 });
