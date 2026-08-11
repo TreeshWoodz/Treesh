@@ -1,7 +1,8 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { LogBox, Pressable, StyleSheet, Text, View } from "react-native";
+import { LoadingScreen } from "@/src/components/LoadingScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -42,11 +43,13 @@ export default function RootLayout() {
 
 function AppStack() {
   const { toast, dismissToast } = useStarlites();
+  const [booting, setBooting] = useState(true);
   return <View style={styles.root}>
     <Stack screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: colors.bg } }} />
     {toast && <Pressable testID="starlites-toast" onPress={dismissToast} style={styles.toast}>
       <Text style={styles.toastAmount}>+{toast.amount} Starlites</Text><Text style={styles.toastReason}>{toast.reason}</Text>
     </Pressable>}
+    {booting && <LoadingScreen onFinish={() => setBooting(false)} />}
   </View>;
 }
 

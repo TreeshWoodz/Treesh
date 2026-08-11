@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StarlitesModal } from "@/src/components/StarlitesModal";
 import { SongCover } from "@/src/components/ui";
@@ -57,7 +57,7 @@ export default function HomeScreen() {
         </View>
 
         <Animated.View style={fade}>
-          <Text style={styles.logo}>VOCOTAP</Text>
+          <Image source={require("../assets/images/vocotap-logo.png")} resizeMode="contain" style={styles.logoImg} />
           <Text style={styles.title}>Your music,{"\n"}<Text style={styles.titleAccent}>your stage.</Text></Text>
           <Text style={styles.subtitle}>Import any track, auto build a chart, then tap, hold and ride the wave.</Text>
         </Animated.View>
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   blobTop: { position: "absolute", top: -120, right: -80, width: 320, height: 320, borderRadius: 160, opacity: 0.9 }, blobBottom: { position: "absolute", bottom: -140, left: -90, width: 340, height: 340, borderRadius: 170, opacity: 0.7 },
   topbar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, marginBottom: 4 },
   greet: { flexDirection: "row", alignItems: "center", gap: 11 }, greetName: { color: colors.text, fontSize: 18, fontFamily: fonts.heavy, maxWidth: 150 },
-  byline: { color: colors.muted, fontSize: 10, fontWeight: "800", letterSpacing: 2, fontFamily: fonts.bold }, logo: { color: colors.purple, fontSize: 13, letterSpacing: 4, fontFamily: fonts.display, marginBottom: 4 },
+  byline: { color: colors.muted, fontSize: 10, fontWeight: "800", letterSpacing: 2, fontFamily: fonts.bold }, logoImg: { width: 220, height: 78, marginBottom: 6, marginLeft: -4 },
   stars: { minHeight: 40, flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 14, borderRadius: 20, backgroundColor: rgba(0.1), borderWidth: 1, borderColor: rgba(0.32) }, starsText: { color: colors.gold, fontFamily: fonts.heavy, fontSize: 14 },
   title: { color: colors.text, fontSize: 38, lineHeight: 41, fontFamily: fonts.display, letterSpacing: -0.5, marginTop: 2 }, titleAccent: { color: colors.purple }, subtitle: { color: colors.muted, marginTop: 12, fontSize: 15, lineHeight: 22, maxWidth: 320, fontFamily: fonts.body },
   featured: { height: 220, borderRadius: 26, overflow: "hidden", justifyContent: "space-between", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", shadowColor: "#000", shadowOpacity: 0.55, shadowRadius: 22, shadowOffset: { width: 0, height: 14 }, elevation: 14 }, featuredArt: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
