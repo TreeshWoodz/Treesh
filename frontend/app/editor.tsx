@@ -3,7 +3,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Slider from "@react-native-community/slider";
 import { NeonButton, ScreenHeader } from "@/src/components/ui";
@@ -12,15 +12,17 @@ import { colors, laneColors, fonts, rgba } from "@/src/game/theme";
 import { Chart, Note } from "@/src/game/types";
 
 const noteIcon = { tap: "ellipse", hold: "remove", wavy: "water", slide: "arrow-forward", chord: "grid", special: "sparkles" } as const;
-const TAP_MAX = 0.2;
+const TAP_MAX = 0.18; // press longer than this (without moving) → hold note
+const MOVE_EPS = 16; // finger travel beyond this → wave note
 
-function EditorNote({ note, clock, lookahead, boardH, laneW, color, selected, onPress }: { note: Note; clock: Animated.Value; lookahead: number; boardH: number; laneW: number; color: string; selected: boolean; onPress: () => void }) {
-  const size = laneW * 0.54;
+function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPress }: { note: Note; clock: Animated.Value; lookahead: number; boardH: number; laneW: number; hw: number; selected: boolean; onPress: () => void }) {
+  const size = laneW * 0.52;
+  const color = laneColors[note.lane];
   const start = note.time - lookahead;
   const translateY = clock.interpolate({ inputRange: [start, note.time, note.time + 0.4], outputRange: [0, boardH, boardH + 30], extrapolate: "clamp" });
   const opacity = clock.interpolate({ inputRange: [start, start + 0.12, note.time + 0.12, note.time + 0.4], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
   const isHold = note.type === "hold" || note.type === "wavy";
-  const tailLen = isHold ? Math.min(boardH, (note.duration || 0.4) / lookahead * boardH) : 0;
+  const tailLen = isHold ? Math.min(boardH, ((note.duration || 0.4) / lookahead) * boardH) : 0;
   return <Animated.View style={{ position: "absolute", left: note.lane * laneW + laneW / 2 - size / 2, top: -size / 2, width: size, height: size, opacity, transform: [{ translateY }] }}>
     {isHold && <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}44`, borderWidth: 1, borderColor: `${color}99` }} />}
     <Pressable onPress={onPress} style={[styles.eNote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderColor: selected ? colors.text : "rgba(255,255,255,0.7)", borderWidth: selected ? 3 : 2 }]}><Ionicons name={noteIcon[note.type]} size={size * 0.36} color={colors.bg} /></Pressable>
@@ -34,43 +36,38 @@ export default function EditorScreen() {
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
 
-  const [notes, setNotes] = useState<Note[]>(existing?.notes || []);
+  // Blank canvas — the chart always starts empty; recording live builds it up.
+  const [notes, setNotes] = useState<Note[]>([]);
   const [playing, setPlaying] = useState(false);
+  const [recording, setRecording] = useState(false);
   const [saved, setSaved] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [nowLabel, setNowLabel] = useState(0);
   const [flashLane, setFlashLane] = useState(-1);
-  const [recording, setRecording] = useState(false);
-  const [wavyMode, setWavyMode] = useState(false);
 
   const clock = useRef(new Animated.Value(0)).current;
   const clockStart = useRef(0);
-  const nowRef = useRef(0); const playingRef = useRef(false);
+  const nowRef = useRef(0); const playingRef = useRef(false); const recordingRef = useRef(false);
   const undo = useRef<Note[][]>([]); const redo = useRef<Note[][]>([]);
-  const recordingRef = useRef(false); const wavyRef = useRef(false);
-  const padStart = useRef<Record<number, { time: number; wall: number }>>({});
+  const cap = useRef<{ startX: number; startTime: number; wall: number; moved: boolean; points: { t: number; x: number }[] } | null>(null);
 
   const HW = Math.min(width, 460);
   const LANE = HW / 4;
-  const DECK_H = 130;
-  const BOARD_H = height * 0.4;
+  const BOARD_H = height * 0.42;
   const duration = existing?.duration || status.duration || selectedSong?.duration || 60;
   const lookahead = 2.0;
 
-  useEffect(() => { setNotes(existing?.notes || []); setSelected(new Set()); undo.current = []; redo.current = []; }, [existing]);
   useEffect(() => { nowRef.current = nowLabel; }, [nowLabel]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
-  useEffect(() => { recordingRef.current = recording; if (!recording) padStart.current = {}; }, [recording]);
-  useEffect(() => { wavyRef.current = wavyMode; }, [wavyMode]);
+  useEffect(() => { recordingRef.current = recording; if (!recording) { cap.current = null; setFlashLane(-1); } }, [recording]);
 
   useEffect(() => {
     if (!playing) return;
-    const t = setInterval(() => { const cur = (Date.now() - clockStart.current) / 1000; setNowLabel(cur); if (cur >= duration) { player.pause(); clock.stopAnimation(); setPlaying(false); } }, 120);
+    const t = setInterval(() => { const cur = (Date.now() - clockStart.current) / 1000; setNowLabel(cur); if (cur >= duration) { player.pause(); clock.stopAnimation(); setPlaying(false); } }, 110);
     return () => clearInterval(t);
   }, [playing, duration, player, clock]);
 
   const startClock = useCallback((from: number) => { clock.stopAnimation(); clock.setValue(from); Animated.timing(clock, { toValue: duration, duration: Math.max(10, (duration - from) * 1000), easing: Easing.linear, useNativeDriver: true }).start(); }, [clock, duration]);
-
   const curTime = () => (playingRef.current ? (Date.now() - clockStart.current) / 1000 : nowRef.current);
 
   const play = () => { clockStart.current = Date.now() - nowRef.current * 1000; player.seekTo(nowRef.current); player.play(); startClock(nowRef.current); setPlaying(true); };
@@ -78,20 +75,38 @@ export default function EditorScreen() {
   const seek = (to: number) => { const t = Math.max(0, Math.min(duration, to)); player.seekTo(t); nowRef.current = t; setNowLabel(t); clock.stopAnimation(); clock.setValue(t); if (playingRef.current) { clockStart.current = Date.now() - t * 1000; startClock(t); } };
   const togglePlay = () => (playing ? pause() : play());
 
-  const addNote = useCallback((note: Note) => { setNotes(prev => { undo.current.push(prev); if (undo.current.length > 80) undo.current.shift(); redo.current = []; return [...prev, note].sort((a, b) => a.time - b.time); }); setSaved(false); }, []);
+  const addNote = useCallback((note: Note) => { setNotes(prev => { undo.current.push(prev); if (undo.current.length > 120) undo.current.shift(); redo.current = []; return [...prev, note].sort((a, b) => a.time - b.time); }); setSaved(false); }, []);
 
-  // Reliable per-lane pads. Notes can ONLY be placed while Record is active (edit-mode gate).
-  // Quick tap = tap note · press & hold = long note · Wavy toggle = contoured note.
-  const onPadIn = (lane: number) => { if (!recordingRef.current) return; padStart.current[lane] = { time: curTime(), wall: Date.now() }; setFlashLane(lane); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
-  const onPadOut = (lane: number) => {
-    const s = padStart.current[lane]; delete padStart.current[lane]; setFlashLane(f => (f === lane ? -1 : f));
-    if (!s || !recordingRef.current) return;
-    const held = (Date.now() - s.wall) / 1000;
-    const type: Note["type"] = wavyRef.current ? "wavy" : held >= TAP_MAX ? "hold" : "tap";
-    const duration = type === "tap" ? undefined : Math.max(0.4, Math.min(6, wavyRef.current ? Math.max(held, 0.6) : held));
-    addNote({ id: `edit-${Date.now()}-${lane}-${Math.round(s.time * 100)}`, lane, time: Math.max(0, s.time), type, duration });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
+  const laneFromX = (x: number) => Math.max(0, Math.min(3, Math.floor(x / LANE)));
+
+  // The whole board is the live input surface — but only while Record is on (capture-phase steals touches from note-select).
+  const pan = useRef(PanResponder.create({
+    onStartShouldSetPanResponderCapture: () => recordingRef.current,
+    onMoveShouldSetPanResponderCapture: () => recordingRef.current,
+    onPanResponderGrant: (e) => {
+      if (!recordingRef.current) return;
+      const x = e.nativeEvent.locationX; const t = curTime();
+      cap.current = { startX: x, startTime: t, wall: Date.now(), moved: false, points: [{ t, x: x / HW }] };
+      setFlashLane(laneFromX(x)); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    onPanResponderMove: (e) => {
+      const c = cap.current; if (!c) return;
+      const x = e.nativeEvent.locationX; if (Math.abs(x - c.startX) > MOVE_EPS) c.moved = true;
+      c.points.push({ t: curTime(), x: Math.max(0, Math.min(1, x / HW)) });
+      setFlashLane(laneFromX(x));
+    },
+    onPanResponderRelease: () => {
+      const c = cap.current; cap.current = null; setFlashLane(-1);
+      if (!c || !recordingRef.current) return;
+      const held = (Date.now() - c.wall) / 1000; const lane = laneFromX(c.startX);
+      const base = { id: `edit-${Date.now()}-${lane}-${Math.round(c.startTime * 100)}`, lane, time: Math.max(0, c.startTime) };
+      if (c.moved) addNote({ ...base, type: "wavy", duration: Math.max(0.3, held), path: c.points });
+      else if (held >= TAP_MAX) addNote({ ...base, type: "hold", duration: Math.max(0.3, held) });
+      else addNote({ ...base, type: "tap" });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    },
+    onPanResponderTerminate: () => { cap.current = null; setFlashLane(-1); },
+  })).current;
 
   const toggleSelect = (id: string) => setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const doUndo = () => { if (!undo.current.length) return; setNotes(prev => { redo.current.push(prev); return undo.current.pop()!; }); setSaved(false); };
@@ -100,7 +115,7 @@ export default function EditorScreen() {
   const eraseAll = () => { if (!notes.length) return; setNotes(prev => { undo.current.push(prev); redo.current = []; return []; }); setSelected(new Set()); setSaved(false); };
 
   const save = async () => {
-    if (!selectedSong) return;
+    if (!selectedSong || !notes.length) return;
     const chart: Chart = { songId: selectedSong.id, difficulty: "Custom", bpm: existing?.bpm || selectedSong.bpm || 120, duration, notes: [...notes].sort((a, b) => a.time - b.time), waveform: existing?.waveform || Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.5)) * 0.7) };
     await saveChart(chart); setDifficulty("Custom"); setSaved(true); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
@@ -119,23 +134,19 @@ export default function EditorScreen() {
 
     <View style={styles.modeBar}>
       <Pressable testID="editor-record-button" onPress={() => setRecording(r => !r)} style={[styles.modeBtn, recording && styles.modeBtnRec]}><View style={[styles.recDot, recording && styles.recDotOn]} /><Text style={[styles.modeText, recording && { color: colors.bg }]}>{recording ? "Recording" : "Record"}</Text></Pressable>
-      <Pressable testID="editor-wavy-toggle" onPress={() => setWavyMode(w => !w)} style={[styles.modeBtn, wavyMode && styles.modeBtnOn]}><Ionicons name="water" size={14} color={wavyMode ? colors.bg : colors.text} /><Text style={[styles.modeText, wavyMode && { color: colors.bg }]}>Wavy</Text></Pressable>
-      <Text style={styles.modeHint} numberOfLines={2}>{recording ? (wavyMode ? "Tap a lane to drop a wavy note" : "Tap = note · press & hold = long note") : "Press Record to add notes"}</Text>
+      <Text style={styles.modeHint} numberOfLines={2}>{recording ? "Press Play, then tap a lane = note · hold = long note · drag = wave" : "Press Record, then Play to place notes"}</Text>
     </View>
 
-    {/* Vertical falling board (matches gameplay orientation) */}
+    {/* Falling board — doubles as the live input surface while recording */}
     <View style={styles.boardWrap}>
-      <View style={[styles.board, { width: HW }]}>
+      <View style={[styles.board, { width: HW }]} {...pan.panHandlers}>
         {[0, 1, 2, 3, 4].map(l => <View key={l} style={[styles.boardDiv, { left: l * LANE }]} />)}
+        {laneColors.map((c, l) => <View key={`g${l}`} style={[styles.laneCol, { left: l * LANE, width: LANE, backgroundColor: flashLane === l ? `${c}22` : "transparent" }]} />)}
         {laneColors.map((c, l) => <View key={`ln${l}`} style={[styles.laneNo, { left: l * LANE, width: LANE }]}><Text style={[styles.laneNoText, { color: c }]}>{l + 1}</Text></View>)}
         <View style={styles.hitLineFull} />
-        {visible.map(n => <EditorNote key={n.id} note={n} clock={clock} lookahead={lookahead} boardH={BOARD_H} laneW={LANE} color={laneColors[n.lane]} selected={selected.has(n.id)} onPress={() => toggleSelect(n.id)} />)}
+        {visible.map(n => <EditorNote key={n.id} note={n} clock={clock} lookahead={lookahead} boardH={BOARD_H} laneW={LANE} hw={HW} selected={selected.has(n.id)} onPress={() => toggleSelect(n.id)} />)}
+        {recording && <View pointerEvents="none" style={styles.recBadge}><View style={styles.recBadgeDot} /><Text style={styles.recBadgeText}>REC</Text></View>}
       </View>
-    </View>
-
-    {/* Live tap deck — per-lane pads (gated by Record) */}
-    <View style={[styles.deck, { width: HW, height: DECK_H }]}>
-      {laneColors.map((c, l) => <Pressable key={`deck${l}`} testID={`editor-lane-${l + 1}-pad`} onPressIn={() => onPadIn(l)} onPressOut={() => onPadOut(l)} style={[styles.deckPad, { width: LANE, borderColor: flashLane === l ? c : `${c}55`, backgroundColor: flashLane === l ? `${c}44` : `${c}12`, opacity: recording ? 1 : 0.4 }]}><Ionicons name="add" size={18} color={c} /><View style={[styles.deckBar, { backgroundColor: c }]} /></Pressable>)}
     </View>
 
     {/* Seek */}
@@ -166,12 +177,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   save: { minHeight: 36, paddingHorizontal: 13, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.purple }, saveText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
   songBar: { minHeight: 56, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border }, song: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy }, meta: { color: colors.purple, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, marginTop: 3, fontFamily: fonts.bold }, change: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, changeText: { color: colors.text, fontSize: 12, fontFamily: fonts.bold },
-  hintBar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: rgba(0.08) }, hintText: { color: colors.text, fontSize: 11, flex: 1, fontFamily: fonts.body },
-  modeBar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: rgba(0.08) },
-  modeBtn: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, modeBtnRec: { backgroundColor: colors.pink, borderColor: colors.pink }, modeBtnOn: { backgroundColor: colors.purple, borderColor: colors.purple }, modeText: { color: colors.text, fontSize: 12, fontFamily: fonts.heavy }, recDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "rgba(255,255,255,0.5)" }, recDotOn: { backgroundColor: colors.bg }, modeHint: { flex: 1, color: colors.muted, fontSize: 10, fontFamily: fonts.body, textAlign: "right" },
-  boardWrap: { flex: 1, alignItems: "center", backgroundColor: "#08080C", overflow: "hidden" }, board: { flex: 1, overflow: "hidden" }, boardDiv: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.08)" }, laneNo: { position: "absolute", top: 8, alignItems: "center" }, laneNoText: { fontSize: 11, fontFamily: fonts.heavy, opacity: 0.5 }, hitLineFull: { position: "absolute", left: 0, right: 0, bottom: "16%", height: 2, backgroundColor: "rgba(255,255,255,0.4)" }, eNote: { alignItems: "center", justifyContent: "center" },
-  deck: { alignSelf: "center", flexDirection: "row", paddingHorizontal: 4, paddingVertical: 8, gap: 6 }, deckPad: { flex: 1, borderRadius: 16, borderWidth: 1.5, alignItems: "center", justifyContent: "space-between", paddingVertical: 12 }, deckBar: { width: "40%", height: 5, borderRadius: 3 },
-  seekRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16 }, seekBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
+  modeBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: rgba(0.08) },
+  modeBtn: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, modeBtnRec: { backgroundColor: colors.pink, borderColor: colors.pink }, modeText: { color: colors.text, fontSize: 12, fontFamily: fonts.heavy }, recDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "rgba(255,255,255,0.5)" }, recDotOn: { backgroundColor: colors.bg }, modeHint: { flex: 1, color: colors.muted, fontSize: 10, fontFamily: fonts.body, textAlign: "right" },
+  boardWrap: { flex: 1, alignItems: "center", backgroundColor: "#08080C", overflow: "hidden" }, board: { flex: 1, overflow: "hidden" }, boardDiv: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.08)" }, laneCol: { position: "absolute", top: 0, bottom: 0 }, laneNo: { position: "absolute", top: 8, alignItems: "center" }, laneNoText: { fontSize: 11, fontFamily: fonts.heavy, opacity: 0.5 }, hitLineFull: { position: "absolute", left: 0, right: 0, bottom: "16%", height: 2, backgroundColor: "rgba(255,255,255,0.4)" }, eNote: { alignItems: "center", justifyContent: "center" },
+  recBadge: { position: "absolute", top: 8, right: 10, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, height: 24, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: colors.pink }, recBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.pink }, recBadgeText: { color: colors.text, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
+  seekRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, marginTop: 6 }, seekBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
   transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 18, paddingVertical: 6 }, time: { color: colors.muted, fontSize: 13, fontFamily: fonts.bold, width: 44, textAlign: "center" }, playBtn: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: colors.purple, shadowColor: colors.purple, shadowOpacity: 0.5, shadowRadius: 14, elevation: 8 }, tBtn: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
   controls: { flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingBottom: 8, paddingTop: 2 }, ctrl: { flex: 1, height: 54, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 3, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, ctrlText: { color: colors.text, fontSize: 11, fontFamily: fonts.bold },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", padding: 28, gap: 14 }, emptyTitle: { color: colors.text, fontSize: 24, fontFamily: fonts.display, textAlign: "center" }, emptyCopy: { color: colors.muted, fontSize: 14, textAlign: "center", lineHeight: 20, marginBottom: 6, fontFamily: fonts.body },

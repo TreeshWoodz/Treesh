@@ -7,6 +7,7 @@ export type Note = {
   lane: number;
   type: NoteType;
   duration?: number;
+  path?: { t: number; x: number }[];
   hit?: boolean;
   missed?: boolean;
 };

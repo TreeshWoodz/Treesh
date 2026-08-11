@@ -26,9 +26,9 @@ const judgeColor = (g: Judgment) => (g === "PERFECT" ? "#EAF6FF" : g === "GREAT"
 type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
 
 // ---- Falling note (pure UI-thread motion, memoized so score/combo re-renders never touch it) ----
-const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo, special }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean }) {
   const f = laneFrac(note.lane);
-  const color = laneColors[note.lane];
+  const color = special ? "#FFE27A" : laneColors[note.lane];
   const isHold = note.type === "hold" || note.type === "wavy";
   const baseW = geo.laneW * 0.66;
   const baseH = 20;
@@ -50,30 +50,32 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
       {isHold && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
-      <View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, backgroundColor: color }]}>
-        <View style={[styles.noteGloss, { borderRadius: baseH / 2 }]} />
+      <View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, backgroundColor: color, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.55)" }]}>
+        <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
       </View>
     </Reanimated.View>
   );
 });
 
-const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
-  return <>{notes.map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} />)}</>;
+const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo, special }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean }) {
+  return <>{notes.map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} special={special} />)}</>;
 });
 
-// Bright bar shown while a hold is actively sustained — drains from the receptor as the tail is consumed.
+// Bright bar shown while a hold is actively sustained — drains from the receptor, leaning along the lane's perspective.
 function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+  const f = laneFrac(note.lane);
   const color = laneColors[note.lane];
   const w = geo.laneW * 0.34;
-  const x = geo.cx + laneFrac(note.lane) * geo.hw;
+  const x = geo.cx + f * geo.hw;
+  const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI;
   const endT = note.time + (note.duration || 0.4);
   const aStyle = useAnimatedStyle(() => {
     const cpTe = (clock.value - (endT - lookahead)) / lookahead;
     const cte = cpTe < 0 ? 0 : cpTe > 1 ? 1 : cpTe;
     const yTe = geo.topY + geo.span * cte;
-    return { height: Math.max(0, geo.bottomY - yTe), transform: [{ translateY: yTe }] };
+    return { height: Math.max(0, geo.bottomY - yTe), transform: [{ translateY: yTe }, { rotateZ: `${tilt}deg` }] };
   });
-  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - w / 2, top: 0, width: w, borderRadius: w / 2, backgroundColor: `${color}DD`, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.9)" }, aStyle]} />;
+  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - w / 2, top: 0, width: w, borderRadius: w / 2, backgroundColor: `${color}DD`, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.9)", transformOrigin: "50% 100%" }, aStyle]} />;
 }
 
 // ---- Static perspective grid (SVG, rendered once) ----
@@ -155,7 +157,7 @@ export default function GameScreen() {
   const clockStart = useRef(0); const pauseAccum = useRef(0); const pauseAt = useRef(0);
   const resolved = useRef(new Set<string>());
   const counts = useRef({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
-  const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false);
+  const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false); const pulseBase = useRef(0); const tickCount = useRef(0);
   const laneFlash = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const pressed = useRef(new Set<number>()).current;
   const judgeAnim = useRef(new Animated.Value(0)).current;
@@ -218,10 +220,14 @@ export default function GameScreen() {
       const ids: string[] = [];
       for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > lookahead) break; if (!resolved.current.has(n.id)) ids.push(n.id); }
       setWindowIds(prev => (prev.length === ids.length && prev.every((id, i) => id === ids[i])) ? prev : ids);
-      if (missLane >= 0) { setCombo(0); setRock(v => Math.max(0, v - 6)); showJudge("MISS", missLane); }
-      const c = counts.current; const done = c.PERFECT + c.GREAT + c.GOOD + c.MISS;
-      setAccuracy(done ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / done) * 1000) / 10 : 100);
-      setProgress(Math.min(1, t / duration));
+      if (missLane >= 0) { setCombo(0); setRock(v => Math.max(0, v - 6)); showJudge("MISS", missLane); pulseBase.current = 0; setPulse(0); }
+      // Throttle the always-changing HUD figures to ~every 3rd tick to cut re-renders.
+      tickCount.current++;
+      if (tickCount.current % 3 === 0) {
+        const c = counts.current; const done = c.PERFECT + c.GREAT + c.GOOD + c.MISS;
+        setAccuracy(done ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / done) * 1000) / 10 : 100);
+        setProgress(Math.min(1, t / duration));
+      }
       setScore(s => (s === scoreRef.current ? s : scoreRef.current));
       if (t >= duration - 0.05) finish();
     }, 150);
@@ -237,12 +243,14 @@ export default function GameScreen() {
     laneFlash[lane].setValue(1);
     const timer = setInterval(() => {
       const t = jsTime();
-      if (!pressed.has(lane) && t < end - 0.1) { setActiveHold(null); comboRef.current = 0; setCombo(0); showJudge("MISS", lane); return; }
+      if (!pressed.has(lane) && t < end - 0.1) { setActiveHold(null); comboRef.current = 0; setCombo(0); showJudge("MISS", lane); pulseBase.current = 0; setPulse(0); return; }
       scoreRef.current += Math.round(24 * (pulseActive ? 2 : 1));
       if (t >= end) { setActiveHold(null); scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1)); setScore(scoreRef.current); setPulse(v => Math.min(100, v + 8)); }
     }, 90);
     return () => { clearInterval(timer); Animated.timing(laneFlash[lane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); };
   }, [activeHold, jsTime, laneFlash, pulseActive, pressed, showJudge]);
+
+  const setPulseFromCombo = useCallback(() => setPulse(Math.min(100, Math.max(0, ((comboRef.current - pulseBase.current) / 25) * 100))), []);
 
   const hitLane = useCallback((lane: number) => {
     if (!chart || countdown > 0 || paused) return;
@@ -255,30 +263,32 @@ export default function GameScreen() {
     comboRef.current += 1; maxCombo.current = Math.max(maxCombo.current, comboRef.current); setCombo(comboRef.current);
     const multiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10)) * (pulseActive ? 2 : 1);
     scoreRef.current += Math.round(1000 * weights[grade] * multiplier); setScore(scoreRef.current);
-    setRock(v => Math.min(100, v + (grade === "PERFECT" ? 3 : 1))); setPulse(v => Math.min(100, v + (target!.type === "special" ? 18 : 3)));
+    setRock(v => Math.min(100, v + (grade === "PERFECT" ? 3 : 1))); setPulseFromCombo();
     showJudge(grade, lane); flashLane(lane);
     if (settings.hitSfx) { hitPlayer.seekTo(0); hitPlayer.play(); }
     if (target.type === "hold" || target.type === "wavy") setActiveHold(target);
     if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
-  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, showJudge, settings.haptics, settings.hitSfx, hitPlayer]);
+  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, showJudge, settings.haptics, settings.hitSfx, hitPlayer, sorted, setPulseFromCombo]);
 
-  const activatePulse = () => { if (pulse < 100 || pulseActive) return; setPulseActive(true); setPulse(0); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setTimeout(() => setPulseActive(false), 8000); };
+  const activatePulse = () => { if (pulse < 100 || pulseActive) return; pulseBase.current = comboRef.current; setPulse(0); setPulseActive(true); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setTimeout(() => { setPulseActive(false); pulseBase.current = comboRef.current; setPulse(0); }, 8000); };
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
-  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
+  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
   if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text style={styles.missingTitle}>Chart not ready</Text><Text style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
 
   const padW = width / 4;
   const pulseReady = pulse >= 100;
+  const charged = pulseReady || pulseActive;
 
   return <View style={styles.root} testID="gameplay-screen">
     <Backdrop coverArt={selectedSong.coverArt} grayscale={settings.grayscaleCovers} />
     <Grid geo={geo} w={width} h={height} />
+    {pulseActive && <LinearGradient pointerEvents="none" colors={["rgba(255,77,141,0.16)", "rgba(179,124,255,0.14)", "rgba(47,224,214,0.16)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
 
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} />
+      <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} special={charged} />
       {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} />}
     </View>
 
@@ -311,10 +321,10 @@ export default function GameScreen() {
     </View>
 
     {/* VOCO / Vocopulse meter */}
-    <Pressable testID="activate-vocopulse-button" onPress={activatePulse} style={[styles.voco, { bottom: PAD_BOTTOM - 54 }]}>
+    <Pressable testID="activate-vocopulse-button" onPress={activatePulse} style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, pulseReady && styles.vocoReady]}>
       <Text style={styles.vocoLabel}>V O C O</Text>
       <View style={styles.vocoTrack}><LinearGradient colors={pulseActive ? ["#2FE0D6", "#B37CFF"] : ["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.vocoFill, { width: `${pulseActive ? 100 : pulse}%` }]} /></View>
-      <Text style={[styles.vocoMult, pulseReady && { color: "#2FE0D6" }]}>{pulseActive ? "2×" : pulseReady ? "GO" : "1×"}</Text>
+      <Text style={[styles.vocoMult, (pulseReady || pulseActive) && { color: "#FFE27A" }]}>{pulseActive ? "2×" : pulseReady ? "PULSE!" : "1×"}</Text>
     </Pressable>
 
     {/* Tap pads */}
@@ -345,6 +355,7 @@ const styles = StyleSheet.create({
   accRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 }, accTrack: { flex: 1, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, accFill: { height: 7, borderRadius: 4 }, accText: { color: "rgba(245,245,247,0.85)", fontSize: 13, fontFamily: fonts.bold, width: 52, textAlign: "right" },
   progTrack: { height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.08)", marginTop: 8, overflow: "hidden" }, progFill: { height: 4, borderRadius: 2 },
   voco: { position: "absolute", left: 18, right: 18, height: 44, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
+  vocoReady: { borderColor: "#FFE27A", backgroundColor: "rgba(255,226,122,0.12)" },
   vocoLabel: { color: "rgba(245,245,247,0.8)", fontSize: 12, letterSpacing: 2, fontFamily: fonts.heavy }, vocoTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, vocoFill: { height: 8, borderRadius: 4 }, vocoMult: { color: "rgba(245,245,247,0.9)", fontSize: 14, fontFamily: fonts.heavy, width: 26, textAlign: "right" },
   pads: { position: "absolute", left: 0, right: 0, flexDirection: "row" }, pad: { flex: 1, margin: 3, borderRadius: 18 },
   countdown: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" }, ready: { color: colors.purple, fontSize: 13, letterSpacing: 4, fontFamily: fonts.heavy }, count: { color: colors.text, fontSize: 118, lineHeight: 132, fontFamily: fonts.display }, readySong: { color: colors.muted, fontSize: 14, marginTop: 4, fontFamily: fonts.body },

@@ -26,6 +26,7 @@ export default function Root({ children }: PropsWithChildren) {
               [role="heading"], [role="heading"] * { overflow: visible !important; }
               /* App-like feel: no text selection, no drag-to-highlight, no callout. */
               * { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+              img { -webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; pointer-events: none; }
               input, textarea { -webkit-user-select: text; user-select: text; }
             `,
           }}
@@ -33,7 +34,8 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `document.addEventListener('contextmenu', function (e) { e.preventDefault(); }, { capture: true });
-              document.addEventListener('dragstart', function (e) { e.preventDefault(); }, { capture: true });`,
+              document.addEventListener('dragstart', function (e) { e.preventDefault(); }, { capture: true });
+              document.addEventListener('selectstart', function (e) { e.preventDefault(); }, { capture: true });`,
           }}
         />
       </head>
