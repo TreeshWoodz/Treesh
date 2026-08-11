@@ -61,6 +61,21 @@ const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo
   return <>{notes.map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} />)}</>;
 });
 
+// Bright bar shown while a hold is actively sustained — drains from the receptor as the tail is consumed.
+function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+  const color = laneColors[note.lane];
+  const w = geo.laneW * 0.34;
+  const x = geo.cx + laneFrac(note.lane) * geo.hw;
+  const endT = note.time + (note.duration || 0.4);
+  const aStyle = useAnimatedStyle(() => {
+    const cpTe = (clock.value - (endT - lookahead)) / lookahead;
+    const cte = cpTe < 0 ? 0 : cpTe > 1 ? 1 : cpTe;
+    const yTe = geo.topY + geo.span * cte;
+    return { height: Math.max(0, geo.bottomY - yTe), transform: [{ translateY: yTe }] };
+  });
+  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - w / 2, top: 0, width: w, borderRadius: w / 2, backgroundColor: `${color}DD`, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.9)" }, aStyle]} />;
+}
+
 // ---- Static perspective grid (SVG, rendered once) ----
 const Grid = React.memo(function Grid({ geo, w, h }: { geo: Geo; w: number; h: number }) {
   const topX = (fr: number) => geo.cx + fr * geo.hw * P_NEAR;
@@ -156,6 +171,8 @@ export default function GameScreen() {
 
   const lookahead = 2.4 / settings.noteSpeed;
   const duration = chart?.duration || 30;
+  const sorted = useMemo(() => (chart ? [...chart.notes].sort((a, b) => a.time - b.time) : []), [chart]);
+  const scanStart = useRef(0);
 
   const jsTime = useCallback(() => (Date.now() - clockStart.current - pauseAccum.current) / 1000 + settings.audioOffset / 1000, [settings.audioOffset]);
   const flashLane = useCallback((lane: number) => { laneFlash[lane].setValue(1); Animated.timing(laneFlash[lane], { toValue: 0, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [laneFlash]);
@@ -178,26 +195,28 @@ export default function GameScreen() {
   useEffect(() => {
     if (!chart || !selectedSong?.uri) return;
     let v = 3; setCountdown(v);
-    const timer = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(timer); clockStart.current = Date.now(); pauseAccum.current = 0; player.seekTo(0); player.play(); startClock(0); } }, 720);
+    const timer = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(timer); scanStart.current = 0; clockStart.current = Date.now(); pauseAccum.current = 0; player.seekTo(0); player.play(); startClock(0); } }, 720);
     return () => { clearInterval(timer); player.pause(); cancelAnimation(clock); };
   }, [chart, selectedSong?.uri, player, startClock, clock]);
 
   useEffect(() => { ensureHitAudio().then(uri => hitPlayer.replace({ uri })).catch(() => {}); }, [hitPlayer]);
   useEffect(() => { if (!judgment) return; judgeAnim.setValue(0); Animated.sequence([Animated.spring(judgeAnim, { toValue: 1, friction: 5, tension: 150, useNativeDriver: true }), Animated.delay(260), Animated.timing(judgeAnim, { toValue: 0, duration: 160, useNativeDriver: true })]).start(); }, [judgment, judgeAnim]);
 
-  // Single-pass game loop @150ms: build visible window, detect misses, sync throttled displays.
+  // Game loop @150ms — pointer-based scan (O(visible)), miss detection, throttled HUD sync.
   useEffect(() => {
     if (!chart || countdown > 0) return;
     const tick = setInterval(() => {
       if (paused || finishing.current) return;
       const t = jsTime();
-      const ids: string[] = []; let missLane = -1; const notes = chart.notes;
-      for (let i = 0; i < notes.length; i++) {
-        const n = notes[i]; if (resolved.current.has(n.id)) continue;
-        const dt = n.time - t;
-        if (dt < lookahead && dt > -0.5) ids.push(n.id);
-        if (t - n.time > 0.42) { resolved.current.add(n.id); counts.current.MISS += 1; comboRef.current = 0; missLane = n.lane; }
+      let missLane = -1;
+      // Advance the start pointer past notes that have fully passed; flag any unhit ones as misses.
+      while (scanStart.current < sorted.length && t - sorted[scanStart.current].time > 0.42) {
+        const n = sorted[scanStart.current];
+        if (!resolved.current.has(n.id)) { resolved.current.add(n.id); counts.current.MISS += 1; comboRef.current = 0; missLane = n.lane; }
+        scanStart.current++;
       }
+      const ids: string[] = [];
+      for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > lookahead) break; if (!resolved.current.has(n.id)) ids.push(n.id); }
       setWindowIds(prev => (prev.length === ids.length && prev.every((id, i) => id === ids[i])) ? prev : ids);
       if (missLane >= 0) { setCombo(0); setRock(v => Math.max(0, v - 6)); showJudge("MISS", missLane); }
       const c = counts.current; const done = c.PERFECT + c.GREAT + c.GOOD + c.MISS;
@@ -207,7 +226,7 @@ export default function GameScreen() {
       if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted]);
 
   useEffect(() => { if (rock <= 0 && !settings.noFail) finish(); }, [rock, settings.noFail, finish]);
 
@@ -229,7 +248,7 @@ export default function GameScreen() {
     if (!chart || countdown > 0 || paused) return;
     const t = jsTime();
     let target: Note | undefined; let best = Infinity;
-    for (const n of chart.notes) { if (n.lane !== lane || resolved.current.has(n.id)) continue; const d = Math.abs(n.time - t); if (d < best) { best = d; target = n; } }
+    for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > 0.5) break; if (n.lane !== lane || resolved.current.has(n.id)) continue; const d = Math.abs(n.time - t); if (d < best) { best = d; target = n; } }
     if (!target || best > 0.42) { flashLane(lane); return; }
     const grade: Judgment = best <= 0.11 ? "PERFECT" : best <= 0.24 ? "GREAT" : "GOOD";
     resolved.current.add(target.id); counts.current[grade] += 1;
@@ -245,7 +264,7 @@ export default function GameScreen() {
 
   const activatePulse = () => { if (pulse < 100 || pulseActive) return; setPulseActive(true); setPulse(0); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setTimeout(() => setPulseActive(false), 8000); };
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
-  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
+  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
   if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text style={styles.missingTitle}>Chart not ready</Text><Text style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
@@ -260,12 +279,13 @@ export default function GameScreen() {
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} />
+      {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} />}
     </View>
 
     <Receptors geo={geo} flash={laneFlash} />
 
     {/* Combo */}
-    {combo > 2 && <View pointerEvents="none" style={[styles.comboWrap, { top: geo.topY + geo.span * 0.28 }]}>
+    {combo > 2 && <View pointerEvents="none" style={[styles.comboWrap, { top: geo.topY + geo.span * 0.06 }]}>
       <View style={styles.comboGlow} />
       <Text style={styles.combo}>{combo}</Text>
       <Text style={styles.comboLabel}>COMBO</Text>
@@ -316,8 +336,8 @@ const styles = StyleSheet.create({
   note: { alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)" },
   noteGloss: { position: "absolute", top: 1.5, left: 4, right: 4, height: "42%", backgroundColor: "rgba(255,255,255,0.35)" },
   receptor: { position: "absolute", height: 32, borderRadius: 16, borderWidth: 2.5, overflow: "hidden" },
-  comboWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" }, comboGlow: { position: "absolute", width: 150, height: 150, borderRadius: 75, backgroundColor: rgba(0.22), top: -34 },
-  combo: { color: colors.text, fontSize: 62, lineHeight: 66, fontFamily: fonts.display, textShadowColor: rgba(0.9), textShadowRadius: 18 }, comboLabel: { color: "rgba(255,255,255,0.55)", fontSize: 13, letterSpacing: 6, fontFamily: fonts.heavy, marginTop: 2 },
+  comboWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" }, comboGlow: { position: "absolute", width: 110, height: 110, borderRadius: 55, backgroundColor: rgba(0.16), top: -22 },
+  combo: { color: colors.text, fontSize: 48, lineHeight: 52, fontFamily: fonts.display, textShadowColor: rgba(0.9), textShadowRadius: 14 }, comboLabel: { color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 5, fontFamily: fonts.heavy, marginTop: 1 },
   judgment: { position: "absolute", width: 180, textAlign: "center", fontSize: 26, fontFamily: fonts.display, letterSpacing: 0.5 },
   hud: { position: "absolute", left: 18, right: 18 }, hudRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   score: { color: colors.text, fontSize: 34, lineHeight: 38, fontFamily: fonts.display, textShadowColor: rgba(0.6), textShadowRadius: 12 }, songMeta: { color: "rgba(245,245,247,0.55)", fontSize: 13, fontFamily: fonts.body, marginTop: 1 },
