@@ -1,19 +1,19 @@
-// Native storage (Metro auto-picks index.web.ts on web — do NOT add Platform.OS checks).
+// Native storage (Metro auto-picks index.web.ts on web - do NOT add Platform.OS checks).
 //
-// Import the ready-made singleton BY NAME and call methods on it — never a default
+// Import the ready-made singleton BY NAME and call methods on it - never a default
 // import, never the methods bare:
 //   import { storage } from "@/src/utils/storage";
 //   await storage.getItem(key, fallback);      // the `fallback` arg is REQUIRED
 //
 // Namespaces: general KV -> getItem/setItem/removeItem (AsyncStorage);
 //             tokens/secrets -> secureGet/secureSet/secureRemove (Keychain).
-// Values are auto JSON-serialized (string|number|boolean|null) in this implementation — never JSON.stringify/parse yourself.
+// Values are auto JSON-serialized (string|number|boolean|null) in this implementation - never JSON.stringify/parse yourself.
 // Helpers NEVER throw: a miss returns `fallback`, a failed write returns `false` (failures are SILENT).
 // 
 // Use async/await for all storage operations.
 //
 // AUTH TOKENS: use ONE namespace (secure*) + ONE shared key constant, and read/write it the SAME
-// way on both sides — the login/AuthContext (write) and the API client/interceptor (read). A
+// way on both sides - the login/AuthContext (write) and the API client/interceptor (read). A
 // mismatched method or key silently returns the fallback, surfacing as a logged-out state or 401/403
 // with no error in the logs.
 
@@ -23,8 +23,8 @@ import * as SecureStore from "expo-secure-store";
 import { AssertNoExtras, StorageBase, StorageItemValue } from "./storage-base";
 
 export class Storage extends StorageBase {
-  // General KV — backed by AsyncStorage.
-  // `fallback` is required and returned on any miss/parse error — a missing key looks identical to a stored `null`.
+  // General KV - backed by AsyncStorage.
+  // `fallback` is required and returned on any miss/parse error - a missing key looks identical to a stored `null`.
   async getItem<Fallback extends StorageItemValue>(
     key: string,
     fallback: Fallback,
@@ -61,7 +61,7 @@ export class Storage extends StorageBase {
     }
   }
 
-  // Sensitive values — Keychain (iOS) / EncryptedSharedPreferences (Android).
+  // Sensitive values - Keychain (iOS) / EncryptedSharedPreferences (Android).
   // Use these (not getItem) for auth tokens; whatever writes with secureSet must read with secureGet under the same key.
   async secureGet<Fallback extends StorageItemValue>(
     key: string,
@@ -100,7 +100,7 @@ export class Storage extends StorageBase {
   }
 }
 
-// The shared singleton — import THIS (`import { storage } from "@/src/utils/storage"`). Do not `new Storage()`.
+// The shared singleton - import THIS (`import { storage } from "@/src/utils/storage"`). Do not `new Storage()`.
 export const storage = new Storage();
 
 // Compile-time guard: any new method must be declared in storage-base.ts first.

@@ -101,3 +101,14 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+## Current test focus (FRONTEND ONLY) - Vocotap rhythm game redesign
+- Reskin to parent Treesh design: dynamic accent from treesh_accent (localStorage, default #9328ff), Manrope + Special Gothic fonts, glass surfaces.
+- Gameplay: 3D perspective highway, native-driven note motion (fix lag).
+- Editor: vertical record-and-play (tap=tap, hold=hold, drag=wavy) + Undo/Redo/Erase selected/Erase all.
+- Starlites: home star pill opens history modal (NOT settings).
+- Guide: tappable note explanations + FAQ. Home: profile avatar + nickname, badge removed.
+
+agent_communication:
+    -agent: "main"
+    -message: "Test FRONTEND ONLY (local-first, no auth/backend). Flows: (1) Home shows avatar+nickname+Starlites pill; home-starlites-button opens modal with starlites-history-list and starlites-close-button (must NOT go to settings). (2) quick-play-button -> gameplay-screen 3D highway; lane-1-hit-pad..lane-4-hit-pad tappable; pause-game-button -> resume/restart/exit. (3) Editor via open-editor-button (warmup song preselected by quick play, else Choose a track): editor-record-button toggles REC, editor-play-button plays, tap deck adds notes, editor-undo-button/editor-redo-button/editor-erase-selected-button/editor-erase-all-button, save-chart-button. (4) open-guide-button: note-type-tap..note-type-special expand, faq-item-1.. expand. (5) Library: import flow, NO 'Open on Treesh' button."

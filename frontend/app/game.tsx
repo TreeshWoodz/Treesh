@@ -4,144 +4,331 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Animated, Easing, Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Reanimated, { Easing as RE, cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Svg, { Defs, LinearGradient as SvgLinear, Line, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
+import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
-import { laneColors, colors } from "@/src/game/theme";
+import { laneColors, colors, fonts, rgba } from "@/src/game/theme";
 import { Note, ScoreResult } from "@/src/game/types";
 import { useStarlites } from "@/src/game/starlites";
+import { useTreeshIdentity } from "@/src/game/identity";
 import { ensureHitAudio } from "@/src/game/synth";
 
 type Judgment = "PERFECT" | "GREAT" | "GOOD" | "MISS";
 const weights = { PERFECT: 1, GREAT: 0.75, GOOD: 0.45, MISS: 0 };
+const P_NEAR = 0.12; // lane width at the vanishing point as a fraction of the bottom width
+const laneFrac = (lane: number) => (lane + 0.5) / 4 - 0.5;
+const judgeColor = (g: Judgment) => (g === "PERFECT" ? "#EAF6FF" : g === "GREAT" ? laneColors[1] : g === "GOOD" ? laneColors[3] : "#FF5C7A");
+
+type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
+
+// ---- Falling note (pure UI-thread motion, memoized so score/combo re-renders never touch it) ----
+const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+  const f = laneFrac(note.lane);
+  const color = laneColors[note.lane];
+  const isHold = note.type === "hold" || note.type === "wavy";
+  const baseW = geo.laneW * 0.66;
+  const baseH = 20;
+  const tailLen = isHold ? Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span)) : 0;
+  const aStyle = useAnimatedStyle(() => {
+    const prog = (clock.value - (note.time - lookahead)) / lookahead; // 0 at spawn(top) → 1 at receptor
+    const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
+    const persp = P_NEAR + (1 - P_NEAR) * cp;
+    const x = geo.cx + f * geo.hw * persp;
+    const y = geo.topY + geo.span * cp;
+    let opacity = 1;
+    if (prog < 0.05) opacity = prog / 0.05;
+    if (prog > 1.0) opacity = 1 - (prog - 1.0) / 0.12;
+    if (opacity < 0) opacity = 0; if (opacity > 1) opacity = 1;
+    return { opacity, transform: [{ translateX: x }, { translateY: y }, { scale: persp }] };
+  });
+  return (
+    <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
+      {isHold && <View style={{ position: "absolute", left: baseW / 2 - baseW * 0.22, bottom: baseH / 2, width: baseW * 0.44, height: tailLen, borderRadius: baseW * 0.22, backgroundColor: `${color}33`, borderWidth: 1, borderColor: `${color}88` }} />}
+      <View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, backgroundColor: color }]}>
+        <View style={[styles.noteGloss, { borderRadius: baseH / 2 }]} />
+      </View>
+    </Reanimated.View>
+  );
+});
+
+const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+  return <>{notes.map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} />)}</>;
+});
+
+// ---- Static perspective grid (SVG, rendered once) ----
+const Grid = React.memo(function Grid({ geo, w, h }: { geo: Geo; w: number; h: number }) {
+  const topX = (fr: number) => geo.cx + fr * geo.hw * P_NEAR;
+  const botX = (fr: number) => geo.cx + fr * geo.hw;
+  const edges = [-0.5, -0.25, 0, 0.25, 0.5];
+  const poly = `${topX(-0.5)},${geo.topY} ${topX(0.5)},${geo.topY} ${botX(0.5)},${geo.bottomY} ${botX(-0.5)},${geo.bottomY}`;
+  return (
+    <Svg width={w} height={h} style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <RadialGradient id="glow" cx="50%" cy={`${(geo.topY / h) * 100}%`} r="55%">
+          <Stop offset="0" stopColor={colors.purple} stopOpacity={0.4} />
+          <Stop offset="1" stopColor={colors.purple} stopOpacity={0} />
+        </RadialGradient>
+        <SvgLinear id="lane" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#12101C" stopOpacity={0.25} />
+          <Stop offset="1" stopColor="#1A1730" stopOpacity={0.55} />
+        </SvgLinear>
+      </Defs>
+      <Rect x={0} y={0} width={w} height={h} fill="url(#glow)" />
+      <Polygon points={poly} fill="url(#lane)" />
+      {edges.map((e, i) => <Line key={i} x1={topX(e)} y1={geo.topY} x2={botX(e)} y2={geo.bottomY} stroke="rgba(255,255,255,0.13)" strokeWidth={i === 2 ? 1.3 : 1} />)}
+      {[0.4, 0.68, 0.88].map((p, i) => { const y = geo.topY + geo.span * p; const persp = P_NEAR + (1 - P_NEAR) * p; return <Line key={`d${i}`} x1={geo.cx - geo.hw * 0.5 * persp} y1={y} x2={geo.cx + geo.hw * 0.5 * persp} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />; })}
+    </Svg>
+  );
+});
+
+const Receptors = React.memo(function Receptors({ geo, flash }: { geo: Geo; flash: Animated.Value[] }) {
+  const capW = geo.laneW * 0.82;
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {laneColors.map((c, l) => {
+        const x = geo.cx + laneFrac(l) * geo.hw;
+        return (
+          <Animated.View key={l} style={[styles.receptor, { width: capW, left: x - capW / 2, top: geo.bottomY - 16, borderColor: c, transform: [{ scale: flash[l].interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] }) }] }]}>
+            <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 16, backgroundColor: c, opacity: flash[l].interpolate({ inputRange: [0, 1], outputRange: [0.06, 0.92] }) }]} />
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+});
+
+const Backdrop = React.memo(function Backdrop({ coverArt, grayscale }: { coverArt?: string | number; grayscale: boolean }) {
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "#07060C" }]} />
+      {coverArt && <Image testID="gameplay-cover-backdrop" source={typeof coverArt === "number" ? coverArt : { uri: coverArt }} style={styles.cover} resizeMode="cover" blurRadius={grayscale ? 10 : 6} />}
+      {coverArt && <View style={[StyleSheet.absoluteFill, { backgroundColor: grayscale ? "rgba(10,9,15,0.7)" : rgba(0.32) }]} />}
+      <LinearGradient colors={["rgba(7,6,12,0.2)", "rgba(7,6,12,0.65)", "#07060C"]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+    </View>
+  );
+});
 
 export default function GameScreen() {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { selectedSong, selectedDifficulty, charts, settings, saveResult } = useAppState();
   const { gameComplete, discoverSong, listen } = useStarlites();
+  const { nickname, avatar } = useTreeshIdentity();
   const chart = selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined;
-  const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: settings.performanceMode ? 80 : 35 });
+  const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 200 });
   const hitPlayer = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
+
   const [countdown, setCountdown] = useState(3);
   const [paused, setPaused] = useState(false);
   const [combo, setCombo] = useState(0);
   const [score, setScore] = useState(0);
-  const [rock, setRock] = useState(72);
+  const [rock, setRock] = useState(70);
+  const [accuracy, setAccuracy] = useState(100);
+  const [progress, setProgress] = useState(0);
   const [pulse, setPulse] = useState(0);
   const [pulseActive, setPulseActive] = useState(false);
-  const [judgment, setJudgment] = useState<Judgment | null>(null);
-  const [resolvedVersion, setResolvedVersion] = useState(0);
+  const [judgment, setJudgment] = useState<{ grade: Judgment; x: number; y: number; key: number } | null>(null);
+  const [windowIds, setWindowIds] = useState<string[]>([]);
   const [activeHold, setActiveHold] = useState<Note | null>(null);
   const [fingerLane, setFingerLane] = useState(-1);
-  const [particles, setParticles] = useState<{ id: number; lane: number; color: string }[]>([]);
+
+  const clock = useSharedValue(0);
+  const clockStart = useRef(0); const pauseAccum = useRef(0); const pauseAt = useRef(0);
   const resolved = useRef(new Set<string>());
   const counts = useRef({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
   const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false);
-  const gameWidth = Math.min(width, 560); const laneWidth = gameWidth / 4; const hitY = height - 152; const travel = height * 0.69;
-  const lookahead = 3.1 / settings.noteSpeed;
-  const currentTime = Math.max(0, status.currentTime + settings.audioOffset / 1000);
+  const laneFlash = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
+  const pressed = useRef(new Set<number>()).current;
+  const judgeAnim = useRef(new Animated.Value(0)).current;
 
-  const spawn = useCallback((lane: number, color: string) => {
-    if (settings.performanceMode || settings.reducedParticles) return;
-    const id = Date.now() + Math.random(); setParticles(value => [...value.slice(-10), { id, lane, color }]);
-    setTimeout(() => setParticles(value => value.filter(item => item.id !== id)), 420);
-  }, [settings.performanceMode, settings.reducedParticles]);
+  const PAD_BOTTOM = insets.bottom + 66;
+  const PAD_H = 148;
+  const geo: Geo = useMemo(() => {
+    const hw = Math.min(width - 20, 470);
+    const bottomY = height - PAD_BOTTOM - PAD_H / 2;
+    const topY = insets.top + 128;
+    return { cx: width / 2, hw, topY, bottomY, laneW: hw / 4, span: bottomY - topY };
+  }, [width, height, insets.top, PAD_BOTTOM]);
+
+  const lookahead = 2.4 / settings.noteSpeed;
+  const duration = chart?.duration || 30;
+
+  const jsTime = useCallback(() => (Date.now() - clockStart.current - pauseAccum.current) / 1000 + settings.audioOffset / 1000, [settings.audioOffset]);
+  const flashLane = useCallback((lane: number) => { laneFlash[lane].setValue(1); Animated.timing(laneFlash[lane], { toValue: 0, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [laneFlash]);
+  const showJudge = useCallback((grade: Judgment, lane: number) => {
+    const persp = P_NEAR + (1 - P_NEAR) * 0.52;
+    setJudgment({ grade, x: geo.cx + laneFrac(lane) * geo.hw * persp, y: geo.topY + geo.span * 0.52, key: Date.now() });
+  }, [geo]);
+  const startClock = useCallback((from: number) => { cancelAnimation(clock); clock.value = from; clock.value = withTiming(duration, { duration: Math.max(10, (duration - from) * 1000), easing: RE.linear }); }, [clock, duration]);
 
   const finish = useCallback(async () => {
-    if (!chart || !selectedSong || finishing.current) return; finishing.current = true; player.pause();
-    const total = chart.notes.length; const c = counts.current; const remaining = chart.notes.filter(note => !resolved.current.has(note.id)).length; if (remaining) c.MISS += remaining;
-    const accuracy = total ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / total) * 10000) / 100 : 0;
-    const stars = accuracy >= 97 ? 5 : accuracy >= 90 ? 4 : accuracy >= 78 ? 3 : accuracy >= 60 ? 2 : accuracy > 0 ? 1 : 0;
-    const result: ScoreResult = { songId: selectedSong.id, title: selectedSong.title, difficulty: selectedDifficulty, score: scoreRef.current, accuracy, maxCombo: maxCombo.current, stars, perfect: c.PERFECT, great: c.GREAT, good: c.GOOD, miss: c.MISS, totalNotes: total, createdAt: Date.now() };
+    if (!chart || !selectedSong || finishing.current) return; finishing.current = true; player.pause(); cancelAnimation(clock);
+    const total = chart.notes.length; const c = counts.current; const remaining = chart.notes.filter(n => !resolved.current.has(n.id)).length; if (remaining) c.MISS += remaining;
+    const acc = total ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / total) * 10000) / 100 : 0;
+    const stars = acc >= 97 ? 5 : acc >= 90 ? 4 : acc >= 78 ? 3 : acc >= 60 ? 2 : acc > 0 ? 1 : 0;
+    const result: ScoreResult = { songId: selectedSong.id, title: selectedSong.title, difficulty: selectedDifficulty, score: scoreRef.current, accuracy: acc, maxCombo: maxCombo.current, stars, perfect: c.PERFECT, great: c.GREAT, good: c.GOOD, miss: c.MISS, totalNotes: total, createdAt: Date.now() };
     await saveResult(result); await gameComplete("Vocotap"); await listen(chart.duration); if (chart.duration > 20) await discoverSong(selectedSong.id); router.replace("/results");
-  }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, discoverSong, listen, player]);
+  }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, discoverSong, listen, player, clock]);
 
+  // Countdown → start audio + clock.
   useEffect(() => {
     if (!chart || !selectedSong?.uri) return;
-    let value = 3; setCountdown(value);
-    const timer = setInterval(() => { value -= 1; setCountdown(value); if (value <= 0) { clearInterval(timer); player.seekTo(0); player.play(); } }, 780);
-    return () => { clearInterval(timer); player.pause(); };
-  }, [chart, selectedSong?.uri, player]);
+    let v = 3; setCountdown(v);
+    const timer = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(timer); clockStart.current = Date.now(); pauseAccum.current = 0; player.seekTo(0); player.play(); startClock(0); } }, 720);
+    return () => { clearInterval(timer); player.pause(); cancelAnimation(clock); };
+  }, [chart, selectedSong?.uri, player, startClock, clock]);
 
   useEffect(() => { ensureHitAudio().then(uri => hitPlayer.replace({ uri })).catch(() => {}); }, [hitPlayer]);
+  useEffect(() => { if (!judgment) return; judgeAnim.setValue(0); Animated.sequence([Animated.spring(judgeAnim, { toValue: 1, friction: 5, tension: 150, useNativeDriver: true }), Animated.delay(260), Animated.timing(judgeAnim, { toValue: 0, duration: 160, useNativeDriver: true })]).start(); }, [judgment, judgeAnim]);
 
+  // Single-pass game loop @150ms: build visible window, detect misses, sync throttled displays.
   useEffect(() => {
-    if (!chart || countdown > 0 || paused || finishing.current) return;
-    let missed = false;
-    chart.notes.forEach(note => { if (!resolved.current.has(note.id) && currentTime - note.time > 0.42) { resolved.current.add(note.id); counts.current.MISS += 1; comboRef.current = 0; setCombo(0); setRock(value => Math.max(0, value - 8)); setJudgment("MISS"); missed = true; } });
-    if (missed) setResolvedVersion(value => value + 1);
-    if ((status.didJustFinish || currentTime >= chart.duration - 0.08) && currentTime > 1) finish();
-  }, [currentTime, chart, countdown, paused, status.didJustFinish, finish]);
+    if (!chart || countdown > 0) return;
+    const tick = setInterval(() => {
+      if (paused || finishing.current) return;
+      const t = jsTime();
+      const ids: string[] = []; let missLane = -1; const notes = chart.notes;
+      for (let i = 0; i < notes.length; i++) {
+        const n = notes[i]; if (resolved.current.has(n.id)) continue;
+        const dt = n.time - t;
+        if (dt < lookahead && dt > -0.5) ids.push(n.id);
+        if (t - n.time > 0.42) { resolved.current.add(n.id); counts.current.MISS += 1; comboRef.current = 0; missLane = n.lane; }
+      }
+      setWindowIds(prev => (prev.length === ids.length && prev.every((id, i) => id === ids[i])) ? prev : ids);
+      if (missLane >= 0) { setCombo(0); setRock(v => Math.max(0, v - 6)); showJudge("MISS", missLane); }
+      const c = counts.current; const done = c.PERFECT + c.GREAT + c.GOOD + c.MISS;
+      setAccuracy(done ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / done) * 1000) / 10 : 100);
+      setProgress(Math.min(1, t / duration));
+      setScore(s => (s === scoreRef.current ? s : scoreRef.current));
+      if (t >= duration - 0.05 || status.didJustFinish) finish();
+    }, 150);
+    return () => clearInterval(tick);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, status.didJustFinish, showJudge]);
 
   useEffect(() => { if (rock <= 0 && !settings.noFail) finish(); }, [rock, settings.noFail, finish]);
 
+  // Hold / wavy sustain — finger must stay on the lane for the full tail.
   useEffect(() => {
-    if (!activeHold || !chart || resolved.current.has(`${activeHold.id}-complete`)) return;
-    const end = activeHold.time + (activeHold.duration || 0);
-    if (currentTime >= end) { resolved.current.add(`${activeHold.id}-complete`); setActiveHold(null); setPulse(value => Math.min(100, value + 12)); spawn(activeHold.lane, laneColors[activeHold.lane]); }
-  }, [currentTime, activeHold, chart, spawn]);
+    if (!activeHold) return;
+    const end = activeHold.time + (activeHold.duration || 0.4); const lane = activeHold.lane;
+    const glow = setInterval(() => flashLane(lane), 150);
+    const timer = setInterval(() => {
+      const t = jsTime();
+      if (!pressed.has(lane) && t < end - 0.1) { setActiveHold(null); comboRef.current = 0; setCombo(0); showJudge("MISS", lane); return; }
+      scoreRef.current += Math.round(24 * (pulseActive ? 2 : 1));
+      if (t >= end) { setActiveHold(null); scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1)); setScore(scoreRef.current); setPulse(v => Math.min(100, v + 8)); }
+    }, 90);
+    return () => { clearInterval(timer); clearInterval(glow); };
+  }, [activeHold, jsTime, flashLane, pulseActive, pressed, showJudge]);
 
   const hitLane = useCallback((lane: number) => {
     if (!chart || countdown > 0 || paused) return;
-    const target = chart.notes.filter(note => note.lane === lane && !resolved.current.has(note.id)).sort((a, b) => Math.abs(a.time - currentTime) - Math.abs(b.time - currentTime))[0];
-    if (!target) return;
-    const delta = Math.abs(target.time - currentTime); if (delta > 0.42) return;
-    const grade: Judgment = delta <= 0.12 ? "PERFECT" : delta <= 0.25 ? "GREAT" : "GOOD";
+    const t = jsTime();
+    let target: Note | undefined; let best = Infinity;
+    for (const n of chart.notes) { if (n.lane !== lane || resolved.current.has(n.id)) continue; const d = Math.abs(n.time - t); if (d < best) { best = d; target = n; } }
+    if (!target || best > 0.42) { flashLane(lane); return; }
+    const grade: Judgment = best <= 0.11 ? "PERFECT" : best <= 0.24 ? "GREAT" : "GOOD";
     resolved.current.add(target.id); counts.current[grade] += 1;
     comboRef.current += 1; maxCombo.current = Math.max(maxCombo.current, comboRef.current); setCombo(comboRef.current);
     const multiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10)) * (pulseActive ? 2 : 1);
     scoreRef.current += Math.round(1000 * weights[grade] * multiplier); setScore(scoreRef.current);
-    setRock(value => Math.min(100, value + (grade === "PERFECT" ? 3 : 1))); setPulse(value => Math.min(100, value + (target.type === "special" ? 20 : 3)));
-    setJudgment(grade); setResolvedVersion(value => value + 1); spawn(lane, laneColors[lane]);
+    setRock(v => Math.min(100, v + (grade === "PERFECT" ? 3 : 1))); setPulse(v => Math.min(100, v + (target!.type === "special" ? 18 : 3)));
+    showJudge(grade, lane); flashLane(lane);
     if (settings.hitSfx) { hitPlayer.seekTo(0); hitPlayer.play(); }
     if (target.type === "hold" || target.type === "wavy") setActiveHold(target);
-    if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Medium);
-  }, [chart, countdown, paused, currentTime, pulseActive, spawn, settings.haptics, settings.hitSfx, hitPlayer]);
+    if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
+  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, showJudge, settings.haptics, settings.hitSfx, hitPlayer]);
 
-  const moveFinger = (pageX: number) => {
-    const lane = Math.max(0, Math.min(3, Math.floor(pageX / (width / 4)))); setFingerLane(lane);
-    if (activeHold?.type === "wavy") { const expected = Math.max(0, Math.min(3, Math.round(activeHold.lane + Math.sin((currentTime - activeHold.time) * 7) * 1.15))); if (lane === expected) spawn(lane, laneColors[lane]); }
-  };
-  const activatePulse = () => { if (pulse < 50 || pulseActive) return; setPulseActive(true); setPulse(0); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setTimeout(() => setPulseActive(false), 8000); };
-  const togglePause = () => { if (paused) player.play(); else player.pause(); setPaused(!paused); };
+  const activatePulse = () => { if (pulse < 100 || pulseActive) return; setPulseActive(true); setPulse(0); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setTimeout(() => setPulseActive(false), 8000); };
+  const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
+  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
 
-  const visibleNotes = useMemo(() => chart?.notes.filter(note => !resolved.current.has(note.id) && note.time - currentTime < lookahead && note.time - currentTime > -0.5) || [], [chart, currentTime, resolvedVersion, lookahead]);
-  if (!chart || !selectedSong?.uri) return <SafeAreaView style={styles.missing}><Text style={styles.missingTitle}>Chart not ready</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></SafeAreaView>;
+  const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
+  if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text style={styles.missingTitle}>Chart not ready</Text><Text style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
 
-  return <View style={[styles.root, pulseActive && styles.pulseRoot]} testID="gameplay-screen">
-    <View style={styles.sky}>{selectedSong.coverArt && <Image testID="gameplay-cover-backdrop" source={typeof selectedSong.coverArt === "number" ? selectedSong.coverArt : { uri: selectedSong.coverArt }} style={styles.coverBackdrop} resizeMode="cover" />}<LinearGradient colors={["rgba(7,7,11,0.12)", `${selectedSong.accent}36`, "rgba(7,7,11,0.92)"]} style={StyleSheet.absoluteFill} /><View style={styles.sun} /><View style={styles.eq}>{chart.waveform.slice(0, 30).map((value, i) => <View key={i} style={[styles.eqBar, { height: 15 + value * 70, opacity: 0.2 + value * 0.4, backgroundColor: i % 3 === 0 ? selectedSong.accent : colors.cyan }]} />)}</View></View>
-    <View style={[styles.highway, { width: gameWidth }]} onTouchMove={event => moveFinger(event.nativeEvent.pageX)}>
-      {[0, 1, 2, 3, 4].map(line => <View key={line} style={[styles.laneLine, { left: line * laneWidth - 1, transform: [{ rotate: `${(line - 2) * 1.5}deg` }] }]} />)}
-      {visibleNotes.map(note => { const ratio = 1 - (note.time - currentTime) / lookahead; const y = Math.max(38, ratio * travel); const scale = 0.42 + ratio * 0.68; const waveLane = note.type === "wavy" ? Math.max(0, Math.min(3, note.lane + Math.sin((currentTime - note.time) * 4) * 0.45)) : note.lane; return <View key={note.id} style={[styles.noteWrap, { left: waveLane * laneWidth + laneWidth * 0.16, top: y, width: laneWidth * 0.68, transform: [{ scale }] }]}>
-        {(note.type === "hold" || note.type === "wavy") && <View style={[styles.holdTail, { height: Math.max(34, (note.duration || 0.5) * 76), backgroundColor: `${laneColors[note.lane]}55`, transform: note.type === "wavy" ? [{ rotate: `${Math.sin(y * 0.05) * 18}deg` }] : [] }]} />}
-        <View style={[styles.note, { backgroundColor: laneColors[note.lane], shadowColor: laneColors[note.lane] }]}><Ionicons name={note.type === "wavy" ? "water" : note.type === "hold" ? "remove" : note.type === "special" ? "sparkles" : "ellipse"} size={16} color={colors.bg} /></View>
-      </View>; })}
-      <View style={[styles.hitLine, { top: hitY - (height - travel) }]} />
+  const padW = width / 4;
+  const pulseReady = pulse >= 100;
+
+  return <View style={styles.root} testID="gameplay-screen">
+    <Backdrop coverArt={selectedSong.coverArt} grayscale={settings.grayscaleCovers} />
+    <Grid geo={geo} w={width} h={height} />
+
+    {/* Highway note layer (native-thread animated, memoized) */}
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} />
     </View>
-    <SafeAreaView style={styles.hud} edges={["top", "bottom"]} pointerEvents="box-none">
-      <View style={styles.topHud}><View><Text style={styles.scoreLabel}>SCORE</Text><Text style={styles.score}>{score.toString().padStart(7, "0")}</Text></View><View style={styles.songHud}><Text style={styles.song} numberOfLines={1}>{selectedSong.title}</Text><Text style={styles.difficulty}>{selectedDifficulty.toUpperCase()}</Text></View><Pressable testID="pause-game-button" onPress={togglePause} style={styles.pause}><Ionicons name="pause" size={21} color={colors.text} /></Pressable></View>
-      <View style={styles.judgmentArea} pointerEvents="none">{!!judgment && <Text key={`${judgment}-${currentTime}`} style={[styles.judgment, { color: judgment === "PERFECT" ? colors.cyan : judgment === "MISS" ? colors.pink : colors.lime }]}>{judgment}</Text>}{combo > 1 && <Text style={styles.combo}>{combo}<Text style={styles.comboX}>× COMBO</Text></Text>}</View>
-      <View style={styles.bottomHud}>
-        <View style={styles.meterRow}><Text style={styles.meterLabel}>ROCK</Text><View style={styles.meter}><View style={[styles.meterFill, { width: `${rock}%`, backgroundColor: rock < 30 ? colors.pink : colors.lime }]} /></View></View>
-        <View style={styles.pads}>{laneColors.map((color, lane) => <Pressable key={color} testID={`lane-${lane + 1}-hit-pad`} onPressIn={() => { setFingerLane(lane); hitLane(lane); }} onPressOut={() => { setFingerLane(-1); if (activeHold?.type !== "wavy") setActiveHold(null); }} style={({ pressed }) => [styles.pad, { borderColor: color, backgroundColor: pressed || fingerLane === lane ? `${color}55` : `${color}16` }, pressed && styles.padPressed]}><View style={[styles.padCore, { backgroundColor: color }]} /></Pressable>)}</View>
-        <Pressable testID="activate-vocopulse-button" onPress={activatePulse} style={[styles.pulseButton, pulse >= 50 && styles.pulseReady]}><Ionicons name="flash" size={15} color={pulse >= 50 ? colors.bg : colors.cyan} /><Text style={[styles.pulseText, pulse >= 50 && { color: colors.bg }]}>VOCOPULSE {Math.round(pulse)}%</Text></Pressable>
+
+    <Receptors geo={geo} flash={laneFlash} />
+
+    {/* Combo */}
+    {combo > 2 && <View pointerEvents="none" style={[styles.comboWrap, { top: geo.topY + geo.span * 0.28 }]}>
+      <View style={styles.comboGlow} />
+      <Text style={styles.combo}>{combo}</Text>
+      <Text style={styles.comboLabel}>COMBO</Text>
+    </View>}
+
+    {/* Judgment (per-lane, mid highway) */}
+    {judgment && <Animated.Text key={judgment.key} pointerEvents="none" style={[styles.judgment, { color: judgeColor(judgment.grade), left: judgment.x - 90, top: judgment.y, opacity: judgeAnim, transform: [{ translateY: judgeAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{judgment.grade === "MISS" ? "Miss" : judgment.grade === "PERFECT" ? "Perfect" : judgment.grade === "GREAT" ? "Great" : "Good"}</Animated.Text>}
+
+    {/* Top HUD */}
+    <View style={[styles.hud, { top: insets.top + 6 }]} pointerEvents="box-none">
+      <View style={styles.hudRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.score}>{score.toLocaleString()}</Text>
+          <Text style={styles.songMeta} numberOfLines={1}>{selectedSong.title} · {selectedDifficulty}</Text>
+        </View>
+        <Pressable testID="pause-game-button" onPress={togglePause} style={styles.pause}><Ionicons name="pause" size={18} color={colors.text} /></Pressable>
       </View>
-    </SafeAreaView>
-    {particles.map(item => <View key={item.id} pointerEvents="none" style={[styles.particleBurst, { left: item.lane * laneWidth + laneWidth / 2, borderColor: item.color }]}>{[0,1,2,3,4,5].map(dot => <View key={dot} style={[styles.particle, { backgroundColor: item.color, transform: [{ translateX: (dot - 2.5) * 11 }, { translateY: -Math.abs(dot - 2.5) * 7 }] }]} />)}</View>)}
-    {countdown > 0 && <View style={styles.countdown}><Text style={styles.ready}>GET READY</Text><Text style={styles.count}>{countdown}</Text></View>}
-    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><Text style={styles.pauseTitle}>PAUSED</Text><Text style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={() => { player.seekTo(0); resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setPaused(false); player.play(); }} /><NeonButton testID="exit-game-button" label="Exit song" icon="close" variant="danger" onPress={() => { player.pause(); router.replace("/library"); }} /></View></View></Modal>
+      <View style={styles.accRow}>
+        <View style={styles.accTrack}><LinearGradient colors={["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.accFill, { width: `${accuracy}%` }]} /></View>
+        <Text style={styles.accText}>{accuracy.toFixed(1)}%</Text>
+      </View>
+      <View style={styles.progTrack}><View style={[styles.progFill, { width: `${progress * 100}%`, backgroundColor: rock < 30 ? "#FF5C7A" : "rgba(255,255,255,0.5)" }]} /></View>
+    </View>
+
+    {/* VOCO / Vocopulse meter */}
+    <Pressable testID="activate-vocopulse-button" onPress={activatePulse} style={[styles.voco, { bottom: PAD_BOTTOM - 54 }]}>
+      <Text style={styles.vocoLabel}>V O C O</Text>
+      <View style={styles.vocoTrack}><LinearGradient colors={pulseActive ? ["#2FE0D6", "#B37CFF"] : ["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.vocoFill, { width: `${pulseActive ? 100 : pulse}%` }]} /></View>
+      <Text style={[styles.vocoMult, pulseReady && { color: "#2FE0D6" }]}>{pulseActive ? "2×" : pulseReady ? "GO" : "1×"}</Text>
+    </Pressable>
+
+    {/* Tap pads */}
+    <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]}>
+      {laneColors.map((c, l) => <Pressable key={l} testID={`lane-${l + 1}-hit-pad`} onPressIn={() => { pressed.add(l); setFingerLane(l); hitLane(l); }} onPressOut={() => { pressed.delete(l); setFingerLane(f => (f === l ? -1 : f)); }} style={{ width: padW, height: "100%" }}>
+        {({ pressed: down }: { pressed: boolean }) => <View style={[styles.pad, { backgroundColor: down || fingerLane === l ? `${c}22` : "transparent" }]} />}
+      </Pressable>)}
+    </View>
+
+    {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text key={countdown} style={styles.count}>{countdown}</Text><Text style={styles.readySong}>{selectedSong.title}</Text></View>}
+
+    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text style={styles.pauseTitle}>Paused</Text><Text style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label="Exit song" icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); router.replace("/library"); }} /></View></View></Modal>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#07070B", overflow: "hidden" }, pulseRoot: { backgroundColor: "#08221F" }, sky: { ...StyleSheet.absoluteFillObject, backgroundColor: "#080817", overflow: "hidden" }, coverBackdrop: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%", opacity: 0.32, transform: [{ scale: 1.14 }] }, sun: { position: "absolute", top: "20%", alignSelf: "center", width: 180, height: 180, borderRadius: 90, backgroundColor: "rgba(255,0,85,0.12)", borderWidth: 2, borderColor: "rgba(255,0,85,0.36)" }, eq: { position: "absolute", left: 0, right: 0, top: "26%", height: 90, flexDirection: "row", alignItems: "center", justifyContent: "space-around" }, eqBar: { width: 4 },
-  highway: { position: "absolute", alignSelf: "center", top: 112, bottom: 110, backgroundColor: "rgba(5,8,14,0.86)", borderTopLeftRadius: 150, borderTopRightRadius: 150, overflow: "hidden", transform: [{ perspective: 700 }, { rotateX: "7deg" }] }, laneLine: { position: "absolute", top: 0, bottom: 0, width: 2, backgroundColor: "rgba(13,230,210,0.24)" }, hitLine: { position: "absolute", left: 0, right: 0, height: 5, backgroundColor: colors.text, shadowColor: colors.cyan, shadowRadius: 12, shadowOpacity: 1 },
-  noteWrap: { position: "absolute", height: 32, alignItems: "center", justifyContent: "center" }, note: { width: "100%", height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", shadowRadius: 12, shadowOpacity: 1 }, holdTail: { position: "absolute", bottom: 12, width: "48%", borderRadius: 12 },
-  hud: { flex: 1, justifyContent: "space-between" }, topHud: { height: 84, paddingHorizontal: 15, paddingTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", backgroundColor: "rgba(7,7,11,0.74)" }, scoreLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.5 }, score: { color: colors.text, fontSize: 22, fontWeight: "900", letterSpacing: 1 }, songHud: { flex: 1, alignItems: "center", paddingHorizontal: 8 }, song: { color: colors.text, maxWidth: 190, fontSize: 13, fontWeight: "800" }, difficulty: { color: colors.cyan, marginTop: 5, fontSize: 9, fontWeight: "900", letterSpacing: 1.3 }, pause: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.10)" },
-  judgmentArea: { position: "absolute", top: "43%", alignSelf: "center", alignItems: "center" }, judgment: { fontSize: 28, fontWeight: "900", fontStyle: "italic", letterSpacing: 1.3, textShadowColor: "rgba(255,255,255,0.4)", textShadowRadius: 10 }, combo: { color: colors.text, fontSize: 46, lineHeight: 50, fontWeight: "900" }, comboX: { color: colors.muted, fontSize: 10 },
-  bottomHud: { paddingHorizontal: 12, gap: 8, backgroundColor: "rgba(7,7,11,0.86)" }, meterRow: { flexDirection: "row", alignItems: "center", gap: 8 }, meterLabel: { color: colors.muted, width: 34, fontSize: 8, fontWeight: "900" }, meter: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.panelStrong, overflow: "hidden" }, meterFill: { height: 6, borderRadius: 3 }, pads: { height: 62, flexDirection: "row", gap: 7 }, pad: { flex: 1, borderRadius: 16, borderWidth: 2, alignItems: "center", justifyContent: "center" }, padPressed: { transform: [{ scale: 0.94 }] }, padCore: { width: 22, height: 8, borderRadius: 4 }, pulseButton: { alignSelf: "center", minHeight: 34, paddingHorizontal: 15, borderRadius: 17, flexDirection: "row", alignItems: "center", gap: 7, borderWidth: 1, borderColor: colors.cyan, backgroundColor: "rgba(13,230,210,0.10)", marginBottom: 4 }, pulseReady: { backgroundColor: colors.cyan }, pulseText: { color: colors.cyan, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
-  particleBurst: { position: "absolute", bottom: 128, width: 4, height: 4, borderWidth: 1 }, particle: { position: "absolute", width: 6, height: 6, borderRadius: 3 }, countdown: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(5,5,8,0.68)", alignItems: "center", justifyContent: "center" }, ready: { color: colors.cyan, fontSize: 14, fontWeight: "900", letterSpacing: 4 }, count: { color: colors.text, fontSize: 104, lineHeight: 120, fontWeight: "900" },
-  modal: { flex: 1, backgroundColor: "rgba(0,0,0,0.78)", alignItems: "center", justifyContent: "center", padding: 24 }, pauseCard: { width: "100%", maxWidth: 380, padding: 24, borderRadius: 26, gap: 13, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.cyan }, pauseTitle: { color: colors.text, textAlign: "center", fontSize: 34, fontWeight: "900", letterSpacing: 3 }, pauseCopy: { color: colors.muted, textAlign: "center", marginBottom: 8 }, missing: { flex: 1, justifyContent: "center", padding: 24, gap: 20, backgroundColor: colors.bg }, missingTitle: { color: colors.text, fontSize: 28, fontWeight: "900", textAlign: "center" },
+  root: { flex: 1, backgroundColor: "#07060C", overflow: "hidden" },
+  cover: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%", opacity: 0.5, transform: [{ scale: 1.2 }] },
+  note: { alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)" },
+  noteGloss: { position: "absolute", top: 1.5, left: 4, right: 4, height: "42%", backgroundColor: "rgba(255,255,255,0.35)" },
+  receptor: { position: "absolute", height: 32, borderRadius: 16, borderWidth: 2.5, overflow: "hidden" },
+  comboWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" }, comboGlow: { position: "absolute", width: 150, height: 150, borderRadius: 75, backgroundColor: rgba(0.22), top: -34 },
+  combo: { color: colors.text, fontSize: 62, lineHeight: 66, fontFamily: fonts.display, textShadowColor: rgba(0.9), textShadowRadius: 18 }, comboLabel: { color: "rgba(255,255,255,0.55)", fontSize: 13, letterSpacing: 6, fontFamily: fonts.heavy, marginTop: 2 },
+  judgment: { position: "absolute", width: 180, textAlign: "center", fontSize: 26, fontFamily: fonts.display, letterSpacing: 0.5 },
+  hud: { position: "absolute", left: 18, right: 18 }, hudRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  score: { color: colors.text, fontSize: 34, lineHeight: 38, fontFamily: fonts.display, textShadowColor: rgba(0.6), textShadowRadius: 12 }, songMeta: { color: "rgba(245,245,247,0.55)", fontSize: 13, fontFamily: fonts.body, marginTop: 1 },
+  pause: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
+  accRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 }, accTrack: { flex: 1, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, accFill: { height: 7, borderRadius: 4 }, accText: { color: "rgba(245,245,247,0.85)", fontSize: 13, fontFamily: fonts.bold, width: 52, textAlign: "right" },
+  progTrack: { height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.08)", marginTop: 8, overflow: "hidden" }, progFill: { height: 4, borderRadius: 2 },
+  voco: { position: "absolute", left: 18, right: 18, height: 44, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
+  vocoLabel: { color: "rgba(245,245,247,0.8)", fontSize: 12, letterSpacing: 2, fontFamily: fonts.heavy }, vocoTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, vocoFill: { height: 8, borderRadius: 4 }, vocoMult: { color: "rgba(245,245,247,0.9)", fontSize: 14, fontFamily: fonts.heavy, width: 26, textAlign: "right" },
+  pads: { position: "absolute", left: 0, right: 0, flexDirection: "row" }, pad: { flex: 1, margin: 3, borderRadius: 18 },
+  countdown: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" }, ready: { color: colors.purple, fontSize: 13, letterSpacing: 4, fontFamily: fonts.heavy }, count: { color: colors.text, fontSize: 118, lineHeight: 132, fontFamily: fonts.display }, readySong: { color: colors.muted, fontSize: 14, marginTop: 4, fontFamily: fonts.body },
+  modal: { flex: 1, backgroundColor: "rgba(0,0,0,0.82)", alignItems: "center", justifyContent: "center", padding: 24 }, pauseCard: { width: "100%", maxWidth: 360, padding: 24, borderRadius: 28, gap: 12, backgroundColor: "#121214", borderWidth: 1, borderColor: colors.border }, pauseIcon: { alignSelf: "center", width: 60, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center", backgroundColor: rgba(0.14), borderWidth: 1, borderColor: colors.purpleSoft }, pauseTitle: { color: colors.text, textAlign: "center", fontSize: 30, fontFamily: fonts.display }, pauseCopy: { color: colors.muted, textAlign: "center", marginBottom: 8, fontSize: 14, fontFamily: fonts.body },
+  missing: { flex: 1, justifyContent: "center", padding: 28, gap: 16, backgroundColor: colors.bg }, missingTitle: { color: colors.text, fontSize: 30, fontFamily: fonts.display, textAlign: "center" }, missingCopy: { color: colors.muted, fontSize: 15, textAlign: "center", lineHeight: 22, marginBottom: 8, fontFamily: fonts.body },
 });

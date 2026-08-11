@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-only Playwright smoke of Vocotap on mobile viewport (390x844). All requested flows work: home renders with default 'Treesh Fan' + Starlites pill; tapping home-starlites-button opens the bottom-sheet modal (starlites-total, starlites-history-list, starlites-close-button) and URL stays at '/' (does NOT navigate to settings). Quick play navigates to gameplay-screen, all 4 lane-*-hit-pads are present and pressable, pause-game-button opens a modal with resume/restart/exit. Editor is VERTICAL, shows all 11 controls (record, play, undo, redo, erase-selected, erase-all, save, and 4 difficulty chips); record toggles RECORD->REC and save-chart-button flips to 'Saved'. Guide has tutorial-step-card with next/prev, all 5 note-type-* cards, and faq-item-1..7. Library shows 12 song-card-*, treesh/device chips, import button; tapping a Treesh song opens a sheet with import-treesh-copy-button and NO 'Open on Treesh' button. Calibration screen renders with sliders and toggles. Deprecated packages check: none of the flagged packages (expo-av, expo-barcode-scanner, expo-background-fetch) are used - the app already uses expo-audio.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "expo-web-browser import (unused)", "issue": "library.tsx imports `expo-web-browser` and `TREESH_URL` but never uses them (leftover from previous 'Open on Treesh' button removal). Dead import. Reference: /app/frontend/app/library.tsx:2,9"},
+      {"component": "RN Web deprecation warnings", "issue": "Console warns: `shadow*` style props deprecated (use `boxShadow`), `textShadow*` deprecated (use `textShadow`), and `props.pointerEvents` deprecated (use style.pointerEvents). These are from RN-Web and appear on multiple screens; not a crash but should be cleaned up. Reference: /app/frontend/app/game.tsx (shadowColor/shadowOpacity/shadowRadius, textShadowColor/textShadowRadius, pointerEvents prop), /app/frontend/app/index.tsx (shadowColor), /app/frontend/src/components/StarlitesModal.tsx (pointerEvents prop)"},
+      {"component": "Animated useNativeDriver on web", "issue": "Console warns `useNativeDriver` is not supported on web; all animations fall back to JS. The review notes motion is native-driven; on web this fallback is unavoidable, but confirm on native Expo Go/build that the perspective 3D highway animates smoothly. Not a bug in code, informational only."}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/home.jpeg", "/app/test_reports/pause_modal.jpeg", "/app/test_reports/editor.jpeg", "/app/test_reports/settings.jpeg", "/app/test_reports/after_starlites.jpeg"],
+  "action_items": [
+    "Remove unused imports `expo-web-browser` and `TREESH_URL` from /app/frontend/app/library.tsx",
+    "(Optional cleanup) Migrate RN-Web deprecated style props: `shadow*` -> `boxShadow`, `textShadow*` -> `textShadow`, and move `pointerEvents` from prop to style. Non-blocking but noisy in console."
+  ],
+  "critical_code_review_comments": [
+    "theme.ts reads accent from localStorage synchronously at module import; on native (no localStorage) this correctly falls back to #9328ff via try/catch - good.",
+    "starlites.tsx daily check-in awards on every fresh session that crosses a new day; the useEffect awards 50 stars (plus streak bonus) on first mount for a given calendar day - verified working (50 Starlites shown after first load).",
+    "game.tsx uses expo-audio (not deprecated expo-av) - good.",
+    "editor.tsx save-chart-button shows an icon + 'Saved' text; the icon glyph appears in the button's innerText as a private-use-area char. This is cosmetic, not a bug."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All spec'd testIDs are present and functional. If retesting, use viewport 390x844 and go through: home -> home-starlites-button (modal), quick-play-button -> gameplay-screen + pause-game-button -> exit-game-button, open-editor-button (controls + save), open-guide-button (steps/notes/faqs), browse-library-button (chips + song card sheet), open-calibration-button.",
+  "rca_of_issue": "N/A - no failing flows."
+}

@@ -1,4 +1,4 @@
-export type Difficulty = "Easy" | "Normal" | "Hard" | "Expert";
+export type Difficulty = "Easy" | "Normal" | "Hard" | "Expert" | "Custom";
 export type NoteType = "tap" | "hold" | "wavy" | "slide" | "chord" | "special";
 
 export type Note = {
@@ -31,6 +31,7 @@ export type Song = {
   bpm?: number;
   accent: string;
   coverArt?: string | number;
+  genre?: string;
 };
 
 export type ScoreResult = {
@@ -57,4 +58,5 @@ export type GameSettings = {
   noFail: boolean;
   performanceMode: boolean;
   reducedParticles: boolean;
+  grayscaleCovers: boolean;
 };

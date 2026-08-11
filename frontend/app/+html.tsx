@@ -24,7 +24,16 @@ export default function Root({ children }: PropsWithChildren) {
               body > div:first-child { position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; }
               [role="tablist"] [role="tab"] * { overflow: visible !important; }
               [role="heading"], [role="heading"] * { overflow: visible !important; }
+              /* App-like feel: no text selection, no drag-to-highlight, no callout. */
+              * { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+              input, textarea { -webkit-user-select: text; user-select: text; }
             `,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.addEventListener('contextmenu', function (e) { e.preventDefault(); }, { capture: true });
+              document.addEventListener('dragstart', function (e) { e.preventDefault(); }, { capture: true });`,
           }}
         />
       </head>
