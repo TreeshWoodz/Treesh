@@ -1,236 +1,253 @@
-# Treesh 3.0 — Phase 5 Rebuild Plan (single-file `index.html`)
+# Treesh 3.0 — Phase 5 Continuation Plan (single-file `index.html`)
 
 ## 1) Objectives
-Update/finish Phase 5 **on top of the restored “good base”** commit (`0fcbf5d`) without breaking single-file SPA constraints:
+Continue Phase 5 on top of the restored “good base” (`0fcbf5d`) **without breaking the single-file SPA constraints**, focusing now on the **new confirmed backlog** and the two **reported-broken core interactions**.
 
-### Current status (pivot applied)
-- **Restored** `/app/single_html/index.html` from git commit **`0fcbf5d`** (this commit already contains the large feature set: Games/Arcade, Library, queue reorder, swipe-to-close, etc.).
-- **Re-applied post-`0fcbf5d` survivors**:
-  1) **Cache-buster** meta tags + **Service Worker unregister + cache clear** in `<head>`
-  2) **Lyric Studio perf-chips** in write mode: `[Verse #: FEATURED ARTIST]`, etc. (suffix-aware `lsInsertTag`)
-  3) **Hide “Space” hint badge on mobile** (show from `sm:` up)
+### Current status (as of now)
+- App is served from **`/app/single_html/index.html`** (≈5888 lines / 741KB) via `python3 -m http.server` on port **3000**.
+- Restored baseline from commit `0fcbf5d` and re-applied small survivorship changes (cache-buster + SW unregister, perf-chips, hide Space hint on mobile).
+- Phase-5 rebuild items originally in plan are **DONE**:
+  - **Settings → Storage**: Custom Music storage checkbox list + Delete Selected/All
+  - **Library**: Playlists section inside Library
+  - **Unified inline scrollable filters** for Library + My Music (A–Z/Z–A/Artist/With Lyrics)
+  - **My Music UX**: tap-to-play, hold-to-shuffle, select mode, edit details button, mobile menu
+  - **Playlist detail UX**: dynamic back label by origin, Play button for playlist
 
-### What still needs rebuilding (not present in any commit)
-Confirmed via git reflog + fsck (dangling commits are old): the following improvements are **not recoverable** and must be rebuilt on the `0fcbf5d` base:
-- **Settings → Storage**: Custom Music storage UI rework
-  - Replace meter/progress bar with **checkbox list** + **Delete Selected / Delete All** (IndexedDB-backed)
-- **Library: Playlists section inside Library** (not just profile sidebar)
-- **Library/My Music UX bundle**
-  - Play button on My Music section (tap play; **1.5s hold = shuffle**)
-  - Collapse/expand My Music
-  - Mobile action row → **dropdown menu** (Play excluded)
-  - Multi-select checkboxes for My Music → “Edit selected”
-  - Per-section sorting toggles (A–Z / Z–A)
-- **Library main list filters**
-  - Sorting: A–Z / Z–A
-  - Filter: **by artist**
-  - Filter: **songs with lyrics**
-- **What’s New desktop UI adjustment**
-  - Show the slide’s existing image asset **inline bottom-left with text** (desktop) instead of relying on a cropped background treatment
-- **Playlist back button origin fix**
-  - Playlist opened from Library should say **“Back to Library”** (vs “Back to Playlists”)
+### What’s now pending (new/revised backlog)
+User confirmed:
+- Playlist section label must be **“Playlists”**
+- Execution order: **Phase A → Phase B → Phase C**
+- Start with: **Queue drag + swipe-down-to-close player**
+- Testing: **screenshot_tool + mobile emulation**
+- Swipe gesture scope: **mobile only**
 
-Constraints:
-- Single file architecture (`/app/single_html/index.html`)
-- Zero build steps, no npm/yarn
-- Persist only in LocalStorage + IndexedDB (`treesh_db`)
-- **Sequential** `search_replace` edits only
-- Match existing design tokens & components (Tailwind CDN, `--treesh-purple`, glass surfaces, lucide, `.press`)
-- Commit after each phase; test via screenshot tool (with `await`)
+### Core constraints (unchanged)
+- **Single file** architecture: only edit `/app/single_html/index.html`
+- **Zero build steps**, **NO npm/yarn**
+- Persist state via **LocalStorage + IndexedDB (`treesh_db`)** only
+- Match existing UI language: Tailwind CDN, `--treesh-purple/gold`, glass surfaces, lucide, `.press`
+- **CRITICAL**: perform **sequential** `search_replace` edits only (parallel edits previously corrupted the file)
 
 ---
 
 ## 2) Implementation Steps
 
-### Phase 1 — Storage Rework (re-apply, quick)
-**Goal:** Replace “Custom music” meter/progress bar in Settings → Storage with a checkbox list + bulk actions.
+### Phase A — Fix Broken Core (P0) **[IN PROGRESS]**
+**Goal:** Restore the two broken “everyday” interactions and deliver the Arcade modal experience + Playlist library controls.
 
-**1A. UI replacement in `storageSection()`**
-- Replace the Custom Music block:
-  - Header: count + total bytes
-  - List: per-upload row with checkbox, cover thumb, title/artist, size, single delete
-  - Footer actions:
-    - **Delete Selected** (enabled only when something selected)
-    - **Delete All** (confirm)
+#### A1. Queue drag-to-reorder (replace chevrons-only UX)
+**Problem found:** `renderQueue()` currently offers only `q-up/q-down` chevrons; no drag UI exists.
 
-**1B. State + helpers**
-- Add state:
-  - `state.storageSel = { [songId]: true }`
-  - `state._userSizes = { [songId]: bytes }`
-- Add helpers:
-  - `customMusicManageHtml()` (renders list + actions)
-  - `refreshCustomMusicManage()`
-  - `deleteUserSongs(ids[])` (IDB delete + refresh via `loadUserSongs()`)
-- Update `updateCustomMusicStorage()`:
-  - Populate per-track sizes (`state._userSizes` + row updates)
-  - Update total bytes + subtitle count
+**Implementation**
+- Reuse existing pointer-based reorder system:
+  - `wireReorder(container)`
+  - `REORDER_CBS` map
+- Add a new reorder scope:
+  - `REORDER_CBS.queue = (order)=>{ ... }`
+  - Rebuild `state.queue` using `order` (song ids) while:
+    - preserving the current playing song as `state.index`
+    - keeping `state.base = state.queue.slice()` consistent
+- Update `renderQueue()` markup:
+  - Wrap rows in a container with `data-reorder="queue"`
+  - Each row becomes a direct child with `data-rid="<songId>"`
+  - Add a visible drag handle with `data-rhandle`
+- Wiring (important because queue renders outside `renderView()`):
+  - After queue HTML is set and `icons()` runs, call:
+    - `wireReorder(queueContainerElement)`
 
-**1C. Dispatcher cases**
-Add cases:
-- `storage-user-toggle`, `storage-user-toggle-all`
-- `storage-user-del-one`
-- `storage-user-del-selected`
-- `storage-user-del-all`
+**Testing (screenshot_tool)**
+- Desktop: open Queue → drag items → verify order changes and current song indicator stays correct
+- Mobile emulation: drag reorder works via pointer/touch
 
-**Testing (Storage)**
-- Inject a few IDB records, verify:
-  - Select all, count updates
-  - Delete one, delete selected, delete all
-  - My Music counts refresh immediately
-
-> Checkpoint: commit `Phase 1`.
+> Checkpoint: commit `Phase A1`.
 
 ---
 
-### Phase 2 — Playlists Section Inside Library
-**Goal:** Show playlists directly inside the Library page (browse view, genre `all`).
+#### A2. Mobile swipe-down-to-close Now Playing
+**Problem found:** `renderNP()` has no gesture handlers; only close button works.
 
-**2A. Library playlists block**
-- In `viewLibrary()` when `browse` and `state.genre === "all"`:
-  - Insert a “Playlists” section (below My Music)
-  - Render playlist cards/rows from `state.playlists` / LocalStorage playlists
-  - Provide “View all”/“Create” actions consistent with existing UI
+**Implementation**
+- Add swipe-down gesture on `#np [data-np-root]`:
+  - Use pointer/touch tracking (`pointerdown/move/up` + fallback to touch events if needed)
+  - Translate the player panel visually while swiping
+  - Close if:
+    - distance threshold exceeded (≈120px), OR
+    - fast flick downward (velocity threshold)
+- Guard rails to prevent accidental close:
+  - Do **not** start swipe when interacting with:
+    - seek slider (`#np-seek`), volume slider (`#np-vol`)
+    - lyric scroll container (`#np-lyrics`) while user is scrolling lyrics
+  - Only enable swipe behavior on mobile viewport (per user choice “A”).
 
-**2B. Wire navigation**
-- Opening a playlist from Library should set origin flag (Phase 6)
+**Testing (screenshot_tool)**
+- Mobile emulation:
+  - Open NP → swipe down from header area → closes
+  - Drag slightly → snaps back
+  - Interacting with sliders/lyrics does not trigger close
 
-**Testing**
-- Create playlist → confirm it appears in Library
-- Open playlist → confirm detail view loads
-
-> Checkpoint: commit `Phase 2`.
-
----
-
-### Phase 3 — My Music UX Bundle
-**Goal:** Improve Library’s My Music section UX without broad refactors.
-
-**3A. My Music Play + Hold-to-shuffle**
-- Add a primary **Play** button to My Music section:
-  - Tap: play My Music list
-  - **Press/hold 1.5s:** shuffle My Music
-
-**3B. Collapse/expand**
-- Add collapsible container state (e.g., `state.mmCollapsed`)
-- Default: expanded
-
-**3C. Mobile dropdown menu**
-- Replace wrapping action row (Add/Manage/etc.) with a compact dropdown on small screens:
-  - Exclude Play button from dropdown (Play stays prominent)
-
-**3D. Multi-select + Edit selected**
-- Multi-select checkboxes for My Music items
-- Add “Edit selected” action (bulk edit entry point consistent with existing song edit UI)
-
-**3E. Per-section sort**
-- Sorting toggles for My Music:
-  - A–Z / Z–A
-  - Stored per section (not global)
-
-**Testing**
-- Desktop + mobile:
-  - Play, hold-to-shuffle
-  - Collapse/expand persists in session
-  - Dropdown layout doesn’t wrap
-  - Multi-select works and doesn’t interfere with play
-
-> Checkpoint: commit `Phase 3`.
+> Checkpoint: commit `Phase A2`.
 
 ---
 
-### Phase 4 — Library Main List Filters
-**Goal:** Add filters for the **main Library song list** (not My Music) as requested:
-- Alphabetical sort A–Z / Z–A
-- Filter by artist
-- Filter songs with lyrics
+#### A3. Arcade Game Info Modals
+**Goal:** Opening a game from Games/Arcade shows a dedicated modal with metadata and explicit Play action.
 
-**4A. Filter state**
-- Add `state.libFilters` (or similar) containing:
-  - `sort: 'az'|'za'|null`
-  - `artist: 'all'|artistId|artistName`
-  - `lyricsOnly: boolean`
-- Ensure filters do not break search mode; keep behavior intuitive:
-  - Search results still sortable
+**Implementation**
+- Reorder the `GAMES` list to show **FREA first**, then Chainz, then Nects.
+- Extend game definitions with:
+  - `desc`, `age`, `updated`, `cover` (or use `logo` if that’s the intended cover)
+- Add modal renderer:
+  - `openGameInfo(key)` → renders modal containing:
+    - Title
+    - Cover image (fallback gradient + mono letter for FREA if no asset)
+    - Close button
+    - Play button → calls `openGameFrame(key)`
+    - Age rating + last updated date
+- Update dispatcher:
+  - `case "game-open"` should call `openGameInfo(key)` instead of `openGameFrame` directly.
 
-**4B. UI controls**
-- Add a compact filter bar in `viewLibrary()` above the song list:
-  - Sort toggle
-  - Artist dropdown
-  - Lyrics-only toggle chip
+**Copy requirements**
+- **FREA!**: “Play minigames.” Age **6+**. Updated **July 28, 2026**. (Do not mention Fleafall)
+- **Chainz**: “A word chaining game.” Age **13+**. Updated **June 20, 2026**.
+- **Nects**: “Find the emoji on the board before your opponent.” Age **6+**. Updated **July 26, 2026**.
 
-**4C. Filtering logic**
-- Apply in `viewLibrary()` pipeline in order:
-  - query/genre filtering
-  - lyricsOnly filter
-  - artist filter
-  - sorting
+**Testing (screenshot_tool)**
+- Open each game tile → modal appears with correct metadata
+- Play launches iframe game frame
+- Close returns to page with scroll lock correct
 
-**Testing**
-- Toggle lyrics-only → list shrinks
-- Artist filter → list changes
-- A–Z / Z–A stable and reversible
-
-> Checkpoint: commit `Phase 4`.
+> Checkpoint: commit `Phase A3`.
 
 ---
 
-### Phase 5 — What’s New Desktop Layout (inline image)
-**Goal:** Desktop-only improvement: show the slide’s existing image asset inline bottom-left with the text instead of relying on a cropped background.
+#### A4. Playlists Library Section Enhancements
+**Goal:** Upgrade the Library → Playlists surface.
 
-**5A. Modify `wnSlide()` / `whatsNewSection()`**
-- On `sm:` and up:
-  - Show a small cover/artist image thumbnail **inline** at bottom-left
-  - Asset source: **whatever the slide already uses**
-- Keep mobile design unchanged
+**Implementation**
+- Rename section label:
+  - “Your Playlists” → **“Playlists”**
+- Add dropdown/menu button to enter selection mode:
+  - show checkboxes on playlist cards
+  - actions: **Delete Selected** (confirm)
+- Add rearrange support:
+  - Use existing `REORDER_CBS.plcards`
+  - Ensure Library playlists row renders with `data-reorder="plcards"`, `data-rid`, and `data-rhandle`
 
-**Testing**
-- Desktop viewport screenshot
-- Ensure no layout regression on mobile
+**Testing (screenshot_tool)**
+- Select multiple → Delete Selected removes them from state + persists
+- Drag reorder playlist cards → order persists
 
-> Checkpoint: commit `Phase 5`.
+> Checkpoint: commit `Phase A4`.
 
 ---
 
-### Phase 6 — Playlist Back Button Origin Fix
-**Goal:** Fix playlist back button label + navigation based on where playlist was opened from.
+### Phase B — Reordering & Studio (P1) **[NOT STARTED]**
+**Goal:** Finish My Music reorder support and resolve Lyric Studio transport bugs.
 
-**6A. Track origin**
-- Add `state.plOrigin = 'library'|'playlists'|null`
-- When playlist opened from Library section: set `plOrigin='library'`
-- When opened from Playlists view/profile: set `plOrigin='playlists'`
-
-**6B. Update `viewPlaylistDetail()` + dispatcher**
-- Back button label:
-  - `plOrigin==='library'` → “Back to Library”
-  - else → “Back to Playlists”
-- Back action navigates accordingly.
+#### B1. My Music reorder (Recent/manual list-view)
+**Implementation**
+- Add reorder container and handles to My Music list view:
+  - Render list with `data-reorder="mm"`
+  - Each row has `data-rid="songId"` and a `data-rhandle` grip
+- Respect sorting modes:
+  - Only enable reorder for the mode that maps to `state.mmOrder` (i.e., “Recent/manual” mode).
 
 **Testing**
-- Open playlist from Library → Back returns to Library
-- Open playlist from Playlists panel → Back returns to Playlists
+- Drag reorder in My Music list view → persists to `LS.treesh_mm_order`
 
-> Checkpoint: commit `Phase 6`.
+> Checkpoint: commit `Phase B1`.
+
+---
+
+#### B2. Lyric Studio: play icon toggle + timestamp syncing
+**Root cause identified**
+- Lucide replaces `<i data-lucide>` with `<svg>`, so querying `#ls-play i` becomes null after first render.
+
+**Implementation**
+- Rewrite `lsUpdatePlayIcon()` to update the button content robustly:
+  - Set the button’s `innerHTML` with a fresh `<i data-lucide="play|pause">...` then call `icons()`.
+- Verify transport UI updates during playback:
+  - `lsUpdateTransport()` updates current time/duration/seek slider reliably
+
+**Testing**
+- Play/pause toggles icon every time
+- Seek slider updates while playing and doesn’t fight while dragging
+
+> Checkpoint: commit `Phase B2`.
+
+---
+
+### Phase C — UI Polish (P1/P2) **[NOT STARTED]**
+**Goal:** Apply the requested UI refinements and correctness fixes.
+
+#### C1. Library layout + counts + remove share links
+**Implementation**
+- Reposition genres + filterBar:
+  - Move chips + filter bar **below** the “All Music” header/subtitle area
+- My Music play button:
+  - Remove the “Play” text → icon-only button
+- Count fix:
+  - “# tracks from the Icons” must **exclude** custom tracks (`_user`)
+- Remove share links from playlists across all surfaces:
+  - Library playlists section cards
+  - Playlist detail view button row
+  - Playlists view cards
+  - Profile playlists cards
+  - (Keep track sharing via `np-share`)
+
+**Testing**
+- Layout looks correct on desktop + mobile
+- No playlist Share buttons remain
+
+> Checkpoint: commit `Phase C1`.
+
+---
+
+#### C2. What’s New desktop upgrade
+**Implementation**
+- Modify `wnSlide()` desktop layout:
+  - On desktop, show slide image inline bottom-left with text
+  - Keep existing mobile cropped/background style unchanged
+
+**Testing**
+- Desktop viewport: inline image sits bottom-left with text
+- Mobile: unchanged
+
+> Checkpoint: commit `Phase C2`.
+
+---
+
+#### C3. Zodiac sign fix
+**Root cause identified**
+- Current `zodiac()` logic returns incorrect results for days after monthly cutoff.
+
+**Implementation**
+- Rewrite `zodiac(birthdayISO)` using standard zodiac date ranges:
+  - Correctly handle month/day boundaries
+
+**Testing**
+- Verify a set of known dates (e.g., Jan 20 → Aquarius, Mar 21 → Aries, etc.)
+
+> Checkpoint: commit `Phase C3`.
 
 ---
 
 ## 3) Next Actions
-1. Implement **Phase 1 (Storage checkbox list)** on current HEAD (`0fcbf5d` + 3 survivors).
-2. Commit + screenshot verification.
-3. Implement phases 2–6 sequentially with small, targeted `search_replace` blocks at anchors:
-   - `storageSection()` / `updateCustomMusicStorage()`
-   - `viewLibrary()` / `myMusicSection()`
-   - `whatsNewSection()` / `wnSlide()`
-   - `viewPlaylistDetail()` + dispatcher cases
-4. After each phase: commit + run screenshot tool tests (desktop + mobile)
+1. Implement **Phase A1** (Queue drag reorder) with minimal, surgical edits.
+2. Run screenshot_tool tests (desktop + mobile emulation) and commit.
+3. Implement **Phase A2** (mobile swipe-down-to-close) → test → commit.
+4. Implement **Phase A3** (Arcade info modals + reorder games) → test → commit.
+5. Implement **Phase A4** (Library playlists controls + rearrange) → test → commit.
+6. Proceed through Phase B and Phase C in order.
 
 ---
 
 ## 4) Success Criteria
-- **Storage**: Custom Music shows checkbox list + Delete Selected/Delete All; deletion removes IDB blobs and refreshes My Music counts.
-- **Library**:
-  - Playlists appear inside Library browse view.
-  - My Music has Play + hold-to-shuffle, collapse, mobile dropdown menu, multi-select edit, per-section A–Z/Z–A sorting.
-  - Main Library list supports sort A–Z/Z–A, filter by artist, and lyrics-only.
-- **What’s New**: desktop layout shows inline image thumbnail bottom-left with text using the slide’s existing asset.
-- **Playlists**: Back button respects origin (“Back to Library” when opened from Library).
-- No regressions to navigation, scroll lock, Lyric Studio, Karaoke, or Lyric Card disclaimer.
+- **Queue**: drag-to-reorder works; current song stays correct; persists for session (and optionally base queue).
+- **Now Playing**: on mobile, swipe-down closes reliably without accidental triggers from sliders/lyrics scroll.
+- **Arcade**: game tiles open an info modal; Play launches the iframe; FREA listed first.
+- **Library → Playlists**: title is “Playlists”; multi-select delete works; playlists can be rearranged.
+- **My Music**: reorder works in the correct mode; doesn’t conflict with sorting filters.
+- **Lyric Studio**: play/pause icon always toggles and transport stays in sync.
+- **Polish**: chips/filters placement correct; custom tracks excluded from Icons count; playlist Share removed everywhere; What’s New desktop layout improved; zodiac correct.
+- No regressions to navigation, scroll locking, karaoke, lyric tools, or storage management.
