@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import Reanimated, { Easing as RE, cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient as SvgLinear, Line, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
@@ -26,9 +26,9 @@ const judgeColor = (g: Judgment) => (g === "PERFECT" ? "#EAF6FF" : g === "GREAT"
 type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
 
 // ---- Falling note (pure UI-thread motion, memoized so score/combo re-renders never touch it) ----
-const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo, special }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean }) {
+const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo, special, rainbow }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: Reanimated.SharedValue<number> }) {
   const f = laneFrac(note.lane);
-  const color = special ? "#FFE27A" : laneColors[note.lane];
+  const color = laneColors[note.lane];
   const isHold = note.type === "hold" || note.type === "wavy";
   const baseW = geo.laneW * 0.66;
   const baseH = 20;
@@ -47,18 +47,24 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
     if (opacity < 0) opacity = 0; if (opacity > 1) opacity = 1;
     return { opacity, transform: [{ translateX: x }, { translateY: y }, { scale: persp }] };
   });
+  // Special (charged) notes cycle colours smoothly so they read as "power" notes rather than a single lane colour.
+  const capStyle = useAnimatedStyle(() => {
+    if (!special) return { backgroundColor: color };
+    const p = (rainbow.value + note.lane * 0.22) % 1;
+    return { backgroundColor: interpolateColor(p, [0, 0.25, 0.5, 0.75, 1], ["#FF4D8D", "#2FE0D6", "#F5C842", "#8E7CFF", "#FF4D8D"]) };
+  });
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
       {isHold && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
-      <View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, backgroundColor: color, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.55)" }]}>
+      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.55)" }, capStyle]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
-      </View>
+      </Reanimated.View>
     </Reanimated.View>
   );
 });
 
-const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo, special }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean }) {
-  return <>{notes.map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} special={special} />)}</>;
+const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo, special, rainbow }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: Reanimated.SharedValue<number> }) {
+  return <>{notes.map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} special={special} rainbow={rainbow} />)}</>;
 });
 
 // Bright bar shown while a hold is actively sustained — drains from the receptor, leaning along the lane's perspective.
@@ -153,6 +159,11 @@ export default function GameScreen() {
   const [activeHold, setActiveHold] = useState<Note | null>(null);
 
   const clock = useSharedValue(0);
+  const rainbow = useSharedValue(0);
+  useEffect(() => { rainbow.value = withRepeat(withTiming(1, { duration: 2600, easing: RE.linear }), -1, false); }, [rainbow]);
+  const pulseActiveRef = useRef(false);
+  useEffect(() => { pulseActiveRef.current = pulseActive; }, [pulseActive]);
+  const touchLane = useRef<Record<string, number>>({});
   const clockStart = useRef(0); const pauseAccum = useRef(0); const pauseAt = useRef(0);
   const resolved = useRef(new Set<string>());
   const counts = useRef({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
@@ -182,9 +193,12 @@ export default function GameScreen() {
     setJudgment({ grade, x: geo.cx + laneFrac(lane) * geo.hw * persp, y: geo.topY + geo.span * 0.52, key: Date.now() });
   }, [geo]);
   const startClock = useCallback((from: number) => { cancelAnimation(clock); clock.value = from; clock.value = withTiming(duration, { duration: Math.max(10, (duration - from) * 1000), easing: RE.linear }); }, [clock, duration]);
+  // Vocopulse now auto-fires when the meter fills (no button press needed).
+  const triggerPulse = useCallback(() => { pulseBase.current = comboRef.current; setPulse(0); setPulseActive(true); pulseActiveRef.current = true; Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setTimeout(() => { setPulseActive(false); pulseActiveRef.current = false; pulseBase.current = comboRef.current; setPulse(0); }, 8000); }, []);
 
   const finish = useCallback(async () => {
     if (!chart || !selectedSong || finishing.current) return; finishing.current = true; player.pause(); cancelAnimation(clock);
+    if (testChart) { router.back(); return; } // testing a custom chart returns to the editor, no score saved
     const total = chart.notes.length; const c = counts.current; const remaining = chart.notes.filter(n => !resolved.current.has(n.id)).length; if (remaining) c.MISS += remaining;
     const acc = total ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / total) * 10000) / 100 : 0;
     const stars = acc >= 97 ? 5 : acc >= 90 ? 4 : acc >= 78 ? 3 : acc >= 60 ? 2 : acc > 0 ? 1 : 0;
@@ -225,7 +239,7 @@ export default function GameScreen() {
       setRock(r => (r === rockRef.current ? r : rockRef.current));
       setScore(s => (s === scoreRef.current ? s : scoreRef.current));
       const pv = Math.min(100, Math.max(0, ((comboRef.current - pulseBase.current) / 25) * 100));
-      setPulse(p => (p === pv ? p : pv));
+      if (pv >= 100 && !pulseActiveRef.current) triggerPulse(); else setPulse(p => (p === pv ? p : pv));
       if (judgeRef.current) { showJudge(judgeRef.current.grade, judgeRef.current.lane); judgeRef.current = null; }
       tickCount.current++;
       if (tickCount.current % 3 === 0) {
@@ -237,7 +251,7 @@ export default function GameScreen() {
       if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail, triggerPulse]);
 
   // Hold / wavy sustain — finger must stay on the lane for the full tail. Receptor stays lit while held.
   useEffect(() => {
@@ -273,7 +287,8 @@ export default function GameScreen() {
     if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
   }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted]);
 
-  const activatePulse = () => { if (pulse < 100 || pulseActive) return; pulseBase.current = comboRef.current; setPulse(0); setPulseActive(true); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setTimeout(() => { setPulseActive(false); pulseBase.current = comboRef.current; setPulse(0); }, 8000); };
+  const onPadsTouchStart = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); touchLane.current[String(tt.identifier)] = lane; pressed.add(lane); hitLane(lane); } };
+  const onPadsTouchEnd = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier); const lane = touchLane.current[key]; if (lane !== undefined) { pressed.delete(lane); delete touchLane.current[key]; } } };
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
   const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
 
@@ -291,7 +306,7 @@ export default function GameScreen() {
 
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} special={charged} />
+      <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} special={charged} rainbow={rainbow} />
       {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} />}
     </View>
 
@@ -323,23 +338,21 @@ export default function GameScreen() {
       <View style={styles.progTrack}><View style={[styles.progFill, { width: `${progress * 100}%`, backgroundColor: rock < 30 ? "#FF5C7A" : "rgba(255,255,255,0.5)" }]} /></View>
     </View>
 
-    {/* VOCO / Vocopulse meter */}
-    <Pressable testID="activate-vocopulse-button" onPress={activatePulse} style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, pulseReady && styles.vocoReady]}>
-      <Text style={styles.vocoLabel}>V O C O</Text>
-      <View style={styles.vocoTrack}><LinearGradient colors={pulseActive ? ["#2FE0D6", "#B37CFF"] : ["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.vocoFill, { width: `${pulseActive ? 100 : pulse}%` }]} /></View>
-      <Text style={[styles.vocoMult, (pulseReady || pulseActive) && { color: "#FFE27A" }]}>{pulseActive ? "2×" : pulseReady ? "PULSE!" : "1×"}</Text>
-    </Pressable>
+    {/* VOCO / Vocopulse meter — auto-fires when full */}
+    <View testID="vocopulse-meter" style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, (pulseReady || pulseActive) && styles.vocoReady]}>
+      <Ionicons name="flame" size={20} color={pulseActive ? "#FFB020" : pulseReady ? "#FF7A45" : "rgba(255,120,70,0.8)"} />
+      <View style={styles.vocoTrack}><LinearGradient colors={pulseActive ? ["#FFB020", "#FF4D8D"] : ["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.vocoFill, { width: `${pulseActive ? 100 : pulse}%` }]} /></View>
+      <Text style={[styles.vocoMult, (pulseReady || pulseActive) && { color: "#FFB020" }]}>{pulseActive ? "2×" : "1×"}</Text>
+    </View>
 
-    {/* Tap pads */}
-    <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]}>
-      {laneColors.map((c, l) => <Pressable key={l} testID={`lane-${l + 1}-hit-pad`} onPressIn={() => { pressed.add(l); hitLane(l); }} onPressOut={() => { pressed.delete(l); }} style={{ width: padW, height: "100%" }}>
-        {({ pressed: down }: { pressed: boolean }) => <View style={[styles.pad, { backgroundColor: down ? `${c}22` : "transparent" }]} />}
-      </Pressable>)}
+    {/* Tap pads — single multi-touch surface (supports simultaneous lanes + rapid taps) */}
+    <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => false} onTouchStart={onPadsTouchStart} onTouchEnd={onPadsTouchEnd} onTouchCancel={onPadsTouchEnd}>
+      {laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: l * padW + 3, width: padW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.32] }) }} />)}
     </View>
 
     {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text key={countdown} style={styles.count}>{countdown}</Text><Text style={styles.readySong}>{selectedSong.title}</Text></View>}
 
-    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text style={styles.pauseTitle}>Paused</Text><Text style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label="Exit song" icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); setTestChart(null); router.replace("/library"); }} /></View></View></Modal>
+    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text style={styles.pauseTitle}>Paused</Text><Text style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={testChart ? "Back to editor" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (testChart) { setTestChart(null); router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
   </View>;
 }
 
