@@ -75,7 +75,7 @@ function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Rea
     const yTe = geo.topY + geo.span * cte;
     return { height: Math.max(0, geo.bottomY - yTe), transform: [{ translateY: yTe }, { rotateZ: `${tilt}deg` }] };
   });
-  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - w / 2, top: 0, width: w, borderRadius: w / 2, backgroundColor: `${color}DD`, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.9)", transformOrigin: "50% 100%" }, aStyle]} />;
+  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - w / 2, top: 0, width: w, borderRadius: w / 2, backgroundColor: color, transformOrigin: "50% 100%" }, aStyle]}><View style={{ position: "absolute", top: 2, left: w * 0.3, right: w * 0.3, bottom: 2, borderRadius: w / 2, backgroundColor: "rgba(255,255,255,0.35)" }} /></Reanimated.View>;
 }
 
 // ---- Static perspective grid (SVG, rendered once) ----
@@ -267,8 +267,9 @@ export default function GameScreen() {
     scoreRef.current += Math.round(1000 * weights[grade] * multiplier);
     rockRef.current = Math.min(100, rockRef.current + (grade === "PERFECT" ? 3 : 1));
     judgeRef.current = { grade, lane }; flashLane(lane);
-    if (settings.hitSfx) { hitPlayer.seekTo(0); hitPlayer.play(); }
     if (target.type === "hold" || target.type === "wavy") setActiveHold(target);
+    // Fire SFX/haptics off the touch handler so the hit registers instantly.
+    if (settings.hitSfx) setTimeout(() => { try { hitPlayer.seekTo(0); hitPlayer.play(); } catch {} }, 0);
     if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
   }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted]);
 

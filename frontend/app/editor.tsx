@@ -18,13 +18,15 @@ const MOVE_EPS = 16; // finger travel beyond this → wave note
 function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPress }: { note: Note; clock: Animated.Value; lookahead: number; boardH: number; laneW: number; hw: number; selected: boolean; onPress: () => void }) {
   const size = laneW * 0.52;
   const color = laneColors[note.lane];
-  const start = note.time - lookahead;
-  const translateY = clock.interpolate({ inputRange: [start, note.time, note.time + 0.4], outputRange: [0, boardH, boardH + 30], extrapolate: "clamp" });
-  const opacity = clock.interpolate({ inputRange: [start, start + 0.12, note.time + 0.12, note.time + 0.4], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
   const isHold = note.type === "hold" || note.type === "wavy";
-  const tailLen = isHold ? Math.min(boardH, ((note.duration || 0.4) / lookahead) * boardH) : 0;
+  const dur = isHold ? (note.duration || 0.4) : 0;
+  const start = note.time - lookahead;
+  // Holds sit at the hit line for their whole duration so you can see them while recording/reviewing.
+  const translateY = clock.interpolate({ inputRange: [start, note.time, note.time + dur, note.time + dur + 0.3], outputRange: [0, boardH, boardH, boardH + 30], extrapolate: "clamp" });
+  const opacity = clock.interpolate({ inputRange: [start, start + 0.12, note.time + dur + 0.1, note.time + dur + 0.4], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
+  const tailLen = isHold ? Math.min(boardH, (dur / lookahead) * boardH) : 0;
   return <Animated.View style={{ position: "absolute", left: note.lane * laneW + laneW / 2 - size / 2, top: -size / 2, width: size, height: size, opacity, transform: [{ translateY }] }}>
-    {isHold && <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}44`, borderWidth: 1, borderColor: `${color}99` }} />}
+    {isHold && <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
     <Pressable onPress={onPress} style={[styles.eNote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderColor: selected ? colors.text : "rgba(255,255,255,0.7)", borderWidth: selected ? 3 : 2 }]}><Ionicons name={noteIcon[note.type]} size={size * 0.36} color={colors.bg} /></Pressable>
   </Animated.View>;
 }

@@ -24,10 +24,10 @@ export default function Root({ children }: PropsWithChildren) {
               body > div:first-child { position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; }
               [role="tablist"] [role="tab"] * { overflow: visible !important; }
               [role="heading"], [role="heading"] * { overflow: visible !important; }
-              /* App-like feel: no text selection, no drag-to-highlight, no callout. */
-              * { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+              /* App-like feel: no text selection, no drag-to-highlight, no callout (hardened for iOS Safari). */
+              html, body, #root, * { -webkit-user-select: none !important; -moz-user-select: none !important; -ms-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; -webkit-tap-highlight-color: rgba(0,0,0,0) !important; -webkit-user-drag: none; }
               img { -webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; pointer-events: none; }
-              input, textarea { -webkit-user-select: text; user-select: text; }
+              input, textarea, [contenteditable="true"] { -webkit-user-select: text !important; user-select: text !important; }
             `,
           }}
         />
