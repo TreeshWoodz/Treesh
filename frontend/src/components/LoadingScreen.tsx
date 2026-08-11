@@ -45,11 +45,11 @@ export function LoadingScreen({ onFinish }: { onFinish: () => void }) {
     return () => loops.forEach(l => l.stop());
   }, [logoIn, progress, float, glow, bars, onFinish]);
 
-  const logoW = Math.min(width * 0.82, 360);
+  const logoW = Math.min(width * 0.86, 380);
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[rgba(0.3), "#0B0912", "#08080A"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={["#0C0A14", "#08080A", "#060509"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
 
       <View style={styles.center}>
         {/* pulsing glow halo */}
@@ -61,7 +61,7 @@ export function LoadingScreen({ onFinish }: { onFinish: () => void }) {
           source={logo}
           resizeMode="contain"
           style={[styles.logo, {
-            width: logoW, height: logoW * 0.62,
+            width: logoW, height: logoW * 0.48,
             opacity: logoIn,
             transform: [
               { scale: logoIn.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
