@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
+import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -32,7 +32,9 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   const isHold = note.type === "hold" || note.type === "wavy";
   const baseW = geo.laneW * 0.66;
   const baseH = 20;
+  const tailW = baseW * 0.4;
   const tailLen = isHold ? Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span)) : 0;
+  const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI; // lean the tail toward the vanishing point
   const aStyle = useAnimatedStyle(() => {
     const prog = (clock.value - (note.time - lookahead)) / lookahead; // 0 at spawn(top) → 1 at receptor
     const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
@@ -47,7 +49,7 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   });
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
-      {isHold && <View style={{ position: "absolute", left: baseW / 2 - baseW * 0.22, bottom: baseH / 2, width: baseW * 0.44, height: tailLen, borderRadius: baseW * 0.22, backgroundColor: `${color}33`, borderWidth: 1, borderColor: `${color}88` }} />}
+      {isHold && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
       <View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, backgroundColor: color }]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2 }]} />
       </View>
@@ -103,11 +105,9 @@ const Receptors = React.memo(function Receptors({ geo, flash }: { geo: Geo; flas
 
 const Backdrop = React.memo(function Backdrop({ coverArt, grayscale }: { coverArt?: string | number; grayscale: boolean }) {
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: "#07060C" }]} />
-      {coverArt && <Image testID="gameplay-cover-backdrop" source={typeof coverArt === "number" ? coverArt : { uri: coverArt }} style={styles.cover} resizeMode="cover" blurRadius={grayscale ? 10 : 6} />}
-      {coverArt && <View style={[StyleSheet.absoluteFill, { backgroundColor: grayscale ? "rgba(10,9,15,0.7)" : rgba(0.32) }]} />}
-      <LinearGradient colors={["rgba(7,6,12,0.2)", "rgba(7,6,12,0.65)", "#07060C"]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#07060C" }]}>
+      {coverArt && <Image testID="gameplay-cover-backdrop" source={typeof coverArt === "number" ? coverArt : { uri: coverArt }} style={[styles.cover, { opacity: grayscale ? 0.14 : 0.32 }]} resizeMode="cover" />}
+      <LinearGradient colors={["rgba(7,6,12,0.4)", "rgba(7,6,12,0.72)", "#07060C"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
     </View>
   );
 });
@@ -119,9 +119,8 @@ export default function GameScreen() {
   const { gameComplete, discoverSong, listen } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
   const chart = selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined;
-  const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 200 });
+  const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 500 });
   const hitPlayer = useAudioPlayer(null);
-  const status = useAudioPlayerStatus(player);
 
   const [countdown, setCountdown] = useState(3);
   const [paused, setPaused] = useState(false);
@@ -205,26 +204,26 @@ export default function GameScreen() {
       setAccuracy(done ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / done) * 1000) / 10 : 100);
       setProgress(Math.min(1, t / duration));
       setScore(s => (s === scoreRef.current ? s : scoreRef.current));
-      if (t >= duration - 0.05 || status.didJustFinish) finish();
+      if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, status.didJustFinish, showJudge]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge]);
 
   useEffect(() => { if (rock <= 0 && !settings.noFail) finish(); }, [rock, settings.noFail, finish]);
 
-  // Hold / wavy sustain — finger must stay on the lane for the full tail.
+  // Hold / wavy sustain — finger must stay on the lane for the full tail. Receptor stays lit while held.
   useEffect(() => {
     if (!activeHold) return;
     const end = activeHold.time + (activeHold.duration || 0.4); const lane = activeHold.lane;
-    const glow = setInterval(() => flashLane(lane), 150);
+    laneFlash[lane].setValue(1);
     const timer = setInterval(() => {
       const t = jsTime();
       if (!pressed.has(lane) && t < end - 0.1) { setActiveHold(null); comboRef.current = 0; setCombo(0); showJudge("MISS", lane); return; }
       scoreRef.current += Math.round(24 * (pulseActive ? 2 : 1));
       if (t >= end) { setActiveHold(null); scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1)); setScore(scoreRef.current); setPulse(v => Math.min(100, v + 8)); }
     }, 90);
-    return () => { clearInterval(timer); clearInterval(glow); };
-  }, [activeHold, jsTime, flashLane, pulseActive, pressed, showJudge]);
+    return () => { clearInterval(timer); Animated.timing(laneFlash[lane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); };
+  }, [activeHold, jsTime, laneFlash, pulseActive, pressed, showJudge]);
 
   const hitLane = useCallback((lane: number) => {
     if (!chart || countdown > 0 || paused) return;
