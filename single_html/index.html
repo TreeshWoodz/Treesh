@@ -855,7 +855,7 @@ const VOICE_OK = (typeof window!=='undefined') && !!(window.SpeechRecognition||w
 const FALLBACK = "data:image/svg+xml;utf8," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><rect width='100%' height='100%' fill='#161618'/><text x='50%' y='53%' font-size='120' text-anchor='middle' fill='#3a3a40' font-family='sans-serif'>\u266A</text></svg>");
 const img = (src, cls, extra="") => `<img src="${esc(src||FALLBACK)}" loading="lazy" onerror="this.src='${FALLBACK}'" class="${cls}" ${extra}>`;
 function fmt(sec){ if(!sec||isNaN(sec)||sec===Infinity) return "0:00"; const m=Math.floor(sec/60),s=Math.floor(sec%60); return m+":"+(s<10?"0":"")+s; }
-function zodiac(b){ if(!b) return ""; const p=String(b).split("-"); if(p.length<3) return ""; const mo=+p[1],d=+p[2]; if(!mo||!d) return ""; const z=[["Capricorn",1,19],["Aquarius",2,18],["Pisces",3,20],["Aries",4,19],["Taurus",5,20],["Gemini",6,20],["Cancer",7,22],["Leo",8,22],["Virgo",9,22],["Libra",10,22],["Scorpio",11,21],["Sagittarius",12,21],["Capricorn",12,31]]; for(const[s,m,dd]of z){ if(mo===m&&d<=dd) return s; } return "Capricorn"; }
+function zodiac(b){ if(!b) return ""; const p=String(b).split("-"); if(p.length<3) return ""; const mo=+p[1],d=+p[2]; if(!mo||!d||mo<1||mo>12) return ""; const S=[[1,19,"Capricorn"],[2,18,"Aquarius"],[3,20,"Pisces"],[4,19,"Aries"],[5,20,"Taurus"],[6,20,"Gemini"],[7,22,"Cancer"],[8,22,"Leo"],[9,22,"Virgo"],[10,22,"Libra"],[11,21,"Scorpio"],[12,21,"Sagittarius"]]; const e=S[mo-1]; return d<=e[1] ? e[2] : S[mo%12][2]; }
 /* ---- age gate / parental controls ---- */
 function ageFromDate(b){ if(!b) return null; const p=String(b).split("-"); if(p.length<3) return null; const y=+p[0],mo=+p[1],d=+p[2]; if(!y||!mo||!d) return null; const now=new Date(); let a=now.getFullYear()-y; const md=(now.getMonth()+1)*100+now.getDate(); if(md<(mo*100+d)) a--; return a; }
 function userAge(){ const a=ageFromDate(state.profile&&state.profile.birthday); return (a!=null&&a>=0&&a<130)?a:null; }
@@ -2749,7 +2749,7 @@ function viewBlog(){
 /* ---------- Games arcade (embedded iframe games) ---------- */
 const GAMES=[
   {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'July 28, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
-  {key:'vocotap', name:'Vocotap', url:'https://treesh.app/games/vocotap', logo:'https://64.media.tumblr.com/a357f99f483f505944ed61ffbf91b627/4e72d08b7a6373f7-5b/s1280x1920/d3c5f169e906422bdb6ddd62f303634dde4b4b82.png', mono:'V', a:'#e0567a', b:'#7a2540', age:'PG-13', updated:'August 11, 2026', desc:'Tap in time with the vocals! Play along with tracks from Treesh Music or upload your own, then test your rhythm and rack up combos.'},
+  {key:'vocotap', name:'Vocotap', url:'https://treesh.app/games/vocotap', logo:'https://64.media.tumblr.com/a357f99f483f505944ed61ffbf91b627/4e72d08b7a6373f7-5b/s1280x1920/d3c5f169e906422bdb6ddd62f303634dde4b4b82.png', banner:'https://64.media.tumblr.com/d98166e80ddeb9217260a083247df1b3/c06c3fcd705d5320-b3/s1280x1920/05620948bd3dfb29596125826783f3204a891337.png', mono:'V', a:'#e0567a', b:'#7a2540', age:'PG-13', updated:'August 11, 2026', desc:'Tap in time with the vocals! Play along with tracks from Treesh Music or upload your own, then test your rhythm and rack up combos.'},
   {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'June 20, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},
   {key:'nects', name:'Nects', url:'https://treesh.app/games/nects', logo:'https://64.media.tumblr.com/1262b7cc04c787803b22c81af52e91a7/f03bc58006e10b13-94/s1280x1920/3f25f6b1f824f57464f60a2220db75167ad18e21.png', mono:'N', a:'#1f9a9a', b:'#0d5757', age:'6+', updated:'July 26, 2026', desc:'A four-in-a-row showdown. Spot and connect the right emoji on the board before your opponent does.'}
 ];
@@ -2771,8 +2771,9 @@ function gamesArcadeHtml(){
 function openGameInfo(key){
   const g=GAME_BY_KEY[key]; if(!g) return;
   const grad=`linear-gradient(135deg,${g.a||'#9328ff'},${g.b||'#4d128f'})`;
-  const cover = g.logo
-    ? `<img src="${g.logo}" alt="${esc(g.name)} cover" class="h-full w-full object-cover object-center">`
+  const coverSrc = g.banner || g.logo;
+  const cover = coverSrc
+    ? `<img src="${coverSrc}" alt="${esc(g.name)} cover" class="h-full w-full object-cover object-center">`
     : `<div class="grid h-full w-full place-items-center" style="background:${grad}"><span class="font-display text-7xl font-extrabold text-white/90">${esc(g.mono||(g.name||'?').charAt(0))}</span></div>`;
   const badge = g.logo?`<img src="${g.logo}" alt="" class="h-full w-full object-cover object-center">`:`<span>${esc(g.mono||'?')}</span>`;
   const inner=`
@@ -4662,12 +4663,29 @@ function lsWireBar(){
   const sk=$("#ls-seek"); if(sk){ sk.addEventListener("input",()=>{ sk._drag=true; fillSlider(sk); if(state.ls.dur){ const cE=$("#ls-cur"); if(cE) cE.textContent=lsFmt(sk.value/100*state.ls.dur); } }); sk.addEventListener("change",()=>{ if(state.ls.dur) lsSeekTo(sk.value/100*state.ls.dur); sk._drag=false; }); }
 }
 function lsRenderBody(){ const b=$("#ls-body"); if(!b||!state.ls) return; b.innerHTML= state.ls.mode==='write'?lsWriteHtml():lsSyncHtml(); icons(); lsWireBody(); }
+function lsPerformerOptions(){
+  const s=(typeof SONG_BY_ID!=='undefined' && state.ls) ? SONG_BY_ID[state.ls.songId] : null;
+  const main=((s&&s.artist)||(state.ls&&state.ls.artist)||"").trim();
+  const featStr=(s&&s.featuring)||(state.ls&&state.ls.featuring)||"";
+  const splitRe=/\s*[,&\/+\u00d7]\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|vs\.?|x)\s+/i;
+  const all=[]; const push=(n)=>{ n=(n||"").trim(); if(n && !all.some(a=>a.toLowerCase()===n.toLowerCase())) all.push(n); };
+  push(main);
+  if(featStr) String(featStr).split(splitRe).forEach(push);
+  return { main, all };
+}
 function lsWriteHtml(){
   const txt=lsItemsToText(state.ls.items);
   const TAGCHIPS=[['Verse',true],['Chorus',false],['Pre-Chorus',false],['Hook',false],['Bridge',false],['Intro',false],['Outro',false],['Refrain',false]];
   const chips=`<div class="no-scrollbar -mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1">${TAGCHIPS.map(([tag,num])=>`<button data-act="ls-insert-tag" data-tag="${tag}" data-num="${num?1:0}" data-testid="ls-tag-${tag}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10"><span class="text-[color:var(--treesh-purple)]">[</span>${tag}${num?' #':''}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>`;
-  const PERFCHIPS=[['Verse',1,'FEATURED ARTIST'],['Verse',1,'ALL ARTISTS'],['Chorus',0,'ALL ARTISTS'],['Outro',0,'Instrumental']];
-  const perfChips=`<div class="no-scrollbar -mx-1 mb-2 flex items-center gap-1.5 overflow-x-auto px-1 pb-1"><span class="shrink-0 pr-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/35">Who</span>${PERFCHIPS.map(([tag,num,suf])=>`<button data-act="ls-insert-tag" data-tag="${tag}" data-num="${num?1:0}" data-suffix="${suf}" data-testid="ls-perf-${tag}-${suf.replace(/\s+/g,'-')}" class="press shrink-0 whitespace-nowrap rounded-full border border-[color:var(--treesh-purple)]/25 bg-[color:var(--treesh-purple)]/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-[color:var(--treesh-purple)]/20"><span class="text-[color:var(--treesh-purple)]">[</span>${tag}${num?' #':''}: ${suf}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>`;
+  const perf=lsPerformerOptions(); let performers=perf.all.slice(); if(perf.all.length>1) performers.push(perf.all.join(' & '));
+  const PTYPES=[['Verse',1],['Hook',0],['Chorus',0],['Bridge',0]];
+  const perfChips = performers.length ? `<div class="mb-2 rounded-2xl border border-[color:var(--treesh-purple)]/20 bg-[color:var(--treesh-purple)]/[0.05] p-2">
+     <div class="mb-1.5 flex items-center gap-1.5 px-0.5"><i data-lucide="mic-2" class="text-[color:var(--treesh-purple)]" style="width:13px;height:13px"></i><span class="text-[10px] font-bold uppercase tracking-wide text-white/45">Performer tags</span></div>
+     <div class="space-y-1.5">${performers.map((p,pi)=>`<div class="flex items-center gap-2">
+       <span class="shrink-0 max-w-[42%] truncate rounded-lg bg-[color:var(--treesh-purple)]/18 px-2 py-1 text-[11px] font-semibold text-[color:var(--treesh-purple)]" title="${esc(p)}">${esc(p)}</span>
+       <div class="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">${PTYPES.map(([t,num])=>`<button data-act="ls-insert-tag" data-tag="${t}" data-num="${num?1:0}" data-suffix="${esc(p)}" data-testid="ls-perf-${pi}-${t}" title="Insert [${t}${num?' #':''}: ${esc(p)}]" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/75 hover:bg-[color:var(--treesh-purple)]/20"><span class="text-[color:var(--treesh-purple)]">[</span>${t}${num?' #':''}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>
+     </div>`).join('')}</div>
+   </div>` : '';
   return `<div class="flex h-full flex-col py-3">
      <div class="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55"><i data-lucide="info" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i><span>One lyric per line. Wrap section names in brackets, e.g. <span class="mx-0.5 inline-block whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 font-doto text-white/80">[Verse&nbsp;1]</span></span></div>
      ${chips}
