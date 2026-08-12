@@ -60,4 +60,5 @@ export type GameSettings = {
   performanceMode: boolean;
   reducedParticles: boolean;
   grayscaleCovers: boolean;
+  showLanePads: boolean;
 };

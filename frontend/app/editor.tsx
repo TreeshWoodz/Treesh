@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 import Slider from "@react-native-community/slider";
 import { NeonButton, ScreenHeader } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
@@ -16,9 +17,18 @@ const noteIcon = { tap: "ellipse", hold: "remove", wavy: "water", slide: "arrow-
 const TAP_MAX = 0.18; // press longer than this (without moving) → hold note
 const MOVE_EPS = 16; // finger travel beyond this → wave note
 
+// Vertical sine-wave path (SVG y-down) shared by editor notes + live preview so "wavy" reads as a squiggle.
+function waveData(len: number, amp: number, cx: number) {
+  const steps = 18; const cycles = Math.max(1.5, len / 40);
+  let d = `M ${cx} ${len.toFixed(1)}`;
+  for (let i = 1; i <= steps; i++) { const t = i / steps; const y = len * (1 - t); const x = cx + amp * Math.sin(t * cycles * Math.PI * 2); d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`; }
+  return d;
+}
+
 function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPress }: { note: Note; clock: Animated.Value; lookahead: number; boardH: number; laneW: number; hw: number; selected: boolean; onPress: () => void }) {
   const size = laneW * 0.52;
   const color = laneColors[note.lane];
+  const isWavy = note.type === "wavy";
   const isHold = note.type === "hold" || note.type === "wavy";
   const dur = isHold ? (note.duration || 0.4) : 0;
   const start = note.time - lookahead;
@@ -26,8 +36,11 @@ function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPre
   const translateY = clock.interpolate({ inputRange: [start, note.time, note.time + dur, note.time + dur + 0.3], outputRange: [0, boardH, boardH, boardH + 30], extrapolate: "clamp" });
   const opacity = clock.interpolate({ inputRange: [start, start + 0.12, note.time + dur + 0.1, note.time + dur + 0.4], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
   const tailLen = isHold ? Math.min(boardH, (dur / lookahead) * boardH) : 0;
+  const waveW = size * 0.9;
   return <Animated.View style={{ position: "absolute", left: note.lane * laneW + laneW / 2 - size / 2, top: -size / 2, width: size, height: size, opacity, transform: [{ translateY }] }}>
-    {isHold && <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
+    {isHold && (isWavy
+      ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: size / 2 - waveW / 2, bottom: size * 0.5 }} pointerEvents="none"><Path d={waveData(tailLen, size * 0.22, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>
+      : <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />)}
     <Pressable onPress={onPress} style={[styles.eNote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderColor: selected ? colors.text : "rgba(255,255,255,0.7)", borderWidth: selected ? 3 : 2 }]}><Ionicons name={noteIcon[note.type]} size={size * 0.36} color={colors.bg} /></Pressable>
   </Animated.View>;
 }
@@ -178,10 +191,10 @@ export default function EditorScreen() {
           const size = LANE * 0.52; const color = laneColors[preview.lane]; const hitY = bH * 0.84;
           const cx = preview.type === "wavy" ? Math.max(size / 2, Math.min(HW - size / 2, preview.x)) : preview.lane * LANE + LANE / 2;
           const tailLen = preview.type === "tap" ? 0 : Math.min(bH * 0.8, (preview.held / lookahead) * bH);
-          const trail = preview.points.slice(-16);
+          const waveW = size * 0.9;
           return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            {tailLen > 0 && <View style={{ position: "absolute", left: cx - size * 0.2, top: hitY - tailLen, width: size * 0.4, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
-            {preview.type === "wavy" && trail.map((p, i) => <View key={i} style={{ position: "absolute", left: p.x * HW - 3, top: hitY - (trail.length - 1 - i) * 7 - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: color, opacity: 0.3 + (i / trail.length) * 0.6 }} />)}
+            {preview.type === "hold" && tailLen > 0 && <View style={{ position: "absolute", left: cx - size * 0.2, top: hitY - tailLen, width: size * 0.4, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
+            {preview.type === "wavy" && tailLen > 0 && <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: cx - waveW / 2, top: hitY - tailLen }} pointerEvents="none"><Path d={waveData(tailLen, size * 0.22, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>}
             <View style={{ position: "absolute", left: cx - size / 2, top: hitY - size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 3, borderColor: colors.text, alignItems: "center", justifyContent: "center", opacity: 0.95 }}>
               <Ionicons name={noteIcon[preview.type]} size={size * 0.36} color={colors.bg} />
             </View>

@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient as SvgLinear, Line, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, LinearGradient as SvgLinear, Line, Path, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
@@ -25,16 +25,42 @@ const judgeColor = (g: Judgment) => (g === "PERFECT" ? "#EAF6FF" : g === "GREAT"
 
 type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
 
+// Builds the wavy-hold path (SVG coords, y-down; bottom = head, top = tail end).
+// If the note carries a recorded finger path, we trace it; otherwise fall back to a
+// gentle sine. Amplitude tapers toward the top so it reads with the highway's depth.
+function wavePathData(note: Note, tailLen: number, hw: number, cx: number) {
+  const dur = note.duration || 0.4;
+  if (note.path && note.path.length > 1) {
+    const laneC = (note.lane + 0.5) / 4;
+    const pts = note.path
+      .map(p => {
+        const frac = Math.max(0, Math.min(1, (p.t - note.time) / dur));
+        const dev = Math.max(-0.5, Math.min(0.5, p.x - laneC));
+        return [cx + dev * hw * (1 - 0.45 * frac), tailLen * (1 - frac)] as [number, number];
+      })
+      .sort((a, b) => b[1] - a[1]);
+    let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`;
+    return d;
+  }
+  const steps = 22; const cycles = Math.max(1.6, tailLen / 46); const amp = cx * 0.5;
+  let d = `M ${cx} ${tailLen.toFixed(1)}`;
+  for (let i = 1; i <= steps; i++) { const t = i / steps; const y = tailLen * (1 - t); const x = cx + amp * (1 - 0.4 * t) * Math.sin(t * cycles * Math.PI * 2); d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`; }
+  return d;
+}
+
 // ---- Falling note (pure UI-thread motion, memoized so score/combo re-renders never touch it) ----
 const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo, special, rainbow }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: Reanimated.SharedValue<number> }) {
   const f = laneFrac(note.lane);
   const color = laneColors[note.lane];
+  const isWavy = note.type === "wavy";
   const isHold = note.type === "hold" || note.type === "wavy";
   const baseW = geo.laneW * 0.66;
   const baseH = 20;
   const tailW = baseW * 0.4;
   const tailLen = isHold ? Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span)) : 0;
   const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI; // lean the tail toward the vanishing point
+  const waveW = geo.laneW * 2.2; // wide enough to trace multi-lane finger movement
   const aStyle = useAnimatedStyle(() => {
     const prog = (clock.value - (note.time - lookahead)) / lookahead; // 0 at spawn(top) → 1 at receptor
     const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
@@ -55,7 +81,9 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   });
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
-      {isHold && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
+      {isHold && (isWavy
+        ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: baseW / 2 - waveW / 2, bottom: baseH / 2, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} pointerEvents="none"><Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke={color} strokeWidth={tailW * 0.85} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>
+        : <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />)}
       <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.55)" }, capStyle]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
       </Reanimated.View>
@@ -71,6 +99,7 @@ const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo
 function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
   const f = laneFrac(note.lane);
   const color = laneColors[note.lane];
+  const isWavy = note.type === "wavy";
   const w = geo.laneW * 0.34;
   const x = geo.cx + f * geo.hw;
   const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI;
@@ -81,6 +110,16 @@ function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Rea
     const yTe = geo.topY + geo.span * cte;
     return { height: Math.max(0, geo.bottomY - yTe), transform: [{ translateY: yTe }, { rotateZ: `${tilt}deg` }] };
   });
+  if (isWavy) {
+    const waveW = geo.laneW * 2.2;
+    const fullTailPix = Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span));
+    return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - waveW / 2, top: 0, width: waveW, overflow: "hidden", transformOrigin: "50% 100%" }, aStyle]}>
+      <Svg width={waveW} height={fullTailPix} style={{ position: "absolute", left: 0, bottom: 0 }} pointerEvents="none">
+        <Path d={wavePathData(note, fullTailPix, geo.hw, waveW / 2)} stroke={color} strokeWidth={geo.laneW * 0.3} strokeOpacity={0.98} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d={wavePathData(note, fullTailPix, geo.hw, waveW / 2)} stroke="rgba(255,255,255,0.55)" strokeWidth={geo.laneW * 0.12} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </Reanimated.View>;
+  }
   return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - w / 2, top: 0, width: w, borderRadius: w / 2, backgroundColor: color, transformOrigin: "50% 100%" }, aStyle]}><View style={{ position: "absolute", top: 2, left: w * 0.3, right: w * 0.3, bottom: 2, borderRadius: w / 2, backgroundColor: "rgba(255,255,255,0.35)" }} /></Reanimated.View>;
 }
 
@@ -347,7 +386,7 @@ export default function GameScreen() {
 
     {/* Tap pads — single multi-touch surface (supports simultaneous lanes + rapid taps) */}
     <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => false} onTouchStart={onPadsTouchStart} onTouchEnd={onPadsTouchEnd} onTouchCancel={onPadsTouchEnd}>
-      {laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: l * padW + 3, width: padW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.32] }) }} />)}
+      {settings.showLanePads && laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: l * padW + 3, width: padW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }} />)}
     </View>
 
     {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text selectable={false} style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text selectable={false} key={countdown} style={styles.count}>{countdown}</Text><Text selectable={false} style={styles.readySong}>{selectedSong.title}</Text></View>}

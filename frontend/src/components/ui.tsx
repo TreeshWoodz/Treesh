@@ -9,6 +9,13 @@ import { useStarlites } from "@/src/game/starlites";
 
 const GLOSS = ["rgba(255,255,255,0.28)", "rgba(255,255,255,0.06)", "transparent"] as const;
 
+// Deterministic neon palette per song so every placeholder looks like distinct album art.
+const PALETTES = [["#FF4D8D", "#8E7CFF"], ["#2FE0D6", "#3A6FF0"], ["#F5C842", "#FF7A45"], ["#8E7CFF", "#2FE0D6"], ["#FF4D8D", "#FFB020"], ["#3AF0A0", "#2FE0D6"], ["#B37CFF", "#FF4D8D"], ["#FF7A45", "#B37CFF"]];
+function seededPalette(seed: string) {
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return PALETTES[h % PALETTES.length];
+}
+
 export function ScreenHeader({ title, back = true, right }: { title: string; back?: boolean; right?: React.ReactNode }) {
   const { stars } = useStarlites();
   return <View style={styles.header} testID="screen-header">
@@ -22,12 +29,16 @@ export function GlassCard({ children, style, testID }: { children: React.ReactNo
   return <View testID={testID} style={[styles.card, style]}><LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.10)", "rgba(255,255,255,0.02)", "transparent"]} locations={[0, 0.45, 1]} style={styles.glossCard} />{children}</View>;
 }
 
-// Renders cover art, or a branded gradient placeholder (accent wash + music glyph) when a song has none.
-export function SongCover({ coverArt, accent, style, iconSize = 34, testID }: { coverArt?: string | number; accent: string; style?: StyleProp<ViewStyle>; iconSize?: number; testID?: string }) {
+// Renders cover art, or a vibrant deterministic gradient placeholder (unique per song) when a song has none.
+export function SongCover({ coverArt, accent, style, iconSize = 34, testID, seed, label }: { coverArt?: string | number; accent: string; style?: StyleProp<ViewStyle>; iconSize?: number; testID?: string; seed?: string; label?: string }) {
   if (coverArt) return <Image testID={testID} source={typeof coverArt === "number" ? coverArt : { uri: coverArt }} style={style as StyleProp<ViewStyle>} resizeMode="cover" />;
+  const [a, b] = seededPalette(seed || label || accent);
+  const initial = (label || "").trim().charAt(0).toUpperCase();
   return <View testID={testID} style={[style, styles.coverPh]}>
-    <LinearGradient colors={[`${accent}66`, "#0B0912", "#08080A"]} start={{ x: 0.2, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
-    <Ionicons name="musical-notes" size={iconSize} color={`${accent}CC`} />
+    <LinearGradient colors={[a, b, "#0B0912"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.95, y: 1 }} style={StyleSheet.absoluteFill} />
+    <LinearGradient pointerEvents="none" colors={GLOSS} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+    {initial ? <Text style={{ fontSize: iconSize * 2, lineHeight: iconSize * 2.1, fontFamily: fonts.display, color: "rgba(255,255,255,0.92)", textShadowColor: "rgba(0,0,0,0.35)", textShadowRadius: 8 }}>{initial}</Text> : <Ionicons name="musical-notes" size={iconSize} color="rgba(255,255,255,0.9)" />}
+    <Ionicons name="musical-note" size={iconSize * 0.5} color="rgba(255,255,255,0.55)" style={{ position: "absolute", right: iconSize * 0.35, bottom: iconSize * 0.3 }} />
   </View>;
 }
 

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StarlitesModal } from "@/src/components/StarlitesModal";
 import { SongCover } from "@/src/components/ui";
@@ -14,35 +14,47 @@ import { useTreeshIdentity } from "@/src/game/identity";
 import { Song } from "@/src/game/types";
 
 export default function HomeScreen() {
-  const { songs, selectSong, setDifficulty, scores, ready } = useAppState();
+  const { songs, treeshSongs, selectSong, setDifficulty, scores, ready } = useAppState();
   const { stars } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
+  const { width } = useWindowDimensions();
   const [starsOpen, setStarsOpen] = useState(false);
   const entrance = useRef(new Animated.Value(0)).current;
   const bg = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.spring(entrance, { toValue: 1, friction: 9, tension: 50, useNativeDriver: true }).start(); }, [entrance]);
   useEffect(() => { Animated.loop(Animated.sequence([Animated.timing(bg, { toValue: 1, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }), Animated.timing(bg, { toValue: 0, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true })])).start(); }, [bg]);
 
-  // Quick Play slideshow — interleave a shuffled mix of custom (device) + Treesh songs so the reel shows variety.
+  // Quick Play reel — interleave a shuffled mix of device imports + Treesh Music so the carousel shows real variety.
   const slides = useMemo(() => {
-    if (!songs.length) return [] as Song[];
     const shuffle = (arr: Song[]) => arr.map(v => [Math.random(), v] as [number, Song]).sort((a, b) => a[0] - b[0]).map(([, v]) => v);
     const device = shuffle(songs.filter(s => s.source === "device"));
-    const treesh = shuffle(songs.filter(s => s.source !== "device"));
+    const treesh = shuffle([...songs.filter(s => s.source === "built-in"), ...treeshSongs]);
     const merged: Song[] = [];
     for (let i = 0; i < Math.max(device.length, treesh.length); i++) { if (device[i]) merged.push(device[i]); if (treesh[i]) merged.push(treesh[i]); }
     return merged.slice(0, 12);
-  }, [songs]);
-  const [slide, setSlide] = useState(0);
-  const slideFade = useRef(new Animated.Value(1)).current;
-  useEffect(() => { if (slides.length < 2) return; const id = setInterval(() => setSlide(s => (s + 1) % slides.length), 4200); return () => clearInterval(id); }, [slides.length]);
-  useEffect(() => { if (slide >= slides.length && slides.length) setSlide(0); }, [slides.length, slide]);
-  useEffect(() => { slideFade.setValue(0.35); Animated.timing(slideFade, { toValue: 1, duration: 550, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [slide, slideFade]);
+  }, [songs, treeshSongs]);
 
-  const featured = slides[slide] || songs[0];
+  const CARD_W = width - 40;
+  const STEP = CARD_W + 12;
+  const scrollRef = useRef<ScrollView>(null);
+  const [slide, setSlide] = useState(0);
+  const userTouching = useRef(false);
+  useEffect(() => { if (slide >= slides.length && slides.length) setSlide(0); }, [slides.length, slide]);
+  // Gentle auto-advance that pauses while the user is swiping.
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const id = setInterval(() => {
+      if (userTouching.current) return;
+      setSlide(s => { const n = (s + 1) % slides.length; scrollRef.current?.scrollTo({ x: n * STEP, animated: true }); return n; });
+    }, 4600);
+    return () => clearInterval(id);
+  }, [slides.length, STEP]);
+  const goTo = (i: number) => { const idx = Math.max(0, Math.min(slides.length - 1, i)); scrollRef.current?.scrollTo({ x: idx * STEP, animated: true }); setSlide(idx); };
+  const onScrollEnd = (e: any) => { const idx = Math.round(e.nativeEvent.contentOffset.x / STEP); setSlide(Math.max(0, Math.min(slides.length - 1, idx))); };
+
   const dotCount = Math.min(slides.length, 7);
   const bestStars = scores.length ? Math.max(...scores.map(item => item.stars)) : 0;
-  const quickPlay = () => { if (!featured) return; selectSong(featured); setDifficulty("Normal"); router.push("/game"); };
+  const quickPlay = (song?: Song) => { if (!song) return; selectSong(song); setDifficulty("Normal"); router.push("/game"); };
   const fade = { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] };
 
   return <View style={styles.root}>
@@ -62,20 +74,41 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>Import any track, auto build a chart, then tap, hold and ride the wave.</Text>
         </Animated.View>
 
-        {/* Featured play card — auto-cycling Quick Play slideshow */}
-        {featured && <Animated.View style={fade}>
-          <Pressable testID="quick-play-button" disabled={!ready} onPress={quickPlay} style={({ pressed }) => [styles.featured, pressed && styles.pressed]}>
-            <Animated.View style={[StyleSheet.absoluteFill, { opacity: slideFade }]}><SongCover coverArt={featured.coverArt} accent={featured.accent} iconSize={64} style={styles.featuredArt} /></Animated.View>
-            <LinearGradient colors={["rgba(6,6,10,0.15)", "rgba(6,6,10,0.55)", "rgba(6,6,10,0.94)"]} style={StyleSheet.absoluteFill} />
-            <View style={styles.featuredTop}>
-              <View style={styles.featuredTag}><View style={styles.liveDot} /><Text style={styles.featuredTagText}>{ready ? "QUICK PLAY" : "PREPARING"}</Text></View>
-              {dotCount > 1 && <View style={styles.dots}>{Array.from({ length: dotCount }).map((_, i) => <View key={i} style={[styles.dot, i === slide % dotCount && { width: 16, backgroundColor: featured.accent }]} />)}</View>}
-            </View>
-            <Animated.View style={[styles.featuredBottom, { opacity: slideFade }]}>
-              <View style={{ flex: 1 }}><Text style={styles.featuredTitle} numberOfLines={1}>{featured.title}</Text><Text style={styles.featuredArtist} numberOfLines={1}>{featured.artist}</Text></View>
-              <View style={[styles.featuredPlay, { backgroundColor: featured.accent }]}><Ionicons name="play" size={26} color={colors.bg} /></View>
-            </Animated.View>
-          </Pressable>
+        {/* Quick Play — swipeable carousel of device + Treesh tracks */}
+        {slides.length > 0 && <Animated.View style={fade}>
+          <View style={styles.qpHead}>
+            <View style={styles.featuredTag}><View style={styles.liveDot} /><Text style={styles.featuredTagText}>{ready ? "QUICK PLAY" : "PREPARING"}</Text></View>
+            {dotCount > 1 && <View style={styles.dots}>{Array.from({ length: dotCount }).map((_, i) => <View key={i} style={[styles.dot, i === slide % dotCount && { width: 16, backgroundColor: colors.purple }]} />)}</View>}
+          </View>
+          <View>
+            <ScrollView
+              ref={scrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={STEP}
+              disableIntervalMomentum
+              contentContainerStyle={{ paddingRight: 12 }}
+              onScrollBeginDrag={() => { userTouching.current = true; }}
+              onMomentumScrollEnd={(e) => { userTouching.current = false; onScrollEnd(e); }}
+              onScrollEndDrag={onScrollEnd}
+            >
+              {slides.map((s, i) => <Pressable key={`${s.id}-${i}`} testID={i === 0 ? "quick-play-button" : `quick-play-slide-${i}`} disabled={!ready} onPress={() => quickPlay(s)} style={({ pressed }) => [styles.featured, { width: CARD_W, marginRight: 12 }, pressed && styles.pressed]}>
+                <SongCover coverArt={s.coverArt} accent={s.accent} seed={s.id} label={s.title} iconSize={64} style={styles.featuredArt} />
+                <LinearGradient colors={["rgba(6,6,10,0.12)", "rgba(6,6,10,0.5)", "rgba(6,6,10,0.94)"]} style={StyleSheet.absoluteFill} />
+                <View style={styles.slideTagRow}><View style={styles.srcTag}><Ionicons name={s.source === "device" ? "phone-portrait" : "musical-notes"} size={11} color={colors.text} /><Text style={styles.srcTagText}>{s.source === "device" ? "YOUR IMPORT" : s.source === "built-in" ? "WARMUP" : "TREESH MUSIC"}</Text></View></View>
+                <View style={styles.featuredBottom}>
+                  <View style={{ flex: 1 }}><Text style={styles.featuredTitle} numberOfLines={1}>{s.title}</Text><Text style={styles.featuredArtist} numberOfLines={1}>{s.artist}</Text></View>
+                  <View style={[styles.featuredPlay, { backgroundColor: s.accent }]}><Ionicons name="play" size={26} color={colors.bg} /></View>
+                </View>
+              </Pressable>)}
+            </ScrollView>
+            {slides.length > 1 && <>
+              <Pressable testID="quick-play-prev" onPress={() => goTo(slide - 1)} style={[styles.navArrow, { left: 6 }]} hitSlop={6}><Ionicons name="chevron-back" size={20} color={colors.text} /></Pressable>
+              <Pressable testID="quick-play-next" onPress={() => goTo(slide + 1)} style={[styles.navArrow, { right: 18 }]} hitSlop={6}><Ionicons name="chevron-forward" size={20} color={colors.text} /></Pressable>
+            </>}
+          </View>
         </Animated.View>}
 
         {/* Primary action */}
@@ -123,4 +156,9 @@ const styles = StyleSheet.create({
   tiles: { flexDirection: "row", gap: 10 }, tile: { flex: 1, minHeight: 96, borderRadius: 20, alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }, tileIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" }, tileText: { color: colors.text, fontSize: 12, fontFamily: fonts.bold },
   statCard: { flexDirection: "row", alignItems: "center", paddingVertical: 18, paddingHorizontal: 8, borderRadius: 22, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5 }, statCol: { flex: 1, alignItems: "center", gap: 8 }, statLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.4 }, statInline: { flexDirection: "row", alignItems: "center", gap: 6 }, statValue: { color: colors.text, fontSize: 16, fontWeight: "900" }, statDivider: { width: 1, height: 40, backgroundColor: "rgba(255,255,255,0.09)" },
   pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
+  qpHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingHorizontal: 2 },
+  slideTagRow: { padding: 16 },
+  srcTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" },
+  srcTagText: { color: colors.text, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  navArrow: { position: "absolute", top: 90, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(8,8,12,0.62)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
 });

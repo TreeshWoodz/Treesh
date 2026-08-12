@@ -1,22 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ScreenHeader, NeonButton } from "@/src/components/ui";
+import { ScreenHeader, NeonButton, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { colors, fonts } from "@/src/game/theme";
 import { Song } from "@/src/game/types";
 
 export default function LibraryScreen() {
-  const { songs, treeshSongs, selectSong, importSong } = useAppState();
+  const { songs, treeshSongs, selectSong, importSong, renameSong, deleteSong } = useAppState();
   const [tab, setTab] = useState<"treesh" | "device">("treesh");
   const [query, setQuery] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+  const [menu, setMenu] = useState<Song | null>(null);
+  const [renameText, setRenameText] = useState("");
   const source = tab === "treesh" ? treeshSongs : songs;
   const visible = useMemo(() => source.filter(song => `${song.title} ${song.artist}`.toLowerCase().includes(query.toLowerCase())), [source, query]);
   const choose = (song: Song) => { selectSong(song); router.push("/analysis"); };
   const doImport = async () => { setImportError(null); try { const song = await importSong(); if (song) router.push("/analysis"); } catch (error) { setImportError(error instanceof Error ? error.message : "Import failed. Try another file."); } };
+  const openMenu = (song: Song) => { setRenameText(song.title); setMenu(song); };
+  const doRename = async () => { if (menu) await renameSong(menu.id, renameText); setMenu(null); };
+  const doDelete = async () => { if (menu) await deleteSong(menu.id); setMenu(null); };
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Song Library" />
     <View style={styles.chrome}>
@@ -28,11 +33,12 @@ export default function LibraryScreen() {
     </View>
     <ScrollView style={styles.list} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.sectionRow}><View><Text style={styles.eyebrow}>{tab === "treesh" ? "FULL CATALOG" : "PRIVATE LIBRARY"}</Text><Text style={styles.heading}>{tab === "treesh" ? "Treesh Music" : "Your imports"}</Text></View><Text style={styles.count}>{visible.length} songs</Text></View>
-      {visible.map((song, index) => <Pressable key={song.id} testID={`song-card-${song.id}`} onPress={() => choose(song)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      {visible.map((song) => <Pressable key={song.id} testID={`song-card-${song.id}`} onPress={() => choose(song)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
         <View style={[styles.cover, { borderColor: `${song.accent}55` }]}>
-          {song.coverArt ? <Image source={typeof song.coverArt === "number" ? song.coverArt : { uri: song.coverArt }} style={styles.coverImg} resizeMode="cover" /> : <View style={[styles.disc, { borderColor: song.accent }]}><Ionicons name={song.source === "treesh" ? "musical-note" : "phone-portrait"} size={20} color={song.accent} /></View>}
+          <SongCover coverArt={song.coverArt} accent={song.accent} seed={song.id} label={song.title} iconSize={22} style={styles.coverImg} testID={`song-cover-${song.id}`} />
         </View>
         <View style={styles.meta}><Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text><Text style={styles.artist} numberOfLines={1}>{song.artist}</Text><View style={styles.badge}><Text style={styles.badgeText}>{song.source === "treesh" ? "TREESH" : song.source === "built-in" ? "WARMUP" : "LOCAL"}{song.genre ? ` · ${song.genre.toUpperCase()}` : ""}</Text></View></View>
+        {song.source === "device" && <Pressable testID={`song-menu-${song.id}`} onPress={() => openMenu(song)} hitSlop={8} style={styles.menuBtn}><Ionicons name="ellipsis-vertical" size={18} color={colors.muted} /></Pressable>}
         <View style={styles.play}><Ionicons name="play" size={19} color={colors.bg} /></View>
       </Pressable>)}
       {!visible.length && <View style={styles.empty}><Ionicons name="musical-notes-outline" size={42} color={colors.cyan} /><Text style={styles.emptyTitle}>{tab === "treesh" ? "Loading catalog…" : "No songs yet"}</Text><Text style={styles.emptyCopy}>{tab === "treesh" ? "Fetching the full Treesh library." : "Import an audio file to build your first chart."}</Text></View>}
@@ -42,6 +48,18 @@ export default function LibraryScreen() {
       {importError && <Pressable testID="import-error-banner" onPress={() => setImportError(null)} style={styles.errorBanner}><Ionicons name="alert-circle" size={16} color="#FF4D6D" /><Text style={styles.errorText} numberOfLines={2}>{importError}</Text><Ionicons name="close" size={15} color={colors.muted} /></Pressable>}
       <NeonButton testID="import-audio-button" label="Import audio from device" icon="add" onPress={doImport} />
     </View>
+
+    <Modal visible={!!menu} transparent animationType="fade" onRequestClose={() => setMenu(null)}>
+      <Pressable style={styles.modalBg} onPress={() => setMenu(null)}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
+          <Text style={styles.sheetEyebrow}>MANAGE SONG</Text>
+          <TextInput testID="song-rename-input" value={renameText} onChangeText={setRenameText} placeholder="Song name" placeholderTextColor="#6D6F78" style={styles.sheetInput} />
+          <NeonButton testID="song-rename-save" label="Save name" icon="checkmark" onPress={doRename} />
+          <NeonButton testID="song-delete" label="Delete song" icon="trash" variant="danger" onPress={doDelete} />
+          <Pressable testID="song-menu-close" onPress={() => setMenu(null)} style={styles.sheetCancel}><Text style={styles.sheetCancelText}>Cancel</Text></Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
   </SafeAreaView>;
 }
 
@@ -52,4 +70,10 @@ const styles = StyleSheet.create({
   card: { minHeight: 92, flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 20, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] }, cover: { width: 70, height: 70, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center", overflow: "hidden", backgroundColor: colors.bg }, coverImg: { width: "100%", height: "100%" }, disc: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }, meta: { flex: 1, paddingHorizontal: 13 }, songTitle: { color: colors.text, fontSize: 16, fontFamily: fonts.heavy }, artist: { color: colors.muted, marginTop: 3, fontSize: 12, fontFamily: fonts.body }, badge: { alignSelf: "flex-start", marginTop: 8, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: "rgba(255,255,255,0.06)" }, badgeText: { color: colors.cyan, fontSize: 8, fontFamily: fonts.heavy, letterSpacing: 0.7 }, play: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.lime, alignItems: "center", justifyContent: "center" },
   empty: { paddingVertical: 70, alignItems: "center" }, emptyTitle: { color: colors.text, fontSize: 20, fontFamily: fonts.display, marginTop: 14 }, emptyCopy: { color: colors.muted, marginTop: 7, fontFamily: fonts.body, textAlign: "center" }, importBar: { position: "absolute", left: 16, right: 16, bottom: 12, gap: 8 },
   errorBanner: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 13, borderRadius: 14, backgroundColor: "rgba(255,77,109,0.12)", borderWidth: 1, borderColor: "rgba(255,77,109,0.4)" }, errorText: { flex: 1, color: colors.text, fontSize: 12, fontFamily: fonts.bold },
+  menuBtn: { width: 34, height: 44, alignItems: "center", justifyContent: "center" },
+  modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "flex-end", padding: 16, paddingBottom: 30 },
+  sheet: { width: "100%", maxWidth: 440, padding: 20, borderRadius: 24, gap: 12, backgroundColor: "#141218", borderWidth: 1, borderColor: colors.border },
+  sheetEyebrow: { color: colors.muted, fontSize: 10, letterSpacing: 1.6, fontFamily: fonts.heavy },
+  sheetInput: { height: 50, borderRadius: 14, paddingHorizontal: 15, color: colors.text, fontSize: 16, fontFamily: fonts.bold, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
+  sheetCancel: { height: 46, alignItems: "center", justifyContent: "center" }, sheetCancelText: { color: colors.muted, fontSize: 14, fontFamily: fonts.bold },
 });

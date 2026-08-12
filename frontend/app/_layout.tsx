@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
-import { LogBox, Pressable, StyleSheet, Text, View } from "react-native";
+import { LogBox, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { LoadingScreen } from "@/src/components/LoadingScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -24,9 +24,45 @@ LogBox.ignoreAllLogs(true)
 // the family is registered - which throws on Android Expo Go.
 SplashScreen.preventAutoHideAsync();
 
+// Kill all text selection, image dragging, callouts and tap highlights on web at
+// RUNTIME. The dev preview (Metro) does NOT apply app/+html.tsx, so injecting here
+// is the only thing that actually reaches the running app.
+function useNoWebSelection() {
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    const style = document.createElement("style");
+    style.setAttribute("data-vocotap-noselect", "1");
+    style.innerHTML = `
+      html, body, #root, #root * , *::before, *::after {
+        -webkit-user-select: none !important; -moz-user-select: none !important;
+        -ms-user-select: none !important; user-select: none !important;
+        -webkit-touch-callout: none !important; -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
+        -webkit-user-drag: none !important; user-drag: none !important;
+      }
+      img { -webkit-user-drag: none !important; user-drag: none !important; pointer-events: none !important; }
+      input, textarea, [contenteditable="true"] { -webkit-user-select: text !important; user-select: text !important; }
+    `;
+    document.head.appendChild(style);
+    const allowText = (t: any) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+    const onSelect = (e: any) => { if (!allowText(e.target)) e.preventDefault(); };
+    const onDrag = (e: any) => e.preventDefault();
+    const onContext = (e: any) => e.preventDefault();
+    document.addEventListener("selectstart", onSelect, true);
+    document.addEventListener("dragstart", onDrag, true);
+    document.addEventListener("contextmenu", onContext, true);
+    return () => {
+      document.removeEventListener("selectstart", onSelect, true);
+      document.removeEventListener("dragstart", onDrag, true);
+      document.removeEventListener("contextmenu", onContext, true);
+      style.remove();
+    };
+  }, []);
+}
+
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
   const [textLoaded, textError] = useAppFonts();
+  useNoWebSelection();
 
   useEffect(() => {
     if ((loaded || error) && (textLoaded || textError)) {

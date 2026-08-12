@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ScreenHeader, NeonButton } from "@/src/components/ui";
+import { ScreenHeader, NeonButton, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { colors, fonts, rgba } from "@/src/game/theme";
 import { Difficulty } from "@/src/game/types";
@@ -38,7 +38,7 @@ export default function AnalysisScreen() {
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}>
         <View style={styles.cover}>
-          {selectedSong.coverArt ? <Image source={typeof selectedSong.coverArt === "number" ? selectedSong.coverArt : { uri: selectedSong.coverArt }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Ionicons name="musical-notes" size={54} color={selectedSong.accent} />}
+          <SongCover coverArt={selectedSong.coverArt} accent={selectedSong.accent} seed={selectedSong.id} label={selectedSong.title} iconSize={54} style={StyleSheet.absoluteFill} />
           <LinearGradient colors={["transparent", "rgba(10,10,11,0.9)"]} style={StyleSheet.absoluteFill} />
         </View>
         <Text style={styles.title} numberOfLines={2}>{selectedSong.title}</Text>
