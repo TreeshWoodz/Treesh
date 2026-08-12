@@ -38,7 +38,7 @@ export default function RootLayout() {
   // the app - icons/fonts will fall back, but the app still boots.
   if ((!loaded && !error) || (!textLoaded && !textError)) return null;
 
-  return <SafeAreaProvider><StarlitesProvider><AppStateProvider><StatusBar style="light" /><AppStack /></AppStateProvider></StarlitesProvider></SafeAreaProvider>;
+  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider><StarlitesProvider><AppStateProvider><StatusBar style="light" /><AppStack /></AppStateProvider></StarlitesProvider></SafeAreaProvider></GestureHandlerRootView>;
 }
 
 function AppStack() {

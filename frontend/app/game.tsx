@@ -293,7 +293,7 @@ export default function GameScreen() {
   const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
-  if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text style={styles.missingTitle}>Chart not ready</Text><Text style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
+  if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text selectable={false} style={styles.missingTitle}>Chart not ready</Text><Text selectable={false} style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
 
   const padW = width / 4;
   const pulseReady = pulse >= 100;
@@ -315,25 +315,25 @@ export default function GameScreen() {
     {/* Combo */}
     {combo > 2 && <View pointerEvents="none" style={[styles.comboWrap, { top: geo.topY + geo.span * 0.06 }]}>
       <View style={styles.comboGlow} />
-      <Text style={styles.combo}>{combo}</Text>
-      <Text style={styles.comboLabel}>COMBO</Text>
+      <Text selectable={false} style={styles.combo}>{combo}</Text>
+      <Text selectable={false} style={styles.comboLabel}>COMBO</Text>
     </View>}
 
     {/* Judgment (per-lane, mid highway) */}
-    {judgment && <Animated.Text key={judgment.key} pointerEvents="none" style={[styles.judgment, { color: judgeColor(judgment.grade), left: judgment.x - 90, top: judgment.y, opacity: judgeAnim, transform: [{ translateY: judgeAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{judgment.grade === "MISS" ? "Miss" : judgment.grade === "PERFECT" ? "Perfect" : judgment.grade === "GREAT" ? "Great" : "Good"}</Animated.Text>}
+    {judgment && <Animated.Text selectable={false} key={judgment.key} pointerEvents="none" style={[styles.judgment, { color: judgeColor(judgment.grade), left: judgment.x - 90, top: judgment.y, opacity: judgeAnim, transform: [{ translateY: judgeAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{judgment.grade === "MISS" ? "Miss" : judgment.grade === "PERFECT" ? "Perfect" : judgment.grade === "GREAT" ? "Great" : "Good"}</Animated.Text>}
 
     {/* Top HUD */}
     <View style={[styles.hud, { top: insets.top + 6 }]} pointerEvents="box-none">
       <View style={styles.hudRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.score}>{score.toLocaleString()}</Text>
-          <Text style={styles.songMeta} numberOfLines={1}>{selectedSong.title} · {selectedDifficulty}</Text>
+          <Text selectable={false} style={styles.score}>{score.toLocaleString()}</Text>
+          <Text selectable={false} style={styles.songMeta} numberOfLines={1}>{selectedSong.title} · {selectedDifficulty}</Text>
         </View>
         <Pressable testID="pause-game-button" onPress={togglePause} style={styles.pause}><Ionicons name="pause" size={18} color={colors.text} /></Pressable>
       </View>
       <View style={styles.accRow}>
         <View style={styles.accTrack}><LinearGradient colors={["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.accFill, { width: `${accuracy}%` }]} /></View>
-        <Text style={styles.accText}>{accuracy.toFixed(1)}%</Text>
+        <Text selectable={false} style={styles.accText}>{accuracy.toFixed(1)}%</Text>
       </View>
       <View style={styles.progTrack}><View style={[styles.progFill, { width: `${progress * 100}%`, backgroundColor: rock < 30 ? "#FF5C7A" : "rgba(255,255,255,0.5)" }]} /></View>
     </View>
@@ -342,7 +342,7 @@ export default function GameScreen() {
     <View testID="vocopulse-meter" style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, (pulseReady || pulseActive) && styles.vocoReady]}>
       <Ionicons name="flame" size={20} color={pulseActive ? "#FFB020" : pulseReady ? "#FF7A45" : "rgba(255,120,70,0.8)"} />
       <View style={styles.vocoTrack}><LinearGradient colors={pulseActive ? ["#FFB020", "#FF4D8D"] : ["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.vocoFill, { width: `${pulseActive ? 100 : pulse}%` }]} /></View>
-      <Text style={[styles.vocoMult, (pulseReady || pulseActive) && { color: "#FFB020" }]}>{pulseActive ? "2×" : "1×"}</Text>
+      <Text selectable={false} style={[styles.vocoMult, (pulseReady || pulseActive) && { color: "#FFB020" }]}>{pulseActive ? "2×" : "1×"}</Text>
     </View>
 
     {/* Tap pads — single multi-touch surface (supports simultaneous lanes + rapid taps) */}
@@ -350,9 +350,9 @@ export default function GameScreen() {
       {laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: l * padW + 3, width: padW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.32] }) }} />)}
     </View>
 
-    {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text key={countdown} style={styles.count}>{countdown}</Text><Text style={styles.readySong}>{selectedSong.title}</Text></View>}
+    {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text selectable={false} style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text selectable={false} key={countdown} style={styles.count}>{countdown}</Text><Text selectable={false} style={styles.readySong}>{selectedSong.title}</Text></View>}
 
-    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text style={styles.pauseTitle}>Paused</Text><Text style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={testChart ? "Back to editor" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (testChart) { setTestChart(null); router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
+    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text selectable={false} style={styles.pauseTitle}>Paused</Text><Text selectable={false} style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={testChart ? "Back to editor" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (testChart) { setTestChart(null); router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
   </View>;
 }
 

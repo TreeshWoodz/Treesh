@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
+import { createAudioPlayer } from "expo-audio";
 import { Directory, File, Paths } from "expo-file-system";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
@@ -52,18 +53,31 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const selectSong = useCallback((song: Song) => { setTestChart(null); setSelectedSong(song); }, []);
 
   const importSong = useCallback(async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: "audio/*", multiple: false, copyToCacheDirectory: true });
-    if (result.canceled || !result.assets[0]) return null;
-    const asset = result.assets[0];
-    let uri = asset.uri;
-    if (Platform.OS !== "web") {
-      const directory = new Directory(Paths.document, "vocotap-audio"); directory.create({ idempotent: true, intermediates: true });
-      const extension = asset.name.includes(".") ? asset.name.slice(asset.name.lastIndexOf(".")).replace(/[^.a-zA-Z0-9]/g, "") : ".audio";
-      const destination = new File(directory, `${Date.now()}${extension}`); new File(asset.uri).copy(destination); uri = destination.uri;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: ["audio/*", "public.audio", "application/ogg", "application/octet-stream"], multiple: false, copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.[0]) return null;
+      const asset = result.assets[0];
+      let uri = asset.uri;
+      if (Platform.OS !== "web") {
+        const directory = new Directory(Paths.document, "vocotap-audio"); directory.create({ idempotent: true, intermediates: true });
+        const extension = asset.name.includes(".") ? asset.name.slice(asset.name.lastIndexOf(".")).replace(/[^.a-zA-Z0-9]/g, "") : ".audio";
+        const destination = new File(directory, `${Date.now()}${extension}`); new File(asset.uri).copy(destination); uri = destination.uri;
+      }
+      // Probe the real duration so charts + the end-of-game screen trigger at the true song length.
+      let realDuration = 0;
+      try {
+        const probe = createAudioPlayer({ uri });
+        for (let i = 0; i < 25 && !(probe.duration > 0.5); i++) await new Promise(resolve => setTimeout(resolve, 120));
+        if (probe.duration > 0.5) realDuration = probe.duration;
+        probe.remove();
+      } catch { /* fall back to analysis-screen measurement */ }
+      const song: Song = { id: `device-${Date.now()}`, title: asset.name.replace(/\.[^/.]+$/, ""), artist: "On this device", source: "device", uri, fileName: asset.name, duration: realDuration || 180, accent: "#CCFF00" };
+      const next = [...songs.filter(item => item.source === "device"), song];
+      setSongs(current => [current[0], ...next]); await AsyncStorage.setItem(KEYS.songs, JSON.stringify(next)); setSelectedSong(song); return song;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      throw new Error(detail ? `Couldn't import audio: ${detail}` : "Couldn't import that file. Try a different audio file.");
     }
-    const song: Song = { id: `device-${Date.now()}`, title: asset.name.replace(/\.[^/.]+$/, ""), artist: "On this device", source: "device", uri, fileName: asset.name, duration: 30, accent: "#CCFF00" };
-    const next = [...songs.filter(item => item.source === "device"), song];
-    setSongs(current => [current[0], ...next]); await AsyncStorage.setItem(KEYS.songs, JSON.stringify(next)); setSelectedSong(song); return song;
   }, [songs]);
 
   const saveChart = useCallback(async (chart: Chart) => {

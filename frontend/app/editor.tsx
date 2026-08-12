@@ -9,6 +9,7 @@ import Slider from "@react-native-community/slider";
 import { NeonButton, ScreenHeader } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { colors, laneColors, fonts, rgba } from "@/src/game/theme";
+import { clampHolds } from "@/src/game/chartEngine";
 import { Chart, Note } from "@/src/game/types";
 
 const noteIcon = { tap: "ellipse", hold: "remove", wavy: "water", slide: "arrow-forward", chord: "grid", special: "sparkles" } as const;
@@ -46,6 +47,9 @@ export default function EditorScreen() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [nowLabel, setNowLabel] = useState(0);
   const [flashLane, setFlashLane] = useState(-1);
+  const [drawing, setDrawing] = useState(false);
+  const [drawTick, setDrawTick] = useState(0);
+  const [boardH, setBoardH] = useState(0);
 
   const clock = useRef(new Animated.Value(0)).current;
   const clockStart = useRef(0);
@@ -61,7 +65,10 @@ export default function EditorScreen() {
 
   useEffect(() => { nowRef.current = nowLabel; }, [nowLabel]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
-  useEffect(() => { recordingRef.current = recording; if (!recording) { cap.current = null; setFlashLane(-1); } }, [recording]);
+  useEffect(() => { recordingRef.current = recording; if (!recording) { cap.current = null; setFlashLane(-1); setDrawing(false); } }, [recording]);
+
+  // While a note is being drawn, tick so the live preview (hold tail growth / wave trail) re-renders.
+  useEffect(() => { if (!drawing) return; const t = setInterval(() => setDrawTick(x => x + 1), 60); return () => clearInterval(t); }, [drawing]);
 
   useEffect(() => {
     if (!playing) return;
@@ -89,16 +96,16 @@ export default function EditorScreen() {
       if (!recordingRef.current) return;
       const x = e.nativeEvent.locationX; const t = curTime();
       cap.current = { startX: x, startTime: t, wall: Date.now(), moved: false, points: [{ t, x: x / HW }] };
-      setFlashLane(laneFromX(x)); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setFlashLane(laneFromX(x)); setDrawing(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
     onPanResponderMove: (e) => {
       const c = cap.current; if (!c) return;
       const x = e.nativeEvent.locationX; if (Math.abs(x - c.startX) > MOVE_EPS) c.moved = true;
       c.points.push({ t: curTime(), x: Math.max(0, Math.min(1, x / HW)) });
-      setFlashLane(laneFromX(x));
+      setFlashLane(laneFromX(x)); setDrawTick(v => v + 1);
     },
     onPanResponderRelease: () => {
-      const c = cap.current; cap.current = null; setFlashLane(-1);
+      const c = cap.current; cap.current = null; setFlashLane(-1); setDrawing(false);
       if (!c || !recordingRef.current) return;
       const held = (Date.now() - c.wall) / 1000; const lane = laneFromX(c.startX);
       const base = { id: `edit-${Date.now()}-${lane}-${Math.round(c.startTime * 100)}`, lane, time: Math.max(0, c.startTime) };
@@ -107,7 +114,7 @@ export default function EditorScreen() {
       else addNote({ ...base, type: "tap" });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     },
-    onPanResponderTerminate: () => { cap.current = null; setFlashLane(-1); },
+    onPanResponderTerminate: () => { cap.current = null; setFlashLane(-1); setDrawing(false); },
   })).current;
 
   const toggleSelect = (id: string) => setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
@@ -116,7 +123,7 @@ export default function EditorScreen() {
   const eraseSelected = () => { if (!selected.size) return; setNotes(prev => { undo.current.push(prev); redo.current = []; return prev.filter(n => !selected.has(n.id)); }); setSelected(new Set()); setSaved(false); };
   const eraseAll = () => { if (!notes.length) return; setNotes(prev => { undo.current.push(prev); redo.current = []; return []; }); setSelected(new Set()); setSaved(false); };
 
-  const buildChart = (): Chart => ({ songId: selectedSong!.id, difficulty: "Custom", bpm: existing?.bpm || selectedSong!.bpm || 120, duration, notes: [...notes].sort((a, b) => a.time - b.time), waveform: existing?.waveform || Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.5)) * 0.7) });
+  const buildChart = (): Chart => ({ songId: selectedSong!.id, difficulty: "Custom", bpm: existing?.bpm || selectedSong!.bpm || 120, duration, notes: clampHolds(notes), waveform: existing?.waveform || Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.5)) * 0.7) });
 
   const save = async () => {
     if (!selectedSong || !notes.length) return;
@@ -131,30 +138,56 @@ export default function EditorScreen() {
 
   const visible = useMemo(() => notes.filter(n => { const end = n.time + ((n.type === "hold" || n.type === "wavy") ? (n.duration || 0) : 0); return n.time - nowLabel < lookahead && end - nowLabel > -0.4; }), [notes, nowLabel]);
 
-  if (!selectedSong) return <SafeAreaView style={styles.safe} edges={["top"]}><ScreenHeader title="Chart Editor" /><View style={styles.empty}><Ionicons name="musical-notes-outline" size={44} color={colors.purple} /><Text style={styles.emptyTitle}>Choose a track first</Text><Text style={styles.emptyCopy}>Pick a song to build a custom chart for.</Text><NeonButton testID="editor-open-library-button" label="Choose a track" icon="library" onPress={() => router.replace("/library")} /></View></SafeAreaView>;
+  // Live preview of the note being drawn (recomputed each drawTick from the active capture).
+  const bH = boardH || BOARD_H;
+  const preview = useMemo(() => {
+    if (!drawing) return null;
+    const c = cap.current; if (!c) return null;
+    const held = (Date.now() - c.wall) / 1000;
+    const lane = laneFromX(c.startX);
+    const last = c.points[c.points.length - 1];
+    const type = c.moved ? "wavy" : held >= TAP_MAX ? "hold" : "tap";
+    return { lane, held, type, x: (last?.x ?? c.startX / HW) * HW, points: c.points };
+  }, [drawing, drawTick, HW, BOARD_H]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!selectedSong) return <SafeAreaView style={styles.safe} edges={["top"]}><ScreenHeader title="Chart Editor" /><View style={styles.empty}><Ionicons name="musical-notes-outline" size={44} color={colors.purple} /><Text selectable={false} style={styles.emptyTitle}>Choose a track first</Text><Text selectable={false} style={styles.emptyCopy}>Pick a song to build a custom chart for.</Text><NeonButton testID="editor-open-library-button" label="Choose a track" icon="library" onPress={() => router.replace("/library")} /></View></SafeAreaView>;
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-    <ScreenHeader title="Chart Editor" right={<Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable>} />
+    <ScreenHeader title="Chart Editor" right={<Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable>} />
 
     <View style={styles.songBar}>
-      <View style={{ flex: 1 }}><Text style={styles.song} numberOfLines={1}>{selectedSong.title}</Text><Text style={styles.meta} testID="editor-note-count">{notes.length} NOTES · CUSTOM CHART</Text></View>
-      <Pressable testID="editor-change-track-button" onPress={() => router.push("/library")} style={styles.change}><Ionicons name="swap-horizontal" size={15} color={colors.text} /><Text style={styles.changeText}>Change</Text></Pressable>
+      <View style={{ flex: 1 }}><Text selectable={false} style={styles.song} numberOfLines={1}>{selectedSong.title}</Text><Text selectable={false} style={styles.meta} testID="editor-note-count">{notes.length} NOTES · CUSTOM CHART</Text></View>
+      <Pressable testID="editor-change-track-button" onPress={() => router.push("/library")} style={styles.change}><Ionicons name="swap-horizontal" size={15} color={colors.text} /><Text selectable={false} style={styles.changeText}>Change</Text></Pressable>
     </View>
 
     <View style={styles.modeBar}>
-      <Pressable testID="editor-record-button" onPress={() => setRecording(r => !r)} style={[styles.modeBtn, recording && styles.modeBtnRec]}><View style={[styles.recDot, recording && styles.recDotOn]} /><Text style={[styles.modeText, recording && { color: colors.bg }]}>{recording ? "Recording" : "Record"}</Text></Pressable>
-      <Text style={styles.modeHint} numberOfLines={2}>{recording ? "Press Play, then tap a lane = note · hold = long note · drag = wave" : "Press Record, then Play to place notes"}</Text>
+      <Pressable testID="editor-record-button" onPress={() => setRecording(r => !r)} style={[styles.modeBtn, recording && styles.modeBtnRec]}><View style={[styles.recDot, recording && styles.recDotOn]} /><Text selectable={false} style={[styles.modeText, recording && { color: colors.bg }]}>{recording ? "Recording" : "Record"}</Text></Pressable>
+      <Pressable testID="editor-test-button" onPress={test} style={styles.testBtn}><Ionicons name="game-controller" size={15} color={colors.bg} /><Text selectable={false} style={styles.testText}>Test</Text></Pressable>
+      <Text selectable={false} style={styles.modeHint} numberOfLines={2}>{recording ? "Play, then tap = note · hold = long · drag = wave" : "Record, then Play to place notes"}</Text>
     </View>
 
     {/* Falling board — doubles as the live input surface while recording */}
     <View style={styles.boardWrap}>
-      <View style={[styles.board, { width: HW }]} {...pan.panHandlers}>
+      <View style={[styles.board, { width: HW }]} onLayout={e => setBoardH(e.nativeEvent.layout.height)} {...pan.panHandlers}>
         {[0, 1, 2, 3, 4].map(l => <View key={l} style={[styles.boardDiv, { left: l * LANE }]} />)}
         {laneColors.map((c, l) => <View key={`g${l}`} style={[styles.laneCol, { left: l * LANE, width: LANE, backgroundColor: flashLane === l ? `${c}22` : "transparent" }]} />)}
-        {laneColors.map((c, l) => <View key={`ln${l}`} style={[styles.laneNo, { left: l * LANE, width: LANE }]}><Text style={[styles.laneNoText, { color: c }]}>{l + 1}</Text></View>)}
+        {laneColors.map((c, l) => <View key={`ln${l}`} style={[styles.laneNo, { left: l * LANE, width: LANE }]}><Text selectable={false} style={[styles.laneNoText, { color: c }]}>{l + 1}</Text></View>)}
         <View style={styles.hitLineFull} />
         {visible.map(n => <EditorNote key={n.id} note={n} clock={clock} lookahead={lookahead} boardH={BOARD_H} laneW={LANE} hw={HW} selected={selected.has(n.id)} onPress={() => toggleSelect(n.id)} />)}
-        {recording && <View pointerEvents="none" style={styles.recBadge}><View style={styles.recBadgeDot} /><Text style={styles.recBadgeText}>REC</Text></View>}
+        {preview && (() => {
+          const size = LANE * 0.52; const color = laneColors[preview.lane]; const hitY = bH * 0.84;
+          const cx = preview.type === "wavy" ? Math.max(size / 2, Math.min(HW - size / 2, preview.x)) : preview.lane * LANE + LANE / 2;
+          const tailLen = preview.type === "tap" ? 0 : Math.min(bH * 0.8, (preview.held / lookahead) * bH);
+          const trail = preview.points.slice(-16);
+          return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {tailLen > 0 && <View style={{ position: "absolute", left: cx - size * 0.2, top: hitY - tailLen, width: size * 0.4, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
+            {preview.type === "wavy" && trail.map((p, i) => <View key={i} style={{ position: "absolute", left: p.x * HW - 3, top: hitY - (trail.length - 1 - i) * 7 - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: color, opacity: 0.3 + (i / trail.length) * 0.6 }} />)}
+            <View style={{ position: "absolute", left: cx - size / 2, top: hitY - size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 3, borderColor: colors.text, alignItems: "center", justifyContent: "center", opacity: 0.95 }}>
+              <Ionicons name={noteIcon[preview.type]} size={size * 0.36} color={colors.bg} />
+            </View>
+          </View>;
+        })()}
+        {recording && <View pointerEvents="none" style={styles.recBadge}><View style={styles.recBadgeDot} /><Text selectable={false} style={styles.recBadgeText}>REC</Text></View>}
       </View>
     </View>
 
@@ -167,18 +200,17 @@ export default function EditorScreen() {
 
     {/* Transport */}
     <View style={styles.transport}>
-      <Pressable testID="editor-test-button" onPress={test} style={styles.testBtn}><Ionicons name="game-controller" size={15} color={colors.bg} /><Text style={styles.testText}>Test</Text></Pressable>
-      <Text style={styles.time}>{Math.floor(nowLabel / 60)}:{String(Math.floor(nowLabel % 60)).padStart(2, "0")}</Text>
+      <Text selectable={false} style={styles.time}>{Math.floor(nowLabel / 60)}:{String(Math.floor(nowLabel % 60)).padStart(2, "0")}</Text>
       <Pressable testID="editor-play-button" onPress={togglePlay} style={styles.playBtn}><Ionicons name={playing ? "pause" : "play"} size={26} color={colors.bg} /></Pressable>
       <Pressable testID="editor-restart-button" onPress={() => seek(0)} style={styles.tBtn}><Ionicons name="refresh" size={20} color={colors.text} /></Pressable>
     </View>
 
     {/* Edit controls */}
     <View style={styles.controls}>
-      <Pressable testID="editor-undo-button" onPress={doUndo} style={styles.ctrl}><Ionicons name="arrow-undo" size={18} color={colors.text} /><Text style={styles.ctrlText}>Undo</Text></Pressable>
-      <Pressable testID="editor-redo-button" onPress={doRedo} style={styles.ctrl}><Ionicons name="arrow-redo" size={18} color={colors.text} /><Text style={styles.ctrlText}>Redo</Text></Pressable>
-      <Pressable testID="editor-erase-selected-button" onPress={eraseSelected} style={styles.ctrl}><Ionicons name="cut" size={18} color={colors.pink} /><Text style={[styles.ctrlText, { color: colors.pink }]}>Erase {selected.size || ""}</Text></Pressable>
-      <Pressable testID="editor-erase-all-button" onPress={eraseAll} style={styles.ctrl}><Ionicons name="trash" size={18} color={colors.pink} /><Text style={[styles.ctrlText, { color: colors.pink }]}>Erase all</Text></Pressable>
+      <Pressable testID="editor-undo-button" onPress={doUndo} style={styles.ctrl}><Ionicons name="arrow-undo" size={18} color={colors.text} /><Text selectable={false} style={styles.ctrlText}>Undo</Text></Pressable>
+      <Pressable testID="editor-redo-button" onPress={doRedo} style={styles.ctrl}><Ionicons name="arrow-redo" size={18} color={colors.text} /><Text selectable={false} style={styles.ctrlText}>Redo</Text></Pressable>
+      <Pressable testID="editor-erase-selected-button" onPress={eraseSelected} style={styles.ctrl}><Ionicons name="cut" size={18} color={colors.pink} /><Text selectable={false} style={[styles.ctrlText, { color: colors.pink }]}>Erase {selected.size || ""}</Text></Pressable>
+      <Pressable testID="editor-erase-all-button" onPress={eraseAll} style={styles.ctrl}><Ionicons name="trash" size={18} color={colors.pink} /><Text selectable={false} style={[styles.ctrlText, { color: colors.pink }]}>Erase all</Text></Pressable>
     </View>
   </SafeAreaView>;
 }
@@ -192,7 +224,7 @@ const styles = StyleSheet.create({
   boardWrap: { flex: 1, alignItems: "center", backgroundColor: "#08080C", overflow: "hidden" }, board: { flex: 1, overflow: "hidden" }, boardDiv: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.08)" }, laneCol: { position: "absolute", top: 0, bottom: 0 }, laneNo: { position: "absolute", top: 8, alignItems: "center" }, laneNoText: { fontSize: 11, fontFamily: fonts.heavy, opacity: 0.5 }, hitLineFull: { position: "absolute", left: 0, right: 0, bottom: "16%", height: 2, backgroundColor: "rgba(255,255,255,0.4)" }, eNote: { alignItems: "center", justifyContent: "center" },
   recBadge: { position: "absolute", top: 8, right: 10, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, height: 24, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: colors.pink }, recBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.pink }, recBadgeText: { color: colors.text, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
   seekRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, marginTop: 6 }, seekBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
-  transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, paddingVertical: 6 }, testBtn: { flexDirection: "row", alignItems: "center", gap: 5, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: colors.lime }, testText: { color: colors.bg, fontSize: 13, fontFamily: fonts.heavy }, time: { color: colors.muted, fontSize: 13, fontFamily: fonts.bold, width: 40, textAlign: "center" }, playBtn: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: colors.purple, shadowColor: colors.purple, shadowOpacity: 0.5, shadowRadius: 14, elevation: 8 }, tBtn: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
+  transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, paddingVertical: 6 }, testBtn: { flexDirection: "row", alignItems: "center", gap: 5, height: 36, paddingHorizontal: 13, borderRadius: 18, backgroundColor: colors.lime }, testText: { color: colors.bg, fontSize: 13, fontFamily: fonts.heavy }, time: { color: colors.muted, fontSize: 13, fontFamily: fonts.bold, width: 40, textAlign: "center" }, playBtn: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: colors.purple, shadowColor: colors.purple, shadowOpacity: 0.5, shadowRadius: 14, elevation: 8 }, tBtn: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
   controls: { flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingBottom: 8, paddingTop: 2 }, ctrl: { flex: 1, height: 54, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 3, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, ctrlText: { color: colors.text, fontSize: 11, fontFamily: fonts.bold },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", padding: 28, gap: 14 }, emptyTitle: { color: colors.text, fontSize: 24, fontFamily: fonts.display, textAlign: "center" }, emptyCopy: { color: colors.muted, fontSize: 14, textAlign: "center", lineHeight: 20, marginBottom: 6, fontFamily: fonts.body },
 });
