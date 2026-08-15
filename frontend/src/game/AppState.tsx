@@ -106,14 +106,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     await saveChart(chart); return chart;
   }, [saveChart]);
 
-  // Auto-build charts for every standard difficulty (only the ones missing) so a song is instantly playable.
+  // Auto-build charts for every standard difficulty so a song is instantly playable. Standard
+  // charts are always regenerated (Custom charts are left untouched) so engine updates take effect.
   const generateAll = useCallback(async (song: Song, duration: number) => {
-    const next = { ...charts }; let changed = false;
+    const next = { ...charts };
     (["Easy", "Normal", "Hard", "Expert"] as Difficulty[]).forEach(d => {
       const key = `${song.id}-${d}`;
-      if (!next[key]) { next[key] = song.id === warmup.id && d === "Normal" ? trainingChart() : generateChart(song.id, song.fileName || song.title, duration, d); changed = true; }
+      next[key] = song.id === warmup.id && d === "Normal" ? trainingChart() : generateChart(song.id, song.fileName || song.title, duration, d);
     });
-    if (changed) { setCharts(next); await AsyncStorage.setItem(KEYS.charts, JSON.stringify(next)); }
+    setCharts(next); await AsyncStorage.setItem(KEYS.charts, JSON.stringify(next));
   }, [charts]);
 
   const saveResult = useCallback(async (result: ScoreResult) => {

@@ -1,10 +1,13 @@
-import { Chart, Difficulty, Note, NoteType } from "./types";
+import { Chart, Difficulty, Note } from "./types";
 
-const difficultyStep: Record<Difficulty, number> = {
-  Easy: 1,
-  Normal: 0.75,
-  Hard: 0.5,
-  Expert: 0.375,
+// Per-difficulty musical config: subdivision of the beat, base note density,
+// how strongly to favour on-beat notes, and how often to place holds/waves/chords.
+const config: Record<Difficulty, { div: number; density: number; downbeatBias: number; holdEvery: number; waveEvery: number; chord: number }> = {
+  Easy: { div: 1, density: 0.55, downbeatBias: 1.0, holdEvery: 4, waveEvery: 8, chord: 0 },
+  Normal: { div: 2, density: 0.52, downbeatBias: 0.5, holdEvery: 4, waveEvery: 8, chord: 0 },
+  Hard: { div: 2, density: 0.74, downbeatBias: 0.28, holdEvery: 3, waveEvery: 6, chord: 0.12 },
+  Expert: { div: 4, density: 0.66, downbeatBias: 0.12, holdEvery: 3, waveEvery: 6, chord: 0.18 },
+  Custom: { div: 2, density: 0.6, downbeatBias: 0.4, holdEvery: 4, waveEvery: 8, chord: 0 },
 };
 
 function seeded(seed: number) {
@@ -34,30 +37,68 @@ export function clampHolds(notes: Note[]): Note[] {
 }
 
 export function generateChart(songId: string, fileName: string, duration: number, difficulty: Difficulty): Chart {
+  const cfg = config[difficulty] ?? config.Normal;
   const bpm = estimateBpm(fileName, duration);
   const beat = 60 / bpm;
-  const step = beat * difficultyStep[difficulty];
+  const step = beat / cfg.div;
   const seed = [...`${songId}${difficulty}`].reduce((sum, char) => sum + char.charCodeAt(0), 1);
   const random = seeded(seed);
   const notes: Note[] = [];
-  let index = 0; let lane = 0; let dir = 1; let beatIdx = 0;
-  const skip = difficulty === "Easy" ? 0.28 : difficulty === "Normal" ? 0.16 : 0.06;
-  for (let time = Math.min(1.8, duration * 0.1); time < duration - 0.8; time += step, beatIdx++) {
-    // Phrasing: rest more on off-beats so patterns feel intentional, not noisy.
-    const offbeat = beatIdx % 2 === 1;
-    if (random() < (offbeat ? skip + 0.22 : skip)) continue;
-    // Lane movement: mostly step up/down (runs / zig-zags), occasional jump — reads as choreography.
+  let id = 0;
+  const start = Math.max(beat * 2, duration * 0.04);
+  const end = duration - beat * 1.5;
+  const slotsPerBar = cfg.div * 4;
+  let lane = Math.floor(random() * 4);
+  let dir = random() < 0.5 ? 1 : -1;
+  let bar = -1;
+
+  const totalSlots = Math.max(0, Math.floor((end - start) / step));
+  for (let i = 0; i <= totalSlots; i++) {
+    const time = start + i * step;
+    if (time >= end) break;
+    const slotInBar = i % slotsPerBar;
+    if (slotInBar === 0) bar++;
+    const isDown = i % cfg.div === 0;                 // sits on a beat
+    const isBarStart = slotInBar === 0;
+    const beatInBar = Math.floor(slotInBar / cfg.div); // 0..3
+
+    // Musical arc: 8-bar sections build toward the middle then breathe; intro/outro stay sparse.
+    const arc = 0.16 * Math.sin(((bar % 8) / 8) * Math.PI);
+    const intro = time < duration * 0.12 ? -0.22 : 0;
+    const outro = time > duration * 0.92 ? -0.15 : 0;
+    let p = cfg.density + arc + intro + outro;
+    if (!isDown) p -= cfg.downbeatBias;               // fewer off-beat notes
+    if (isDown && (beatInBar === 1 || beatInBar === 3)) p += 0.15; // backbeat emphasis
+
+    // Wave sweep at phrase transitions (top of every `waveEvery` bars).
+    if (isBarStart && bar > 0 && bar % cfg.waveEvery === 0) {
+      lane = (lane + dir + 4) % 4;
+      notes.push({ id: `${songId}-${difficulty}-${id++}`, time, lane, type: "wavy", duration: beat * 1.5 });
+      continue;
+    }
+    // Long note on the first downbeat of every `holdEvery` bars.
+    if (isDown && beatInBar === 0 && bar > 0 && bar % cfg.holdEvery === 0) {
+      lane = (lane + dir + 4) % 4;
+      notes.push({ id: `${songId}-${difficulty}-${id++}`, time, lane, type: "hold", duration: beat * (1 + Math.floor(random() * 2)) });
+      continue;
+    }
+
+    if (random() > Math.max(0.05, Math.min(0.98, p))) continue;
+
+    // Lane movement — runs and zig-zags read as choreography, occasional leap for surprise.
     const r = random();
-    if (r < 0.58) lane = (lane + dir + 4) % 4;
-    else if (r < 0.78) { dir = -dir; lane = (lane + dir + 4) % 4; }
+    if (r < 0.6) lane = (lane + dir + 4) % 4;
+    else if (r < 0.8) { dir = -dir; lane = (lane + dir + 4) % 4; }
     else lane = Math.floor(random() * 4);
-    // Holds land on downbeats only; keep them sparse.
-    let type: NoteType = "tap";
-    const hr = random();
-    if (!offbeat && hr > 0.9) type = "wavy";
-    else if (!offbeat && hr > 0.82) type = "hold";
-    notes.push({ id: `${songId}-${difficulty}-${index++}`, time, lane, type, duration: type === "hold" || type === "wavy" ? beat * (1 + Math.floor(random() * 2)) : undefined });
+
+    notes.push({ id: `${songId}-${difficulty}-${id++}`, time, lane, type: "tap" });
+
+    // Chords on strong downbeats for harder charts.
+    if (cfg.chord > 0 && isDown && beatInBar === 0 && random() < cfg.chord) {
+      notes.push({ id: `${songId}-${difficulty}-${id++}`, time, lane: (lane + 2) % 4, type: "tap" });
+    }
   }
+
   const waveform = Array.from({ length: 96 }, (_, i) => Math.min(1, 0.16 + Math.abs(Math.sin(i * 0.42) * 0.55 + Math.sin(i * 0.13) * 0.25) + random() * 0.2));
   return { songId, difficulty, bpm, duration, notes: clampHolds(notes), waveform };
 }
