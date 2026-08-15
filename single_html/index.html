@@ -1095,7 +1095,9 @@ async function loadUserSongs(){
     const recs=await idbGetAll();
     recs.sort((a,b)=>(a.addedAt||0)-(b.addedAt||0));
     // revoke any previously-created object URLs before regenerating
-    USER_SONGS.forEach(s=>(s._urls||[]).forEach(u=>{ try{ URL.revokeObjectURL(u); }catch(e){} }));
+    // ...but never revoke a blob URL that is currently playing (mobile background fix)
+    const _curSrc=(state.audio&&state.audio.src)||"";
+    USER_SONGS.forEach(s=>(s._urls||[]).forEach(u=>{ if(u&&u===_curSrc) return; try{ URL.revokeObjectURL(u); }catch(e){} }));
     USER_SONGS=recs.map(userRecToSong);
     mergeUserSongs();
     if(typeof softRefresh==="function") softRefresh();
@@ -1527,6 +1529,11 @@ function popDislike(id, on){ requestAnimationFrame(()=>{ $$('[data-act="dislike"
    AUDIO ENGINE
    ============================================================ */
 const audio = state.audio; audio.preload="metadata";
+/* Mobile background-playback hardening: inline playback hints + attach to DOM so
+   iOS/Android treat this as the page's primary media element and keep it alive
+   in the background (works together with the MediaSession wiring below). */
+try{ audio.setAttribute("playsinline",""); audio.setAttribute("webkit-playsinline",""); audio.setAttribute("x-webkit-airplay","allow"); audio.crossOrigin="anonymous"; }catch(e){}
+(function attachAudioEl(){ const add=()=>{ try{ if(document.body && !audio.isConnected){ audio.style.display="none"; audio.setAttribute("aria-hidden","true"); document.body.appendChild(audio); } }catch(e){} }; if(document.body) add(); else document.addEventListener("DOMContentLoaded", add); })();
 function shuffleKeepFirst(arr, i){ let rest=arr.filter((_,x)=>x!==i); rest=rest.filter(s=>!(s&&s.id&&state.dislikes.has(s.id))); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
 function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
 function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl) audio.src=song.audioUrl; audio.load(); if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } }
@@ -1542,11 +1549,11 @@ function addToQueue(song, playNext=false){ if(!state.queue.length){ playSong(son
 function removeFromQueue(id){ const i=state.queue.findIndex(s=>s.id===id); if(i<0) return; const wasCur=i===state.index; state.queue.splice(i,1); state.base=state.queue.slice(); if(wasCur){ if(!state.queue.length){ audio.pause(); state.index=-1; } else loadIndex(Math.min(i,state.queue.length-1),state.queue,true); } else if(i<state.index){ state.index--; } renderQueue(); renderNP(); renderMini(); }
 function moveQueue(id, dir){ const i=state.queue.findIndex(s=>s.id===id); const j=i+dir; if(i<0||j<0||j>=state.queue.length) return; const cur=curSong(); [state.queue[i],state.queue[j]]=[state.queue[j],state.queue[i]]; state.base=state.queue.slice(); if(cur) state.index=state.queue.findIndex(s=>s.id===cur.id); renderQueue(); }
 
-audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="playing"; });
+audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if("mediaSession"in navigator){ navigator.mediaSession.playbackState="playing"; if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("pause", ()=>{ state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
 let _starLastTU=-1;
-audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); });
-audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); updateABMarkers(); });
+audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); if(Math.abs(ct-(state._posTU||0))>=1){ state._posTU=ct; if(typeof updatePositionState==="function") updatePositionState(); } });
+audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); updateABMarkers(); if(typeof updatePositionState==="function") updatePositionState(); });
 audio.addEventListener("ended", ()=>nextTrack(false));
 audio.addEventListener("error", ()=>{ state.isPlaying=false; });
 
@@ -1715,14 +1722,14 @@ function syncNavHeight(){ const n=document.getElementById("mobile-nav"); let h=0
 /* ============================================================
    RENDER: VIEWS
    ============================================================ */
-function songCard(s){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id);
+function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play';
   return `<div data-songcard="${s.id}" data-testid="song-card-${s.id}" class="card-lift group relative rounded-2xl border ${active?'border-white/25 glow-purple':'border-white/10 hover:border-white/25'} bg-white/5 backdrop-blur-xl p-2.5">
     <div class="relative overflow-hidden rounded-xl">
       <div class="aspect-square w-full">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',`alt="${esc(s.title)}"`)}</div>
       ${s.treeshChoice?`<span class="tr-label absolute left-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide backdrop-blur">Treesh\u2019s Pick</span>`:""}
       ${s._user?`<span data-testid="yours-badge-${s.id}" class="absolute left-1.5 top-1.5 rounded-md bg-[color:var(--treesh-purple)]/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur">Yours</span>`:""}
       ${s.explicit?`<span class="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-[4px] bg-white/15 text-[9px] font-bold text-white/80">E</span>`:""}
-      <button data-act="play" data-id="${s.id}" aria-label="Play" data-testid="song-card-play-button-${s.id}" class="press absolute bottom-2 right-2 grid h-11 w-11 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white shadow-lg opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-1 sm:group-hover:translate-y-0 glow-purple"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:18px;height:18px"></i></button>
+      <button data-act="${A}" data-id="${s.id}" aria-label="Play" data-testid="song-card-play-button-${s.id}" class="press absolute bottom-2 right-2 grid h-11 w-11 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white shadow-lg opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-1 sm:group-hover:translate-y-0 glow-purple"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:18px;height:18px"></i></button>
       ${active?`<div class="absolute bottom-2 left-2"><span class="eq"><span></span><span></span><span></span><span></span></span></div>`:""}
     </div>
     <div class="mt-2.5 min-w-0"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/60">${esc(s.artist)}</p></div>
@@ -1733,10 +1740,10 @@ function songCard(s){ const active=curSong()&&curSong().id===s.id; const fav=isF
     </div>
   </div>`; }
 
-function songRow(s, i, removable){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id);
+function songRow(s, i, removable, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play';
   return `<div data-song-row class="group flex items-center gap-3 rounded-xl border ${active?'border-white/20 bg-white/[0.07]':'border-transparent hover:bg-white/5'} px-2.5 py-2 transition">
-    <button data-act="play" data-id="${s.id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
-    <div class="min-w-0 flex-1 cursor-pointer" data-act="play" data-id="${s.id}">
+    <button data-act="${A}" data-id="${s.id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
+    <div class="min-w-0 flex-1 cursor-pointer" data-act="${A}" data-id="${s.id}">
       <div class="flex items-center gap-2"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p>${s.explicit?`<span class="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[3px] bg-white/15 text-[8px] font-bold text-white/70">E</span>`:""}${s._user?`<span data-testid="yours-badge-${s.id}" class="shrink-0 rounded-full bg-[color:var(--treesh-purple)]/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[color:var(--treesh-purple)]">Yours</span>`:""}${active?`<span class="eq scale-75"><span></span><span></span><span></span><span></span></span>`:""}</div>
       <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
     </div>
@@ -1745,8 +1752,8 @@ function songRow(s, i, removable){ const active=curSong()&&curSong().id===s.id; 
     ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>`}
   </div>`; }
 
-function grid(list){ return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">${list.map(songCard).join("")}</div>`; }
-function songList(list, removable){ return `<div class="space-y-1">${list.map((s,i)=>songRow(s,i,!!removable)).join("")}</div>`; }
+function grid(list, act){ return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">${list.map(s=>songCard(s,act)).join("")}</div>`; }
+function songList(list, removable, act){ return `<div class="space-y-1">${list.map((s,i)=>songRow(s,i,!!removable,act)).join("")}</div>`; }
 function viewToggle(act, isGrid){ return `<div class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1" data-testid="${act}-toggle">
     <button data-act="${act}" data-mode="grid" aria-label="Grid view" aria-pressed="${isGrid}" data-testid="${act}-grid" class="press grid h-8 w-8 place-items-center rounded-full transition ${isGrid?'bg-white/15 text-white':'text-white/55 hover:bg-white/10 hover:text-white'}"><i data-lucide="layout-grid" style="width:15px;height:15px"></i></button>
     <button data-act="${act}" data-mode="list" aria-label="List view" aria-pressed="${!isGrid}" data-testid="${act}-list" class="press grid h-8 w-8 place-items-center rounded-full transition ${!isGrid?'bg-white/15 text-white':'text-white/55 hover:bg-white/10 hover:text-white'}"><i data-lucide="list" style="width:15px;height:15px"></i></button>
@@ -1825,16 +1832,29 @@ function wnSlide(item){
     meta=`<span class="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide">${cnt} track${cnt===1?"":"s"}</span><span class="text-white/75">${item.kind==="rediscover"?"From the vault":"Fresh on Treesh"}</span>`;
     act="wn-play-artist"; id=a.id;
   }
-  return `<div class="wn-slide w-full shrink-0 px-0.5"><div class="dark-surface relative h-[380px] overflow-hidden rounded-3xl border border-white/10 shadow-[var(--treesh-shadow)] sm:h-[440px]">
-    <div class="absolute inset-0">${img(src,'wn-img h-full w-full object-cover')}</div>
+  return `<div class="wn-slide w-full shrink-0 px-0.5"><div class="dark-surface relative h-[380px] overflow-hidden rounded-3xl border border-white/10 shadow-[var(--treesh-shadow)] sm:h-[440px] lg:h-[340px]">
+    <div class="absolute inset-0">${img(src,'wn-img h-full w-full object-cover lg:scale-125 lg:blur-2xl lg:opacity-40')}</div>
     <div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(8,8,10,0.05) 0%,rgba(8,8,10,0.25) 42%,rgba(8,8,10,0.9) 100%)"></div>
-    <div class="absolute inset-0" style="background:radial-gradient(120% 90% at 12% 0%,transparent 45%,rgba(8,8,10,0.4) 100%)"></div>
-    <div class="wn-content relative flex h-full flex-col justify-end p-6 sm:p-8">
+    <div class="absolute inset-0 lg:hidden" style="background:radial-gradient(120% 90% at 12% 0%,transparent 45%,rgba(8,8,10,0.4) 100%)"></div>
+    <div class="absolute inset-0 hidden lg:block" style="background:linear-gradient(90deg,rgba(8,8,10,0.82) 0%,rgba(8,8,10,0.5) 50%,rgba(8,8,10,0.72) 100%)"></div>
+    <div class="wn-content relative flex h-full flex-col justify-end p-6 sm:p-8 lg:hidden">
       <span class="tr-label mb-auto inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] backdrop-blur"><i data-lucide="${catIc}" style="width:12px;height:12px"></i>${cat}</span>
       <h3 class="font-display text-3xl font-bold leading-tight text-white drop-shadow-lg sm:text-[2.6rem]">${esc(title)}</h3>
       <p class="clamp-1 mt-1.5 text-sm text-white/85 sm:text-base">${esc(sub)}</p>
       <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">${meta}</div>
       <div class="mt-5"><button data-act="${act}" data-id="${id}" data-testid="whats-new-play-${id}" class="press inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-black shadow-lg transition-colors hover:bg-white/90"><i data-lucide="play" style="width:16px;height:16px" class="fill-current"></i> Play</button></div>
+    </div>
+    <div class="relative hidden h-full flex-col justify-end p-8 lg:flex">
+      <div class="flex items-end gap-6">
+        <div class="wn-thumb shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-2xl" style="height:200px;width:200px">${img(src,'h-full w-full object-cover')}</div>
+        <div class="min-w-0 flex-1 pb-1">
+          <span class="tr-label inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] backdrop-blur"><i data-lucide="${catIc}" style="width:12px;height:12px"></i>${cat}</span>
+          <h3 class="mt-3 font-display text-4xl font-bold leading-tight text-white drop-shadow-lg">${esc(title)}</h3>
+          <p class="clamp-1 mt-1.5 text-base text-white/85">${esc(sub)}</p>
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium">${meta}</div>
+          <div class="mt-5"><button data-act="${act}" data-id="${id}" data-testid="whats-new-play-desktop-${id}" class="press inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-black shadow-lg transition-colors hover:bg-white/90"><i data-lucide="play" style="width:16px;height:16px" class="fill-current"></i> Play</button></div>
+        </div>
+      </div>
     </div>
   </div></div>`;
 }
@@ -1884,7 +1904,7 @@ function wireWN(){
 
 function myMusicCard(s){ const active=curSong()&&curSong().id===s.id; const playing=active&&state.isPlaying; const G=s.glow||'147,40,255';
   return `<div class="group relative w-[150px] min-w-[150px] snap-start overflow-hidden rounded-2xl border bg-white/[0.04]" style="border-color:rgba(${G},0.32);box-shadow:0 10px 30px -16px rgba(${G},0.6)" data-testid="my-music-card-${s.id}">
-    <div class="relative aspect-square w-full overflow-hidden">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]',`alt="${esc(s.title)}"`)}<div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,0.72) 100%)"></div><span class="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/85 backdrop-blur">Yours</span><button data-act="play" data-id="${s.id}" aria-label="Play ${esc(s.title)}" class="press glass-strong absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full text-white transition hover:glow-purple"><i data-lucide="${playing?'pause':'play'}" class="fill-current" style="width:15px;height:15px"></i></button></div>
+    <div class="relative aspect-square w-full overflow-hidden">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]',`alt="${esc(s.title)}"`)}<div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,0.72) 100%)"></div><span class="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/85 backdrop-blur">Yours</span><button data-act="mm-play" data-id="${s.id}" aria-label="Play ${esc(s.title)}" class="press glass-strong absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full text-white transition hover:glow-purple"><i data-lucide="${playing?'pause':'play'}" class="fill-current" style="width:15px;height:15px"></i></button></div>
     <div class="p-2.5" style="background:linear-gradient(180deg,rgba(${G},0.14),transparent)"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/55">${esc(s.artist)}</p></div>
   </div>`; }
 function mmSortedList(){
@@ -1943,7 +1963,7 @@ function myMusicSection(){
       </button>`; }).join("");
       body+=toolbar+`<div class="space-y-1.5" data-testid="mm-select-list">${rows}</div>`;
     }
-    else{ const pg=paginate(mine,"mine"); body+=(state.mineGrid?grid(pg.page):songList(pg.page,false))+loadMoreBar(pg); }
+    else{ const pg=paginate(mine,"mine"); body+=(state.mineGrid?grid(pg.page,'mm-play'):songList(pg.page,false,'mm-play'))+loadMoreBar(pg); }
   }
   return `<section data-testid="my-music-section" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
 }
@@ -2353,9 +2373,28 @@ function viewSettings(){
   const A=state.a11y||{};
   let TABS=[["display","Appearance","palette"],["access","Access","accessibility"],["sleep","Sleep","moon-star"],["account","Account","user"],["privacy","Privacy","lock"],["about","About","info"]];
   if(!VOICE_OK){ TABS=TABS.filter(t=>t[0]!=='voice'); }
+  const editing=!!state.settingsEditProfile;
   const hero=`<div class="relative overflow-hidden rounded-[28px] border border-white/12 bg-white/[0.04] p-6 sm:p-8">
      <div class="pointer-events-none absolute inset-0" style="background:radial-gradient(130% 130% at 0% 0%, var(--treesh-purple-soft), transparent 52%)"></div>
      <div class="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full opacity-25 blur-3xl" style="background:var(--treesh-purple)"></div>
+     ${editing?`
+     <div class="relative" data-testid="settings-profile-edit">
+       <div class="mb-5 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="user" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Edit profile</h2></div>
+       <div class="flex flex-col gap-6 sm:flex-row">
+         <div class="flex flex-col items-center gap-3">
+           <div id="set-avatar" class="h-24 w-24 overflow-hidden rounded-full border border-white/15 ring-2 ring-[color:var(--treesh-purple)]/25">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center bg-white/5 text-2xl font-bold text-white/50">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div>
+           <label class="press flex cursor-pointer items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"><i data-lucide="upload" style="width:13px;height:13px"></i> Change<input type="file" accept="image/*" class="hidden" id="set-avatar-input"></label>
+         </div>
+         <div class="flex-1 space-y-4">
+           <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Nickname</label><input id="set-nick" data-testid="settings-nickname-input" value="${esc(p.nickname||'')}" class="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-white/30"></div>
+           <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Birthday</label>${dateFieldHTML({id:'set-bday',value:p.birthday||'',placeholder:'Set birthday',disabled:bdayLocked(),boxClass:'h-11 rounded-xl border border-white/15 bg-white/5 text-sm'})}<div class="mt-2 ${z?'':'hidden'}" id="set-zodiac-wrap"><span id="set-zodiac" class="inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-3 py-1 text-xs text-[color:var(--treesh-gold)]">${esc(z)}</span></div>${bdayLocked()?`<p class="mt-1.5 flex items-center gap-1.5 text-[11px] text-white/40"><i data-lucide="lock" style="width:12px;height:12px"></i>Birthday is locked and can no longer be changed.</p>`:`<p class="mt-1.5 text-[11px] text-white/40">Heads up: you can change your birthday one more time, then it locks.</p>`}</div>
+           <div class="flex items-center gap-2">
+             <button data-act="save-profile" data-testid="settings-save-profile-button" class="press inline-flex items-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i> Save</button>
+             <button data-act="settings-edit-profile" data-val="off" data-testid="settings-cancel-profile-button" class="press inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10">Cancel</button>
+           </div>
+         </div>
+       </div>
+     </div>`:`
      <div class="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
        <div class="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-white/20 ring-4 ring-[color:var(--treesh-purple)]/25 sm:h-24 sm:w-24">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center bg-white/10 text-3xl font-bold text-white/70">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div>
        <div class="min-w-0">
@@ -2365,27 +2404,13 @@ function viewSettings(){
        </div>
        <div class="flex items-center gap-2 sm:ml-auto">
          <button data-act="set-theme" data-val="${state.theme==='light'?'dark':'light'}" data-testid="hero-theme-toggle" aria-label="Toggle light or dark mode" class="press grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="${state.theme==='light'?'moon':'sun'}" style="width:18px;height:18px"></i></button>
-         <button data-act="set-settings-tab" data-val="account" data-testid="hero-edit-profile" class="press inline-flex h-11 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-semibold hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i>Edit</button>
+         <button data-act="settings-edit-profile" data-val="on" data-testid="hero-edit-profile" class="press inline-flex h-11 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-semibold hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i>Edit</button>
        </div>
-     </div>
+     </div>`}
    </div>`;
   const tabBar=`<div class="settings-tabs-bar -mx-1 mt-6" data-testid="settings-tabs"><div class="no-scrollbar flex gap-2 overflow-x-auto px-1 py-2">${TABS.map(([id,label,ic])=>{const on=tab===id;return `<button data-act="set-settings-tab" data-val="${id}" data-testid="settings-tab-${id}" aria-pressed="${on}" class="press inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${on?'border-transparent bg-[color:var(--treesh-purple)] text-white glow-purple backdrop-blur-lg':'border-white/15 bg-white/10 text-white/70 shadow-[0_4px_18px_rgba(0,0,0,0.28)] backdrop-blur-lg hover:bg-white/20 hover:text-white'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;}).join("")}</div></div>`;
   return `<div class="mx-auto max-w-4xl pb-6">${hero}${tabBar}
    <div class="mt-5 min-h-[85vh] space-y-6 tr-fade-in" data-testid="settings-panel-${tab}">
-   <section data-testid="settings-profile" class="${tab==='account'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
-     <div class="mb-5 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="user" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Profile</h2></div>
-     <div class="flex flex-col gap-6 sm:flex-row">
-       <div class="flex flex-col items-center gap-3">
-         <div id="set-avatar" class="h-24 w-24 overflow-hidden rounded-full border border-white/15 ring-2 ring-[color:var(--treesh-purple)]/25">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<span class="grid h-full w-full place-items-center bg-white/5 text-2xl font-bold text-white/50">${esc((p.nickname||'T').charAt(0).toUpperCase())}</span>`}</div>
-         <label class="press flex cursor-pointer items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"><i data-lucide="upload" style="width:13px;height:13px"></i> Change<input type="file" accept="image/*" class="hidden" id="set-avatar-input"></label>
-       </div>
-       <div class="flex-1 space-y-4">
-         <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Nickname</label><input id="set-nick" data-testid="settings-nickname-input" value="${esc(p.nickname||'')}" class="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-white/30"></div>
-         <div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50">Birthday</label>${dateFieldHTML({id:'set-bday',value:p.birthday||'',placeholder:'Set birthday',disabled:bdayLocked(),boxClass:'h-11 rounded-xl border border-white/15 bg-white/5 text-sm'})}<div class="mt-2 ${z?'':'hidden'}" id="set-zodiac-wrap"><span id="set-zodiac" class="inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/10 px-3 py-1 text-xs text-[color:var(--treesh-gold)]">${esc(z)}</span></div>${bdayLocked()?`<p class="mt-1.5 flex items-center gap-1.5 text-[11px] text-white/40"><i data-lucide="lock" style="width:12px;height:12px"></i>Birthday is locked and can no longer be changed.</p>`:`<p class="mt-1.5 text-[11px] text-white/40">Heads up: you can change your birthday one more time, then it locks.</p>`}</div>
-         <button data-act="save-profile" data-testid="settings-save-profile-button" class="press inline-flex items-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i> Save profile</button>
-       </div>
-     </div>
-   </section>
    ${isUnderage()?parentalControlsSection(tab):''}
 
    <section data-testid="settings-appearance" class="${tab==='display'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
@@ -5164,7 +5189,8 @@ function updateProgress(){ const s=curSong(); const d=state.duration||0,cur=stat
 function updateLyricHighlight(force){ if(!state.showLyrics||!state.lyricLines.length) return; if(state.lyricSelect) return; const t=state.currentTime; let idx=-1; const s=curSong(); const lines=s&&s.lyrics||[]; for(let i=0;i<lines.length;i++){ if(lines[i].t<=t+0.15) idx=i; else break; } state.lyricLines.forEach((el,i)=>{ const active=i===idx; el.classList.toggle("text-white",active); el.classList.toggle("text-white/40",!active&&i>idx); el.classList.toggle("text-white/35",!active&&i<idx); el.style.textShadow=active?"0 2px 30px rgba(255,255,255,0.25)":""; el.style.transform=active?"scale(1.02)":""; el.style.transformOrigin="left"; }); updatePerformer(idx>=0?(lines[idx]&&lines[idx].sec):null); if(state.explainAuto&&idx>=0){ document.querySelectorAll('#np-lyrics [data-detail-panel]').forEach(p=>{ const pi=+p.getAttribute('data-detail-panel'); p.classList.toggle('hidden', pi!==idx); }); } const userPaused=!force&&Date.now()<_lyricUserScrollUntil; const paused=userPaused||_lyricMenuHold; const rb=document.getElementById("lyric-resume"); if(rb) rb.classList.toggle("hidden",!userPaused); if(idx>=0&&!paused){ const el=state.lyricLines[idx]; const cont=$("#np-lyrics"); if(el&&cont){ const cr=cont.getBoundingClientRect(); const er=el.getBoundingClientRect(); const target=cont.scrollTop+(er.top-cr.top)-cont.clientHeight/2+er.height/2; cont.scrollTo({top:Math.max(target,0),behavior:"smooth"}); } } }
 
 /* media session + palette on song change */
-function onSongChange(){ const s=curSong(); if(!s) return; if("mediaSession"in navigator){ try{ navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist,album:"Treesh",artwork:[{src:s.coverArt,sizes:"512x512",type:"image/jpeg"}]}); navigator.mediaSession.setActionHandler("play",()=>togglePlay()); navigator.mediaSession.setActionHandler("pause",()=>togglePlay()); navigator.mediaSession.setActionHandler("nexttrack",()=>nextTrack(true)); navigator.mediaSession.setActionHandler("previoustrack",()=>prevTrack()); }catch(e){} }
+function updatePositionState(){ if(!("mediaSession"in navigator)||!navigator.mediaSession.setPositionState) return; try{ const d=audio.duration; if(d&&isFinite(d)&&d>0){ navigator.mediaSession.setPositionState({ duration:d, playbackRate:audio.playbackRate||1, position:Math.min(Math.max(audio.currentTime||0,0), d) }); } }catch(e){} }
+function onSongChange(){ const s=curSong(); if(!s) return; if("mediaSession"in navigator){ try{ const art=s.coverArt||FALLBACK; const artwork=["96x96","128x128","192x192","256x256","384x384","512x512"].map(sz=>({src:art,sizes:sz,type:"image/png"})); navigator.mediaSession.metadata=new MediaMetadata({title:s.title||"Untitled",artist:s.artist||"Treesh",album:s.album||"Treesh",artwork}); navigator.mediaSession.setActionHandler("play",()=>{ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); }); navigator.mediaSession.setActionHandler("pause",()=>{ try{ audio.pause(); }catch(e){} }); navigator.mediaSession.setActionHandler("nexttrack",()=>nextTrack(true)); navigator.mediaSession.setActionHandler("previoustrack",()=>prevTrack()); try{ navigator.mediaSession.setActionHandler("seekto",(d)=>{ if(d&&d.seekTime!=null){ try{ if(d.fastSeek&&audio.fastSeek) audio.fastSeek(d.seekTime); else audio.currentTime=d.seekTime; }catch(e){} updatePositionState(); } }); }catch(e){} try{ navigator.mediaSession.setActionHandler("seekbackward",(d)=>{ const off=(d&&d.seekOffset)||10; try{ audio.currentTime=Math.max(0,(audio.currentTime||0)-off); }catch(e){} updatePositionState(); }); }catch(e){} try{ navigator.mediaSession.setActionHandler("seekforward",(d)=>{ const off=(d&&d.seekOffset)||10; try{ audio.currentTime=Math.min((audio.duration||0),(audio.currentTime||0)+off); }catch(e){} updatePositionState(); }); }catch(e){} try{ navigator.mediaSession.setActionHandler("stop",()=>{ try{ audio.pause(); audio.currentTime=0; }catch(e){} }); }catch(e){} navigator.mediaSession.playbackState=state.isPlaying?"playing":"paused"; updatePositionState(); }catch(e){} }
   state.palette=null;
   renderSidebarLibrary();
   if(state.npOpen) renderNP();   // refresh lyrics/title/art immediately on track change (fixes stale lyrics on next/prev)
@@ -5362,6 +5388,7 @@ document.addEventListener("click", e=>{
     case "i-bpm-inc": iBpmStep(1); break;
     case "back": history.back(); break;
     case "play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { playSong(s, state.contextList&&state.contextList.length?state.contextList:[s]); } break; }
+    case "mm-play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { const mm=mmSortedList(); playSong(s, mm.length?mm:[s]); } break; }
     case "play-fav-song": { playFavSong(id); break; }
     case "play-lyric-snippet": { playLyricSnippet(id, +t.dataset.i); break; }
     case "restore-dislike": { toggleDislike(id); break; }
@@ -5583,7 +5610,8 @@ document.addEventListener("click", e=>{
     case "wn-disable": { state.whatsNewOff=true; LS.set("treesh_whatsnew_off",true); closeModal(); if(state.view==='settings') renderView(); toast("Update notes turned off","Turn them back on in Settings", {star:false}); break; }
     case "toggle-whatsnew": { state.whatsNewOff=!state.whatsNewOff; LS.set("treesh_whatsnew_off",state.whatsNewOff); renderView(); toast(state.whatsNewOff?"What's New popups off":"What's New popups on", null, {star:false}); break; }
     case "nav-notif-close": clearNavNotify(); break;
-    case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const oldB=(state.profile&&state.profile.birthday)||""; let bday=($("#set-bday")&&$("#set-bday").value)||oldB; if(bdayLocked()) bday=oldB; else if(bday!==oldB && bday) bumpBdayEdits(); const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; toast("Profile saved"); renderShell(); renderView(); renderSidebarLibrary(); break; }
+    case "settings-edit-profile": { state.settingsEditProfile=(t.dataset.val==='on'); if(!state.settingsEditProfile) state._tmpAvatar=null; renderView(); break; }
+    case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const oldB=(state.profile&&state.profile.birthday)||""; let bday=($("#set-bday")&&$("#set-bday").value)||oldB; if(bdayLocked()) bday=oldB; else if(bday!==oldB && bday) bumpBdayEdits(); const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; state.settingsEditProfile=false; toast("Profile saved"); renderShell(); renderView(); renderSidebarLibrary(); break; }
     case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists, beats, settings and locks on this device will be reset. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break;
     case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ g.keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); }); break; }
     case "storage-user-toggle": { if(!state.storageSel) state.storageSel={}; if(state.storageSel[id]) delete state.storageSel[id]; else state.storageSel[id]=true; refreshCustomMusicManage(); break; }
