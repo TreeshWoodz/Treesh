@@ -29,10 +29,10 @@ async function writeStars(value: Starlites) {
 
 type ContextValue = {
   stars: Starlites; toast: { amount: number; reason: string } | null;
-  award: (amount: number, reason: string) => Promise<void>;
-  gameComplete: (label: string) => Promise<void>;
-  discoverSong: (id: string) => Promise<void>;
-  listen: (seconds: number) => Promise<void>;
+  award: (amount: number, reason: string, silent?: boolean) => Promise<number>;
+  gameComplete: (label: string, notes?: number) => Promise<number>;
+  discoverSong: (id: string) => Promise<number>;
+  listen: (seconds: number) => Promise<number>;
   dismissToast: () => void;
 };
 
@@ -43,10 +43,11 @@ export function StarlitesProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<ContextValue["toast"]>(null);
 
   const persist = useCallback(async (next: Starlites) => { setStars(next); await writeStars(next); }, []);
-  const award = useCallback(async (amount: number, reason: string) => {
+  const award = useCallback(async (amount: number, reason: string, silent = false) => {
     const current = await readStars();
     const next = { ...current, points: current.points + amount, log: [{ t: Date.now(), a: amount, r: reason }, ...current.log].slice(0, 50) };
-    await persist(next); setToast({ amount, reason });
+    await persist(next); if (!silent) setToast({ amount, reason });
+    return amount;
   }, [persist]);
 
   useEffect(() => {
@@ -64,26 +65,28 @@ export function StarlitesProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(null), 3600); return () => clearTimeout(timer); }, [toast]);
 
-  const gameComplete = useCallback(async (label: string) => {
+  const gameComplete = useCallback(async (label: string, notes?: number) => {
     const current = await readStars();
     await writeStars({ ...current, games: current.games + 1 });
-    await award(STAR_AWARDS.game, `${label} complete`);
+    if (notes !== undefined && notes < 200) return 0; // Starlites only for charts with 200+ notes
+    return await award(STAR_AWARDS.game, `${label} complete`, true);
   }, [award]);
 
   const discoverSong = useCallback(async (id: string) => {
-    const current = await readStars(); if (current.newSongs[id]) return;
+    const current = await readStars(); if (current.newSongs[id]) return 0;
     await writeStars({ ...current, newSongs: { ...current.newSongs, [id]: Date.now() } });
-    await award(STAR_AWARDS.newSong, "New song discovered");
+    return await award(STAR_AWARDS.newSong, "New song discovered", true);
   }, [award]);
 
   const listen = useCallback(async (seconds: number) => {
-    if (!(seconds > 0)) return; const current = await readStars(); const today = dayKey();
+    if (!(seconds > 0)) return 0; const current = await readStars(); const today = dayKey();
     let secAccum = current.secAccum + seconds; const minutes = Math.floor(secAccum / 60); secAccum -= minutes * 60;
     const next = { ...current, secAccum, totalMin: current.totalMin + minutes, minToday: current.minToday + minutes };
+    let earned = 0;
     if (next.minToday >= 30 && next.min30Date !== today) {
-      next.min30Date = today; next.points += STAR_AWARDS.listen30; next.log = [{ t: Date.now(), a: STAR_AWARDS.listen30, r: "30 minutes of listening today" }, ...next.log].slice(0, 50); setToast({ amount: STAR_AWARDS.listen30, reason: "30 minutes of listening today" });
+      next.min30Date = today; next.points += STAR_AWARDS.listen30; next.log = [{ t: Date.now(), a: STAR_AWARDS.listen30, r: "30 minutes of listening today" }, ...next.log].slice(0, 50); earned = STAR_AWARDS.listen30;
     }
-    await persist(next);
+    await persist(next); return earned;
   }, [persist]);
 
   const value = useMemo(() => ({ stars, toast, award, gameComplete, discoverSong, listen, dismissToast: () => setToast(null) }), [stars, toast, award, gameComplete, discoverSong, listen]);

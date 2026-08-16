@@ -49,6 +49,7 @@ export type ScoreResult = {
   miss: number;
   totalNotes: number;
   createdAt: number;
+  starlitesEarned?: number;
 };
 
 export type GameSettings = {
@@ -61,4 +62,5 @@ export type GameSettings = {
   reducedParticles: boolean;
   grayscaleCovers: boolean;
   showLanePads: boolean;
+  warmupHidden: boolean;
 };

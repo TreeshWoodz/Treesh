@@ -9,19 +9,29 @@ import { colors, fonts } from "@/src/game/theme";
 import { Song } from "@/src/game/types";
 
 export default function LibraryScreen() {
-  const { songs, treeshSongs, selectSong, importSong, renameSong, deleteSong } = useAppState();
-  const [tab, setTab] = useState<"treesh" | "device">("treesh");
+  const { songs, treeshSongs, charts, selectSong, setDifficulty, importSong, renameSong, deleteSong, deleteChart, exportChart, importChart } = useAppState();
+  const [tab, setTab] = useState<"treesh" | "device" | "customs">("treesh");
   const [query, setQuery] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const [menu, setMenu] = useState<Song | null>(null);
   const [renameText, setRenameText] = useState("");
-  const source = tab === "treesh" ? treeshSongs : songs;
+  const [artistText, setArtistText] = useState("");
+  const [selectMode, setSelectMode] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+
+  const customSongs = useMemo(() => songs.filter(s => charts[`${s.id}-Custom`]), [songs, charts]);
+  const source = tab === "treesh" ? treeshSongs : tab === "device" ? songs : customSongs;
   const visible = useMemo(() => source.filter(song => `${song.title} ${song.artist}`.toLowerCase().includes(query.toLowerCase())), [source, query]);
-  const choose = (song: Song) => { selectSong(song); router.push("/analysis"); };
+  const choose = (song: Song) => { selectSong(song); if (tab === "customs") { setDifficulty("Custom"); router.push("/game"); } else router.push("/analysis"); };
   const doImport = async () => { setImportError(null); try { const song = await importSong(); if (song) router.push("/analysis"); } catch (error) { setImportError(error instanceof Error ? error.message : "Import failed. Try another file."); } };
-  const openMenu = (song: Song) => { setRenameText(song.title); setMenu(song); };
-  const doRename = async () => { if (menu) await renameSong(menu.id, renameText); setMenu(null); };
+  const doImportChart = async () => { setImportError(null); try { const chart = await importChart(); if (chart) setTab("customs"); } catch (error) { setImportError(error instanceof Error ? error.message : "Couldn't import that chart."); } };
+  const openMenu = (song: Song) => { setRenameText(song.title); setArtistText(song.artist); setMenu(song); };
+  const doRename = async () => { if (menu) await renameSong(menu.id, renameText, artistText); setMenu(null); };
   const doDelete = async () => { if (menu) await deleteSong(menu.id); setMenu(null); };
+  const doExport = async () => { if (menu && charts[`${menu.id}-Custom`]) await exportChart(charts[`${menu.id}-Custom`], menu); setMenu(null); };
+  const togglePick = (id: string) => setPicked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const deletePicked = async () => { for (const id of picked) await deleteChart(`${id}-Custom`); setPicked(new Set()); setSelectMode(false); };
+  const onCardPress = (song: Song) => { if (tab === "customs" && selectMode) togglePick(song.id); else choose(song); };
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Song Library" />
     <View style={styles.chrome}>
@@ -29,24 +39,32 @@ export default function LibraryScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow} contentContainerStyle={styles.chips}>
         <Pressable testID="treesh-library-chip" onPress={() => setTab("treesh")} style={[styles.chip, tab === "treesh" && styles.chipActive]}><Text style={[styles.chipText, tab === "treesh" && styles.chipTextActive]}>Treesh Music</Text></Pressable>
         <Pressable testID="device-library-chip" onPress={() => setTab("device")} style={[styles.chip, tab === "device" && styles.chipActive]}><Text style={[styles.chipText, tab === "device" && styles.chipTextActive]}>On this device</Text></Pressable>
+        <Pressable testID="customs-library-chip" onPress={() => setTab("customs")} style={[styles.chip, tab === "customs" && styles.chipActive]}><Text style={[styles.chipText, tab === "customs" && styles.chipTextActive]}>Customs</Text></Pressable>
       </ScrollView>
     </View>
     <ScrollView style={styles.list} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.sectionRow}><View><Text style={styles.eyebrow}>{tab === "treesh" ? "FULL CATALOG" : "PRIVATE LIBRARY"}</Text><Text style={styles.heading}>{tab === "treesh" ? "Treesh Music" : "Your imports"}</Text></View><Text style={styles.count}>{visible.length} songs</Text></View>
-      {visible.map((song) => <Pressable key={song.id} testID={`song-card-${song.id}`} onPress={() => choose(song)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      <View style={styles.sectionRow}>
+        <View><Text style={styles.eyebrow}>{tab === "treesh" ? "FULL CATALOG" : tab === "customs" ? "YOUR CHARTS" : "PRIVATE LIBRARY"}</Text><Text style={styles.heading}>{tab === "treesh" ? "Treesh Music" : tab === "customs" ? "Custom charts" : "Your imports"}</Text></View>
+        {tab === "customs" && customSongs.length > 0 ? <Pressable testID="customs-select-toggle" onPress={() => { setSelectMode(m => !m); setPicked(new Set()); }} style={styles.selectBtn}><Text style={styles.selectBtnText}>{selectMode ? "Cancel" : "Select"}</Text></Pressable> : <Text style={styles.count}>{visible.length} songs</Text>}
+      </View>
+      {visible.map((song) => { const picking = tab === "customs" && selectMode; const isPicked = picked.has(song.id); return <Pressable key={song.id} testID={`song-card-${song.id}`} onPress={() => onCardPress(song)} style={({ pressed }) => [styles.card, pressed && styles.pressed, isPicked && styles.cardPicked]}>
+        {picking && <View style={[styles.check, isPicked && styles.checkOn]}>{isPicked && <Ionicons name="checkmark" size={16} color={colors.bg} />}</View>}
         <View style={[styles.cover, { borderColor: `${song.accent}55` }]}>
           <SongCover coverArt={song.coverArt} accent={song.accent} seed={song.id} label={song.title} iconSize={22} style={styles.coverImg} testID={`song-cover-${song.id}`} />
         </View>
-        <View style={styles.meta}><Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text><Text style={styles.artist} numberOfLines={1}>{song.artist}</Text><View style={styles.badge}><Text style={styles.badgeText}>{song.source === "treesh" ? "TREESH" : song.source === "built-in" ? "WARMUP" : "LOCAL"}{song.genre ? ` · ${song.genre.toUpperCase()}` : ""}</Text></View></View>
-        {song.source === "device" && <Pressable testID={`song-menu-${song.id}`} onPress={() => openMenu(song)} hitSlop={8} style={styles.menuBtn}><Ionicons name="ellipsis-vertical" size={18} color={colors.muted} /></Pressable>}
-        <View style={styles.play}><Ionicons name="play" size={19} color={colors.bg} /></View>
-      </Pressable>)}
-      {!visible.length && <View style={styles.empty}><Ionicons name="musical-notes-outline" size={42} color={colors.cyan} /><Text style={styles.emptyTitle}>{tab === "treesh" ? "Loading catalog…" : "No songs yet"}</Text><Text style={styles.emptyCopy}>{tab === "treesh" ? "Fetching the full Treesh library." : "Import an audio file to build your first chart."}</Text></View>}
-      <View style={{ height: 96 }} />
+        <View style={styles.meta}><Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text><Text style={styles.artist} numberOfLines={1}>{song.artist}</Text><View style={styles.badge}><Text style={styles.badgeText}>{tab === "customs" ? "CUSTOM CHART" : song.source === "treesh" ? "TREESH" : song.source === "built-in" ? "WARMUP" : "LOCAL"}{song.genre ? ` · ${song.genre.toUpperCase()}` : ""}</Text></View></View>
+        {!picking && (song.source === "device" || song.source === "built-in" || tab === "customs") && <Pressable testID={`song-menu-${song.id}`} onPress={() => openMenu(song)} hitSlop={8} style={styles.menuBtn}><Ionicons name="ellipsis-vertical" size={18} color={colors.muted} /></Pressable>}
+        {!picking && <View style={styles.play}><Ionicons name="play" size={19} color={colors.bg} /></View>}
+      </Pressable>; })}
+      {!visible.length && <View style={styles.empty}><Ionicons name={tab === "customs" ? "construct-outline" : "musical-notes-outline"} size={42} color={colors.cyan} /><Text style={styles.emptyTitle}>{tab === "treesh" ? "Loading catalog…" : tab === "customs" ? "No custom charts yet" : "No songs yet"}</Text><Text style={styles.emptyCopy}>{tab === "treesh" ? "Fetching the full Treesh library." : tab === "customs" ? "Build one in the Editor, or import a chart file." : "Import an audio file to build your first chart."}</Text>{tab === "customs" && <View style={{ marginTop: 16, width: "100%" }}><NeonButton testID="import-chart-button-empty" label="Import chart file" icon="download" variant="secondary" onPress={doImportChart} /></View>}</View>}
+      <View style={{ height: 110 }} />
     </ScrollView>
+
     <View style={styles.importBar}>
       {importError && <Pressable testID="import-error-banner" onPress={() => setImportError(null)} style={styles.errorBanner}><Ionicons name="alert-circle" size={16} color="#FF4D6D" /><Text style={styles.errorText} numberOfLines={2}>{importError}</Text><Ionicons name="close" size={15} color={colors.muted} /></Pressable>}
-      <NeonButton testID="import-audio-button" label="Import audio from device" icon="add" onPress={doImport} />
+      {tab === "customs" && selectMode ? <NeonButton testID="delete-selected-charts" label={`Delete ${picked.size} selected`} icon="trash" variant="danger" onPress={deletePicked} />
+        : tab === "customs" ? <NeonButton testID="import-chart-button" label="Import chart file" icon="download" variant="secondary" onPress={doImportChart} />
+        : <NeonButton testID="import-audio-button" label="Import audio from device" icon="add" onPress={doImport} />}
     </View>
 
     <Modal visible={!!menu} transparent animationType="fade" onRequestClose={() => setMenu(null)}>
@@ -54,8 +72,10 @@ export default function LibraryScreen() {
         <Pressable style={styles.sheet} onPress={() => {}}>
           <Text style={styles.sheetEyebrow}>MANAGE SONG</Text>
           <TextInput testID="song-rename-input" value={renameText} onChangeText={setRenameText} placeholder="Song name" placeholderTextColor="#6D6F78" style={styles.sheetInput} />
-          <NeonButton testID="song-rename-save" label="Save name" icon="checkmark" onPress={doRename} />
-          <NeonButton testID="song-delete" label="Delete song" icon="trash" variant="danger" onPress={doDelete} />
+          <TextInput testID="song-artist-input" value={artistText} onChangeText={setArtistText} placeholder="Artist name" placeholderTextColor="#6D6F78" style={styles.sheetInput} />
+          <NeonButton testID="song-rename-save" label="Save changes" icon="checkmark" onPress={doRename} />
+          {menu && charts[`${menu.id}-Custom`] && <NeonButton testID="song-export-chart" label="Export custom chart" icon="share-outline" variant="secondary" onPress={doExport} />}
+          <NeonButton testID="song-delete" label={menu?.source === "built-in" ? "Hide Voco Warmup" : "Delete song"} icon="trash" variant="danger" onPress={doDelete} />
           <Pressable testID="song-menu-close" onPress={() => setMenu(null)} style={styles.sheetCancel}><Text style={styles.sheetCancelText}>Cancel</Text></Pressable>
         </Pressable>
       </Pressable>
@@ -71,6 +91,8 @@ const styles = StyleSheet.create({
   empty: { paddingVertical: 70, alignItems: "center" }, emptyTitle: { color: colors.text, fontSize: 20, fontFamily: fonts.display, marginTop: 14 }, emptyCopy: { color: colors.muted, marginTop: 7, fontFamily: fonts.body, textAlign: "center" }, importBar: { position: "absolute", left: 16, right: 16, bottom: 12, gap: 8 },
   errorBanner: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 13, borderRadius: 14, backgroundColor: "rgba(255,77,109,0.12)", borderWidth: 1, borderColor: "rgba(255,77,109,0.4)" }, errorText: { flex: 1, color: colors.text, fontSize: 12, fontFamily: fonts.bold },
   menuBtn: { width: 34, height: 44, alignItems: "center", justifyContent: "center" },
+  selectBtn: { paddingHorizontal: 14, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.cyan }, selectBtnText: { color: colors.cyan, fontSize: 12, fontFamily: fonts.heavy },
+  cardPicked: { borderColor: colors.cyan, backgroundColor: "rgba(13,230,210,0.08)" }, check: { width: 24, height: 24, borderRadius: 12, marginLeft: 4, marginRight: 2, borderWidth: 2, borderColor: colors.muted, alignItems: "center", justifyContent: "center" }, checkOn: { backgroundColor: colors.cyan, borderColor: colors.cyan },
   modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "flex-end", padding: 16, paddingBottom: 30 },
   sheet: { width: "100%", maxWidth: 440, padding: 20, borderRadius: 24, gap: 12, backgroundColor: "#141218", borderWidth: 1, borderColor: colors.border },
   sheetEyebrow: { color: colors.muted, fontSize: 10, letterSpacing: 1.6, fontFamily: fonts.heavy },

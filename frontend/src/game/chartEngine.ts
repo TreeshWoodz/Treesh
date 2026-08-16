@@ -104,12 +104,12 @@ export function generateChart(songId: string, fileName: string, duration: number
 }
 
 export function trainingChart(): Chart {
-  const notes = Array.from({ length: 24 }, (_, index) => ({
+  const notes = Array.from({ length: 56 }, (_, index) => ({
     id: `warmup-${index}`,
     time: 1.5 + index * 0.42,
     lane: index % 4,
-    type: index === 7 || index === 19 ? "hold" as const : index === 12 ? "wavy" as const : "tap" as const,
-    duration: index === 7 || index === 19 ? 0.82 : index === 12 ? 1.15 : undefined,
+    type: index % 12 === 7 ? "hold" as const : index % 12 === 11 ? "wavy" as const : "tap" as const,
+    duration: index % 12 === 7 ? 0.82 : index % 12 === 11 ? 1.15 : undefined,
   }));
-  return { songId: "neon-warmup", difficulty: "Normal", bpm: 143, duration: 12.2, notes: clampHolds(notes), waveform: Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.48)) * 0.72) };
+  return { songId: "neon-warmup", difficulty: "Normal", bpm: 143, duration: 26, notes: clampHolds(notes), waveform: Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.48)) * 0.72) };
 }

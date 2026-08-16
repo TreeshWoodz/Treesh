@@ -5,16 +5,18 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StarlitesModal } from "@/src/components/StarlitesModal";
+import { ProfileModal } from "@/src/components/ProfileModal";
 import { SongCover } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
+import { computeAchievements } from "@/src/game/achievements";
 import { colors, fonts, rgba } from "@/src/game/theme";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
 import { Song } from "@/src/game/types";
 
 export default function HomeScreen() {
-  const { songs, treeshSongs, selectSong, setDifficulty, scores, ready } = useAppState();
+  const { songs, treeshSongs, charts, selectSong, setDifficulty, scores, ready } = useAppState();
   const { stars } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
   const { width } = useWindowDimensions();
@@ -54,7 +56,11 @@ export default function HomeScreen() {
 
   const dotCount = Math.min(slides.length, 7);
   const bestStars = scores.length ? Math.max(...scores.map(item => item.stars)) : 0;
-  const quickPlay = (song?: Song) => { if (!song) return; selectSong(song); setDifficulty("Normal"); router.push("/game"); };
+  const [profileOpen, setProfileOpen] = useState(false);
+  const achievements = useMemo(() => computeAchievements({ scores, charts, songs, points: stars.points, streak: stars.streak, games: stars.games }), [scores, charts, songs, stars]);
+  const unlockedCount = achievements.filter(a => a.unlocked).length;
+  const lastPlayed = scores.length ? [...scores].sort((a, b) => b.createdAt - a.createdAt)[0] : null;
+  const quickPlay = (song?: Song) => { if (!song) return; selectSong(song); setDifficulty("Normal"); router.push("/analysis"); };
   const fade = { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] };
 
   return <View style={styles.root}>
@@ -64,7 +70,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topbar}>
-          <View style={styles.greet}><Avatar avatar={avatar} nickname={nickname} size={44} /><View><Text style={styles.byline}>WELCOME BACK</Text><Text style={styles.greetName} numberOfLines={1}>{nickname}</Text></View></View>
+          <Pressable testID="home-profile-button" onPress={() => setProfileOpen(true)} style={styles.greet}><Avatar avatar={avatar} nickname={nickname} size={44} /><View><Text style={styles.byline}>WELCOME BACK</Text><Text style={styles.greetName} numberOfLines={1}>{nickname}</Text></View></Pressable>
           <Pressable testID="home-starlites-button" onPress={() => setStarsOpen(true)} style={styles.stars}><Ionicons name="sparkles" size={16} color={colors.gold} /><Text style={styles.starsText}>{stars.points.toLocaleString()}</Text></Pressable>
         </View>
 
@@ -123,20 +129,31 @@ export default function HomeScreen() {
 
         {/* Secondary tiles */}
         <Animated.View style={[styles.tiles, fade]}>
-          <Pressable testID="open-editor-button" style={({ pressed }) => [styles.tile, pressed && styles.pressed]} onPress={() => { if (songs[0]) selectSong(songs[0]); router.push("/editor"); }}><LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.13)", "transparent"]} style={styles.glossTile} /><View style={[styles.tileIcon, { backgroundColor: "rgba(147,40,255,0.18)" }]}><Ionicons name="options" size={20} color={colors.text} /></View><Text style={styles.tileText}>Editor</Text></Pressable>
-          <Pressable testID="open-calibration-button" style={({ pressed }) => [styles.tile, pressed && styles.pressed]} onPress={() => router.push("/settings")}><LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.13)", "transparent"]} style={styles.glossTile} /><View style={[styles.tileIcon, { backgroundColor: "rgba(147,40,255,0.18)" }]}><Ionicons name="speedometer" size={20} color={colors.text} /></View><Text style={styles.tileText}>Calibrate</Text></Pressable>
-          <Pressable testID="open-guide-button" style={({ pressed }) => [styles.tile, pressed && styles.pressed]} onPress={() => router.push("/guide")}><LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.13)", "transparent"]} style={styles.glossTile} /><View style={[styles.tileIcon, { backgroundColor: "rgba(147,40,255,0.18)" }]}><Ionicons name="help-buoy" size={20} color={colors.text} /></View><Text style={styles.tileText}>How to play</Text></Pressable>
+          <Pressable testID="open-editor-button" style={({ pressed }) => [styles.tile, pressed && styles.pressed]} onPress={() => { if (songs[0]) selectSong(songs[0]); router.push("/editor"); }}><LinearGradient pointerEvents="none" colors={["rgba(147,40,255,0.25)", "transparent"]} style={styles.glossTile} /><View style={[styles.tileIcon, { backgroundColor: colors.purple }]}><Ionicons name="build" size={20} color={colors.bg} /></View><Text style={styles.tileText}>Editor</Text></Pressable>
+          <Pressable testID="open-calibration-button" style={({ pressed }) => [styles.tile, pressed && styles.pressed]} onPress={() => router.push("/settings")}><LinearGradient pointerEvents="none" colors={["rgba(13,230,210,0.22)", "transparent"]} style={styles.glossTile} /><View style={[styles.tileIcon, { backgroundColor: colors.cyan }]}><Ionicons name="settings-sharp" size={20} color={colors.bg} /></View><Text style={styles.tileText}>Settings</Text></Pressable>
+          <Pressable testID="open-guide-button" style={({ pressed }) => [styles.tile, pressed && styles.pressed]} onPress={() => router.push("/guide")}><LinearGradient pointerEvents="none" colors={["rgba(245,200,66,0.22)", "transparent"]} style={styles.glossTile} /><View style={[styles.tileIcon, { backgroundColor: colors.gold }]}><Ionicons name="help-buoy" size={20} color={colors.bg} /></View><Text style={styles.tileText}>How to play</Text></Pressable>
         </Animated.View>
 
-        {/* Stats */}
-        <Animated.View style={[styles.statCard, fade]} testID="home-progress-card">
-          <View style={styles.statCol}><Text style={styles.statLabel}>BEST RESULT</Text><View style={styles.statInline}><Ionicons name="star" size={16} color={colors.gold} /><Text style={styles.statValue}>{bestStars ? `${bestStars} star${bestStars === 1 ? "" : "s"}` : "Ready"}</Text></View></View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCol}><Text style={styles.statLabel}>LIBRARY</Text><View style={styles.statInline}><Ionicons name="disc" size={15} color={colors.cyan} /><Text style={[styles.statValue, { color: colors.cyan }]}>{songs.length} track{songs.length === 1 ? "" : "s"}</Text></View></View>
+        {/* Profile snapshot */}
+        <Animated.View style={fade}>
+          <Pressable testID="home-progress-card" onPress={() => setProfileOpen(true)} style={({ pressed }) => [styles.snapCard, pressed && styles.pressed]}>
+            <View style={styles.snapRow}>
+              <View style={styles.snapCol}><Text style={styles.statLabel}>BEST</Text><View style={styles.statInline}><Ionicons name="star" size={15} color={colors.gold} /><Text style={styles.statValue}>{bestStars || 0}★</Text></View></View>
+              <View style={styles.statDivider} />
+              <View style={styles.snapCol}><Text style={styles.statLabel}>GAMES</Text><View style={styles.statInline}><Ionicons name="game-controller" size={14} color={colors.cyan} /><Text style={[styles.statValue, { color: colors.cyan }]}>{stars.games}</Text></View></View>
+              <View style={styles.statDivider} />
+              <View style={styles.snapCol}><Text style={styles.statLabel}>TROPHIES</Text><View style={styles.statInline}><Ionicons name="trophy" size={14} color={colors.gold} /><Text style={[styles.statValue, { color: colors.gold }]}>{unlockedCount}</Text></View></View>
+            </View>
+            <View style={styles.snapFoot}>
+              <View style={{ flex: 1 }}><Text style={styles.snapFootLabel}>{lastPlayed ? "LAST PLAYED" : "RECENTLY PLAYED"}</Text><Text style={styles.snapFootText} numberOfLines={1}>{lastPlayed ? lastPlayed.title : "Nothing yet — pick a song to begin"}</Text></View>
+              <View style={styles.snapCta}><Text style={styles.snapCtaText}>Profile</Text><Ionicons name="chevron-forward" size={14} color={colors.bg} /></View>
+            </View>
+          </Pressable>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
     <StarlitesModal visible={starsOpen} onClose={() => setStarsOpen(false)} />
+    <ProfileModal visible={profileOpen} onClose={() => setProfileOpen(false)} />
   </View>;
 }
 
@@ -155,6 +172,10 @@ const styles = StyleSheet.create({
   primary: { minHeight: 74, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.lime, shadowColor: colors.purple, shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 10 }, glossPrimary: { position: "absolute", top: 0, left: 0, right: 0, height: "58%", borderTopLeftRadius: 22, borderTopRightRadius: 22 }, glossTile: { position: "absolute", top: 0, left: 0, right: 0, height: "55%", borderTopLeftRadius: 20, borderTopRightRadius: 20 }, primaryIcon: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.12)" }, primaryTitle: { color: colors.bg, fontSize: 18, fontFamily: fonts.heavy }, primaryCopy: { color: "rgba(10,10,12,0.7)", fontSize: 13, fontFamily: fonts.bold, marginTop: 2 },
   tiles: { flexDirection: "row", gap: 10 }, tile: { flex: 1, minHeight: 96, borderRadius: 20, alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }, tileIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" }, tileText: { color: colors.text, fontSize: 12, fontFamily: fonts.bold },
   statCard: { flexDirection: "row", alignItems: "center", paddingVertical: 18, paddingHorizontal: 8, borderRadius: 22, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5 }, statCol: { flex: 1, alignItems: "center", gap: 8 }, statLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.4 }, statInline: { flexDirection: "row", alignItems: "center", gap: 6 }, statValue: { color: colors.text, fontSize: 16, fontWeight: "900" }, statDivider: { width: 1, height: 40, backgroundColor: "rgba(255,255,255,0.09)" },
+  snapCard: { borderRadius: 22, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
+  snapRow: { flexDirection: "row", alignItems: "center", paddingVertical: 16, paddingHorizontal: 8 }, snapCol: { flex: 1, alignItems: "center", gap: 7 },
+  snapFoot: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 13, backgroundColor: "rgba(255,255,255,0.03)", borderTopWidth: 1, borderTopColor: colors.border }, snapFootLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.3, fontFamily: fonts.bold }, snapFootText: { color: colors.text, fontSize: 14, fontFamily: fonts.bold, marginTop: 2 },
+  snapCta: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: colors.purple }, snapCtaText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
   pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
   qpHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingHorizontal: 2 },
   slideTagRow: { padding: 16 },
