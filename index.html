@@ -1239,6 +1239,8 @@ const state = {
   storageSel: {}, _userSizes: {},
   mmCollapsed: false, mmSort: "recent", mmSelect: false, mmSel: {},
   libSort: "default", libLyricsOnly: false, mmLyricsOnly: false,
+  playCounts: LS.get("treesh_plays", {}),
+  playLog: LS.get("treesh_playlog", []),
   mmOrder: LS.get("treesh_mm_order", null),
 };
 
@@ -1345,6 +1347,13 @@ function updateStarDisplays(){ document.querySelectorAll('[data-star-count]').fo
 function checkDailyStars(){ const st=state.stars; const tk=starDayKey(); if(st.lastDaily===tk) return; const y=new Date(); y.setDate(y.getDate()-1); const yk=starDayKey(y); st.streak=(st.lastDaily===yk)?((st.streak||0)+1):1; st.lastDaily=tk; st.minToday=0; let amt=STAR_AWARDS.daily, reason="Daily check-in"; if(st.streak>1){ amt+=STAR_AWARDS.streakBonus; reason=st.streak+"-day streak. Welcome back!"; } awardStars(amt, reason); }
 function starListenTick(seconds){ if(!(seconds>0)) return; const st=state.stars; const tk=starDayKey(); st.secAccum=(st.secAccum||0)+seconds; if(st.secAccum>=60){ const mins=Math.floor(st.secAccum/60); st.secAccum-=mins*60; st.totalMin=(st.totalMin||0)+mins; st.minToday=(st.minToday||0)+mins; if(st.minToday>=30 && st.min30Date!==tk){ st.min30Date=tk; awardStars(STAR_AWARDS.listen30, "30 minutes of listening today"); } saveStars(); } }
 function starNewSong(id){ if(!id) return; const st=state.stars; st.newSongs=st.newSongs||{}; if(!st.newSongs[id]){ st.newSongs[id]=Date.now(); awardStars(STAR_AWARDS.newSong, "New song discovered"); } }
+/* ---- per-song play counts (counted once per play, past ~20s) ---- */
+function playCount(id){ return (state.playCounts&&state.playCounts[id])||0; }
+function bumpPlayCount(id){ if(!id) return; state.playCounts=state.playCounts||{}; state.playCounts[id]=(state.playCounts[id]||0)+1; try{ LS.set("treesh_plays", state.playCounts); }catch(e){}
+  state.playLog=state.playLog||[]; state.playLog.push({id:id, ts:Date.now()}); if(state.playLog.length>800) state.playLog=state.playLog.slice(-800); try{ LS.set("treesh_playlog", state.playLog); }catch(e){} }
+function mostPlayedId(){ const pc=state.playCounts||{}; let best=null,bn=0; for(const id in pc){ if(pc[id]>bn && SONG_BY_ID[id]){ bn=pc[id]; best=id; } } return bn>0?best:null; }
+/* Top tracks played in the rolling last 7 days (all songs), excludes disliked */
+function weeklyTop(limit){ limit=limit||8; const since=Date.now()-7*24*60*60*1000; const counts={}; (state.playLog||[]).forEach(e=>{ if(e && e.ts>=since && SONG_BY_ID[e.id] && !isDisliked(e.id)){ counts[e.id]=(counts[e.id]||0)+1; } }); const ids=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]); return ids.slice(0,limit).map(id=>({song:SONG_BY_ID[id], plays:counts[id]})); }
 function starGamePlayed(label){ const st=state.stars; st.games=(st.games||0)+1; saveStars(); awardStars(STAR_AWARDS.game, (label||"Game")+" complete"); }
 function starBeatMade(){ const st=state.stars; st.beats=(st.beats||0)+1; saveStars(); awardStars(STAR_AWARDS.beat, "Beat created in Instrum"); }
 
@@ -1492,6 +1501,14 @@ function isDisliked(id){ return state.dislikes.has(id); }
 function saveDislikes(){ LS.set("treesh_dislikes",[...state.dislikes]); }
 function toggleDislike(id){ const s=SONG_BY_ID[id]; const was=isDisliked(id); if(was){ state.dislikes.delete(id); } else { state.dislikes.add(id); if(isFav(id)){ state.favorites.delete(id); saveFav(); } } saveDislikes(); toast(was?"Removed from dislikes":"Disliked. We\u2019ll play this less", s&&s.title); refreshDynamic(); }
 function favSongs(){ return vis([...state.favorites].map(id=>SONG_BY_ID[id]).filter(Boolean).reverse()); }
+/* Conjoined favorite/dislike control: none -> favorite -> dislike -> none.
+   Disliking does NOT interrupt the current track; it's excluded from future
+   queues (playSong) and skipped during next/prev traversal. */
+function cycleFavDislike(id){ const s=SONG_BY_ID[id]; if(!s) return; const f=isFav(id), d=isDisliked(id);
+  if(!f && !d){ state.favorites.add(id); if(state.dislikes.has(id)){ state.dislikes.delete(id); saveDislikes(); } saveFav(); toast("Added to Favorites", s.title); }
+  else if(f){ state.favorites.delete(id); saveFav(); state.dislikes.add(id); saveDislikes(); toast("Disliked \u2013 we\u2019ll skip this next time", s.title); }
+  else { state.dislikes.delete(id); saveDislikes(); toast("Back to neutral", s.title); }
+  refreshDynamic(); renderNP(); }
 function createPlaylist(name, songIds=[]){ const pl={id:"pl_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),name,songIds,createdAt:Date.now()}; state.playlists.unshift(pl); savePl(); toast("Playlist created",name); return pl; }
 function plById(id){ return state.playlists.find(p=>p.id===id); }
 
@@ -1536,11 +1553,11 @@ try{ audio.setAttribute("playsinline",""); audio.setAttribute("webkit-playsinlin
 (function attachAudioEl(){ const add=()=>{ try{ if(document.body && !audio.isConnected){ audio.style.display="none"; audio.setAttribute("aria-hidden","true"); document.body.appendChild(audio); } }catch(e){} }; if(document.body) add(); else document.addEventListener("DOMContentLoaded", add); })();
 function shuffleKeepFirst(arr, i){ let rest=arr.filter((_,x)=>x!==i); rest=rest.filter(s=>!(s&&s.id&&state.dislikes.has(s.id))); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
 function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
-function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl) audio.src=song.audioUrl; audio.load(); if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } }
-function playSong(song, list){ const src=(list&&list.length)?list:[song]; state.base=src; let order=src, idx=Math.max(0,src.findIndex(s=>s.id===song.id)); if(state.shuffle){ order=shuffleKeepFirst(src,idx); idx=0; } state.queue=order; loadIndex(idx,order,true); state.npOpen=false; renderMini(); renderNP(); }
+function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state._playCounted=false; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl) audio.src=song.audioUrl; audio.load(); if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } }
+function playSong(song, list){ if(song && isDisliked(song.id)){ toast("This song is disliked","Remove the dislike to play it"); return; } let src=(list&&list.length)?list.slice():[song]; src=src.filter(x=>x && !isDisliked(x.id)); if(!src.length) src=[song]; state.base=src; let order=src, idx=Math.max(0,src.findIndex(s=>s.id===song.id)); if(state.shuffle){ order=shuffleKeepFirst(src,idx); idx=0; } state.queue=order; loadIndex(idx,order,true); state.npOpen=false; renderMini(); renderNP(); }
 function togglePlay(){ if(!curSong()) return; if(audio.paused){ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); } else audio.pause(); }
-function nextTrack(manual=false){ const q=state.queue; if(!q.length) return; if(state.repeat==="one"&&!manual){ loadIndex(state.index,q,true); return; } let n=state.index+1; if(n>=q.length){ if(state.repeat==="all"||manual) n=0; else { audio.pause(); return; } } loadIndex(n,q,true); }
-function prevTrack(){ const q=state.queue; if(!q.length) return; if(audio.currentTime>3){ audio.currentTime=0; return; } let p=state.index-1; if(p<0)p=q.length-1; loadIndex(p,q,true); }
+function nextTrack(manual=false){ const q=state.queue; if(!q.length) return; if(state.repeat==="one"&&!manual){ loadIndex(state.index,q,true); return; } let n=state.index; for(let k=0;k<q.length;k++){ n++; if(n>=q.length){ if(state.repeat==="all"||manual){ n=0; } else { audio.pause(); return; } } if(q[n] && !isDisliked(q[n].id)){ loadIndex(n,q,true); return; } } audio.pause(); }
+function prevTrack(){ const q=state.queue; if(!q.length) return; if(audio.currentTime>3){ audio.currentTime=0; return; } let p=state.index; for(let k=0;k<q.length;k++){ p--; if(p<0) p=q.length-1; if(q[p] && !isDisliked(q[p].id)){ loadIndex(p,q,true); return; } } if(audio.currentTime>0) audio.currentTime=0; }
 function seekTo(t){ if(!isNaN(t)) audio.currentTime=t; }
 function setVolume(v){ audio.volume=v; state.volume=v; }
 function toggleShuffle(){ state.shuffle=!state.shuffle; const cur=curSong(); if(state.base.length&&cur){ if(state.shuffle){ const i=state.base.findIndex(s=>s.id===cur.id); state.queue=shuffleKeepFirst(state.base,i>=0?i:0); state.index=0; } else { const i=state.base.findIndex(s=>s.id===cur.id); state.queue=state.base.slice(); state.index=i>=0?i:0; } } renderNP(); }
@@ -1552,7 +1569,7 @@ function moveQueue(id, dir){ const i=state.queue.findIndex(s=>s.id===id); const 
 audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if("mediaSession"in navigator){ navigator.mediaSession.playbackState="playing"; if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("pause", ()=>{ state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
 let _starLastTU=-1;
-audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); if(Math.abs(ct-(state._posTU||0))>=1){ state._posTU=ct; if(typeof updatePositionState==="function") updatePositionState(); } });
+audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); if(s && ct>20 && !state._playCounted){ state._playCounted=true; bumpPlayCount(s.id); } if(Math.abs(ct-(state._posTU||0))>=1){ state._posTU=ct; if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); updateABMarkers(); if(typeof updatePositionState==="function") updatePositionState(); });
 audio.addEventListener("ended", ()=>nextTrack(false));
 audio.addEventListener("error", ()=>{ state.isPlaying=false; });
@@ -1722,7 +1739,7 @@ function syncNavHeight(){ const n=document.getElementById("mobile-nav"); let h=0
 /* ============================================================
    RENDER: VIEWS
    ============================================================ */
-function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play';
+function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
   return `<div data-songcard="${s.id}" data-testid="song-card-${s.id}" class="card-lift group relative rounded-2xl border ${active?'border-white/25 glow-purple':'border-white/10 hover:border-white/25'} bg-white/5 backdrop-blur-xl p-2.5">
     <div class="relative overflow-hidden rounded-xl">
       <div class="aspect-square w-full">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',`alt="${esc(s.title)}"`)}</div>
@@ -1736,11 +1753,12 @@ function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fa
     <div class="mt-2 flex items-center gap-1">
       <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-card-like-button-${s.id}" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>
       <button data-act="songmenu" data-id="${s.id}" aria-label="More" data-testid="song-card-menu-button-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>
-      ${s.genre?`<span class="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}
+      ${s._user?`<button data-act="ls-open" data-id="${s.id}" aria-label="${hasLyr?'Edit lyrics':'Add lyrics'}" title="${hasLyr?'Edit lyrics':'Add lyrics'}" data-testid="mm-lyrics-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full ${hasLyr?'text-[color:var(--treesh-gold)]':'text-white/70'} hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button>`:""}
+      <span class="ml-auto flex items-center gap-1.5">${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-2 py-0.5 text-[10px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}${s.genre?`<span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}</span>
     </div>
   </div>`; }
 
-function songRow(s, i, removable, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play';
+function songRow(s, i, removable, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
   return `<div data-song-row class="group flex items-center gap-3 rounded-xl border ${active?'border-white/20 bg-white/[0.07]':'border-transparent hover:bg-white/5'} px-2.5 py-2 transition">
     <button data-act="${A}" data-id="${s.id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
     <div class="min-w-0 flex-1 cursor-pointer" data-act="${A}" data-id="${s.id}">
@@ -1748,6 +1766,8 @@ function songRow(s, i, removable, act){ const active=curSong()&&curSong().id===s
       <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
     </div>
     ${s.genre?`<span class="hidden md:inline rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45">${esc(s.genre)}</span>`:""}
+    ${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="hidden sm:inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}
+    ${s._user?`<button data-act="ls-open" data-id="${s.id}" aria-label="${hasLyr?'Edit lyrics':'Add lyrics'}" title="${hasLyr?'Edit lyrics':'Add lyrics'}" data-testid="mm-lyrics-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full ${hasLyr?'text-[color:var(--treesh-gold)]':'text-white/60'} hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button>`:""}
     <button data-act="like" data-id="${s.id}" aria-label="Like" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>
     ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>`}
   </div>`; }
@@ -1914,6 +1934,7 @@ function mmSortedList(){
   if(mode==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   else if(mode==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
   else if(mode==="artist") list.sort((a,b)=>{ const c=a.artist.toLowerCase().localeCompare(b.artist.toLowerCase()); return c!==0?c:a.title.toLowerCase().localeCompare(b.title.toLowerCase()); });
+  else if(mode==="played") list.sort((a,b)=>playCount(b.id)-playCount(a.id) || a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   else { if(state.mmOrder && state.mmOrder.length){ const pos={}; state.mmOrder.forEach((id,i)=>{ pos[id]=i; }); list.sort((a,b)=>{ const pa=pos[a.id]!==undefined?pos[a.id]:1e9; const pb=pos[b.id]!==undefined?pos[b.id]:1e9; return pa-pb; }); } else { list.reverse(); } }
   return vis(list);
 }
@@ -1944,6 +1965,11 @@ function myMusicSection(){
   </div>`;
   let body="";
   if(!collapsed){
+    const weekly=weeklyTop(8);
+    if(weekly.length){ body+=`<div class="mb-4" data-testid="weekly-top-strip">
+      <div class="mb-2 flex items-center gap-2"><span class="grid h-6 w-6 place-items-center rounded-md bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:13px;height:13px"></i></span><h3 class="text-sm font-bold">Your Top Tracks This Week</h3></div>
+      <div class="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 no-scrollbar">${weekly.map((w,i)=>{ const s=w.song; const active=curSong()&&curSong().id===s.id; return `<button data-act="wk-play" data-id="${s.id}" data-testid="weekly-top-${s.id}" class="press group relative w-32 shrink-0 text-left"><span class="relative block aspect-square w-full overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute left-1.5 top-1.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-black/60 px-1 text-[10px] font-bold text-white backdrop-blur">${i+1}</span><span class="absolute bottom-1.5 right-1.5 grid h-8 w-8 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 glow-purple"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" class="fill-current" style="width:14px;height:14px"></i></span></span><span class="clamp-1 mt-1.5 block text-xs font-semibold">${esc(s.title)}</span><span class="clamp-1 block text-[11px] text-white/45">${esc(s.artist)} \u00B7 ${w.plays} play${w.plays>1?'s':''}</span></button>`; }).join("")}</div>
+    </div>`; }
     if(count) body+=`<div class="mb-3">${filterBar('mm')}</div>`;
     if(!count){ body+=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No custom tracks yet. Tap <span class="font-semibold text-white/75">Add</span> to upload your own audio.</div>`; }
     else if(selMode){
@@ -1963,7 +1989,15 @@ function myMusicSection(){
       </button>`; }).join("");
       body+=toolbar+`<div class="space-y-1.5" data-testid="mm-select-list">${rows}</div>`;
     }
-    else{ const pg=paginate(mine,"mine"); body+=(state.mineGrid?grid(pg.page,'mm-play'):songList(pg.page,false,'mm-play'))+loadMoreBar(pg); }
+    else{
+      const canReorder = !state.mineGrid && (state.mmSort||'recent')==='recent' && !state.mmLyricsOnly && count>1;
+      if(canReorder){
+        body+=`<div class="mb-2 flex items-center gap-1.5 text-[11px] text-white/40"><i data-lucide="grip-vertical" style="width:12px;height:12px"></i>Drag the handles to reorder \u2014 your order is saved automatically</div>`;
+        body+=`<div class="space-y-1" data-reorder="mm" data-testid="mm-reorder-list">${mine.map((s,i)=>`<div data-rid="${s.id}" class="flex items-center gap-1.5"><span data-rhandle data-testid="mm-drag-${s.id}" aria-label="Drag to reorder" title="Drag to reorder" class="grid h-12 w-6 shrink-0 place-items-center rounded-lg text-white/30 transition-colors hover:text-white/75"><i data-lucide="grip-vertical" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1">${songRow(s,i,false,'mm-play')}</div></div>`).join("")}</div>`;
+      } else {
+        const pg=paginate(mine,"mine"); body+=(state.mineGrid?grid(pg.page,'mm-play'):songList(pg.page,false,'mm-play'))+loadMoreBar(pg);
+      }
+    }
   }
   return `<section data-testid="my-music-section" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
 }
@@ -2043,6 +2077,7 @@ function filterBar(scope){
     ${pill("az","A\u2013Z","arrow-down-a-z")}
     ${pill("za","Z\u2013A","arrow-down-z-a")}
     ${pill("artist","Artist","user-round")}
+    ${pill("played","Most played","flame")}
     <span class="mx-0.5 h-4 w-px shrink-0 bg-white/10"></span>
     <button data-act="filter-lyrics" data-scope="${scope}" data-testid="${scope}-lyrics-toggle" aria-pressed="${lyr}" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${lyr?'border-[color:var(--treesh-gold)]/50 bg-[color:var(--treesh-gold)]/12 text-[color:var(--treesh-gold)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="mic-vocal" style="width:13px;height:13px"></i>With lyrics</button>
   </div>`;
@@ -2057,6 +2092,7 @@ function viewLibrary(){
   if(state.libSort==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   else if(state.libSort==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
   else if(state.libSort==="artist") list.sort((a,b)=>{ const c=a.artist.toLowerCase().localeCompare(b.artist.toLowerCase()); return c!==0?c:a.title.toLowerCase().localeCompare(b.title.toLowerCase()); });
+  else if(state.libSort==="played") list.sort((a,b)=>playCount(b.id)-playCount(a.id) || a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   state.contextList=list;
   const browse=!state.query;
   const mineOn=false;
@@ -2066,7 +2102,7 @@ function viewLibrary(){
     if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); html+=myMusicSection(); html+=libraryPlaylistsSection(); } }
   if(state.query){ html+=`<div class="flex items-center gap-2 text-sm text-white/60"><i data-lucide="search" style="width:16px;height:16px"></i> Results for <span class="font-semibold text-white">\u201C${esc(state.query)}\u201D</span></div>`; }
   const heading = state.query ? "" : (state.genre!=="all" ? state.genre : "All Music");
-  const filtersBlock = browse ? (`<div class="mb-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div>`+filterBar('lib')) : "";
+  const filtersBlock = browse ? (`<div class="mb-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div><div class="mb-5">${filterBar('lib')}</div>`) : "";
   html+=`<section><div class="mb-3 flex items-center justify-between gap-3">${heading?`<h2 class="text-lg font-bold capitalize">${esc(heading)}</h2>`:`<span></span>`}<div class="flex items-center gap-2">${viewToggle("lib-view",state.libGrid)}</div></div>${filtersBlock}`;
   if(!list.length){ html+=`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><i data-lucide="search" class="text-white/30" style="width:40px;height:40px"></i><p class="text-lg font-semibold">No matches found</p><p class="text-sm text-white/50">Try a different search or genre.</p></div>`; }
   else{ const pg=paginate(list); const listHtml = state.libGrid ? grid(pg.page) : songList(pg.page,false); html+=listHtml+loadMoreBar(pg); }
@@ -2487,6 +2523,7 @@ function viewSettings(){
     <div class="space-y-2.5">
       ${toggleCard('toggle-anim-bg','settings-toggle-anim-bg',!!state.animBg,'sparkles','Animated background','Show the drifting starfield behind the app')}
       ${toggleCard('toggle-ui-glow','settings-toggle-ui-glow',!!state.uiGlow,'flashlight','Interface glow','Soft accent glow on buttons and highlights')}
+      ${toggleCard('toggle-vinyl','settings-toggle-vinyl',!!state.vinylMode,'disc-3','Vinyl record player','Spin a record instead of the cover art in the full player (or just tap the artwork)')}
       ${toggleCard('toggle-explain-auto','settings-toggle-explain-auto',!!state.explainAuto,'lightbulb','Auto-show lyric meanings','Reveal explanations automatically as lines play')}
       ${toggleCard('perf-mode-toggle','settings-toggle-perf-mode',!!state.perfMode,'zap','Performance mode','Reduce animations for smoother playback on older devices')}
       ${toggleCard('toggle-notif-nav','settings-toggle-notif-nav',!!state.notifInNav,'bell','Show notifications in the bar','Pop alerts into the top navigation bar instead of the screen')}
@@ -2773,9 +2810,9 @@ function viewBlog(){
 
 /* ---------- Games arcade (embedded iframe games) ---------- */
 const GAMES=[
-  {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'July 28, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
+  {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'https://64.media.tumblr.com/1fd0db4d82ed14192794f682ab768843/e4c300405ca5fd6e-fc/s1280x1920/dca2d086ba9e13671a9f45a186e0c792636d7be3.png', banner:'https://64.media.tumblr.com/a7702e3ce56a7902d5ea66fd32d97ded/d05b67bfd24521c9-70/s1280x1920/9f7d5339d7475e71226af55500432429369a2c93.png', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'July 28, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
   {key:'vocotap', name:'Vocotap', url:'https://treesh.app/games/vocotap', logo:'https://64.media.tumblr.com/a357f99f483f505944ed61ffbf91b627/4e72d08b7a6373f7-5b/s1280x1920/d3c5f169e906422bdb6ddd62f303634dde4b4b82.png', banner:'https://64.media.tumblr.com/d98166e80ddeb9217260a083247df1b3/c06c3fcd705d5320-b3/s1280x1920/05620948bd3dfb29596125826783f3204a891337.png', mono:'V', a:'#e0567a', b:'#7a2540', age:'PG-13', updated:'August 11, 2026', desc:'Tap in time with the vocals! Play along with tracks from Treesh Music or upload your own, then test your rhythm and rack up combos.'},
-  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'June 20, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},
+  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', banner:'https://64.media.tumblr.com/12c5bcd00d6eab86052e258de28b19c9/b6dc260cabef24e0-5c/s400x600/ef38354ebff5bd73f43312be103d4b08f63f0a31.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'June 20, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},,
   {key:'nects', name:'Nects', url:'https://treesh.app/games/nects', logo:'https://64.media.tumblr.com/1262b7cc04c787803b22c81af52e91a7/f03bc58006e10b13-94/s1280x1920/3f25f6b1f824f57464f60a2220db75167ad18e21.png', mono:'N', a:'#1f9a9a', b:'#0d5757', age:'6+', updated:'July 26, 2026', desc:'A four-in-a-row showdown. Spot and connect the right emoji on the board before your opponent does.'}
 ];
 const GAME_BY_KEY={}; GAMES.forEach(g=>GAME_BY_KEY[g.key]=g);
@@ -3715,6 +3752,7 @@ function wireMiniDrag(root){
    RENDER: NOW PLAYING
    ============================================================ */
 function actionBtn(act,ic,active,label,id,testid){ return `<button data-act="${act}" ${id?`id="${id}"`:""} ${testid?`data-testid="${testid}"`:""} aria-label="${label}" class="press grid h-10 w-10 place-items-center rounded-full border transition sm:h-11 sm:w-11 ${active?'border-white/25 bg-white/15 text-white':'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${ic}" style="width:17px;height:17px"></i></button>`; }
+function favCycleBtn(s){ const f=isFav(s.id), d=isDisliked(s.id); const ic=d?'heart-crack':'heart'; const st=f?'fav':d?'dislike':'none'; const label=f?'Favorited \u2013 tap to dislike':d?'Disliked \u2013 tap to reset':'Tap to favorite'; const cls=f?'tr-like is-liked border-white/25 bg-white/10 text-white':d?'tr-dislike is-disliked border-white/25 bg-white/10 text-white':'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'; return `<button data-act="fav-cycle" data-id="${s.id}" data-fav-state="${st}" aria-label="${label}" title="${label}" data-testid="now-playing-favdislike-button" class="press grid h-10 w-10 place-items-center rounded-full border transition sm:h-11 sm:w-11 ${cls}"><i data-lucide="${ic}" style="width:17px;height:17px"></i></button>`; }
 
 /* ---------- Karaoke mode + lyric edit/report ---------- */
 let _karIdx=-1;
@@ -4158,7 +4196,7 @@ function lyricBodyHtml(s){
      <button data-act="sel-make-card" data-sel-needs data-testid="sel-make-card" class="press flex-1 inline-flex flex-col items-center justify-center gap-1 rounded-xl bg-[color:var(--treesh-purple)] py-2 text-[11px] font-bold text-white glow-purple ${needCls}"><i data-lucide="wand-sparkles" style="width:16px;height:16px"></i>Card</button>
    </div>` : '';
   const scrollPad = sel ? 'pt-3 pb-24' : 'py-[30%] lg:py-[22%]';
-  const emptyMsg = `<div class="flex h-full flex-col items-center justify-center gap-4 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p><button data-act="ls-open" data-id="${s.id}" data-testid="np-add-lyrics" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold text-white glow-purple"><i data-lucide="captions" style="width:16px;height:16px"></i>Add lyrics</button><p class="max-w-[16rem] text-center text-xs text-white/35">Open Lyric Studio to type and time lyrics for this song.</p></div>`;
+  const emptyMsg = `<div class="flex h-full flex-col items-center justify-center gap-3 text-white/45"><i data-lucide="music-4" style="width:40px;height:40px"></i><p class="text-sm">No lyrics available for this track.</p><div class="flex flex-wrap items-center justify-center gap-2"><button data-act="lyrics-find" data-id="${s.id}" data-testid="np-find-lyrics" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold text-white glow-purple"><i data-lucide="sparkles" style="width:16px;height:16px"></i>Find lyrics</button><button data-act="ls-open" data-id="${s.id}" data-testid="np-add-lyrics" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i>Write manually</button></div><p class="max-w-[17rem] text-center text-xs text-white/35">Find pulls synced lyrics automatically, or write and time them yourself.</p></div>`;
   const resumeBtn = sel ? '' : `<button id="lyric-resume" data-act="lyric-resume" data-testid="lyric-resume-button" class="lyric-resume-in absolute bottom-3 left-1/2 z-20 hidden inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-3.5 py-2 text-xs font-semibold text-white shadow-[var(--treesh-shadow)] backdrop-blur-xl hover:bg-black/70"><i data-lucide="arrow-down-to-line" style="width:14px;height:14px"></i>Resume auto-scroll</button>`;
   const lyricsScroller=`<div class="relative min-h-0 flex-1"><div id="np-lyrics" class="h-full overflow-y-auto no-scrollbar px-1 ${scrollPad}">${ lines.length ? lines.map((l,i)=>npLyricLineHtml(s,l,i)).join("") : emptyMsg }</div>
     ${resumeBtn}${selBar}</div>`;
@@ -4204,10 +4242,8 @@ function renderNP(){
       <button data-act="repeat" id="np-repeat" data-testid="now-playing-repeat-button" aria-label="Repeat (hold 1.5s for A\u2013B loop)" class="ab-holdable press relative grid h-10 w-10 place-items-center rounded-full sm:h-11 sm:w-11 ${(state.abA!=null||state.repeat!=='off')?'text-white bg-white/15':'text-white/60 hover:bg-white/10'}">${state.abA!=null?`<span data-ab-label class="text-[11px] font-extrabold tracking-tight">${state.abB==null?'A\u2022':'A-B'}</span>`:`<i data-lucide="${state.repeat==='one'?'repeat-1':'repeat'}" style="width:18px;height:18px"></i>`}</button>
     </div>
     <div class="mt-3 flex items-center justify-center gap-1.5 sm:mt-5 sm:gap-3">
-      <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="now-playing-like-button" class="tr-like${isFav(s.id)?' is-liked':''} press grid h-10 w-10 place-items-center rounded-full border transition sm:h-11 sm:w-11 ${isFav(s.id)?'border-white/25 bg-white/10':'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="heart" style="width:17px;height:17px"></i></button>
-      <button data-act="dislike" data-id="${s.id}" aria-label="Dislike" data-testid="now-playing-dislike-button" class="tr-dislike${isDisliked(s.id)?' is-disliked':''} press grid h-10 w-10 place-items-center rounded-full border transition sm:h-11 sm:w-11 ${isDisliked(s.id)?'border-white/25 bg-white/10':'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="heart-crack" style="width:17px;height:17px"></i></button>
+      ${favCycleBtn(s)}
       ${actionBtn('toggle-lyrics','quote',state.showLyrics,'Lyrics',null,'now-playing-lyrics-tab')}
-      ${actionBtn('toggle-vinyl','disc-3',state.vinylMode,'Vinyl',null,'now-playing-vinyl-button')}
       ${actionBtn('open-queue','list-music',false,'Queue',null,'now-playing-queue-button')}
       ${actionBtn('np-add','list-plus',false,'Add to playlist')}
       ${actionBtn('np-meta','info',false,'Song details','','now-playing-info-button')}
@@ -4217,8 +4253,8 @@ function renderNP(){
   const lyricTools = lyricToolsHtml(s);
   const lyricBody = lyricBodyHtml(s);
   const artwork = state.vinylMode
-    ? `<div class="relative aspect-square w-[min(78vw,40vh,400px)] shrink-0 lg:w-[min(40vw,48vh,470px)]"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
-    : `<div class="aspect-square w-[min(78vw,40vh,400px)] shrink-0 overflow-hidden rounded-3xl lg:w-[min(40vw,48vh,470px)]" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
+    ? `<div data-act="toggle-vinyl" data-testid="np-artwork-toggle" role="button" tabindex="0" title="Tap to show cover art" class="relative aspect-square w-[min(78vw,40vh,400px)] shrink-0 cursor-pointer lg:w-[min(40vw,48vh,470px)]"><div class="vinyl h-full w-full ${state.isPlaying?'spin':'spin spin-paused'}" style="animation-duration:6s;box-shadow:0 30px 90px ${rgb(c0,0.5)},inset 0 0 60px rgba(0,0,0,0.85)"><div class="vinyl-label">${img(s.coverArt,'h-full w-full object-cover')}</div><span class="vinyl-hole"></span></div></div>`
+    : `<div data-act="toggle-vinyl" data-testid="np-artwork-toggle" role="button" tabindex="0" title="Tap to spin the record" class="aspect-square w-[min(78vw,40vh,400px)] shrink-0 cursor-pointer overflow-hidden rounded-3xl transition-transform active:scale-[0.98] lg:w-[min(40vw,48vh,470px)]" style="box-shadow:0 30px 80px ${rgb(c0,0.5)},0 10px 30px rgba(0,0,0,0.5)">${img(s.coverArt,'h-full w-full object-cover')}</div>`;
   const credits=s.producer?`<p class="clamp-1 mt-1.5 text-xs text-white/40">Prod. ${esc(s.producer)}</p>`:"";
   const titleBlock=`<div class="flex items-center justify-center gap-2 lg:justify-start"><h1 class="clamp-2 text-2xl font-bold leading-tight sm:text-[26px] lg:text-4xl">${esc(s.title)}</h1>${s.explicit?`<span class="grid h-5 w-5 shrink-0 place-items-center rounded-[4px] bg-white/20 text-[9px] font-bold text-white/80">E</span>`:""}</div><p class="clamp-1 mt-1 text-base text-white/70 sm:text-lg">${esc(s.artist)}</p>${s.featuring?`<p class="clamp-1 text-sm text-white/45">feat. ${esc(s.featuring)}</p>`:""}${credits}`;
 
@@ -4878,7 +4914,7 @@ function _amVal(id){ const el=document.getElementById(id); return el?(el.value||
 function amField(id,label,ph,val,opts){ opts=opts||{}; return `<label class="block"><span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">${label}${opts.req?' <span class="text-[color:var(--treesh-purple)]">*</span>':''}</span><input id="${id}" type="${opts.type||'text'}" ${opts.attrs||''} placeholder="${ph||''}" value="${val?esc(val):''}" class="w-full rounded-xl border border-white/12 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]"></label>`; }
 function manageUploadsHtml(){
   if(!USER_SONGS.length) return `<div class="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-12 text-center text-sm text-white/50"><i data-lucide="disc-3" class="mx-auto mb-2 text-white/25" style="width:30px;height:30px"></i>No uploads yet. Add your first track.</div>`;
-  return `<div class="space-y-2">${USER_SONGS.slice().reverse().map(s=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5" data-testid="upload-row-${s.id}"><span class="grid h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/45">${esc(s.artist)}${s.album?' \u00B7 '+esc(s.album):''}${s.genre?' \u00B7 '+esc(s.genre):''}</p></div><button data-act="upload-play" data-id="${s.id}" aria-label="Play" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="play" style="width:15px;height:15px"></i></button><button data-act="ls-open" data-id="${s.id}" data-testid="upload-lyrics-${s.id}" aria-label="Add lyrics" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="captions" style="width:15px;height:15px"></i></button><button data-act="edit-upload" data-id="${s.id}" data-testid="edit-upload-${s.id}" aria-label="Edit" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="delete-upload" data-id="${s.id}" data-testid="delete-upload-${s.id}" aria-label="Delete" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`;
+  return `<div class="space-y-2">${USER_SONGS.slice().reverse().map(s=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5" data-testid="upload-row-${s.id}"><span class="grid h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/5">${img(s.coverArt,'h-full w-full object-cover')}</span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-[11px] text-white/45">${esc(s.artist)}${s.album?' \u00B7 '+esc(s.album):''}${s.genre?' \u00B7 '+esc(s.genre):''}</p></div><button data-act="upload-play" data-id="${s.id}" aria-label="Play" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="play" style="width:15px;height:15px"></i></button><button data-act="ls-open" data-id="${s.id}" data-testid="upload-lyrics-${s.id}" aria-label="Add lyrics" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="captions" style="width:15px;height:15px"></i></button><button data-act="lyrics-find" data-id="${s.id}" data-testid="upload-find-lyrics-${s.id}" aria-label="Find lyrics online" title="Find lyrics online" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="sparkles" style="width:15px;height:15px"></i></button><button data-act="edit-upload" data-id="${s.id}" data-testid="edit-upload-${s.id}" aria-label="Edit" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="delete-upload" data-id="${s.id}" data-testid="delete-upload-${s.id}" aria-label="Delete" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`;
 }
 function openAddMusic(tab, editId){
   tab=tab||'add'; _amEditId=editId||null;
@@ -5142,9 +5178,31 @@ function renderOnboarding(){
   syncScrollLock();
 }
 
+/* ---------- Auto lyrics finder (lrclib.net, no key, CORS) ---------- */
+function openFindLyrics(id){ const s=SONG_BY_ID[id]; if(!s) return; state._flId=id; state._flResults=null; state._flBusy=false; renderFindLyrics(); }
+function parseLRC(str){ const out=[]; (str||"").split(/\r?\n/).forEach(line=>{ const tags=line.match(/\[\d{1,2}:\d{1,2}(?:[.:]\d{1,3})?\]/g); if(!tags) return; const text=line.replace(/\[\d{1,2}:\d{1,2}(?:[.:]\d{1,3})?\]/g,"").trim(); tags.forEach(tag=>{ const m=tag.match(/\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/); if(m){ const t=parseInt(m[1],10)*60+parseInt(m[2],10)+(m[3]?parseInt((m[3]+"00").slice(0,3),10)/1000:0); if(text) out.push({t:t, text:text}); } }); }); out.sort((a,b)=>a.t-b.t); return out; }
+function renderFindLyrics(){ const id=state._flId; const s=SONG_BY_ID[id]; if(!s) return; const busy=state._flBusy, res=state._flResults; const artistPre=(s.artist && s.artist!=="You")?s.artist:"";
+  let results="";
+  if(busy){ results=`<div class="flex items-center justify-center gap-2 py-6 text-sm text-white/60"><i data-lucide="loader-circle" class="animate-spin" style="width:18px;height:18px"></i>Searching lrclib\u2026</div>`; }
+  else if(res==="none"){ results=`<div class="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center text-sm text-white/55">No lyrics found. Try tweaking the title or artist.</div>`; }
+  else if(res==="error"){ results=`<div class="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center text-sm text-white/55">Couldn\u2019t reach the lyrics service. Check your connection and try again.</div>`; }
+  else if(Array.isArray(res)){ results=`<div class="max-h-64 space-y-2 overflow-y-auto">${res.map((it,i)=>{ const synced=!!it.syncedLyrics; return `<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(it.trackName||s.title)}</p><p class="clamp-1 text-[11px] text-white/45">${esc(it.artistName||"")}${it.albumName?" \u00B7 "+esc(it.albumName):""}</p></div><span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${synced?'bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]':'bg-white/10 text-white/55'}">${synced?'Synced':'Plain'}</span><button data-act="lyrics-find-apply" data-idx="${i}" data-testid="lyrics-apply-${i}" class="press shrink-0 rounded-full bg-[color:var(--treesh-purple)] px-3.5 py-1.5 text-xs font-semibold text-white glow-purple">Use</button></div>`; }).join("")}</div>`; }
+  const inner=`<div class="space-y-4">
+    <div class="flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-full bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sparkles" style="width:18px;height:18px"></i></span><div><h3 class="font-display text-base font-bold">Find lyrics</h3><p class="text-xs text-white/45">Pulls synced lyrics from lrclib.net</p></div><button data-act="modal-close" aria-label="Close" data-testid="find-lyrics-close" class="press ml-auto grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button></div>
+    <div class="grid gap-2.5">
+      <label class="block"><span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">Title</span><input id="fl-title" data-testid="find-lyrics-title" value="${esc(s.title||"")}" class="w-full rounded-xl border border-white/12 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]" placeholder="Song title"></label>
+      <label class="block"><span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">Artist</span><input id="fl-artist" data-testid="find-lyrics-artist" value="${esc(artistPre)}" class="w-full rounded-xl border border-white/12 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]" placeholder="Artist (optional)"></label>
+    </div>
+    <button data-act="lyrics-find-search" data-testid="find-lyrics-search" class="press flex w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] py-3 text-sm font-semibold text-white glow-purple"><i data-lucide="search" style="width:16px;height:16px"></i>Search lyrics</button>
+    ${results}
+    <button data-act="ls-open" data-id="${id}" class="press w-full rounded-xl border border-white/12 bg-white/5 py-2.5 text-sm font-medium text-white/70 hover:bg-white/10">Write manually instead</button>
+  </div>`;
+  $("#modal").innerHTML=modalWrap(inner,"find-lyrics-modal"); icons(); const ti=$("#fl-title"); if(ti && !state._flResults){ try{ ti.focus(); }catch(e){} } }
+async function findLyricsSearch(){ const id=state._flId; const s=SONG_BY_ID[id]; if(!s) return; const tI=$("#fl-title"), aI=$("#fl-artist"); const track=((tI?tI.value:s.title)||"").trim(); const artist=((aI?aI.value:"")||"").trim(); if(!track){ toast("Enter a song title"); return; } state._flBusy=true; state._flResults=null; renderFindLyrics(); try{ const url="https://lrclib.net/api/search?track_name="+encodeURIComponent(track)+(artist?("&artist_name="+encodeURIComponent(artist)):""); const r=await fetch(url,{headers:{Accept:"application/json"}}); if(!r.ok) throw new Error("http "+r.status); const arr=await r.json(); const results=(Array.isArray(arr)?arr:[]).filter(x=>x && !x.instrumental && (x.syncedLyrics||x.plainLyrics)).slice(0,6); state._flResults=results.length?results:"none"; }catch(e){ state._flResults="error"; } state._flBusy=false; renderFindLyrics(); }
+function findLyricsApply(idx){ const res=state._flResults; if(!Array.isArray(res)) return; const item=res[idx]; if(!item) return; const id=state._flId; const lines = item.syncedLyrics ? parseLRC(item.syncedLyrics) : (item.plainLyrics ? item.plainLyrics.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>({text:l})) : []); if(!lines.length){ toast("That result has no usable lyrics"); return; } state.lyricEdits=state.lyricEdits||{}; state.lyricEdits[id]=lines; try{ LS.set("treesh_lyric_edits", state.lyricEdits); }catch(e){} const s=SONG_BY_ID[id]; if(s) s.lyrics=lines; if(typeof applyLyricEdits==="function") applyLyricEdits(); closeModal(); toast(item.syncedLyrics?"Synced lyrics added":"Lyrics added", s?s.title:""); refreshDynamic(); if(state.npOpen) renderNP(); }
 function openSongMenu(id){ const s=SONG_BY_ID[id]; if(!s) return; const opt=(act,ic,label,extra="")=>`<button data-act="${act}" data-id="${id}" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-white/10">${extra}<i data-lucide="${ic}" style="width:16px;height:16px"></i> ${label}</button>`;
   const inner=`<div class="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2"><div class="h-11 w-11 overflow-hidden rounded-md">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></div>
-  <div class="space-y-0.5">${opt('m-play-next','list-end','Play next')}${opt('m-add-queue','list-plus','Add to queue')}<div class="my-1 h-px bg-white/10"></div>${opt('m-add-pl','list-music','Add to playlist')}${opt('like','heart',isFav(id)?'Remove favorite':'Add to favorites')}${opt('dislike','heart-crack',isDisliked(id)?'Remove dislike':'Dislike')}<div class="my-1 h-px bg-white/10"></div>${opt('ls-open','captions', (s.lyrics||[]).some(l=>l.text&&l.text.trim())?'Edit / sync lyrics':'Add lyrics')}${opt('m-share','share-2','Share')}${s._user?('<div class="my-1 h-px bg-white/10"></div>'+opt('m-edit-details','pencil','Edit details')+opt('m-remove-upload','trash-2','Remove upload')):''}</div>`;
+  <div class="space-y-0.5">${opt('m-play-next','list-end','Play next')}${opt('m-add-queue','list-plus','Add to queue')}<div class="my-1 h-px bg-white/10"></div>${opt('m-add-pl','list-music','Add to playlist')}${opt('like','heart',isFav(id)?'Remove favorite':'Add to favorites')}${opt('dislike','heart-crack',isDisliked(id)?'Remove dislike':'Dislike')}<div class="my-1 h-px bg-white/10"></div>${opt('ls-open','captions', (s.lyrics||[]).some(l=>l.text&&l.text.trim())?'Edit / sync lyrics':'Add lyrics')}${s._user?opt('lyrics-find','sparkles','Find lyrics online'):''}${opt('m-share','share-2','Share')}${s._user?('<div class="my-1 h-px bg-white/10"></div>'+opt('m-edit-details','pencil','Edit details')+opt('m-remove-upload','trash-2','Remove upload')):''}</div>`;
   $("#modal").innerHTML=modalWrap(inner); icons();
 }
 
@@ -5204,14 +5262,29 @@ audio.addEventListener("loadstart",()=>{ const s=curSong(); if(s&&s.id!==lastSon
    VOICE CONTROL
    ============================================================ */
 let recog=null, listening=false, _voiceSticky=false, _voiceHandled=false, _voiceHideT=null;
-function initVoice(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ recog=false; return; } recog=new SR(); recog.continuous=false; recog.interimResults=true; recog.lang="en-US";
-  recog.onstart=()=>{ listening=true; if($("#voice-ov")) voiceSetState("listening"); };
-  recog.onresult=e=>{ let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript; const ov=$("#voice-text"); if(ov){ ov.innerHTML=t?esc(t):`Say play, pause, next<span class="voice-dots"><span>.</span><span>.</span><span>.</span></span>`; ov.classList.toggle("text-white/50",!t); ov.classList.toggle("text-white",!!t); } if(e.results[e.results.length-1].isFinal) handleVoice(t.toLowerCase().trim()); };
-  recog.onend=()=>{ listening=false; if(!$("#voice-ov")) return; if(_voiceSticky) return; if(_voiceHandled) hideVoice(); else voiceSetState("idle"); };
-  recog.onerror=e=>{ listening=false; if(e.error==="aborted") return; if(e.error==="not-allowed"||e.error==="service-not-allowed") voiceSetState("denied"); else if(e.error==="no-speech") voiceSetState("nospeech"); else voiceSetState("error"); };
+let _voiceActive=false, _voiceSpeaking=false, _voicePaused=false, _voiceNoMic=false, _voiceMode="listening", _voiceRestartT=null, _voiceTTS=null;
+let _voiceSpeak = (typeof LS!=="undefined") ? (LS.get("treesh_voice_speak", true)!==false) : true;
+let _voiceLast = { user:"", reply:"" };
+function initVoice(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ recog=false; return; } recog=new SR(); recog.continuous=false; recog.interimResults=true; recog.lang="en-US"; recog.maxAlternatives=1;
+  recog.onstart=()=>{ listening=true; if($("#voice-ov")&&!_voiceSpeaking&&!_voicePaused){ _voiceMode="listening"; voiceRender(); } };
+  recog.onresult=e=>{ let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript; const live=t.trim(); voiceLiveTranscript(live); if(e.results[e.results.length-1].isFinal){ const f=live.toLowerCase().trim(); if(f) voiceProcess(f); } };
+  recog.onend=()=>{ listening=false; if(!$("#voice-ov")) return; if(!_voiceActive||_voicePaused||_voiceSpeaking) return; clearTimeout(_voiceRestartT); _voiceRestartT=setTimeout(()=>{ voiceListen(); },350); };
+  recog.onerror=e=>{ listening=false; if(e.error==="aborted") return; if(e.error==="not-allowed"||e.error==="service-not-allowed"){ _voiceActive=false; _voiceMode="denied"; voiceRender(); } else if(e.error==="no-speech"){ /* onend will restart */ } else { _voiceActive=false; _voiceNoMic=true; _voiceMode="paused"; _voiceLast={user:"",reply:"I couldn\u2019t reach the microphone \u2014 tap a command below."}; voiceRender(); } };
+  try{ if("speechSynthesis" in window){ window.speechSynthesis.onvoiceschanged=()=>{ _voiceTTS=null; voicePickVoice(); }; voicePickVoice(); } }catch(e){}
 }
-function toggleVoice(){ if($("#voice-ov")){ stopVoice(); return; } if(recog===null) initVoice(); _voiceHandled=false; showVoice(); if(!recog){ voiceSetState("unsupported"); return; } try{ recog.start(); }catch(err){ try{ recog.abort(); }catch(_){} voiceSetState("idle"); } }
-function voiceRetry(){ if(!recog){ voiceSetState("unsupported"); return; } _voiceHandled=false; _voiceSticky=false; clearTimeout(_voiceHideT); voiceSetState("listening"); const go=()=>{ try{ recog.start(); }catch(e){ voiceSetState("idle"); } }; try{ recog.abort(); }catch(_){} setTimeout(go,140); }
+function toggleVoice(){ if($("#voice-ov")){ voiceClose(); return; } voiceOpen(); }
+function voiceOpen(){ if(recog===null) initVoice(); _voiceHandled=false; _voicePaused=false; _voiceSpeaking=false; _voiceActive=true; _voiceNoMic=false; _voiceLast={user:"",reply:""}; showVoice();
+  if(!recog){ _voiceActive=false; _voiceNoMic=true; _voiceMode="paused"; _voiceLast={user:"",reply:"Microphone isn\u2019t available here, but you can still tap a command below."}; voiceRender(); return; }
+  const greet="Hi, I\u2019m listening. Try \u201Cplay\u201D, \u201Cnext\u201D, or \u201Cchange theme to blue\u201D."; _voiceLast={user:"",reply:greet}; _voiceMode="speaking"; voiceRender(); voiceSpeak(greet, ()=>{ voiceListen(); }); }
+function voiceListen(){ if(!_voiceActive||_voicePaused||_voiceSpeaking||!recog) return; _voiceMode="listening"; voiceRender(); try{ recog.start(); }catch(e){} }
+function voiceProcess(text){ if(!text) return; _voiceSpeaking=true; try{ recog.stop(); }catch(e){} _voiceLast={user:text, reply:""}; _voiceMode="thinking"; voiceRender(); let reply; try{ reply=voiceInterpret(text); }catch(e){ reply=null; } if(!reply) reply="Sorry, I didn\u2019t catch that. Try \u201Cplay\u201D, \u201Cnext\u201D, or \u201Cwhat\u2019s playing\u201D."; _voiceLast.reply=reply; voiceSpeak(reply, ()=>{ voiceListen(); }); }
+function voiceRunSuggestion(cmd){ if(!cmd) return; _voiceSpeaking=true; try{ if(recog) recog.abort(); }catch(e){} _voiceLast={user:cmd, reply:""}; _voiceMode="thinking"; voiceRender(); let reply; try{ reply=voiceInterpret(cmd.toLowerCase().trim()); }catch(e){ reply=null; } if(!reply) reply="Okay."; _voiceLast.reply=reply; voiceSpeak(reply, ()=>{ if(_voiceActive && !_voiceNoMic) voiceListen(); else { _voiceMode="paused"; voiceRender(); } }); }
+function voicePickVoice(){ if(_voiceTTS) return _voiceTTS; let vs=[]; try{ vs=window.speechSynthesis.getVoices()||[]; }catch(e){} if(!vs.length) return null; const pref=["Google US English","Samantha","Microsoft Aria Online (Natural) - English (United States)","Microsoft Jenny Online (Natural) - English (United States)","Karen","Moira","Google UK English Female","Microsoft Zira - English (United States)"]; for(const n of pref){ const f=vs.find(v=>v.name===n); if(f){ _voiceTTS=f; return f; } } const en=vs.find(v=>/en[-_]US/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang)); _voiceTTS=en||vs[0]; return _voiceTTS; }
+function voiceSpeak(text, done){ _voiceSpeaking=true; _voiceMode="speaking"; voiceRender(); const finish=()=>{ if(!_voiceSpeaking) return; _voiceSpeaking=false; if(typeof done==="function") done(); }; if(!_voiceSpeak||!("speechSynthesis" in window)||!text){ setTimeout(finish, 600); return; } try{ window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); const v=voicePickVoice(); if(v) u.voice=v; u.rate=1.03; u.pitch=1.03; u.lang="en-US"; u.onend=finish; u.onerror=finish; window.speechSynthesis.speak(u); setTimeout(()=>{ if(_voiceSpeaking && (!window.speechSynthesis || !window.speechSynthesis.speaking)) finish(); }, 7000); }catch(e){ finish(); } }
+function voiceToggleMic(){ if(_voiceNoMic||!recog){ toast("Microphone unavailable here"); return; } if(_voicePaused){ _voicePaused=false; _voiceActive=true; voiceListen(); } else { _voicePaused=true; try{ recog.abort(); }catch(e){} _voiceMode="paused"; voiceRender(); } }
+function voiceToggleSpeak(){ _voiceSpeak=!_voiceSpeak; try{ LS.set("treesh_voice_speak", _voiceSpeak); }catch(e){} if(!_voiceSpeak){ try{ window.speechSynthesis.cancel(); }catch(e){} } voiceRender(); }
+function voiceLiveTranscript(t){ const el=$("#voice-utext"); if(el) el.textContent=t||""; }
+function voiceClose(){ _voiceActive=false; _voicePaused=false; _voiceSpeaking=false; clearTimeout(_voiceRestartT); if(recog){ try{ recog.abort(); }catch(e){} } try{ window.speechSynthesis.cancel(); }catch(e){} listening=false; hideVoice(); }
 function voiceBody(mode){
   if(mode==="listening"||mode==="idle"){
     const on=(mode==="listening");
@@ -5389,6 +5462,7 @@ document.addEventListener("click", e=>{
     case "back": history.back(); break;
     case "play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { playSong(s, state.contextList&&state.contextList.length?state.contextList:[s]); } break; }
     case "mm-play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { const mm=mmSortedList(); playSong(s, mm.length?mm:[s]); } break; }
+    case "wk-play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { const wl=weeklyTop(20).map(w=>w.song).filter(Boolean); playSong(s, wl.length?wl:[s]); } break; }
     case "play-fav-song": { playFavSong(id); break; }
     case "play-lyric-snippet": { playLyricSnippet(id, +t.dataset.i); break; }
     case "restore-dislike": { toggleDislike(id); break; }
@@ -5427,7 +5501,7 @@ document.addEventListener("click", e=>{
     case "lyrics-edit-cancel": { state.lyricsEdit=false; refreshLyricsRegion(); break; }
     case "lyrics-save": { saveLyricEdits(SONG_BY_ID[id]||curSong()); break; }
     case "lyrics-report": { reportLyrics(SONG_BY_ID[id]||curSong()); break; }
-    case "toggle-vinyl": state.vinylMode=!state.vinylMode; LS.set("treesh_vinyl",state.vinylMode); renderNP(); break;
+    case "toggle-vinyl": state.vinylMode=!state.vinylMode; LS.set("treesh_vinyl",state.vinylMode); renderNP(); if(state.view==='settings') renderView(); break;
     case "open-queue": state.queueOpen=true; renderQueue(); break;
     case "close-queue": closeQueue(); break;
     case "q-up": moveQueue(id,-1); break;
@@ -5437,6 +5511,7 @@ document.addEventListener("click", e=>{
     case "mute": setVolume(state.volume>0?0:1); renderNP(); break;
     case "like": { const willLike=!isFav(id); const r=t.getBoundingClientRect(); if(willLike) flyHeart(r.left+r.width/2, r.top+r.height/2); toggleFav(id); if($("#modal").innerHTML)closeModal(); popHearts(id, willLike); break; }
     case "dislike": { const willDislike=!isDisliked(id); const r=t.getBoundingClientRect(); if(willDislike) breakHeart(r.left+r.width/2, r.top+r.height/2); toggleDislike(id); if($("#modal").innerHTML)closeModal(); popDislike(id, willDislike); break; }
+    case "fav-cycle": { const s=SONG_BY_ID[id]; if(!s) break; const f=isFav(id), d=isDisliked(id); const r=t.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2; if(!f && !d){ if(typeof flyHeart==='function') flyHeart(cx,cy); } else if(f){ if(typeof breakHeart==='function') breakHeart(cx,cy); } cycleFavDislike(id); break; }
     case "songmenu": openSongMenu(id); break;
     case "np-add": { const s=curSong(); if(s) openAddToPlaylist(s.id); break; }
     case "np-share": { const s=curSong(); if(s) shareTrack(s); break; }
@@ -5645,6 +5720,9 @@ document.addEventListener("click", e=>{
     case "ls-picker": openLSPicker(); break;
     case "ls-pick": { closeModal(); openLyricSync(t.dataset.id); break; }
     case "ls-open": { const sid=t.dataset.id; if($("#modal")&&$("#modal").childElementCount>0) closeModal(); if(state.searchOpen) closeSearch(true); openLyricSync(sid); break; }
+    case "lyrics-find": { const sid=id||t.dataset.id; if(state.searchOpen) closeSearch(true); openFindLyrics(sid); break; }
+    case "lyrics-find-search": findLyricsSearch(); break;
+    case "lyrics-find-apply": findLyricsApply(parseInt(t.dataset.idx,10)||0); break;
     case "ls-close": closeLS(); break;
     case "ls-mode": lsSetMode(t.dataset.mode); break;
     case "ls-goto-sync": lsGoToSync(); break;
