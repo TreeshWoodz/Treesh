@@ -1239,6 +1239,7 @@ const state = {
   storageSel: {}, _userSizes: {},
   mmCollapsed: false, mmSort: "recent", mmSelect: false, mmSel: {},
   libSort: "default", libLyricsOnly: false, mmLyricsOnly: false,
+  playCounts: LS.get("treesh_plays", {}),
   mmOrder: LS.get("treesh_mm_order", null),
 };
 
@@ -1345,6 +1346,10 @@ function updateStarDisplays(){ document.querySelectorAll('[data-star-count]').fo
 function checkDailyStars(){ const st=state.stars; const tk=starDayKey(); if(st.lastDaily===tk) return; const y=new Date(); y.setDate(y.getDate()-1); const yk=starDayKey(y); st.streak=(st.lastDaily===yk)?((st.streak||0)+1):1; st.lastDaily=tk; st.minToday=0; let amt=STAR_AWARDS.daily, reason="Daily check-in"; if(st.streak>1){ amt+=STAR_AWARDS.streakBonus; reason=st.streak+"-day streak. Welcome back!"; } awardStars(amt, reason); }
 function starListenTick(seconds){ if(!(seconds>0)) return; const st=state.stars; const tk=starDayKey(); st.secAccum=(st.secAccum||0)+seconds; if(st.secAccum>=60){ const mins=Math.floor(st.secAccum/60); st.secAccum-=mins*60; st.totalMin=(st.totalMin||0)+mins; st.minToday=(st.minToday||0)+mins; if(st.minToday>=30 && st.min30Date!==tk){ st.min30Date=tk; awardStars(STAR_AWARDS.listen30, "30 minutes of listening today"); } saveStars(); } }
 function starNewSong(id){ if(!id) return; const st=state.stars; st.newSongs=st.newSongs||{}; if(!st.newSongs[id]){ st.newSongs[id]=Date.now(); awardStars(STAR_AWARDS.newSong, "New song discovered"); } }
+/* ---- per-song play counts (counted once per play, past ~20s) ---- */
+function playCount(id){ return (state.playCounts&&state.playCounts[id])||0; }
+function bumpPlayCount(id){ if(!id) return; state.playCounts=state.playCounts||{}; state.playCounts[id]=(state.playCounts[id]||0)+1; try{ LS.set("treesh_plays", state.playCounts); }catch(e){} }
+function mostPlayedId(){ const pc=state.playCounts||{}; let best=null,bn=0; for(const id in pc){ if(pc[id]>bn && SONG_BY_ID[id]){ bn=pc[id]; best=id; } } return bn>0?best:null; }
 function starGamePlayed(label){ const st=state.stars; st.games=(st.games||0)+1; saveStars(); awardStars(STAR_AWARDS.game, (label||"Game")+" complete"); }
 function starBeatMade(){ const st=state.stars; st.beats=(st.beats||0)+1; saveStars(); awardStars(STAR_AWARDS.beat, "Beat created in Instrum"); }
 
@@ -1536,7 +1541,7 @@ try{ audio.setAttribute("playsinline",""); audio.setAttribute("webkit-playsinlin
 (function attachAudioEl(){ const add=()=>{ try{ if(document.body && !audio.isConnected){ audio.style.display="none"; audio.setAttribute("aria-hidden","true"); document.body.appendChild(audio); } }catch(e){} }; if(document.body) add(); else document.addEventListener("DOMContentLoaded", add); })();
 function shuffleKeepFirst(arr, i){ let rest=arr.filter((_,x)=>x!==i); rest=rest.filter(s=>!(s&&s.id&&state.dislikes.has(s.id))); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
 function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
-function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl) audio.src=song.audioUrl; audio.load(); if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } }
+function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state._playCounted=false; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl) audio.src=song.audioUrl; audio.load(); if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } }
 function playSong(song, list){ const src=(list&&list.length)?list:[song]; state.base=src; let order=src, idx=Math.max(0,src.findIndex(s=>s.id===song.id)); if(state.shuffle){ order=shuffleKeepFirst(src,idx); idx=0; } state.queue=order; loadIndex(idx,order,true); state.npOpen=false; renderMini(); renderNP(); }
 function togglePlay(){ if(!curSong()) return; if(audio.paused){ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); } else audio.pause(); }
 function nextTrack(manual=false){ const q=state.queue; if(!q.length) return; if(state.repeat==="one"&&!manual){ loadIndex(state.index,q,true); return; } let n=state.index+1; if(n>=q.length){ if(state.repeat==="all"||manual) n=0; else { audio.pause(); return; } } loadIndex(n,q,true); }
@@ -1552,7 +1557,7 @@ function moveQueue(id, dir){ const i=state.queue.findIndex(s=>s.id===id); const 
 audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if("mediaSession"in navigator){ navigator.mediaSession.playbackState="playing"; if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("pause", ()=>{ state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
 let _starLastTU=-1;
-audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); if(Math.abs(ct-(state._posTU||0))>=1){ state._posTU=ct; if(typeof updatePositionState==="function") updatePositionState(); } });
+audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); if(s && ct>20 && !state._playCounted){ state._playCounted=true; bumpPlayCount(s.id); } if(Math.abs(ct-(state._posTU||0))>=1){ state._posTU=ct; if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); updateABMarkers(); if(typeof updatePositionState==="function") updatePositionState(); });
 audio.addEventListener("ended", ()=>nextTrack(false));
 audio.addEventListener("error", ()=>{ state.isPlaying=false; });
@@ -1722,7 +1727,7 @@ function syncNavHeight(){ const n=document.getElementById("mobile-nav"); let h=0
 /* ============================================================
    RENDER: VIEWS
    ============================================================ */
-function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play';
+function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
   return `<div data-songcard="${s.id}" data-testid="song-card-${s.id}" class="card-lift group relative rounded-2xl border ${active?'border-white/25 glow-purple':'border-white/10 hover:border-white/25'} bg-white/5 backdrop-blur-xl p-2.5">
     <div class="relative overflow-hidden rounded-xl">
       <div class="aspect-square w-full">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',`alt="${esc(s.title)}"`)}</div>
@@ -1736,11 +1741,12 @@ function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fa
     <div class="mt-2 flex items-center gap-1">
       <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-card-like-button-${s.id}" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>
       <button data-act="songmenu" data-id="${s.id}" aria-label="More" data-testid="song-card-menu-button-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>
-      ${s.genre?`<span class="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}
+      ${s._user?`<button data-act="ls-open" data-id="${s.id}" aria-label="${hasLyr?'Edit lyrics':'Add lyrics'}" title="${hasLyr?'Edit lyrics':'Add lyrics'}" data-testid="mm-lyrics-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full ${hasLyr?'text-[color:var(--treesh-gold)]':'text-white/70'} hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button>`:""}
+      <span class="ml-auto flex items-center gap-1.5">${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-2 py-0.5 text-[10px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}${s.genre?`<span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}</span>
     </div>
   </div>`; }
 
-function songRow(s, i, removable, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play';
+function songRow(s, i, removable, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
   return `<div data-song-row class="group flex items-center gap-3 rounded-xl border ${active?'border-white/20 bg-white/[0.07]':'border-transparent hover:bg-white/5'} px-2.5 py-2 transition">
     <button data-act="${A}" data-id="${s.id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
     <div class="min-w-0 flex-1 cursor-pointer" data-act="${A}" data-id="${s.id}">
@@ -1748,6 +1754,8 @@ function songRow(s, i, removable, act){ const active=curSong()&&curSong().id===s
       <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
     </div>
     ${s.genre?`<span class="hidden md:inline rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45">${esc(s.genre)}</span>`:""}
+    ${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="hidden sm:inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}
+    ${s._user?`<button data-act="ls-open" data-id="${s.id}" aria-label="${hasLyr?'Edit lyrics':'Add lyrics'}" title="${hasLyr?'Edit lyrics':'Add lyrics'}" data-testid="mm-lyrics-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full ${hasLyr?'text-[color:var(--treesh-gold)]':'text-white/60'} hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button>`:""}
     <button data-act="like" data-id="${s.id}" aria-label="Like" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>
     ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>`}
   </div>`; }
@@ -1914,6 +1922,7 @@ function mmSortedList(){
   if(mode==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   else if(mode==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
   else if(mode==="artist") list.sort((a,b)=>{ const c=a.artist.toLowerCase().localeCompare(b.artist.toLowerCase()); return c!==0?c:a.title.toLowerCase().localeCompare(b.title.toLowerCase()); });
+  else if(mode==="played") list.sort((a,b)=>playCount(b.id)-playCount(a.id) || a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   else { if(state.mmOrder && state.mmOrder.length){ const pos={}; state.mmOrder.forEach((id,i)=>{ pos[id]=i; }); list.sort((a,b)=>{ const pa=pos[a.id]!==undefined?pos[a.id]:1e9; const pb=pos[b.id]!==undefined?pos[b.id]:1e9; return pa-pb; }); } else { list.reverse(); } }
   return vis(list);
 }
@@ -2043,6 +2052,7 @@ function filterBar(scope){
     ${pill("az","A\u2013Z","arrow-down-a-z")}
     ${pill("za","Z\u2013A","arrow-down-z-a")}
     ${pill("artist","Artist","user-round")}
+    ${pill("played","Most played","flame")}
     <span class="mx-0.5 h-4 w-px shrink-0 bg-white/10"></span>
     <button data-act="filter-lyrics" data-scope="${scope}" data-testid="${scope}-lyrics-toggle" aria-pressed="${lyr}" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${lyr?'border-[color:var(--treesh-gold)]/50 bg-[color:var(--treesh-gold)]/12 text-[color:var(--treesh-gold)]':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="mic-vocal" style="width:13px;height:13px"></i>With lyrics</button>
   </div>`;
@@ -2057,6 +2067,7 @@ function viewLibrary(){
   if(state.libSort==="az") list.sort((a,b)=>a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   else if(state.libSort==="za") list.sort((a,b)=>b.title.toLowerCase().localeCompare(a.title.toLowerCase()));
   else if(state.libSort==="artist") list.sort((a,b)=>{ const c=a.artist.toLowerCase().localeCompare(b.artist.toLowerCase()); return c!==0?c:a.title.toLowerCase().localeCompare(b.title.toLowerCase()); });
+  else if(state.libSort==="played") list.sort((a,b)=>playCount(b.id)-playCount(a.id) || a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
   state.contextList=list;
   const browse=!state.query;
   const mineOn=false;
@@ -2773,9 +2784,9 @@ function viewBlog(){
 
 /* ---------- Games arcade (embedded iframe games) ---------- */
 const GAMES=[
-  {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'July 28, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
+  {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'https://64.media.tumblr.com/1fd0db4d82ed14192794f682ab768843/e4c300405ca5fd6e-fc/s1280x1920/dca2d086ba9e13671a9f45a186e0c792636d7be3.png', banner:'https://64.media.tumblr.com/a7702e3ce56a7902d5ea66fd32d97ded/d05b67bfd24521c9-70/s1280x1920/9f7d5339d7475e71226af55500432429369a2c93.png', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'July 28, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
   {key:'vocotap', name:'Vocotap', url:'https://treesh.app/games/vocotap', logo:'https://64.media.tumblr.com/a357f99f483f505944ed61ffbf91b627/4e72d08b7a6373f7-5b/s1280x1920/d3c5f169e906422bdb6ddd62f303634dde4b4b82.png', banner:'https://64.media.tumblr.com/d98166e80ddeb9217260a083247df1b3/c06c3fcd705d5320-b3/s1280x1920/05620948bd3dfb29596125826783f3204a891337.png', mono:'V', a:'#e0567a', b:'#7a2540', age:'PG-13', updated:'August 11, 2026', desc:'Tap in time with the vocals! Play along with tracks from Treesh Music or upload your own, then test your rhythm and rack up combos.'},
-  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'June 20, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},
+  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', banner:'https://64.media.tumblr.com/12c5bcd00d6eab86052e258de28b19c9/b6dc260cabef24e0-5c/s400x600/ef38354ebff5bd73f43312be103d4b08f63f0a31.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'June 20, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},,
   {key:'nects', name:'Nects', url:'https://treesh.app/games/nects', logo:'https://64.media.tumblr.com/1262b7cc04c787803b22c81af52e91a7/f03bc58006e10b13-94/s1280x1920/3f25f6b1f824f57464f60a2220db75167ad18e21.png', mono:'N', a:'#1f9a9a', b:'#0d5757', age:'6+', updated:'July 26, 2026', desc:'A four-in-a-row showdown. Spot and connect the right emoji on the board before your opponent does.'}
 ];
 const GAME_BY_KEY={}; GAMES.forEach(g=>GAME_BY_KEY[g.key]=g);
