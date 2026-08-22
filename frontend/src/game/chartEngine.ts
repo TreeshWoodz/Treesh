@@ -15,6 +15,18 @@ function seeded(seed: number) {
   return () => ((value = (value * 16807) % 2147483647) - 1) / 2147483646;
 }
 
+// Build a wavy path that sweeps clearly across lanes so the player must TRACE it (not just hold).
+// x is normalized 0..1 across the highway; a swing wider than one lane (0.25) guarantees a lane change.
+function wavePath(lane: number, time: number, dur: number, dir: number): { t: number; x: number }[] {
+  const center = (lane + 0.5) / 4;
+  const swing = 0.28;
+  return Array.from({ length: 7 }, (_, k) => {
+    const f = k / 6;
+    const x = center + dir * Math.sin(f * Math.PI * 1.5) * swing;
+    return { t: time + dur * f, x: Math.max(0.06, Math.min(0.94, x)) };
+  });
+}
+
 export function estimateBpm(fileName: string, duration = 30) {
   const hash = [...fileName].reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const durationBias = Math.round(duration) % 17;
@@ -36,7 +48,48 @@ export function clampHolds(notes: Note[]): Note[] {
   return sorted;
 }
 
-export function generateChart(songId: string, fileName: string, duration: number, difficulty: Difficulty): Chart {
+export type OnsetData = { onsets: number[]; strengths: number[]; bpm: number };
+
+// Turn detected onsets into a playable chart — notes land on real hits, silence stays empty.
+function chartFromOnsets(songId: string, difficulty: Difficulty, duration: number, data: OnsetData): Chart {
+  const cfg = config[difficulty] ?? config.Normal;
+  const seed = [...`${songId}${difficulty}`].reduce((sum, char) => sum + char.charCodeAt(0), 1);
+  const random = seeded(seed);
+  // Keep the strongest onsets; fraction scales with difficulty.
+  const keepFrac = difficulty === "Easy" ? 0.4 : difficulty === "Normal" ? 0.6 : difficulty === "Hard" ? 0.82 : 1;
+  const strengthSorted = [...data.strengths].sort((a, b) => b - a);
+  const cutoff = strengthSorted[Math.min(strengthSorted.length - 1, Math.floor(strengthSorted.length * keepFrac))] ?? 0;
+  const picks = data.onsets.map((t, i) => ({ t, s: data.strengths[i] })).filter(o => o.s >= cutoff && o.t > 0.05);
+
+  const notes: Note[] = [];
+  let id = 0; let lane = Math.floor(random() * 4); let dir = random() < 0.5 ? 1 : -1; let lastLaneT = -1;
+  for (let i = 0; i < picks.length; i++) {
+    const time = picks[i].t;
+    if (time < 0.05 || time > duration - 0.3) continue;
+    if (time - lastLaneT < 0.09) continue; // avoid stacking on near-identical onsets
+    lastLaneT = time;
+    const gap = (picks[i + 1]?.t ?? time + 1) - time; // silence/space until next hit
+    const r = random();
+    if (r < 0.62) lane = (lane + dir + 4) % 4; else if (r < 0.82) { dir = -dir; lane = (lane + dir + 4) % 4; } else lane = Math.floor(random() * 4);
+    const base = { id: `${songId}-${difficulty}-${id++}`, time, lane };
+    // Long gaps → sustained note; big gaps on strong beats → wave that snakes across lanes.
+    if (gap > 1.1 && random() < 0.5) {
+      const dur = Math.min(gap - 0.2, 1.6);
+      const dir = random() < 0.5 ? 1 : -1;
+      notes.push({ ...base, type: "wavy", duration: dur, path: wavePath(lane, time, dur, dir) });
+    } else if (gap > 0.62) {
+      notes.push({ ...base, type: "hold", duration: Math.min(gap - 0.15, 1.2) });
+    } else {
+      notes.push({ ...base, type: "tap" });
+      if (cfg.chord > 0 && picks[i].s > cutoff * 1.5 && random() < cfg.chord) notes.push({ id: `${songId}-${difficulty}-${id++}`, time, lane: (lane + 2) % 4, type: "tap" });
+    }
+  }
+  const waveform = Array.from({ length: 96 }, (_, i) => Math.min(1, 0.16 + Math.abs(Math.sin(i * 0.42)) + random() * 0.15));
+  return { songId, difficulty, bpm: data.bpm || 120, duration, notes: clampHolds(notes), waveform };
+}
+
+export function generateChart(songId: string, fileName: string, duration: number, difficulty: Difficulty, onsetData?: OnsetData | null): Chart {
+  if (onsetData && onsetData.onsets.length > 6) return chartFromOnsets(songId, difficulty, duration, onsetData);
   const cfg = config[difficulty] ?? config.Normal;
   const bpm = estimateBpm(fileName, duration);
   const beat = 60 / bpm;
@@ -73,7 +126,8 @@ export function generateChart(songId: string, fileName: string, duration: number
     // Wave sweep at phrase transitions (top of every `waveEvery` bars).
     if (isBarStart && bar > 0 && bar % cfg.waveEvery === 0) {
       lane = (lane + dir + 4) % 4;
-      notes.push({ id: `${songId}-${difficulty}-${id++}`, time, lane, type: "wavy", duration: beat * 1.5 });
+      const wdur = beat * 1.5;
+      notes.push({ id: `${songId}-${difficulty}-${id++}`, time, lane, type: "wavy", duration: wdur, path: wavePath(lane, time, wdur, dir) });
       continue;
     }
     // Long note on the first downbeat of every `holdEvery` bars.
@@ -104,12 +158,14 @@ export function generateChart(songId: string, fileName: string, duration: number
 }
 
 export function trainingChart(): Chart {
-  const notes = Array.from({ length: 56 }, (_, index) => ({
-    id: `warmup-${index}`,
-    time: 1.5 + index * 0.42,
-    lane: index % 4,
-    type: index % 12 === 7 ? "hold" as const : index % 12 === 11 ? "wavy" as const : "tap" as const,
-    duration: index % 12 === 7 ? 0.82 : index % 12 === 11 ? 1.15 : undefined,
-  }));
+  const notes: Note[] = Array.from({ length: 56 }, (_, index) => {
+    const isHold = index % 12 === 7;
+    const isWavy = index % 12 === 11;
+    const time = 1.5 + index * 0.42;
+    const lane = index % 4;
+    const note: Note = { id: `warmup-${index}`, time, lane, type: isWavy ? "wavy" : isHold ? "hold" : "tap", duration: isHold ? 0.82 : isWavy ? 1.15 : undefined };
+    if (isWavy) note.path = wavePath(lane, time, 1.15, index % 8 < 4 ? 1 : -1);
+    return note;
+  });
   return { songId: "neon-warmup", difficulty: "Normal", bpm: 143, duration: 26, notes: clampHolds(notes), waveform: Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.48)) * 0.72) };
 }

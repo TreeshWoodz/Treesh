@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient as SvgLinear, Line, Path, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,25 +28,37 @@ type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: numbe
 // Builds the wavy-hold path (SVG coords, y-down; bottom = head, top = tail end).
 // If the note carries a recorded finger path, we trace it; otherwise fall back to a
 // gentle sine. Amplitude tapers toward the top so it reads with the highway's depth.
+function smoothPath(pts: [number, number][]) {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i++) { const mx = (pts[i][0] + pts[i + 1][0]) / 2; const my = (pts[i][1] + pts[i + 1][1]) / 2; d += ` Q ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`; }
+  const last = pts[pts.length - 1]; d += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
+  return d;
+}
 function wavePathData(note: Note, tailLen: number, hw: number, cx: number) {
   const dur = note.duration || 0.4;
   if (note.path && note.path.length > 1) {
     const laneC = (note.lane + 0.5) / 4;
     const pts = note.path
-      .map(p => {
-        const frac = Math.max(0, Math.min(1, (p.t - note.time) / dur));
+      .map((p, i) => {
+        const frac = Math.max(0, Math.min(1, note.path!.length > 1 ? i / (note.path!.length - 1) : 0));
         const dev = Math.max(-0.5, Math.min(0.5, p.x - laneC));
-        return [cx + dev * hw * (1 - 0.45 * frac), tailLen * (1 - frac)] as [number, number];
+        return [cx + dev * hw * (1 - 0.4 * frac), tailLen * (1 - frac)] as [number, number];
       })
       .sort((a, b) => b[1] - a[1]);
-    let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-    for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`;
-    return d;
+    return smoothPath(pts);
   }
-  const steps = 22; const cycles = Math.max(1.6, tailLen / 46); const amp = cx * 0.5;
-  let d = `M ${cx} ${tailLen.toFixed(1)}`;
-  for (let i = 1; i <= steps; i++) { const t = i / steps; const y = tailLen * (1 - t); const x = cx + amp * (1 - 0.4 * t) * Math.sin(t * cycles * Math.PI * 2); d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`; }
-  return d;
+  const steps = 24; const cycles = Math.max(1.6, tailLen / 46); const amp = cx * 0.5;
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) { const t = i / steps; pts.push([cx + amp * (1 - 0.4 * t) * Math.sin(t * cycles * Math.PI * 2), tailLen * (1 - t)]); }
+  return smoothPath(pts);
+}
+// Which lane a wavy note occupies at time t — the player must follow it across lanes.
+function wavyLaneAt(note: Note, t: number) {
+  const dur = note.duration || 0.4;
+  const frac = Math.max(0, Math.min(1, (t - note.time) / dur));
+  if (note.path && note.path.length) { const idx = Math.min(note.path.length - 1, Math.round(frac * (note.path.length - 1))); return Math.max(0, Math.min(3, Math.floor(note.path[idx].x * 4))); }
+  return note.lane;
 }
 
 // ---- Falling note (pure UI-thread motion, memoized so score/combo re-renders never touch it) ----
@@ -82,7 +94,7 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
       {isHold && (isWavy
-        ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: baseW / 2 - waveW / 2, bottom: baseH / 2, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} pointerEvents="none"><Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke={color} strokeWidth={tailW * 0.85} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>
+        ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: baseW / 2 - waveW / 2, bottom: baseH / 2, overflow: "visible", transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} pointerEvents="none"><Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke={color} strokeWidth={tailW * 0.95} strokeOpacity={0.96} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>
         : <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />)}
       <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.55)" }, capStyle]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
@@ -201,8 +213,12 @@ export default function GameScreen() {
   const rainbow = useSharedValue(0);
   useEffect(() => { rainbow.value = withRepeat(withTiming(1, { duration: 2600, easing: RE.linear }), -1, false); }, [rainbow]);
   const pulseActiveRef = useRef(false);
-  const drainUntil = useRef(0); // when >0, Vocopulse is draining and will end at this timestamp
+  const fuelRef = useRef(0);        // Vocopulse fuel 0..100 while active
+  const missStreakRef = useRef(0);  // consecutive misses (accelerates the drain)
+  const lastPulseT = useRef(0);
+  const pulseAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => { pulseActiveRef.current = pulseActive; }, [pulseActive]);
+  useEffect(() => { Animated.timing(pulseAnim, { toValue: pulse, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: false }).start(); }, [pulse, pulseAnim]);
   const touchLane = useRef<Record<string, number>>({});
   const clockStart = useRef(0); const pauseAccum = useRef(0); const pauseAt = useRef(0);
   const resolved = useRef(new Set<string>());
@@ -235,7 +251,7 @@ export default function GameScreen() {
   const startClock = useCallback((from: number) => { cancelAnimation(clock); clock.value = from; clock.value = withTiming(duration, { duration: Math.max(10, (duration - from) * 1000), easing: RE.linear }); }, [clock, duration]);
   // Vocopulse now auto-fires when the meter fills (no button press needed).
   // Vocopulse: fills over 25 consecutive hits, then stays lit while the streak continues.
-  const triggerPulse = useCallback(() => { pulseBase.current = comboRef.current; setPulse(100); setPulseActive(true); pulseActiveRef.current = true; drainUntil.current = 0; Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }, []);
+  const triggerPulse = useCallback(() => { pulseBase.current = comboRef.current; fuelRef.current = 100; missStreakRef.current = 0; lastPulseT.current = Date.now(); setPulse(100); setPulseActive(true); pulseActiveRef.current = true; Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }, []);
 
   const finish = useCallback(async () => {
     if (!chart || !selectedSong || finishing.current) return; finishing.current = true; player.pause(); cancelAnimation(clock);
@@ -279,18 +295,19 @@ export default function GameScreen() {
       const ids: string[] = [];
       for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > lookahead) break; if (!resolved.current.has(n.id)) ids.push(n.id); }
       setWindowIds(prev => (prev.length === ids.length && prev.every((id, i) => id === ids[i])) ? prev : ids);
-      if (missLane >= 0) { rockRef.current = Math.max(0, rockRef.current - 6); judgeRef.current = { grade: "MISS", lane: missLane }; if (pulseActiveRef.current && drainUntil.current === 0) drainUntil.current = Date.now() + 3000; else if (!pulseActiveRef.current) pulseBase.current = comboRef.current; }
+      if (missLane >= 0) { rockRef.current = Math.max(0, rockRef.current - 6); judgeRef.current = { grade: "MISS", lane: missLane }; if (pulseActiveRef.current) { missStreakRef.current += 1; fuelRef.current -= 34 * missStreakRef.current; if (missStreakRef.current >= 3) fuelRef.current = 0; } else pulseBase.current = comboRef.current; }
       // Sync HUD from refs (taps only touch refs, so this is the single place we re-render — keeps rapid tapping instant).
       setCombo(c => (c === comboRef.current ? c : comboRef.current));
       setRock(r => (r === rockRef.current ? r : rockRef.current));
       setScore(s => (s === scoreRef.current ? s : scoreRef.current));
       if (pulseActiveRef.current) {
-        if (drainUntil.current) {
-          const rem = drainUntil.current - Date.now();
-          if (rem <= 0) { setPulseActive(false); pulseActiveRef.current = false; drainUntil.current = 0; pulseBase.current = comboRef.current; setPulse(0); }
-          else setPulse(p => { const v = (rem / 3000) * 100; return Math.abs(p - v) < 1 ? p : v; });
-        } else setPulse(p => (p === 100 ? p : 100)); // stays lit while the streak holds
+        // Fuel drains fully in ~5s if idle; each hit refuels, misses drain it faster.
+        const now = Date.now(); const dt = lastPulseT.current ? Math.min(0.25, (now - lastPulseT.current) / 1000) : 0.08; lastPulseT.current = now;
+        fuelRef.current -= 20 * dt;
+        if (fuelRef.current <= 0) { fuelRef.current = 0; setPulseActive(false); pulseActiveRef.current = false; pulseBase.current = comboRef.current; missStreakRef.current = 0; setPulse(0); }
+        else setPulse(p => { const v = fuelRef.current; return Math.abs(p - v) < 0.8 ? p : v; });
       } else {
+        lastPulseT.current = 0;
         const pv = Math.min(100, Math.max(0, ((comboRef.current - pulseBase.current) / 25) * 100));
         if (pv >= 100) triggerPulse(); else setPulse(p => (p === pv ? p : pv));
       }
@@ -307,19 +324,24 @@ export default function GameScreen() {
     return () => clearInterval(tick);
   }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail, triggerPulse]);
 
-  // Hold / wavy sustain — finger must stay on the lane for the full tail. Receptor stays lit while held.
+  // Hold / wavy sustain. Holds need the start lane held; WAVY notes must be FOLLOWED across
+  // lanes (the required lane changes along the path) to keep scoring. Early release grays out
+  // but never breaks combo.
   useEffect(() => {
     if (!activeHold) return;
-    const end = activeHold.time + (activeHold.duration || 0.4); const lane = activeHold.lane;
-    laneFlash[lane].setValue(1);
+    const note = activeHold; const dur = note.duration || 0.4; const end = note.time + dur; const isWavy = note.type === "wavy";
+    let litLane = isWavy ? wavyLaneAt(note, jsTime()) : note.lane;
+    laneFlash[litLane].setValue(1);
     const timer = setInterval(() => {
       const t = jsTime();
-      // Releasing early no longer counts as a miss — the note grays out, combo holds and continues.
-      if (!pressed.has(lane) && t < end - 0.1) { setActiveHold(null); return; }
-      scoreRef.current += Math.round(24 * (pulseActive ? 2 : 1));
-      if (t >= end) { setActiveHold(null); scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1)); }
-    }, 90);
-    return () => { clearInterval(timer); Animated.timing(laneFlash[lane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); };
+      const reqLane = isWavy ? wavyLaneAt(note, t) : note.lane;
+      if (reqLane !== litLane) { Animated.timing(laneFlash[litLane], { toValue: 0, duration: 120, useNativeDriver: true }).start(); litLane = reqLane; laneFlash[litLane].setValue(1); }
+      const following = pressed.has(reqLane);
+      if (!isWavy && !following && t < end - 0.1) { setActiveHold(null); return; } // hold released early → stop scoring
+      if (following) scoreRef.current += Math.round(24 * (pulseActive ? 2 : 1));
+      if (t >= end) { setActiveHold(null); if (following) scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1)); }
+    }, 80);
+    return () => { clearInterval(timer); Animated.timing(laneFlash[litLane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); };
   }, [activeHold, jsTime, laneFlash, pulseActive, pressed]);
 
   // Taps only mutate refs + fire native-thread animations — no React state, so rapid/back-to-back tapping stays instant.
@@ -332,6 +354,7 @@ export default function GameScreen() {
     const grade: Judgment = best <= 0.11 ? "PERFECT" : best <= 0.24 ? "GREAT" : "GOOD";
     resolved.current.add(target.id); counts.current[grade] += 1;
     comboRef.current += 1; maxCombo.current = Math.max(maxCombo.current, comboRef.current);
+    if (pulseActiveRef.current) { fuelRef.current = Math.min(100, fuelRef.current + 26); missStreakRef.current = 0; }
     const multiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10)) * (pulseActive ? 2 : 1);
     scoreRef.current += Math.round(1000 * weights[grade] * multiplier);
     rockRef.current = Math.min(100, rockRef.current + (grade === "PERFECT" ? 3 : 1));
@@ -343,9 +366,21 @@ export default function GameScreen() {
   }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted]);
 
   const onPadsTouchStart = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); touchLane.current[String(tt.identifier)] = lane; pressed.add(lane); hitLane(lane); } };
+  // Dragging a finger across lanes retargets the held lane in real time — this is how WAVY notes get TRACED (not just held).
+  const onPadsTouchMove = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier); const prev = touchLane.current[key]; if (prev === undefined) continue; const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); if (lane !== prev) { pressed.delete(prev); pressed.add(lane); touchLane.current[key] = lane; flashLane(lane); } } };
   const onPadsTouchEnd = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier); const lane = touchLane.current[key]; if (lane !== undefined) { pressed.delete(lane); delete touchLane.current[key]; } } };
+
+  // Desktop keyboard controls: D/F/J/K (or arrow keys) drive the 4 lanes.
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const map: Record<string, number> = { d: 0, f: 1, j: 2, k: 3, D: 0, F: 1, J: 2, K: 3, ArrowLeft: 0, ArrowUp: 1, ArrowDown: 2, ArrowRight: 3 };
+    const down = (ev: any) => { const lane = map[ev.key]; if (lane === undefined || ev.repeat) return; ev.preventDefault(); pressed.add(lane); hitLane(lane); };
+    const up = (ev: any) => { const lane = map[ev.key]; if (lane === undefined) return; pressed.delete(lane); };
+    window.addEventListener("keydown", down); window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, [hitLane, pressed]);
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
-  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; drainUntil.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
+  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
   if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text selectable={false} style={styles.missingTitle}>Chart not ready</Text><Text selectable={false} style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
@@ -353,6 +388,7 @@ export default function GameScreen() {
   const padW = width / 4;
   const pulseReady = pulse >= 100;
   const charged = pulseReady || pulseActive;
+  const liveStars = accuracy >= 97 ? 5 : accuracy >= 90 ? 4 : accuracy >= 78 ? 3 : accuracy >= 60 ? 2 : accuracy > 0 ? 1 : 0;
 
   return <View style={styles.root} testID="gameplay-screen">
     <Backdrop coverArt={selectedSong.coverArt} grayscale={settings.grayscaleCovers} />
@@ -388,6 +424,7 @@ export default function GameScreen() {
       </View>
       <View style={styles.accRow}>
         <View style={styles.accTrack}><LinearGradient colors={["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.accFill, { width: `${accuracy}%` }]} /></View>
+        <View style={styles.liveStars}>{[0, 1, 2, 3, 4].map(n => <Ionicons key={n} name={n < liveStars ? "star" : "star-outline"} size={13} color={n < liveStars ? colors.gold : "rgba(255,255,255,0.28)"} />)}</View>
         <Text selectable={false} style={styles.accText}>{accuracy.toFixed(1)}%</Text>
       </View>
       <View style={styles.progTrack}><View style={[styles.progFill, { width: `${progress * 100}%`, backgroundColor: rock < 30 ? "#FF5C7A" : "rgba(255,255,255,0.5)" }]} /></View>
@@ -396,12 +433,12 @@ export default function GameScreen() {
     {/* VOCO / Vocopulse meter — auto-fires when full */}
     <View testID="vocopulse-meter" style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, (pulseReady || pulseActive) && styles.vocoReady]}>
       <Ionicons name="flame" size={20} color={pulseActive ? "#FFB020" : pulseReady ? "#FF7A45" : "rgba(255,120,70,0.8)"} />
-      <View style={styles.vocoTrack}><LinearGradient colors={pulseActive ? ["#FFB020", "#FF4D8D"] : ["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.vocoFill, { width: `${pulseActive ? 100 : pulse}%` }]} /></View>
+      <View style={styles.vocoTrack}><Animated.View style={[styles.vocoFill, { width: pulseAnim.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) }]}><LinearGradient colors={pulseActive ? ["#FFB020", "#FF4D8D"] : ["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} /></Animated.View></View>
       <Text selectable={false} style={[styles.vocoMult, (pulseReady || pulseActive) && { color: "#FFB020" }]}>{pulseActive ? "2×" : "1×"}</Text>
     </View>
 
     {/* Tap pads — single multi-touch surface (supports simultaneous lanes + rapid taps) */}
-    <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => false} onTouchStart={onPadsTouchStart} onTouchEnd={onPadsTouchEnd} onTouchCancel={onPadsTouchEnd}>
+    <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true} onTouchStart={onPadsTouchStart} onTouchMove={onPadsTouchMove} onTouchEnd={onPadsTouchEnd} onTouchCancel={onPadsTouchEnd}>
       {settings.showLanePads && laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: l * padW + 3, width: padW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }} />)}
     </View>
 
@@ -424,6 +461,7 @@ const styles = StyleSheet.create({
   score: { color: colors.text, fontSize: 34, lineHeight: 38, fontFamily: fonts.display, textShadowColor: rgba(0.6), textShadowRadius: 12 }, songMeta: { color: "rgba(245,245,247,0.55)", fontSize: 13, fontFamily: fonts.body, marginTop: 1 },
   pause: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
   accRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 }, accTrack: { flex: 1, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, accFill: { height: 7, borderRadius: 4 }, accText: { color: "rgba(245,245,247,0.85)", fontSize: 13, fontFamily: fonts.bold, width: 52, textAlign: "right" },
+  liveStars: { flexDirection: "row", alignItems: "center", gap: 1 },
   progTrack: { height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.08)", marginTop: 8, overflow: "hidden" }, progFill: { height: 4, borderRadius: 2 },
   voco: { position: "absolute", left: 18, right: 18, height: 44, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
   vocoReady: { borderColor: "#FFE27A", backgroundColor: "rgba(255,226,122,0.12)" },

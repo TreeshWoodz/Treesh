@@ -3,14 +3,14 @@ import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import Slider from "@react-native-community/slider";
 import { NeonButton, ScreenHeader } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { colors, laneColors, fonts, rgba } from "@/src/game/theme";
-import { clampHolds } from "@/src/game/chartEngine";
+import { clampHolds, generateChart } from "@/src/game/chartEngine";
 import { Chart, Note } from "@/src/game/types";
 
 const noteIcon = { tap: "ellipse", hold: "remove", wavy: "water", slide: "arrow-forward", chord: "grid", special: "sparkles" } as const;
@@ -18,11 +18,28 @@ const TAP_MAX = 0.18; // press longer than this (without moving) → hold note
 const MOVE_EPS = 16; // finger travel beyond this → wave note
 
 // Vertical sine-wave path (SVG y-down) shared by editor notes + live preview so "wavy" reads as a squiggle.
-function waveData(len: number, amp: number, cx: number) {
-  const steps = 18; const cycles = Math.max(1.5, len / 40);
-  let d = `M ${cx} ${len.toFixed(1)}`;
-  for (let i = 1; i <= steps; i++) { const t = i / steps; const y = len * (1 - t); const x = cx + amp * Math.sin(t * cycles * Math.PI * 2); d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`; }
+function smoothPath(pts: [number, number][]) {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i++) { const mx = (pts[i][0] + pts[i + 1][0]) / 2; const my = (pts[i][1] + pts[i + 1][1]) / 2; d += ` Q ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`; }
+  const last = pts[pts.length - 1]; d += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
   return d;
+}
+// Wave that traces the recorded finger path (relative to the note's lane), else a gentle sine.
+function waveData(note: Note, len: number, laneW: number, cx: number) {
+  if (note.path && note.path.length > 1) {
+    const laneC = (note.lane + 0.5) / 4;
+    const pts = note.path.map((p, i) => {
+      const frac = note.path!.length > 1 ? i / (note.path!.length - 1) : 0;
+      const dev = Math.max(-1, Math.min(1, (p.x - laneC) * 4)); // lanes of deviation
+      return [cx + dev * laneW * 0.42, len * (1 - frac)] as [number, number];
+    }).sort((a, b) => b[1] - a[1]);
+    return smoothPath(pts);
+  }
+  const steps = 22; const cycles = Math.max(1.5, len / 40); const amp = cx * 0.5;
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) { const t = i / steps; pts.push([cx + amp * Math.sin(t * cycles * Math.PI * 2), len * (1 - t)]); }
+  return smoothPath(pts);
 }
 
 function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPress }: { note: Note; clock: Animated.Value; lookahead: number; boardH: number; laneW: number; hw: number; selected: boolean; onPress: () => void }) {
@@ -68,7 +85,7 @@ export default function EditorScreen() {
   const clockStart = useRef(0);
   const nowRef = useRef(0); const playingRef = useRef(false); const recordingRef = useRef(false);
   const undo = useRef<Note[][]>([]); const redo = useRef<Note[][]>([]);
-  const cap = useRef<{ startX: number; startTime: number; wall: number; moved: boolean; points: { t: number; x: number }[] } | null>(null);
+  const captures = useRef<Map<number, { startX: number; startTime: number; wall: number; moved: boolean; points: { t: number; x: number }[] }>>(new Map());
 
   const HW = Math.min(width, 460);
   const LANE = HW / 4;
@@ -78,7 +95,7 @@ export default function EditorScreen() {
 
   useEffect(() => { nowRef.current = nowLabel; }, [nowLabel]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
-  useEffect(() => { recordingRef.current = recording; if (!recording) { cap.current = null; setFlashLane(-1); setDrawing(false); } }, [recording]);
+  useEffect(() => { recordingRef.current = recording; if (!recording) { captures.current.clear(); setFlashLane(-1); setDrawing(false); } }, [recording]);
 
   // While a note is being drawn, tick so the live preview (hold tail growth / wave trail) re-renders.
   useEffect(() => { if (!drawing) return; const t = setInterval(() => setDrawTick(x => x + 1), 60); return () => clearInterval(t); }, [drawing]);
@@ -101,34 +118,44 @@ export default function EditorScreen() {
 
   const laneFromX = (x: number) => Math.max(0, Math.min(3, Math.floor(x / LANE)));
 
-  // The whole board is the live input surface — but only while Record is on (capture-phase steals touches from note-select).
-  const pan = useRef(PanResponder.create({
-    onStartShouldSetPanResponderCapture: () => recordingRef.current,
-    onMoveShouldSetPanResponderCapture: () => recordingRef.current,
-    onPanResponderGrant: (e) => {
-      if (!recordingRef.current) return;
-      const x = e.nativeEvent.locationX; const t = curTime();
-      cap.current = { startX: x, startTime: t, wall: Date.now(), moved: false, points: [{ t, x: x / HW }] };
-      setFlashLane(laneFromX(x)); setDrawing(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    },
-    onPanResponderMove: (e) => {
-      const c = cap.current; if (!c) return;
-      const x = e.nativeEvent.locationX; if (Math.abs(x - c.startX) > MOVE_EPS) c.moved = true;
-      c.points.push({ t: curTime(), x: Math.max(0, Math.min(1, x / HW)) });
-      setFlashLane(laneFromX(x)); setDrawTick(v => v + 1);
-    },
-    onPanResponderRelease: () => {
-      const c = cap.current; cap.current = null; setFlashLane(-1); setDrawing(false);
-      if (!c || !recordingRef.current) return;
-      const held = (Date.now() - c.wall) / 1000; const lane = laneFromX(c.startX);
-      const base = { id: `edit-${Date.now()}-${lane}-${Math.round(c.startTime * 100)}`, lane, time: Math.max(0, c.startTime) };
-      if (c.moved) addNote({ ...base, type: "wavy", duration: Math.max(0.3, held), path: c.points });
-      else if (held >= TAP_MAX) addNote({ ...base, type: "hold", duration: Math.max(0.3, held) });
-      else addNote({ ...base, type: "tap" });
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    },
-    onPanResponderTerminate: () => { cap.current = null; setFlashLane(-1); setDrawing(false); },
-  })).current;
+  const commitCapture = useCallback((c: { startX: number; startTime: number; wall: number; moved: boolean; points: { t: number; x: number }[] }) => {
+    const held = (Date.now() - c.wall) / 1000; const lane = Math.max(0, Math.min(3, Math.floor(c.startX / LANE)));
+    const base = { id: `edit-${Date.now()}-${lane}-${Math.round(c.startTime * 100)}-${Math.floor(Math.random() * 9999)}`, lane, time: Math.max(0, c.startTime) };
+    if (c.moved) addNote({ ...base, type: "wavy", duration: Math.max(0.3, held), path: c.points });
+    else if (held >= TAP_MAX) addNote({ ...base, type: "hold", duration: Math.max(0.3, held) });
+    else addNote({ ...base, type: "tap" });
+  }, [addNote, LANE]);
+
+  // Multi-touch board: every finger down opens its own capture, so multiple notes can be
+  // placed at the exact same instant. Uses raw touch events (PanResponder is single-gesture).
+  const onBoardStart = (e: any) => {
+    if (!recordingRef.current) return;
+    for (const touch of e.nativeEvent.changedTouches) { const x = touch.locationX; const time = curTime(); captures.current.set(touch.identifier, { startX: x, startTime: time, wall: Date.now(), moved: false, points: [{ t: time, x: x / HW }] }); }
+    const first = e.nativeEvent.changedTouches[0]; if (first) setFlashLane(laneFromX(first.locationX));
+    setDrawing(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+  const onBoardMove = (e: any) => {
+    if (!captures.current.size) return;
+    for (const touch of e.nativeEvent.changedTouches) { const c = captures.current.get(touch.identifier); if (!c) continue; const x = touch.locationX; if (Math.abs(x - c.startX) > MOVE_EPS) c.moved = true; c.points.push({ t: curTime(), x: Math.max(0, Math.min(1, x / HW)) }); }
+    const first = e.nativeEvent.changedTouches[0]; if (first) setFlashLane(laneFromX(first.locationX)); setDrawTick(v => v + 1);
+  };
+  const onBoardEnd = (e: any) => {
+    for (const touch of e.nativeEvent.changedTouches) { const c = captures.current.get(touch.identifier); if (!c) continue; captures.current.delete(touch.identifier); if (recordingRef.current) commitCapture(c); }
+    if (!captures.current.size) { setFlashLane(-1); setDrawing(false); } else setDrawTick(v => v + 1);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  // Auto-fill notes from the last placed note (or the playhead) to the end of the song.
+  const generateRest = useCallback(() => {
+    if (!selectedSong) return;
+    const lastTime = notes.reduce((m, n) => Math.max(m, n.time + (n.duration || 0)), 0);
+    const from = Math.max(lastTime + 0.5, nowRef.current);
+    const full = generateChart(selectedSong.id, selectedSong.fileName || selectedSong.title, duration, "Normal");
+    const additions = full.notes.filter(n => n.time > from).map(n => ({ ...n, id: `gen-${n.id}` }));
+    if (!additions.length) return;
+    setNotes(prev => { undo.current.push(prev); redo.current = []; return [...prev, ...additions].sort((a, b) => a.time - b.time); });
+    setSaved(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [selectedSong, notes, duration]);
 
   const toggleSelect = (id: string) => setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const doUndo = () => { if (!undo.current.length) return; setNotes(prev => { redo.current.push(prev); return undo.current.pop()!; }); setSaved(false); };
@@ -151,17 +178,18 @@ export default function EditorScreen() {
 
   const visible = useMemo(() => notes.filter(n => { const end = n.time + ((n.type === "hold" || n.type === "wavy") ? (n.duration || 0) : 0); return n.time - nowLabel < lookahead && end - nowLabel > -0.4; }), [notes, nowLabel]);
 
-  // Live preview of the note being drawn (recomputed each drawTick from the active capture).
+  // Live preview for every finger currently drawing (recomputed each drawTick).
   const bH = boardH || BOARD_H;
-  const preview = useMemo(() => {
-    if (!drawing) return null;
-    const c = cap.current; if (!c) return null;
-    const held = (Date.now() - c.wall) / 1000;
-    const lane = laneFromX(c.startX);
-    const last = c.points[c.points.length - 1];
-    const type = c.moved ? "wavy" : held >= TAP_MAX ? "hold" : "tap";
-    return { lane, held, type, x: (last?.x ?? c.startX / HW) * HW, points: c.points };
-  }, [drawing, drawTick, HW, BOARD_H]); // eslint-disable-line react-hooks/exhaustive-deps
+  const previews = useMemo(() => {
+    if (!drawing) return [] as { lane: number; held: number; type: "tap" | "hold" | "wavy"; x: number }[];
+    return Array.from(captures.current.values()).map(c => {
+      const held = (Date.now() - c.wall) / 1000;
+      const lane = Math.max(0, Math.min(3, Math.floor(c.startX / LANE)));
+      const last = c.points[c.points.length - 1];
+      const type: "tap" | "hold" | "wavy" = c.moved ? "wavy" : held >= TAP_MAX ? "hold" : "tap";
+      return { lane, held, type, x: (last?.x ?? c.startX / HW) * HW };
+    });
+  }, [drawing, drawTick, HW, LANE, BOARD_H]);
 
   if (!selectedSong) return <SafeAreaView style={styles.safe} edges={["top"]}><ScreenHeader title="Chart Editor" /><View style={styles.empty}><Ionicons name="musical-notes-outline" size={44} color={colors.purple} /><Text selectable={false} style={styles.emptyTitle}>Choose a track first</Text><Text selectable={false} style={styles.emptyCopy}>Pick a song to build a custom chart for.</Text><NeonButton testID="editor-open-library-button" label="Choose a track" icon="library" onPress={() => router.replace("/library")} /></View></SafeAreaView>;
 
@@ -176,30 +204,37 @@ export default function EditorScreen() {
     <View style={styles.modeBar}>
       <Pressable testID="editor-record-button" onPress={() => setRecording(r => !r)} style={[styles.modeBtn, recording && styles.modeBtnRec]}><View style={[styles.recDot, recording && styles.recDotOn]} /><Text selectable={false} style={[styles.modeText, recording && { color: colors.bg }]}>{recording ? "Recording" : "Record"}</Text></Pressable>
       <Pressable testID="editor-test-button" onPress={test} style={styles.testBtn}><Ionicons name="game-controller" size={15} color={colors.bg} /><Text selectable={false} style={styles.testText}>Test</Text></Pressable>
-      <Text selectable={false} style={styles.modeHint} numberOfLines={2}>{recording ? "Play, then tap = note · hold = long · drag = wave" : "Record, then Play to place notes"}</Text>
+      <Pressable testID="editor-generate-rest-button" onPress={generateRest} style={styles.genBtn}><Ionicons name="sparkles" size={14} color={colors.bg} /><Text selectable={false} style={styles.genText}>Generate rest</Text></Pressable>
+    </View>
+
+    <View style={styles.hintCard}>
+      <Ionicons name="bulb" size={16} color={colors.gold} />
+      <Text selectable={false} style={styles.hintText}>{recording ? "Recording is ON. Press Play, then on the board: tap = note · press & hold = long note · drag sideways = wavy note. Use two or more fingers to place notes at the same time." : "Turn on Record, press Play, then tap the lanes in time with the song. Tap Generate rest to auto-fill the remainder of the track."}</Text>
     </View>
 
     {/* Falling board — doubles as the live input surface while recording */}
     <View style={styles.boardWrap}>
-      <View style={[styles.board, { width: HW }]} onLayout={e => setBoardH(e.nativeEvent.layout.height)} {...pan.panHandlers}>
+      <View style={[styles.board, { width: HW }]} onLayout={e => setBoardH(e.nativeEvent.layout.height)} onTouchStart={onBoardStart} onTouchMove={onBoardMove} onTouchEnd={onBoardEnd} onTouchCancel={onBoardEnd}>
         {[0, 1, 2, 3, 4].map(l => <View key={l} style={[styles.boardDiv, { left: l * LANE }]} />)}
         {laneColors.map((c, l) => <View key={`g${l}`} style={[styles.laneCol, { left: l * LANE, width: LANE, backgroundColor: flashLane === l ? `${c}22` : "transparent" }]} />)}
         {laneColors.map((c, l) => <View key={`ln${l}`} style={[styles.laneNo, { left: l * LANE, width: LANE }]}><Text selectable={false} style={[styles.laneNoText, { color: c }]}>{l + 1}</Text></View>)}
         <View style={styles.hitLineFull} />
-        {visible.map(n => <EditorNote key={n.id} note={n} clock={clock} lookahead={lookahead} boardH={BOARD_H} laneW={LANE} hw={HW} selected={selected.has(n.id)} onPress={() => toggleSelect(n.id)} />)}
-        {preview && (() => {
+        <View pointerEvents={recording ? "none" : "box-none"} style={StyleSheet.absoluteFill}>
+          {visible.map(n => <EditorNote key={n.id} note={n} clock={clock} lookahead={lookahead} boardH={BOARD_H} laneW={LANE} hw={HW} selected={selected.has(n.id)} onPress={() => toggleSelect(n.id)} />)}
+        </View>
+        {previews.map((preview, idx) => {
           const size = LANE * 0.52; const color = laneColors[preview.lane]; const hitY = bH * 0.84;
           const cx = preview.type === "wavy" ? Math.max(size / 2, Math.min(HW - size / 2, preview.x)) : preview.lane * LANE + LANE / 2;
           const tailLen = preview.type === "tap" ? 0 : Math.min(bH * 0.8, (preview.held / lookahead) * bH);
           const waveW = size * 0.9;
-          return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          return <View key={idx} pointerEvents="none" style={StyleSheet.absoluteFill}>
             {preview.type === "hold" && tailLen > 0 && <View style={{ position: "absolute", left: cx - size * 0.2, top: hitY - tailLen, width: size * 0.4, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
             {preview.type === "wavy" && tailLen > 0 && <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: cx - waveW / 2, top: hitY - tailLen }} pointerEvents="none"><Path d={waveData(tailLen, size * 0.22, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>}
             <View style={{ position: "absolute", left: cx - size / 2, top: hitY - size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 3, borderColor: colors.text, alignItems: "center", justifyContent: "center", opacity: 0.95 }}>
               <Ionicons name={noteIcon[preview.type]} size={size * 0.36} color={colors.bg} />
             </View>
           </View>;
-        })()}
+        })}
         {recording && <View pointerEvents="none" style={styles.recBadge}><View style={styles.recBadgeDot} /><Text selectable={false} style={styles.recBadgeText}>REC</Text></View>}
       </View>
     </View>
@@ -233,6 +268,8 @@ const styles = StyleSheet.create({
   save: { minHeight: 36, paddingHorizontal: 13, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.purple }, saveText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
   songBar: { minHeight: 56, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border }, song: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy }, meta: { color: colors.purple, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, marginTop: 3, fontFamily: fonts.bold }, change: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, changeText: { color: colors.text, fontSize: 12, fontFamily: fonts.bold },
   modeBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: rgba(0.08) },
+  genBtn: { flexDirection: "row", alignItems: "center", gap: 5, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: colors.gold, marginLeft: "auto" }, genText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
+  hintCard: { flexDirection: "row", alignItems: "flex-start", gap: 9, marginHorizontal: 12, marginBottom: 8, padding: 12, borderRadius: 14, backgroundColor: "rgba(245,200,66,0.08)", borderWidth: 1, borderColor: "rgba(245,200,66,0.25)" }, hintText: { flex: 1, color: colors.text, fontSize: 12, lineHeight: 17, fontFamily: fonts.body },
   modeBtn: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, modeBtnRec: { backgroundColor: colors.pink, borderColor: colors.pink }, modeText: { color: colors.text, fontSize: 12, fontFamily: fonts.heavy }, recDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "rgba(255,255,255,0.5)" }, recDotOn: { backgroundColor: colors.bg }, modeHint: { flex: 1, color: colors.muted, fontSize: 10, fontFamily: fonts.body, textAlign: "right" },
   boardWrap: { flex: 1, alignItems: "center", backgroundColor: "#08080C", overflow: "hidden" }, board: { flex: 1, overflow: "hidden" }, boardDiv: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.08)" }, laneCol: { position: "absolute", top: 0, bottom: 0 }, laneNo: { position: "absolute", top: 8, alignItems: "center" }, laneNoText: { fontSize: 11, fontFamily: fonts.heavy, opacity: 0.5 }, hitLineFull: { position: "absolute", left: 0, right: 0, bottom: "16%", height: 2, backgroundColor: "rgba(255,255,255,0.4)" }, eNote: { alignItems: "center", justifyContent: "center" },
   recBadge: { position: "absolute", top: 8, right: 10, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, height: 24, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: colors.pink }, recBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.pink }, recBadgeText: { color: colors.text, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },

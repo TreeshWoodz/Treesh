@@ -7,27 +7,27 @@ import { GlassCard, NeonButton, ScreenHeader } from "@/src/components/ui";
 import { colors, laneColors, fonts } from "@/src/game/theme";
 
 const steps = [
-  { icon: "musical-notes" as const, title: "Pick your sound", copy: "Choose a Treesh Music track or import an audio file from your device. Vocotap keeps a private copy on your phone." },
-  { icon: "pulse" as const, title: "Build the chart", copy: "Pick Easy through Expert and the on-device engine maps the tempo, beat spacing and note shapes. Or record your own in the editor." },
-  { icon: "game-controller" as const, title: "Own the highway", copy: "Tap the notes as they hit the line, hold the tails, trace the waves, charge Vocopulse, then chase your best score." },
+  { icon: "musical-notes" as const, title: "Pick your sound", copy: "Choose a Treesh Music track, replay a Quick Play pick, or import your own audio. Vocotap keeps a private copy on your device." },
+  { icon: "pulse" as const, title: "Build the chart", copy: "Pick Easy through Expert and the on-device engine lays notes on the beat with phrasing, long notes and waves. Or craft your own in the Editor." },
+  { icon: "game-controller" as const, title: "Own the highway", copy: "Tap notes on the line, hold the tails, trace the waves, keep your streak to fire Vocopulse, then chase Starlites and trophies." },
 ];
 
 const noteTypes: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; copy: string }[] = [
-  { key: "tap", label: "Tap", icon: "ellipse", color: laneColors[0], copy: "A single quick tap on its lane the instant it reaches the glowing receptor. The tighter your timing, the higher the judgment." },
-  { key: "hold", label: "Hold", icon: "remove", color: laneColors[1], copy: "Press the head and keep your finger down for the whole glowing tail, then release right as it ends." },
-  { key: "wavy", label: "Wavy", icon: "water", color: laneColors[2], copy: "Press the head, then slide your finger across the lanes and follow the wave path with your fingertip until the tail finishes." },
-  { key: "slide", label: "Slide", icon: "arrow-forward", color: laneColors[3], copy: "Flick from this lane toward the arrow as the note lands to catch it cleanly." },
-  { key: "special", label: "Special", icon: "sparkles", color: colors.purple, copy: "A bonus note. Hit it clean for a big burst of Vocopulse charge and extra flair." },
+  { key: "tap", label: "Tap", icon: "ellipse", color: laneColors[0], copy: "A single quick tap on its lane the instant it reaches the glowing receptor. Tighter timing = higher judgment (Perfect / Great / Good)." },
+  { key: "hold", label: "Long note", icon: "remove", color: laneColors[1], copy: "Press the head and keep your finger down for the whole glowing tail. Letting go early no longer breaks your combo — it just stops scoring." },
+  { key: "wavy", label: "Wavy", icon: "water", color: laneColors[2], copy: "Press the head, then ride the squiggle — its shape follows the exact path it was charted on. Keep holding until the wave finishes." },
 ];
 
 const faqs = [
   ["Where are my songs stored?", "Inside Vocotap's private device storage. Audio, charts, scores and Starlites are never uploaded anywhere."],
-  ["What is Vocopulse?", "A meter you charge by hitting notes. At 50% or higher tap it to trigger an eight-second 2X score multiplier with amplified visuals."],
-  ["How does the rock meter work?", "It rises with clean hits and drops on misses. If you leave No Fail off and it empties, the run ends early."],
-  ["Can I make my own chart?", "Yes. Open the editor, press Record then Play, and tap the four lanes in time. Hold for long notes and drag across lanes for wavy notes."],
-  ["Why won't a file play on iPhone?", "Playback depends on the file's internal codec, not just its extension. MP3, AAC/M4A and WAV are the most reliable."],
-  ["My taps feel early or late", "Open Calibrate and use the audio offset slider, or the Speaker / Wired / Bluetooth presets, until your taps land in sync."],
-  ["How do Starlites carry over?", "Vocotap uses the exact same treesh_stars data as the Treesh website, so your balance and history stay in sync on a shared build."],
+  ["What is Vocopulse?", "A fire meter that fills as you hit 25 notes in a row. Once lit it stays active — and doubles your score — as long as your streak continues. Miss a note and it drains away over 3 seconds, then re-arms after another 25 hits."],
+  ["How do I earn Starlites?", "Finish a chart that has 200 or more notes. Your earnings show in a dedicated card on the results screen and sync with your Treesh balance."],
+  ["What are Achievements?", "Trophies you unlock by playing — big combos, 5-star runs, full combos, building custom charts and more. Tap your name or avatar on the home screen to open your Profile and track them."],
+  ["Can I make my own chart?", "Yes. Open the Editor, press Record then Play, and tap the four lanes in time. Hold for long notes, drag sideways for waves, and use two or more fingers to place notes at the same time. Tap Generate rest to auto-fill the remainder."],
+  ["What is the Customs library?", "Every song you've charted lives under Library → Customs. Tap one to jump straight into play, or use Select to remove charts in bulk. You can also export a chart to a file and import it back later."],
+  ["Do keyboards work on desktop?", "Yes. On a computer, use D / F / J / K (or the arrow keys) for the four lanes, alongside mouse and touch."],
+  ["My taps feel early or late", "Open Settings and use the audio-offset presets — Speaker / Wired / Bluetooth — or the fine slider until your taps land in sync. The active preset is highlighted."],
+  ["Where did Neon Warmup go?", "It's now Voco Warmup. If you delete it, you can bring it back any time from Settings → Restore Voco Warmup."],
 ];
 
 export default function GuideScreen() {

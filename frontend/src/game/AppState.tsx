@@ -4,7 +4,7 @@ import { createAudioPlayer } from "expo-audio";
 import { Directory, File, Paths } from "expo-file-system";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
-import { generateChart, trainingChart } from "./chartEngine";
+import { generateChart, trainingChart, OnsetData } from "./chartEngine";
 import { fetchTreeshCatalog, TREESH_CATALOG } from "./catalog";
 import { ensureWarmupAudio } from "./synth";
 import { Chart, Difficulty, GameSettings, ScoreResult, Song } from "./types";
@@ -22,7 +22,7 @@ type AppValue = {
   restoreWarmup: () => Promise<void>; deleteChart: (key: string) => Promise<void>;
   exportChart: (chart: Chart, song: Song) => Promise<void>; importChart: () => Promise<Chart | null>;
   saveChart: (chart: Chart) => Promise<void>; saveResult: (result: ScoreResult) => Promise<void>;
-  generateAll: (song: Song, duration: number) => Promise<void>;
+  generateAll: (song: Song, duration: number, onsetData?: OnsetData | null) => Promise<void>;
   updateSettings: (next: Partial<GameSettings>) => Promise<void>; clearLocalData: () => Promise<void>;
 };
 
@@ -159,11 +159,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   // Auto-build charts for every standard difficulty so a song is instantly playable. Standard
   // charts are always regenerated (Custom charts are left untouched) so engine updates take effect.
-  const generateAll = useCallback(async (song: Song, duration: number) => {
+  const generateAll = useCallback(async (song: Song, duration: number, onsetData?: OnsetData | null) => {
     const next = { ...charts };
     (["Easy", "Normal", "Hard", "Expert"] as Difficulty[]).forEach(d => {
       const key = `${song.id}-${d}`;
-      next[key] = song.id === warmup.id && d === "Normal" ? trainingChart() : generateChart(song.id, song.fileName || song.title, duration, d);
+      next[key] = song.id === warmup.id && d === "Normal" ? trainingChart() : generateChart(song.id, song.fileName || song.title, duration, d, onsetData);
     });
     setCharts(next); await AsyncStorage.setItem(KEYS.charts, JSON.stringify(next));
   }, [charts]);

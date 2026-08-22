@@ -7,6 +7,7 @@ import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader, NeonButton, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
+import { analyzeAudio } from "@/src/game/audioAnalysis";
 import { colors, fonts, rgba } from "@/src/game/theme";
 import { Difficulty } from "@/src/game/types";
 
@@ -26,7 +27,13 @@ export default function AnalysisScreen() {
 
   useEffect(() => {
     if (!selectedSong?.uri || built.current) return;
-    const build = async (duration: number) => { built.current = true; await generateAll(selectedSong, duration); if (selectedDifficulty === "Custom" && !hasCustom) setDifficulty("Normal"); setBuilding(false); };
+    const build = async (duration: number) => {
+      built.current = true;
+      // Analyze the real audio (web) so notes match beats & skip silence; falls back to the structured engine on native.
+      let onsets = null; try { onsets = await analyzeAudio(selectedSong.uri!); } catch {}
+      await generateAll(selectedSong, (onsets?.duration && onsets.duration > 1) ? onsets.duration : duration, onsets);
+      if (selectedDifficulty === "Custom" && !hasCustom) setDifficulty("Normal"); setBuilding(false);
+    };
     if (status.duration && status.duration > 1) build(status.duration);
     else { const t = setTimeout(() => build(selectedSong.duration || 180), 2200); return () => clearTimeout(t); }
   }, [selectedSong, status.duration, generateAll, selectedDifficulty, hasCustom, setDifficulty]);
