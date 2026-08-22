@@ -42,6 +42,15 @@ function waveData(note: Note, len: number, laneW: number, cx: number) {
   return smoothPath(pts);
 }
 
+// Absolute board-space contour for the live wavy preview: traces the finger's real horizontal
+// path across the whole board (oldest point = head at the hit line, newest = current finger at top).
+function contourPath(points: { t: number; x: number }[], hw: number, height: number) {
+  if (!points || points.length < 2) return "";
+  const n = points.length;
+  const pts = points.map((p, i) => [Math.max(6, Math.min(hw - 6, p.x * hw)), height * (1 - i / (n - 1))] as [number, number]);
+  return smoothPath(pts);
+}
+
 function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPress }: { note: Note; clock: Animated.Value; lookahead: number; boardH: number; laneW: number; hw: number; selected: boolean; onPress: () => void }) {
   const size = laneW * 0.52;
   const color = laneColors[note.lane];
@@ -53,10 +62,14 @@ function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPre
   const translateY = clock.interpolate({ inputRange: [start, note.time, note.time + dur, note.time + dur + 0.3], outputRange: [0, boardH, boardH, boardH + 30], extrapolate: "clamp" });
   const opacity = clock.interpolate({ inputRange: [start, start + 0.12, note.time + dur + 0.1, note.time + dur + 0.4], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
   const tailLen = isHold ? Math.min(boardH, (dur / lookahead) * boardH) : 0;
-  const waveW = size * 0.9;
+  const waveW = laneW * 2.6;
   return <Animated.View style={{ position: "absolute", left: note.lane * laneW + laneW / 2 - size / 2, top: -size / 2, width: size, height: size, opacity, transform: [{ translateY }] }}>
     {isHold && (isWavy
-      ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: size / 2 - waveW / 2, bottom: size * 0.5 }} pointerEvents="none"><Path d={waveData(note, tailLen, waveW, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>
+      ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: size / 2 - waveW / 2, bottom: size * 0.5, overflow: "visible" }} pointerEvents="none">
+          <Path d={waveData(note, tailLen, waveW, waveW / 2)} stroke={color} strokeWidth={size * 0.42} strokeOpacity={0.26} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d={waveData(note, tailLen, waveW, waveW / 2)} stroke={color} strokeWidth={size * 0.26} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d={waveData(note, tailLen, waveW, waveW / 2)} stroke="rgba(255,255,255,0.7)" strokeWidth={size * 0.09} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
       : <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />)}
     <Pressable onPress={onPress} style={[styles.eNote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderColor: selected ? colors.text : "rgba(255,255,255,0.7)", borderWidth: selected ? 3 : 2 }]}><Ionicons name={noteIcon[note.type]} size={size * 0.36} color={colors.bg} /></Pressable>
   </Animated.View>;
@@ -251,13 +264,20 @@ export default function EditorScreen() {
         </View>
         {previews.map((preview, idx) => {
           const size = LANE * 0.52; const color = laneColors[preview.lane]; const hitY = bH * 0.84;
-          const cx = preview.type === "wavy" ? Math.max(size / 2, Math.min(HW - size / 2, preview.x)) : preview.lane * LANE + LANE / 2;
           const tailLen = preview.type === "tap" ? 0 : Math.min(bH * 0.8, (preview.held / lookahead) * bH);
-          const waveW = size * 0.9;
+          const startX = (preview.points[0]?.x ?? (preview.lane + 0.5) / 4) * HW; // head stays where the note began
+          const tipX = Math.max(0, Math.min(HW, preview.x));                       // current finger position
+          const headX = preview.type === "wavy" ? startX : preview.lane * LANE + LANE / 2;
+          const wavePath = preview.type === "wavy" && tailLen > 0 && preview.points.length > 1 ? contourPath(preview.points, HW, tailLen) : "";
           return <View key={idx} pointerEvents="none" style={StyleSheet.absoluteFill}>
-            {preview.type === "hold" && tailLen > 0 && <View style={{ position: "absolute", left: cx - size * 0.2, top: hitY - tailLen, width: size * 0.4, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
-            {preview.type === "wavy" && tailLen > 0 && <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: cx - waveW / 2, top: hitY - tailLen }} pointerEvents="none"><Path d={waveData({ lane: preview.lane, path: preview.points } as Note, tailLen, waveW, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>}
-            <View style={{ position: "absolute", left: cx - size / 2, top: hitY - size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 3, borderColor: colors.text, alignItems: "center", justifyContent: "center", opacity: 0.95 }}>
+            {preview.type === "hold" && tailLen > 0 && <View style={{ position: "absolute", left: headX - size * 0.2, top: hitY - tailLen, width: size * 0.4, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
+            {wavePath !== "" && <Svg width={HW} height={tailLen} style={{ position: "absolute", left: 0, top: hitY - tailLen }} pointerEvents="none">
+              <Path d={wavePath} stroke={color} strokeWidth={size * 0.5} strokeOpacity={0.26} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d={wavePath} stroke={color} strokeWidth={size * 0.3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d={wavePath} stroke="rgba(255,255,255,0.75)" strokeWidth={size * 0.1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>}
+            {preview.type === "wavy" && tailLen > 0 && <View style={{ position: "absolute", left: tipX - size * 0.2, top: hitY - tailLen - size * 0.2, width: size * 0.4, height: size * 0.4, borderRadius: size * 0.2, backgroundColor: "#fff", borderWidth: 2, borderColor: color, shadowColor: color, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 }} />}
+            <View style={{ position: "absolute", left: headX - size / 2, top: hitY - size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 3, borderColor: colors.text, alignItems: "center", justifyContent: "center", opacity: 0.97 }}>
               <Ionicons name={noteIcon[preview.type]} size={size * 0.36} color={colors.bg} />
             </View>
           </View>;

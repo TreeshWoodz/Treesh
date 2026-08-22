@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAudioPlayer } from "expo-audio";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -195,6 +195,7 @@ export default function GameScreen() {
   const chart = testChart || (selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined);
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 500 });
   const hitPlayer = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
 
   const [countdown, setCountdown] = useState(3);
   const [paused, setPaused] = useState(false);
@@ -208,9 +209,12 @@ export default function GameScreen() {
   const [judgment, setJudgment] = useState<{ grade: Judgment; x: number; y: number; key: number } | null>(null);
   const [windowIds, setWindowIds] = useState<string[]>([]);
   const [activeHold, setActiveHold] = useState<Note | null>(null);
+  const [tracePop, setTracePop] = useState<{ key: number } | null>(null);
+  const [forceStart, setForceStart] = useState(false);
 
   const clock = useSharedValue(0);
   const rainbow = useSharedValue(0);
+  const traceGlow = useSharedValue(0);
   useEffect(() => { rainbow.value = withRepeat(withTiming(1, { duration: 2600, easing: RE.linear }), -1, false); }, [rainbow]);
   const pulseActiveRef = useRef(false);
   const fuelRef = useRef(0);        // Vocopulse fuel 0..100 while active
@@ -227,6 +231,9 @@ export default function GameScreen() {
   const laneFlash = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const pressed = useRef(new Set<number>()).current;
   const judgeAnim = useRef(new Animated.Value(0)).current;
+  const traceAnim = useRef(new Animated.Value(0)).current;
+  const startedRef = useRef(false);
+  const countdownTimer = useRef<any>(null);
 
   const PAD_BOTTOM = insets.bottom + 66;
   const PAD_H = 148;
