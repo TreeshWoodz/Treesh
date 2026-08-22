@@ -63,4 +63,6 @@ export type GameSettings = {
   grayscaleCovers: boolean;
   showLanePads: boolean;
   warmupHidden: boolean;
+  keyBindings: string[];
+  editorTutorialSeen: boolean;
 };

@@ -10,8 +10,47 @@ import { ensureWarmupAudio } from "./synth";
 import { Chart, Difficulty, GameSettings, ScoreResult, Song } from "./types";
 
 const KEYS = { songs: "vocotap_songs", charts: "vocotap_charts", scores: "vocotap_scores", settings: "vocotap_settings" };
-const defaultSettings: GameSettings = { noteSpeed: 1, audioOffset: 0, hitSfx: true, haptics: true, noFail: true, performanceMode: false, reducedParticles: false, grayscaleCovers: false, showLanePads: false, warmupHidden: false };
+const defaultSettings: GameSettings = { noteSpeed: 1, audioOffset: 0, hitSfx: true, haptics: true, noFail: true, performanceMode: false, reducedParticles: false, grayscaleCovers: false, showLanePads: false, warmupHidden: false, keyBindings: ["a", "s", "d", "f"], editorTutorialSeen: false };
 const warmup: Song = { id: "neon-warmup", title: "Voco Warmup", artist: "Treesh Game", source: "built-in", duration: 26, bpm: 143, accent: "#0DE6D2" };
+
+// Read the parent Treesh app's user-uploaded tracks ("My Music"). They live in the SAME-ORIGIN
+// IndexedDB `treesh_media` → store `tracks` ({ id, meta, audioBlob, audioType, coverBlob, duration }).
+// Web only (native has no shared DB). We open at the parent's version (1) and, if the store is
+// missing, create it with the parent's exact schema so we never clobber their database.
+async function readTreeshMine(): Promise<Song[]> {
+  if (Platform.OS !== "web") return [];
+  const idb = (globalThis as any).indexedDB;
+  if (!idb) return [];
+  return new Promise<Song[]>((resolve) => {
+    let settled = false;
+    const done = (list: Song[]) => { if (!settled) { settled = true; resolve(list); } };
+    setTimeout(() => done([]), 4000);
+    try {
+      const req = idb.open("treesh_media", 1);
+      req.onupgradeneeded = () => { try { const db = req.result; if (!db.objectStoreNames.contains("tracks")) db.createObjectStore("tracks", { keyPath: "id" }); } catch {} };
+      req.onerror = () => done([]);
+      req.onsuccess = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("tracks")) { db.close(); return done([]); }
+        try {
+          const all = db.transaction("tracks", "readonly").objectStore("tracks").getAll();
+          all.onsuccess = () => {
+            const recs = (all.result || []) as any[];
+            const songs = recs.map((rec) => {
+              const m = rec.meta || {};
+              let uri = ""; let coverArt: string | undefined;
+              try { if (rec.audioBlob) uri = URL.createObjectURL(rec.audioBlob); } catch {}
+              try { if (rec.coverBlob) coverArt = URL.createObjectURL(rec.coverBlob); } catch {}
+              return { id: `treesh-mine-${rec.id}`, title: m.title || "Untitled", artist: m.artist || "You", source: "device", uri, fileName: `${m.title || "track"}.audio`, duration: rec.duration || 0, accent: "#CCFF00", coverArt, genre: m.genre || "My Music" } as Song;
+            }).filter((s) => !!s.uri).sort((a, b) => a.title.localeCompare(b.title));
+            db.close(); done(songs);
+          };
+          all.onerror = () => { db.close(); done([]); };
+        } catch { db.close(); done([]); }
+      };
+    } catch { done([]); }
+  });
+}
 
 type AppValue = {
   ready: boolean; songs: Song[]; treeshSongs: Song[]; charts: Record<string, Chart>; scores: ScoreResult[]; settings: GameSettings;
@@ -24,6 +63,7 @@ type AppValue = {
   saveChart: (chart: Chart) => Promise<void>; saveResult: (result: ScoreResult) => Promise<void>;
   generateAll: (song: Song, duration: number, onsetData?: OnsetData | null) => Promise<void>;
   updateSettings: (next: Partial<GameSettings>) => Promise<void>; clearLocalData: () => Promise<void>;
+  mineSongs: Song[]; refreshLibrary: () => Promise<void>; refreshing: boolean;
 };
 
 const AppContext = createContext<AppValue | null>(null);
@@ -41,6 +81,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [lastResult, setLastResult] = useState<ScoreResult | null>(null);
   const [testChart, setTestChart] = useState<Chart | null>(null);
   const [warmupUri, setWarmupUri] = useState<string | undefined>(undefined);
+  const [mineSongs, setMineSongs] = useState<Song[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { (async () => {
     const uri = await ensureWarmupAudio(); setWarmupUri(uri);
@@ -50,11 +92,26 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     const withWarmup = savedSettings.warmupHidden ? device : [{ ...warmup, uri }, ...device];
     const savedCharts = await read<Record<string, Chart>>(KEYS.charts, {});
     setSongs(withWarmup); setCharts({ "neon-warmup-Normal": trainingChart(), ...savedCharts });
-    setScores(await read(KEYS.scores, [])); setSettings(savedSettings); setReady(true);
+    setScores(await read(KEYS.scores, [])); setSettings({ ...defaultSettings, ...savedSettings }); setReady(true);
+    readTreeshMine().then(setMineSongs).catch(() => {});
     const cachedCatalog = await read<Song[]>("vocotap_treesh", []);
     if (cachedCatalog.length) setTreeshSongs(cachedCatalog);
     fetchTreeshCatalog().then(list => { setTreeshSongs(list); AsyncStorage.setItem("vocotap_treesh", JSON.stringify(list)); }).catch(() => {});
   })(); }, []);
+
+  // Re-scan the parent app's "My Music" (IndexedDB) + refetch the Treesh catalog. Powers the
+  // library's refresh button so newly-added tracks show up without a full reload.
+  const refreshLibrary = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [mine, catalog] = await Promise.all([
+        readTreeshMine().catch(() => [] as Song[]),
+        fetchTreeshCatalog().catch(() => null),
+      ]);
+      setMineSongs(mine);
+      if (catalog && catalog.length) { setTreeshSongs(catalog); AsyncStorage.setItem("vocotap_treesh", JSON.stringify(catalog)); }
+    } finally { setRefreshing(false); }
+  }, []);
 
   const selectSong = useCallback((song: Song) => { setTestChart(null); setSelectedSong(song); }, []);
 
@@ -176,7 +233,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     await Promise.all(Object.values(KEYS).map(key => AsyncStorage.removeItem(key))); setScores([]); setCharts({ "neon-warmup-Normal": trainingChart() }); setSettings(defaultSettings); setSongs(current => current.slice(0, 1));
   }, []);
 
-  const value = useMemo(() => ({ ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, setDifficulty, setTestChart, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, updateSettings, clearLocalData }), [ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, updateSettings, clearLocalData]);
+  const value = useMemo(() => ({ ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, setDifficulty, setTestChart, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing }), [ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

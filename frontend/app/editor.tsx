@@ -56,7 +56,7 @@ function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPre
   const waveW = size * 0.9;
   return <Animated.View style={{ position: "absolute", left: note.lane * laneW + laneW / 2 - size / 2, top: -size / 2, width: size, height: size, opacity, transform: [{ translateY }] }}>
     {isHold && (isWavy
-      ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: size / 2 - waveW / 2, bottom: size * 0.5 }} pointerEvents="none"><Path d={waveData(tailLen, size * 0.22, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>
+      ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: size / 2 - waveW / 2, bottom: size * 0.5 }} pointerEvents="none"><Path d={waveData(note, tailLen, waveW, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>
       : <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />)}
     <Pressable onPress={onPress} style={[styles.eNote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderColor: selected ? colors.text : "rgba(255,255,255,0.7)", borderWidth: selected ? 3 : 2 }]}><Ionicons name={noteIcon[note.type]} size={size * 0.36} color={colors.bg} /></Pressable>
   </Animated.View>;
@@ -80,9 +80,11 @@ export default function EditorScreen() {
   const [drawing, setDrawing] = useState(false);
   const [drawTick, setDrawTick] = useState(0);
   const [boardH, setBoardH] = useState(0);
+  const [showHint, setShowHint] = useState(true);
 
   const clock = useRef(new Animated.Value(0)).current;
   const clockStart = useRef(0);
+  const recPulse = useRef(new Animated.Value(1)).current;
   const nowRef = useRef(0); const playingRef = useRef(false); const recordingRef = useRef(false);
   const undo = useRef<Note[][]>([]); const redo = useRef<Note[][]>([]);
   const captures = useRef<Map<number, { startX: number; startTime: number; wall: number; moved: boolean; points: { t: number; x: number }[] }>>(new Map());
@@ -96,6 +98,13 @@ export default function EditorScreen() {
   useEffect(() => { nowRef.current = nowLabel; }, [nowLabel]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
   useEffect(() => { recordingRef.current = recording; if (!recording) { captures.current.clear(); setFlashLane(-1); setDrawing(false); } }, [recording]);
+
+  // Blink the Record button's dot while recording (replaces the separate REC badge).
+  useEffect(() => {
+    if (!recording) { recPulse.setValue(1); return; }
+    const loop = Animated.loop(Animated.sequence([Animated.timing(recPulse, { toValue: 0.2, duration: 480, useNativeDriver: true }), Animated.timing(recPulse, { toValue: 1, duration: 480, useNativeDriver: true })]));
+    loop.start(); return () => { loop.stop(); recPulse.setValue(1); };
+  }, [recording, recPulse]);
 
   // While a note is being drawn, tick so the live preview (hold tail growth / wave trail) re-renders.
   useEffect(() => { if (!drawing) return; const t = setInterval(() => setDrawTick(x => x + 1), 60); return () => clearInterval(t); }, [drawing]);
@@ -127,20 +136,33 @@ export default function EditorScreen() {
   }, [addNote, LANE]);
 
   // Multi-touch board: every finger down opens its own capture, so multiple notes can be
-  // placed at the exact same instant. Uses raw touch events (PanResponder is single-gesture).
+  // placed at the exact same instant. Uses the Responder lifecycle (works for touch on native
+  // AND mouse on web — raw onTouch* events never fire for a mouse pointer in React Native Web).
+  const touchesOf = (e: any) => {
+    const ct = e.nativeEvent.changedTouches;
+    if (ct && ct.length) return ct as { identifier: number; locationX: number }[];
+    const n = e.nativeEvent;
+    return [{ identifier: n.identifier ?? 0, locationX: n.locationX ?? 0 }];
+  };
   const onBoardStart = (e: any) => {
     if (!recordingRef.current) return;
-    for (const touch of e.nativeEvent.changedTouches) { const x = touch.locationX; const time = curTime(); captures.current.set(touch.identifier, { startX: x, startTime: time, wall: Date.now(), moved: false, points: [{ t: time, x: x / HW }] }); }
-    const first = e.nativeEvent.changedTouches[0]; if (first) setFlashLane(laneFromX(first.locationX));
+    const time = curTime();
+    for (const touch of touchesOf(e)) { const x = touch.locationX; captures.current.set(touch.identifier, { startX: x, startTime: time, wall: Date.now(), moved: false, points: [{ t: time, x: x / HW }] }); }
+    const first = touchesOf(e)[0]; if (first) setFlashLane(laneFromX(first.locationX));
     setDrawing(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
   const onBoardMove = (e: any) => {
-    if (!captures.current.size) return;
-    for (const touch of e.nativeEvent.changedTouches) { const c = captures.current.get(touch.identifier); if (!c) continue; const x = touch.locationX; if (Math.abs(x - c.startX) > MOVE_EPS) c.moved = true; c.points.push({ t: curTime(), x: Math.max(0, Math.min(1, x / HW)) }); }
-    const first = e.nativeEvent.changedTouches[0]; if (first) setFlashLane(laneFromX(first.locationX)); setDrawTick(v => v + 1);
+    if (!recordingRef.current) return;
+    for (const touch of touchesOf(e)) {
+      let c = captures.current.get(touch.identifier);
+      const x = touch.locationX;
+      if (!c) { const time = curTime(); captures.current.set(touch.identifier, { startX: x, startTime: time, wall: Date.now(), moved: false, points: [{ t: time, x: x / HW }] }); setDrawing(true); continue; }
+      if (Math.abs(x - c.startX) > MOVE_EPS) c.moved = true; c.points.push({ t: curTime(), x: Math.max(0, Math.min(1, x / HW)) });
+    }
+    const first = touchesOf(e)[0]; if (first) setFlashLane(laneFromX(first.locationX)); setDrawTick(v => v + 1);
   };
   const onBoardEnd = (e: any) => {
-    for (const touch of e.nativeEvent.changedTouches) { const c = captures.current.get(touch.identifier); if (!c) continue; captures.current.delete(touch.identifier); if (recordingRef.current) commitCapture(c); }
+    for (const touch of touchesOf(e)) { const c = captures.current.get(touch.identifier); if (!c) continue; captures.current.delete(touch.identifier); if (recordingRef.current) commitCapture(c); }
     if (!captures.current.size) { setFlashLane(-1); setDrawing(false); } else setDrawTick(v => v + 1);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
@@ -181,13 +203,13 @@ export default function EditorScreen() {
   // Live preview for every finger currently drawing (recomputed each drawTick).
   const bH = boardH || BOARD_H;
   const previews = useMemo(() => {
-    if (!drawing) return [] as { lane: number; held: number; type: "tap" | "hold" | "wavy"; x: number }[];
+    if (!drawing) return [] as { lane: number; held: number; type: "tap" | "hold" | "wavy"; x: number; points: { t: number; x: number }[] }[];
     return Array.from(captures.current.values()).map(c => {
       const held = (Date.now() - c.wall) / 1000;
       const lane = Math.max(0, Math.min(3, Math.floor(c.startX / LANE)));
       const last = c.points[c.points.length - 1];
       const type: "tap" | "hold" | "wavy" = c.moved ? "wavy" : held >= TAP_MAX ? "hold" : "tap";
-      return { lane, held, type, x: (last?.x ?? c.startX / HW) * HW };
+      return { lane, held, type, x: (last?.x ?? c.startX / HW) * HW, points: c.points };
     });
   }, [drawing, drawTick, HW, LANE, BOARD_H]);
 
@@ -202,19 +224,24 @@ export default function EditorScreen() {
     </View>
 
     <View style={styles.modeBar}>
-      <Pressable testID="editor-record-button" onPress={() => setRecording(r => !r)} style={[styles.modeBtn, recording && styles.modeBtnRec]}><View style={[styles.recDot, recording && styles.recDotOn]} /><Text selectable={false} style={[styles.modeText, recording && { color: colors.bg }]}>{recording ? "Recording" : "Record"}</Text></Pressable>
+      <Pressable testID="editor-record-button" onPress={() => setRecording(r => !r)} style={[styles.modeBtn, recording && styles.modeBtnRec]}><Animated.View style={[styles.recDot, recording && styles.recDotOn, recording && { opacity: recPulse }]} /><Text selectable={false} style={[styles.modeText, recording && { color: colors.bg }]}>{recording ? "Recording" : "Record"}</Text></Pressable>
       <Pressable testID="editor-test-button" onPress={test} style={styles.testBtn}><Ionicons name="game-controller" size={15} color={colors.bg} /><Text selectable={false} style={styles.testText}>Test</Text></Pressable>
       <Pressable testID="editor-generate-rest-button" onPress={generateRest} style={styles.genBtn}><Ionicons name="sparkles" size={14} color={colors.bg} /><Text selectable={false} style={styles.genText}>Generate rest</Text></Pressable>
     </View>
 
-    <View style={styles.hintCard}>
-      <Ionicons name="bulb" size={16} color={colors.gold} />
-      <Text selectable={false} style={styles.hintText}>{recording ? "Recording is ON. Press Play, then on the board: tap = note · press & hold = long note · drag sideways = wavy note. Use two or more fingers to place notes at the same time." : "Turn on Record, press Play, then tap the lanes in time with the song. Tap Generate rest to auto-fill the remainder of the track."}</Text>
-    </View>
+    {showHint ? (
+      <View style={styles.hintCard}>
+        <Ionicons name="bulb" size={16} color={colors.gold} />
+        <Text selectable={false} style={styles.hintText}>{recording ? "Recording is ON. Press Play, then on the board: tap = note · press & hold = long note · drag sideways = wavy note. Use two or more fingers to place notes at the same time." : "Turn on Record, press Play, then tap the lanes in time with the song. Tap Generate rest to auto-fill the remainder of the track."}</Text>
+        <Pressable testID="editor-hint-toggle" onPress={() => setShowHint(false)} hitSlop={8} style={styles.hintClose}><Ionicons name="close" size={15} color={colors.muted} /></Pressable>
+      </View>
+    ) : (
+      <Pressable testID="editor-hint-toggle" onPress={() => setShowHint(true)} style={styles.hintShow}><Ionicons name="bulb" size={13} color={colors.gold} /><Text selectable={false} style={styles.hintShowText}>Show tips</Text></Pressable>
+    )}
 
     {/* Falling board — doubles as the live input surface while recording */}
     <View style={styles.boardWrap}>
-      <View style={[styles.board, { width: HW }]} onLayout={e => setBoardH(e.nativeEvent.layout.height)} onTouchStart={onBoardStart} onTouchMove={onBoardMove} onTouchEnd={onBoardEnd} onTouchCancel={onBoardEnd}>
+      <View style={[styles.board, { width: HW }]} onLayout={e => setBoardH(e.nativeEvent.layout.height)} onStartShouldSetResponder={() => recordingRef.current} onMoveShouldSetResponder={() => recordingRef.current} onResponderTerminationRequest={() => false} onResponderGrant={onBoardStart} onResponderMove={onBoardMove} onResponderRelease={onBoardEnd} onResponderTerminate={onBoardEnd}>
         {[0, 1, 2, 3, 4].map(l => <View key={l} style={[styles.boardDiv, { left: l * LANE }]} />)}
         {laneColors.map((c, l) => <View key={`g${l}`} style={[styles.laneCol, { left: l * LANE, width: LANE, backgroundColor: flashLane === l ? `${c}22` : "transparent" }]} />)}
         {laneColors.map((c, l) => <View key={`ln${l}`} style={[styles.laneNo, { left: l * LANE, width: LANE }]}><Text selectable={false} style={[styles.laneNoText, { color: c }]}>{l + 1}</Text></View>)}
@@ -229,13 +256,12 @@ export default function EditorScreen() {
           const waveW = size * 0.9;
           return <View key={idx} pointerEvents="none" style={StyleSheet.absoluteFill}>
             {preview.type === "hold" && tailLen > 0 && <View style={{ position: "absolute", left: cx - size * 0.2, top: hitY - tailLen, width: size * 0.4, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />}
-            {preview.type === "wavy" && tailLen > 0 && <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: cx - waveW / 2, top: hitY - tailLen }} pointerEvents="none"><Path d={waveData(tailLen, size * 0.22, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>}
+            {preview.type === "wavy" && tailLen > 0 && <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: cx - waveW / 2, top: hitY - tailLen }} pointerEvents="none"><Path d={waveData({ lane: preview.lane, path: preview.points } as Note, tailLen, waveW, waveW / 2)} stroke={color} strokeWidth={size * 0.16} strokeOpacity={0.95} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>}
             <View style={{ position: "absolute", left: cx - size / 2, top: hitY - size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 3, borderColor: colors.text, alignItems: "center", justifyContent: "center", opacity: 0.95 }}>
               <Ionicons name={noteIcon[preview.type]} size={size * 0.36} color={colors.bg} />
             </View>
           </View>;
         })}
-        {recording && <View pointerEvents="none" style={styles.recBadge}><View style={styles.recBadgeDot} /><Text selectable={false} style={styles.recBadgeText}>REC</Text></View>}
       </View>
     </View>
 
@@ -269,10 +295,9 @@ const styles = StyleSheet.create({
   songBar: { minHeight: 56, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border }, song: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy }, meta: { color: colors.purple, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, marginTop: 3, fontFamily: fonts.bold }, change: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, changeText: { color: colors.text, fontSize: 12, fontFamily: fonts.bold },
   modeBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: rgba(0.08) },
   genBtn: { flexDirection: "row", alignItems: "center", gap: 5, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: colors.gold, marginLeft: "auto" }, genText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
-  hintCard: { flexDirection: "row", alignItems: "flex-start", gap: 9, marginHorizontal: 12, marginBottom: 8, padding: 12, borderRadius: 14, backgroundColor: "rgba(245,200,66,0.08)", borderWidth: 1, borderColor: "rgba(245,200,66,0.25)" }, hintText: { flex: 1, color: colors.text, fontSize: 12, lineHeight: 17, fontFamily: fonts.body },
+  hintCard: { flexDirection: "row", alignItems: "flex-start", gap: 9, marginHorizontal: 12, marginBottom: 8, padding: 12, borderRadius: 14, backgroundColor: "rgba(245,200,66,0.08)", borderWidth: 1, borderColor: "rgba(245,200,66,0.25)" }, hintText: { flex: 1, color: colors.text, fontSize: 12, lineHeight: 17, fontFamily: fonts.body }, hintClose: { width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)" }, hintShow: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: 12, marginBottom: 8, paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: "rgba(245,200,66,0.08)", borderWidth: 1, borderColor: "rgba(245,200,66,0.25)" }, hintShowText: { color: colors.gold, fontSize: 11, fontFamily: fonts.heavy },
   modeBtn: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, modeBtnRec: { backgroundColor: colors.pink, borderColor: colors.pink }, modeText: { color: colors.text, fontSize: 12, fontFamily: fonts.heavy }, recDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "rgba(255,255,255,0.5)" }, recDotOn: { backgroundColor: colors.bg }, modeHint: { flex: 1, color: colors.muted, fontSize: 10, fontFamily: fonts.body, textAlign: "right" },
   boardWrap: { flex: 1, alignItems: "center", backgroundColor: "#08080C", overflow: "hidden" }, board: { flex: 1, overflow: "hidden" }, boardDiv: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.08)" }, laneCol: { position: "absolute", top: 0, bottom: 0 }, laneNo: { position: "absolute", top: 8, alignItems: "center" }, laneNoText: { fontSize: 11, fontFamily: fonts.heavy, opacity: 0.5 }, hitLineFull: { position: "absolute", left: 0, right: 0, bottom: "16%", height: 2, backgroundColor: "rgba(255,255,255,0.4)" }, eNote: { alignItems: "center", justifyContent: "center" },
-  recBadge: { position: "absolute", top: 8, right: 10, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, height: 24, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: colors.pink }, recBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.pink }, recBadgeText: { color: colors.text, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
   seekRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, marginTop: 6 }, seekBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
   transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, paddingVertical: 6 }, testBtn: { flexDirection: "row", alignItems: "center", gap: 5, height: 36, paddingHorizontal: 13, borderRadius: 18, backgroundColor: colors.lime }, testText: { color: colors.bg, fontSize: 13, fontFamily: fonts.heavy }, time: { color: colors.muted, fontSize: 13, fontFamily: fonts.bold, width: 40, textAlign: "center" }, playBtn: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: colors.purple, shadowColor: colors.purple, shadowOpacity: 0.5, shadowRadius: 14, elevation: 8 }, tBtn: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
   controls: { flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingBottom: 8, paddingTop: 2 }, ctrl: { flex: 1, height: 54, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 3, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, ctrlText: { color: colors.text, fontSize: 11, fontFamily: fonts.bold },
