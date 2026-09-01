@@ -3,7 +3,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import Slider from "@react-native-community/slider";
@@ -14,6 +14,14 @@ import { clampHolds, generateChart } from "@/src/game/chartEngine";
 import { Chart, Note } from "@/src/game/types";
 
 const noteIcon = { tap: "ellipse", hold: "remove", wavy: "water", slide: "arrow-forward", chord: "grid", special: "sparkles" } as const;
+
+const TUTORIAL: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
+  { icon: "sparkles", title: "Welcome to the Editor", body: "Build a custom chart by tapping in time with the music. Here's the quick tour." },
+  { icon: "radio-button-on", title: "1 · Record", body: "Turn on Record, then press Play. Everything you tap on the board becomes a note." },
+  { icon: "hand-left", title: "2 · Three note types", body: "Tap = note · press & hold = long note · drag sideways = wavy note. Use two fingers to place notes at the same time." },
+  { icon: "construct", title: "3 · Fix & fill", body: "Tap a note then Erase to remove it. Undo and Redo anytime. Generate rest auto-fills the remainder of the track." },
+  { icon: "save", title: "4 · Test & save", body: "Test plays your chart instantly. Save keeps it, and the share icon exports it as a file you can send to friends." },
+];
 const TAP_MAX = 0.18; // press longer than this (without moving) → hold note
 const MOVE_EPS = 16; // finger travel beyond this → wave note
 
@@ -77,7 +85,7 @@ function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPre
 
 export default function EditorScreen() {
   const { width, height } = useWindowDimensions();
-  const { selectedSong, selectedDifficulty, setDifficulty, charts, saveChart, setTestChart, exportChart } = useAppState();
+  const { selectedSong, selectedDifficulty, setDifficulty, charts, saveChart, setTestChart, exportChart, settings, updateSettings } = useAppState();
   const existing = selectedSong ? charts[`${selectedSong.id}-Custom`] : undefined;
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
@@ -88,7 +96,11 @@ export default function EditorScreen() {
   const [recording, setRecording] = useState(false);
   const [saved, setSaved] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [tutorial, setTutorial] = useState(false);
+  const [tStep, setTStep] = useState(0);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 1900); return () => clearTimeout(t); }, [toast]);
+  useEffect(() => { if (selectedSong && !settings.editorTutorialSeen) { setTStep(0); setTutorial(true); } }, [selectedSong, settings.editorTutorialSeen]);
+  const endTutorial = () => { setTutorial(false); if (!settings.editorTutorialSeen) updateSettings({ editorTutorialSeen: true }); };
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [nowLabel, setNowLabel] = useState(0);
   const [flashLane, setFlashLane] = useState(-1);
@@ -236,8 +248,23 @@ export default function EditorScreen() {
   if (!selectedSong) return <SafeAreaView style={styles.safe} edges={["top"]}><ScreenHeader title="Chart Editor" /><View style={styles.empty}><Ionicons name="musical-notes-outline" size={44} color={colors.purple} /><Text selectable={false} style={styles.emptyTitle}>Choose a track first</Text><Text selectable={false} style={styles.emptyCopy}>Pick a song to build a custom chart for.</Text><NeonButton testID="editor-open-library-button" label="Choose a track" icon="library" onPress={() => router.replace({ pathname: "/library", params: { pick: "editor" } })} /></View></SafeAreaView>;
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-    <ScreenHeader title="Chart Editor" right={<View style={styles.hRight}><Pressable testID="export-chart-button" onPress={doExport} style={styles.hBtn}><Ionicons name="share-outline" size={15} color={colors.text} /></Pressable><Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable></View>} />
+    <ScreenHeader title="Chart Editor" right={<View style={styles.hRight}><Pressable testID="editor-help-button" onPress={() => { setTStep(0); setTutorial(true); }} style={styles.hBtn}><Ionicons name="help" size={16} color={colors.text} /></Pressable><Pressable testID="export-chart-button" onPress={doExport} style={styles.hBtn}><Ionicons name="share-outline" size={15} color={colors.text} /></Pressable><Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable></View>} />
     {toast && <View pointerEvents="none" style={styles.toast}><Ionicons name="checkmark-circle" size={16} color={colors.lime} /><Text selectable={false} style={styles.toastText}>{toast}</Text></View>}
+    <Modal visible={tutorial} transparent animationType="fade" onRequestClose={endTutorial}>
+      <View style={styles.tutOverlay}>
+        <View style={styles.tutCard}>
+          <View style={styles.tutIconWrap}><Ionicons name={TUTORIAL[tStep].icon} size={28} color={colors.purple} /></View>
+          <Text selectable={false} style={styles.tutStep}>STEP {tStep + 1} OF {TUTORIAL.length}</Text>
+          <Text selectable={false} style={styles.tutTitle}>{TUTORIAL[tStep].title}</Text>
+          <Text selectable={false} style={styles.tutBody}>{TUTORIAL[tStep].body}</Text>
+          <View style={styles.tutDots}>{TUTORIAL.map((_, i) => <View key={i} style={[styles.tutDot, i === tStep && styles.tutDotOn]} />)}</View>
+          <View style={styles.tutBtns}>
+            <Pressable testID="tutorial-skip-button" onPress={endTutorial} style={styles.tutSkip}><Text selectable={false} style={styles.tutSkipText}>Skip</Text></Pressable>
+            <Pressable testID="tutorial-next-button" onPress={() => (tStep < TUTORIAL.length - 1 ? setTStep(tStep + 1) : endTutorial())} style={styles.tutNext}><Text selectable={false} style={styles.tutNextText}>{tStep < TUTORIAL.length - 1 ? "Next" : "Got it"}</Text><Ionicons name="arrow-forward" size={16} color={colors.bg} /></Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
 
     <View style={styles.songBar}>
       <View style={{ flex: 1 }}><Text selectable={false} style={styles.song} numberOfLines={1}>{selectedSong.title}</Text><Text selectable={false} style={styles.meta} testID="editor-note-count">{notes.length} NOTES · CUSTOM CHART</Text></View>
@@ -321,6 +348,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   save: { minHeight: 36, paddingHorizontal: 13, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.purple }, saveText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
   hRight: { flexDirection: "row", alignItems: "center", gap: 8 }, hBtn: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.panelStrong, borderWidth: 1, borderColor: colors.border }, toast: { position: "absolute", top: 92, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 14, backgroundColor: "rgba(20,22,26,0.97)", borderWidth: 1, borderColor: colors.lime, zIndex: 50, shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10 }, toastText: { color: colors.text, fontFamily: fonts.heavy, fontSize: 13 },
+  tutOverlay: { flex: 1, backgroundColor: "rgba(6,6,9,0.82)", alignItems: "center", justifyContent: "center", padding: 26 }, tutCard: { width: "100%", maxWidth: 360, borderRadius: 24, padding: 24, backgroundColor: "#14141B", borderWidth: 1, borderColor: "rgba(142,124,255,0.4)", alignItems: "center", shadowColor: colors.purple, shadowOpacity: 0.4, shadowRadius: 28, shadowOffset: { width: 0, height: 14 }, elevation: 16 }, tutIconWrap: { width: 60, height: 60, borderRadius: 20, backgroundColor: "rgba(142,124,255,0.14)", borderWidth: 1, borderColor: "rgba(142,124,255,0.4)", alignItems: "center", justifyContent: "center", marginBottom: 16 }, tutStep: { color: colors.purple, fontSize: 10, letterSpacing: 1.6, fontFamily: fonts.heavy }, tutTitle: { color: colors.text, fontSize: 21, fontFamily: fonts.display, marginTop: 8, textAlign: "center" }, tutBody: { color: colors.muted, fontSize: 14, lineHeight: 20, fontFamily: fonts.body, textAlign: "center", marginTop: 10 }, tutDots: { flexDirection: "row", gap: 6, marginTop: 20 }, tutDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.18)" }, tutDotOn: { backgroundColor: colors.purple, width: 20 }, tutBtns: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 22, alignSelf: "stretch" }, tutSkip: { flex: 1, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.panelStrong, borderWidth: 1, borderColor: colors.border }, tutSkipText: { color: colors.muted, fontFamily: fonts.heavy, fontSize: 14 }, tutNext: { flex: 1.4, height: 48, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.purple }, tutNextText: { color: colors.bg, fontFamily: fonts.heavy, fontSize: 15 },
   songBar: { minHeight: 56, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border }, song: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy }, meta: { color: colors.purple, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, marginTop: 3, fontFamily: fonts.bold }, change: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, changeText: { color: colors.text, fontSize: 12, fontFamily: fonts.bold },
   modeBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: rgba(0.08) },
   genBtn: { flexDirection: "row", alignItems: "center", gap: 5, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: colors.gold, marginLeft: "auto" }, genText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },

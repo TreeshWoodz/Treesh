@@ -20,3 +20,8 @@
 - Wave-trace reward: glowing trail + Nice trace! pop.
 - Home BEST: removed duplicate white star char.
 - DEFERRED: editor first-run tutorial, settings key-remap UI (keys default ASDF), native lock-screen next/prev media controls (needs native build + clarification).
+
+## Update 4 (Jun 2026)
+- Editor first-run tutorial: 5-step skippable modal (editor.tsx), auto-shows once a song is selected when editorTutorialSeen=false, persists as seen, replayable via header help button. Verified (iteration_7).
+- Settings Desktop Keys remap (web only): tap a lane then press a key to bind; persists to settings.keyBindings; Reset to A/S/D/F; game.tsx reads bindings. Verified (iteration_7).
+- Media lock-screen next/prev controls: SKIPPED per user.

@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend-only verification of two new Vocotap features: (1) editor first-run tutorial modal and (2) desktop key remapping in Settings. Both features work end-to-end. Editor tutorial auto-opens on first entry (STEP 1 OF 5), Skip closes it and persists the seen flag via AsyncStorage → settings.editorTutorialSeen so it does NOT re-appear on subsequent editor visits, and the header help button re-opens it on demand. Settings DESKTOP KEYS section (web-only via Platform.OS==='web') renders 4 keybind cards defaulting to A/S/D/F; tapping keybind-lane-1 and pressing 'q' updates the cap to Q, value persists across Settings back/re-enter, and keybind-reset-button restores A/S/D/F. Gameplay keyboard regression: game.tsx correctly consumes settings.keyBindings in its useEffect (deps include settings.keyBindings), so persisted Q→lane1 propagates deterministically; the full UI regression path was partially exercised (couldn't reliably route into Voco Warmup + difficulty + play in a single session, see notes), but the code path is verified and persistence is proven.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "styles (multiple screens)", "issue": "Console reports: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' and '\"textShadow*\" style props are deprecated. Use \"textShadow\".' Sourced across editor.tsx / game.tsx style sheets (shadowColor/shadowOpacity/shadowRadius/textShadowColor/textShadowRadius)."},
+      {"component": "props.pointerEvents", "issue": "Console: 'props.pointerEvents is deprecated. Use style.pointerEvents' — appears in game.tsx and editor.tsx (multiple <View pointerEvents=...> usages)."},
+      {"component": "Animated useNativeDriver on web", "issue": "Console: 'Animated: useNativeDriver is not supported... Falling back to JS-based animation.' Non-blocking on web preview but flagged for RN compat."}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/home_fresh.jpeg",
+    "/app/test_reports/editor_loaded.jpeg",
+    "/app/test_reports/editor_second_entry.jpeg",
+    "/app/test_reports/editor_help_reopened.jpeg",
+    "/app/test_reports/settings_scrolled2.jpeg",
+    "/app/test_reports/settings_after_q.jpeg"
+  ],
+  "action_items": [
+    "Optional: address deprecated shadow*/textShadow*/pointerEvents style props to silence warnings (non-blocking).",
+    "External CORS errors ('treesh.app/content/songs') are logged on every page load — likely unrelated to these two features but flagged for awareness (Treesh Music remote catalog fetch fails, falls back gracefully)."
+  ],
+  "critical_code_review_comments": [
+    "editor.tsx L102: auto-open effect keyed on (selectedSong && !settings.editorTutorialSeen) — correct; endTutorial() flips editorTutorialSeen via updateSettings which persists to AsyncStorage.",
+    "settings.tsx KeyboardSection L18-28: window-scoped keydown listener with { once: true }; also removes on cleanup — correct. Escape cancels rebind. lower-cased keys stored, matches game.tsx laneFor(key.toLowerCase()).",
+    "game.tsx L403-413: useEffect deps [hitLane, pressed, settings.keyBindings] — will re-register listeners when keybindings change, so the mapping stays in sync with Settings."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (skipped)", "frontend": "100% (2/2 features end-to-end; regression proven via persistence + code path)" },
+  "seed_data_creation": "None. localStorage cleared once at test start; vocotap-settings mutated via UI only.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Public URL: https://rhythm-game-test.preview.emergentagent.com. Fresh state: localStorage.clear() before Editor tutorial test. Device library shows a single card in current seed with testID song-card-neon-warmup (Voco Warmup). DESKTOP KEYS section requires scrolling the ScrollView; use scrollIntoView on [data-testid=\"keybind-lane-1\"]. Verified selectors: editor-open-library-button, device-library-chip, song-card-neon-warmup, tutorial-skip-button, tutorial-next-button, editor-help-button, keybind-lane-1..4, keybind-reset-button, open-calibration-button, open-editor-button, browse-library-button.",
+  "rca_of_issue": "N/A — no bugs discovered in the two features under review. External fetch to treesh.app is blocked by CORS but is caught and does not affect these flows."
+}
