@@ -2315,13 +2315,109 @@ const STORAGE_GROUPS=[
   { id:"security", label:"Security", icon:"shield", desc:"App lock & parent PIN", keys:["treesh_lock","treesh_parent_pin"] },
 ];
 function lsBytes(k){ try{ const v=localStorage.getItem(k); if(v==null) return 0; return (k.length+v.length)*2; }catch(e){ return 0; } }
-function fmtBytes(b){ b=b||0; if(b<1024) return b+" B"; if(b<1024*1024) return (b/1024).toFixed(b<10240?1:0)+" KB"; return (b/1048576).toFixed(2)+" MB"; }
+function fmtBytes(b){ b=b||0; if(b<1024) return Math.round(b)+" B"; if(b<1024*1024) return (b/1024).toFixed(b<10240?1:0)+" KB"; if(b<1024*1024*1024) return (b/1048576).toFixed(b<10*1048576?1:0)+" MB"; return (b/1073741824).toFixed(2)+" GB"; }
 function groupBytes(g){ return g.keys.reduce((a,k)=>a+lsBytes(k),0); }
 function treeshTotalBytes(){ let t=0; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) t+=lsBytes(k); } }catch(e){} return t; }
+/* ---- Custom artist groups (user-defined, persisted) ---- */
+function getUserGroups(){ try{ const g=LS.get("treesh_groups",null); return Array.isArray(g)?g.filter(x=>x&&x.name):[]; }catch(e){ return []; } }
+function saveUserGroups(arr){ const ok=LS.set("treesh_groups", arr); return ok; }
+function addUserGroup(){
+  const nameEl=$("#group-name"), memEl=$("#group-members");
+  const name=((nameEl&&nameEl.value)||"").trim();
+  const members=(((memEl&&memEl.value)||"").split(/[,;]|\s*&\s*/).map(s=>s.trim()).filter(Boolean));
+  if(!name){ toast("Name the group first"); if(nameEl) nameEl.focus(); return; }
+  if(members.length<2){ toast("Add at least two members","Separate names with commas"); if(memEl) memEl.focus(); return; }
+  const list=getUserGroups();
+  const k=normKey(name);
+  const existing=list.findIndex(g=>normKey(g.name)===k);
+  if(existing>=0) list[existing]={name, members}; else list.push({name, members});
+  const ok=saveUserGroups(list);
+  if(!ok){ toast("Storage is full","Free up space and try again"); return; }
+  toast(existing>=0?"Group updated":"Group added", name+" \u00b7 "+members.join(" & "));
+  if(state.view==='settings') renderView();
+}
+function removeUserGroup(idx){ const list=getUserGroups(); if(idx<0||idx>=list.length) return; const g=list[idx]; list.splice(idx,1); saveUserGroups(list); toast("Group removed", g&&g.name); if(state.view==='settings') renderView(); }
+
+/* ---- Lyrics backup: export / import saved lyric edits ---- */
+function exportLyrics(){
+  const data=state.lyricEdits||{}; const ids=Object.keys(data);
+  if(!ids.length){ toast("Nothing to export yet","Save some lyrics first"); return; }
+  const titles={}; ids.forEach(id=>{ const s=SONG_BY_ID[id]; if(s) titles[id]={title:s.title,artist:s.artist}; });
+  const payload={ app:"treesh", type:"lyrics-backup", version:1, exportedAt:new Date().toISOString(), count:ids.length, titles, lyricEdits:data };
+  try{
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=url; a.download="treesh-lyrics-backup.json"; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url); a.remove(); }catch(e){} }, 500);
+    toast("Backup downloaded", ids.length+" track"+(ids.length!==1?"s":""));
+  }catch(e){ toast("Couldn\u2019t export","Try again"); }
+}
+function importLyricsData(obj){
+  try{
+    const incoming = (obj && obj.lyricEdits && typeof obj.lyricEdits==='object') ? obj.lyricEdits : (obj && typeof obj==='object' ? obj : null);
+    if(!incoming){ toast("That file isn\u2019t a lyrics backup"); return; }
+    // validate shape: { id: [ {t?, text} , ... ] }
+    let added=0, merged=0; state.lyricEdits=state.lyricEdits||{};
+    Object.keys(incoming).forEach(id=>{
+      const arr=incoming[id];
+      if(!Array.isArray(arr)) return;
+      const clean=arr.filter(l=>l&&typeof l==='object'&&typeof l.text==='string').map(l=>({ t:(typeof l.t==='number'?l.t:null), text:l.text }));
+      if(!clean.length) return;
+      if(state.lyricEdits[id]) merged++; else added++;
+      state.lyricEdits[id]=clean;
+    });
+    if(!added && !merged){ toast("No lyrics found in that file"); return; }
+    const ok=LS.set("treesh_lyric_edits", state.lyricEdits);
+    if(typeof applyLyricEdits==="function") applyLyricEdits();
+    if(typeof refreshDynamic==="function") refreshDynamic();
+    if(state.view==='settings') renderView();
+    toast(ok?"Lyrics imported":"Imported (storage full)", (added+merged)+" track"+((added+merged)!==1?"s":"")+(merged?` \u00b7 ${merged} updated`:""));
+  }catch(e){ toast("Couldn\u2019t read that file","Make sure it\u2019s a Treesh backup"); }
+}
+function lyricsSettingsSection(tab){
+  if(tab!=='lyrics') return `<section data-testid="settings-lyrics" class="hidden"></section>`;
+  const custom=getUserGroups();
+  const all=knownGroups();
+  const builtIn=all.filter(g=>!custom.some(c=>normKey(c.name)===normKey(g.name)));
+  const lyricCount=Object.keys(state.lyricEdits||{}).length;
+  const customList = custom.length ? custom.map((g,i)=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3" data-testid="group-row-${i}">
+      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="users" style="width:16px;height:16px"></i></span>
+      <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">${esc(g.name)}</p><p class="truncate text-xs text-white/50">${esc((g.members||[]).join('  \u00b7  '))}</p></div>
+      <button data-act="group-remove" data-idx="${i}" data-testid="group-remove-${i}" aria-label="Remove ${esc(g.name)}" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/55 transition-colors hover:bg-white/10 hover:text-rose-300"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>`).join('') : `<p class="rounded-2xl border border-dashed border-white/12 px-4 py-5 text-center text-sm text-white/40" data-testid="groups-empty">No custom groups yet. Add one below.</p>`;
+  const builtInChips = builtIn.length ? `<div class="mt-4"><p class="mb-2 text-[11px] font-bold uppercase tracking-wide text-white/40">Built-in</p><div class="flex flex-wrap gap-1.5">${builtIn.map(g=>`<span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/60" title="${esc((g.members||[]).join(', '))}"><i data-lucide="users" style="width:11px;height:11px"></i>${esc(g.name)}</span>`).join('')}</div></div>` : '';
+  return `<section data-testid="settings-lyrics" class="space-y-5">
+    <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="users" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Artist groups</h2></div>
+      <p class="mb-4 pl-11 text-sm text-white/50">Teach Treesh which artists are one collective. When their members appear together on a track, the group name shows up as a performer tag in the Lyric Studio.</p>
+      <div class="space-y-2" data-testid="groups-list">${customList}</div>
+      <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p class="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-white/45">Add a group</p>
+        <div class="flex flex-col gap-2.5 sm:flex-row">
+          <input id="group-name" data-testid="group-name-input" placeholder="Group name (e.g. Perfekt Tenz)" autocomplete="off" spellcheck="false" class="h-11 flex-1 rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-[color:var(--treesh-purple)]">
+          <input id="group-members" data-testid="group-members-input" placeholder="Members: Black Barbie, ZuuBandz" autocomplete="off" spellcheck="false" class="h-11 flex-1 rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-[color:var(--treesh-purple)]">
+          <button data-act="group-add" data-testid="group-add-button" class="press inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] px-5 text-sm font-semibold text-white glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i>Add</button>
+        </div>
+      </div>
+      ${builtInChips}
+    </div>
+    <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="save" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Lyrics backup</h2></div>
+      <p class="mb-4 pl-11 text-sm text-white/50">Your saved &amp; synced lyrics live only on this device. Export a backup file, then import it on a new phone or after clearing your browser. <span class="font-semibold text-white/70">${lyricCount} track${lyricCount!==1?'s':''}</span> saved.</p>
+      <div class="flex flex-col gap-2.5 sm:flex-row">
+        <button data-act="lyrics-export" data-testid="lyrics-export-button" class="press inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold transition-colors hover:bg-white/10"><i data-lucide="download" style="width:16px;height:16px"></i>Export backup</button>
+        <label class="press inline-flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold transition-colors hover:bg-white/10"><i data-lucide="upload" style="width:16px;height:16px"></i>Import backup<input type="file" accept="application/json,.json" id="lyrics-import-input" data-testid="lyrics-import-input" class="hidden"></label>
+      </div>
+    </div>
+  </section>`;
+}
+
 function storageSection(tab){
-  const total=treeshTotalBytes();
-  const softCap=5*1024*1024;
-  const pct=Math.min(100, Math.max(total>0?2:0, Math.round(total/softCap*100)));
+  const lsTotal=treeshTotalBytes();
+  const idbCache=state._idbBytes||0;
+  const total=lsTotal+idbCache;
+  const quota=state._storageQuota||0;
+  const pct = quota ? Math.min(100, Math.max(total>0?1:0, Math.round(total/quota*100))) : (total>0?2:0);
   const rows=STORAGE_GROUPS.map(g=>{ const bytes=groupBytes(g); const empty=bytes<=0; return `<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" data-testid="storage-group-${g.id}">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="${g.icon}" style="width:18px;height:18px"></i></span>
       <div class="min-w-0 flex-1"><p class="text-sm font-semibold">${g.label}</p><p class="clamp-1 text-xs text-white/45">${g.desc}</p></div>
@@ -2332,7 +2428,7 @@ function storageSection(tab){
     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="hard-drive" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Storage &amp; data</h2></div>
     <p class="mb-4 pl-11 text-sm text-white/50">Everything in Treesh is saved only on this device. Review what\u2019s stored and free up space.</p>
     <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-widest text-white/45">Treesh storage used</p><p class="mt-1 font-doto text-2xl font-bold" data-testid="storage-total">${fmtBytes(total)}</p></div><p id="storage-quota-text" data-testid="storage-quota-text" class="text-right text-xs text-white/45">Estimating device space\u2026</p></div>
+      <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-widest text-white/45">Treesh storage used</p><p class="mt-1 font-doto text-2xl font-bold" id="storage-total" data-testid="storage-total">${fmtBytes(total)}</p></div><p id="storage-quota-text" data-testid="storage-quota-text" class="text-right text-xs text-white/45">Estimating device space\u2026</p></div>
       <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10"><div id="storage-gauge-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:${pct}%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
     </div>
     <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-testid="custom-music-storage">
@@ -2384,10 +2480,33 @@ async function deleteUserSongs(ids){
   }catch(e){ console.error("deleteUserSongs failed",e); toast("Couldn\u2019t remove"); }
 }
 function updateStorageEstimate(){
-  const el=document.getElementById("storage-quota-text"); if(!el) return;
-  if(navigator.storage && navigator.storage.estimate){
-    navigator.storage.estimate().then(est=>{ const el2=document.getElementById("storage-quota-text"); if(!el2) return; if(est && est.quota){ const free=Math.max(0,(est.quota||0)-(est.usage||0)); el2.textContent="~"+fmtBytes(free)+" free on device"; } else { el2.textContent="Device estimate unavailable"; } }).catch(()=>{ const el2=document.getElementById("storage-quota-text"); if(el2) el2.textContent="Device estimate unavailable"; });
-  } else { el.textContent="Device estimate unavailable"; }
+  const totalEl=document.getElementById("storage-total");
+  const quotaEl=document.getElementById("storage-quota-text");
+  const bar=document.getElementById("storage-gauge-bar");
+  const lsTotal=treeshTotalBytes();
+  idbGetAll().then(recs=>{
+    recs=recs||[]; let idb=0; state._userSizes=state._userSizes||{};
+    recs.forEach(r=>{ let sz=0; if(r.audioBlob&&r.audioBlob.size) sz+=r.audioBlob.size; if(r.coverBlob&&r.coverBlob.size) sz+=r.coverBlob.size; idb+=sz; if(r.id) state._userSizes[r.id]=sz; });
+    state._idbBytes=idb;
+    const total=lsTotal+idb;
+    if(totalEl) totalEl.textContent=fmtBytes(total);
+    const paint=(quota,usage)=>{
+      state._storageQuota=quota||0;
+      if(quota && quota>0){
+        const usedForBar=Math.max(total, usage||0);           // reflect the real measured footprint if larger
+        const pct=Math.min(100, Math.max(total>0?1:0, Math.round(usedForBar/quota*100)));
+        if(bar) bar.style.width=pct+"%";
+        const free=Math.max(0,(quota||0)-(usage||total));
+        if(quotaEl) quotaEl.innerHTML=`<span class="text-white/70 font-semibold">${fmtBytes(free)}</span> free on device`;
+      } else {
+        if(bar) bar.style.width=(total>0?4:0)+"%";
+        if(quotaEl) quotaEl.textContent="Device estimate unavailable";
+      }
+    };
+    if(navigator.storage && navigator.storage.estimate){
+      navigator.storage.estimate().then(est=>paint((est&&est.quota)||0,(est&&est.usage)||0)).catch(()=>paint(0,0));
+    } else { paint(0,0); }
+  }).catch(()=>{ if(totalEl) totalEl.textContent=fmtBytes(lsTotal); if(quotaEl) quotaEl.textContent="Device estimate unavailable"; });
 }
 function updateCustomMusicStorage(){
   const sizeEl=document.getElementById("custom-music-size"), subEl=document.getElementById("custom-music-sub");
@@ -2407,7 +2526,7 @@ function viewSettings(){
   if(state.settingsTab==='personalize') state.settingsTab='display';
   const tab=state.settingsTab||"display";
   const A=state.a11y||{};
-  let TABS=[["display","Appearance","palette"],["access","Access","accessibility"],["sleep","Sleep","moon-star"],["account","Account","user"],["privacy","Privacy","lock"],["about","About","info"]];
+  let TABS=[["display","Appearance","palette"],["access","Access","accessibility"],["sleep","Sleep","moon-star"],["lyrics","Lyrics","captions"],["account","Account","user"],["privacy","Privacy","lock"],["about","About","info"]];
   if(!VOICE_OK){ TABS=TABS.filter(t=>t[0]!=='voice'); }
   const editing=!!state.settingsEditProfile;
   const hero=`<div class="relative overflow-hidden rounded-[28px] border border-white/12 bg-white/[0.04] p-6 sm:p-8">
@@ -2649,6 +2768,7 @@ function viewSettings(){
      </div>
    </section>
 
+   ${lyricsSettingsSection(tab)}
    ${lockSettingsSection(tab)}
    ${storageSection(tab)}
    <section data-testid="settings-danger" class="${tab==='account'?'':'hidden'} rounded-3xl border border-rose-500/20 bg-rose-500/[0.05] p-5 sm:p-6">
@@ -2962,6 +3082,8 @@ function renderView(animate=false){
   const ai=$("#set-avatar-input"); if(ai){ ai.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ state._tmpAvatar=r.result; const av=$("#set-avatar"); if(av) av.innerHTML=img(r.result,'h-full w-full object-cover'); }; r.readAsDataURL(f); }); }
   document.querySelectorAll(".bg-image-input").forEach(bgi=>{ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>12*1024*1024){ toast("Image too large","Use one under 12 MB"); return; } if((state.bgImages||[]).length>=3){ toast("Limit reached","You can save up to 3 images"); return; } const r=new FileReader(); r.onload=()=>{ compressImageDataUrl(r.result, 1600, 0.82).then(small=>{ state.bgImages=(state.bgImages||[]).filter(Boolean); state.bgImages.push(small); state.bgIndex=state.bgImages.length-1; const prevBg=state.bg; state.bg="custom"; const ok=bgSaveImages(); if(!ok){ state.bgImages.pop(); state.bgIndex=Math.max(0,state.bgImages.length-1); state.bg=prevBg; bgSaveImages(); applyTheme(); renderView(); toast("Storage full","Couldn\u2019t save. Remove an image and try again"); return; } LS.set("treesh_bg","custom"); applyTheme(); renderView(); toast("Background added", `Image ${state.bgIndex+1} of ${state.bgImages.length}`); }).catch(()=>toast("Couldn\u2019t read image","Try a different file")); }; r.readAsDataURL(f); }); });
   const ff=$("#set-font-file"); if(ff){ ff.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>3*1024*1024){ toast("Font too large","Use one under 3 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.customFont={data:r.result, name:(f.name||'Custom').replace(/\.[^.]+$/,'')}; state.uiFont=""; _customFontLoaded=false; LS.set("treesh_custom_font",state.customFont); applyUiFont(); renderView(); toast("Custom font applied", state.customFont.name); }catch(err){ toast("Couldn\u2019t load font"); } }; r.readAsDataURL(f); }); }
+  const li=$("#lyrics-import-input"); if(li){ li.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f){ return; } if(f.size>10*1024*1024){ toast("File too large","Backups are usually tiny"); return; } const r=new FileReader(); r.onload=()=>{ let obj=null; try{ obj=JSON.parse(String(r.result||"")); }catch(err){ toast("That file isn\u2019t valid JSON"); return; } importLyricsData(obj); }; r.onerror=()=>toast("Couldn\u2019t read that file"); r.readAsText(f); e.target.value=""; }); }
+  const gm=$("#group-members"); const gn=$("#group-name"); const gkey=(ev)=>{ if(ev.key==="Enter"){ ev.preventDefault(); addUserGroup(); } }; if(gm) gm.addEventListener("keydown",gkey); if(gn) gn.addEventListener("keydown",gkey);
   iRenderMenu();
   wireAllReorder();
   if(state.view==="blog") blogInitFallbackTimer();
@@ -4757,6 +4879,12 @@ function detectGroupName(names){
   }
   return null;
 }
+/* Stable accent colour per performer so verses are easy to scan while syncing. */
+const PERFORMER_PALETTE=["#b98cff","#4aa8e0","#2bb6a6","#e8637e","#ef9a3c","#8fce5a","#e069c0","#7a83f0","#39cbd2","#f0b84a","#6ee0a6","#ff8f6b"];
+function performerColor(name){ const k=normKey(name||""); if(!k) return "#b98cff"; let h=2166136261>>>0; for(let i=0;i<k.length;i++){ h^=k.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return PERFORMER_PALETTE[h % PERFORMER_PALETTE.length]; }
+/* Pull the performer name out of a section label like "Verse 1: Black Barbie". */
+function sectionPerformer(secText){ const s=String(secText||""); const ci=s.indexOf(':'); if(ci<0) return ""; return s.slice(ci+1).trim(); }
+
 function lsPerformerOptions(){
   const s=(typeof SONG_BY_ID!=='undefined' && state.ls) ? SONG_BY_ID[state.ls.songId] : null;
   const main=((s&&s.artist)||(state.ls&&state.ls.artist)||"").trim();
@@ -4780,9 +4908,9 @@ function lsWriteHtml(){
   const combined = perf.group || (perf.all.length>1 ? perf.all.join(' & ') : null);
   if(combined && !performers.some(p=>p.toLowerCase()===combined.toLowerCase())) performers.push(combined);
   const PTYPES=[['Verse',1],['Hook',0],['Chorus',0],['Bridge',0]];
-  const perfRows = performers.map((p,pi)=>{ const isGroup = perf.group && p.toLowerCase()===perf.group.toLowerCase(); return `<div class="flex items-center gap-2">
-       <span class="inline-flex shrink-0 max-w-[44%] items-center gap-1 truncate rounded-lg ${isGroup?'bg-[color:var(--treesh-gold)]/18 text-[color:var(--treesh-gold)]':'bg-[color:var(--treesh-purple)]/18 text-[color:var(--treesh-purple)]'} px-2 py-1 text-[11px] font-semibold" title="${esc(p)}">${isGroup?'<i data-lucide="users" style="width:11px;height:11px"></i>':''}${esc(p)}</span>
-       <div class="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">${PTYPES.map(([t,num])=>`<button data-act="ls-insert-tag" data-tag="${t}" data-num="${num?1:0}" data-suffix="${esc(p)}" data-testid="ls-perf-${pi}-${t}" title="Insert [${t}${num?' #':''}: ${esc(p)}]" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/75 hover:bg-[color:var(--treesh-purple)]/20"><span class="text-[color:var(--treesh-purple)]">[</span>${t}${num?' #':''}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>
+  const perfRows = performers.map((p,pi)=>{ const isGroup = perf.group && p.toLowerCase()===perf.group.toLowerCase(); const col=performerColor(p); return `<div class="flex items-center gap-2">
+       <span class="inline-flex shrink-0 max-w-[44%] items-center gap-1 truncate rounded-lg px-2 py-1 text-[11px] font-semibold" style="background:${col}26;color:${col};box-shadow:inset 0 0 0 1px ${col}44" title="${esc(p)}${isGroup?' (group)':''}">${isGroup?'<i data-lucide="users" style="width:11px;height:11px"></i>':`<span class="h-2 w-2 shrink-0 rounded-full" style="background:${col}"></span>`}${esc(p)}</span>
+       <div class="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">${PTYPES.map(([t,num])=>`<button data-act="ls-insert-tag" data-tag="${t}" data-num="${num?1:0}" data-suffix="${esc(p)}" data-testid="ls-perf-${pi}-${t}" title="Insert [${t}${num?' #':''}: ${esc(p)}]" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10"><span style="color:${col}">[</span>${t}${num?' #':''}<span style="color:${col}">]</span></button>`).join('')}</div>
      </div>`; }).join('');
   const tagsOpen = state.lsTagsOpen ? 'open' : '';
   const tagPanel = `<details class="ls-tags group/lst mb-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]" ${tagsOpen}>
@@ -4826,16 +4954,23 @@ function lsInsertTag(tag, autonum, suffix){
 }
 function lsSyncHtml(){
   const ls=state.ls; const rows=lsLineRows();
+  let curCol=null;
   const linesHtml=(ls.items||[]).map((it,i)=>{
     if(it.type==='section'){
-      return `<div class="ls-line ls-section-row flex items-center gap-2 rounded-xl border border-white/10 px-2.5 py-2" data-ls-i="${i}">
-        <span class="shrink-0 rounded-md bg-[color:var(--treesh-purple)]/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[color:var(--treesh-purple)]">Section</span>
+      const perf=sectionPerformer(it.text);
+      curCol = perf ? performerColor(perf) : null;
+      const rowStyle = curCol ? ` style="border-left:3px solid ${curCol};background:linear-gradient(90deg, ${curCol}1f, transparent 70%)"` : '';
+      const badgeStyle = curCol ? ` style="background:${curCol}2e;color:${curCol}"` : '';
+      const badgeCls = curCol ? '' : 'bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]';
+      return `<div class="ls-line ls-section-row flex items-center gap-2 rounded-xl border border-white/10 px-2.5 py-2" data-ls-i="${i}"${rowStyle}>
+        <span class="shrink-0 rounded-md ${badgeCls} px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"${badgeStyle}>${perf?esc(perf):'Section'}</span>
         <input data-ls-text="${i}" value="${esc(it.text)}" class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white/85 outline-none" placeholder="Section name">
         <button data-act="ls-line-menu" data-i="${i}" aria-label="Line options" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10"><i data-lucide="ellipsis-vertical" style="width:16px;height:16px"></i></button>
       </div>`;
     }
     const wc=(it.words&&it.words.length)?`<span class="shrink-0 rounded bg-[color:var(--treesh-purple)]/15 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[color:var(--treesh-purple)]" title="Word timings set">W</span>`:'';
-    return `<div class="ls-line flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-2 py-1.5 ${it.t!=null?'done':''}" data-ls-i="${i}">
+    const lineStyle = curCol ? ` style="border-left:3px solid ${curCol}66"` : '';
+    return `<div class="ls-line flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-2 py-1.5 ${it.t!=null?'done':''}" data-ls-i="${i}"${lineStyle}>
        <button data-act="ls-seek-line" data-i="${i}" class="ls-ts shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[12px] font-bold text-white/70 hover:bg-white/10" title="Tap to jump here">${it.t!=null?lsFmt(it.t):'\u2013\u2013:\u2013\u2013'}</button>
        <input data-ls-text="${i}" value="${esc(it.text)}" class="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder-white/30" placeholder="(empty line)">
        ${wc}
@@ -5744,6 +5879,10 @@ document.addEventListener("click", e=>{
     case "nav-notif-close": clearNavNotify(); break;
     case "settings-edit-profile": { state.settingsEditProfile=(t.dataset.val==='on'); if(!state.settingsEditProfile) state._tmpAvatar=null; renderView(); break; }
     case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const oldB=(state.profile&&state.profile.birthday)||""; let bday=($("#set-bday")&&$("#set-bday").value)||oldB; if(bdayLocked()) bday=oldB; else if(bday!==oldB && bday) bumpBdayEdits(); const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; state.settingsEditProfile=false; toast("Profile saved"); renderShell(); renderView(); renderSidebarLibrary(); break; }
+    case "group-add": addUserGroup(); break;
+    case "group-remove": removeUserGroup(parseInt(t.dataset.idx,10)); break;
+    case "lyrics-export": exportLyrics(); break;
+
     case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists, beats, settings and locks on this device will be reset. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break;
     case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ g.keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); }); break; }
     case "storage-user-toggle": { if(!state.storageSel) state.storageSel={}; if(state.storageSel[id]) delete state.storageSel[id]; else state.storageSel[id]=true; refreshCustomMusicManage(); break; }
