@@ -1161,7 +1161,7 @@ function startCatalogPolling(){
 /* ---------- local storage ---------- */
 const LS = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
-  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } },
 };
 
 /* ---------- state ---------- */
@@ -1739,7 +1739,7 @@ function syncNavHeight(){ const n=document.getElementById("mobile-nav"); let h=0
 /* ============================================================
    RENDER: VIEWS
    ============================================================ */
-function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
+function songCard(s, act, opts){ opts=opts||{}; const clean=!!opts.clean; const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
   return `<div data-songcard="${s.id}" data-testid="song-card-${s.id}" class="card-lift group relative rounded-2xl border ${active?'border-white/25 glow-purple':'border-white/10 hover:border-white/25'} bg-white/5 backdrop-blur-xl p-2.5">
     <div class="relative overflow-hidden rounded-xl">
       <div class="aspect-square w-full">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',`alt="${esc(s.title)}"`)}</div>
@@ -1751,29 +1751,29 @@ function songCard(s, act){ const active=curSong()&&curSong().id===s.id; const fa
     </div>
     <div class="mt-2.5 min-w-0"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/60">${esc(s.artist)}</p></div>
     <div class="mt-2 flex items-center gap-1">
-      <button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-card-like-button-${s.id}" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>
+      ${clean?'':`<button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-card-like-button-${s.id}" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>`}
       <button data-act="songmenu" data-id="${s.id}" aria-label="More" data-testid="song-card-menu-button-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>
-      ${s._user?`<button data-act="ls-open" data-id="${s.id}" aria-label="${hasLyr?'Edit lyrics':'Add lyrics'}" title="${hasLyr?'Edit lyrics':'Add lyrics'}" data-testid="mm-lyrics-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full ${hasLyr?'text-[color:var(--treesh-gold)]':'text-white/70'} hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button>`:""}
-      <span class="ml-auto flex items-center gap-1.5">${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-2 py-0.5 text-[10px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}${s.genre?`<span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}</span>
+      ${(!clean&&s._user)?`<button data-act="ls-open" data-id="${s.id}" aria-label="${hasLyr?'Edit lyrics':'Add lyrics'}" title="${hasLyr?'Edit lyrics':'Add lyrics'}" data-testid="mm-lyrics-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full ${hasLyr?'text-[color:var(--treesh-gold)]':'text-white/70'} hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button>`:""}
+      <span class="ml-auto flex items-center gap-1.5">${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-2 py-0.5 text-[10px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}${(s._user&&hasLyr)?`<span title="Has lyrics" class="grid h-5 w-5 place-items-center rounded-full text-[color:var(--treesh-gold)]"><i data-lucide="captions" style="width:13px;height:13px"></i></span>`:''}${s.genre?`<span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}</span>
     </div>
   </div>`; }
 
-function songRow(s, i, removable, act){ const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
+function songRow(s, i, removable, act, opts){ opts=opts||{}; const clean=!!opts.clean; const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
   return `<div data-song-row class="group flex items-center gap-3 rounded-xl border ${active?'border-white/20 bg-white/[0.07]':'border-transparent hover:bg-white/5'} px-2.5 py-2 transition">
     <button data-act="${A}" data-id="${s.id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
     <div class="min-w-0 flex-1 cursor-pointer" data-act="${A}" data-id="${s.id}">
-      <div class="flex items-center gap-2"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p>${s.explicit?`<span class="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[3px] bg-white/15 text-[8px] font-bold text-white/70">E</span>`:""}${s._user?`<span data-testid="yours-badge-${s.id}" class="shrink-0 rounded-full bg-[color:var(--treesh-purple)]/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[color:var(--treesh-purple)]">Yours</span>`:""}${active?`<span class="eq scale-75"><span></span><span></span><span></span><span></span></span>`:""}</div>
+      <div class="flex items-center gap-2"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p>${s.explicit?`<span class="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[3px] bg-white/15 text-[8px] font-bold text-white/70">E</span>`:""}${(clean&&s._user&&hasLyr)?`<span title="Has lyrics" class="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[color:var(--treesh-gold)]"><i data-lucide="captions" style="width:12px;height:12px"></i></span>`:''}${(!clean&&s._user)?`<span data-testid="yours-badge-${s.id}" class="shrink-0 rounded-full bg-[color:var(--treesh-purple)]/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[color:var(--treesh-purple)]">Yours</span>`:""}${active?`<span class="eq scale-75"><span></span><span></span><span></span><span></span></span>`:""}</div>
       <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
     </div>
-    ${s.genre?`<span class="hidden md:inline rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45">${esc(s.genre)}</span>`:""}
+    ${(!clean&&s.genre)?`<span class="hidden md:inline rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45">${esc(s.genre)}</span>`:""}
     ${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="hidden sm:inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}
-    ${s._user?`<button data-act="ls-open" data-id="${s.id}" aria-label="${hasLyr?'Edit lyrics':'Add lyrics'}" title="${hasLyr?'Edit lyrics':'Add lyrics'}" data-testid="mm-lyrics-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full ${hasLyr?'text-[color:var(--treesh-gold)]':'text-white/60'} hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button>`:""}
-    <button data-act="like" data-id="${s.id}" aria-label="Like" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>
-    ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button>`}
+    ${(!clean&&s._user)?`<button data-act="ls-open" data-id="${s.id}" aria-label="${hasLyr?'Edit lyrics':'Add lyrics'}" title="${hasLyr?'Edit lyrics':'Add lyrics'}" data-testid="mm-lyrics-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full ${hasLyr?'text-[color:var(--treesh-gold)]':'text-white/60'} hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button>`:""}
+    ${clean?'':`<button data-act="like" data-id="${s.id}" aria-label="Like" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>`}
+    ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" aria-label="More options" class="press grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:18px;height:18px"></i></button>`}
   </div>`; }
 
-function grid(list, act){ return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">${list.map(s=>songCard(s,act)).join("")}</div>`; }
-function songList(list, removable, act){ return `<div class="space-y-1">${list.map((s,i)=>songRow(s,i,!!removable,act)).join("")}</div>`; }
+function grid(list, act, opts){ return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">${list.map(s=>songCard(s,act,opts)).join("")}</div>`; }
+function songList(list, removable, act, opts){ return `<div class="space-y-1">${list.map((s,i)=>songRow(s,i,!!removable,act,opts)).join("")}</div>`; }
 function viewToggle(act, isGrid){ return `<div class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1" data-testid="${act}-toggle">
     <button data-act="${act}" data-mode="grid" aria-label="Grid view" aria-pressed="${isGrid}" data-testid="${act}-grid" class="press grid h-8 w-8 place-items-center rounded-full transition ${isGrid?'bg-white/15 text-white':'text-white/55 hover:bg-white/10 hover:text-white'}"><i data-lucide="layout-grid" style="width:15px;height:15px"></i></button>
     <button data-act="${act}" data-mode="list" aria-label="List view" aria-pressed="${!isGrid}" data-testid="${act}-list" class="press grid h-8 w-8 place-items-center rounded-full transition ${!isGrid?'bg-white/15 text-white':'text-white/55 hover:bg-white/10 hover:text-white'}"><i data-lucide="list" style="width:15px;height:15px"></i></button>
@@ -1957,7 +1957,7 @@ function myMusicSection(){
      <div class="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-white/12 bg-[#141416]/95 p-1.5 shadow-xl backdrop-blur-xl">
        ${count?`<button data-act="mm-select-toggle" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="list-checks" style="width:15px;height:15px"></i>${selMode?'Done selecting':'Select tracks'}</button>`:''}
        <button data-act="add-music-open" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="plus" style="width:15px;height:15px"></i>Add music</button>
-       ${count?`<button data-act="mine-view" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="${state.mineGrid?'list':'layout-grid'}" style="width:15px;height:15px"></i>${state.mineGrid?'List view':'Grid view'}</button>`:''}
+       ${count?`<button data-act="mine-view" data-mode="${state.mineGrid?'list':'grid'}" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="${state.mineGrid?'list':'layout-grid'}" style="width:15px;height:15px"></i>${state.mineGrid?'List view':'Grid view'}</button>`:''}
      </div></details>`;
   const head=`<div class="mb-3 flex items-center justify-between gap-3">
     <button data-act="mm-collapse" data-testid="my-music-collapse" aria-expanded="${!collapsed}" class="flex items-center gap-2 text-left"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:15px;height:15px"></i></span><h2 class="text-lg font-bold">My Music</h2>${count?`<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${count}</span>`:''}<i data-lucide="chevron-${collapsed?'down':'up'}" class="text-white/45" style="width:16px;height:16px"></i></button>
@@ -1993,9 +1993,9 @@ function myMusicSection(){
       const canReorder = !state.mineGrid && (state.mmSort||'recent')==='recent' && !state.mmLyricsOnly && count>1;
       if(canReorder){
         body+=`<div class="mb-2 flex items-center gap-1.5 text-[11px] text-white/40"><i data-lucide="grip-vertical" style="width:12px;height:12px"></i>Drag the handles to reorder \u2014 your order is saved automatically</div>`;
-        body+=`<div class="space-y-1" data-reorder="mm" data-testid="mm-reorder-list">${mine.map((s,i)=>`<div data-rid="${s.id}" class="flex items-center gap-1.5"><span data-rhandle data-testid="mm-drag-${s.id}" aria-label="Drag to reorder" title="Drag to reorder" class="grid h-12 w-6 shrink-0 place-items-center rounded-lg text-white/30 transition-colors hover:text-white/75"><i data-lucide="grip-vertical" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1">${songRow(s,i,false,'mm-play')}</div></div>`).join("")}</div>`;
+        body+=`<div class="space-y-1" data-reorder="mm" data-testid="mm-reorder-list">${mine.map((s,i)=>`<div data-rid="${s.id}" class="flex items-center gap-1.5"><span data-rhandle data-testid="mm-drag-${s.id}" aria-label="Drag to reorder" title="Drag to reorder" class="grid h-12 w-6 shrink-0 place-items-center rounded-lg text-white/30 transition-colors hover:text-white/75"><i data-lucide="grip-vertical" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1">${songRow(s,i,false,'mm-play',{clean:true})}</div></div>`).join("")}</div>`;
       } else {
-        const pg=paginate(mine,"mine"); body+=(state.mineGrid?grid(pg.page,'mm-play'):songList(pg.page,false,'mm-play'))+loadMoreBar(pg);
+        const pg=paginate(mine,"mine"); body+=(state.mineGrid?grid(pg.page,'mm-play',{clean:true}):songList(pg.page,false,'mm-play',{clean:true}))+loadMoreBar(pg);
       }
     }
   }
@@ -2315,13 +2315,109 @@ const STORAGE_GROUPS=[
   { id:"security", label:"Security", icon:"shield", desc:"App lock & parent PIN", keys:["treesh_lock","treesh_parent_pin"] },
 ];
 function lsBytes(k){ try{ const v=localStorage.getItem(k); if(v==null) return 0; return (k.length+v.length)*2; }catch(e){ return 0; } }
-function fmtBytes(b){ b=b||0; if(b<1024) return b+" B"; if(b<1024*1024) return (b/1024).toFixed(b<10240?1:0)+" KB"; return (b/1048576).toFixed(2)+" MB"; }
+function fmtBytes(b){ b=b||0; if(b<1024) return Math.round(b)+" B"; if(b<1024*1024) return (b/1024).toFixed(b<10240?1:0)+" KB"; if(b<1024*1024*1024) return (b/1048576).toFixed(b<10*1048576?1:0)+" MB"; return (b/1073741824).toFixed(2)+" GB"; }
 function groupBytes(g){ return g.keys.reduce((a,k)=>a+lsBytes(k),0); }
 function treeshTotalBytes(){ let t=0; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) t+=lsBytes(k); } }catch(e){} return t; }
+/* ---- Custom artist groups (user-defined, persisted) ---- */
+function getUserGroups(){ try{ const g=LS.get("treesh_groups",null); return Array.isArray(g)?g.filter(x=>x&&x.name):[]; }catch(e){ return []; } }
+function saveUserGroups(arr){ const ok=LS.set("treesh_groups", arr); return ok; }
+function addUserGroup(){
+  const nameEl=$("#group-name"), memEl=$("#group-members");
+  const name=((nameEl&&nameEl.value)||"").trim();
+  const members=(((memEl&&memEl.value)||"").split(/[,;]|\s*&\s*/).map(s=>s.trim()).filter(Boolean));
+  if(!name){ toast("Name the group first"); if(nameEl) nameEl.focus(); return; }
+  if(members.length<2){ toast("Add at least two members","Separate names with commas"); if(memEl) memEl.focus(); return; }
+  const list=getUserGroups();
+  const k=normKey(name);
+  const existing=list.findIndex(g=>normKey(g.name)===k);
+  if(existing>=0) list[existing]={name, members}; else list.push({name, members});
+  const ok=saveUserGroups(list);
+  if(!ok){ toast("Storage is full","Free up space and try again"); return; }
+  toast(existing>=0?"Group updated":"Group added", name+" \u00b7 "+members.join(" & "));
+  if(state.view==='settings') renderView();
+}
+function removeUserGroup(idx){ const list=getUserGroups(); if(idx<0||idx>=list.length) return; const g=list[idx]; list.splice(idx,1); saveUserGroups(list); toast("Group removed", g&&g.name); if(state.view==='settings') renderView(); }
+
+/* ---- Lyrics backup: export / import saved lyric edits ---- */
+function exportLyrics(){
+  const data=state.lyricEdits||{}; const ids=Object.keys(data);
+  if(!ids.length){ toast("Nothing to export yet","Save some lyrics first"); return; }
+  const titles={}; ids.forEach(id=>{ const s=SONG_BY_ID[id]; if(s) titles[id]={title:s.title,artist:s.artist}; });
+  const payload={ app:"treesh", type:"lyrics-backup", version:1, exportedAt:new Date().toISOString(), count:ids.length, titles, lyricEdits:data };
+  try{
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=url; a.download="treesh-lyrics-backup.json"; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url); a.remove(); }catch(e){} }, 500);
+    toast("Backup downloaded", ids.length+" track"+(ids.length!==1?"s":""));
+  }catch(e){ toast("Couldn\u2019t export","Try again"); }
+}
+function importLyricsData(obj){
+  try{
+    const incoming = (obj && obj.lyricEdits && typeof obj.lyricEdits==='object') ? obj.lyricEdits : (obj && typeof obj==='object' ? obj : null);
+    if(!incoming){ toast("That file isn\u2019t a lyrics backup"); return; }
+    // validate shape: { id: [ {t?, text} , ... ] }
+    let added=0, merged=0; state.lyricEdits=state.lyricEdits||{};
+    Object.keys(incoming).forEach(id=>{
+      const arr=incoming[id];
+      if(!Array.isArray(arr)) return;
+      const clean=arr.filter(l=>l&&typeof l==='object'&&typeof l.text==='string').map(l=>({ t:(typeof l.t==='number'?l.t:null), text:l.text }));
+      if(!clean.length) return;
+      if(state.lyricEdits[id]) merged++; else added++;
+      state.lyricEdits[id]=clean;
+    });
+    if(!added && !merged){ toast("No lyrics found in that file"); return; }
+    const ok=LS.set("treesh_lyric_edits", state.lyricEdits);
+    if(typeof applyLyricEdits==="function") applyLyricEdits();
+    if(typeof refreshDynamic==="function") refreshDynamic();
+    if(state.view==='settings') renderView();
+    toast(ok?"Lyrics imported":"Imported (storage full)", (added+merged)+" track"+((added+merged)!==1?"s":"")+(merged?` \u00b7 ${merged} updated`:""));
+  }catch(e){ toast("Couldn\u2019t read that file","Make sure it\u2019s a Treesh backup"); }
+}
+function lyricsSettingsSection(tab){
+  if(tab!=='lyrics') return `<section data-testid="settings-lyrics" class="hidden"></section>`;
+  const custom=getUserGroups();
+  const all=knownGroups();
+  const builtIn=all.filter(g=>!custom.some(c=>normKey(c.name)===normKey(g.name)));
+  const lyricCount=Object.keys(state.lyricEdits||{}).length;
+  const customList = custom.length ? custom.map((g,i)=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3" data-testid="group-row-${i}">
+      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="users" style="width:16px;height:16px"></i></span>
+      <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">${esc(g.name)}</p><p class="truncate text-xs text-white/50">${esc((g.members||[]).join('  \u00b7  '))}</p></div>
+      <button data-act="group-remove" data-idx="${i}" data-testid="group-remove-${i}" aria-label="Remove ${esc(g.name)}" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/55 transition-colors hover:bg-white/10 hover:text-rose-300"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>`).join('') : `<p class="rounded-2xl border border-dashed border-white/12 px-4 py-5 text-center text-sm text-white/40" data-testid="groups-empty">No custom groups yet. Add one below.</p>`;
+  const builtInChips = builtIn.length ? `<div class="mt-4"><p class="mb-2 text-[11px] font-bold uppercase tracking-wide text-white/40">Built-in</p><div class="flex flex-wrap gap-1.5">${builtIn.map(g=>`<span class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/60" title="${esc((g.members||[]).join(', '))}"><i data-lucide="users" style="width:11px;height:11px"></i>${esc(g.name)}</span>`).join('')}</div></div>` : '';
+  return `<section data-testid="settings-lyrics" class="space-y-5">
+    <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="users" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Artist groups</h2></div>
+      <p class="mb-4 pl-11 text-sm text-white/50">Teach Treesh which artists are one collective. When their members appear together on a track, the group name shows up as a performer tag in the Lyric Studio.</p>
+      <div class="space-y-2" data-testid="groups-list">${customList}</div>
+      <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p class="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-white/45">Add a group</p>
+        <div class="flex flex-col gap-2.5 sm:flex-row">
+          <input id="group-name" data-testid="group-name-input" placeholder="Group name (e.g. Perfekt Tenz)" autocomplete="off" spellcheck="false" class="h-11 flex-1 rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-[color:var(--treesh-purple)]">
+          <input id="group-members" data-testid="group-members-input" placeholder="Members: Black Barbie, ZuuBandz" autocomplete="off" spellcheck="false" class="h-11 flex-1 rounded-xl border border-white/15 bg-white/5 px-3.5 text-sm outline-none focus:border-[color:var(--treesh-purple)]">
+          <button data-act="group-add" data-testid="group-add-button" class="press inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] px-5 text-sm font-semibold text-white glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i>Add</button>
+        </div>
+      </div>
+      ${builtInChips}
+    </div>
+    <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="save" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Lyrics backup</h2></div>
+      <p class="mb-4 pl-11 text-sm text-white/50">Your saved &amp; synced lyrics live only on this device. Export a backup file, then import it on a new phone or after clearing your browser. <span class="font-semibold text-white/70">${lyricCount} track${lyricCount!==1?'s':''}</span> saved.</p>
+      <div class="flex flex-col gap-2.5 sm:flex-row">
+        <button data-act="lyrics-export" data-testid="lyrics-export-button" class="press inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold transition-colors hover:bg-white/10"><i data-lucide="download" style="width:16px;height:16px"></i>Export backup</button>
+        <label class="press inline-flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold transition-colors hover:bg-white/10"><i data-lucide="upload" style="width:16px;height:16px"></i>Import backup<input type="file" accept="application/json,.json" id="lyrics-import-input" data-testid="lyrics-import-input" class="hidden"></label>
+      </div>
+    </div>
+  </section>`;
+}
+
 function storageSection(tab){
-  const total=treeshTotalBytes();
-  const softCap=5*1024*1024;
-  const pct=Math.min(100, Math.max(total>0?2:0, Math.round(total/softCap*100)));
+  const lsTotal=treeshTotalBytes();
+  const idbCache=state._idbBytes||0;
+  const total=lsTotal+idbCache;
+  const quota=state._storageQuota||0;
+  const pct = quota ? Math.min(100, Math.max(total>0?1:0, Math.round(total/quota*100))) : (total>0?2:0);
   const rows=STORAGE_GROUPS.map(g=>{ const bytes=groupBytes(g); const empty=bytes<=0; return `<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" data-testid="storage-group-${g.id}">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="${g.icon}" style="width:18px;height:18px"></i></span>
       <div class="min-w-0 flex-1"><p class="text-sm font-semibold">${g.label}</p><p class="clamp-1 text-xs text-white/45">${g.desc}</p></div>
@@ -2332,7 +2428,7 @@ function storageSection(tab){
     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="hard-drive" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Storage &amp; data</h2></div>
     <p class="mb-4 pl-11 text-sm text-white/50">Everything in Treesh is saved only on this device. Review what\u2019s stored and free up space.</p>
     <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-widest text-white/45">Treesh storage used</p><p class="mt-1 font-doto text-2xl font-bold" data-testid="storage-total">${fmtBytes(total)}</p></div><p id="storage-quota-text" data-testid="storage-quota-text" class="text-right text-xs text-white/45">Estimating device space\u2026</p></div>
+      <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-widest text-white/45">Treesh storage used</p><p class="mt-1 font-doto text-2xl font-bold" id="storage-total" data-testid="storage-total">${fmtBytes(total)}</p></div><p id="storage-quota-text" data-testid="storage-quota-text" class="text-right text-xs text-white/45">Estimating device space\u2026</p></div>
       <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10"><div id="storage-gauge-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:${pct}%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
     </div>
     <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-testid="custom-music-storage">
@@ -2384,10 +2480,33 @@ async function deleteUserSongs(ids){
   }catch(e){ console.error("deleteUserSongs failed",e); toast("Couldn\u2019t remove"); }
 }
 function updateStorageEstimate(){
-  const el=document.getElementById("storage-quota-text"); if(!el) return;
-  if(navigator.storage && navigator.storage.estimate){
-    navigator.storage.estimate().then(est=>{ const el2=document.getElementById("storage-quota-text"); if(!el2) return; if(est && est.quota){ const free=Math.max(0,(est.quota||0)-(est.usage||0)); el2.textContent="~"+fmtBytes(free)+" free on device"; } else { el2.textContent="Device estimate unavailable"; } }).catch(()=>{ const el2=document.getElementById("storage-quota-text"); if(el2) el2.textContent="Device estimate unavailable"; });
-  } else { el.textContent="Device estimate unavailable"; }
+  const totalEl=document.getElementById("storage-total");
+  const quotaEl=document.getElementById("storage-quota-text");
+  const bar=document.getElementById("storage-gauge-bar");
+  const lsTotal=treeshTotalBytes();
+  idbGetAll().then(recs=>{
+    recs=recs||[]; let idb=0; state._userSizes=state._userSizes||{};
+    recs.forEach(r=>{ let sz=0; if(r.audioBlob&&r.audioBlob.size) sz+=r.audioBlob.size; if(r.coverBlob&&r.coverBlob.size) sz+=r.coverBlob.size; idb+=sz; if(r.id) state._userSizes[r.id]=sz; });
+    state._idbBytes=idb;
+    const total=lsTotal+idb;
+    if(totalEl) totalEl.textContent=fmtBytes(total);
+    const paint=(quota,usage)=>{
+      state._storageQuota=quota||0;
+      if(quota && quota>0){
+        const usedForBar=Math.max(total, usage||0);           // reflect the real measured footprint if larger
+        const pct=Math.min(100, Math.max(total>0?1:0, Math.round(usedForBar/quota*100)));
+        if(bar) bar.style.width=pct+"%";
+        const free=Math.max(0,(quota||0)-(usage||total));
+        if(quotaEl) quotaEl.innerHTML=`<span class="text-white/70 font-semibold">${fmtBytes(free)}</span> free on device`;
+      } else {
+        if(bar) bar.style.width=(total>0?4:0)+"%";
+        if(quotaEl) quotaEl.textContent="Device estimate unavailable";
+      }
+    };
+    if(navigator.storage && navigator.storage.estimate){
+      navigator.storage.estimate().then(est=>paint((est&&est.quota)||0,(est&&est.usage)||0)).catch(()=>paint(0,0));
+    } else { paint(0,0); }
+  }).catch(()=>{ if(totalEl) totalEl.textContent=fmtBytes(lsTotal); if(quotaEl) quotaEl.textContent="Device estimate unavailable"; });
 }
 function updateCustomMusicStorage(){
   const sizeEl=document.getElementById("custom-music-size"), subEl=document.getElementById("custom-music-sub");
@@ -2407,7 +2526,7 @@ function viewSettings(){
   if(state.settingsTab==='personalize') state.settingsTab='display';
   const tab=state.settingsTab||"display";
   const A=state.a11y||{};
-  let TABS=[["display","Appearance","palette"],["access","Access","accessibility"],["sleep","Sleep","moon-star"],["account","Account","user"],["privacy","Privacy","lock"],["about","About","info"]];
+  let TABS=[["display","Appearance","palette"],["access","Access","accessibility"],["sleep","Sleep","moon-star"],["lyrics","Lyrics","captions"],["account","Account","user"],["privacy","Privacy","lock"],["about","About","info"]];
   if(!VOICE_OK){ TABS=TABS.filter(t=>t[0]!=='voice'); }
   const editing=!!state.settingsEditProfile;
   const hero=`<div class="relative overflow-hidden rounded-[28px] border border-white/12 bg-white/[0.04] p-6 sm:p-8">
@@ -2649,6 +2768,7 @@ function viewSettings(){
      </div>
    </section>
 
+   ${lyricsSettingsSection(tab)}
    ${lockSettingsSection(tab)}
    ${storageSection(tab)}
    <section data-testid="settings-danger" class="${tab==='account'?'':'hidden'} rounded-3xl border border-rose-500/20 bg-rose-500/[0.05] p-5 sm:p-6">
@@ -2962,6 +3082,8 @@ function renderView(animate=false){
   const ai=$("#set-avatar-input"); if(ai){ ai.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ state._tmpAvatar=r.result; const av=$("#set-avatar"); if(av) av.innerHTML=img(r.result,'h-full w-full object-cover'); }; r.readAsDataURL(f); }); }
   document.querySelectorAll(".bg-image-input").forEach(bgi=>{ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>12*1024*1024){ toast("Image too large","Use one under 12 MB"); return; } if((state.bgImages||[]).length>=3){ toast("Limit reached","You can save up to 3 images"); return; } const r=new FileReader(); r.onload=()=>{ compressImageDataUrl(r.result, 1600, 0.82).then(small=>{ state.bgImages=(state.bgImages||[]).filter(Boolean); state.bgImages.push(small); state.bgIndex=state.bgImages.length-1; const prevBg=state.bg; state.bg="custom"; const ok=bgSaveImages(); if(!ok){ state.bgImages.pop(); state.bgIndex=Math.max(0,state.bgImages.length-1); state.bg=prevBg; bgSaveImages(); applyTheme(); renderView(); toast("Storage full","Couldn\u2019t save. Remove an image and try again"); return; } LS.set("treesh_bg","custom"); applyTheme(); renderView(); toast("Background added", `Image ${state.bgIndex+1} of ${state.bgImages.length}`); }).catch(()=>toast("Couldn\u2019t read image","Try a different file")); }; r.readAsDataURL(f); }); });
   const ff=$("#set-font-file"); if(ff){ ff.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>3*1024*1024){ toast("Font too large","Use one under 3 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.customFont={data:r.result, name:(f.name||'Custom').replace(/\.[^.]+$/,'')}; state.uiFont=""; _customFontLoaded=false; LS.set("treesh_custom_font",state.customFont); applyUiFont(); renderView(); toast("Custom font applied", state.customFont.name); }catch(err){ toast("Couldn\u2019t load font"); } }; r.readAsDataURL(f); }); }
+  const li=$("#lyrics-import-input"); if(li){ li.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f){ return; } if(f.size>10*1024*1024){ toast("File too large","Backups are usually tiny"); return; } const r=new FileReader(); r.onload=()=>{ let obj=null; try{ obj=JSON.parse(String(r.result||"")); }catch(err){ toast("That file isn\u2019t valid JSON"); return; } importLyricsData(obj); }; r.onerror=()=>toast("Couldn\u2019t read that file"); r.readAsText(f); e.target.value=""; }); }
+  const gm=$("#group-members"); const gn=$("#group-name"); const gkey=(ev)=>{ if(ev.key==="Enter"){ ev.preventDefault(); addUserGroup(); } }; if(gm) gm.addEventListener("keydown",gkey); if(gn) gn.addEventListener("keydown",gkey);
   iRenderMenu();
   wireAllReorder();
   if(state.view==="blog") blogInitFallbackTimer();
@@ -3941,7 +4063,7 @@ function startKaraokeLoop(){ if(_karRAF||!karaokeActive()) return; _karRAF=reque
 function stopKaraokeLoop(){ if(_karRAF){ cancelAnimationFrame(_karRAF); _karRAF=null; } }
 function lyricsEditorHtml(s){ const lines=(s.lyrics||[]); return `<div class="relative min-h-0 flex-1"><div id="np-lyrics-edit" class="no-scrollbar h-full space-y-1.5 overflow-y-auto px-1 py-2">${ lines.length ? lines.map((l,i)=>`<div class="flex items-center gap-2"><span class="w-6 shrink-0 text-right font-doto text-[11px] text-white/30">${i+1}</span><input data-li="${i}" data-t="${l.t}" value="${esc(l.text)}" data-testid="lyric-edit-input-${i}" class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-base text-white outline-none focus:border-white/30"></div>`).join("") : `<p class="py-10 text-center text-sm text-white/50">No lyrics available to edit.</p>` }</div></div>`; }
 function reportLyrics(s){ if(!s) return; let lines; const inputs=[...document.querySelectorAll("#np-lyrics-edit [data-li]")]; if(inputs.length){ lines=inputs.map(i=>i.value); } else { lines=(s.lyrics||[]).map(l=>l.text); } const body=`Song: ${s.title}\nArtist: ${s.artist}\n\n--- Corrected lyrics ---\n${lines.join("\n")}\n\n--- What was wrong? ---\n`; const url=`mailto:${REPORT_EMAIL}?subject=${encodeURIComponent("Lyric correction: "+s.title+" by "+s.artist)}&body=${encodeURIComponent(body)}`; window.location.href=url; toast("Opening your email app\u2026","Report for "+s.title); }
-function saveLyricEdits(s){ if(!s) return; const inputs=[...document.querySelectorAll("#np-lyrics-edit [data-li]")]; if(!inputs.length){ state.lyricsEdit=false; refreshLyricsRegion(); return; } const prev=s.lyrics||[]; const newLines=inputs.map(inp=>{ const i=+inp.dataset.li; const o=prev[i]||{}; const text=inp.value; let orig=o.orig; if(orig==null && text!==(o.text||"")) orig=(o.text||""); const line={ t: parseFloat(inp.dataset.t)||o.t||0, text, sec:o.sec, explain:o.explain }; if(o.note!=null) line.note=o.note; if(orig!=null) line.orig=orig; return line; }); s.lyrics=newLines; state.lyricEdits[s.id]=newLines; LS.set("treesh_lyric_edits",state.lyricEdits); state.lyricsEdit=false; _karIdx=-1; toast("Lyrics saved on this device", s.title); refreshLyricsRegion(); }
+function saveLyricEdits(s){ if(!s) return; const inputs=[...document.querySelectorAll("#np-lyrics-edit [data-li]")]; if(!inputs.length){ state.lyricsEdit=false; refreshLyricsRegion(); return; } const prev=s.lyrics||[]; const newLines=inputs.map(inp=>{ const i=+inp.dataset.li; const o=prev[i]||{}; const text=inp.value; let orig=o.orig; if(orig==null && text!==(o.text||"")) orig=(o.text||""); const line={ t: parseFloat(inp.dataset.t)||o.t||0, text, sec:o.sec, explain:o.explain }; if(o.note!=null) line.note=o.note; if(orig!=null) line.orig=orig; return line; }); s.lyrics=newLines; state.lyricEdits[s.id]=newLines; const _ok=LS.set("treesh_lyric_edits",state.lyricEdits); state.lyricsEdit=false; _karIdx=-1; toast(_ok?"Lyrics saved on this device":"Saved for now, but storage is full", _ok?s.title:"Free up space in Settings so lyrics persist"); refreshLyricsRegion(); if(typeof renderView==="function") renderView(); }
 /* ---------- per-line: edited indicator + original reveal + user notes ---------- */
 function npLyricLineHtml(s,l,i){
   if(l.secOnly){
@@ -4587,11 +4709,14 @@ function lsSave(){
   if(!lines.length){ toast("Nothing to save","Add at least one lyric line"); return; }
   s.lyrics=lines;
   state.lyricEdits[s.id]=lines;
-  try{ LS.set("treesh_lyric_edits", state.lyricEdits); }catch(e){}
+  const ok=LS.set("treesh_lyric_edits", state.lyricEdits);
   state.ls.dirty=false; const d=$("#ls-dirty"); if(d) d.classList.add("hidden");
-  toast("Lyrics saved on this device", s.title);
-  // if this song is the one playing, refresh Now Playing
-  if(curSong() && curSong().id===s.id){ if(state.npOpen) renderNP(); }
+  if(ok) toast("Lyrics saved on this device", s.title);
+  else toast("Saved for now, but storage is full", "Free up space in Settings so lyrics persist after closing");
+  // reflect the change everywhere immediately (library rows, mini player, Now Playing)
+  if(typeof applyLyricEdits==="function") applyLyricEdits();
+  if(typeof refreshDynamic==="function") refreshDynamic();
+  else if(curSong() && curSong().id===s.id){ if(state.npOpen) renderNP(); }
 }
 function lsSyncTextInputs(){ if(!state.ls) return; $$("#ls-lines [data-ls-text]").forEach(inp=>{ const i=+inp.dataset.lsText; if(state.ls.items[i]) state.ls.items[i].text=inp.value; }); }
 
@@ -4725,33 +4850,85 @@ function lsWireBar(){
   const sk=$("#ls-seek"); if(sk){ sk.addEventListener("input",()=>{ sk._drag=true; fillSlider(sk); if(state.ls.dur){ const cE=$("#ls-cur"); if(cE) cE.textContent=lsFmt(sk.value/100*state.ls.dur); } }); sk.addEventListener("change",()=>{ if(state.ls.dur) lsSeekTo(sk.value/100*state.ls.dur); sk._drag=false; }); }
 }
 function lsRenderBody(){ const b=$("#ls-body"); if(!b||!state.ls) return; b.innerHTML= state.ls.mode==='write'?lsWriteHtml():lsSyncHtml(); icons(); lsWireBody(); }
+/* ---- Known artist groups (offline, extensible) ----
+   Detects when several performers are actually one collective so their
+   combined tag shows the group name (e.g. Black Barbie + ZuuBandz = "Perfekt Tenz").
+   Seeded with known groups and mergeable with anything the catalog/user defines. */
+const KNOWN_GROUPS_SEED=[{name:"Perfekt Tenz", members:["Black Barbie","ZuuBandz"]}];
+function knownGroups(){
+  let extra=[]; try{ const g=LS.get("treesh_groups",null); if(Array.isArray(g)) extra=g; }catch(e){}
+  // also pull any groups the catalog artists may declare (a.members = [names])
+  let cat=[]; try{ cat=(ARTISTS||[]).filter(a=>a&&Array.isArray(a.members)&&a.members.length).map(a=>({name:a.name, members:a.members})); }catch(e){}
+  const all=[...KNOWN_GROUPS_SEED, ...cat, ...extra];
+  const seen={}, out=[]; all.forEach(g=>{ if(!g||!g.name) return; const k=normKey(g.name); if(seen[k]) return; seen[k]=1; out.push({name:g.name, members:(g.members||[]).map(m=>String(m).trim()).filter(Boolean)}); });
+  return out;
+}
+/* If a name IS a known group, return its members (else null). */
+function groupMembers(name){ const k=normKey(name||""); if(!k) return null; const g=knownGroups().find(x=>normKey(x.name)===k); return g?g.members.slice():null; }
+function canonicalGroupName(name){ const k=normKey(name||""); const g=knownGroups().find(x=>normKey(x.name)===k); return g?g.name:name; }
+/* Given a set of member names, return the group name if they form a known group. */
+function detectGroupName(names){
+  const keys=(names||[]).map(n=>normKey(n)).filter(Boolean); if(keys.length<2) return null;
+  const set={}; keys.forEach(k=>set[k]=1);
+  for(const g of knownGroups()){
+    const mk=g.members.map(m=>normKey(m)).filter(Boolean); if(mk.length<2) continue;
+    // every collected name is a member AND we cover at least 2 members of that group
+    const allAreMembers=keys.every(k=>mk.indexOf(k)>=0);
+    const coverage=mk.filter(m=>set[m]).length;
+    if(allAreMembers && coverage>=2) return g.name;
+  }
+  return null;
+}
+/* Stable accent colour per performer so verses are easy to scan while syncing. */
+const PERFORMER_PALETTE=["#b98cff","#4aa8e0","#2bb6a6","#e8637e","#ef9a3c","#8fce5a","#e069c0","#7a83f0","#39cbd2","#f0b84a","#6ee0a6","#ff8f6b"];
+function performerColor(name){ const k=normKey(name||""); if(!k) return "#b98cff"; let h=2166136261>>>0; for(let i=0;i<k.length;i++){ h^=k.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return PERFORMER_PALETTE[h % PERFORMER_PALETTE.length]; }
+/* Pull the performer name out of a section label like "Verse 1: Black Barbie". */
+function sectionPerformer(secText){ const s=String(secText||""); const ci=s.indexOf(':'); if(ci<0) return ""; return s.slice(ci+1).trim(); }
+
 function lsPerformerOptions(){
   const s=(typeof SONG_BY_ID!=='undefined' && state.ls) ? SONG_BY_ID[state.ls.songId] : null;
   const main=((s&&s.artist)||(state.ls&&state.ls.artist)||"").trim();
   const featStr=(s&&s.featuring)||(state.ls&&state.ls.featuring)||"";
   const splitRe=/\s*[,&\/+\u00d7]\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|vs\.?|x)\s+/i;
   const all=[]; const push=(n)=>{ n=(n||"").trim(); if(n && !all.some(a=>a.toLowerCase()===n.toLowerCase())) all.push(n); };
-  push(main);
+  let group=null;
+  const mm=groupMembers(main);              // main artist is itself a known group -> expand to members
+  if(mm && mm.length){ group=canonicalGroupName(main); mm.forEach(push); }
+  else if(main){ String(main).split(splitRe).forEach(push); }   // split collabs in the main credit too
   if(featStr) String(featStr).split(splitRe).forEach(push);
-  return { main, all };
+  if(!group){ const g=detectGroupName(all); if(g) group=g; }   // members collected together form a known group
+  return { main, all, group };
 }
 function lsWriteHtml(){
   const txt=lsItemsToText(state.ls.items);
   const TAGCHIPS=[['Verse',true],['Chorus',false],['Pre-Chorus',false],['Hook',false],['Bridge',false],['Intro',false],['Outro',false],['Refrain',false]];
-  const chips=`<div class="no-scrollbar -mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1">${TAGCHIPS.map(([tag,num])=>`<button data-act="ls-insert-tag" data-tag="${tag}" data-num="${num?1:0}" data-testid="ls-tag-${tag}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10"><span class="text-[color:var(--treesh-purple)]">[</span>${tag}${num?' #':''}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>`;
-  const perf=lsPerformerOptions(); let performers=perf.all.slice(); if(perf.all.length>1) performers.push(perf.all.join(' & '));
+  const sectionChips=TAGCHIPS.map(([tag,num])=>`<button data-act="ls-insert-tag" data-tag="${tag}" data-num="${num?1:0}" data-testid="ls-tag-${tag}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10"><span class="text-[color:var(--treesh-purple)]">[</span>${tag}${num?' #':''}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('');
+  const perf=lsPerformerOptions();
+  let performers=perf.all.slice();
+  const combined = perf.group || (perf.all.length>1 ? perf.all.join(' & ') : null);
+  if(combined && !performers.some(p=>p.toLowerCase()===combined.toLowerCase())) performers.push(combined);
   const PTYPES=[['Verse',1],['Hook',0],['Chorus',0],['Bridge',0]];
-  const perfChips = performers.length ? `<div class="mb-2 rounded-2xl border border-[color:var(--treesh-purple)]/20 bg-[color:var(--treesh-purple)]/[0.05] p-2">
-     <div class="mb-1.5 flex items-center gap-1.5 px-0.5"><i data-lucide="mic-2" class="text-[color:var(--treesh-purple)]" style="width:13px;height:13px"></i><span class="text-[10px] font-bold uppercase tracking-wide text-white/45">Performer tags</span></div>
-     <div class="space-y-1.5">${performers.map((p,pi)=>`<div class="flex items-center gap-2">
-       <span class="shrink-0 max-w-[42%] truncate rounded-lg bg-[color:var(--treesh-purple)]/18 px-2 py-1 text-[11px] font-semibold text-[color:var(--treesh-purple)]" title="${esc(p)}">${esc(p)}</span>
-       <div class="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">${PTYPES.map(([t,num])=>`<button data-act="ls-insert-tag" data-tag="${t}" data-num="${num?1:0}" data-suffix="${esc(p)}" data-testid="ls-perf-${pi}-${t}" title="Insert [${t}${num?' #':''}: ${esc(p)}]" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/75 hover:bg-[color:var(--treesh-purple)]/20"><span class="text-[color:var(--treesh-purple)]">[</span>${t}${num?' #':''}<span class="text-[color:var(--treesh-purple)]">]</span></button>`).join('')}</div>
-     </div>`).join('')}</div>
-   </div>` : '';
+  const perfRows = performers.map((p,pi)=>{ const isGroup = perf.group && p.toLowerCase()===perf.group.toLowerCase(); const col=performerColor(p); return `<div class="flex items-center gap-2">
+       <span class="inline-flex shrink-0 max-w-[44%] items-center gap-1 truncate rounded-lg px-2 py-1 text-[11px] font-semibold" style="background:${col}26;color:${col};box-shadow:inset 0 0 0 1px ${col}44" title="${esc(p)}${isGroup?' (group)':''}">${isGroup?'<i data-lucide="users" style="width:11px;height:11px"></i>':`<span class="h-2 w-2 shrink-0 rounded-full" style="background:${col}"></span>`}${esc(p)}</span>
+       <div class="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">${PTYPES.map(([t,num])=>`<button data-act="ls-insert-tag" data-tag="${t}" data-num="${num?1:0}" data-suffix="${esc(p)}" data-testid="ls-perf-${pi}-${t}" title="Insert [${t}${num?' #':''}: ${esc(p)}]" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10"><span style="color:${col}">[</span>${t}${num?' #':''}<span style="color:${col}">]</span></button>`).join('')}</div>
+     </div>`; }).join('');
+  const tagsOpen = state.lsTagsOpen ? 'open' : '';
+  const tagPanel = `<details class="ls-tags group/lst mb-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]" ${tagsOpen}>
+     <summary data-testid="ls-tags-summary" class="press flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs font-semibold text-white/75">
+       <i data-lucide="tags" class="text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i>Insert tag
+       ${perf.group?`<span class="inline-flex items-center gap-1 rounded-full bg-[color:var(--treesh-gold)]/18 px-2 py-0.5 text-[10px] font-bold text-[color:var(--treesh-gold)]" title="Detected group"><i data-lucide="users" style="width:10px;height:10px"></i>${esc(perf.group)}</span>`:''}
+       <i data-lucide="chevron-down" class="ml-auto shrink-0 transition-transform group-open/lst:rotate-180" style="width:16px;height:16px"></i>
+     </summary>
+     <div class="space-y-2.5 border-t border-white/8 px-2.5 py-2.5">
+       <div><p class="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-wide text-white/40">Sections</p><div class="no-scrollbar -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${sectionChips}</div></div>
+       ${performers.length?`<div><p class="mb-1.5 flex items-center gap-1 px-0.5 text-[10px] font-bold uppercase tracking-wide text-white/40"><i data-lucide="mic-2" style="width:11px;height:11px"></i>Performers</p><div class="space-y-1.5">${perfRows}</div></div>`:''}
+     </div>
+   </details>`;
+  const findBtn = `<button data-act="lyrics-find" data-id="${state.ls.songId}" data-testid="ls-find-online" class="press mb-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/30 bg-[color:var(--treesh-purple)]/10 px-4 py-2.5 text-sm font-semibold text-[color:var(--treesh-purple)] transition-colors hover:bg-[color:var(--treesh-purple)]/20"><i data-lucide="sparkles" style="width:16px;height:16px"></i>Find lyrics online</button>`;
   return `<div class="flex h-full flex-col py-3">
      <div class="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55"><i data-lucide="info" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i><span>One lyric per line. Wrap section names in brackets, e.g. <span class="mx-0.5 inline-block whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 font-doto text-white/80">[Verse&nbsp;1]</span></span></div>
-     ${chips}
-     ${perfChips}
+     ${findBtn}
+     ${tagPanel}
      <textarea id="ls-write" data-testid="ls-write-textarea" placeholder="[Verse 1]\nType or paste your lyrics here\u2026\nOne line at a time" class="no-scrollbar min-h-0 flex-1 w-full resize-none rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(txt)}</textarea>
      <div class="mt-3 flex shrink-0 items-center justify-between gap-2 pb-3">
        <span id="ls-write-count" class="text-xs text-white/45">${txt.split(/\r?\n/).filter(l=>l.trim()).length} lines</span>
@@ -4777,16 +4954,23 @@ function lsInsertTag(tag, autonum, suffix){
 }
 function lsSyncHtml(){
   const ls=state.ls; const rows=lsLineRows();
+  let curCol=null;
   const linesHtml=(ls.items||[]).map((it,i)=>{
     if(it.type==='section'){
-      return `<div class="ls-line ls-section-row flex items-center gap-2 rounded-xl border border-white/10 px-2.5 py-2" data-ls-i="${i}">
-        <span class="shrink-0 rounded-md bg-[color:var(--treesh-purple)]/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[color:var(--treesh-purple)]">Section</span>
+      const perf=sectionPerformer(it.text);
+      curCol = perf ? performerColor(perf) : null;
+      const rowStyle = curCol ? ` style="border-left:3px solid ${curCol};background:linear-gradient(90deg, ${curCol}1f, transparent 70%)"` : '';
+      const badgeStyle = curCol ? ` style="background:${curCol}2e;color:${curCol}"` : '';
+      const badgeCls = curCol ? '' : 'bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]';
+      return `<div class="ls-line ls-section-row flex items-center gap-2 rounded-xl border border-white/10 px-2.5 py-2" data-ls-i="${i}"${rowStyle}>
+        <span class="shrink-0 rounded-md ${badgeCls} px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"${badgeStyle}>${perf?esc(perf):'Section'}</span>
         <input data-ls-text="${i}" value="${esc(it.text)}" class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white/85 outline-none" placeholder="Section name">
         <button data-act="ls-line-menu" data-i="${i}" aria-label="Line options" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10"><i data-lucide="ellipsis-vertical" style="width:16px;height:16px"></i></button>
       </div>`;
     }
     const wc=(it.words&&it.words.length)?`<span class="shrink-0 rounded bg-[color:var(--treesh-purple)]/15 px-1.5 py-0.5 text-[8px] font-bold uppercase text-[color:var(--treesh-purple)]" title="Word timings set">W</span>`:'';
-    return `<div class="ls-line flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-2 py-1.5 ${it.t!=null?'done':''}" data-ls-i="${i}">
+    const lineStyle = curCol ? ` style="border-left:3px solid ${curCol}66"` : '';
+    return `<div class="ls-line flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-2 py-1.5 ${it.t!=null?'done':''}" data-ls-i="${i}"${lineStyle}>
        <button data-act="ls-seek-line" data-i="${i}" class="ls-ts shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[12px] font-bold text-white/70 hover:bg-white/10" title="Tap to jump here">${it.t!=null?lsFmt(it.t):'\u2013\u2013:\u2013\u2013'}</button>
        <input data-ls-text="${i}" value="${esc(it.text)}" class="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder-white/30" placeholder="(empty line)">
        ${wc}
@@ -4808,6 +4992,7 @@ function lsWireBody(){
   if(!state.ls) return;
   if(state.ls.mode==='write'){
     const ta=$("#ls-write"); if(ta){ ta.addEventListener("input",()=>{ const cnt=$("#ls-write-count"); if(cnt) cnt.textContent=ta.value.split(/\r?\n/).filter(l=>l.trim()).length+" lines"; lsMarkDirty(); if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; }); ta.addEventListener("keyup",()=>{ if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; }); }
+    const dt=$(".ls-tags"); if(dt){ dt.addEventListener("toggle",()=>{ state.lsTagsOpen=dt.open; }); }
   } else {
     // commit inline text edits to the model without re-rendering
     $$("#ls-lines [data-ls-text]").forEach(inp=>{ inp.addEventListener("input",()=>{ const i=+inp.dataset.lsText; if(state.ls.items[i]){ state.ls.items[i].text=inp.value; lsMarkDirty(); } }); });
@@ -5199,7 +5384,7 @@ function renderFindLyrics(){ const id=state._flId; const s=SONG_BY_ID[id]; if(!s
   </div>`;
   $("#modal").innerHTML=modalWrap(inner,"find-lyrics-modal"); icons(); const ti=$("#fl-title"); if(ti && !state._flResults){ try{ ti.focus(); }catch(e){} } }
 async function findLyricsSearch(){ const id=state._flId; const s=SONG_BY_ID[id]; if(!s) return; const tI=$("#fl-title"), aI=$("#fl-artist"); const track=((tI?tI.value:s.title)||"").trim(); const artist=((aI?aI.value:"")||"").trim(); if(!track){ toast("Enter a song title"); return; } state._flBusy=true; state._flResults=null; renderFindLyrics(); try{ const url="https://lrclib.net/api/search?track_name="+encodeURIComponent(track)+(artist?("&artist_name="+encodeURIComponent(artist)):""); const r=await fetch(url,{headers:{Accept:"application/json"}}); if(!r.ok) throw new Error("http "+r.status); const arr=await r.json(); const results=(Array.isArray(arr)?arr:[]).filter(x=>x && !x.instrumental && (x.syncedLyrics||x.plainLyrics)).slice(0,6); state._flResults=results.length?results:"none"; }catch(e){ state._flResults="error"; } state._flBusy=false; renderFindLyrics(); }
-function findLyricsApply(idx){ const res=state._flResults; if(!Array.isArray(res)) return; const item=res[idx]; if(!item) return; const id=state._flId; const lines = item.syncedLyrics ? parseLRC(item.syncedLyrics) : (item.plainLyrics ? item.plainLyrics.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>({text:l})) : []); if(!lines.length){ toast("That result has no usable lyrics"); return; } state.lyricEdits=state.lyricEdits||{}; state.lyricEdits[id]=lines; try{ LS.set("treesh_lyric_edits", state.lyricEdits); }catch(e){} const s=SONG_BY_ID[id]; if(s) s.lyrics=lines; if(typeof applyLyricEdits==="function") applyLyricEdits(); closeModal(); toast(item.syncedLyrics?"Synced lyrics added":"Lyrics added", s?s.title:""); refreshDynamic(); if(state.npOpen) renderNP(); }
+function findLyricsApply(idx){ const res=state._flResults; if(!Array.isArray(res)) return; const item=res[idx]; if(!item) return; const id=state._flId; const lines = item.syncedLyrics ? parseLRC(item.syncedLyrics) : (item.plainLyrics ? item.plainLyrics.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>({text:l})) : []); if(!lines.length){ toast("That result has no usable lyrics"); return; } state.lyricEdits=state.lyricEdits||{}; state.lyricEdits[id]=lines; const _ok=LS.set("treesh_lyric_edits", state.lyricEdits); const s=SONG_BY_ID[id]; if(s) s.lyrics=lines; if(typeof applyLyricEdits==="function") applyLyricEdits(); closeModal(); toast(_ok?(item.syncedLyrics?"Synced lyrics added":"Lyrics added"):"Added, but storage is full", _ok?(s?s.title:""):"Free up space in Settings so lyrics persist"); refreshDynamic(); if(state.npOpen) renderNP(); if(state.lsOpen && state.ls && state.ls.songId===id){ state.ls.items=lsItemsFromSong(s); state.ls.idx=lsFirstUnstamped(); state.ls.mode = state.ls.items.some(it=>it.type==='line'&&it.t!=null)?'sync':'write'; state.ls.dirty=false; renderLS(); } }
 function openSongMenu(id){ const s=SONG_BY_ID[id]; if(!s) return; const opt=(act,ic,label,extra="")=>`<button data-act="${act}" data-id="${id}" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-white/10">${extra}<i data-lucide="${ic}" style="width:16px;height:16px"></i> ${label}</button>`;
   const inner=`<div class="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2"><div class="h-11 w-11 overflow-hidden rounded-md">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></div>
   <div class="space-y-0.5">${opt('m-play-next','list-end','Play next')}${opt('m-add-queue','list-plus','Add to queue')}<div class="my-1 h-px bg-white/10"></div>${opt('m-add-pl','list-music','Add to playlist')}${opt('like','heart',isFav(id)?'Remove favorite':'Add to favorites')}${opt('dislike','heart-crack',isDisliked(id)?'Remove dislike':'Dislike')}<div class="my-1 h-px bg-white/10"></div>${opt('ls-open','captions', (s.lyrics||[]).some(l=>l.text&&l.text.trim())?'Edit / sync lyrics':'Add lyrics')}${s._user?opt('lyrics-find','sparkles','Find lyrics online'):''}${opt('m-share','share-2','Share')}${s._user?('<div class="my-1 h-px bg-white/10"></div>'+opt('m-edit-details','pencil','Edit details')+opt('m-remove-upload','trash-2','Remove upload')):''}</div>`;
@@ -5248,7 +5433,14 @@ function updateLyricHighlight(force){ if(!state.showLyrics||!state.lyricLines.le
 
 /* media session + palette on song change */
 function updatePositionState(){ if(!("mediaSession"in navigator)||!navigator.mediaSession.setPositionState) return; try{ const d=audio.duration; if(d&&isFinite(d)&&d>0){ navigator.mediaSession.setPositionState({ duration:d, playbackRate:audio.playbackRate||1, position:Math.min(Math.max(audio.currentTime||0,0), d) }); } }catch(e){} }
-function onSongChange(){ const s=curSong(); if(!s) return; if("mediaSession"in navigator){ try{ const art=s.coverArt||FALLBACK; const artwork=["96x96","128x128","192x192","256x256","384x384","512x512"].map(sz=>({src:art,sizes:sz,type:"image/png"})); navigator.mediaSession.metadata=new MediaMetadata({title:s.title||"Untitled",artist:s.artist||"Treesh",album:s.album||"Treesh",artwork}); navigator.mediaSession.setActionHandler("play",()=>{ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); }); navigator.mediaSession.setActionHandler("pause",()=>{ try{ audio.pause(); }catch(e){} }); navigator.mediaSession.setActionHandler("nexttrack",()=>nextTrack(true)); navigator.mediaSession.setActionHandler("previoustrack",()=>prevTrack()); try{ navigator.mediaSession.setActionHandler("seekto",(d)=>{ if(d&&d.seekTime!=null){ try{ if(d.fastSeek&&audio.fastSeek) audio.fastSeek(d.seekTime); else audio.currentTime=d.seekTime; }catch(e){} updatePositionState(); } }); }catch(e){} try{ navigator.mediaSession.setActionHandler("seekbackward",(d)=>{ const off=(d&&d.seekOffset)||10; try{ audio.currentTime=Math.max(0,(audio.currentTime||0)-off); }catch(e){} updatePositionState(); }); }catch(e){} try{ navigator.mediaSession.setActionHandler("seekforward",(d)=>{ const off=(d&&d.seekOffset)||10; try{ audio.currentTime=Math.min((audio.duration||0),(audio.currentTime||0)+off); }catch(e){} updatePositionState(); }); }catch(e){} try{ navigator.mediaSession.setActionHandler("stop",()=>{ try{ audio.pause(); audio.currentTime=0; }catch(e){} }); }catch(e){} navigator.mediaSession.playbackState=state.isPlaying?"playing":"paused"; updatePositionState(); }catch(e){} }
+function onSongChange(){ const s=curSong(); if(!s) return; if("mediaSession"in navigator){ try{ const art=s.coverArt||FALLBACK; const artwork=["96x96","128x128","192x192","256x256","384x384","512x512"].map(sz=>({src:art,sizes:sz,type:"image/png"})); navigator.mediaSession.metadata=new MediaMetadata({title:s.title||"Untitled",artist:s.artist||"Treesh",album:s.album||"Treesh",artwork}); navigator.mediaSession.setActionHandler("play",()=>{ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); }); navigator.mediaSession.setActionHandler("pause",()=>{ try{ audio.pause(); }catch(e){} }); navigator.mediaSession.setActionHandler("nexttrack",()=>nextTrack(true)); navigator.mediaSession.setActionHandler("previoustrack",()=>prevTrack());
+      /* IMPORTANT (iOS/iPhone fix): if seekforward/seekbackward handlers are registered,
+         iOS shows the 10s skip buttons on the lock screen INSTEAD of the previous/next
+         track buttons. Explicitly clear them so real track skipping shows. The progress
+         scrubber still works through the "seekto" handler below. */
+      try{ navigator.mediaSession.setActionHandler("seekbackward",null); }catch(e){}
+      try{ navigator.mediaSession.setActionHandler("seekforward",null); }catch(e){}
+      try{ navigator.mediaSession.setActionHandler("seekto",(d)=>{ if(d&&d.seekTime!=null){ try{ if(d.fastSeek&&audio.fastSeek) audio.fastSeek(d.seekTime); else audio.currentTime=d.seekTime; }catch(e){} updatePositionState(); } }); }catch(e){} try{ navigator.mediaSession.setActionHandler("stop",()=>{ try{ audio.pause(); audio.currentTime=0; }catch(e){} }); }catch(e){} navigator.mediaSession.playbackState=state.isPlaying?"playing":"paused"; updatePositionState(); }catch(e){} }
   state.palette=null;
   renderSidebarLibrary();
   if(state.npOpen) renderNP();   // refresh lyrics/title/art immediately on track change (fixes stale lyrics on next/prev)
@@ -5616,9 +5808,9 @@ document.addEventListener("click", e=>{
     case "filter-sort": { const sc=t.dataset.scope; const m=t.dataset.mode; const key=sc+"Sort"; const def=sc==="mm"?"recent":"default"; state[key]=(state[key]===m?def:m); refreshLists(); break; }
     case "filter-lyrics": { const sc=t.dataset.scope; const key=sc+"LyricsOnly"; state[key]=!state[key]; refreshLists(); break; }
     case "picks-shuffle": state._picks=buildPicks(); renderView(true); break;
-    case "lib-view": state.libGrid=(t.dataset.mode==="grid"); LS.set("treesh_lib_grid",state.libGrid); renderView(true); break;
-    case "mine-view": state.mineGrid=(t.dataset.mode==="grid"); LS.set("treesh_mine_grid",state.mineGrid); renderView(); break;
-    case "game-view": state.gameGrid=(t.dataset.mode==="grid"); LS.set("treesh_game_grid",state.gameGrid); renderView(true); break;
+    case "lib-view": state.libGrid=(t.dataset.mode?t.dataset.mode==="grid":!state.libGrid); LS.set("treesh_lib_grid",state.libGrid); renderView(true); break;
+    case "mine-view": state.mineGrid=(t.dataset.mode?t.dataset.mode==="grid":!state.mineGrid); LS.set("treesh_mine_grid",state.mineGrid); renderView(); break;
+    case "game-view": state.gameGrid=(t.dataset.mode?t.dataset.mode==="grid":!state.gameGrid); LS.set("treesh_game_grid",state.gameGrid); renderView(true); break;
     case "clear-search": state.query=""; const si=$("#search"); if(si)si.value=""; renderView(true); const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.add("hidden"); break;
     case "shuffle-all": { const pool=vis(SONGS); if(!pool.length)break; state.shuffle=true; const r=pool[Math.floor(Math.random()*pool.length)]; playSong(r,pool); break; }
     case "mm-collapse": state.mmCollapsed=!state.mmCollapsed; refreshLists(); break;
@@ -5687,6 +5879,10 @@ document.addEventListener("click", e=>{
     case "nav-notif-close": clearNavNotify(); break;
     case "settings-edit-profile": { state.settingsEditProfile=(t.dataset.val==='on'); if(!state.settingsEditProfile) state._tmpAvatar=null; renderView(); break; }
     case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan"; const oldB=(state.profile&&state.profile.birthday)||""; let bday=($("#set-bday")&&$("#set-bday").value)||oldB; if(bdayLocked()) bday=oldB; else if(bday!==oldB && bday) bumpBdayEdits(); const avatar=state._tmpAvatar||(state.profile&&state.profile.avatar)||""; state.profile={nickname:nick,birthday:bday,zodiac:zodiac(bday),avatar}; LS.set("treesh_profile",state.profile); state._tmpAvatar=null; state.settingsEditProfile=false; toast("Profile saved"); renderShell(); renderView(); renderSidebarLibrary(); break; }
+    case "group-add": addUserGroup(); break;
+    case "group-remove": removeUserGroup(parseInt(t.dataset.idx,10)); break;
+    case "lyrics-export": exportLyrics(); break;
+
     case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists, beats, settings and locks on this device will be reset. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break;
     case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ g.keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); }); break; }
     case "storage-user-toggle": { if(!state.storageSel) state.storageSel={}; if(state.storageSel[id]) delete state.storageSel[id]; else state.storageSel[id]=true; refreshCustomMusicManage(); break; }
