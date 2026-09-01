@@ -130,7 +130,7 @@ export default function HomeScreen() {
         {/* Secondary tiles */}
         <Animated.View style={[styles.tiles, fade]}>
           {[
-            { key: "editor", testID: "open-editor-button", icon: "construct" as const, label: "Editor", caption: "Build charts", tint: "#8E7CFF", onPress: () => { if (songs[0]) selectSong(songs[0]); router.push("/editor"); } },
+            { key: "editor", testID: "open-editor-button", icon: "construct" as const, label: "Editor", caption: "Build charts", tint: "#8E7CFF", onPress: () => router.push("/editor") },
             { key: "settings", testID: "open-calibration-button", icon: "options" as const, label: "Settings", caption: "Tune & sync", tint: "#2FE0D6", onPress: () => router.push("/settings") },
             { key: "guide", testID: "open-guide-button", icon: "compass" as const, label: "How to play", caption: "Learn it", tint: "#F5C842", onPress: () => router.push("/guide") },
           ].map(t => (
@@ -153,7 +153,7 @@ export default function HomeScreen() {
         <Animated.View style={fade}>
           <Pressable testID="home-progress-card" onPress={() => setProfileOpen(true)} style={({ pressed }) => [styles.snapCard, pressed && styles.pressed]}>
             <View style={styles.snapRow}>
-              <View style={styles.snapCol}><Text style={styles.statLabel}>BEST</Text><View style={styles.statInline}><Ionicons name="star" size={15} color={colors.gold} /><Text style={styles.statValue}>{bestStars || 0}★</Text></View></View>
+              <View style={styles.snapCol}><Text style={styles.statLabel}>BEST</Text><View style={styles.statInline}><Ionicons name="star" size={15} color={colors.gold} /><Text style={styles.statValue}>{bestStars || 0}</Text></View></View>
               <View style={styles.statDivider} />
               <View style={styles.snapCol}><Text style={styles.statLabel}>GAMES</Text><View style={styles.statInline}><Ionicons name="game-controller" size={14} color={colors.cyan} /><Text style={[styles.statValue, { color: colors.cyan }]}>{stars.games}</Text></View></View>
               <View style={styles.statDivider} />

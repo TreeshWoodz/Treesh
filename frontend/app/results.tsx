@@ -24,7 +24,7 @@ export default function ResultsScreen() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Run Complete" back={false} />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}><Text style={styles.eyebrow}>{lastResult.score >= best ? "NEW PERSONAL BEST" : "SCORE SAVED LOCALLY"}</Text><Text style={styles.song}>{lastResult.title}</Text><Text style={styles.diff}>{lastResult.difficulty.toUpperCase()}</Text>
-        <Animated.View style={[styles.stars, { transform: [{ scale }] }]}>{[0,1,2,3,4].map(index => <Ionicons key={index} name={index < lastResult.stars ? "star" : "star-outline"} size={42} color={index < lastResult.stars ? colors.gold : "#4C4C55"} />)}</Animated.View>
+        <Animated.View style={[styles.stars, { transform: [{ scale }] }]}>{[0,1,2,3,4].map(index => { const full = lastResult.stars >= index + 1; const half = !full && lastResult.stars >= index + 0.5; return <Ionicons key={index} name={full ? "star" : half ? "star-half" : "star-outline"} size={42} color={full || half ? colors.gold : "#4C4C55"} />; })}</Animated.View>
         <Text style={styles.score}>{lastResult.score.toLocaleString()}</Text><Text style={styles.scoreLabel}>FINAL SCORE</Text>
         {fullCombo && <View style={styles.fc}><Ionicons name="flash" size={17} color={colors.bg} /><Text style={styles.fcText}>{lastResult.totalNotes}/{lastResult.totalNotes} FULL COMBO</Text></View>}
       </View>

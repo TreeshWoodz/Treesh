@@ -77,7 +77,7 @@ function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPre
 
 export default function EditorScreen() {
   const { width, height } = useWindowDimensions();
-  const { selectedSong, selectedDifficulty, setDifficulty, charts, saveChart, setTestChart } = useAppState();
+  const { selectedSong, selectedDifficulty, setDifficulty, charts, saveChart, setTestChart, exportChart } = useAppState();
   const existing = selectedSong ? charts[`${selectedSong.id}-Custom`] : undefined;
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
@@ -87,6 +87,8 @@ export default function EditorScreen() {
   const [playing, setPlaying] = useState(false);
   const [recording, setRecording] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 1900); return () => clearTimeout(t); }, [toast]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [nowLabel, setNowLabel] = useState(0);
   const [flashLane, setFlashLane] = useState(-1);
@@ -201,8 +203,13 @@ export default function EditorScreen() {
   const buildChart = (): Chart => ({ songId: selectedSong!.id, difficulty: "Custom", bpm: existing?.bpm || selectedSong!.bpm || 120, duration, notes: clampHolds(notes), waveform: existing?.waveform || Array.from({ length: 96 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.5)) * 0.7) });
 
   const save = async () => {
-    if (!selectedSong || !notes.length) return;
-    await saveChart(buildChart()); setDifficulty("Custom"); setSaved(true); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (!selectedSong) return;
+    if (!notes.length) { setToast("Add some notes first"); return; }
+    await saveChart(buildChart()); setDifficulty("Custom"); setSaved(true); setToast("Chart saved \u2713"); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+  const doExport = async () => {
+    if (!selectedSong || !notes.length) { setToast("Add notes before exporting"); return; }
+    try { await exportChart(buildChart(), selectedSong); setToast("Chart file exported"); } catch { setToast("Export failed"); }
   };
 
   // Play the current in-editor chart immediately — no save required.
@@ -226,14 +233,15 @@ export default function EditorScreen() {
     });
   }, [drawing, drawTick, HW, LANE, BOARD_H]);
 
-  if (!selectedSong) return <SafeAreaView style={styles.safe} edges={["top"]}><ScreenHeader title="Chart Editor" /><View style={styles.empty}><Ionicons name="musical-notes-outline" size={44} color={colors.purple} /><Text selectable={false} style={styles.emptyTitle}>Choose a track first</Text><Text selectable={false} style={styles.emptyCopy}>Pick a song to build a custom chart for.</Text><NeonButton testID="editor-open-library-button" label="Choose a track" icon="library" onPress={() => router.replace("/library")} /></View></SafeAreaView>;
+  if (!selectedSong) return <SafeAreaView style={styles.safe} edges={["top"]}><ScreenHeader title="Chart Editor" /><View style={styles.empty}><Ionicons name="musical-notes-outline" size={44} color={colors.purple} /><Text selectable={false} style={styles.emptyTitle}>Choose a track first</Text><Text selectable={false} style={styles.emptyCopy}>Pick a song to build a custom chart for.</Text><NeonButton testID="editor-open-library-button" label="Choose a track" icon="library" onPress={() => router.replace({ pathname: "/library", params: { pick: "editor" } })} /></View></SafeAreaView>;
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-    <ScreenHeader title="Chart Editor" right={<Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable>} />
+    <ScreenHeader title="Chart Editor" right={<View style={styles.hRight}><Pressable testID="export-chart-button" onPress={doExport} style={styles.hBtn}><Ionicons name="share-outline" size={15} color={colors.text} /></Pressable><Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable></View>} />
+    {toast && <View pointerEvents="none" style={styles.toast}><Ionicons name="checkmark-circle" size={16} color={colors.lime} /><Text selectable={false} style={styles.toastText}>{toast}</Text></View>}
 
     <View style={styles.songBar}>
       <View style={{ flex: 1 }}><Text selectable={false} style={styles.song} numberOfLines={1}>{selectedSong.title}</Text><Text selectable={false} style={styles.meta} testID="editor-note-count">{notes.length} NOTES · CUSTOM CHART</Text></View>
-      <Pressable testID="editor-change-track-button" onPress={() => router.push("/library")} style={styles.change}><Ionicons name="swap-horizontal" size={15} color={colors.text} /><Text selectable={false} style={styles.changeText}>Change</Text></Pressable>
+      <Pressable testID="editor-change-track-button" onPress={() => router.push({ pathname: "/library", params: { pick: "editor" } })} style={styles.change}><Ionicons name="swap-horizontal" size={15} color={colors.text} /><Text selectable={false} style={styles.changeText}>Change</Text></Pressable>
     </View>
 
     <View style={styles.modeBar}>
@@ -312,6 +320,7 @@ export default function EditorScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   save: { minHeight: 36, paddingHorizontal: 13, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.purple }, saveText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
+  hRight: { flexDirection: "row", alignItems: "center", gap: 8 }, hBtn: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.panelStrong, borderWidth: 1, borderColor: colors.border }, toast: { position: "absolute", top: 92, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 14, backgroundColor: "rgba(20,22,26,0.97)", borderWidth: 1, borderColor: colors.lime, zIndex: 50, shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10 }, toastText: { color: colors.text, fontFamily: fonts.heavy, fontSize: 13 },
   songBar: { minHeight: 56, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border }, song: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy }, meta: { color: colors.purple, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, marginTop: 3, fontFamily: fonts.bold }, change: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, changeText: { color: colors.text, fontSize: 12, fontFamily: fonts.bold },
   modeBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: rgba(0.08) },
   genBtn: { flexDirection: "row", alignItems: "center", gap: 5, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: colors.gold, marginLeft: "auto" }, genText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },

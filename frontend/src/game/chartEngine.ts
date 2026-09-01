@@ -55,8 +55,10 @@ function chartFromOnsets(songId: string, difficulty: Difficulty, duration: numbe
   const cfg = config[difficulty] ?? config.Normal;
   const seed = [...`${songId}${difficulty}`].reduce((sum, char) => sum + char.charCodeAt(0), 1);
   const random = seeded(seed);
-  // Keep the strongest onsets; fraction scales with difficulty.
-  const keepFrac = difficulty === "Easy" ? 0.4 : difficulty === "Normal" ? 0.6 : difficulty === "Hard" ? 0.82 : 1;
+  // Keep only the strongest onsets (the instrumental groove/beat) — sparser on Easy, fuller on Expert.
+  const keepFrac = difficulty === "Easy" ? 0.22 : difficulty === "Normal" ? 0.42 : difficulty === "Hard" ? 0.7 : 1;
+  // Minimum spacing between placed notes so lower difficulties stay comfortably followable.
+  const minGap = difficulty === "Easy" ? 0.5 : difficulty === "Normal" ? 0.32 : difficulty === "Hard" ? 0.2 : 0.13;
   const strengthSorted = [...data.strengths].sort((a, b) => b - a);
   const cutoff = strengthSorted[Math.min(strengthSorted.length - 1, Math.floor(strengthSorted.length * keepFrac))] ?? 0;
   const picks = data.onsets.map((t, i) => ({ t, s: data.strengths[i] })).filter(o => o.s >= cutoff && o.t > 0.05);
@@ -66,7 +68,7 @@ function chartFromOnsets(songId: string, difficulty: Difficulty, duration: numbe
   for (let i = 0; i < picks.length; i++) {
     const time = picks[i].t;
     if (time < 0.05 || time > duration - 0.3) continue;
-    if (time - lastLaneT < 0.09) continue; // avoid stacking on near-identical onsets
+    if (time - lastLaneT < minGap) continue; // enforce difficulty spacing
     lastLaneT = time;
     const gap = (picks[i + 1]?.t ?? time + 1) - time; // silence/space until next hit
     const r = random();

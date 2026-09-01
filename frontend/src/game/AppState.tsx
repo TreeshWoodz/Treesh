@@ -62,6 +62,7 @@ type AppValue = {
   exportChart: (chart: Chart, song: Song) => Promise<void>; importChart: () => Promise<Chart | null>;
   saveChart: (chart: Chart) => Promise<void>; saveResult: (result: ScoreResult) => Promise<void>;
   generateAll: (song: Song, duration: number, onsetData?: OnsetData | null) => Promise<void>;
+  generateFor: (song: Song, duration: number, difficulty: Difficulty, onsetData?: OnsetData | null) => Promise<Chart>;
   updateSettings: (next: Partial<GameSettings>) => Promise<void>; clearLocalData: () => Promise<void>;
   mineSongs: Song[]; refreshLibrary: () => Promise<void>; refreshing: boolean;
 };
@@ -214,6 +215,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     await saveChart(chart); return chart;
   }, [saveChart]);
 
+  // Generate + persist a single difficulty on demand (used right before play, after the player picks).
+  const generateFor = useCallback(async (song: Song, duration: number, difficulty: Difficulty, onsetData?: OnsetData | null) => {
+    const chart = song.id === warmup.id && difficulty === "Normal" ? trainingChart() : generateChart(song.id, song.fileName || song.title, duration, difficulty, onsetData);
+    const key = `${song.id}-${difficulty}`;
+    setCharts(prev => { const next = { ...prev, [key]: chart }; AsyncStorage.setItem(KEYS.charts, JSON.stringify(next)); return next; });
+    return chart;
+  }, []);
+
   // Auto-build charts for every standard difficulty so a song is instantly playable. Standard
   // charts are always regenerated (Custom charts are left untouched) so engine updates take effect.
   const generateAll = useCallback(async (song: Song, duration: number, onsetData?: OnsetData | null) => {
@@ -233,7 +242,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     await Promise.all(Object.values(KEYS).map(key => AsyncStorage.removeItem(key))); setScores([]); setCharts({ "neon-warmup-Normal": trainingChart() }); setSettings(defaultSettings); setSongs(current => current.slice(0, 1));
   }, []);
 
-  const value = useMemo(() => ({ ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, setDifficulty, setTestChart, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing }), [ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing]);
+  const value = useMemo(() => ({ ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, setDifficulty, setTestChart, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, generateFor, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing }), [ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, generateFor, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 

@@ -22,6 +22,9 @@ const weights = { PERFECT: 1, GREAT: 0.75, GOOD: 0.45, MISS: 0 };
 const P_NEAR = 0.12; // lane width at the vanishing point as a fraction of the bottom width
 const laneFrac = (lane: number) => (lane + 0.5) / 4 - 0.5;
 const judgeColor = (g: Judgment) => (g === "PERFECT" ? "#EAF6FF" : g === "GREAT" ? laneColors[1] : g === "GOOD" ? laneColors[3] : "#FF5C7A");
+// Stars from accuracy (half-star tiers) + the Starlite reward for a run.
+export function starsFor(acc: number) { return acc >= 100 ? 5 : acc >= 96 ? 4.5 : acc >= 86 ? 4 : acc >= 80 ? 3.5 : acc >= 70 ? 3 : acc >= 66 ? 2.5 : acc >= 50 ? 2 : 1; }
+export function starlitesFor(stars: number) { return stars >= 5 ? 300 : stars >= 4 ? 150 : stars >= 2.5 ? 100 : 50; }
 
 type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
 
@@ -108,7 +111,7 @@ const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo
 });
 
 // Bright bar shown while a hold is actively sustained — drains from the receptor, leaning along the lane's perspective.
-function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+function ActiveHoldBar({ note, clock, lookahead, geo, traceGlow }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; traceGlow: Reanimated.SharedValue<number> }) {
   const f = laneFrac(note.lane);
   const color = laneColors[note.lane];
   const isWavy = note.type === "wavy";
@@ -122,10 +125,16 @@ function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Rea
     const yTe = geo.topY + geo.span * cte;
     return { height: Math.max(0, geo.bottomY - yTe), transform: [{ translateY: yTe }, { rotateZ: `${tilt}deg` }] };
   });
+  const glowStyle = useAnimatedStyle(() => ({ opacity: traceGlow.value }));
   if (isWavy) {
     const waveW = geo.laneW * 2.2;
     const fullTailPix = Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span));
     return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - waveW / 2, top: 0, width: waveW, overflow: "hidden", transformOrigin: "50% 100%" }, aStyle]}>
+      <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, glowStyle]}>
+        <Svg width={waveW} height={fullTailPix} style={{ position: "absolute", left: 0, bottom: 0 }} pointerEvents="none">
+          <Path d={wavePathData(note, fullTailPix, geo.hw, waveW / 2)} stroke={color} strokeWidth={geo.laneW * 0.66} strokeOpacity={0.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      </Reanimated.View>
       <Svg width={waveW} height={fullTailPix} style={{ position: "absolute", left: 0, bottom: 0 }} pointerEvents="none">
         <Path d={wavePathData(note, fullTailPix, geo.hw, waveW / 2)} stroke={color} strokeWidth={geo.laneW * 0.3} strokeOpacity={0.98} fill="none" strokeLinecap="round" strokeLinejoin="round" />
         <Path d={wavePathData(note, fullTailPix, geo.hw, waveW / 2)} stroke="rgba(255,255,255,0.55)" strokeWidth={geo.laneW * 0.12} fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -190,7 +199,7 @@ export default function GameScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { selectedSong, selectedDifficulty, charts, settings, saveResult, testChart, setTestChart } = useAppState();
-  const { gameComplete, discoverSong, listen } = useStarlites();
+  const { gameComplete, award } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
   const chart = testChart || (selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined);
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 500 });
@@ -264,27 +273,30 @@ export default function GameScreen() {
     if (!chart || !selectedSong || finishing.current) return; finishing.current = true; player.pause(); cancelAnimation(clock);
     if (testChart) { router.back(); return; } // testing a custom chart returns to the editor, no score saved
     const total = chart.notes.length; const c = counts.current; const remaining = chart.notes.filter(n => !resolved.current.has(n.id)).length; if (remaining) c.MISS += remaining;
-    const acc = total ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / total) * 10000) / 100 : 0;
-    const stars = acc >= 97 ? 5 : acc >= 90 ? 4 : acc >= 78 ? 3 : acc >= 60 ? 2 : acc > 0 ? 1 : 0;
+    const hits = c.PERFECT + c.GREAT + c.GOOD; // any successful hit counts fully — no misses = 100%
+    const acc = total ? Math.round((hits / total) * 10000) / 100 : 0;
+    const stars = starsFor(acc);
     const result: ScoreResult = { songId: selectedSong.id, title: selectedSong.title, difficulty: selectedDifficulty, score: scoreRef.current, accuracy: acc, maxCombo: maxCombo.current, stars, perfect: c.PERFECT, great: c.GREAT, good: c.GOOD, miss: c.MISS, totalNotes: total, createdAt: Date.now() };
-    let earned = 0;
-    earned += await gameComplete("Vocotap", total); // Starlites only when the chart has 200+ notes
-    earned += await listen(chart.duration);
-    if (chart.duration > 20) earned += await discoverSong(selectedSong.id);
+    await gameComplete("Vocotap", 0); // count the game; reward is star-based below
+    const earned = await award(starlitesFor(stars), `${stars}★ · ${selectedSong.title}`, true);
     result.starlitesEarned = earned;
     await saveResult(result); setTestChart(null); router.replace("/results");
-  }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, discoverSong, listen, player, clock, setTestChart]);
+  }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, award, player, clock, setTestChart]);
 
-  // Countdown → start audio + clock.
+  // Countdown → start audio + clock. Waits until the audio is actually loaded so playback never
+  // starts silent/out of sync; a 2.5s fallback guarantees the game still begins if loading stalls.
   useEffect(() => {
-    if (!chart || !selectedSong?.uri) return;
+    if (!chart || !selectedSong?.uri || startedRef.current || !(status.isLoaded || forceStart)) return;
+    startedRef.current = true;
     let v = 3; setCountdown(v);
-    const timer = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(timer); scanStart.current = 0; clockStart.current = Date.now(); pauseAccum.current = 0; player.seekTo(0); player.play(); startClock(0); } }, 720);
-    return () => { clearInterval(timer); player.pause(); cancelAnimation(clock); };
-  }, [chart, selectedSong?.uri, player, startClock, clock]);
+    countdownTimer.current = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(countdownTimer.current); scanStart.current = 0; clockStart.current = Date.now(); pauseAccum.current = 0; try { player.seekTo(0); player.play(); } catch {} startClock(0); } }, 720);
+  }, [chart, selectedSong?.uri, status.isLoaded, forceStart, player, startClock]);
+  useEffect(() => { const t = setTimeout(() => setForceStart(true), 2500); return () => clearTimeout(t); }, []);
+  useEffect(() => () => { if (countdownTimer.current) clearInterval(countdownTimer.current); try { player.pause(); } catch {} cancelAnimation(clock); }, [player, clock]);
 
   useEffect(() => { ensureHitAudio().then(uri => hitPlayer.replace({ uri })).catch(() => {}); }, [hitPlayer]);
   useEffect(() => { if (!judgment) return; judgeAnim.setValue(0); Animated.sequence([Animated.spring(judgeAnim, { toValue: 1, friction: 5, tension: 150, useNativeDriver: true }), Animated.delay(260), Animated.timing(judgeAnim, { toValue: 0, duration: 160, useNativeDriver: true })]).start(); }, [judgment, judgeAnim]);
+  useEffect(() => { if (!tracePop) return; traceAnim.setValue(0); Animated.sequence([Animated.spring(traceAnim, { toValue: 1, friction: 5, tension: 140, useNativeDriver: true }), Animated.delay(560), Animated.timing(traceAnim, { toValue: 0, duration: 240, useNativeDriver: true })]).start(); }, [tracePop, traceAnim]);
 
   // Game loop @150ms — pointer-based scan (O(visible)), miss detection, throttled HUD sync.
   useEffect(() => {
@@ -322,7 +334,7 @@ export default function GameScreen() {
       tickCount.current++;
       if (tickCount.current % 3 === 0) {
         const c = counts.current; const done = c.PERFECT + c.GREAT + c.GOOD + c.MISS;
-        setAccuracy(done ? Math.round(((c.PERFECT + c.GREAT * 0.75 + c.GOOD * 0.45) / done) * 1000) / 10 : 100);
+        setAccuracy(done ? Math.round(((c.PERFECT + c.GREAT + c.GOOD) / done) * 1000) / 10 : 100);
         setProgress(Math.min(1, t / duration));
       }
       if (rockRef.current <= 0 && !settings.noFail) { finish(); return; }
@@ -339,17 +351,27 @@ export default function GameScreen() {
     const note = activeHold; const dur = note.duration || 0.4; const end = note.time + dur; const isWavy = note.type === "wavy";
     let litLane = isWavy ? wavyLaneAt(note, jsTime()) : note.lane;
     laneFlash[litLane].setValue(1);
+    let followTicks = 0, totalTicks = 0;
     const timer = setInterval(() => {
       const t = jsTime();
       const reqLane = isWavy ? wavyLaneAt(note, t) : note.lane;
       if (reqLane !== litLane) { Animated.timing(laneFlash[litLane], { toValue: 0, duration: 120, useNativeDriver: true }).start(); litLane = reqLane; laneFlash[litLane].setValue(1); }
       const following = pressed.has(reqLane);
+      if (isWavy) { totalTicks++; if (following) followTicks++; traceGlow.value = withTiming(following ? 1 : 0.2, { duration: 90 }); }
       if (!isWavy && !following && t < end - 0.1) { setActiveHold(null); return; } // hold released early → stop scoring
       if (following) scoreRef.current += Math.round(24 * (pulseActive ? 2 : 1));
-      if (t >= end) { setActiveHold(null); if (following) scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1)); }
+      if (t >= end) {
+        setActiveHold(null);
+        if (following) scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1));
+        if (isWavy && totalTicks > 0 && followTicks / totalTicks >= 0.7) {
+          scoreRef.current += Math.round(500 * (pulseActive ? 2 : 1));
+          setTracePop({ key: Date.now() });
+          if (settings.haptics) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
     }, 80);
-    return () => { clearInterval(timer); Animated.timing(laneFlash[litLane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); };
-  }, [activeHold, jsTime, laneFlash, pulseActive, pressed]);
+    return () => { clearInterval(timer); Animated.timing(laneFlash[litLane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); traceGlow.value = withTiming(0, { duration: 150 }); };
+  }, [activeHold, jsTime, laneFlash, pulseActive, pressed, traceGlow, settings.haptics]);
 
   // Taps only mutate refs + fire native-thread animations — no React state, so rapid/back-to-back tapping stays instant.
   const hitLane = useCallback((lane: number) => {
@@ -380,12 +402,15 @@ export default function GameScreen() {
   // Desktop keyboard controls: D/F/J/K (or arrow keys) drive the 4 lanes.
   useEffect(() => {
     if (Platform.OS !== "web" || typeof window === "undefined") return;
-    const map: Record<string, number> = { d: 0, f: 1, j: 2, k: 3, D: 0, F: 1, J: 2, K: 3, ArrowLeft: 0, ArrowUp: 1, ArrowDown: 2, ArrowRight: 3 };
-    const down = (ev: any) => { const lane = map[ev.key]; if (lane === undefined || ev.repeat) return; ev.preventDefault(); pressed.add(lane); hitLane(lane); };
-    const up = (ev: any) => { const lane = map[ev.key]; if (lane === undefined) return; pressed.delete(lane); };
+    const kb = (settings.keyBindings && settings.keyBindings.length === 4 ? settings.keyBindings : ["a", "s", "d", "f"]).map(k => (k || "").toLowerCase());
+    const map: Record<string, number> = { arrowleft: 0, arrowup: 1, arrowdown: 2, arrowright: 3 };
+    kb.forEach((k, i) => { if (k) map[k] = i; });
+    const laneFor = (key: string) => (key ? map[key.toLowerCase()] : undefined);
+    const down = (ev: any) => { const lane = laneFor(ev.key); if (lane === undefined || ev.repeat) return; ev.preventDefault(); pressed.add(lane); hitLane(lane); };
+    const up = (ev: any) => { const lane = laneFor(ev.key); if (lane === undefined) return; pressed.delete(lane); };
     window.addEventListener("keydown", down); window.addEventListener("keyup", up);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
-  }, [hitLane, pressed]);
+  }, [hitLane, pressed, settings.keyBindings]);
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
   const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
 
@@ -395,7 +420,7 @@ export default function GameScreen() {
   const padW = width / 4;
   const pulseReady = pulse >= 100;
   const charged = pulseReady || pulseActive;
-  const liveStars = accuracy >= 97 ? 5 : accuracy >= 90 ? 4 : accuracy >= 78 ? 3 : accuracy >= 60 ? 2 : accuracy > 0 ? 1 : 0;
+  const liveStars = starsFor(accuracy);
 
   return <View style={styles.root} testID="gameplay-screen">
     <Backdrop coverArt={selectedSong.coverArt} grayscale={settings.grayscaleCovers} />
@@ -405,7 +430,7 @@ export default function GameScreen() {
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} special={charged} rainbow={rainbow} />
-      {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} />}
+      {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} traceGlow={traceGlow} />}
     </View>
 
     <Receptors geo={geo} flash={laneFlash} />
@@ -419,6 +444,7 @@ export default function GameScreen() {
 
     {/* Judgment (per-lane, mid highway) */}
     {judgment && <Animated.Text selectable={false} key={judgment.key} pointerEvents="none" style={[styles.judgment, { color: judgeColor(judgment.grade), left: judgment.x - 90, top: judgment.y, opacity: judgeAnim, transform: [{ translateY: judgeAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{judgment.grade === "MISS" ? "Miss" : judgment.grade === "PERFECT" ? "Perfect" : judgment.grade === "GREAT" ? "Great" : "Good"}</Animated.Text>}
+    {tracePop && <Animated.View key={tracePop.key} pointerEvents="none" style={[styles.tracePop, { top: geo.bottomY - 128, left: geo.cx - 110, opacity: traceAnim, transform: [{ translateY: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }, { scale: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }]}><Ionicons name="sparkles" size={17} color={laneColors[1]} /><Text selectable={false} style={styles.tracePopText}>Nice trace!</Text></Animated.View>}
 
     {/* Top HUD */}
     <View style={[styles.hud, { top: insets.top + 6 }]} pointerEvents="box-none">
@@ -431,7 +457,7 @@ export default function GameScreen() {
       </View>
       <View style={styles.accRow}>
         <View style={styles.accTrack}><LinearGradient colors={["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.accFill, { width: `${accuracy}%` }]} /></View>
-        <View style={styles.liveStars}>{[0, 1, 2, 3, 4].map(n => <Ionicons key={n} name={n < liveStars ? "star" : "star-outline"} size={13} color={n < liveStars ? colors.gold : "rgba(255,255,255,0.28)"} />)}</View>
+        <View style={styles.liveStars}>{[0, 1, 2, 3, 4].map(n => { const full = liveStars >= n + 1; const half = !full && liveStars >= n + 0.5; return <Ionicons key={n} name={full ? "star" : half ? "star-half" : "star-outline"} size={13} color={full || half ? colors.gold : "rgba(255,255,255,0.28)"} />; })}</View>
         <Text selectable={false} style={styles.accText}>{accuracy.toFixed(1)}%</Text>
       </View>
       <View style={styles.progTrack}><View style={[styles.progFill, { width: `${progress * 100}%`, backgroundColor: rock < 30 ? "#FF5C7A" : "rgba(255,255,255,0.5)" }]} /></View>
@@ -464,6 +490,7 @@ const styles = StyleSheet.create({
   comboWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" }, comboGlow: { position: "absolute", width: 110, height: 110, borderRadius: 55, backgroundColor: rgba(0.16), top: -22 },
   combo: { color: colors.text, fontSize: 48, lineHeight: 52, fontFamily: fonts.display, textShadowColor: rgba(0.9), textShadowRadius: 14 }, comboLabel: { color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 5, fontFamily: fonts.heavy, marginTop: 1 },
   judgment: { position: "absolute", width: 180, textAlign: "center", fontSize: 26, fontFamily: fonts.display, letterSpacing: 0.5 },
+  tracePop: { position: "absolute", width: 220, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, tracePopText: { color: "#EAF6FF", fontSize: 24, fontFamily: fonts.display, textShadowColor: "rgba(47,224,214,0.9)", textShadowRadius: 16 },
   hud: { position: "absolute", left: 18, right: 18 }, hudRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   score: { color: colors.text, fontSize: 34, lineHeight: 38, fontFamily: fonts.display, textShadowColor: rgba(0.6), textShadowRadius: 12 }, songMeta: { color: "rgba(245,245,247,0.55)", fontSize: 13, fontFamily: fonts.body, marginTop: 1 },
   pause: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },

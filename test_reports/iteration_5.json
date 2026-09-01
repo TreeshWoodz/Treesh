@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only smoke of Vocotap batch fixes. Home logo + single-star BEST row correct, editor-first flow works, editor records tap/hold/wavy (count=3), Save toast + 'Saved' state, export shows 'Chart file exported', library refresh works on all 3 tabs, difficulty grid shows immediately (no Auto-building), Voco Warmup Easy generate&play enters gameplay with wavy ribbon rendering, results screen renders (5 stars row, 45.45% accuracy, +50 Starlites). One preview-only issue: Treesh-Music-tab songs without a playable uri (CORS blocks treesh.app) still let you tap Play from Song screen and end at game's 'Chart not ready' fallback instead of showing analysis error card.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "analysis.tsx / play()", "issue": "For songs without a playable uri (Treesh Music entries in preview where treesh.app content is CORS-blocked), tapping play-generated-chart-button navigates to /game which then falls through to the 'Chart not ready — Build a chart' screen instead of showing the analysis error card (retry/back/edit). Reproduced with Treesh Music → 'Bankrupt (Freestyle)'. Voco Warmup (built-in with uri) works fine end-to-end.", "testID": "play-generated-chart-button", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "RN Web deprecations", "issue": "Console warns: '\"shadow*\" style props are deprecated. Use \"boxShadow\"', '\"textShadow*\" style props are deprecated. Use \"textShadow\"', 'props.pointerEvents is deprecated. Use style.pointerEvents'. Pre-existing across screens; not blocking but worth cleaning up before ship."}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "In analysis.tsx play(), if !selectedSong.uri: skip navigation to /game and set phase='error' (or disable the Play button + show hint) so Treesh songs missing audio degrade gracefully instead of landing on game's 'Chart not ready' screen.",
+    "Optional cleanup: migrate remaining shadow*, textShadow*, and props.pointerEvents usages to RN 0.76+ web-friendly equivalents to silence console noise."
+  ],
+  "critical_code_review_comments": [
+    "game.tsx guard on line 418 uses !selectedSong?.uri; that fallback is fine, but analysis.tsx doesn't check uri before calling generateFor + router.replace('/game'), leading to a dead-end for Treesh songs without cached audio."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "~95%"},
+  "seed_data_creation": "None (local-first app).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Preview blocks treesh.app CORS, so treeshSongs may lack uri. Use device tab 'Voco Warmup' for a fully-playable end-to-end run. Gameplay uses keyboard A/S/D/F on web. All fixed items in the review request verified working; only pre-existing minor gap is the Treesh-without-uri → game 'Chart not ready' dead-end.",
+  "rca_of_issue": "Analysis play() eagerly navigates to /game after generateFor(), but game.tsx also requires selectedSong.uri. Treesh Music tab entries returned by the fallback catalog can lack a playable uri when the network catalog is CORS-blocked, so navigation succeeds and only game screen shows the 'Chart not ready' guard. Add a uri check in analysis.tsx play() before router.replace('/game')."
+}

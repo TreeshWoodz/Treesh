@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,6 +10,7 @@ import { Song } from "@/src/game/types";
 
 export default function LibraryScreen() {
   const { songs, treeshSongs, charts, selectSong, setDifficulty, importSong, renameSong, deleteSong, deleteChart, exportChart, importChart, mineSongs, refreshLibrary, refreshing } = useAppState();
+  const forEditor = useLocalSearchParams<{ pick?: string }>().pick === "editor";
   const [tab, setTab] = useState<"treesh" | "device" | "customs">("treesh");
   const [query, setQuery] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
@@ -23,8 +24,8 @@ export default function LibraryScreen() {
   const deviceSongs = useMemo(() => { const seen = new Set<string>(); return [...songs, ...mineSongs].filter(s => (s.source === "device" || s.source === "built-in") && !seen.has(s.id) && seen.add(s.id)); }, [songs, mineSongs]);
   const source = tab === "treesh" ? treeshSongs : tab === "device" ? deviceSongs : customSongs;
   const visible = useMemo(() => source.filter(song => `${song.title} ${song.artist}`.toLowerCase().includes(query.toLowerCase())), [source, query]);
-  const choose = (song: Song) => { selectSong(song); if (tab === "customs") { setDifficulty("Custom"); router.push("/game"); } else router.push("/analysis"); };
-  const doImport = async () => { setImportError(null); try { const song = await importSong(); if (song) router.push("/analysis"); } catch (error) { setImportError(error instanceof Error ? error.message : "Import failed. Try another file."); } };
+  const choose = (song: Song) => { selectSong(song); if (forEditor) { router.replace("/editor"); return; } if (tab === "customs") { setDifficulty("Custom"); router.push("/game"); } else router.push("/analysis"); };
+  const doImport = async () => { setImportError(null); try { const song = await importSong(); if (song) { selectSong(song); router.replace(forEditor ? "/editor" : "/analysis"); } } catch (error) { setImportError(error instanceof Error ? error.message : "Import failed. Try another file."); } };
   const doImportChart = async () => { setImportError(null); try { const chart = await importChart(); if (chart) setTab("customs"); } catch (error) { setImportError(error instanceof Error ? error.message : "Couldn't import that chart."); } };
   const openMenu = (song: Song) => { setRenameText(song.title); setArtistText(song.artist); setMenu(song); };
   const doRename = async () => { if (menu) await renameSong(menu.id, renameText, artistText); setMenu(null); };
