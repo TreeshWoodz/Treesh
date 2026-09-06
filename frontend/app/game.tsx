@@ -45,8 +45,8 @@ function wavePathData(note: Note, tailLen: number, hw: number, cx: number) {
     const pts = note.path
       .map((p, i) => {
         const frac = Math.max(0, Math.min(1, note.path!.length > 1 ? i / (note.path!.length - 1) : 0));
-        const dev = Math.max(-0.5, Math.min(0.5, p.x - laneC));
-        return [cx + dev * hw * (1 - 0.4 * frac), tailLen * (1 - frac)] as [number, number];
+        const dev = p.x - laneC; // faithful: no clamp so the exact drawn shape is preserved
+        return [cx + dev * hw * 2 * (1 - 0.3 * frac), tailLen * (1 - frac)] as [number, number];
       })
       .sort((a, b) => b[1] - a[1]);
     return smoothPath(pts);
@@ -97,7 +97,11 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
       {isHold && (isWavy
-        ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: baseW / 2 - waveW / 2, bottom: baseH / 2, overflow: "visible", transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} pointerEvents="none"><Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke={color} strokeWidth={tailW * 0.95} strokeOpacity={0.96} fill="none" strokeLinecap="round" strokeLinejoin="round" /></Svg>
+        ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: baseW / 2 - waveW / 2, bottom: baseH / 2, overflow: "visible", transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} pointerEvents="none">
+            <Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke={color} strokeWidth={tailW * 1.7} strokeOpacity={0.28} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke={color} strokeWidth={tailW} strokeOpacity={0.98} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke="rgba(255,255,255,0.7)" strokeWidth={tailW * 0.32} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
         : <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />)}
       <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.55)" }, capStyle]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
@@ -111,7 +115,7 @@ const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo
 });
 
 // Bright bar shown while a hold is actively sustained — drains from the receptor, leaning along the lane's perspective.
-function ActiveHoldBar({ note, clock, lookahead, geo, traceGlow }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; traceGlow: Reanimated.SharedValue<number> }) {
+function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
   const f = laneFrac(note.lane);
   const color = laneColors[note.lane];
   const isWavy = note.type === "wavy";
@@ -125,22 +129,9 @@ function ActiveHoldBar({ note, clock, lookahead, geo, traceGlow }: { note: Note;
     const yTe = geo.topY + geo.span * cte;
     return { height: Math.max(0, geo.bottomY - yTe), transform: [{ translateY: yTe }, { rotateZ: `${tilt}deg` }] };
   });
-  const glowStyle = useAnimatedStyle(() => ({ opacity: traceGlow.value }));
-  if (isWavy) {
-    const waveW = geo.laneW * 2.2;
-    const fullTailPix = Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span));
-    return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - waveW / 2, top: 0, width: waveW, overflow: "hidden", transformOrigin: "50% 100%" }, aStyle]}>
-      <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, glowStyle]}>
-        <Svg width={waveW} height={fullTailPix} style={{ position: "absolute", left: 0, bottom: 0 }} pointerEvents="none">
-          <Path d={wavePathData(note, fullTailPix, geo.hw, waveW / 2)} stroke={color} strokeWidth={geo.laneW * 0.66} strokeOpacity={0.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      </Reanimated.View>
-      <Svg width={waveW} height={fullTailPix} style={{ position: "absolute", left: 0, bottom: 0 }} pointerEvents="none">
-        <Path d={wavePathData(note, fullTailPix, geo.hw, waveW / 2)} stroke={color} strokeWidth={geo.laneW * 0.3} strokeOpacity={0.98} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        <Path d={wavePathData(note, fullTailPix, geo.hw, waveW / 2)} stroke="rgba(255,255,255,0.55)" strokeWidth={geo.laneW * 0.12} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-    </Reanimated.View>;
-  }
+  // Wavy notes render their own continuous trace as they fall — a separate draining bar distorts it,
+  // so we skip the bar entirely and let the falling wave + the lit receptor lane guide the trace.
+  if (isWavy) return null;
   return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - w / 2, top: 0, width: w, borderRadius: w / 2, backgroundColor: color, transformOrigin: "50% 100%" }, aStyle]}><View style={{ position: "absolute", top: 2, left: w * 0.3, right: w * 0.3, bottom: 2, borderRadius: w / 2, backgroundColor: "rgba(255,255,255,0.35)" }} /></Reanimated.View>;
 }
 
@@ -430,7 +421,7 @@ export default function GameScreen() {
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} special={charged} rainbow={rainbow} />
-      {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} traceGlow={traceGlow} />}
+      {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} />}
     </View>
 
     <Receptors geo={geo} flash={laneFlash} />

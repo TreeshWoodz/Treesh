@@ -19,10 +19,10 @@ function seeded(seed: number) {
 // x is normalized 0..1 across the highway; a swing wider than one lane (0.25) guarantees a lane change.
 function wavePath(lane: number, time: number, dur: number, dir: number): { t: number; x: number }[] {
   const center = (lane + 0.5) / 4;
-  const swing = 0.28;
-  return Array.from({ length: 7 }, (_, k) => {
-    const f = k / 6;
-    const x = center + dir * Math.sin(f * Math.PI * 1.5) * swing;
+  const swing = 0.32; // ~2.5 lanes peak-to-peak — clearly crosses lanes without sweeping edge to edge
+  return Array.from({ length: 9 }, (_, k) => {
+    const f = k / 8;
+    const x = center + dir * Math.sin(f * Math.PI * 2) * swing;
     return { t: time + dur * f, x: Math.max(0.06, Math.min(0.94, x)) };
   });
 }
@@ -48,9 +48,11 @@ export function clampHolds(notes: Note[]): Note[] {
   return sorted;
 }
 
-export type OnsetData = { onsets: number[]; strengths: number[]; bpm: number };
+export type OnsetData = { onsets: number[]; strengths: number[]; lanes?: number[]; bpm: number };
 
-// Turn detected onsets into a playable chart — notes land on real hits, silence stays empty.
+// Turn detected onsets into a playable chart — notes land on real hits, silence stays empty,
+// and each note's LANE comes from the audio's frequency band (bass→0 … treble→3) so it feels
+// musical. A light anti-repeat nudge avoids long runs stuck in one lane.
 function chartFromOnsets(songId: string, difficulty: Difficulty, duration: number, data: OnsetData): Chart {
   const cfg = config[difficulty] ?? config.Normal;
   const seed = [...`${songId}${difficulty}`].reduce((sum, char) => sum + char.charCodeAt(0), 1);
@@ -61,24 +63,25 @@ function chartFromOnsets(songId: string, difficulty: Difficulty, duration: numbe
   const minGap = difficulty === "Easy" ? 0.5 : difficulty === "Normal" ? 0.32 : difficulty === "Hard" ? 0.2 : 0.13;
   const strengthSorted = [...data.strengths].sort((a, b) => b - a);
   const cutoff = strengthSorted[Math.min(strengthSorted.length - 1, Math.floor(strengthSorted.length * keepFrac))] ?? 0;
-  const picks = data.onsets.map((t, i) => ({ t, s: data.strengths[i] })).filter(o => o.s >= cutoff && o.t > 0.05);
+  const picks = data.onsets.map((t, i) => ({ t, s: data.strengths[i], lane: data.lanes?.[i] ?? -1 })).filter(o => o.s >= cutoff && o.t > 0.05);
 
   const notes: Note[] = [];
-  let id = 0; let lane = Math.floor(random() * 4); let dir = random() < 0.5 ? 1 : -1; let lastLaneT = -1;
+  let id = 0; let lane = Math.floor(random() * 4); let dir = random() < 0.5 ? 1 : -1; let lastLaneT = -1; let repeat = 0;
   for (let i = 0; i < picks.length; i++) {
     const time = picks[i].t;
     if (time < 0.05 || time > duration - 0.3) continue;
     if (time - lastLaneT < minGap) continue; // enforce difficulty spacing
     lastLaneT = time;
     const gap = (picks[i + 1]?.t ?? time + 1) - time; // silence/space until next hit
-    const r = random();
-    if (r < 0.62) lane = (lane + dir + 4) % 4; else if (r < 0.82) { dir = -dir; lane = (lane + dir + 4) % 4; } else lane = Math.floor(random() * 4);
+    // Lane straight from the audio's dominant frequency band; nudge if it repeats too long.
+    if (picks[i].lane >= 0) { const bl = picks[i].lane; repeat = bl === lane ? repeat + 1 : 0; lane = repeat >= 3 ? (bl + (random() < 0.5 ? 1 : 3)) % 4 : bl; }
+    else { const r = random(); if (r < 0.62) lane = (lane + dir + 4) % 4; else if (r < 0.82) { dir = -dir; lane = (lane + dir + 4) % 4; } else lane = Math.floor(random() * 4); }
     const base = { id: `${songId}-${difficulty}-${id++}`, time, lane };
     // Long gaps → sustained note; big gaps on strong beats → wave that snakes across lanes.
     if (gap > 1.1 && random() < 0.5) {
       const dur = Math.min(gap - 0.2, 1.6);
-      const dir = random() < 0.5 ? 1 : -1;
-      notes.push({ ...base, type: "wavy", duration: dur, path: wavePath(lane, time, dur, dir) });
+      const wdir = random() < 0.5 ? 1 : -1;
+      notes.push({ ...base, type: "wavy", duration: dur, path: wavePath(lane, time, dur, wdir) });
     } else if (gap > 0.62) {
       notes.push({ ...base, type: "hold", duration: Math.min(gap - 0.15, 1.2) });
     } else {

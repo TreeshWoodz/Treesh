@@ -1,0 +1,41 @@
+{
+  "summary": "Frontend-only verification of the wavy-note overhaul + auto-gen per-difficulty chart building + results screen + editor regression. ALL FOUR SCENARIOS PASS. (1) Wavy visual: Home → Library → On this device → Voco Warmup → Normal → Generate & play Normal renders gameplay after the 3-2-1 countdown with NO crash / no red screen; wavy notes appear as a single clean glowing RIBBON that smoothly snakes across multiple lanes (captured as a clear S-curve trace in normal_frame_02/03) — no distorted/clipped/rotated blob. Pause → Exit song routes back to /library without crash. (2) Auto-gen per difficulty: Easy and Hard both build charts and enter gameplay with no stuck 'Building' state. Easy is visibly sparse (1–2 falling notes per frame) and Hard is visibly dense (5–8+ falling notes per frame) — clear density delta confirms difficulty scaling. (3) Results screen: after the Hard run naturally completed, /results rendered with results-summary-card, results-starlites-card, judgment-breakdown-card, results-replay-button, results-edit-chart-button, results-continue-button all present. Body shows 'Run Complete', accuracy %, MAX COMBO, STARLITES EARNED +50, judgment breakdown (Perfect/Great/Good/Miss). Live stars use half-star tiers (star-half icons visible in the HUD during gameplay). (4) Editor regression: Home → Editor → Choose a track → On this device → Voco Warmup → Skip tutorial → Record → tap board twice → Save — 'Chart saved ✓' toast appears, header shows '2 NOTES · CUSTOM CHART'. No functional issues discovered in the four flows under test.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "styles (game.tsx / editor.tsx / others)", "issue": "Console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' and '\"textShadow*\" style props are deprecated. Use \"textShadow\".' — pre-existing, non-blocking. Reference: /app/frontend/app/game.tsx style sheet (textShadowColor/textShadowRadius) and other screens."},
+      {"component": "props.pointerEvents", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents' — appears from <View pointerEvents=...> usages including /app/frontend/app/game.tsx lines 98, 100, 118, 135, 167, 422, 430, 437, 438, 466."},
+      {"component": "Animated useNativeDriver on web", "issue": "Console warning: 'Animated: useNativeDriver is not supported because the native animated module is missing. Falling back to JS-based animation.' Web-preview only; non-blocking. Reference: /app/frontend/app/game.tsx Animated.timing/Animated.spring calls using useNativeDriver: true."}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/artifacts_iter8/normal_frame_02.jpeg (clean wavy ribbon S-curve across lanes)",
+    "/app/test_reports/artifacts_iter8/normal_frame_03.jpeg",
+    "/app/test_reports/artifacts_iter8/easy_frame_0.jpeg .. easy_frame_4.jpeg (sparse)",
+    "/app/test_reports/artifacts_iter8/hard_frame_0.jpeg .. hard_frame_4.jpeg (dense)",
+    "/app/test_reports/artifacts_iter8/results.jpeg",
+    "/app/test_reports/artifacts_iter8/editor_saved.jpeg"
+  ],
+  "action_items": [
+    "Optional: migrate deprecated shadow*/textShadow*/pointerEvents style props to their non-deprecated equivalents (boxShadow / style.pointerEvents) to silence console warnings — non-blocking.",
+    "External CORS errors for https://treesh.app/content/songs and api.allorigins.win are logged on every load; existing behavior falls back gracefully so this is informational (pre-existing, not caused by this iteration)."
+  ],
+  "critical_code_review_comments": [
+    "/app/frontend/app/game.tsx L41-58 wavePathData: builds smooth quadratic-Bezier path from recorded path or a tapered sine fallback; ribbon rendered as 3 stacked <Path> strokes (glow-halo + main + white core) — this is what produces the clean glowing ribbon look observed in gameplay.",
+    "/app/frontend/app/game.tsx L118-136 ActiveHoldBar early-returns null for wavy notes (isWavy) so the previous distorted active-hold bar is correctly suppressed for wavy sustains — the falling ribbon + lit receptor lane guide the trace instead. Behavior matches the request that this awkward bar was removed.",
+    "/app/frontend/src/game/chartEngine.ts config table: Easy density 0.55/holdEvery 4/waveEvery 8 vs Hard 0.74/holdEvery 3/waveEvery 6/chord 0.12. Onset-based path additionally uses keepFrac Easy 0.22 vs Hard 0.7 and minGap Easy 0.5 vs Hard 0.2. Density delta observed in gameplay matches this table.",
+    "/app/frontend/src/game/chartEngine.ts L20-28 wavePath uses swing=0.32 (~2.5 lanes peak-to-peak) so a generated wave is guaranteed to cross lanes — matches the request that the wave 'must trace across lanes'.",
+    "/app/frontend/app/game.tsx L279-285 countdown effect has a 2.5s forceStart fallback that guarantees the game begins even if audio loading stalls; verified: gameplay-screen was visible with notes after ~6.5s in every attempted run.",
+    "game.tsx is 498 lines — under the 700-line splitting threshold but dense; not flagged as an issue."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (skipped per request)", "frontend": "100% (4/4 scenarios verified end-to-end)" },
+  "seed_data_creation": "None. Used the built-in Voco Warmup trainingChart on the current device library.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Public URL: https://rhythm-game-test.preview.emergentagent.com. Fresh state not required; identity is auto-created. Verified selectors for this flow: browse-library-button, device-library-chip, song-card-neon-warmup, difficulty-easy-chip / difficulty-normal-chip / difficulty-hard-chip, play-generated-chart-button, gameplay-screen, pause-game-button, exit-game-button, results-summary-card, results-starlites-card, judgment-breakdown-card, results-replay-button, results-edit-chart-button, results-continue-button, open-editor-button, editor-open-library-button, editor-record-button, save-chart-button, tutorial-skip-button. On desktop Voco Warmup gameplay is played with A/S/D/F. Voco Warmup uses the built-in trainingChart and includes wavy notes reliably (path present on notes where isWavy && index%12===11). Waiting ~6-7s after tapping play is sufficient to see the first wavy note fall. Track duration is 26s, so waiting ~30s after play reaches /results.",
+  "rca_of_issue": "N/A — no bugs discovered. Both problem behaviors described in the request (awkward wavy holds and random-feeling charts) are resolved: wavy renders as a smooth cross-lane ribbon via SVG quadratic paths (game.tsx L100-104); Easy vs Hard produce visibly different note density driven by chartEngine.ts config + keepFrac + minGap."
+}

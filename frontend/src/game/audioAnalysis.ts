@@ -1,10 +1,12 @@
 import { Platform } from "react-native";
 
-export type AudioAnalysis = { duration: number; onsets: number[]; strengths: number[]; bpm: number };
+export type AudioAnalysis = { duration: number; onsets: number[]; strengths: number[]; lanes: number[]; bpm: number };
 
-// Real onset detection using the Web Audio API. Decodes the file to PCM, builds an
-// energy-novelty curve, and picks peaks — so notes land on actual hits and silent
-// sections produce NO notes. Returns null on native (Expo Go has no decode API).
+// Real, frequency-aware onset detection (Web Audio). Decodes to PCM, splits the signal into
+// four frequency bands with cheap one-pole filters, and picks peaks on a percussive-weighted
+// novelty curve — so notes land on ACTUAL hits (drums/bass over vocals) and silent sections stay
+// empty. Each onset also gets a LANE from its dominant band (bass→0, low-mid→1, high-mid→2,
+// treble→3), so charts feel musical instead of random. Returns null on native (no decode API).
 export async function analyzeAudio(uri: string): Promise<AudioAnalysis | null> {
   if (Platform.OS !== "web" || typeof window === "undefined") return null;
   try {
@@ -21,36 +23,56 @@ export async function analyzeAudio(uri: string): Promise<AudioAnalysis | null> {
       ? mixToMono(audio.getChannelData(0), audio.getChannelData(1))
       : audio.getChannelData(0);
 
-    const hop = Math.floor(sr * 0.011);      // ~11ms frames
-    const win = hop * 2;
-    const frames = Math.floor((ch.length - win) / hop);
-    const energy = new Float32Array(Math.max(0, frames));
+    // One-pole low-pass coefficients for the three split points (→ 4 bands).
+    const a0 = 1 - Math.exp((-2 * Math.PI * 120) / sr);   // < 120 Hz  (kick / bass)
+    const a1 = 1 - Math.exp((-2 * Math.PI * 600) / sr);   // 120-600   (low mids / snare body)
+    const a2 = 1 - Math.exp((-2 * Math.PI * 3500) / sr);  // 600-3500  (vocals / leads)
+
+    const hop = Math.max(1, Math.floor(sr * 0.011));      // ~11 ms frames
+    const frames = Math.floor(ch.length / hop);
+    const be = [new Float32Array(frames), new Float32Array(frames), new Float32Array(frames), new Float32Array(frames)];
+    const total = new Float32Array(frames);
     let globalMax = 1e-6;
-    for (let i = 0; i < frames; i++) {
-      let sum = 0; const start = i * hop;
-      for (let j = 0; j < win; j++) { const s = ch[start + j]; sum += s * s; }
-      const e = Math.sqrt(sum / win);
-      energy[i] = e; if (e > globalMax) globalMax = e;
+    let lp0 = 0, lp1 = 0, lp2 = 0;
+    for (let f = 0; f < frames; f++) {
+      let acc0 = 0, acc1 = 0, acc2 = 0, acc3 = 0, accT = 0;
+      const start = f * hop;
+      for (let j = 0; j < hop; j++) {
+        const x = ch[start + j];
+        lp0 += a0 * (x - lp0); lp1 += a1 * (x - lp1); lp2 += a2 * (x - lp2);
+        const s0 = lp0, s1 = lp1 - lp0, s2 = lp2 - lp1, s3 = x - lp2;
+        acc0 += s0 * s0; acc1 += s1 * s1; acc2 += s2 * s2; acc3 += s3 * s3; accT += x * x;
+      }
+      be[0][f] = Math.sqrt(acc0 / hop); be[1][f] = Math.sqrt(acc1 / hop); be[2][f] = Math.sqrt(acc2 / hop); be[3][f] = Math.sqrt(acc3 / hop);
+      const tt = Math.sqrt(accT / hop); total[f] = tt; if (tt > globalMax) globalMax = tt;
     }
 
-    // Spectral-flux-like novelty: positive energy differences.
-    const novelty = new Float32Array(frames);
-    for (let i = 1; i < frames; i++) novelty[i] = Math.max(0, energy[i] - energy[i - 1]);
+    // Per-band positive novelty (spectral-flux-like) + combined curve that favours the instrumental
+    // groove: down-weight the vocal-heavy mid band, emphasise low (kick/bass) and high (hats).
+    const bw = [1.15, 0.95, 0.5, 1.0];
+    const nov = [new Float32Array(frames), new Float32Array(frames), new Float32Array(frames), new Float32Array(frames)];
+    const combined = new Float32Array(frames);
+    for (let b = 0; b < 4; b++) for (let f = 1; f < frames; f++) nov[b][f] = Math.max(0, be[b][f] - be[b][f - 1]);
+    for (let f = 1; f < frames; f++) combined[f] = bw[0] * nov[0][f] + bw[1] * nov[1][f] + bw[2] * nov[2][f] + bw[3] * nov[3][f];
 
-    // Adaptive peak-pick with a silence gate.
     const silenceGate = globalMax * 0.06;
-    const winAvg = 8;
-    const minGap = 0.10; // seconds between onsets
-    const onsets: number[] = []; const strengths: number[] = [];
+    const winAvg = 9;
+    const minGap = 0.11; // seconds
+    const onsets: number[] = []; const strengths: number[] = []; const lanes: number[] = [];
     let lastT = -1;
     for (let i = 2; i < frames - 2; i++) {
-      if (energy[i] < silenceGate) continue; // skip silence entirely
+      if (total[i] < silenceGate) continue;             // skip silence entirely
       let local = 0, n = 0;
-      for (let k = i - winAvg; k <= i + winAvg; k++) { if (k >= 0 && k < frames) { local += novelty[k]; n++; } }
-      const thresh = (local / Math.max(1, n)) * 1.5 + 1e-5;
-      if (novelty[i] > thresh && novelty[i] >= novelty[i - 1] && novelty[i] >= novelty[i + 1]) {
+      for (let k = i - winAvg; k <= i + winAvg; k++) { if (k >= 0 && k < frames) { local += combined[k]; n++; } }
+      const thresh = (local / Math.max(1, n)) * 1.6 + 1e-5;
+      if (combined[i] > thresh && combined[i] >= combined[i - 1] && combined[i] >= combined[i + 1]) {
         const t = (i * hop) / sr;
-        if (t - lastT >= minGap) { onsets.push(t); strengths.push(novelty[i] / (globalMax + 1e-6)); lastT = t; }
+        if (t - lastT >= minGap) {
+          // Lane = dominant band's raw novelty at this instant → maps the sound to a lane.
+          let lane = 0, top = -1;
+          for (let b = 0; b < 4; b++) { const v = nov[b][i]; if (v > top) { top = v; lane = b; } }
+          onsets.push(t); strengths.push(combined[i] / (globalMax + 1e-6)); lanes.push(lane); lastT = t;
+        }
       }
     }
 
@@ -63,7 +85,7 @@ export async function analyzeAudio(uri: string): Promise<AudioAnalysis | null> {
       let b = 60 / med; while (b < 90) b *= 2; while (b > 180) b /= 2;
       bpm = Math.round(b);
     }
-    return { duration: audio.duration, onsets, strengths, bpm };
+    return { duration: audio.duration, onsets, strengths, lanes, bpm };
   } catch {
     return null;
   }

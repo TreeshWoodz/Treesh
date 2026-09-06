@@ -70,13 +70,14 @@ function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPre
   const translateY = clock.interpolate({ inputRange: [start, note.time, note.time + dur, note.time + dur + 0.3], outputRange: [0, boardH, boardH, boardH + 30], extrapolate: "clamp" });
   const opacity = clock.interpolate({ inputRange: [start, start + 0.12, note.time + dur + 0.1, note.time + dur + 0.4], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
   const tailLen = isHold ? Math.min(boardH, (dur / lookahead) * boardH) : 0;
-  const waveW = laneW * 2.6;
+  const bw = laneW * 4; // full board width — draw the wave faithfully in absolute board coords (matches gameplay + live preview)
+  const wavePath = isWavy ? contourPath(note.path || [], bw, tailLen) : "";
   return <Animated.View style={{ position: "absolute", left: note.lane * laneW + laneW / 2 - size / 2, top: -size / 2, width: size, height: size, opacity, transform: [{ translateY }] }}>
     {isHold && (isWavy
-      ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: size / 2 - waveW / 2, bottom: size * 0.5, overflow: "visible" }} pointerEvents="none">
-          <Path d={waveData(note, tailLen, waveW, waveW / 2)} stroke={color} strokeWidth={size * 0.42} strokeOpacity={0.26} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          <Path d={waveData(note, tailLen, waveW, waveW / 2)} stroke={color} strokeWidth={size * 0.26} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          <Path d={waveData(note, tailLen, waveW, waveW / 2)} stroke="rgba(255,255,255,0.7)" strokeWidth={size * 0.09} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      ? <Svg width={bw} height={tailLen} style={{ position: "absolute", left: -(note.lane * laneW + laneW / 2 - size / 2), bottom: size * 0.5, overflow: "visible" }} pointerEvents="none">
+          <Path d={wavePath} stroke={color} strokeWidth={size * 0.5} strokeOpacity={0.26} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d={wavePath} stroke={color} strokeWidth={size * 0.3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d={wavePath} stroke="rgba(255,255,255,0.7)" strokeWidth={size * 0.1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       : <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />)}
     <Pressable onPress={onPress} style={[styles.eNote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderColor: selected ? colors.text : "rgba(255,255,255,0.7)", borderWidth: selected ? 3 : 2 }]}><Ionicons name={noteIcon[note.type]} size={size * 0.36} color={colors.bg} /></Pressable>
