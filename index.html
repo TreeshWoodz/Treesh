@@ -1739,7 +1739,7 @@ function syncNavHeight(){ const n=document.getElementById("mobile-nav"); let h=0
 /* ============================================================
    RENDER: VIEWS
    ============================================================ */
-function songCard(s, act, opts){ opts=opts||{}; const clean=!!opts.clean; const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
+function songCard(s, act, opts){ opts=opts||{}; const clean=!!opts.clean || !!s._user; const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
   return `<div data-songcard="${s.id}" data-testid="song-card-${s.id}" class="card-lift group relative rounded-2xl border ${active?'border-white/25 glow-purple':'border-white/10 hover:border-white/25'} bg-white/5 backdrop-blur-xl p-2.5">
     <div class="relative overflow-hidden rounded-xl">
       <div class="aspect-square w-full">${img(s.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',`alt="${esc(s.title)}"`)}</div>
@@ -1758,7 +1758,7 @@ function songCard(s, act, opts){ opts=opts||{}; const clean=!!opts.clean; const 
     </div>
   </div>`; }
 
-function songRow(s, i, removable, act, opts){ opts=opts||{}; const clean=!!opts.clean; const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
+function songRow(s, i, removable, act, opts){ opts=opts||{}; const clean=!!opts.clean || !!s._user; const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
   return `<div data-song-row class="group flex items-center gap-3 rounded-xl border ${active?'border-white/20 bg-white/[0.07]':'border-transparent hover:bg-white/5'} px-2.5 py-2 transition">
     <button data-act="${A}" data-id="${s.id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
     <div class="min-w-0 flex-1 cursor-pointer" data-act="${A}" data-id="${s.id}">
@@ -1942,6 +1942,18 @@ function mmSelIds(){ const sel=state.mmSel||{}; return Object.keys(sel).filter(k
 function mmSelClear(){ state.mmSel={}; }
 function mmPlayAll(){ const list=mmSortedList(); if(!list.length) return; state.shuffle=false; playSong(list[0], list); toast("Playing My Music"); }
 function mmShuffle(){ const list=mmSortedList(); if(!list.length) return; state.shuffle=true; const r=list[Math.floor(Math.random()*list.length)]; playSong(r, list); toast("Shuffling My Music"); }
+function weeklyTopSection(){
+  const weekly=weeklyTop(12);
+  if(!weekly.length) return "";
+  return `<section class="space-y-3" data-testid="weekly-top-section">
+    <div class="flex items-center justify-between">
+      <h2 class="flex items-center gap-2 text-lg font-bold"><span class="h-4 w-1 rounded-full" style="background:var(--treesh-gold)"></span>Your Top Tracks This Week</h2>
+      <span class="hidden items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/55 sm:inline-flex"><i data-lucide="flame" class="text-[color:var(--treesh-gold)]" style="width:13px;height:13px"></i>Last 7 days</span>
+    </div>
+    <div class="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 no-scrollbar" data-testid="weekly-top-strip">${weekly.map((w,i)=>{ const s=w.song; const active=curSong()&&curSong().id===s.id; return `<button data-act="wk-play" data-id="${s.id}" data-testid="weekly-top-${s.id}" class="press group relative w-32 shrink-0 text-left"><span class="relative block aspect-square w-full overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute left-1.5 top-1.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-black/60 px-1 text-[10px] font-bold text-white backdrop-blur">${i+1}</span><span class="absolute bottom-1.5 right-1.5 grid h-8 w-8 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 glow-purple"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" class="fill-current" style="width:14px;height:14px"></i></span></span><span class="clamp-1 mt-1.5 block text-xs font-semibold">${esc(s.title)}</span><span class="clamp-1 block text-[11px] text-white/45">${esc(s.artist)} \u00B7 ${w.plays} play${w.plays>1?'s':''}</span></button>`; }).join("")}</div>
+  </section>`;
+}
+
 function myMusicSection(){
   const mine=mmSortedList();
   const count=mine.length;
@@ -1965,11 +1977,6 @@ function myMusicSection(){
   </div>`;
   let body="";
   if(!collapsed){
-    const weekly=weeklyTop(8);
-    if(weekly.length){ body+=`<div class="mb-4" data-testid="weekly-top-strip">
-      <div class="mb-2 flex items-center gap-2"><span class="grid h-6 w-6 place-items-center rounded-md bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:13px;height:13px"></i></span><h3 class="text-sm font-bold">Your Top Tracks This Week</h3></div>
-      <div class="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 no-scrollbar">${weekly.map((w,i)=>{ const s=w.song; const active=curSong()&&curSong().id===s.id; return `<button data-act="wk-play" data-id="${s.id}" data-testid="weekly-top-${s.id}" class="press group relative w-32 shrink-0 text-left"><span class="relative block aspect-square w-full overflow-hidden rounded-xl">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute left-1.5 top-1.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-black/60 px-1 text-[10px] font-bold text-white backdrop-blur">${i+1}</span><span class="absolute bottom-1.5 right-1.5 grid h-8 w-8 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 glow-purple"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" class="fill-current" style="width:14px;height:14px"></i></span></span><span class="clamp-1 mt-1.5 block text-xs font-semibold">${esc(s.title)}</span><span class="clamp-1 block text-[11px] text-white/45">${esc(s.artist)} \u00B7 ${w.plays} play${w.plays>1?'s':''}</span></button>`; }).join("")}</div>
-    </div>`; }
     if(count) body+=`<div class="mb-3">${filterBar('mm')}</div>`;
     if(!count){ body+=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No custom tracks yet. Tap <span class="font-semibold text-white/75">Add</span> to upload your own audio.</div>`; }
     else if(selMode){
@@ -1999,7 +2006,7 @@ function myMusicSection(){
       }
     }
   }
-  return `<section data-testid="my-music-section" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
+  return `<section data-testid="my-music-section">${head}${body}</section>`;
 }
 function paginate(list, key){
   const size=state.libPageSize||0; // 0 = show all
@@ -2064,7 +2071,7 @@ function libraryPlaylistsSection(){
       <button data-act="pl-play" data-id="${pl.id}" data-testid="lib-playlist-play-${pl.id}" aria-label="Play ${esc(pl.name)}" class="press absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white shadow-lg glow-purple transition hover:scale-110"><i data-lucide="play" class="fill-current" style="width:15px;height:15px"></i></button>
       <div class="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button data-act="pl-rename" data-id="${pl.id}" aria-label="Rename" class="press grid h-7 w-7 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"><i data-lucide="pencil" style="width:12px;height:12px"></i></button><button data-act="pl-delete" data-id="${pl.id}" aria-label="Delete" class="press grid h-7 w-7 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70 hover:text-red-300"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button></div>
     </div>`; }).join("")}</div>`; }
-  return `<section data-testid="library-playlists" class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">${head}${body}</section>`;
+  return `<section data-testid="library-playlists">${head}${body}</section>`;
 }
 function songHasLyrics(s){ return !!(s && (s.lyrics||[]).some(l=>l.text && l.text.trim() && !/^\s*\[[^\]]*\]\s*$/.test(l.text))); }
 function filterBar(scope){
@@ -2099,7 +2106,7 @@ function viewLibrary(){
   const chips=["all",...GENRES.filter(g=>g!=="My Music")].map(g=>`<button data-act="genre" data-genre="${g}" class="shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition ${state.genre===g?'border-white/25 bg-white/10 text-white glow-purple':'border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]'}">${g}</button>`).join("");
   let html=`<div class="space-y-7">`;
   if(browse){ html+=`<section class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8"><div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div><div class="relative"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh 3.0</p><h1 class="mt-2 max-w-lg text-3xl font-bold leading-tight sm:text-4xl">Music to <span class="shimmer">Live For</span></h1><p class="mt-2 max-w-md text-sm text-white/60">Stream the underground. ${vis(SONGS).filter(s=>!s._user).length} tracks from the Icons, ready to play.</p><div class="mt-4 flex flex-wrap items-center gap-2"><button data-act="shuffle-all" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle all</button></div></div></section>`;
-    if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); html+=myMusicSection(); html+=libraryPlaylistsSection(); } }
+    if(state.genre==="all"){ html+=whatsNewSection(); html+=picksSection(); html+=weeklyTopSection(); html+=libraryPlaylistsSection(); html+=myMusicSection(); } }
   if(state.query){ html+=`<div class="flex items-center gap-2 text-sm text-white/60"><i data-lucide="search" style="width:16px;height:16px"></i> Results for <span class="font-semibold text-white">\u201C${esc(state.query)}\u201D</span></div>`; }
   const heading = state.query ? "" : (state.genre!=="all" ? state.genre : "All Music");
   const filtersBlock = browse ? (`<div class="mb-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">${chips}</div><div class="mb-5">${filterBar('lib')}</div>`) : "";
@@ -4849,12 +4856,13 @@ function lsWireBar(){
   lsUpdateTransport();
   const sk=$("#ls-seek"); if(sk){ sk.addEventListener("input",()=>{ sk._drag=true; fillSlider(sk); if(state.ls.dur){ const cE=$("#ls-cur"); if(cE) cE.textContent=lsFmt(sk.value/100*state.ls.dur); } }); sk.addEventListener("change",()=>{ if(state.ls.dur) lsSeekTo(sk.value/100*state.ls.dur); sk._drag=false; }); }
 }
-function lsRenderBody(){ const b=$("#ls-body"); if(!b||!state.ls) return; b.innerHTML= state.ls.mode==='write'?lsWriteHtml():lsSyncHtml(); icons(); lsWireBody(); }
+function lsRenderBody(){ const b=$("#ls-body"); if(!b||!state.ls) return; b.innerHTML= state.ls.mode==='write'?lsWriteHtml():lsSyncHtml(); icons(); lsWireBody(); lsSyncTabs(); }
+function lsSyncTabs(){ if(!state.ls) return; $$('[data-act="ls-mode"]').forEach(btn=>{ btn.setAttribute('aria-selected', String(btn.dataset.mode===state.ls.mode)); }); }
 /* ---- Known artist groups (offline, extensible) ----
    Detects when several performers are actually one collective so their
    combined tag shows the group name (e.g. Black Barbie + ZuuBandz = "Perfekt Tenz").
    Seeded with known groups and mergeable with anything the catalog/user defines. */
-const KNOWN_GROUPS_SEED=[{name:"Perfekt Tenz", members:["Black Barbie","ZuuBandz"]}];
+const KNOWN_GROUPS_SEED=[{name:"PerfekTenz", members:["Black Barbie","ZuuBandz"]}];
 function knownGroups(){
   let extra=[]; try{ const g=LS.get("treesh_groups",null); if(Array.isArray(g)) extra=g; }catch(e){}
   // also pull any groups the catalog artists may declare (a.members = [names])
@@ -4892,11 +4900,22 @@ function lsPerformerOptions(){
   const splitRe=/\s*[,&\/+\u00d7]\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|vs\.?|x)\s+/i;
   const all=[]; const push=(n)=>{ n=(n||"").trim(); if(n && !all.some(a=>a.toLowerCase()===n.toLowerCase())) all.push(n); };
   let group=null;
-  const mm=groupMembers(main);              // main artist is itself a known group -> expand to members
-  if(mm && mm.length){ group=canonicalGroupName(main); mm.forEach(push); }
-  else if(main){ String(main).split(splitRe).forEach(push); }   // split collabs in the main credit too
+  // Resolve the real member names from the catalog artist IDs (e.g. "7,5" -> Black Barbie, ZuuBandz)
+  const idNames=[]; if(s && Array.isArray(s.artistIds) && typeof ARTIST_BY_ID!=='undefined'){ s.artistIds.forEach(id=>{ const a=ARTIST_BY_ID[id]; if(a && a.name && !idNames.some(n=>normKey(n)===normKey(a.name))) idNames.push(a.name); }); }
+  const mainIsSingle = main && !splitRe.test(main);              // one credited name, no separators
+  const mainMatchesAnId = idNames.some(n=>normKey(n)===normKey(main));
+  if(mainIsSingle && idNames.length>=2 && !mainMatchesAnId){
+    // Catalog group alias: a single artist NAME (e.g. "PerfekTenz") maps to several artist IDs.
+    group = canonicalGroupName(main);
+    idNames.forEach(push);
+  } else {
+    const mm=groupMembers(main);                                 // registry: the name itself is a known group
+    if(mm && mm.length){ group=canonicalGroupName(main); mm.forEach(push); }
+    else if(main){ String(main).split(splitRe).forEach(push); }  // split collabs in the main credit too
+  }
   if(featStr) String(featStr).split(splitRe).forEach(push);
-  if(!group){ const g=detectGroupName(all); if(g) group=g; }   // members collected together form a known group
+  idNames.forEach(push);                                          // make sure every credited artist can be tagged
+  if(!group){ const g=detectGroupName(all); if(g) group=g; }      // members collected together form a known group
   return { main, all, group };
 }
 function lsWriteHtml(){
