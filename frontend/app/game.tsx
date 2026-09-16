@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient as SvgLinear, Line, Path, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
@@ -38,29 +38,54 @@ function smoothPath(pts: [number, number][]) {
   const last = pts[pts.length - 1]; d += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
   return d;
 }
-function wavePathData(note: Note, tailLen: number, hw: number, cx: number) {
-  const dur = note.duration || 0.4;
-  if (note.path && note.path.length > 1) {
-    const laneC = (note.lane + 0.5) / 4;
-    const pts = note.path
-      .map((p, i) => {
-        const frac = Math.max(0, Math.min(1, note.path!.length > 1 ? i / (note.path!.length - 1) : 0));
-        const dev = p.x - laneC; // faithful: no clamp so the exact drawn shape is preserved
-        return [cx + dev * hw * 2 * (1 - 0.3 * frac), tailLen * (1 - frac)] as [number, number];
-      })
-      .sort((a, b) => b[1] - a[1]);
-    return smoothPath(pts);
-  }
-  const steps = 24; const cycles = Math.max(1.6, tailLen / 46); const amp = cx * 0.5;
-  const pts: [number, number][] = [];
-  for (let i = 0; i <= steps; i++) { const t = i / steps; pts.push([cx + amp * (1 - 0.4 * t) * Math.sin(t * cycles * Math.PI * 2), tailLen * (1 - t)]); }
-  return smoothPath(pts);
-}
+const AnimatedPath = Reanimated.createAnimatedComponent(Path);
+// Wavy note rendered in ABSOLUTE highway space: every frame we project each path point through the
+// same perspective the lanes use (x-fraction → screen x at that depth, time → screen y). This makes
+// the ribbon pass exactly through the real lane positions — faithful to what was drawn, no shear.
+const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+  const color = laneColors[note.lane];
+  const dur = note.duration || 0.5;
+  const pts = note.path && note.path.length > 1 ? note.path : [{ t: note.time, x: (note.lane + 0.5) / 4 }, { t: note.time + dur, x: (note.lane + 0.5) / 4 }];
+  const endT = pts[pts.length - 1].t;
+  const buildD = () => {
+    "worklet";
+    let d = "";
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const prog = (clock.value - (p.t - lookahead)) / lookahead;
+      const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
+      const persp = P_NEAR + (1 - P_NEAR) * cp;
+      const x = geo.cx + (p.x - 0.5) * 2 * geo.hw * persp;
+      const y = geo.topY + geo.span * cp;
+      d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    }
+    return d;
+  };
+  const glow = useAnimatedProps(() => ({ d: buildD() }));
+  const core = useAnimatedProps(() => ({ d: buildD() }));
+  const shine = useAnimatedProps(() => ({ d: buildD() }));
+  const fade = useAnimatedStyle(() => {
+    const head = (clock.value - (note.time - lookahead)) / lookahead;
+    const tail = (clock.value - (endT - lookahead)) / lookahead;
+    let o = 1;
+    if (head < 0.05) o = head / 0.05;
+    if (tail > 1.0) o = 1 - (tail - 1.0) / 0.15;
+    return { opacity: o < 0 ? 0 : o > 1 ? 1 : o };
+  });
+  return <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, fade]}>
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <AnimatedPath animatedProps={glow} stroke={color} strokeWidth={geo.laneW * 0.52} strokeOpacity={0.25} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <AnimatedPath animatedProps={core} stroke={color} strokeWidth={geo.laneW * 0.3} strokeOpacity={0.98} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <AnimatedPath animatedProps={shine} stroke="rgba(255,255,255,0.72)" strokeWidth={geo.laneW * 0.1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  </Reanimated.View>;
+});
+const WavyLayer = React.memo(function WavyLayer({ notes, clock, lookahead, geo }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+  return <>{notes.filter(n => n.type === "wavy").map(n => <WavyNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} />)}</>;
+});
 // Which lane a wavy note occupies at time t — the player must follow it across lanes.
 function wavyLaneAt(note: Note, t: number) {
-  const dur = note.duration || 0.4;
-  const frac = Math.max(0, Math.min(1, (t - note.time) / dur));
-  if (note.path && note.path.length) { const idx = Math.min(note.path.length - 1, Math.round(frac * (note.path.length - 1))); return Math.max(0, Math.min(3, Math.floor(note.path[idx].x * 4))); }
+  if (note.path && note.path.length) { let best = note.path[0], bd = Math.abs(note.path[0].t - t); for (const p of note.path) { const d = Math.abs(p.t - t); if (d < bd) { bd = d; best = p; } } return Math.max(0, Math.min(3, Math.floor(best.x * 4))); }
   return note.lane;
 }
 
@@ -75,7 +100,6 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   const tailW = baseW * 0.4;
   const tailLen = isHold ? Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span)) : 0;
   const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI; // lean the tail toward the vanishing point
-  const waveW = geo.laneW * 2.2; // wide enough to trace multi-lane finger movement
   const aStyle = useAnimatedStyle(() => {
     const prog = (clock.value - (note.time - lookahead)) / lookahead; // 0 at spawn(top) → 1 at receptor
     const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
@@ -96,13 +120,7 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   });
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
-      {isHold && (isWavy
-        ? <Svg width={waveW} height={tailLen} style={{ position: "absolute", left: baseW / 2 - waveW / 2, bottom: baseH / 2, overflow: "visible", transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} pointerEvents="none">
-            <Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke={color} strokeWidth={tailW * 1.7} strokeOpacity={0.28} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke={color} strokeWidth={tailW} strokeOpacity={0.98} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <Path d={wavePathData(note, tailLen, geo.hw, waveW / 2)} stroke="rgba(255,255,255,0.7)" strokeWidth={tailW * 0.32} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        : <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />)}
+      {isHold && !isWavy && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
       <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.55)" }, capStyle]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
       </Reanimated.View>
@@ -420,6 +438,7 @@ export default function GameScreen() {
 
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <WavyLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} />
       <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} special={charged} rainbow={rainbow} />
       {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} />}
     </View>

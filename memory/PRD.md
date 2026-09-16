@@ -25,3 +25,7 @@
 - Editor first-run tutorial: 5-step skippable modal (editor.tsx), auto-shows once a song is selected when editorTutorialSeen=false, persists as seen, replayable via header help button. Verified (iteration_7).
 - Settings Desktop Keys remap (web only): tap a lane then press a key to bind; persists to settings.keyBindings; Reset to A/S/D/F; game.tsx reads bindings. Verified (iteration_7).
 - Media lock-screen next/prev controls: SKIPPED per user.
+
+## Update 5 (Jun 2026)
+- WAVY NOTES REBUILT: root cause was drawing the wave inside each note perspective-scaled+rotated single-lane container (sheared/distorted). New WavyLayer/WavyNote overlay in game.tsx projects each path point through the lane perspective every frame (useAnimatedProps + AnimatedPath) -> clean lane-aligned ribbon, faithful to drawn shape. Editor placed note + preview use absolute contourPath. wavyLaneAt matches by nearest point time. Verified iteration_9.
+- Backlog (not yet built): Chart Sharing (link/code), Practice Mode (slow/loop), Combo Milestones, Per-song Leaderboards.

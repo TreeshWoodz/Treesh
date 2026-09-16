@@ -1,0 +1,42 @@
+{
+  "summary": "Frontend-only verification of the WavyLayer overlay rebuild (dedicated absolute-space projected layer instead of drawing inside each note's rotated/perspective-scaled container). BOTH PRIMARY SCENARIOS PASS. (1) Wavy ribbon render + no crash: Home → browse-library-button → device-library-chip → song-card-neon-warmup → difficulty-normal-chip → play-generated-chart-button → 3-2-1 countdown → gameplay-screen visible for ~13s of play (six frames captured across the run). Wavy notes render as a SINGLE clean glowing ribbon that follows the highway lanes and converges toward the vanishing point (see gp_0.jpeg — a smooth curved ribbon from top-right descending toward the receptor, correctly perspective-projected; gp_1/gp_4 also show clean ribbons). NO sheared/rotated/warped blob, NO red screen, NO crash. pause-game-button → exit-game-button returns to /library cleanly. (2) Editor wave shape faithful: /editor → editor-open-library-button → device-library-chip → Voco Warmup → skipped tutorial → editor-record-button → horizontal sine drag across the board → editor-note-count went from '0 NOTES · CUSTOM CHART' to '1 NOTES · CUSTOM CHART' → save-chart-button → 'Chart saved ✓' toast appeared. The placed wavy note renders as a clean smooth ribbon that visibly matches the drag path (see ed2_04_after_drag.jpeg — the pink ribbon curves from bottom-left up to top-right along the exact drag trajectory). Regression sanity: normal tap notes (colored pills) and hold tail (right-side purple hold bar) render correctly during gameplay; navigation between screens is stable; pause/exit works. Results screen was verified end-to-end in iteration_8 (no results-related code changes this iteration). No new bugs found.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "styles (game.tsx / editor.tsx and others)", "issue": "Console warning (pre-existing, non-blocking): '\"shadow*\" style props are deprecated. Use \"boxShadow\".' and '\"textShadow*\" style props are deprecated. Use \"textShadow\".' — see /app/frontend/app/game.tsx L500-505 (textShadowColor/textShadowRadius) and similar across screens."},
+      {"component": "props.pointerEvents", "issue": "Console warning (pre-existing, non-blocking): 'props.pointerEvents is deprecated. Use style.pointerEvents' — many <View pointerEvents=...> usages in /app/frontend/app/game.tsx (L75, L122, L136-line, L153, L185, L440, L457, L484, L485)."},
+      {"component": "Animated useNativeDriver on web", "issue": "Console warning (pre-existing, non-blocking): 'Animated: useNativeDriver is not supported because the native animated module is missing. Falling back to JS-based animation.' Web-preview only — /app/frontend/app/game.tsx Animated.timing/spring calls with useNativeDriver: true."},
+      {"component": "fontfaceobserver", "issue": "Occasional (flaky) LogBox red-screen 'Uncaught Error - 6000ms timeout exceeded' from node_modules/fontfaceobserver/fontfaceobserver.standalone.js (5:436) when a web font takes too long to load. Seen once during first editor navigation, did not reproduce on second attempt. Non-deterministic and not related to the wavy overhaul, but does briefly cover the editor screen when it fires."}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/artifacts_iter9/gp_0.jpeg (clean wavy ribbon on right lane, converging with perspective)",
+    "/app/test_reports/artifacts_iter9/gp_1.jpeg / gp_2.jpeg / gp_3.jpeg / gp_4.jpeg / gp_5.jpeg (subsequent gameplay frames)",
+    "/app/test_reports/artifacts_iter9/after_exit.jpeg (returned to /library after pause+exit)",
+    "/app/test_reports/artifacts_iter9/ed2_03_recording.jpeg (recording ON)",
+    "/app/test_reports/artifacts_iter9/ed2_04_after_drag.jpeg (placed wavy note faithful to drag path)",
+    "/app/test_reports/artifacts_iter9/ed2_05_saved.jpeg (Chart saved ✓ toast)"
+  ],
+  "action_items": [
+    "Optional/non-blocking: migrate deprecated shadow*/textShadow*/pointerEvents props to their modern equivalents (boxShadow / textShadow / style.pointerEvents) to silence console warnings.",
+    "Optional: guard/replace fontfaceobserver web-font load with a longer timeout or fall back silently — the 6000ms timeout occasionally surfaces as an Uncaught Error red-box on web. This is pre-existing and unrelated to the wavy layer.",
+    "Informational: https://treesh.app/content/songs still returns CORS errors on every load; app falls back gracefully. Pre-existing."
+  ],
+  "critical_code_review_comments": [
+    "/app/frontend/app/game.tsx L45-82: New WavyNote / WavyLayer renders in ABSOLUTE highway space and projects each recorded (t, x) point via the same perspective the lanes use (persp = P_NEAR + (1-P_NEAR)*cp, x = cx + (p.x-0.5)*2*hw*persp, y = topY + span*cp). Ribbon = three stacked AnimatedPaths (glow halo + main + white core). This is what produces the clean lane-aligned ribbon seen in gp_0.jpeg and eliminates the previous shear from the per-note rotateZ/scale wrapper.",
+    "/app/frontend/app/game.tsx L83-85: WavyLayer only filters notes where n.type === 'wavy' and lives above NotesLayer inside a single StyleSheet.absoluteFill container — good separation from FallingNote's per-note transform.",
+    "/app/frontend/app/game.tsx L136-153: ActiveHoldBar early-returns null when isWavy, correctly suppressing the previous distorted draining bar so the falling ribbon + lit receptor guide the trace instead.",
+    "/app/frontend/app/editor.tsx L37-60: editor waveData uses contourPath in absolute board space too, so the placed wavy note matches what the finger drew (verified in ed2_04_after_drag.jpeg).",
+    "game.tsx = 518 lines, editor.tsx = 364 lines, chartEngine.ts = 176 lines — all under the 700-line splitting threshold. No DRY violation for smoothPath (duplicated intentionally in game.tsx and editor.tsx for their respective coordinate systems)."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (skipped per request)", "frontend": "100% (2/2 primary scenarios + regression sanity)" },
+  "seed_data_creation": "None. Used the built-in Voco Warmup training chart (always contains wavy notes).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Public URL: https://rhythm-game-test.preview.emergentagent.com. Mobile viewport 390x844 works. Verified selectors for the wavy flow: browse-library-button, device-library-chip, song-card-neon-warmup, difficulty-normal-chip, play-generated-chart-button, gameplay-screen, pause-game-button, exit-game-button. Verified editor selectors: open-editor-button (from home) or navigate /editor, editor-open-library-button, tutorial-skip-button, editor-record-button, editor-note-count, save-chart-button. Waiting ~4-5s after tapping play covers the 3-2-1 countdown. The WavyLayer overlay projects recorded (t,x) points into absolute highway coords each frame — no per-note rotation/scale wrapping the wave anymore. If you see an occasional 'Uncaught Error - 6000ms timeout exceeded' fontfaceobserver red-box on web, dismiss and retry — it is a pre-existing flaky web-only issue.",
+  "rca_of_issue": "N/A — no bugs found. The wavy-note distortion the user was frustrated with is resolved: previously the wave path was drawn inside each note's rotateZ/scale/perspective wrapper (FallingNote), so the sine got sheared/rotated with the note container. The rebuild moves wavy rendering into a dedicated WavyLayer that lives in absolute highway space and projects each path point through the same perspective transform the lanes use. Result: the ribbon now traces the actual lane centers and follows the highway's vanishing point instead of appearing as a rotated distorted blob."
+}
