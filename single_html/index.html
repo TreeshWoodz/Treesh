@@ -1207,6 +1207,7 @@ const state = {
   // now playing UI
   npOpen: false, showLyrics: false, vinylMode: LS.get("treesh_vinyl", false), queueOpen: false,
   eq: (function(){ const d={enabled:false,preamp:0,preset:'flat',bands:[0,0,0,0,0,0,0,0,0,0]}; try{ const v=LS.get("treesh_eq",null); if(v&&Array.isArray(v.bands)&&v.bands.length===10){ return Object.assign(d,v,{bands:v.bands.map(x=>Math.max(-12,Math.min(12,+x||0)))}); } }catch(e){} return d; })(),
+  eqUser: (function(){ try{ const v=LS.get("treesh_eq_user",[]); if(Array.isArray(v)) return v.filter(p=>p&&p.id&&Array.isArray(p.bands)); }catch(e){} return []; })(),
   palette: null, lyricLines: [],
   favLyrics: LS.get("treesh_fav_lyrics", []),
   gameStats: LS.get("treesh_game_stats", {games:0,totalScore:0,bestScore:0,rounds:0,correct:0,bestStreak:0,perfects:0,lastPlayed:0,bestSong:null,recent:[]}),
@@ -6385,7 +6386,23 @@ function unmountNpViz(){ if(_npVizEntry){ unregisterVizCanvas(_npVizEntry.canvas
    Shares the single Web Audio graph built in ensureVizAudio().
    ============================================================ */
 let _eqVizEntry=null;
-function eqCurrentPreset(){ return (EQ_PRESETS.find(p=>p.id===(state.eq.preset||'custom'))||EQ_PRESETS[EQ_PRESETS.length-1]); }
+function eqCurrentPreset(){ const id=state.eq.preset||'custom'; if(id.indexOf('u:')===0){ const p=(state.eqUser||[]).find(x=>x.id===id.slice(2)); if(p) return {id:id, name:p.name}; } return (EQ_PRESETS.find(p=>p.id===id)||EQ_PRESETS[EQ_PRESETS.length-1]); }
+const _EQ_SEL='border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/20 text-white';
+const _EQ_UNSEL='border-white/12 bg-white/5 text-white/60 hover:bg-white/10';
+function eqChipsHtml(){
+  const cur=state.eq.preset||'flat';
+  const builtin=EQ_PRESETS.map(p=>{ const on=cur===p.id; return `<button type="button" data-eq-preset="${p.id}" data-testid="eq-preset-${p.id}" class="eq-preset press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${on?_EQ_SEL:_EQ_UNSEL}">${p.name}</button>`; }).join('');
+  const users=(state.eqUser||[]).map(p=>{ const on=cur==='u:'+p.id; return `<div data-eq-preset="u:${p.id}" data-testid="eq-preset-u-${p.id}" role="button" tabindex="0" class="eq-preset press relative shrink-0 cursor-pointer rounded-full border py-1.5 pl-3 pr-7 text-xs font-semibold ${on?_EQ_SEL:_EQ_UNSEL}">${esc(p.name)}<button type="button" data-eq-del="${p.id}" aria-label="Delete ${esc(p.name)}" data-testid="eq-preset-del-${p.id}" class="press absolute right-0.5 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-full text-white/45 hover:bg-white/15 hover:text-rose-300"><i data-lucide="x" style="width:12px;height:12px"></i></button></div>`; }).join('');
+  const save=`<button type="button" data-eq-save data-testid="eq-preset-save" class="press shrink-0 inline-flex items-center gap-1 rounded-full border border-dashed border-white/25 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10"><i data-lucide="save" style="width:13px;height:13px"></i>Save</button>`;
+  return builtin+users+save;
+}
+function eqSaveUserPreset(name){ const id='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); const preset={ id, name:(name||'My preset').slice(0,40), bands:(state.eq.bands||[]).slice(0,10).map(x=>Math.max(-12,Math.min(12,+x||0))), preamp:Math.max(-12,Math.min(12,state.eq.preamp||0)) }; state.eqUser=(state.eqUser||[]).concat([preset]); try{ LS.set('treesh_eq_user', state.eqUser); }catch(e){} state.eq.preset='u:'+id; saveEq(); eqRerenderChips(); toast('Preset saved', preset.name); }
+function eqDeleteUserPreset(id){ const p=(state.eqUser||[]).find(x=>x.id===id); state.eqUser=(state.eqUser||[]).filter(x=>x.id!==id); try{ LS.set('treesh_eq_user', state.eqUser); }catch(e){} if(state.eq.preset==='u:'+id){ state.eq.preset='custom'; saveEq(); } eqRerenderChips(); toast('Preset removed', p?p.name:''); }
+function eqRerenderChips(){ const row=document.getElementById('eq-preset-row'); if(!row) return; row.innerHTML=eqChipsHtml(); icons(); eqWireChips(); }
+function eqWireChips(){ const row=document.getElementById('eq-preset-row'); if(!row) return;
+  row.querySelectorAll('[data-eq-preset]').forEach(b=>b.addEventListener('click',()=>eqApplyPreset(b.getAttribute('data-eq-preset'))));
+  row.querySelectorAll('[data-eq-del]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); eqDeleteUserPreset(b.getAttribute('data-eq-del')); }));
+  const sv=row.querySelector('[data-eq-save]'); if(sv) sv.addEventListener('click',()=>{ const base=eqCurrentPreset(); const suggested=(state.eq.preset&&state.eq.preset.indexOf('u:')===0)?base.name:'My preset'; openPrompt2('Name your preset', suggested, eqSaveUserPreset, 'Save'); }); }
 function eqBandSlider(i){ const val=Math.max(-12,Math.min(12,(state.eq.bands&&state.eq.bands[i])||0)); const fill=((val+12)/24*100); return `<div class="eq-col" data-testid="eq-col-${i}">
     <span class="eq-db font-doto text-[10px] text-white/55" id="eq-db-${i}">${val>0?'+':''}${val}</span>
     <div class="eq-track"><input id="eq-band-${i}" type="range" min="-12" max="12" step="1" value="${val}" data-band="${i}" data-testid="eq-band-${i}" style="--fill:${fill}%" aria-label="${EQ_LABELS[i]} Hz gain"></div>
@@ -6393,7 +6410,7 @@ function eqBandSlider(i){ const val=Math.max(-12,Math.min(12,(state.eq.bands&&st
   </div>`; }
 function openEqualizer(){
   const eqOn=!!state.eq.enabled;
-  const chips=EQ_PRESETS.map(p=>{ const on=(state.eq.preset||'flat')===p.id; return `<button type="button" data-eq-preset="${p.id}" data-testid="eq-preset-${p.id}" class="eq-preset press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${on?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/20 text-white':'border-white/12 bg-white/5 text-white/60 hover:bg-white/10'}">${p.name}</button>`; }).join('');
+  const chips=eqChipsHtml();
   const preampFill=((state.eq.preamp+12)/24*100);
   const inner=`<div class="relative">
     <div class="mb-3 flex items-center gap-3">
@@ -6404,7 +6421,7 @@ function openEqualizer(){
     </div>
     <div id="eq-body" class="${eqOn?'':'opacity-45 pointer-events-none'} transition-opacity">
       <div class="relative mb-3 h-16 w-full overflow-hidden rounded-2xl border border-white/10 bg-black/40"><canvas id="eq-viz-canvas" class="h-full w-full"></canvas></div>
-      <div class="mb-3 -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1 no-scrollbar" data-testid="eq-presets">${chips}</div>
+      <div id="eq-preset-row" class="mb-3 -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1 no-scrollbar" data-testid="eq-presets">${chips}</div>
       <div class="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5">
         <div class="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-white/45"><span class="flex items-center gap-1.5"><i data-lucide="gauge" style="width:13px;height:13px"></i>Preamp</span><span id="eq-preamp-val" class="font-doto text-white/70">${state.eq.preamp>0?'+':''}${state.eq.preamp} dB</span></div>
         <input id="eq-preamp" type="range" min="-12" max="12" step="1" value="${state.eq.preamp}" class="tr w-full" style="--fill:${preampFill}%" data-testid="eq-preamp" aria-label="Preamp">
@@ -6427,10 +6444,18 @@ function openEqualizer(){
 function eqSetBodyEnabled(on){ const body=document.getElementById('eq-body'); if(body){ body.classList.toggle('opacity-45',!on); body.classList.toggle('pointer-events-none',!on); } const tg=document.getElementById('eq-toggle'); if(tg){ tg.setAttribute('aria-checked',on?'true':'false'); tg.classList.toggle('bg-[color:var(--treesh-purple)]',on); tg.classList.toggle('bg-white/15',!on); const knob=tg.querySelector('span'); if(knob){ knob.classList.toggle('translate-x-6',on); knob.classList.toggle('translate-x-1',!on); } } }
 function eqHighlightPreset(){ const cur=state.eq.preset||'custom'; document.querySelectorAll('#modal [data-eq-preset]').forEach(b=>{ const on=b.getAttribute('data-eq-preset')===cur; b.classList.toggle('border-[color:var(--treesh-purple)]',on); b.classList.toggle('bg-[color:var(--treesh-purple)]/20',on); b.classList.toggle('text-white',on); b.classList.toggle('border-white/12',!on); b.classList.toggle('bg-white/5',!on); b.classList.toggle('text-white/60',!on); }); }
 function eqSyncBandUI(){ for(let i=0;i<10;i++){ const el=document.getElementById('eq-band-'+i); const v=Math.max(-12,Math.min(12,(state.eq.bands&&state.eq.bands[i])||0)); if(el){ el.value=v; el.style.setProperty('--fill',((v+12)/24*100)+'%'); } const lbl=document.getElementById('eq-db-'+i); if(lbl) lbl.textContent=(v>0?'+':'')+v; } }
-function eqApplyPreset(id){ const p=EQ_PRESETS.find(x=>x.id===id); if(!p) return; state.eq.preset=id; if(p.g){ state.eq.bands=p.g.slice(); } eqSyncBandUI(); eqHighlightPreset(); eqApply(); saveEq(); }
+function eqApplyPreset(id){
+  let bands=null, preamp=null;
+  if(id && id.indexOf('u:')===0){ const p=(state.eqUser||[]).find(x=>x.id===id.slice(2)); if(!p) return; bands=p.bands.slice(); preamp=(p.preamp!=null?p.preamp:null); }
+  else { const p=EQ_PRESETS.find(x=>x.id===id); if(!p) return; if(p.g) bands=p.g.slice(); }
+  state.eq.preset=id;
+  if(bands){ state.eq.bands=bands; }
+  if(preamp!=null){ state.eq.preamp=Math.max(-12,Math.min(12,preamp)); const pa=document.getElementById('eq-preamp'); if(pa){ pa.value=state.eq.preamp; pa.style.setProperty('--fill',((state.eq.preamp+12)/24*100)+'%'); } const l=document.getElementById('eq-preamp-val'); if(l) l.textContent=(state.eq.preamp>0?'+':'')+state.eq.preamp+' dB'; }
+  eqSyncBandUI(); eqHighlightPreset(); eqApply(); saveEq();
+}
 function eqWire(){
   const tg=document.getElementById('eq-toggle'); if(tg) tg.addEventListener('click',()=>{ state.eq.enabled=!state.eq.enabled; eqSetBodyEnabled(state.eq.enabled); if(state.eq.enabled){ eqEnsure(); } else { eqApply(); } saveEq(); toast(state.eq.enabled?'Equalizer on':'Equalizer off'); });
-  document.querySelectorAll('#modal [data-eq-preset]').forEach(b=>b.addEventListener('click',()=>{ eqApplyPreset(b.getAttribute('data-eq-preset')); }));
+  eqWireChips();
   for(let i=0;i<10;i++){ const el=document.getElementById('eq-band-'+i); if(!el) continue; el.addEventListener('input',()=>{ const v=Math.max(-12,Math.min(12,+el.value)); state.eq.bands[i]=v; el.style.setProperty('--fill',((v+12)/24*100)+'%'); const lbl=document.getElementById('eq-db-'+i); if(lbl) lbl.textContent=(v>0?'+':'')+v; state.eq.preset='custom'; eqHighlightPreset(); eqApply(); saveEq(); }); }
   const pa=document.getElementById('eq-preamp'); if(pa) pa.addEventListener('input',()=>{ const v=Math.max(-12,Math.min(12,+pa.value)); state.eq.preamp=v; pa.style.setProperty('--fill',((v+12)/24*100)+'%'); const l=document.getElementById('eq-preamp-val'); if(l) l.textContent=(v>0?'+':'')+v+' dB'; eqApply(); saveEq(); });
   const rs=document.getElementById('eq-reset'); if(rs) rs.addEventListener('click',()=>{ eqApplyPreset('flat'); state.eq.preamp=0; const pa2=document.getElementById('eq-preamp'); if(pa2){ pa2.value=0; pa2.style.setProperty('--fill','50%'); } const l=document.getElementById('eq-preamp-val'); if(l) l.textContent='0 dB'; eqApply(); saveEq(); toast('Reset to flat'); });
