@@ -1,5 +1,6 @@
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
 import { LogBox, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { LoadingScreen } from "@/src/components/LoadingScreen";
@@ -9,7 +10,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { useAppFonts } from "@/src/hooks/use-app-fonts";
-import { AppStateProvider } from "@/src/game/AppState";
+import { AppStateProvider, useAppState } from "@/src/game/AppState";
 import { StarlitesProvider, useStarlites } from "@/src/game/starlites";
 import { colors } from "@/src/game/theme";
 
@@ -79,7 +80,24 @@ export default function RootLayout() {
 
 function AppStack() {
   const { toast, dismissToast } = useStarlites();
+  const { ready, importChartFromCode } = useAppState();
   const [booting, setBooting] = useState(true);
+
+  // Deep-link chart import: opening a shared vocotap:// link (or any URL carrying a VOCO1- code)
+  // imports the chart and drops the player into the Customs library.
+  useEffect(() => {
+    if (!ready) return;
+    let done = false;
+    const handle = async (url: string | null) => {
+      if (!url || done || !url.includes("VOCO1-")) return;
+      done = true;
+      try { const chart = await importChartFromCode(url); if (chart) router.push("/library"); } catch {}
+    };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const sub = Linking.addEventListener("url", e => { done = false; handle(e.url); });
+    return () => sub.remove();
+  }, [ready, importChartFromCode]);
+
   return <View style={styles.root}>
     <Stack screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: colors.bg } }} />
     {toast && <Pressable testID="starlites-toast" onPress={dismissToast} style={styles.toast}>

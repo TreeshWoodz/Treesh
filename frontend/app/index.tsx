@@ -71,7 +71,10 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topbar}>
           <Pressable testID="home-profile-button" onPress={() => setProfileOpen(true)} style={styles.greet}><Avatar avatar={avatar} nickname={nickname} size={44} /><View><Text style={styles.byline}>WELCOME BACK</Text><Text style={styles.greetName} numberOfLines={1}>{nickname}</Text></View></Pressable>
-          <Pressable testID="home-starlites-button" onPress={() => setStarsOpen(true)} style={styles.stars}><Ionicons name="sparkles" size={16} color={colors.gold} /><Text style={styles.starsText}>{stars.points.toLocaleString()}</Text></Pressable>
+          <View style={styles.topRight}>
+            <Pressable testID="home-leaderboards-button" onPress={() => router.push("/leaderboards")} style={styles.iconPill}><Ionicons name="trophy" size={16} color={colors.gold} /></Pressable>
+            <Pressable testID="home-starlites-button" onPress={() => setStarsOpen(true)} style={styles.stars}><Ionicons name="sparkles" size={16} color={colors.gold} /><Text style={styles.starsText}>{stars.points.toLocaleString()}</Text></Pressable>
+          </View>
         </View>
 
         <Animated.View style={fade}>
@@ -179,6 +182,7 @@ const styles = StyleSheet.create({
   greet: { flexDirection: "row", alignItems: "center", gap: 11 }, greetName: { color: colors.text, fontSize: 18, fontFamily: fonts.heavy, maxWidth: 150 },
   byline: { color: colors.muted, fontSize: 10, fontWeight: "800", letterSpacing: 2, fontFamily: fonts.bold }, logoImg: { width: 300, height: 160, marginBottom: 4, marginLeft: -6, marginTop: -6 },
   stars: { minHeight: 40, flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 14, borderRadius: 20, backgroundColor: rgba(0.1), borderWidth: 1, borderColor: rgba(0.32) }, starsText: { color: colors.gold, fontFamily: fonts.heavy, fontSize: 14 },
+  topRight: { flexDirection: "row", alignItems: "center", gap: 8 }, iconPill: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: rgba(0.1), borderWidth: 1, borderColor: rgba(0.32) },
   title: { color: colors.text, fontSize: 38, lineHeight: 41, fontFamily: fonts.display, letterSpacing: -0.5, marginTop: 2 }, titleAccent: { color: colors.purple }, subtitle: { color: colors.muted, marginTop: 12, fontSize: 15, lineHeight: 22, maxWidth: 320, fontFamily: fonts.body },
   featured: { height: 220, borderRadius: 26, overflow: "hidden", justifyContent: "space-between", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", shadowColor: "#000", shadowOpacity: 0.55, shadowRadius: 22, shadowOffset: { width: 0, height: 14 }, elevation: 14 }, featuredArt: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
   featuredTop: { flexDirection: "row", padding: 16, justifyContent: "space-between", alignItems: "flex-start" }, featuredTag: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 11, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)" }, liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.lime }, featuredTagText: { color: colors.text, fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },

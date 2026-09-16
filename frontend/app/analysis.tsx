@@ -58,8 +58,9 @@ export default function AnalysisScreen() {
     return native;
   };
 
-  const play = async () => {
-    if (selectedDifficulty === "Custom") { router.replace("/game"); return; }
+  const play = async (isPractice = false) => {
+    const target = isPractice ? { pathname: "/game" as const, params: { practice: "1" } } : ("/game" as const);
+    if (selectedDifficulty === "Custom") { router.replace(target); return; }
     if (!selectedSong.uri) { setPhase("error"); return; } // no playable audio (e.g. CORS-blocked) → offer retry/back/edit
     try {
       const durHint = status.duration && status.duration > 1 ? status.duration : selectedSong.duration || 180;
@@ -68,7 +69,7 @@ export default function AnalysisScreen() {
       const duration = onsets?.duration && onsets.duration > 1 ? onsets.duration : durHint;
       const chart = await generateFor(selectedSong, duration, selectedDifficulty, onsets);
       if (!chart.notes.length) throw new Error("empty-chart");
-      router.replace("/game");
+      router.replace(target);
     } catch { setPhase("error"); }
   };
   const retry = () => { onsetsPromise.current = selectedSong.uri ? analyzeAudio(selectedSong.uri).catch(() => null) : Promise.resolve(null); setPhase("pick"); play(); };
@@ -106,7 +107,8 @@ export default function AnalysisScreen() {
               <Text style={[styles.diffNote, active && { color: "rgba(10,10,11,0.7)" }]}>{meta[d].note}</Text>
             </Pressable>; })}
           </View>
-          <NeonButton testID="play-generated-chart-button" label={selectedDifficulty === "Custom" ? "Play custom chart" : `Generate & play ${selectedDifficulty}`} icon="play" onPress={play} />
+          <NeonButton testID="play-generated-chart-button" label={selectedDifficulty === "Custom" ? "Play custom chart" : `Generate & play ${selectedDifficulty}`} icon="play" onPress={() => play(false)} />
+          <NeonButton testID="practice-mode-button" label="Practice mode (slow + loop)" icon="school" variant="secondary" onPress={() => play(true)} />
           <NeonButton testID="edit-generated-chart-button" label={hasCustom ? "Edit custom chart" : "Create a custom chart"} icon="options" variant="secondary" onPress={() => router.push("/editor")} />
         </>}
     </ScrollView>

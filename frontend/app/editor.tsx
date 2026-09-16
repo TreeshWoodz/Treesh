@@ -8,9 +8,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import Slider from "@react-native-community/slider";
 import { NeonButton, ScreenHeader } from "@/src/components/ui";
+import { ShareCodeModal } from "@/src/components/ShareCodeModal";
 import { useAppState } from "@/src/game/AppState";
 import { colors, laneColors, fonts, rgba } from "@/src/game/theme";
 import { clampHolds, generateChart } from "@/src/game/chartEngine";
+import { encodeChartCode } from "@/src/game/shareCode";
 import { Chart, Note } from "@/src/game/types";
 
 const noteIcon = { tap: "ellipse", hold: "remove", wavy: "water", slide: "arrow-forward", chord: "grid", special: "sparkles" } as const;
@@ -109,6 +111,7 @@ export default function EditorScreen() {
   const [drawTick, setDrawTick] = useState(0);
   const [boardH, setBoardH] = useState(0);
   const [showHint, setShowHint] = useState(true);
+  const [shareCode, setShareCode] = useState<string | null>(null);
 
   const clock = useRef(new Animated.Value(0)).current;
   const clockStart = useRef(0);
@@ -224,6 +227,10 @@ export default function EditorScreen() {
     if (!selectedSong || !notes.length) { setToast("Add notes before exporting"); return; }
     try { await exportChart(buildChart(), selectedSong); setToast("Chart file exported"); } catch { setToast("Export failed"); }
   };
+  const doShareCode = () => {
+    if (!selectedSong || !notes.length) { setToast("Add notes before sharing"); return; }
+    try { setShareCode(encodeChartCode(buildChart(), selectedSong)); } catch { setToast("Couldn't build a code"); }
+  };
 
   // Play the current in-editor chart immediately — no save required.
   const test = () => {
@@ -249,7 +256,8 @@ export default function EditorScreen() {
   if (!selectedSong) return <SafeAreaView style={styles.safe} edges={["top"]}><ScreenHeader title="Chart Editor" /><View style={styles.empty}><Ionicons name="musical-notes-outline" size={44} color={colors.purple} /><Text selectable={false} style={styles.emptyTitle}>Choose a track first</Text><Text selectable={false} style={styles.emptyCopy}>Pick a song to build a custom chart for.</Text><NeonButton testID="editor-open-library-button" label="Choose a track" icon="library" onPress={() => router.replace({ pathname: "/library", params: { pick: "editor" } })} /></View></SafeAreaView>;
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-    <ScreenHeader title="Chart Editor" right={<View style={styles.hRight}><Pressable testID="editor-help-button" onPress={() => { setTStep(0); setTutorial(true); }} style={styles.hBtn}><Ionicons name="help" size={16} color={colors.text} /></Pressable><Pressable testID="export-chart-button" onPress={doExport} style={styles.hBtn}><Ionicons name="share-outline" size={15} color={colors.text} /></Pressable><Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable></View>} />
+    <ScreenHeader title="Chart Editor" right={<View style={styles.hRight}><Pressable testID="editor-help-button" onPress={() => { setTStep(0); setTutorial(true); }} style={styles.hBtn}><Ionicons name="help" size={16} color={colors.text} /></Pressable><Pressable testID="editor-share-code-button" onPress={doShareCode} style={styles.hBtn}><Ionicons name="share-social-outline" size={15} color={colors.text} /></Pressable><Pressable testID="export-chart-button" onPress={doExport} style={styles.hBtn}><Ionicons name="download-outline" size={15} color={colors.text} /></Pressable><Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable></View>} />
+    <ShareCodeModal visible={!!shareCode} code={shareCode || ""} title={selectedSong.title} onClose={() => setShareCode(null)} />
     {toast && <View pointerEvents="none" style={styles.toast}><Ionicons name="checkmark-circle" size={16} color={colors.lime} /><Text selectable={false} style={styles.toastText}>{toast}</Text></View>}
     <Modal visible={tutorial} transparent animationType="fade" onRequestClose={endTutorial}>
       <View style={styles.tutOverlay}>

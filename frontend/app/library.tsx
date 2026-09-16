@@ -4,12 +4,15 @@ import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader, NeonButton, SongCover } from "@/src/components/ui";
+import { ShareCodeModal } from "@/src/components/ShareCodeModal";
+import { ImportCodeModal } from "@/src/components/ImportCodeModal";
 import { useAppState } from "@/src/game/AppState";
+import { encodeChartCode } from "@/src/game/shareCode";
 import { colors, fonts } from "@/src/game/theme";
 import { Song } from "@/src/game/types";
 
 export default function LibraryScreen() {
-  const { songs, treeshSongs, charts, selectSong, setDifficulty, importSong, renameSong, deleteSong, deleteChart, exportChart, importChart, mineSongs, refreshLibrary, refreshing } = useAppState();
+  const { songs, treeshSongs, charts, selectSong, setDifficulty, importSong, renameSong, deleteSong, deleteChart, exportChart, importChart, importChartFromCode, mineSongs, refreshLibrary, refreshing } = useAppState();
   const forEditor = useLocalSearchParams<{ pick?: string }>().pick === "editor";
   const [tab, setTab] = useState<"treesh" | "device" | "customs">("treesh");
   const [query, setQuery] = useState("");
@@ -19,6 +22,9 @@ export default function LibraryScreen() {
   const [artistText, setArtistText] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [importCodeOpen, setImportCodeOpen] = useState(false);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [shareTitle, setShareTitle] = useState("");
 
   const customSongs = useMemo(() => songs.filter(s => charts[`${s.id}-Custom`]), [songs, charts]);
   const deviceSongs = useMemo(() => { const seen = new Set<string>(); return [...songs, ...mineSongs].filter(s => (s.source === "device" || s.source === "built-in") && !seen.has(s.id) && seen.add(s.id)); }, [songs, mineSongs]);
@@ -31,6 +37,8 @@ export default function LibraryScreen() {
   const doRename = async () => { if (menu) await renameSong(menu.id, renameText, artistText); setMenu(null); };
   const doDelete = async () => { if (menu) await deleteSong(menu.id); setMenu(null); };
   const doExport = async () => { if (menu && charts[`${menu.id}-Custom`]) await exportChart(charts[`${menu.id}-Custom`], menu); setMenu(null); };
+  const doShareCode = () => { if (menu && charts[`${menu.id}-Custom`]) { setShareTitle(menu.title); setShareCode(encodeChartCode(charts[`${menu.id}-Custom`], menu)); } setMenu(null); };
+  const doImportCode = async (code: string) => { try { const chart = await importChartFromCode(code); if (chart) { setTab("customs"); return true; } return false; } catch { return false; } };
   const togglePick = (id: string) => setPicked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const deletePicked = async () => { for (const id of picked) await deleteChart(`${id}-Custom`); setPicked(new Set()); setSelectMode(false); };
   const onCardPress = (song: Song) => { if (tab === "customs" && selectMode) togglePick(song.id); else choose(song); };
@@ -68,9 +76,15 @@ export default function LibraryScreen() {
     <View style={styles.importBar}>
       {importError && <Pressable testID="import-error-banner" onPress={() => setImportError(null)} style={styles.errorBanner}><Ionicons name="alert-circle" size={16} color="#FF4D6D" /><Text style={styles.errorText} numberOfLines={2}>{importError}</Text><Ionicons name="close" size={15} color={colors.muted} /></Pressable>}
       {tab === "customs" && selectMode ? <NeonButton testID="delete-selected-charts" label={`Delete ${picked.size} selected`} icon="trash" variant="danger" onPress={deletePicked} />
-        : tab === "customs" ? <NeonButton testID="import-chart-button" label="Import chart file" icon="download" variant="secondary" onPress={doImportChart} />
+        : tab === "customs" ? <>
+            <NeonButton testID="import-code-button" label="Import from code" icon="link" onPress={() => setImportCodeOpen(true)} />
+            <NeonButton testID="import-chart-button" label="Import chart file" icon="download" variant="secondary" onPress={doImportChart} />
+          </>
         : <NeonButton testID="import-audio-button" label="Import audio from device" icon="add" onPress={doImport} />}
     </View>
+
+    <ImportCodeModal visible={importCodeOpen} onClose={() => setImportCodeOpen(false)} onImport={doImportCode} />
+    <ShareCodeModal visible={!!shareCode} code={shareCode || ""} title={shareTitle} onClose={() => setShareCode(null)} />
 
     <Modal visible={!!menu} transparent animationType="fade" onRequestClose={() => setMenu(null)}>
       <Pressable style={styles.modalBg} onPress={() => setMenu(null)}>
@@ -79,7 +93,8 @@ export default function LibraryScreen() {
           <TextInput testID="song-rename-input" value={renameText} onChangeText={setRenameText} placeholder="Song name" placeholderTextColor="#6D6F78" style={styles.sheetInput} />
           <TextInput testID="song-artist-input" value={artistText} onChangeText={setArtistText} placeholder="Artist name" placeholderTextColor="#6D6F78" style={styles.sheetInput} />
           <NeonButton testID="song-rename-save" label="Save changes" icon="checkmark" onPress={doRename} />
-          {menu && charts[`${menu.id}-Custom`] && <NeonButton testID="song-export-chart" label="Export custom chart" icon="share-outline" variant="secondary" onPress={doExport} />}
+          {menu && charts[`${menu.id}-Custom`] && <NeonButton testID="song-share-code" label="Share chart code" icon="share-social" variant="secondary" onPress={doShareCode} />}
+          {menu && charts[`${menu.id}-Custom`] && <NeonButton testID="song-export-chart" label="Export custom chart" icon="download-outline" variant="secondary" onPress={doExport} />}
           <NeonButton testID="song-delete" label={menu?.source === "built-in" ? "Hide Voco Warmup" : "Delete song"} icon="trash" variant="danger" onPress={doDelete} />
           <Pressable testID="song-menu-close" onPress={() => setMenu(null)} style={styles.sheetCancel}><Text style={styles.sheetCancelText}>Cancel</Text></Pressable>
         </Pressable>

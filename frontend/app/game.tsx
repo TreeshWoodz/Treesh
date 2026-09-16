@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
@@ -25,6 +25,9 @@ const judgeColor = (g: Judgment) => (g === "PERFECT" ? "#EAF6FF" : g === "GREAT"
 // Stars from accuracy (half-star tiers) + the Starlite reward for a run.
 export function starsFor(acc: number) { return acc >= 100 ? 5 : acc >= 96 ? 4.5 : acc >= 86 ? 4 : acc >= 80 ? 3.5 : acc >= 70 ? 3 : acc >= 66 ? 2.5 : acc >= 50 ? 2 : 1; }
 export function starlitesFor(stars: number) { return stars >= 5 ? 300 : stars >= 4 ? 150 : stars >= 2.5 ? 100 : 50; }
+const MILESTONES = [50, 100, 200];
+const MBONUS = [25, 50, 100];
+const SPEEDS = [0.5, 0.75, 1];
 
 type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
 
@@ -210,6 +213,8 @@ export default function GameScreen() {
   const { selectedSong, selectedDifficulty, charts, settings, saveResult, testChart, setTestChart } = useAppState();
   const { gameComplete, award } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
+  const practice = useLocalSearchParams<{ practice?: string }>().practice === "1" && !testChart;
+  const practiceRef = useRef(practice); useEffect(() => { practiceRef.current = practice; }, [practice]);
   const chart = testChart || (selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined);
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 500 });
   const hitPlayer = useAudioPlayer(null);
@@ -229,6 +234,18 @@ export default function GameScreen() {
   const [activeHold, setActiveHold] = useState<Note | null>(null);
   const [tracePop, setTracePop] = useState<{ key: number } | null>(null);
   const [forceStart, setForceStart] = useState(false);
+  const [milestone, setMilestone] = useState<{ combo: number; bonus: number; key: number } | null>(null);
+  const [rate, setRate] = useState(1);
+  const [loopA, setLoopA] = useState<number | null>(null);
+  const [loopB, setLoopB] = useState<number | null>(null);
+  const rateRef = useRef(1);
+  const loopARef = useRef<number | null>(null);
+  const loopBRef = useRef<number | null>(null);
+  const milestoneIdx = useRef(0);
+  const milestoneBonusRef = useRef(0);
+  const milestoneAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => { loopARef.current = loopA; }, [loopA]);
+  useEffect(() => { loopBRef.current = loopB; }, [loopB]);
 
   const clock = useSharedValue(0);
   const rainbow = useSharedValue(0);
@@ -267,20 +284,43 @@ export default function GameScreen() {
   const sorted = useMemo(() => (chart ? [...chart.notes].sort((a, b) => a.time - b.time) : []), [chart]);
   const scanStart = useRef(0);
 
-  const jsTime = useCallback(() => (Date.now() - clockStart.current - pauseAccum.current) / 1000 + settings.audioOffset / 1000, [settings.audioOffset]);
+  const jsTime = useCallback(() => ((Date.now() - clockStart.current - pauseAccum.current) / 1000) * rateRef.current + settings.audioOffset / 1000, [settings.audioOffset]);
   const flashLane = useCallback((lane: number) => { laneFlash[lane].setValue(1); Animated.timing(laneFlash[lane], { toValue: 0, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [laneFlash]);
   const showJudge = useCallback((grade: Judgment, lane: number) => {
     const persp = P_NEAR + (1 - P_NEAR) * 0.52;
     setJudgment({ grade, x: geo.cx + laneFrac(lane) * geo.hw * persp, y: geo.topY + geo.span * 0.52, key: Date.now() });
   }, [geo]);
-  const startClock = useCallback((from: number) => { cancelAnimation(clock); clock.value = from; clock.value = withTiming(duration, { duration: Math.max(10, (duration - from) * 1000), easing: RE.linear }); }, [clock, duration]);
+  const startClock = useCallback((from: number) => { cancelAnimation(clock); clock.value = from; clock.value = withTiming(duration, { duration: Math.max(10, ((duration - from) / rateRef.current) * 1000), easing: RE.linear }); }, [clock, duration]);
   // Vocopulse now auto-fires when the meter fills (no button press needed).
   // Vocopulse: fills over 25 consecutive hits, then stays lit while the streak continues.
   const triggerPulse = useCallback(() => { pulseBase.current = comboRef.current; fuelRef.current = 100; missStreakRef.current = 0; lastPulseT.current = Date.now(); setPulse(100); setPulseActive(true); pulseActiveRef.current = true; Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }, []);
 
+  // Practice: change playback speed mid-song without a time jump, keeping the highway + audio in sync.
+  const applyRate = useCallback((r: number) => {
+    const off = settings.audioOffset / 1000;
+    const curT = jsTime();
+    rateRef.current = r; setRate(r);
+    clockStart.current = Date.now() - pauseAccum.current - ((curT - off) / r) * 1000;
+    try { player.setPlaybackRate(r, "high"); } catch {}
+    if (countdown <= 0 && !paused) startClock(curT);
+  }, [jsTime, player, settings.audioOffset, countdown, paused, startClock]);
+
+  // Practice A/B loop jump: seek audio + highway back to `to`, and let notes from there replay.
+  const jumpTo = useCallback((to: number) => {
+    const off = settings.audioOffset / 1000;
+    try { player.seekTo(to); } catch {}
+    clockStart.current = Date.now() - pauseAccum.current - ((to - off) / rateRef.current) * 1000;
+    let idx = 0; while (idx < sorted.length && sorted[idx].time < to - 0.001) idx++;
+    scanStart.current = idx;
+    for (const n of sorted) if (n.time >= to - 0.001) resolved.current.delete(n.id);
+    comboRef.current = 0; setCombo(0); setActiveHold(null);
+    startClock(to);
+  }, [player, settings.audioOffset, sorted, startClock]);
+
   const finish = useCallback(async () => {
     if (!chart || !selectedSong || finishing.current) return; finishing.current = true; player.pause(); cancelAnimation(clock);
     if (testChart) { router.back(); return; } // testing a custom chart returns to the editor, no score saved
+    if (practiceRef.current) { router.back(); return; } // practice runs aren't scored
     const total = chart.notes.length; const c = counts.current; const remaining = chart.notes.filter(n => !resolved.current.has(n.id)).length; if (remaining) c.MISS += remaining;
     const hits = c.PERFECT + c.GREAT + c.GOOD; // any successful hit counts fully — no misses = 100%
     const acc = total ? Math.round((hits / total) * 10000) / 100 : 0;
@@ -288,7 +328,9 @@ export default function GameScreen() {
     const result: ScoreResult = { songId: selectedSong.id, title: selectedSong.title, difficulty: selectedDifficulty, score: scoreRef.current, accuracy: acc, maxCombo: maxCombo.current, stars, perfect: c.PERFECT, great: c.GREAT, good: c.GOOD, miss: c.MISS, totalNotes: total, createdAt: Date.now() };
     await gameComplete("Vocotap", 0); // count the game; reward is star-based below
     const earned = await award(starlitesFor(stars), `${stars}★ · ${selectedSong.title}`, true);
-    result.starlitesEarned = earned;
+    const bonus = milestoneBonusRef.current;
+    if (bonus > 0) await award(bonus, "Combo milestones", true);
+    result.starlitesEarned = earned + bonus;
     await saveResult(result); setTestChart(null); router.replace("/results");
   }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, award, player, clock, setTestChart]);
 
@@ -298,7 +340,7 @@ export default function GameScreen() {
     if (!chart || !selectedSong?.uri || startedRef.current || !(status.isLoaded || forceStart)) return;
     startedRef.current = true;
     let v = 3; setCountdown(v);
-    countdownTimer.current = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(countdownTimer.current); scanStart.current = 0; clockStart.current = Date.now(); pauseAccum.current = 0; try { player.seekTo(0); player.play(); } catch {} startClock(0); } }, 720);
+    countdownTimer.current = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(countdownTimer.current); scanStart.current = 0; clockStart.current = Date.now(); pauseAccum.current = 0; try { player.seekTo(0); if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); player.play(); } catch {} startClock(0); } }, 720);
   }, [chart, selectedSong?.uri, status.isLoaded, forceStart, player, startClock]);
   useEffect(() => { const t = setTimeout(() => setForceStart(true), 2500); return () => clearTimeout(t); }, []);
   useEffect(() => () => { if (countdownTimer.current) clearInterval(countdownTimer.current); try { player.pause(); } catch {} cancelAnimation(clock); }, [player, clock]);
@@ -306,6 +348,7 @@ export default function GameScreen() {
   useEffect(() => { ensureHitAudio().then(uri => hitPlayer.replace({ uri })).catch(() => {}); }, [hitPlayer]);
   useEffect(() => { if (!judgment) return; judgeAnim.setValue(0); Animated.sequence([Animated.spring(judgeAnim, { toValue: 1, friction: 5, tension: 150, useNativeDriver: true }), Animated.delay(260), Animated.timing(judgeAnim, { toValue: 0, duration: 160, useNativeDriver: true })]).start(); }, [judgment, judgeAnim]);
   useEffect(() => { if (!tracePop) return; traceAnim.setValue(0); Animated.sequence([Animated.spring(traceAnim, { toValue: 1, friction: 5, tension: 140, useNativeDriver: true }), Animated.delay(560), Animated.timing(traceAnim, { toValue: 0, duration: 240, useNativeDriver: true })]).start(); }, [tracePop, traceAnim]);
+  useEffect(() => { if (!milestone) return; milestoneAnim.setValue(0); Animated.sequence([Animated.spring(milestoneAnim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(900), Animated.timing(milestoneAnim, { toValue: 0, duration: 280, useNativeDriver: true })]).start(); }, [milestone, milestoneAnim]);
 
   // Game loop @150ms — pointer-based scan (O(visible)), miss detection, throttled HUD sync.
   useEffect(() => {
@@ -313,6 +356,7 @@ export default function GameScreen() {
     const tick = setInterval(() => {
       if (paused || finishing.current) return;
       const t = jsTime();
+      if (practiceRef.current && loopBRef.current != null && loopARef.current != null && t >= loopBRef.current) { jumpTo(loopARef.current); return; }
       let missLane = -1;
       // Advance the start pointer past notes that have fully passed; flag any unhit ones as misses.
       while (scanStart.current < sorted.length && t - sorted[scanStart.current].time > 0.42) {
@@ -350,7 +394,7 @@ export default function GameScreen() {
       if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail, triggerPulse]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail, triggerPulse, jumpTo]);
 
   // Hold / wavy sustain. Holds need the start lane held; WAVY notes must be FOLLOWED across
   // lanes (the required lane changes along the path) to keep scoring. Early release grays out
@@ -392,6 +436,13 @@ export default function GameScreen() {
     const grade: Judgment = best <= 0.11 ? "PERFECT" : best <= 0.24 ? "GREAT" : "GOOD";
     resolved.current.add(target.id); counts.current[grade] += 1;
     comboRef.current += 1; maxCombo.current = Math.max(maxCombo.current, comboRef.current);
+    if (milestoneIdx.current < MILESTONES.length && comboRef.current >= MILESTONES[milestoneIdx.current]) {
+      const mi = milestoneIdx.current; milestoneIdx.current += 1;
+      const scored = !practiceRef.current && !testChart;
+      if (scored) milestoneBonusRef.current += MBONUS[mi];
+      setMilestone({ combo: MILESTONES[mi], bonus: scored ? MBONUS[mi] : 0, key: Date.now() });
+      if (settings.haptics) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     if (pulseActiveRef.current) { fuelRef.current = Math.min(100, fuelRef.current + 26); missStreakRef.current = 0; }
     const multiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10)) * (pulseActive ? 2 : 1);
     scoreRef.current += Math.round(1000 * weights[grade] * multiplier);
@@ -401,7 +452,7 @@ export default function GameScreen() {
     // Fire SFX/haptics off the touch handler so the hit registers instantly.
     if (settings.hitSfx) setTimeout(() => { try { hitPlayer.seekTo(0); hitPlayer.play(); } catch {} }, 0);
     if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
-  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted]);
+  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted, testChart]);
 
   const onPadsTouchStart = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); touchLane.current[String(tt.identifier)] = lane; pressed.add(lane); hitLane(lane); } };
   // Dragging a finger across lanes retargets the held lane in real time — this is how WAVY notes get TRACED (not just held).
@@ -421,7 +472,7 @@ export default function GameScreen() {
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, [hitLane, pressed, settings.keyBindings]);
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
-  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; player.play(); startClock(0); };
+  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; milestoneIdx.current = 0; milestoneBonusRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; try { if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); } catch {} player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
   if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text selectable={false} style={styles.missingTitle}>Chart not ready</Text><Text selectable={false} style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
@@ -455,6 +506,10 @@ export default function GameScreen() {
     {/* Judgment (per-lane, mid highway) */}
     {judgment && <Animated.Text selectable={false} key={judgment.key} pointerEvents="none" style={[styles.judgment, { color: judgeColor(judgment.grade), left: judgment.x - 90, top: judgment.y, opacity: judgeAnim, transform: [{ translateY: judgeAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{judgment.grade === "MISS" ? "Miss" : judgment.grade === "PERFECT" ? "Perfect" : judgment.grade === "GREAT" ? "Great" : "Good"}</Animated.Text>}
     {tracePop && <Animated.View key={tracePop.key} pointerEvents="none" style={[styles.tracePop, { top: geo.bottomY - 128, left: geo.cx - 110, opacity: traceAnim, transform: [{ translateY: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }, { scale: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }]}><Ionicons name="sparkles" size={17} color={laneColors[1]} /><Text selectable={false} style={styles.tracePopText}>Nice trace!</Text></Animated.View>}
+    {milestone && <Animated.View key={milestone.key} pointerEvents="none" style={[styles.milestone, { top: geo.topY + geo.span * 0.3, left: geo.cx - 150, opacity: milestoneAnim, transform: [{ scale: milestoneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}>
+      <Text selectable={false} style={styles.milestoneCombo}>{milestone.combo} COMBO!</Text>
+      {milestone.bonus > 0 && <View style={styles.milestoneBonus}><Ionicons name="sparkles" size={13} color={colors.gold} /><Text selectable={false} style={styles.milestoneBonusText}>+{milestone.bonus} Starlites</Text></View>}
+    </Animated.View>}
 
     {/* Top HUD */}
     <View style={[styles.hud, { top: insets.top + 6 }]} pointerEvents="box-none">
@@ -473,6 +528,19 @@ export default function GameScreen() {
       <View style={styles.progTrack}><View style={[styles.progFill, { width: `${progress * 100}%`, backgroundColor: rock < 30 ? "#FF5C7A" : "rgba(255,255,255,0.5)" }]} /></View>
     </View>
 
+    {/* Practice controls — speed + A/B loop (practice mode only) */}
+    {practice && <View testID="practice-bar" style={[styles.practice, { top: insets.top + 92 }]} pointerEvents="box-none">
+      <View style={styles.practiceRow}>
+        <View style={styles.practiceTag}><Ionicons name="school" size={12} color={colors.cyan} /><Text selectable={false} style={styles.practiceTagText}>PRACTICE</Text></View>
+        {SPEEDS.map(s => <Pressable key={s} testID={`practice-speed-${s}`} onPress={() => applyRate(s)} style={[styles.spdChip, rate === s && styles.spdChipOn]}><Text selectable={false} style={[styles.spdChipText, rate === s && styles.spdChipTextOn]}>{s}×</Text></Pressable>)}
+      </View>
+      <View style={styles.practiceRow}>
+        <Pressable testID="practice-set-a" onPress={() => setLoopA(Math.max(0, jsTime()))} style={styles.loopBtn}><Text selectable={false} style={styles.loopBtnText}>A {loopA != null ? `· ${Math.floor(loopA / 60)}:${String(Math.floor(loopA % 60)).padStart(2, "0")}` : ""}</Text></Pressable>
+        <Pressable testID="practice-set-b" onPress={() => { const b = jsTime(); if (loopA != null && b > loopA + 0.5) setLoopB(b); }} style={styles.loopBtn}><Text selectable={false} style={styles.loopBtnText}>B {loopB != null ? `· ${Math.floor(loopB / 60)}:${String(Math.floor(loopB % 60)).padStart(2, "0")}` : ""}</Text></Pressable>
+        <Pressable testID="practice-clear-loop" onPress={() => { setLoopA(null); setLoopB(null); }} style={[styles.loopBtn, styles.loopClear]}><Ionicons name="close" size={13} color={colors.pink} /><Text selectable={false} style={[styles.loopBtnText, { color: colors.pink }]}>Loop</Text></Pressable>
+      </View>
+    </View>}
+
     {/* VOCO / Vocopulse meter — auto-fires when full */}
     <View testID="vocopulse-meter" style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, (pulseReady || pulseActive) && styles.vocoReady]}>
       <Ionicons name="flame" size={20} color={pulseActive ? "#FFB020" : pulseReady ? "#FF7A45" : "rgba(255,120,70,0.8)"} />
@@ -487,7 +555,7 @@ export default function GameScreen() {
 
     {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text selectable={false} style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text selectable={false} key={countdown} style={styles.count}>{countdown}</Text><Text selectable={false} style={styles.readySong}>{selectedSong.title}</Text></View>}
 
-    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text selectable={false} style={styles.pauseTitle}>Paused</Text><Text selectable={false} style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={testChart ? "Back to editor" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (testChart) { setTestChart(null); router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
+    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text selectable={false} style={styles.pauseTitle}>Paused</Text><Text selectable={false} style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={testChart ? "Back to editor" : practice ? "Exit practice" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (testChart) { setTestChart(null); router.back(); } else if (practice) { router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
   </View>;
 }
 
@@ -501,6 +569,11 @@ const styles = StyleSheet.create({
   combo: { color: colors.text, fontSize: 48, lineHeight: 52, fontFamily: fonts.display, textShadowColor: rgba(0.9), textShadowRadius: 14 }, comboLabel: { color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 5, fontFamily: fonts.heavy, marginTop: 1 },
   judgment: { position: "absolute", width: 180, textAlign: "center", fontSize: 26, fontFamily: fonts.display, letterSpacing: 0.5 },
   tracePop: { position: "absolute", width: 220, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, tracePopText: { color: "#EAF6FF", fontSize: 24, fontFamily: fonts.display, textShadowColor: "rgba(47,224,214,0.9)", textShadowRadius: 16 },
+  milestone: { position: "absolute", width: 300, alignItems: "center", gap: 8 }, milestoneCombo: { color: colors.gold, fontSize: 40, fontFamily: fonts.display, textShadowColor: "rgba(245,200,66,0.85)", textShadowRadius: 20, letterSpacing: 1 }, milestoneBonus: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 30, borderRadius: 15, backgroundColor: "rgba(245,200,66,0.16)", borderWidth: 1, borderColor: "rgba(245,200,66,0.5)" }, milestoneBonusText: { color: colors.gold, fontSize: 13, fontFamily: fonts.heavy },
+  practice: { position: "absolute", left: 12, right: 12, gap: 8, zIndex: 20 }, practiceRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" },
+  practiceTag: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: "rgba(13,230,210,0.14)", borderWidth: 1, borderColor: "rgba(13,230,210,0.4)" }, practiceTagText: { color: colors.cyan, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
+  spdChip: { minWidth: 46, height: 30, paddingHorizontal: 10, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" }, spdChipOn: { backgroundColor: colors.cyan, borderColor: colors.cyan }, spdChipText: { color: colors.text, fontSize: 13, fontFamily: fonts.heavy }, spdChipTextOn: { color: colors.bg },
+  loopBtn: { flexDirection: "row", alignItems: "center", gap: 4, minWidth: 62, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)", justifyContent: "center" }, loopClear: { borderColor: "rgba(255,92,122,0.5)" }, loopBtnText: { color: colors.text, fontSize: 12, fontFamily: fonts.heavy },
   hud: { position: "absolute", left: 18, right: 18 }, hudRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   score: { color: colors.text, fontSize: 34, lineHeight: 38, fontFamily: fonts.display, textShadowColor: rgba(0.6), textShadowRadius: 12 }, songMeta: { color: "rgba(245,245,247,0.55)", fontSize: 13, fontFamily: fonts.body, marginTop: 1 },
   pause: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },

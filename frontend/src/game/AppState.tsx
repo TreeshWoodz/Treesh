@@ -6,6 +6,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { Platform } from "react-native";
 import { generateChart, trainingChart, OnsetData } from "./chartEngine";
 import { fetchTreeshCatalog, TREESH_CATALOG } from "./catalog";
+import { decodeChartCode } from "./shareCode";
 import { ensureWarmupAudio } from "./synth";
 import { Chart, Difficulty, GameSettings, ScoreResult, Song } from "./types";
 
@@ -60,6 +61,7 @@ type AppValue = {
   renameSong: (id: string, title: string, artist?: string) => Promise<void>; deleteSong: (id: string) => Promise<void>;
   restoreWarmup: () => Promise<void>; deleteChart: (key: string) => Promise<void>;
   exportChart: (chart: Chart, song: Song) => Promise<void>; importChart: () => Promise<Chart | null>;
+  importChartFromCode: (code: string) => Promise<Chart | null>;
   saveChart: (chart: Chart) => Promise<void>; saveResult: (result: ScoreResult) => Promise<void>;
   generateAll: (song: Song, duration: number, onsetData?: OnsetData | null) => Promise<void>;
   generateFor: (song: Song, duration: number, difficulty: Difficulty, onsetData?: OnsetData | null) => Promise<Chart>;
@@ -210,6 +212,21 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     return chart;
   }, [saveChart, songs]);
 
+  // Import a chart from a shared VOCO1- code (paste / deep link). Same song-stub handling as file import.
+  const importChartFromCode = useCallback(async (code: string) => {
+    const decoded = decodeChartCode(code);
+    if (!decoded || !decoded.chart.notes.length) throw new Error("That code isn't a valid Vocotap chart.");
+    const chart: Chart = { ...decoded.chart, difficulty: "Custom" };
+    await saveChart(chart);
+    if (!songs.some(s => s.id === chart.songId)) {
+      const stub: Song = { id: chart.songId, title: decoded.title, artist: decoded.artist, source: "device", accent: "#CCFF00", duration: chart.duration };
+      const nextDevice = [stub, ...songs.filter(s => s.source === "device")];
+      setSongs(current => { const nonDevice = current.filter(s => s.source !== "device"); return [...nonDevice, ...nextDevice]; });
+      await AsyncStorage.setItem(KEYS.songs, JSON.stringify(nextDevice));
+    }
+    return chart;
+  }, [saveChart, songs]);
+
   const analyzeSong = useCallback(async (song: Song, duration: number, difficulty: Difficulty) => {
     const chart = song.id === warmup.id && difficulty === "Normal" ? trainingChart() : generateChart(song.id, song.fileName || song.title, duration, difficulty);
     await saveChart(chart); return chart;
@@ -242,7 +259,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     await Promise.all(Object.values(KEYS).map(key => AsyncStorage.removeItem(key))); setScores([]); setCharts({ "neon-warmup-Normal": trainingChart() }); setSettings(defaultSettings); setSongs(current => current.slice(0, 1));
   }, []);
 
-  const value = useMemo(() => ({ ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, setDifficulty, setTestChart, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, generateFor, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing }), [ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, saveChart, saveResult, generateAll, generateFor, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing]);
+  const value = useMemo(() => ({ ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, setDifficulty, setTestChart, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, importChartFromCode, saveChart, saveResult, generateAll, generateFor, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing }), [ready, songs, treeshSongs, charts, scores, settings, selectedSong, selectedDifficulty, lastResult, testChart, selectSong, importSong, analyzeSong, renameSong, deleteSong, restoreWarmup, deleteChart, exportChart, importChart, importChartFromCode, saveChart, saveResult, generateAll, generateFor, updateSettings, clearLocalData, mineSongs, refreshLibrary, refreshing]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
