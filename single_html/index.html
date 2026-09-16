@@ -78,14 +78,18 @@
   @keyframes abCharge{ from{ --ab-charge:0deg; } to{ --ab-charge:360deg; } }
   input[type=range].tr:focus-visible{ outline:none; }
   /* Equalizer vertical band sliders */
-  .eq-col{ display:flex; flex-direction:column; align-items:center; gap:5px; min-width:32px; }
-  .eq-track{ position:relative; height:132px; width:32px; }
-  .eq-track input[type=range]{ position:absolute; top:50%; left:50%; width:132px; height:20px; margin:0; transform:translate(-50%,-50%) rotate(-90deg); -webkit-appearance:none; appearance:none; background:transparent; outline:none; cursor:pointer; }
+  .eq-col{ display:flex; flex-direction:column; align-items:center; gap:5px; flex:1 1 0; min-width:0; }
+  .eq-track{ position:relative; height:120px; width:100%; }
+  @media (min-width:640px){ .eq-track{ height:132px; } }
+  .eq-track input[type=range]{ position:absolute; top:50%; left:50%; width:120px; height:20px; margin:0; transform:translate(-50%,-50%) rotate(-90deg); -webkit-appearance:none; appearance:none; background:transparent; outline:none; cursor:pointer; }
+  @media (min-width:640px){ .eq-track input[type=range]{ width:132px; } }
   .eq-track input[type=range]::-webkit-slider-runnable-track{ height:5px; border-radius:999px; background:linear-gradient(to right, var(--treesh-purple) var(--fill,50%), rgba(255,255,255,0.14) var(--fill,50%)); }
   .eq-track input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; margin-top:-5px; width:15px; height:15px; border-radius:50%; background:#fff; box-shadow:0 0 8px var(--treesh-purple); border:none; }
   .eq-track input[type=range]::-moz-range-track{ height:5px; border-radius:999px; background:rgba(255,255,255,0.14); }
   .eq-track input[type=range]::-moz-range-progress{ height:5px; border-radius:999px; background:var(--treesh-purple); }
   .eq-track input[type=range]::-moz-range-thumb{ width:15px; height:15px; border:none; border-radius:50%; background:#fff; box-shadow:0 0 8px var(--treesh-purple); }
+  /* Keep the Equalizer modal from blowing out on small screens */
+  [data-testid="equalizer-modal"] > [data-act="modal-stop"]{ min-width:0; max-width:min(32rem, calc(100vw - 1.25rem)); overflow-x:hidden; }
 
 
   /* vinyl */
@@ -2856,7 +2860,8 @@ function restoreScroll(root, map){ if(!root||!map||!map.length) return; for(let 
    one-time auto popup the first time they open that surface.
    RULE: keep copy plain and friendly. No em-dashes. */
 const WHATS_NEW = {
-  library: { v:1, title:"Library", sub:"Your home base got a glow up.", items:[
+  library: { v:2, date:"September 16, 2026", title:"Library", sub:"Your home base got a glow up.", items:[
+    { icon:"crop", title:"Cover Art Studio", desc:"Crop, zoom, rotate, flip and add filters to your cover art before you save an upload." },
     { icon:"list-music", title:"Load only what you need", desc:"Choose how many songs appear at once, from a handful up to everything, then tap Load more when you want the rest." },
     { icon:"upload", title:"Add your own music", desc:"Upload your tracks and cover art from this device and play them right alongside the catalog." },
     { icon:"gamepad-2", title:"What's Next on your home", desc:"Guess the track that plays next in the What's Next game without leaving the library." },
@@ -2875,14 +2880,16 @@ const WHATS_NEW = {
     { icon:"swords", title:"This or That", desc:"Two clips go head to head. Pick your favorite and crown a champion." },
     { icon:"trophy", title:"Starlites rewards", desc:"Earn Starlites as you play and keep an eye on your stats over time." },
   ]},
-  settings: { v:1, title:"Settings", sub:"Make Treesh truly yours.", items:[
+  settings: { v:2, date:"September 16, 2026", title:"Settings", sub:"Make Treesh truly yours.", items:[
+    { icon:"audio-lines", title:"Equalizer in Sound", desc:"Find the new 10-band equalizer under Settings \u2192 Sound, with a preamp, presets and your own saved presets." },
     { icon:"accessibility", title:"Accessibility suite", desc:"High contrast, reduced motion, larger text, a dyslexia friendly font and stronger focus outlines." },
     { icon:"palette", title:"Personalize everything", desc:"Pick colors, fonts, backgrounds and a light or dark look for the whole app." },
     { icon:"hard-drive", title:"Storage and data", desc:"See what is saved on this device and clear any part of it whenever you like." },
     { icon:"lock", title:"App and page locks", desc:"Add a PIN or password to keep the app or single pages private." },
   ]},
-  player: { v:1, title:"Music Player", sub:"A richer way to listen.", items:[
-    { icon:"mic-vocal", title:"Smooth karaoke", desc:"Lyrics now glide line by line and highlight word by word as the song plays." },
+  player: { v:2, date:"September 16, 2026", title:"Music Player", sub:"A richer way to listen.", items:[
+    { icon:"sliders-vertical", title:"10-band Equalizer", desc:"Shape your sound with a graphic EQ, preamp, 13 presets and a live spectrum. Save your own presets too \u2014 open it from the player or Settings." },
+    { icon:"mic-vocal", title:"Tighter karaoke timing", desc:"Fixed line and word timing so the highlight and the performer tag stay perfectly in sync, even with section headers." },
     { icon:"captions", title:"Lyric meanings", desc:"Tap a line to see what it means, or let meanings reveal themselves as you listen." },
     { icon:"image", title:"Lyric cards", desc:"Turn any line into a shareable card with your own fonts, colors and photo backgrounds." },
     { icon:"moon-star", title:"Sleep and vinyl views", desc:"Wind down with a calm clock view or spin a vinyl while your track plays." },
@@ -2914,7 +2921,7 @@ function wnOpen(id){
   const rows=(w.items||[]).map(it=>`<div class="flex items-start gap-3.5 text-left"><span class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-[color:var(--treesh-purple)]"><i data-lucide="${it.icon}" style="width:19px;height:19px"></i></span><div class="min-w-0"><p class="text-[15px] font-bold leading-snug">${esc(it.title)}</p><p class="mt-0.5 text-sm leading-relaxed text-white/60">${esc(it.desc)}</p></div></div>`).join("");
   const inner=`<div class="text-center">
      <span class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sparkles" style="width:26px;height:26px"></i></span>
-     <p class="mt-3 font-display text-[11px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">What's new</p>
+     <p class="mt-3 font-display text-[11px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">What's new${w.date?` \u00b7 ${esc(w.date)}`:''}</p>
      <h3 class="mt-1 text-2xl font-extrabold leading-tight">${esc(w.title)}</h3>
      ${w.sub?`<p class="mt-1 text-sm text-white/55">${esc(w.sub)}</p>`:''}
    </div>
@@ -4578,6 +4585,19 @@ function closeModal2(){
   wrap.classList.remove("backdrop-in"); wrap.classList.add("backdrop-out");
   if(panel){ panel.classList.remove("panel-in"); panel.classList.add("panel-out"); }
   setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); syncScrollLock(); }, 210);
+}
+function openPrompt2(title, value, onOk, okLabel){
+  const inner=`<h3 class="mb-3 text-base font-bold">${esc(title)}</h3>
+    <input id="prompt2-input" value="${esc(value||'')}" maxlength="40" data-testid="prompt2-input" class="h-11 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
+    <div class="mt-4 flex justify-end gap-2"><button type="button" id="prompt2-cancel" class="press rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 hover:bg-white/10">Cancel</button><button type="button" id="prompt2-ok" data-testid="prompt2-ok" class="press rounded-full bg-[color:var(--treesh-purple)] px-4 py-2 text-sm font-semibold text-white glow-purple">${esc(okLabel||'Save')}</button></div>`;
+  $("#modal2").innerHTML=modal2Wrap(inner,"prompt2-modal","md");
+  icons(); syncScrollLock();
+  const inp=document.getElementById('prompt2-input'); if(inp){ try{ inp.focus(); inp.select(); }catch(e){} }
+  const done=()=>{ const v=(inp&&inp.value||'').trim(); if(v){ closeModal2(); if(onOk) onOk(v); } };
+  const ok=document.getElementById('prompt2-ok'); if(ok) ok.addEventListener('click',done);
+  const cn=document.getElementById('prompt2-cancel'); if(cn) cn.addEventListener('click',closeModal2);
+  const bk=document.querySelector('#modal2 [data-act="modal2-backdrop"]'); if(bk) bk.addEventListener('click',e=>{ if(e.target===bk) closeModal2(); });
+  if(inp) inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); done(); } });
 }
 
 /* ============================================================
@@ -6412,25 +6432,25 @@ function openEqualizer(){
   const eqOn=!!state.eq.enabled;
   const chips=eqChipsHtml();
   const preampFill=((state.eq.preamp+12)/24*100);
-  const inner=`<div class="relative">
-    <div class="mb-3 flex items-center gap-3">
+  const inner=`<div class="relative flex max-h-[84vh] flex-col">
+    <div class="mb-3 flex shrink-0 items-center gap-3">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sliders-vertical" style="width:20px;height:20px"></i></span>
       <div class="min-w-0"><h2 class="text-lg font-bold leading-tight">Equalizer</h2><p class="text-xs text-white/45">10-band graphic EQ &amp; presets</p></div>
       <button type="button" id="eq-toggle" role="switch" aria-checked="${eqOn}" data-testid="eq-enable-toggle" class="press ml-auto mr-1 relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${eqOn?'bg-[color:var(--treesh-purple)]':'bg-white/15'}"><span class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${eqOn?'translate-x-6':'translate-x-1'}"></span></button>
       <button type="button" id="eq-close" aria-label="Close" data-testid="eq-close" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10"><i data-lucide="x" style="width:17px;height:17px"></i></button>
     </div>
-    <div id="eq-body" class="${eqOn?'':'opacity-45 pointer-events-none'} transition-opacity">
-      <div class="relative mb-3 h-16 w-full overflow-hidden rounded-2xl border border-white/10 bg-black/40"><canvas id="eq-viz-canvas" class="h-full w-full"></canvas></div>
+    <div id="eq-body" class="${eqOn?'':'opacity-45 pointer-events-none'} min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar transition-opacity">
+      <div class="relative mb-3 h-14 w-full overflow-hidden rounded-2xl border border-white/10 bg-black/40 sm:h-16"><canvas id="eq-viz-canvas" class="h-full w-full"></canvas></div>
       <div id="eq-preset-row" class="mb-3 -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1 no-scrollbar" data-testid="eq-presets">${chips}</div>
       <div class="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5">
         <div class="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-white/45"><span class="flex items-center gap-1.5"><i data-lucide="gauge" style="width:13px;height:13px"></i>Preamp</span><span id="eq-preamp-val" class="font-doto text-white/70">${state.eq.preamp>0?'+':''}${state.eq.preamp} dB</span></div>
         <input id="eq-preamp" type="range" min="-12" max="12" step="1" value="${state.eq.preamp}" class="tr w-full" style="--fill:${preampFill}%" data-testid="eq-preamp" aria-label="Preamp">
       </div>
-      <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-        <div class="-mx-0.5 flex items-start justify-between gap-1 overflow-x-auto px-0.5 no-scrollbar" data-testid="eq-bands">${EQ_FREQS.map((f,i)=>eqBandSlider(i)).join('')}</div>
+      <div class="rounded-2xl border border-white/10 bg-white/[0.03] px-1.5 py-3 sm:px-3">
+        <div class="flex items-start justify-between gap-0.5 sm:gap-1" data-testid="eq-bands">${EQ_FREQS.map((f,i)=>eqBandSlider(i)).join('')}</div>
       </div>
     </div>
-    <div class="mt-4 flex items-center justify-between gap-2">
+    <div class="mt-4 flex shrink-0 items-center justify-between gap-2">
       <button type="button" id="eq-reset" data-testid="eq-reset" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/70 hover:bg-white/10"><i data-lucide="rotate-ccw" style="width:15px;height:15px"></i>Flat</button>
       <button type="button" id="eq-done" data-testid="eq-done" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Done</button>
     </div>
@@ -6438,8 +6458,17 @@ function openEqualizer(){
   $("#modal").innerHTML=modalWrap(inner,"equalizer-modal","lg");
   icons(); syncScrollLock();
   eqWire();
-  const cvs=document.getElementById('eq-viz-canvas');
-  if(cvs){ if(eqEnsure()){ try{ _eqVizEntry=registerVizCanvas(cvs, ()=> 'bars'); }catch(e){} } }
+  eqMountSpectrum();
+}
+/* Mount the EQ spectrum canvas. IMPORTANT (iOS): only build the Web Audio graph
+   (which captures the <audio> element via MediaElementSource and can stop
+   background playback) when the EQ is actually enabled. When off, animate a
+   synthetic spectrum with no analyser so opening the EQ never breaks playback. */
+function eqMountSpectrum(){
+  const cvs=document.getElementById('eq-viz-canvas'); if(!cvs) return;
+  if(_eqVizEntry){ try{ unregisterVizCanvas(_eqVizEntry.canvas); }catch(e){} _eqVizEntry=null; }
+  if(state.eq.enabled){ if(eqEnsure()){ try{ _eqVizEntry=registerVizCanvas(cvs, ()=>'bars'); }catch(e){} return; } }
+  try{ sizeVizCanvas(cvs); _eqVizEntry={canvas:cvs, style:()=>'bars'}; _vizCanvases.push(_eqVizEntry); startVizLoop(); }catch(e){}
 }
 function eqSetBodyEnabled(on){ const body=document.getElementById('eq-body'); if(body){ body.classList.toggle('opacity-45',!on); body.classList.toggle('pointer-events-none',!on); } const tg=document.getElementById('eq-toggle'); if(tg){ tg.setAttribute('aria-checked',on?'true':'false'); tg.classList.toggle('bg-[color:var(--treesh-purple)]',on); tg.classList.toggle('bg-white/15',!on); const knob=tg.querySelector('span'); if(knob){ knob.classList.toggle('translate-x-6',on); knob.classList.toggle('translate-x-1',!on); } } }
 function eqHighlightPreset(){ const cur=state.eq.preset||'custom'; document.querySelectorAll('#modal [data-eq-preset]').forEach(b=>{ const on=b.getAttribute('data-eq-preset')===cur; b.classList.toggle('border-[color:var(--treesh-purple)]',on); b.classList.toggle('bg-[color:var(--treesh-purple)]/20',on); b.classList.toggle('text-white',on); b.classList.toggle('border-white/12',!on); b.classList.toggle('bg-white/5',!on); b.classList.toggle('text-white/60',!on); }); }
@@ -6454,7 +6483,7 @@ function eqApplyPreset(id){
   eqSyncBandUI(); eqHighlightPreset(); eqApply(); saveEq();
 }
 function eqWire(){
-  const tg=document.getElementById('eq-toggle'); if(tg) tg.addEventListener('click',()=>{ state.eq.enabled=!state.eq.enabled; eqSetBodyEnabled(state.eq.enabled); if(state.eq.enabled){ eqEnsure(); } else { eqApply(); } saveEq(); toast(state.eq.enabled?'Equalizer on':'Equalizer off'); });
+  const tg=document.getElementById('eq-toggle'); if(tg) tg.addEventListener('click',()=>{ state.eq.enabled=!state.eq.enabled; eqSetBodyEnabled(state.eq.enabled); if(state.eq.enabled){ eqEnsure(); } else { eqApply(); } eqMountSpectrum(); saveEq(); toast(state.eq.enabled?'Equalizer on':'Equalizer off'); });
   eqWireChips();
   for(let i=0;i<10;i++){ const el=document.getElementById('eq-band-'+i); if(!el) continue; el.addEventListener('input',()=>{ const v=Math.max(-12,Math.min(12,+el.value)); state.eq.bands[i]=v; el.style.setProperty('--fill',((v+12)/24*100)+'%'); const lbl=document.getElementById('eq-db-'+i); if(lbl) lbl.textContent=(v>0?'+':'')+v; state.eq.preset='custom'; eqHighlightPreset(); eqApply(); saveEq(); }); }
   const pa=document.getElementById('eq-preamp'); if(pa) pa.addEventListener('input',()=>{ const v=Math.max(-12,Math.min(12,+pa.value)); state.eq.preamp=v; pa.style.setProperty('--fill',((v+12)/24*100)+'%'); const l=document.getElementById('eq-preamp-val'); if(l) l.textContent=(v>0?'+':'')+v+' dB'; eqApply(); saveEq(); });
