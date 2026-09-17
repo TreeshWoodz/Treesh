@@ -1051,6 +1051,28 @@ function idbPut(rec){ return idbTx("readwrite").then(store=>new Promise((res,rej
 function idbGetAll(){ return idbTx("readonly").then(store=>new Promise((res,rej)=>{ const r=store.getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); })); }
 function idbDelete(id){ return idbTx("readwrite").then(store=>new Promise((res,rej)=>{ const r=store.delete(id); r.onsuccess=()=>res(true); r.onerror=()=>rej(r.error); })); }
 function idbGet(id){ return idbTx("readonly").then(store=>new Promise((res,rej)=>{ const r=store.get(id); r.onsuccess=()=>res(r.result||null); r.onerror=()=>rej(r.error); })); }
+/* Wipe the IndexedDB media store (uploaded audio + cover art blobs). Clears the
+   object store first (works even if a delete is blocked by open connections),
+   then attempts to delete the whole database. */
+function idbWipe(){
+  return (async()=>{
+    try{ const store=await idbTx("readwrite"); await new Promise((res)=>{ const r=store.clear(); r.onsuccess=()=>res(); r.onerror=()=>res(); }); }catch(e){}
+    return new Promise((res)=>{ try{ const rq=indexedDB.deleteDatabase(IDB_NAME); rq.onsuccess=()=>res(true); rq.onerror=()=>res(true); rq.onblocked=()=>res(true); setTimeout(()=>res(true),1500); }catch(e){ res(true); } });
+  })();
+}
+/* Full factory reset: erase ALL local data (localStorage + sessionStorage +
+   IndexedDB) and reload to a clean URL so the app returns to its default state
+   (Library view + Welcome/onboarding). */
+async function eraseAllData(){
+  try{ if(typeof audio!=="undefined" && audio){ audio.pause(); audio.removeAttribute("src"); audio.load(); } }catch(e){}
+  try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){}
+  try{ localStorage.clear(); }catch(e){}
+  try{ sessionStorage.clear(); }catch(e){}
+  try{ await idbWipe(); }catch(e){}
+  try{ window.location.replace(location.origin+location.pathname); }
+  catch(e){ try{ location.hash=""; }catch(_){} location.reload(); }
+}
+
 
 function userRecToSong(rec){
   const m=rec.meta||{};
@@ -1232,6 +1254,7 @@ const state = {
   searchOpen: false, searchTab: "songs", searchQuery: "", searchFilter: "all", searchSort: "relevance", recentSearches: LS.get("treesh_recent_searches", []),
   karaoke: false, lyricsEdit: false, lyricEdits: LS.get("treesh_lyric_edits", {}),
   lsOpen: false, ls: null, lsw: null, karCountIn: LS.get("treesh_kar_countin", 1),
+  lyricDrafts: LS.get("treesh_lyric_drafts", []), lsRhymesOn: LS.get("treesh_ls_rhymes_on", true),
   lyricSelect: false, lyricSel: [],
   studio: null, game: null, tot: null,
   perfMode: LS.get("treesh_perf", false),
@@ -1570,6 +1593,13 @@ function savePlayerPrefs(){ try{ LS.set("treesh_player_prefs", {shuffle:!!state.
    iOS/Android treat this as the page's primary media element and keep it alive
    in the background (works together with the MediaSession wiring below). */
 try{ audio.setAttribute("playsinline",""); audio.setAttribute("webkit-playsinline",""); audio.setAttribute("x-webkit-airplay","allow"); audio.crossOrigin="anonymous"; }catch(e){}
+/* iOS / iPadOS detection. On iOS, routing the primary <audio> element through a
+   Web Audio graph (via createMediaElementSource) causes the OS to KILL audio
+   output whenever the app is backgrounded, because iOS suspends the AudioContext.
+   To guarantee reliable background playback we must NEVER capture the main audio
+   element into Web Audio on iOS (EQ becomes visual-only; the spectrum falls back
+   to a synthetic animation). This is the intentional, correct tradeoff. */
+const IS_IOS = (function(){ try{ const ua=navigator.userAgent||""; const iOSDevice=/iP(hone|ad|od)/.test(navigator.platform||"") || /iPad|iPhone|iPod/.test(ua); const iPadOS13=(navigator.platform==="MacIntel" || ua.includes("Macintosh")) && (navigator.maxTouchPoints||0)>1; return (iOSDevice||iPadOS13) && !window.MSStream; }catch(e){ return false; } })();
 (function attachAudioEl(){ const add=()=>{ try{ if(document.body && !audio.isConnected){ audio.style.display="none"; audio.setAttribute("aria-hidden","true"); document.body.appendChild(audio); } }catch(e){} }; if(document.body) add(); else document.addEventListener("DOMContentLoaded", add); })();
 function shuffleKeepFirst(arr, i){ let rest=arr.filter((_,x)=>x!==i); rest=rest.filter(s=>!(s&&s.id&&state.dislikes.has(s.id))); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
 function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
@@ -1586,6 +1616,21 @@ function addToQueue(song, playNext=false){ if(!state.queue.length){ playSong(son
 function playNextInQueue(song){ if(!song) return false; if(!state.queue.length){ playSong(song,[song]); return true; } if(curSong() && curSong().id===song.id) return true; const existing=state.queue.findIndex(s=>s.id===song.id); if(existing>=0){ state.queue.splice(existing,1); if(existing<state.index) state.index--; } state.queue.splice(state.index+1,0,song); state.base=state.queue.slice(); renderQueue(); renderMini(); if(state.npOpen) renderNP(); return true; }
 function removeFromQueue(id){ const i=state.queue.findIndex(s=>s.id===id); if(i<0) return; const wasCur=i===state.index; state.queue.splice(i,1); state.base=state.queue.slice(); if(wasCur){ if(!state.queue.length){ audio.pause(); state.index=-1; } else loadIndex(Math.min(i,state.queue.length-1),state.queue,true); } else if(i<state.index){ state.index--; } renderQueue(); renderNP(); renderMini(); }
 function moveQueue(id, dir){ const i=state.queue.findIndex(s=>s.id===id); const j=i+dir; if(i<0||j<0||j>=state.queue.length) return; const cur=curSong(); [state.queue[i],state.queue[j]]=[state.queue[j],state.queue[i]]; state.base=state.queue.slice(); if(cur) state.index=state.queue.findIndex(s=>s.id===cur.id); renderQueue(); }
+/* ---------- context-aware queue building (race-free) ----------
+   The clicked element (or an ancestor) may carry a data-ctx token that names
+   the list it belongs to. We resolve the list FRESH at click time so playback
+   never depends on the mutable global state.contextList (which caused Favorites
+   to play the wrong songs when background views re-rendered). */
+function resolveCtxList(tok){ if(!tok) return null;
+  if(tok==='fav'||tok==='favorites') return favSongs();
+  if(tok==='disliked') return dislikedSongs();
+  if(tok.indexOf('pl:')===0){ const pl=(state.playlists||[]).find(p=>p.id===tok.slice(3)); if(pl) return vis((pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean)); }
+  if(tok.indexOf('artist:')===0){ try{ return artistSongs(tok.slice(7)); }catch(e){} }
+  return null;
+}
+function ctxListFor(el){ try{ const c=el&&el.closest&&el.closest('[data-ctx]'); if(!c) return null; return resolveCtxList(c.getAttribute('data-ctx')); }catch(e){ return null; } }
+function maybeCloseProfileOnPlay(el){ try{ if(state.profileOpen && el && el.closest && el.closest('#profile-panel')) closeProfile(); }catch(e){} }
+
 
 audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if(state.eq&&state.eq.enabled){ try{ eqEnsure(); }catch(e){} } if("mediaSession"in navigator){ navigator.mediaSession.playbackState="playing"; if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("pause", ()=>{ state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
@@ -1712,8 +1757,8 @@ function detachSearchViewport(){ if(_svpHandler&&window.visualViewport){ window.
 /* ============================================================
    RENDER: SHELL
    ============================================================ */
-const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["instrum","Instrum","sliders-horizontal"],["game","Game","gamepad-2"],["settings","Settings","settings"]];
-function navItem(v,label,ic,mobile){ const active=state.view===v; const badge=wnUnseen(v)?wnBadge(v):''; if(mobile){ return `<button data-act="nav" data-view="${v}" data-testid="nav-mobile-${v}" aria-label="${label}" title="${label}" class="flex flex-1 min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium transition-colors ${active?'text-[color:var(--treesh-purple)]':'text-white/55'}"><span class="relative inline-flex"><i data-lucide="${ic}" style="width:20px;height:20px"></i>${badge}</span><span class="nav-label max-w-full truncate">${label}</span></button>`; }
+const NAV=[["library","Library","library-big"],["artists","Icons","sparkles"],["studios","Studios","layout-grid"],["game","Game","gamepad-2"],["settings","Settings","settings"]];
+function navItem(v,label,ic,mobile){ const active=state.view===v || (v==='studios' && state.view==='instrum'); const badge=wnUnseen(v)?wnBadge(v):''; if(mobile){ return `<button data-act="nav" data-view="${v}" data-testid="nav-mobile-${v}" aria-label="${label}" title="${label}" class="flex flex-1 min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium transition-colors ${active?'text-[color:var(--treesh-purple)]':'text-white/55'}"><span class="relative inline-flex"><i data-lucide="${ic}" style="width:20px;height:20px"></i>${badge}</span><span class="nav-label max-w-full truncate">${label}</span></button>`; }
   return `<button data-act="nav" data-view="${v}" data-testid="nav-${v}" aria-label="${label}" title="${label}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${active?'bg-white/10 text-white glow-purple':'text-white/60 hover:bg-white/5 hover:text-white'}"><span class="relative inline-flex"><i data-lucide="${ic}" style="width:18px;height:18px"></i>${badge}</span><span class="nav-label">${label}</span></button>`; }
 
 function renderShell(){
@@ -1722,7 +1767,6 @@ function renderShell(){
   <aside class="nav-glass fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
     <div class="px-6 pb-4 pt-6"><img src="https://64.media.tumblr.com/c3a9171b66dff3f4d1b204629d553f62/f0962fce333cd090-3d/s250x400/9cc28d33e0d7075a9d5122424756269c6a0e617c.png" alt="Treesh" draggable="false" class="h-9 w-auto select-none object-contain" onerror="brandFallback(this)"><p class="brand-fallback font-display text-2xl uppercase tracking-[0.1em] text-white" style="display:none">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Music to Live For</p></div>
     <nav class="flex flex-col gap-1 px-3">${NAV.map(n=>navItem(n[0],n[1],n[2],false)).join("")}
-      <button data-act="ls-picker" data-testid="nav-lyric-studio" aria-label="Lyric Studio" title="Lyric Studio" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"><span class="relative inline-flex"><i data-lucide="captions" style="width:18px;height:18px"></i>${wnUnseen('lyricstudio')?wnBadge('lyricstudio'):''}</span><span class="nav-label">Lyric Studio</span></button>
     </nav>
     <div class="mx-3 my-2 h-px bg-white/8"></div>
     ${sidebarLibraryHtml()}
@@ -1779,10 +1823,10 @@ function songCard(s, act, opts){ opts=opts||{}; const clean=!!opts.clean || !!s.
     </div>
   </div>`; }
 
-function songRow(s, i, removable, act, opts){ opts=opts||{}; const clean=!!opts.clean || !!s._user; const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim());
+function songRow(s, i, removable, act, opts){ opts=opts||{}; const clean=!!opts.clean || !!s._user; const active=curSong()&&curSong().id===s.id; const fav=isFav(s.id); const A=act||'play'; const mp=s.id===mostPlayedId(); const hasLyr=(s.lyrics||[]).some(l=>l.text&&l.text.trim()); const ctxAttr=opts.ctx?` data-ctx="${opts.ctx}"`:'';
   return `<div data-song-row class="group flex items-center gap-3 rounded-xl border ${active?'border-white/20 bg-white/[0.07]':'border-transparent hover:bg-white/5'} px-2.5 py-2 transition">
-    <button data-act="${A}" data-id="${s.id}" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
-    <div class="min-w-0 flex-1 cursor-pointer" data-act="${A}" data-id="${s.id}">
+    <button data-act="${A}" data-id="${s.id}"${ctxAttr} class="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}<span class="absolute inset-0 grid place-items-center bg-black/40 opacity-0 group-hover:opacity-100"><i data-lucide="${active&&state.isPlaying?'pause':'play'}" style="width:16px;height:16px"></i></span></button>
+    <div class="min-w-0 flex-1 cursor-pointer" data-act="${A}" data-id="${s.id}"${ctxAttr}>
       <div class="flex items-center gap-2"><p class="clamp-1 text-sm font-semibold ${active?'text-[color:var(--treesh-purple)]':''}">${esc(s.title)}</p>${s.explicit?`<span class="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[3px] bg-white/15 text-[8px] font-bold text-white/70">E</span>`:""}${(clean&&s._user&&hasLyr)?`<span title="Has lyrics" class="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[color:var(--treesh-gold)]"><i data-lucide="captions" style="width:12px;height:12px"></i></span>`:''}${(!clean&&s._user)?`<span data-testid="yours-badge-${s.id}" class="shrink-0 rounded-full bg-[color:var(--treesh-purple)]/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[color:var(--treesh-purple)]">Yours</span>`:""}${active?`<span class="eq scale-75"><span></span><span></span><span></span><span></span></span>`:""}</div>
       <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
     </div>
@@ -2170,15 +2214,16 @@ function viewFavorites(){
       <button data-act="make-lyric-card" data-id="${g.songId}" data-testid="make-lyric-card-${g.songId}" class="press inline-flex items-center justify-center gap-2 rounded-full bg-white/10 py-2.5 text-sm font-semibold hover:bg-white/15"><i data-lucide="wand-sparkles" style="width:16px;height:16px"></i> Make lyric card</button>
     </div>`).join("")}</div>
   </section>` : "";
-  return `<div class="space-y-7"><div class="flex items-end justify-between gap-4"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Your collection</p><h1 class="mt-1 flex items-center gap-2 text-3xl font-bold"><i data-lucide="heart" class="fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]" style="width:26px;height:26px"></i> Favorites</h1><p class="mt-1 text-sm text-white/55">${list.length} liked track${list.length!==1?'s':''}</p></div>${list.length?`<button data-act="playall-context" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button>`:""}</div>
-  ${list.length?`<div class="space-y-1">${list.map((s,i)=>songRow(s,i,false)).join("")}</div>`:(groups.length?"":`<div class="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><div class="eq scale-150"><span></span><span></span><span></span><span></span></div><p class="text-lg font-semibold">No favorites yet</p><p class="max-w-xs text-sm text-white/50">Tap the heart on any track to save it here.</p><button data-act="nav" data-view="library" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="music-2" style="width:16px;height:16px"></i> Browse Library</button></div>`)}
+  return `<div class="space-y-7"><div class="flex items-end justify-between gap-4"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Your collection</p><h1 class="mt-1 flex items-center gap-2 text-3xl font-bold"><i data-lucide="heart" class="fill-[color:var(--treesh-purple)] text-[color:var(--treesh-purple)]" style="width:26px;height:26px"></i> Favorites</h1><p class="mt-1 text-sm text-white/55">${list.length} liked track${list.length!==1?'s':''}</p></div>${list.length?`<button data-act="playall-context" data-ctx="fav" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button>`:""}</div>
+  ${list.length?`<div class="space-y-1">${list.map((s,i)=>songRow(s,i,false,null,{ctx:'fav'})).join("")}</div>`:(groups.length?"":`<div class="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><div class="eq scale-150"><span></span><span></span><span></span><span></span></div><p class="text-lg font-semibold">No favorites yet</p><p class="max-w-xs text-sm text-white/50">Tap the heart on any track to save it here.</p><button data-act="nav" data-view="library" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="music-2" style="width:16px;height:16px"></i> Browse Library</button></div>`)}
   ${lyricsSection}</div>`;
 }
 
 function viewPlaylists(){
-  const pls=state.playlists;
+  const pls=state.playlists; const favN=favSongs().length;
+  const favRow = favN?`<div class="group flex items-center gap-3 rounded-2xl border border-[color:var(--treesh-purple)]/30 bg-[color:var(--treesh-purple)]/[0.06] p-4 transition hover:border-[color:var(--treesh-purple)]/55" data-testid="favorites-playlist-card"><button data-act="nav" data-view="favorites" data-testid="favorites-playlist-open" class="flex min-w-0 flex-1 items-center gap-3 text-left"><div class="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-white/10 bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]"><i data-lucide="heart" style="width:22px;height:22px" class="fill-current"></i></div><div class="min-w-0"><p class="clamp-1 font-semibold">Favorites</p><p class="text-xs text-white/50">${favN} track${favN!==1?'s':''}</p></div></button><button data-act="playall-context" data-ctx="fav" aria-label="Play favorites" data-testid="favorites-playlist-play" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white glow-purple"><i data-lucide="play" style="width:15px;height:15px" class="fill-current"></i></button></div>`:'';
   return `<div class="space-y-6"><div class="flex items-end justify-between gap-4"><div><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Curated by you</p><h1 class="mt-1 text-3xl font-bold">Playlists</h1></div><button data-act="new-playlist" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i> New</button></div>
-  ${pls.length?`<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">${pls.map(pl=>`<div class="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/25"><button data-act="pl-open" data-id="${pl.id}" class="flex min-w-0 flex-1 items-center gap-3 text-left"><div class="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-white/10 bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:22px;height:22px"></i></div><div class="min-w-0"><p class="clamp-1 font-semibold">${esc(pl.name)}</p><p class="text-xs text-white/50">${(pl.songIds||[]).length} track${(pl.songIds||[]).length!==1?'s':''}</p></div></button><div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button data-act="pl-rename" data-id="${pl.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="pl-delete" data-id="${pl.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div></div>`).join("")}</div>`:`<div class="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><i data-lucide="list-music" class="text-white/30" style="width:40px;height:40px"></i><p class="text-lg font-semibold">No playlists yet</p><p class="max-w-xs text-sm text-white/50">Create your first playlist and start adding tracks.</p><button data-act="new-playlist" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90"><i data-lucide="plus" style="width:16px;height:16px"></i> Create playlist</button></div>`}</div>`;
+  ${(pls.length||favN)?`<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">${favRow}${pls.map(pl=>`<div class="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/25"><button data-act="pl-open" data-id="${pl.id}" class="flex min-w-0 flex-1 items-center gap-3 text-left"><div class="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-white/10 bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:22px;height:22px"></i></div><div class="min-w-0"><p class="clamp-1 font-semibold">${esc(pl.name)}</p><p class="text-xs text-white/50">${(pl.songIds||[]).length} track${(pl.songIds||[]).length!==1?'s':''}</p></div></button><div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button data-act="pl-rename" data-id="${pl.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="pl-delete" data-id="${pl.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-red-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div></div>`).join("")}</div>`:`<div class="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] py-16 text-center"><i data-lucide="list-music" class="text-white/30" style="width:40px;height:40px"></i><p class="text-lg font-semibold">No playlists yet</p><p class="max-w-xs text-sm text-white/50">Create your first playlist and start adding tracks.</p><button data-act="new-playlist" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90"><i data-lucide="plus" style="width:16px;height:16px"></i> Create playlist</button></div>`}</div>`;
 }
 
 function viewPlaylistDetail(){
@@ -2187,7 +2232,7 @@ function viewPlaylistDetail(){
   const _plo=state.plOrigin||'library'; const backLabel=_plo==='profile'?'Back to Profile':_plo==='playlists'?'Back to Playlists':'Back to Library';
   return `<div class="space-y-6"><button data-act="pl-back" data-testid="playlist-detail-back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> ${backLabel}</button>
   <section class="flex items-end gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-6"><div class="grid h-24 w-24 shrink-0 place-items-center rounded-2xl border border-white/10 bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:40px;height:40px"></i></div><div class="min-w-0"><p class="text-[10px] uppercase tracking-[0.25em] text-white/45">Playlist</p><h1 class="mt-1 clamp-2 text-3xl font-bold">${esc(pl.name)}</h1><p class="mt-1 text-sm text-white/55">${songs.length} track${songs.length!==1?'s':''}</p></div></section>
-  ${songs.length?`<div class="flex items-center gap-3"><button data-act="playall-context" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button></div><div class="space-y-1.5" data-plid="${pl.id}" data-reorder="pl">${songs.map((s,i)=>`<div data-rid="${s.id}" class="flex items-center gap-1.5"><span data-rhandle data-testid="pl-drag-${s.id}" aria-label="Drag to reorder" class="grid h-9 w-6 shrink-0 place-items-center rounded-lg text-white/30 hover:text-white/70"><i data-lucide="grip-vertical" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1">${songRow(s,i,true)}</div></div>`).join("")}</div>`:`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-14 text-center"><i data-lucide="list-music" class="text-white/30" style="width:36px;height:36px"></i><p class="font-semibold">This playlist is empty</p><p class="text-sm text-white/50">Add songs using the \u2022\u2022\u2022 menu on any track.</p><button data-act="nav" data-view="library" class="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10">Browse Library</button></div>`}</div>`;
+  ${songs.length?`<div class="flex items-center gap-3"><button data-act="playall-context" data-ctx="pl:${pl.id}" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button></div><div class="space-y-1.5" data-plid="${pl.id}" data-reorder="pl">${songs.map((s,i)=>`<div data-rid="${s.id}" class="flex items-center gap-1.5"><span data-rhandle data-testid="pl-drag-${s.id}" aria-label="Drag to reorder" class="grid h-9 w-6 shrink-0 place-items-center rounded-lg text-white/30 hover:text-white/70"><i data-lucide="grip-vertical" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1">${songRow(s,i,true,null,{ctx:'pl:'+pl.id})}</div></div>`).join("")}</div>`:`<div class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] py-14 text-center"><i data-lucide="list-music" class="text-white/30" style="width:36px;height:36px"></i><p class="font-semibold">This playlist is empty</p><p class="text-sm text-white/50">Add songs using the \u2022\u2022\u2022 menu on any track.</p><button data-act="nav" data-view="library" class="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10">Browse Library</button></div>`}</div>`;
 }
 
 const REPORT_EMAIL="lyrics@treesh.app";
@@ -2860,7 +2905,9 @@ function restoreScroll(root, map){ if(!root||!map||!map.length) return; for(let 
    one-time auto popup the first time they open that surface.
    RULE: keep copy plain and friendly. No em-dashes. */
 const WHATS_NEW = {
-  library: { v:2, date:"September 16, 2026", title:"Library", sub:"Your home base got a glow up.", items:[
+  library: { v:3, date:"September 17, 2026", title:"Library", sub:"Your home base got a glow up.", items:[
+    { icon:"heart", title:"Favorites is now a playlist", desc:"Your liked tracks appear as a Favorites playlist in your Library and profile, and it disappears on its own when you have none." },
+    { icon:"list-checks", title:"Play Favorites, reliably", desc:"Playing from Favorites now always cues up exactly your liked songs, in the right order." },
     { icon:"crop", title:"Cover Art Studio", desc:"Crop, zoom, rotate, flip and add filters to your cover art before you save an upload." },
     { icon:"list-music", title:"Load only what you need", desc:"Choose how many songs appear at once, from a handful up to everything, then tap Load more when you want the rest." },
     { icon:"upload", title:"Add your own music", desc:"Upload your tracks and cover art from this device and play them right alongside the catalog." },
@@ -2887,7 +2934,8 @@ const WHATS_NEW = {
     { icon:"hard-drive", title:"Storage and data", desc:"See what is saved on this device and clear any part of it whenever you like." },
     { icon:"lock", title:"App and page locks", desc:"Add a PIN or password to keep the app or single pages private." },
   ]},
-  player: { v:2, date:"September 16, 2026", title:"Music Player", sub:"A richer way to listen.", items:[
+  player: { v:3, date:"September 17, 2026", title:"Music Player", sub:"A richer way to listen.", items:[
+    { icon:"smartphone", title:"Reliable background play", desc:"Your music keeps playing when the screen locks or you switch apps, even on iPhone and iPad." },
     { icon:"sliders-vertical", title:"10-band Equalizer", desc:"Shape your sound with a graphic EQ, preamp, 13 presets and a live spectrum. Save your own presets too \u2014 open it from the player or Settings." },
     { icon:"mic-vocal", title:"Tighter karaoke timing", desc:"Fixed line and word timing so the highlight and the performer tag stay perfectly in sync, even with section headers." },
     { icon:"captions", title:"Lyric meanings", desc:"Tap a line to see what it means, or let meanings reveal themselves as you listen." },
@@ -2910,10 +2958,10 @@ function wnLoad(){
   state.whatsNewOff = !!LS.get("treesh_whatsnew_off", false);
   let seen=null; try{ seen=LS.get("treesh_seen_whatsnew", null); }catch(e){}
   if(seen && typeof seen==='object'){ state.seenWN=seen; return; }
-  // No record yet. Brand new users (no profile) start all-seen so they aren't spammed after onboarding.
+  // No record yet (brand new or freshly reset). Leave everything UNSEEN so the
+  // per-page What's New popups appear the first time each surface is opened
+  // (they only fire once a profile exists, i.e. after onboarding completes).
   state.seenWN={};
-  const isNew = !LS.get("treesh_profile", null);
-  if(isNew){ Object.keys(WHATS_NEW).forEach(k=>{ state.seenWN[k]=WHATS_NEW[k].v; }); LS.set("treesh_seen_whatsnew", state.seenWN); }
 }
 function wnOpen(id){
   const w=WHATS_NEW[id]; if(!w) return;
@@ -3106,6 +3154,7 @@ function renderView(animate=false){
     case "playlist": html=viewPlaylistDetail(); break;
     case "settings": html=viewSettings(); break;
     case "game": html=viewGame(); break;
+    case "studios": html=viewStudios(); break;
     case "instrum": html=viewInstrum(); break;
     case "blog": html=viewBlog(); break;
     case "picks": html=viewPicks(); break;
@@ -3178,7 +3227,7 @@ function profileFavoritesHtml(){
     return `<div class="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] py-14 text-center" data-testid="favorites-empty"><div class="eq scale-150"><span></span><span></span><span></span><span></span></div><p class="text-base font-semibold">No favorites yet</p><p class="max-w-[15rem] text-sm text-white/50">Tap the heart on any track to save it here.</p><button data-act="nav" data-view="library" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10"><i data-lucide="music-2" style="width:15px;height:15px"></i>Browse Library</button></div>`;
   }
   let h=`<div class="space-y-6">`;
-  h+=`<section data-testid="favorites-liked-tracks-list"><div class="mb-2 flex items-center justify-between"><h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-white/70"><i data-lucide="heart" class="text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i>Liked Tracks<span class="rounded-full bg-white/10 px-1.5 text-[11px] font-medium text-white/60">${list.length}</span></h3><button data-act="playall-context" data-testid="favorites-play-all" class="press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-3 py-1.5 text-xs font-semibold glow-purple"><i data-lucide="play" style="width:13px;height:13px"></i>Play</button></div><div class="space-y-1">${list.map((s,i)=>songRow(s,i,false)).join("")}</div></section>`;
+  h+=`<section data-testid="favorites-liked-tracks-list"><div class="mb-2 flex items-center justify-between"><h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-white/70"><i data-lucide="heart" class="text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i>Liked Tracks<span class="rounded-full bg-white/10 px-1.5 text-[11px] font-medium text-white/60">${list.length}</span></h3><button data-act="playall-context" data-ctx="fav" data-testid="favorites-play-all" class="press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-3 py-1.5 text-xs font-semibold glow-purple"><i data-lucide="play" style="width:13px;height:13px"></i>Play</button></div><div class="space-y-1">${list.map((s,i)=>songRow(s,i,false,null,{ctx:'fav'})).join("")}</div></section>`;
   h+=`</div>`;
   return h;
 }
@@ -3193,13 +3242,31 @@ function profileLyricsHtml(){
       <div class="flex gap-2"><button data-act="play-fav-song" data-id="${g.songId}" data-testid="play-song-${g.songId}" class="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[color:var(--treesh-purple)] py-2 text-sm font-semibold glow-purple"><i data-lucide="play" style="width:14px;height:14px" class="fill-current"></i>Play song</button><button data-act="make-lyric-card" data-id="${g.songId}" data-testid="make-lyric-card-${g.songId}" aria-label="Make lyric card" data-tip="Make lyric card" class="tip press inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-white/10 px-3.5 py-2 text-sm font-semibold hover:bg-white/15"><i data-lucide="wand-sparkles" style="width:15px;height:15px"></i></button></div>
     </div>`).join("")}</div></section>`;
 }
+/* Favorites auto-playlist card (virtual). Shown wherever playlists appear when
+   the user has >0 favorites; disappears automatically at 0. */
+function favPlaylistCard(mode){
+  const favs=favSongs(); const n=favs.length; if(!n) return '';
+  const cover=favs[0];
+  const openAct = mode==='profile' ? 'data-act="profile-tab" data-tab="favorites"' : 'data-act="nav" data-view="favorites"';
+  return `<div class="group relative overflow-hidden rounded-2xl border border-[color:var(--treesh-purple)]/30 bg-white/[0.04] card-lift" data-testid="favorites-playlist-card">
+    <button ${openAct} data-testid="favorites-playlist-open" class="block w-full text-left">
+      <div class="relative aspect-square w-full overflow-hidden">
+        ${cover&&cover.coverArt?img(cover.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105'):`<div class="grid h-full w-full place-items-center bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]"><i data-lucide="heart" style="width:34px;height:34px" class="fill-current"></i></div>`}
+        <div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,0.65) 100%)"></div>
+        <span class="absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white shadow-lg"><i data-lucide="heart" style="width:14px;height:14px" class="fill-current"></i></span>
+      </div>
+      <div class="p-2.5"><p class="clamp-1 text-sm font-semibold">Favorites</p><p class="font-doto text-[11px] text-white/50">${n} track${n!==1?'s':''}</p></div>
+    </button>
+    <button data-act="playall-context" data-ctx="fav" aria-label="Play favorites" data-testid="favorites-playlist-play" class="press absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white shadow-lg opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 glow-purple"><i data-lucide="play" style="width:15px;height:15px" class="fill-current"></i></button>
+  </div>`;
+}
 function profilePlaylistsHtml(){
-  const pls=state.playlists;
+  const pls=state.playlists; const favCard=favPlaylistCard('profile');
   let h=`<div class="space-y-4"><div class="flex items-center justify-between"><h3 class="text-sm font-bold uppercase tracking-wide text-white/70">Your Playlists</h3><button data-act="new-playlist" data-testid="playlists-create-button" class="press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-3 py-1.5 text-xs font-semibold glow-purple"><i data-lucide="plus" style="width:14px;height:14px"></i>Create</button></div>`;
-  if(!pls.length){
+  if(!pls.length && !favCard){
     h+=`<div class="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] py-14 text-center" data-testid="playlists-empty"><i data-lucide="list-music" class="text-white/30" style="width:36px;height:36px"></i><p class="text-base font-semibold">No playlists yet</p><p class="max-w-[15rem] text-sm text-white/50">Create your first playlist and start adding tracks.</p><button data-act="new-playlist" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10"><i data-lucide="plus" style="width:15px;height:15px"></i>Create playlist</button></div>`;
   } else {
-    h+=`<div class="grid grid-cols-2 gap-3">${pls.map(pl=>{ const cover=(pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean)[0]; return `<div class="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] card-lift" data-testid="playlist-card"><button data-act="pl-open-profile" data-id="${pl.id}" class="block w-full text-left"><div class="relative aspect-square w-full overflow-hidden">${cover?img(cover.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105'):`<div class="grid h-full w-full place-items-center bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:32px;height:32px"></i></div>`}<div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,0.6) 100%)"></div></div><div class="p-2.5"><p class="clamp-1 text-sm font-semibold">${esc(pl.name)}</p><p class="font-doto text-[11px] text-white/50">${(pl.songIds||[]).length} track${(pl.songIds||[]).length!==1?'s':''}</p></div></button><div class="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button data-act="pl-rename" data-id="${pl.id}" aria-label="Rename" class="press grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"><i data-lucide="pencil" style="width:13px;height:13px"></i></button><button data-act="pl-delete" data-id="${pl.id}" aria-label="Delete" class="press grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70 hover:text-red-300"><i data-lucide="trash-2" style="width:13px;height:13px"></i></button></div></div>`; }).join("")}</div>`;
+    h+=`<div class="grid grid-cols-2 gap-3">${favCard}${pls.map(pl=>{ const cover=(pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean)[0]; return `<div class="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] card-lift" data-testid="playlist-card"><button data-act="pl-open-profile" data-id="${pl.id}" class="block w-full text-left"><div class="relative aspect-square w-full overflow-hidden">${cover?img(cover.coverArt,'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105'):`<div class="grid h-full w-full place-items-center bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:32px;height:32px"></i></div>`}<div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,0.6) 100%)"></div></div><div class="p-2.5"><p class="clamp-1 text-sm font-semibold">${esc(pl.name)}</p><p class="font-doto text-[11px] text-white/50">${(pl.songIds||[]).length} track${(pl.songIds||[]).length!==1?'s':''}</p></div></button><div class="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><button data-act="pl-rename" data-id="${pl.id}" aria-label="Rename" class="press grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"><i data-lucide="pencil" style="width:13px;height:13px"></i></button><button data-act="pl-delete" data-id="${pl.id}" aria-label="Delete" class="press grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:bg-black/70 hover:text-red-300"><i data-lucide="trash-2" style="width:13px;height:13px"></i></button></div></div>`; }).join("")}</div>`;
   }
   h+=`</div>`;
   return h;
@@ -3251,7 +3318,7 @@ function profileStatsHtml(){
 }
 /* --- favorite-lyric / full-song playback --- */
 let _snipTimer=null;
-function playFavSong(id){ const s=SONG_BY_ID[id]; if(!s) return; clearTimeout(_snipTimer); playSong(s,[s]); toast("Playing",s.title); }
+function playFavSong(id){ const s=SONG_BY_ID[id]; if(!s) return; clearTimeout(_snipTimer); if(state.profileOpen) closeProfile(); playSong(s,[s]); toast("Playing",s.title); }
 function playLyricSnippet(id,i){
   const s=SONG_BY_ID[id]; if(!s) return; const lines=s.lyrics||[]; const line=lines[i]; if(!line){ playFavSong(id); return; }
   clearTimeout(_snipTimer);
@@ -4697,6 +4764,45 @@ function closeLS(force){
   state.lsOpen=false; state.ls=null;
   const c=$("#ls"); if(c) c.innerHTML="";
   syncScrollLock();
+/* ---- blank documents & drafts (write lyrics without picking a song) ---- */
+function lsNewDraftId(){ return 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function openLyricBlank(draft){
+  try{ if(typeof audio!=='undefined') audio.pause(); }catch(e){}
+  try{ _lsAudio.pause(); _lsAudio.removeAttribute('src'); }catch(e){}
+  if(draft){
+    state.ls={ songId:null, isBlank:true, draftId:draft.id, title:draft.title||"", artist:draft.artist||"", album:draft.album||"",
+      mode:(draft.items&&draft.items.some(it=>it.type==='line'&&it.t!=null))?'sync':'write',
+      items:(draft.items||[]).map(it=>Object.assign({},it)), idx:-1, cur:0, dur:0, playing:false, rate:1, hasAudio:false, dirty:false };
+  } else {
+    state.ls={ songId:null, isBlank:true, draftId:lsNewDraftId(), title:"", artist:"", album:"",
+      mode:'write', items:[], idx:-1, cur:0, dur:0, playing:false, rate:1, hasAudio:false, dirty:false };
+  }
+  state.lsOpen=true; state.ls.idx=lsFirstUnstamped();
+  renderLS(); syncScrollLock();
+  setTimeout(()=>wnMaybeAuto('lyricstudio'),500);
+}
+function lsSaveDrafts(){ try{ LS.set("treesh_lyric_drafts", state.lyricDrafts||[]); }catch(e){} }
+function lsCommitEdits(){ const ls=state.ls; if(!ls) return; if(ls.mode==='write'){ const ta=$("#ls-write"); if(ta) ls.items=lsParseWriteText(ta.value, ls.items); } else if(ls.mode==='sync'){ lsSyncTextInputs(); } }
+function lsSaveDraftFromState(){
+  const ls=state.ls; if(!ls) return; lsCommitEdits();
+  const persist=(title)=>{
+    ls.title=(title||ls.title||"Untitled lyrics");
+    state.lyricDrafts=state.lyricDrafts||[];
+    const rec={ id:ls.draftId, title:ls.title, artist:ls.artist||"", album:ls.album||"", items:(ls.items||[]).map(it=>Object.assign({},it)), updated:Date.now() };
+    const i=state.lyricDrafts.findIndex(d=>d.id===ls.draftId);
+    if(i>=0) state.lyricDrafts[i]=rec; else state.lyricDrafts.unshift(rec);
+    lsSaveDrafts();
+    ls.dirty=false; const d=$("#ls-dirty"); if(d) d.classList.add("hidden");
+    const tEl=$("#ls-doc-title"); if(tEl) tEl.textContent=ls.title;
+    toast("Draft saved on this device", ls.title);
+  };
+  if(!ls.title || !ls.title.trim()){ openPrompt("Name your lyric draft", "", (v)=>persist((v||"").trim()||"Untitled lyrics")); }
+  else persist(ls.title);
+}
+function lsRenameDoc(){ const ls=state.ls; if(!ls) return; openPrompt("Document title", ls.title||"", (v)=>{ ls.title=(v||"").trim()||"Untitled lyrics"; const tEl=$("#ls-doc-title"); if(tEl) tEl.textContent=ls.title; lsMarkDirty(); }); }
+function lsOpenDraft(id){ const d=(state.lyricDrafts||[]).find(x=>x.id===id); if(!d) return; if($("#modal")&&$("#modal").childElementCount>0) closeModal(); openLyricBlank(d); }
+function lsDeleteDraft(id){ const d=(state.lyricDrafts||[]).find(x=>x.id===id); openConfirm("Delete this draft?", d?('"'+(d.title||'Untitled lyrics')+'" will be removed from this device.'):"", ()=>{ state.lyricDrafts=(state.lyricDrafts||[]).filter(x=>x.id!==id); lsSaveDrafts(); openLSPicker(); toast("Draft deleted"); }); }
+
 }
 
 /* ---- transport ---- */
@@ -4711,7 +4817,7 @@ _lsAudio.addEventListener("play",()=>{ if(!state.lsOpen||!state.ls) return; stat
 _lsAudio.addEventListener("pause",()=>{ if(!state.lsOpen||!state.ls) return; state.ls.playing=false; lsUpdatePlayIcon(); });
 _lsAudio.addEventListener("ended",()=>{ if(!state.lsOpen||!state.ls) return; state.ls.playing=false; lsUpdatePlayIcon(); });
 function lsUpdatePlayIcon(){ const ic=(state.ls&&state.ls.playing)?"pause":"play"; const b=$("#ls-play"); if(b) b.innerHTML=`<i data-lucide="${ic}" style="width:20px;height:20px" class="fill-current"></i>`; const b2=$("#lsw-play"); if(b2) b2.innerHTML=`<i data-lucide="${ic}" style="width:22px;height:22px" class="fill-current"></i>`; if(b||b2) icons(); }
-function lsUpdateTransport(){ if(!state.ls) return; const cur=state.ls.cur||0, dur=state.ls.dur||0; const cE=$("#ls-cur"); if(cE) cE.textContent=lsFmt(cur); const dE=$("#ls-dur"); if(dE) dE.textContent=lsFmt(dur); const wc=$("#lsw-cur"); if(wc) wc.textContent=lsFmt(cur); const wd=$("#lsw-dur"); if(wd) wd.textContent=lsFmt(dur); const sk=$("#ls-seek"); if(sk && !sk._drag){ sk.value=dur?(cur/dur*100):0; fillSlider(sk); } }
+function lsUpdateTransport(){ if(!state.ls) return; const cur=state.ls.cur||0, dur=state.ls.dur||0; const cE=$("#ls-cur"); if(cE) cE.textContent=lsFmt(cur); const dE=$("#ls-dur"); if(dE) dE.textContent=lsFmt(dur); const wc=$("#lsw-cur"); if(wc) wc.textContent=lsFmt(cur); const wd=$("#lsw-dur"); if(wd) wd.textContent=lsFmt(dur); const sk=$("#ls-seek"); if(sk && !sk._drag){ sk.value=dur?(cur/dur*100):0; fillSlider(sk); } if(state.ls.mode==='preview'){ try{ lsPreviewHighlight(); }catch(e){} } }
 
 /* ---- sync editing ---- */
 function lsMarkDirty(){ if(state.ls) state.ls.dirty=true; const d=$("#ls-dirty"); if(d) d.classList.remove("hidden"); }
@@ -4773,6 +4879,7 @@ function lsBuildLyrics(){
 }
 function lsSave(){
   if(!state.ls) return;
+  if(state.ls.isBlank){ lsSaveDraftFromState(); return; }
   if(state.ls.mode==='write'){ const ta=$("#ls-write"); if(ta) state.ls.items=lsParseWriteText(ta.value, state.ls.items); }
   else { lsSyncTextInputs(); }
   const s=SONG_BY_ID[state.ls.songId]; if(!s){ toast("Song not found"); return; }
@@ -4848,15 +4955,21 @@ function lsExportDownload(){ const lrc=lsBuildLRC(); const safe=(state.ls.title|
 function openLSPicker(){
   const users=SONGS.filter(s=>s._user);
   const cat=vis(SONGS.filter(s=>!s._user));
+  const drafts=(state.lyricDrafts||[]).slice().sort((a,b)=>(b.updated||0)-(a.updated||0));
   const rowHtml=(s)=>{ const has=(s.lyrics||[]).some(l=>l.text&&l.text.trim()); return `<button data-act="ls-pick" data-id="${s.id}" data-testid="ls-pick-${s.id}" class="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2 text-left hover:bg-white/10"><span class="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}</span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(s.title)}${s._user?' <span class="ml-1 align-middle rounded bg-[color:var(--treesh-purple)]/25 px-1 text-[8px] font-bold text-[color:var(--treesh-purple)]">YOURS</span>':''}</span><span class="clamp-1 block text-xs text-white/50">${esc(s.artist)}</span></span><span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${has?'bg-white/10 text-white/55':'bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]'}">${has?'Re-sync':'Add lyrics'}</span></button>`; };
+  const draftRow=(d)=>{ const n=(d.items||[]).filter(x=>x.type==='line'&&(x.text||'').trim()).length; return `<div class="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2" data-testid="ls-draft-${d.id}"><button data-act="ls-open-draft" data-id="${d.id}" class="flex min-w-0 flex-1 items-center gap-3 text-left"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="file-pen-line" style="width:18px;height:18px"></i></span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(d.title||'Untitled lyrics')}</span><span class="clamp-1 block text-xs text-white/50">${n} line${n!==1?'s':''} \u00b7 ${relDate(new Date(d.updated||Date.now()).toISOString())}</span></span></button><button data-act="ls-del-draft" data-id="${d.id}" aria-label="Delete draft" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-rose-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`; };
   const section=(label,arr)=> arr.length? `<p class="mb-1.5 mt-2 px-0.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">${label}</p><div class="space-y-1.5">${arr.map(rowHtml).join("")}</div>`:"";
+  const draftSection=(arr)=> arr.length? `<p class="mb-1.5 mt-2 px-0.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">Your drafts</p><div class="space-y-1.5" data-testid="ls-drafts">${arr.map(draftRow).join("")}</div>`:"";
+  const blankBtn=`<button data-act="ls-new-blank" data-testid="ls-new-blank" class="press mb-2 flex w-full items-center gap-3 rounded-2xl border border-dashed border-[color:var(--treesh-purple)]/40 bg-[color:var(--treesh-purple)]/[0.08] p-3 text-left transition hover:bg-[color:var(--treesh-purple)]/[0.15]"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]"><i data-lucide="file-plus-2" style="width:20px;height:20px"></i></span><span class="min-w-0 flex-1"><span class="block text-sm font-bold">Start a blank document</span><span class="block text-xs text-white/55">Write lyrics from scratch \u2014 no song needed</span></span><i data-lucide="arrow-right" class="shrink-0 text-white/40" style="width:18px;height:18px"></i></button>`;
   const inner=`<h3 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="captions" style="width:18px;height:18px"></i>Lyric Studio</h3>
-   <p class="mb-3 text-xs text-white/55">Pick a song to add or re-time lyrics.</p>
+   <p class="mb-3 text-xs text-white/55">Start a blank document, open a draft, or pick a song to add or re-time lyrics.</p>
+   ${blankBtn}
    <input id="ls-pick-search" data-testid="ls-pick-search" placeholder="Search your music & the catalog\u2026" class="mb-2 h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">
-   <div id="ls-pick-list" class="max-h-[54vh] space-y-1 overflow-y-auto soft-scroll pr-1">${section('My Music',users)}${section('Catalog',cat)}</div>`;
+   <div id="ls-pick-list" class="max-h-[48vh] space-y-1 overflow-y-auto soft-scroll pr-1">${draftSection(drafts)}${section('My Music',users)}${section('Catalog',cat)}</div>`;
   $("#modal").innerHTML=modalWrap(inner,"ls-pick-modal","lg"); icons();
-  const si=$("#ls-pick-search"); if(si){ si.addEventListener("input",()=>{ const q=si.value.toLowerCase().trim(); const fu=users.filter(s=>!q||s.title.toLowerCase().includes(q)||(s.artist||'').toLowerCase().includes(q)); const fc=cat.filter(s=>!q||s.title.toLowerCase().includes(q)||(s.artist||'').toLowerCase().includes(q)); const c=$("#ls-pick-list"); if(c){ c.innerHTML=(section('My Music',fu)+section('Catalog',fc))||'<p class="py-8 text-center text-sm text-white/50">No matches.</p>'; icons(); } }); }
+  const si=$("#ls-pick-search"); if(si){ si.addEventListener("input",()=>{ const q=si.value.toLowerCase().trim(); const fu=users.filter(s=>!q||s.title.toLowerCase().includes(q)||(s.artist||'').toLowerCase().includes(q)); const fc=cat.filter(s=>!q||s.title.toLowerCase().includes(q)||(s.artist||'').toLowerCase().includes(q)); const fd=q?[]:drafts; const c=$("#ls-pick-list"); if(c){ c.innerHTML=(draftSection(fd)+section('My Music',fu)+section('Catalog',fc))||'<p class="py-8 text-center text-sm text-white/50">No matches.</p>'; icons(); } }); }
 }
+
 
 /* ---- render overlay ---- */
 function renderLS(){
@@ -4867,14 +4980,14 @@ function renderLS(){
   const header=`<div class="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-3 sm:px-5">
      <button data-act="ls-close" data-testid="ls-close" aria-label="Close" class="press grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85 hover:bg-white/10"><i data-lucide="chevron-down" style="width:20px;height:20px"></i></button>
      <div class="min-w-0 flex-1">
-       <p class="flex items-center gap-2 font-display text-[11px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Lyric Studio <span id="ls-dirty" class="${ls.dirty?'':'hidden'} inline-block h-1.5 w-1.5 rounded-full bg-[color:var(--treesh-gold)]" title="Unsaved changes"></span></p>
-       <p class="clamp-1 text-sm font-bold">${esc(ls.title||'Untitled')} <span class="font-normal text-white/50">\u00b7 ${esc(ls.artist||'')}</span></p>
+       <p class="flex items-center gap-2 font-display text-[11px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">${ls.isBlank?'Lyric Draft':'Lyric Studio'} <span id="ls-dirty" class="${ls.dirty?'':'hidden'} inline-block h-1.5 w-1.5 rounded-full bg-[color:var(--treesh-gold)]" title="Unsaved changes"></span></p>
+       ${ls.isBlank?`<button id="ls-doc-title" data-act="ls-doc-rename" data-testid="ls-doc-title" class="flex max-w-full items-center gap-1.5 text-left text-sm font-bold hover:text-white/80"><span class="clamp-1">${esc(ls.title||'Untitled lyrics')}</span><i data-lucide="pencil" style="width:13px;height:13px" class="shrink-0 text-white/40"></i></button>`:`<p class="clamp-1 text-sm font-bold">${esc(ls.title||'Untitled')} <span class="font-normal text-white/50">\u00b7 ${esc(ls.artist||'')}</span></p>`}
      </div>
      <button data-act="ls-import" data-testid="ls-import" aria-label="Import lyrics" class="press hidden h-10 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-sm font-semibold text-white/85 hover:bg-white/10 sm:inline-flex"><i data-lucide="import" style="width:15px;height:15px"></i>Import</button>
      <button data-act="ls-export" data-testid="ls-export" aria-label="Export LRC" class="press hidden h-10 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-sm font-semibold text-white/85 hover:bg-white/10 sm:inline-flex"><i data-lucide="file-down" style="width:15px;height:15px"></i>Export</button>
      <button data-act="ls-save" data-testid="ls-save" class="press inline-flex h-10 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-4 text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Save</button>
    </div>`;
-  const tabs=`<div class="flex shrink-0 items-center gap-2 px-3 pt-3 sm:px-5">${tab('write','Write','pencil')}${tab('sync','Sync','clock')}
+  const tabs=`<div class="flex shrink-0 items-center gap-2 px-3 pt-3 sm:px-5">${tab('write','Write','pencil')}${tab('sync','Sync','clock')}${tab('preview','Preview','play')}
      <div class="ml-auto flex items-center gap-2 sm:hidden">
        <button data-act="ls-import" aria-label="Import" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="import" style="width:16px;height:16px"></i></button>
        <button data-act="ls-export" aria-label="Export" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="file-down" style="width:16px;height:16px"></i></button>
@@ -4885,7 +4998,7 @@ function renderLS(){
      <div class="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col">
        <div class="ls-slide shrink-0" style="animation-delay:0ms">${header}</div>
        <div class="ls-slide shrink-0" style="animation-delay:55ms">${tabs}</div>
-       <div id="ls-body" class="ls-slide min-h-0 flex-1 overflow-hidden px-3 sm:px-5" style="animation-delay:110ms">${ls.mode==='write'?lsWriteHtml():lsSyncHtml()}</div>
+       <div id="ls-body" class="ls-slide min-h-0 flex-1 overflow-hidden px-3 sm:px-5" style="animation-delay:110ms">${lsBodyHtml()}</div>
        <div class="ls-slide shrink-0" style="animation-delay:165ms">${lsBarHtml()}</div>
      </div>
    </div>`;
@@ -4894,6 +5007,7 @@ function renderLS(){
   lsWireBar();
   syncScrollLock();
 }
+function lsBodyHtml(){ const m=state.ls.mode; return m==='write'?lsWriteHtml():(m==='preview'?lsPreviewHtml():lsSyncHtml()); }
 function lsBarHtml(){
   const ls=state.ls; const s=SONG_BY_ID[ls.songId]; const noAudio=!ls.hasAudio;
   return `<div id="ls-bar" class="border-t border-white/10 bg-[#0d0d10]/95 px-3 py-2.5 backdrop-blur-xl sm:px-5">
@@ -4920,7 +5034,7 @@ function lsWireBar(){
   lsUpdateTransport();
   const sk=$("#ls-seek"); if(sk){ sk.addEventListener("input",()=>{ sk._drag=true; fillSlider(sk); if(state.ls.dur){ const cE=$("#ls-cur"); if(cE) cE.textContent=lsFmt(sk.value/100*state.ls.dur); } }); sk.addEventListener("change",()=>{ if(state.ls.dur) lsSeekTo(sk.value/100*state.ls.dur); sk._drag=false; }); }
 }
-function lsRenderBody(){ const b=$("#ls-body"); if(!b||!state.ls) return; b.innerHTML= state.ls.mode==='write'?lsWriteHtml():lsSyncHtml(); icons(); lsWireBody(); lsSyncTabs(); }
+function lsRenderBody(){ const b=$("#ls-body"); if(!b||!state.ls) return; b.innerHTML= lsBodyHtml(); icons(); lsWireBody(); lsSyncTabs(); }
 function lsSyncTabs(){ if(!state.ls) return; $$('[data-act="ls-mode"]').forEach(btn=>{ btn.setAttribute('aria-selected', String(btn.dataset.mode===state.ls.mode)); }); }
 /* ---- Known artist groups (offline, extensible) ----
    Detects when several performers are actually one collective so their
@@ -5007,12 +5121,22 @@ function lsWriteHtml(){
        ${performers.length?`<div><p class="mb-1.5 flex items-center gap-1 px-0.5 text-[10px] font-bold uppercase tracking-wide text-white/40"><i data-lucide="mic-2" style="width:11px;height:11px"></i>Performers</p><div class="space-y-1.5">${perfRows}</div></div>`:''}
      </div>
    </details>`;
-  const findBtn = `<button data-act="lyrics-find" data-id="${state.ls.songId}" data-testid="ls-find-online" class="press mb-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/30 bg-[color:var(--treesh-purple)]/10 px-4 py-2.5 text-sm font-semibold text-[color:var(--treesh-purple)] transition-colors hover:bg-[color:var(--treesh-purple)]/20"><i data-lucide="sparkles" style="width:16px;height:16px"></i>Find lyrics online</button>`;
+  const findBtn = state.ls.isBlank ? '' : `<button data-act="lyrics-find" data-id="${state.ls.songId}" data-testid="ls-find-online" class="press mb-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/30 bg-[color:var(--treesh-purple)]/10 px-4 py-2.5 text-sm font-semibold text-[color:var(--treesh-purple)] transition-colors hover:bg-[color:var(--treesh-purple)]/20"><i data-lucide="sparkles" style="width:16px;height:16px"></i>Find lyrics online</button>`;
+  const rhymeDock = `<div id="ls-rhyme-dock" class="mt-2 shrink-0 rounded-2xl border border-white/10 bg-white/[0.03]" data-testid="ls-rhyme-dock">
+     <div class="flex items-center gap-2 px-3 py-2">
+       <i data-lucide="mic-vocal" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i>
+       <span class="shrink-0 text-[11px] font-bold uppercase tracking-wide text-white/55">Rhymes${state.lsRhymesOn?' for':''}</span>
+       ${state.lsRhymesOn?`<span id="ls-rhyme-word" class="clamp-1 min-w-0 text-[13px] font-semibold text-[color:var(--treesh-gold)]">type a word\u2026</span>`:'<span class="clamp-1 min-w-0 text-[12px] text-white/40">Suggestions as you write</span>'}
+       <button data-act="ls-rhyme-toggle" data-testid="ls-rhyme-toggle" role="switch" aria-checked="${state.lsRhymesOn}" class="press ml-auto shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${state.lsRhymesOn?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}">${state.lsRhymesOn?'On':'Off'}</button>
+     </div>
+     ${state.lsRhymesOn?`<div id="ls-rhyme-chips" class="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-3 pb-2.5"><span class="px-1 py-1 text-[11px] text-white/35">Rhymes appear as you type.</span></div>`:''}
+   </div>`;
   return `<div class="flex h-full flex-col py-3">
      <div class="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55"><i data-lucide="info" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i><span>One lyric per line. Wrap section names in brackets, e.g. <span class="mx-0.5 inline-block whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 font-doto text-white/80">[Verse&nbsp;1]</span></span></div>
      ${findBtn}
      ${tagPanel}
      <textarea id="ls-write" data-testid="ls-write-textarea" placeholder="[Verse 1]\nType or paste your lyrics here\u2026\nOne line at a time" class="no-scrollbar min-h-0 flex-1 w-full resize-none rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(txt)}</textarea>
+     ${rhymeDock}
      <div class="mt-3 flex shrink-0 items-center justify-between gap-2 pb-3">
        <span id="ls-write-count" class="text-xs text-white/45">${txt.split(/\r?\n/).filter(l=>l.trim()).length} lines</span>
        <button data-act="ls-goto-sync" data-testid="ls-goto-sync" class="press inline-flex h-11 items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 text-sm font-semibold text-white glow-purple">Continue to timing<i data-lucide="arrow-right" style="width:16px;height:16px"></i></button>
@@ -5074,8 +5198,11 @@ function lsSyncHtml(){
 function lsWireBody(){
   if(!state.ls) return;
   if(state.ls.mode==='write'){
-    const ta=$("#ls-write"); if(ta){ ta.addEventListener("input",()=>{ const cnt=$("#ls-write-count"); if(cnt) cnt.textContent=ta.value.split(/\r?\n/).filter(l=>l.trim()).length+" lines"; lsMarkDirty(); if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; }); ta.addEventListener("keyup",()=>{ if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; }); }
+    const ta=$("#ls-write"); if(ta){ ta.addEventListener("input",()=>{ const cnt=$("#ls-write-count"); if(cnt) cnt.textContent=ta.value.split(/\r?\n/).filter(l=>l.trim()).length+" lines"; lsMarkDirty(); if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; lsScheduleRhymes(); }); ta.addEventListener("keyup",()=>{ if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; lsScheduleRhymes(); }); ta.addEventListener("click",lsScheduleRhymes); ta.addEventListener("select",lsScheduleRhymes); }
     const dt=$(".ls-tags"); if(dt){ dt.addEventListener("toggle",()=>{ state.lsTagsOpen=dt.open; }); }
+    if(state.lsRhymesOn) lsUpdateRhymes();
+  } else if(state.ls.mode==='preview'){
+    lsUpdateTransport(); _lsPvIdx=-1; lsPreviewHighlight(true);
   } else {
     // commit inline text edits to the model without re-rendering
     $$("#ls-lines [data-ls-text]").forEach(inp=>{ inp.addEventListener("input",()=>{ const i=+inp.dataset.lsText; if(state.ls.items[i]){ state.ls.items[i].text=inp.value; lsMarkDirty(); } }); });
@@ -5085,7 +5212,90 @@ function lsWireBody(){
   }
 }
 function lsGoToSync(){ const ta=$("#ls-write"); if(ta){ state.ls.items=lsParseWriteText(ta.value, state.ls.items); } state.ls.mode='sync'; state.ls.idx=lsFirstUnstamped(); lsMarkDirty(); lsRenderBody(); }
-function lsSetMode(m){ if(!state.ls||state.ls.mode===m) return; if(m==='sync'){ const ta=$("#ls-write"); if(ta){ state.ls.items=lsParseWriteText(ta.value, state.ls.items); } state.ls.idx=lsFirstUnstamped(); } else { lsSyncTextInputs(); } state.ls.mode=m; lsRenderBody(); }
+function lsSetMode(m){ if(!state.ls||state.ls.mode===m) return; lsCommitEdits(); if(m==='sync'||m==='preview'){ state.ls.idx=lsFirstUnstamped(); } state.ls.mode=m; lsRenderBody(); if(m==='preview'){ try{ lsPreviewHighlight(true); }catch(e){} } }
+
+/* ============================================================
+   LYRIC STUDIO: Preview mode (play + watch lyrics like the player)
+   ============================================================ */
+function lsPreviewHtml(){
+  const ls=state.ls; const items=ls.items||[];
+  const hasLines=items.some(it=>it.type==='line'&&(it.text||'').trim());
+  if(!hasLines){
+    return `<div class="flex h-full flex-col items-center justify-center py-16 text-center"><div class="grid h-14 w-14 place-items-center rounded-2xl bg-white/5 text-white/40"><i data-lucide="play" style="width:26px;height:26px"></i></div><p class="mt-3 text-base font-semibold">Nothing to preview yet</p><p class="mt-1 max-w-[16rem] text-sm text-white/50">Add some lyrics in Write, then come back to watch them flow with the track.</p></div>`;
+  }
+  const timedCount=items.filter(it=>it.type==='line'&&it.t!=null).length;
+  const rows=items.map((it,i)=>{
+    if(it.type==='section'){ return `<div class="ls-pv-sec mb-1 mt-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white/35" data-ls-pv="${i}"><span class="h-px flex-1 bg-white/10"></span><span>${esc(lsSectionLabel(it.text))}</span><span class="h-px flex-1 bg-white/10"></span></div>`; }
+    const txt=(it.text||'').trim(); if(!txt) return '';
+    const hasEx=!!(it.explain&&String(it.explain).trim());
+    return `<div class="ls-pv-line" data-ls-pv="${i}">
+       <button data-act="ls-pv-line" data-i="${i}" class="press block w-full rounded-xl px-3 py-2 text-left text-[19px] font-semibold leading-relaxed text-white/35 transition-[color,transform] duration-200 sm:text-[22px]">${esc(txt)}${hasEx?` <i data-lucide="lightbulb" class="ml-1 inline align-[-2px] text-[color:var(--treesh-gold)]" style="width:14px;height:14px"></i>`:''}</button>
+       ${hasEx?`<div data-ls-pv-ex="${i}" class="hidden mx-3 mb-2 rounded-xl border-l-2 border-[color:var(--treesh-purple)] bg-white/[0.06] px-3 py-2 text-sm leading-relaxed text-white/75">${esc(it.explain)}</div>`:''}
+     </div>`;
+  }).join("");
+  const note = !ls.hasAudio ? `<div class="mb-2 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50"><i data-lucide="volume-x" style="width:13px;height:13px"></i>No audio on this document \u2014 tap a line to preview its meaning.</div>` : (timedCount? '' : `<div class="mb-2 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50"><i data-lucide="info" style="width:13px;height:13px"></i>Add timings in Sync to make lines highlight as the song plays.</div>`);
+  return `<div class="flex h-full flex-col py-3">${note}<div id="ls-pv-scroll" class="ls-fade no-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1 pb-6">${rows}</div></div>`;
+}
+let _lsPvIdx=-1;
+function lsPreviewActiveIndex(){ const items=state.ls.items||[]; const t=(state.ls.hasAudio?(_lsAudio.currentTime||0):(state.ls.cur||0)); let idx=-1; for(let i=0;i<items.length;i++){ const it=items[i]; if(it.type==='line'&&it.t!=null){ if(it.t<=t+0.15) idx=i; else break; } } return idx; }
+function lsPreviewHighlight(force){ if(!state.ls||state.ls.mode!=='preview') return; const cont=$("#ls-pv-scroll"); if(!cont) return; const idx=lsPreviewActiveIndex(); if(idx===_lsPvIdx && !force) return; _lsPvIdx=idx; cont.querySelectorAll('.ls-pv-line').forEach(el=>{ const i=+el.getAttribute('data-ls-pv'); const btn=el.firstElementChild; if(!btn) return; const active=(i===idx); btn.classList.toggle('text-white',active); btn.classList.toggle('text-white/35',!active); btn.style.transform=active?'scale(1.02)':''; btn.style.transformOrigin='left'; btn.style.textShadow=active?'0 2px 30px rgba(255,255,255,0.25)':''; }); if(idx>=0){ const el=cont.querySelector('.ls-pv-line[data-ls-pv="'+idx+'"]'); if(el){ const cr=cont.getBoundingClientRect(), er=el.getBoundingClientRect(); const target=cont.scrollTop+(er.top-cr.top)-cont.clientHeight/2+er.height/2; cont.scrollTo({top:Math.max(0,target), behavior: state.perfMode?'auto':'smooth'}); } } }
+
+/* ============================================================
+   LYRIC STUDIO: Rhyme helper (RhymersBlock-style suggestions)
+   Uses the Datamuse public API (no key) with graceful offline fallback.
+   ============================================================ */
+let _lsRhymeCache={}, _lsRhymeAbort=null, _lsRhymeWord='', _lsRhymeTimer=null;
+async function lsFetchRhymes(word){
+  word=(word||'').toLowerCase().replace(/[^a-z']/g,''); if(!word||word.length<2) return [];
+  if(_lsRhymeCache[word]) return _lsRhymeCache[word];
+  try{
+    if(_lsRhymeAbort){ try{ _lsRhymeAbort.abort(); }catch(e){} }
+    _lsRhymeAbort=new AbortController(); const sig=_lsRhymeAbort.signal;
+    const to=setTimeout(()=>{ try{ _lsRhymeAbort.abort(); }catch(e){} }, 6000);
+    const r=await fetch("https://api.datamuse.com/words?max=40&rel_rhy="+encodeURIComponent(word),{signal:sig}); clearTimeout(to);
+    if(!r.ok) throw new Error("http "+r.status);
+    let words=(await r.json()||[]).map(x=>x.word).filter(Boolean);
+    if(words.length<8){ try{ const r2=await fetch("https://api.datamuse.com/words?max=40&rel_nry="+encodeURIComponent(word)); if(r2.ok){ (await r2.json()||[]).forEach(x=>{ if(x.word && words.indexOf(x.word)<0) words.push(x.word); }); } }catch(e){} }
+    words=words.filter(w=>w && w.toLowerCase()!==word && !/\s/.test(w)).slice(0,40);
+    _lsRhymeCache[word]=words; return words;
+  }catch(e){ return null; }
+}
+function lsCurrentWord(ta){ const v=ta.value; const s=ta.selectionStart||0; let i=s; while(i>0 && /[A-Za-z']/.test(v[i-1])) i--; let j=s; while(j<v.length && /[A-Za-z']/.test(v[j])) j++; return {word:v.slice(i,j), start:i, end:j}; }
+function lsScheduleRhymes(){ if(!state.ls||state.ls.mode!=='write'||!state.lsRhymesOn) return; clearTimeout(_lsRhymeTimer); _lsRhymeTimer=setTimeout(lsUpdateRhymes, 300); }
+function lsUpdateRhymes(){
+  const ta=$("#ls-write"); if(!ta||!state.lsRhymesOn) return;
+  const s=ta.selectionStart||0, e=ta.selectionEnd||s; let word='';
+  if(e>s){ word=(ta.value.slice(s,e).trim().split(/\s+/).pop()||''); } else { word=lsCurrentWord(ta).word; }
+  word=(word||'').replace(/[^A-Za-z']/g,'');
+  const label=$("#ls-rhyme-word"), chips=$("#ls-rhyme-chips");
+  if(label) label.textContent = word||'type a word\u2026';
+  if(!word || word.length<2){ if(chips) chips.innerHTML='<span class="px-1 py-1 text-[11px] text-white/35">Rhymes appear as you type.</span>'; _lsRhymeWord=''; return; }
+  if(word.toLowerCase()===_lsRhymeWord) return; _lsRhymeWord=word.toLowerCase();
+  if(chips) chips.innerHTML='<span class="px-1 py-1 text-[11px] text-white/40">Finding rhymes\u2026</span>';
+  lsFetchRhymes(word).then(list=>{ if(_lsRhymeWord!==word.toLowerCase()) return; const c=$("#ls-rhyme-chips"); if(!c) return;
+    if(list===null){ c.innerHTML='<span class="px-1 py-1 text-[11px] text-white/40">Rhymes need a connection. Check your internet.</span>'; return; }
+    if(!list.length){ c.innerHTML='<span class="px-1 py-1 text-[11px] text-white/40">No rhymes found for \u201C'+esc(word)+'\u201D.</span>'; return; }
+    c.innerHTML=list.map(w=>`<button type="button" data-act="ls-rhyme-ins" data-w="${esc(w)}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[13px] font-semibold text-white/85 transition-colors hover:border-[color:var(--treesh-purple)]/60 hover:bg-[color:var(--treesh-purple)]/15">${esc(w)}</button>`).join('');
+  });
+}
+function lsInsertRhyme(word){ const ta=$("#ls-write"); if(!ta||!word) return; const v=ta.value; let s=ta.selectionStart||0, e=ta.selectionEnd||s; let start, end;
+  if(e>s){ start=s; end=e; } else { const cw=lsCurrentWord(ta); start=cw.start; end=cw.end; }
+  let ins=word; if(start===end){ const needSpace = start>0 && !/\s/.test(v[start-1]); ins=(needSpace?' ':'')+word; }
+  const before=v.slice(0,start), after=v.slice(end); ta.value=before+ins+after; const caret=(before+ins).length; ta.focus(); try{ ta.setSelectionRange(caret,caret); }catch(e){}
+  ta.dispatchEvent(new Event('input',{bubbles:true})); _lsRhymeWord=''; lsScheduleRhymes();
+}
+
+/* ============================================================
+   LYRIC STUDIO: per-line explanations (shown as "Meaning" in the player)
+   ============================================================ */
+function lsEditExplain(i){ const it=state.ls&&state.ls.items[i]; if(!it||it.type!=='line') return; const cur=it.explain||'';
+  const inner=`<h3 class="mb-1 flex items-center gap-2 text-base font-bold"><i data-lucide="lightbulb" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i>Explain this line</h3>
+   <p class="mb-3 clamp-2 text-xs text-white/55">\u201C${esc((it.text||'').slice(0,140))}\u201D</p>
+   <textarea id="ls-explain-input" data-testid="ls-explain-input" rows="4" placeholder="What does this line mean? Add context, a reference or a story\u2026" class="no-scrollbar w-full resize-none rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(cur)}</textarea>
+   <div class="mt-3 flex items-center justify-between gap-2">${cur?`<button data-act="ls-explain-remove" data-i="${i}" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 hover:bg-white/10"><i data-lucide="trash-2" style="width:14px;height:14px"></i>Remove</button>`:'<span></span>'}<button data-act="ls-explain-save" data-i="${i}" data-testid="ls-explain-save" class="press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2 text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:15px;height:15px"></i>Save</button></div>`;
+  $("#modal").innerHTML=modalWrap(inner,"ls-explain-modal"); icons(); setTimeout(()=>{ const ta=$("#ls-explain-input"); if(ta) ta.focus(); },40);
+}
+function lsSaveExplain(i){ const ta=$("#ls-explain-input"); const v=ta?ta.value.trim():''; if(state.ls&&state.ls.items[i]){ state.ls.items[i].explain=v; lsMarkDirty(); } closeModal(); lsRenderBody(); toast(v?"Explanation added":"Explanation cleared"); }
 
 /* ---- keyboard (sync) ---- */
 function lsKeydown(e){
@@ -5928,7 +6138,7 @@ document.addEventListener("click", e=>{
     case "i-bpm-dec": iBpmStep(-1); break;
     case "i-bpm-inc": iBpmStep(1); break;
     case "back": history.back(); break;
-    case "play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { playSong(s, state.contextList&&state.contextList.length?state.contextList:[s]); } break; }
+    case "play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { const cl=ctxListFor(t); const list=(cl&&cl.length)?cl:(state.contextList&&state.contextList.length?state.contextList:[s]); playSong(s, list); maybeCloseProfileOnPlay(t); } break; }
     case "mm-play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { const mm=mmSortedList(); playSong(s, mm.length?mm:[s]); } break; }
     case "wk-play": { const s=SONG_BY_ID[id]; if(!s) break; if(curSong()&&curSong().id===id){ togglePlay(); } else { const wl=weeklyTop(20).map(w=>w.song).filter(Boolean); playSong(s, wl.length?wl:[s]); } break; }
     case "play-fav-song": { playFavSong(id); break; }
@@ -6006,7 +6216,7 @@ document.addEventListener("click", e=>{
     case "m-remove-upload": { const rid=id; closeModal(); openConfirm("Remove upload?","This permanently deletes the track from this device.",()=>{ deleteUpload(rid); }); break; }
     case "m-edit-details": { closeModal(); openAddMusic('add', id); break; }
     case "pl-play": { const pl=plById(id); if(!pl){ break; } const songs=vis((pl.songIds||[]).map(x=>SONG_BY_ID[x]).filter(Boolean)); if(!songs.length){ toast("Playlist is empty"); break; } state.shuffle=false; playSong(songs[0], songs); toast("Playing "+pl.name); break; }
-    case "pl-open-profile": state.plOrigin='profile'; navigate("playlist",id); break;
+    case "pl-open-profile": if(state.profileOpen) closeProfile(true); state.plOrigin='profile'; navigate("playlist",id); break;
     case "lyric-seek": { if(Date.now()-_lyricLP<700) break; seekTo(parseFloat(t.dataset.t)); break; }
     case "lyric-detail": { if(Date.now()-_lyricLP<700) break; const i=+t.dataset.i; const panel=document.querySelector('[data-detail-panel="'+i+'"]'); if(panel){ const willOpen=panel.classList.contains("hidden"); document.querySelectorAll('#np-lyrics [data-detail-panel]').forEach(p=>{ if(p!==panel) p.classList.add("hidden"); }); panel.classList.toggle("hidden",!willOpen); if(willOpen){ void panel.offsetWidth; panel.style.animation="none"; requestAnimationFrame(()=>panel.style.animation=""); } } seekTo(parseFloat(t.dataset.t)); break; }
     case "lyric-line-menu": { const s=curSong(); if(s) openLyricPop(+t.dataset.i, t); break; }
@@ -6096,7 +6306,7 @@ document.addEventListener("click", e=>{
     case "mm-edit-selected": { const ids=mmSelIds(); if(ids.length!==1) break; openAddMusic('add', ids[0]); break; }
     case "mm-playlist-selected": { const ids=mmSelIds(); if(!ids.length) break; openPrompt("New playlist from selection","",(name)=>{ createPlaylist(name, ids); state.mmSelect=false; mmSelClear(); refreshLists(); }); break; }
     case "mm-delete-selected": { const ids=mmSelIds(); if(!ids.length) break; openConfirm("Delete "+ids.length+" track"+(ids.length!==1?"s":"")+"?","The selected custom tracks will be permanently deleted from this device. This can\u2019t be undone.",()=>{ state.mmSelect=false; mmSelClear(); deleteUserSongs(ids); }); break; }
-    case "playall-context": { if(state.contextList.length) playSong(state.contextList[0],state.contextList); break; }
+    case "playall-context": { const cl=ctxListFor(t); const list=(cl&&cl.length)?cl:(state.contextList||[]); if(list.length){ playSong(list[0],list); maybeCloseProfileOnPlay(t); } break; }
     case "artist-open": { closeModal(); if(state.npOpen) closeNP(); navigate("artist",id); break; }
     case "artist-playall": { const songs=artistSongs(id); if(songs.length) playSong(songs[0],songs); break; }
     case "artist-shuffle": { const songs=artistSongs(id); if(!songs.length)break; state.shuffle=true; playSong(songs[Math.floor(Math.random()*songs.length)],songs); break; }
@@ -6122,9 +6332,9 @@ document.addEventListener("click", e=>{
     case "profile-edit": onboard={step:0,nick:(state.profile&&state.profile.nickname)||"",bday:(state.profile&&state.profile.birthday)||"",avatar:(state.profile&&state.profile.avatar)||""}; renderOnboarding(); break;
     case "ob-next": onboard.step++; renderOnboarding(); break;
     case "ob-back": onboard.step=Math.max(0,onboard.step-1); renderOnboarding(); break;
-    case "ob-skip": closeModal(); if(!state.profile){ state.profile={nickname:"Treesh Fan"}; LS.set("treesh_profile",state.profile); } checkDailyStars(); break;
+    case "ob-skip": closeModal(); if(!state.profile){ state.profile={nickname:"Treesh Fan"}; LS.set("treesh_profile",state.profile); } checkDailyStars(); setTimeout(()=>wnMaybeAuto(state.view),600); break;
     case "ob-preset": onboard.avatar=t.dataset.src; renderOnboarding(); break;
-    case "ob-finish": { state.profile={nickname:onboard.nick.trim()||"Treesh Fan",birthday:onboard.bday,zodiac:zodiac(onboard.bday),avatar:onboard.avatar}; LS.set("treesh_profile",state.profile); if(onboard.bday){ state.bdayEdits=1; LS.set("treesh_bday_edits",1); } state.explicitUnlocked=false; closeModal(); checkDailyStars(); renderShell(); renderView(); if(state.profileOpen) renderProfile(); break; }
+    case "ob-finish": { state.profile={nickname:onboard.nick.trim()||"Treesh Fan",birthday:onboard.bday,zodiac:zodiac(onboard.bday),avatar:onboard.avatar}; LS.set("treesh_profile",state.profile); if(onboard.bday){ state.bdayEdits=1; LS.set("treesh_bday_edits",1); } state.explicitUnlocked=false; closeModal(); checkDailyStars(); renderShell(); renderView(); if(state.profileOpen) renderProfile(); setTimeout(()=>wnMaybeAuto(state.view),600); break; }
     case "accent": { state.accent=t.dataset.hex; LS.set("treesh_accent",state.accent); applyAccent(state.accent); toast("Accent updated"); renderView(); break; }
     case "apply-custom-color": { const ht=$("#set-custom-hex"); let v=(ht?ht.value:"").trim(); if(!/^#?[0-9a-fA-F]{6}$/.test(v)){ toast("Enter a valid hex","e.g. 9328ff"); break; } const hex=v[0]==="#"?v:("#"+v); state.accent=hex.toLowerCase(); LS.set("treesh_accent",state.accent); applyAccent(state.accent); toast("Accent updated"); renderView(); break; }
     case "set-theme": { state.theme=(t.dataset.val==="light")?"light":"dark"; LS.set("treesh_theme",state.theme); applyTheme(); toast(state.theme==="light"?"Light mode":"Dark mode"); renderView(); renderNP(); if(state.game) renderGame(); if(state.tot) renderTot(); break; }
@@ -6159,7 +6369,7 @@ document.addEventListener("click", e=>{
     case "group-remove": removeUserGroup(parseInt(t.dataset.idx,10)); break;
     case "lyrics-export": exportLyrics(); break;
 
-    case "erase-data": openConfirm("Erase all local data?","Your nickname, avatar, favorites, playlists, beats, settings and locks on this device will be reset. This can\u2019t be undone.",()=>{ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} location.reload(); }); break;
+    case "erase-data": openConfirm("Erase everything?","Your nickname, avatar, favorites, playlists, uploaded music, beats, lyrics, settings and locks on this device will be permanently erased and Treesh will start fresh. This can\u2019t be undone.",()=>{ eraseAllData(); }); break;
     case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ g.keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); }); break; }
     case "storage-user-toggle": { if(!state.storageSel) state.storageSel={}; if(state.storageSel[id]) delete state.storageSel[id]; else state.storageSel[id]=true; refreshCustomMusicManage(); break; }
     case "storage-user-toggle-all": { const mine=USER_SONGS.slice(); const sel=state.storageSel||{}; const allOn=mine.length>0 && mine.every(s=>sel[s.id]); state.storageSel={}; if(!allOn){ mine.forEach(s=>{ state.storageSel[s.id]=true; }); } refreshCustomMusicManage(); break; }
@@ -6192,6 +6402,10 @@ document.addEventListener("click", e=>{
     case "refresh-catalog": { toast("Refreshing catalog\u2026"); loadCatalog().then(()=>{ softRefresh(); toast("Catalog updated", SONGS.length+" tracks"); }).catch(()=>toast("Couldn\u2019t refresh","Check your connection")); break; }
     /* ---- Lyric Studio ---- */
     case "ls-picker": openLSPicker(); break;
+    case "ls-new-blank": { closeModal(); openLyricBlank(null); break; }
+    case "ls-open-draft": lsOpenDraft(t.dataset.id); break;
+    case "ls-del-draft": lsDeleteDraft(t.dataset.id); break;
+    case "ls-doc-rename": lsRenameDoc(); break;
     case "ls-pick": { closeModal(); openLyricSync(t.dataset.id); break; }
     case "ls-open": { const sid=t.dataset.id; if($("#modal")&&$("#modal").childElementCount>0) closeModal(); if(state.searchOpen) closeSearch(true); openLyricSync(sid); break; }
     case "lyrics-find": { const sid=id||t.dataset.id; if(state.searchOpen) closeSearch(true); openFindLyrics(sid); break; }
@@ -6365,7 +6579,7 @@ const EQ_PRESETS=[
   {id:'latenight',name:'Late Night',g:[4,3,2,1,0,-1,-2,-3,-4,-5]},
   {id:'custom',name:'Custom',g:null}
 ];
-function ensureVizAudio(){ if(_vizAnalyser) return true; try{ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return false; _vizAC=new AC(); _vizAnalyser=_vizAC.createAnalyser(); _vizAnalyser.fftSize=256; _vizAnalyser.smoothingTimeConstant=0.82; _vizBytes=new Uint8Array(_vizAnalyser.frequencyBinCount); _vizSrc=_vizAC.createMediaElementSource(audio);
+function ensureVizAudio(){ if(_vizAnalyser) return true; if(IS_IOS) return false; /* iOS: never capture main audio into Web Audio (kills background playback) */ try{ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return false; _vizAC=new AC(); _vizAnalyser=_vizAC.createAnalyser(); _vizAnalyser.fftSize=256; _vizAnalyser.smoothingTimeConstant=0.82; _vizBytes=new Uint8Array(_vizAnalyser.frequencyBinCount); _vizSrc=_vizAC.createMediaElementSource(audio);
   _eqPreamp=_vizAC.createGain(); _eqPreamp.gain.value=1;
   _eqBands=EQ_FREQS.map((f,i)=>{ const b=_vizAC.createBiquadFilter(); b.type = i===0?'lowshelf' : (i===EQ_FREQS.length-1?'highshelf':'peaking'); b.frequency.value=f; if(b.type==='peaking') b.Q.value=1.1; b.gain.value=0; return b; });
   _vizSrc.connect(_eqPreamp); let prev=_eqPreamp; _eqBands.forEach(b=>{ prev.connect(b); prev=b; }); prev.connect(_vizAnalyser); _vizAnalyser.connect(_vizAC.destination);
@@ -6441,6 +6655,7 @@ function openEqualizer(){
     </div>
     <div id="eq-body" class="${eqOn?'':'opacity-45 pointer-events-none'} min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar transition-opacity">
       <div class="relative mb-3 h-14 w-full overflow-hidden rounded-2xl border border-white/10 bg-black/40 sm:h-16"><canvas id="eq-viz-canvas" class="h-full w-full"></canvas></div>
+      ${IS_IOS?`<div class="mb-3 flex items-start gap-2 rounded-xl border border-[color:var(--treesh-gold)]/25 bg-[color:var(--treesh-gold)]/[0.08] px-3 py-2 text-[11px] leading-snug text-white/70" data-testid="eq-ios-note"><i data-lucide="info" style="width:14px;height:14px" class="mt-0.5 shrink-0 text-[color:var(--treesh-gold)]"></i><span>On iPhone &amp; iPad the EQ is a visual preview only \u2014 this keeps your music playing in the background without interruptions.</span></div>`:''}
       <div id="eq-preset-row" class="mb-3 -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1 no-scrollbar" data-testid="eq-presets">${chips}</div>
       <div class="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5">
         <div class="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-white/45"><span class="flex items-center gap-1.5"><i data-lucide="gauge" style="width:13px;height:13px"></i>Preamp</span><span id="eq-preamp-val" class="font-doto text-white/70">${state.eq.preamp>0?'+':''}${state.eq.preamp} dB</span></div>
@@ -6618,6 +6833,7 @@ function iDeleteProject(id){ state.beats=state.beats.filter(b=>b.id!==id); LS.se
 async function iExportWav(){ const S=state.instrum; if(!S){ return; } const p=S.project; const secStep=(60/p.bpm)/4; const total=p.bars*16; const loops=2; const dur=total*secStep*loops+0.8; try{ toast("Rendering WAV\u2026",p.name); const off=new OfflineAudioContext(2,Math.max(1,Math.ceil(44100*dur)),44100); const m=off.createGain(); m.gain.value=p.master; m.connect(off.destination); const solo=p.tracks.some(t=>t.solo); for(let L=0;L<loops;L++){ for(let s=0;s<total;s++){ const t=(L*total+s)*secStep; p.tracks.forEach(tr=>{ if(tr.steps[s]&&!tr.mute&&(!solo||tr.solo)) iTrigger(tr,t,off,m); }); } } const buf=await off.startRendering(); const wav=encodeWAV(buf); const blob=new Blob([wav],{type:"audio/wav"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=(p.name||"beat").replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"")+".wav"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),5000); toast("WAV downloaded",p.name); }catch(e){ toast("Export failed"); } }
 function encodeWAV(buf){ const nCh=buf.numberOfChannels,len=buf.length,sr=buf.sampleRate; const blockAlign=nCh*2; const dataLen=len*blockAlign; const ab=new ArrayBuffer(44+dataLen); const dv=new DataView(ab); let o=0; const ws=s=>{for(let i=0;i<s.length;i++)dv.setUint8(o++,s.charCodeAt(i));}; const w32=v=>{dv.setUint32(o,v,true);o+=4;}; const w16=v=>{dv.setUint16(o,v,true);o+=2;}; ws("RIFF");w32(36+dataLen);ws("WAVE");ws("fmt ");w32(16);w16(1);w16(nCh);w32(sr);w32(sr*blockAlign);w16(blockAlign);w16(16);ws("data");w32(dataLen); const chans=[]; for(let c=0;c<nCh;c++) chans.push(buf.getChannelData(c)); for(let i=0;i<len;i++){ for(let c=0;c<nCh;c++){ let v=Math.max(-1,Math.min(1,chans[c][i])); dv.setInt16(o, v<0?v*0x8000:v*0x7fff, true); o+=2; } } return ab; }
 function instrumLanding(){ return `<div class="flex min-h-[64vh] flex-col items-center justify-center px-4 py-10 text-center">
+  <button data-act="nav" data-view="studios" data-testid="instrum-back-studios" class="press absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 sm:left-6 sm:top-6"><i data-lucide="arrow-left" style="width:14px;height:14px"></i>Studios</button>
   <div class="relative mb-6 grid h-24 w-24 place-items-center rounded-[28px] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)] glow-purple"><i data-lucide="sliders-horizontal" style="width:44px;height:44px"></i></div>
   <p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Instrum Studio</p>
   <h1 class="mt-2 text-4xl font-extrabold sm:text-5xl">Instrum</h1>
@@ -6750,6 +6966,35 @@ function instrumStudioHtml(fs){ if(fs){ return `<div data-instrum-root class="fl
   </div>`; }
   return `<div data-instrum-root class="-mx-4 pb-8 sm:-mx-6 lg:-mx-8${(state.instrum&&state.instrum._opened)?' i-open':''}">${(function(){ if(state.instrum) state.instrum._opened=false; return ''; })()}${instrumHeaderHtml(false)}<div class="space-y-3">${instrumTransportHtml(false)}${instrumPresetsHtml()}${instrumGridHtml(false)}</div></div>`; }
 function instrumFSPlaceholder(){ return `<div class="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center"><div class="grid h-16 w-16 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="maximize-2" style="width:28px;height:28px"></i></div><p class="text-lg font-bold">Studio is in full screen</p><button data-act="i-fullscreen" class="press inline-flex items-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple"><i data-lucide="minimize-2" style="width:16px;height:16px"></i>Exit full screen</button></div>`; }
+/* ============================================================
+   STUDIOS HUB  (lists Instrum Studio + Lyric Studio, like Games)
+   ============================================================ */
+function viewStudios(){
+  const beats=(state.beats||[]).length;
+  const card=(o)=>`<button data-act="${o.act}"${o.view?` data-view="${o.view}"`:''} data-testid="${o.testid}" class="group relative flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-left transition hover:border-white/25 card-lift">
+      <div class="pointer-events-none absolute -right-10 -top-12 h-44 w-44 rounded-full opacity-25 blur-3xl" style="background:${o.glow}"></div>
+      <span class="relative grid h-16 w-16 place-items-center rounded-2xl border border-white/10 bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)] glow-purple"><i data-lucide="${o.icon}" style="width:30px;height:30px"></i></span>
+      <p class="relative mt-4 font-display text-[11px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">${o.kicker}</p>
+      <h2 class="relative mt-1 text-2xl font-extrabold">${o.title}</h2>
+      <p class="relative mt-2 flex-1 text-sm leading-relaxed text-white/55">${o.desc}</p>
+      <div class="relative mt-4 flex flex-wrap gap-1.5">${o.chips.map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/55">${c}</span>`).join('')}</div>
+      <span class="relative mt-5 inline-flex items-center gap-2 self-start rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-bold text-white glow-purple transition group-hover:opacity-95"><i data-lucide="${o.cta}" style="width:16px;height:16px"></i>${o.ctaLabel}</span>
+    </button>`;
+  return `<div class="space-y-7" data-testid="studios-view">
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        <p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Create on Treesh</p>
+        <h1 class="mt-1 flex items-center gap-2 text-3xl font-bold"><i data-lucide="layout-grid" class="text-[color:var(--treesh-purple)]" style="width:26px;height:26px"></i> Studios</h1>
+        <p class="mt-1 text-sm text-white/55">Your pocket creative suite. Make beats and craft lyrics, right in your browser.</p>
+      </div>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      ${card({act:'nav',view:'instrum',testid:'studios-open-instrum',icon:'sliders-horizontal',glow:'var(--treesh-purple)',kicker:'Beat studio',title:'Instrum Studio',desc:'Layer drums, 808s, leads and pads on a step sequencer. Play it live, then save or export to WAV.',chips:['10 instruments','Presets & swing','Metronome','Export WAV', beats?`${beats} saved beat${beats!==1?'s':''}`:'Start fresh'],cta:'play',ctaLabel:'Open Instrum'})}
+      ${card({act:'ls-picker',view:'',testid:'studios-open-lyric',icon:'captions',glow:'var(--treesh-gold)',kicker:'Lyric studio',title:'Lyric Studio',desc:'Write, time and sync lyrics to any track. Get rhyme suggestions, preview in the player and add your own explanations.',chips:['Write & sync','Rhyme helper','Preview mode','Explanations','Import & export LRC'],cta:'pen-line',ctaLabel:'Open Lyric Studio'})}
+    </div>
+  </div>`;
+}
+
 function viewInstrum(){ if(!state.instrum||!state.instrum.started) return instrumLanding(); if(state.instrum.fs) return instrumFSPlaceholder(); return instrumStudioHtml(false); }
 /* ---------- Instrum render targets (view vs fullscreen overlay) ---------- */
 function renderInstrum(animate){ if(state.instrum&&state.instrum.fs) renderInstrumFS(); else renderView(animate); iRenderMenu(); }
