@@ -7,23 +7,29 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { GlassCard, NeonButton, ScreenHeader, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { useStarlites } from "@/src/game/starlites";
-import { dailyPool, pickDaily, isDailyClaimed, claimDaily } from "@/src/game/dailyChallenge";
+import { dailyPool, pickDaily, isDailyClaimed, recordDailyDone, dailyStreakBonus } from "@/src/game/dailyChallenge";
 import { colors, rgba } from "@/src/game/theme";
 
 export default function ResultsScreen() {
   const { lastResult, scores, songs, treeshSongs, mineSongs } = useAppState();
   const { award } = useStarlites();
-  const [dailyReward, setDailyReward] = useState(0);
+  const [daily, setDaily] = useState<{ bonus: number; streak: number } | null>(null);
   const scale = useRef(new Animated.Value(0.5)).current;
   const bg = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.spring(scale, { toValue: 1, friction: 5, tension: 55, useNativeDriver: true }).start(); }, [scale]);
   useEffect(() => { Animated.loop(Animated.sequence([Animated.timing(bg, { toValue: 1, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }), Animated.timing(bg, { toValue: 0, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true })])).start(); }, [bg]);
-  // Daily Challenge completion: award the bonus once if this run met today's featured song + star target.
+  // Daily Challenge completion: award a growing streak bonus once if this run met today's featured song + star target.
   useEffect(() => {
     if (!lastResult) return;
-    const daily = pickDaily(dailyPool(songs, treeshSongs, mineSongs));
-    if (!daily || lastResult.songId !== daily.song.id || lastResult.stars < daily.targetStars) return;
-    isDailyClaimed().then(claimed => { if (claimed) return; claimDaily(); award(daily.bonus, "Daily Challenge complete", true); setDailyReward(daily.bonus); });
+    const dc = pickDaily(dailyPool(songs, treeshSongs, mineSongs));
+    if (!dc || lastResult.songId !== dc.song.id || lastResult.stars < dc.targetStars) return;
+    isDailyClaimed().then(async claimed => {
+      if (claimed) return;
+      const streak = await recordDailyDone();
+      const bonus = dailyStreakBonus(streak);
+      await award(bonus, `Daily Challenge · ${streak}-day streak`, true);
+      setDaily({ bonus, streak });
+    });
   }, [lastResult, songs, treeshSongs, mineSongs, award]);
   if (!lastResult) return <SafeAreaView style={styles.safe}><ScreenHeader title="Results" /><View style={styles.empty}><Text style={styles.title}>No recent run</Text><NeonButton testID="results-library-button" label="Choose a song" icon="library" onPress={() => router.replace("/library")} /></View></SafeAreaView>;
   const best = Math.max(...scores.filter(item => item.songId === lastResult.songId && item.difficulty === lastResult.difficulty).map(item => item.score));
@@ -43,7 +49,7 @@ export default function ResultsScreen() {
         <Animated.View style={[styles.stars, { transform: [{ scale }] }]}>{[0,1,2,3,4].map(index => { const full = lastResult.stars >= index + 1; const half = !full && lastResult.stars >= index + 0.5; return <Ionicons key={index} name={full ? "star" : half ? "star-half" : "star-outline"} size={42} color={full || half ? colors.gold : "#4C4C55"} />; })}</Animated.View>
         <Text style={styles.score}>{lastResult.score.toLocaleString()}</Text><Text style={styles.scoreLabel}>FINAL SCORE</Text>
         {fullCombo && <View style={styles.fc}><Ionicons name="flash" size={17} color={colors.bg} /><Text style={styles.fcText}>{lastResult.totalNotes}/{lastResult.totalNotes} FULL COMBO</Text></View>}
-        {dailyReward > 0 && <View testID="daily-reward-badge" style={styles.daily}><Ionicons name="flame" size={15} color={colors.bg} /><Text style={styles.dailyText}>DAILY CHALLENGE · +{dailyReward}</Text></View>}
+        {daily && <View testID="daily-reward-badge" style={styles.daily}><Ionicons name="flame" size={15} color={colors.bg} /><Text style={styles.dailyText}>DAILY · {daily.streak}-DAY STREAK · +{daily.bonus}</Text></View>}
       </View>
       <GlassCard testID="results-summary-card" style={styles.summary}><View style={styles.primaryStat}><Text style={styles.statValue}>{lastResult.accuracy.toFixed(2)}%</Text><Text style={styles.statLabel}>ACCURACY</Text></View><View style={styles.rule} /><View style={styles.primaryStat}><Text style={styles.statValue}>{lastResult.maxCombo}×</Text><Text style={styles.statLabel}>MAX COMBO</Text></View></GlassCard>
       <GlassCard testID="results-starlites-card" style={styles.starCard}>

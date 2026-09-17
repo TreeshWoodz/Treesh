@@ -2,10 +2,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Song } from "./types";
 
 // One featured song per day with a star target and a Starlite bonus. Deterministic from the date
-// so everyone on the same day (and every screen) sees the same pick. Fully offline.
+// so every screen shows the same pick. Fully offline. Completing several days in a row grows the bonus.
 export type DailyChallenge = { song: Song; targetStars: number; bonus: number; dateKey: string };
 
 export function dailyKey(d = new Date()) { return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
+function keyToDate(k: string) { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); }
 
 // Stable candidate pool (Treesh catalog first for stability, then the player's own songs), de-duped.
 export function dailyPool(songs: Song[], treeshSongs: Song[], mineSongs: Song[]): Song[] {
@@ -20,10 +21,28 @@ export function pickDaily(pool: Song[], dateKey = dailyKey()): DailyChallenge | 
   return { song, targetStars: 3, bonus: 250, dateKey };
 }
 
-const CLAIM_KEY = "vocotap_daily_claim";
-export async function isDailyClaimed(dateKey = dailyKey()): Promise<boolean> {
-  try { return (await AsyncStorage.getItem(CLAIM_KEY)) === dateKey; } catch { return false; }
+// Growing reward: 250 on day 1, +100 for each extra consecutive day, capped at 1000.
+export function dailyStreakBonus(streak: number) { return Math.min(1000, 250 + Math.max(0, streak - 1) * 100); }
+
+const HISTORY_KEY = "vocotap_daily_history";
+export async function getDailyHistory(): Promise<string[]> {
+  try { const raw = await AsyncStorage.getItem(HISTORY_KEY); return raw ? JSON.parse(raw) as string[] : []; } catch { return []; }
 }
-export async function claimDaily(dateKey = dailyKey()): Promise<void> {
-  try { await AsyncStorage.setItem(CLAIM_KEY, dateKey); } catch {}
+// Count consecutive cleared days ending today (or yesterday if today not yet cleared).
+export function computeStreak(history: string[], today = dailyKey()): number {
+  const set = new Set(history);
+  let cursor = keyToDate(today);
+  if (!set.has(dailyKey(cursor))) { cursor.setDate(cursor.getDate() - 1); if (!set.has(dailyKey(cursor))) return 0; }
+  let streak = 0;
+  while (set.has(dailyKey(cursor))) { streak++; cursor.setDate(cursor.getDate() - 1); }
+  return streak;
+}
+export async function isDailyClaimed(dateKey = dailyKey()): Promise<boolean> {
+  return (await getDailyHistory()).includes(dateKey);
+}
+// Records today's completion (idempotent) and returns the resulting streak.
+export async function recordDailyDone(dateKey = dailyKey()): Promise<number> {
+  const history = await getDailyHistory();
+  if (!history.includes(dateKey)) { history.push(dateKey); try { await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-400))); } catch {} }
+  return computeStreak(history, dateKey);
 }

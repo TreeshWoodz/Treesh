@@ -10,7 +10,7 @@ import { SongCover } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
 import { computeAchievements } from "@/src/game/achievements";
-import { dailyPool, pickDaily, isDailyClaimed } from "@/src/game/dailyChallenge";
+import { dailyPool, pickDaily, isDailyClaimed, getDailyHistory, computeStreak } from "@/src/game/dailyChallenge";
 import { colors, fonts, rgba } from "@/src/game/theme";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
@@ -67,7 +67,8 @@ export default function HomeScreen() {
   // Daily Challenge — one featured song/day with a star target + Starlite bonus.
   const daily = useMemo(() => pickDaily(dailyPool(songs, treeshSongs, mineSongs)), [songs, treeshSongs, mineSongs]);
   const [dailyClaimed, setDailyClaimed] = useState(false);
-  useEffect(() => { isDailyClaimed().then(setDailyClaimed); }, [scores]);
+  const [dailyStreak, setDailyStreak] = useState(0);
+  useEffect(() => { isDailyClaimed().then(setDailyClaimed); getDailyHistory().then(h => setDailyStreak(computeStreak(h))); }, [scores]);
 
   return <View style={styles.root}>
     <LinearGradient colors={[rgba(0.32), "#0B0912", "#08080A"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -132,7 +133,7 @@ export default function HomeScreen() {
             <LinearGradient pointerEvents="none" colors={["rgba(245,200,66,0.22)", "rgba(255,122,69,0.10)", "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             <View style={styles.dailyCover}><SongCover coverArt={daily.song.coverArt} accent={daily.song.accent} seed={daily.song.id} label={daily.song.title} iconSize={24} style={{ width: "100%", height: "100%" }} /></View>
             <View style={{ flex: 1 }}>
-              <View style={styles.dailyTagRow}><Ionicons name="flame" size={12} color={colors.gold} /><Text style={styles.dailyTag}>DAILY CHALLENGE</Text></View>
+              <View style={styles.dailyTagRow}><Ionicons name="flame" size={12} color={colors.gold} /><Text style={styles.dailyTag}>DAILY CHALLENGE</Text>{dailyStreak > 0 && <Text style={styles.dailyStreak}>🔥 {dailyStreak}-DAY</Text>}</View>
               <Text style={styles.dailyTitle} numberOfLines={1}>{daily.song.title}</Text>
               <Text style={styles.dailySub} numberOfLines={1}>{dailyClaimed ? "Completed today — nice!" : `Earn ${daily.targetStars}★ for +${daily.bonus} Starlites`}</Text>
             </View>
@@ -218,7 +219,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
   daily: { minHeight: 84, flexDirection: "row", alignItems: "center", gap: 13, padding: 12, borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(245,200,66,0.06)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", shadowColor: colors.gold, shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
   dailyCover: { width: 58, height: 58, borderRadius: 14, overflow: "hidden", backgroundColor: colors.bg, borderWidth: 1, borderColor: "rgba(245,200,66,0.4)" },
-  dailyTagRow: { flexDirection: "row", alignItems: "center", gap: 5 }, dailyTag: { color: colors.gold, fontSize: 9, letterSpacing: 1.4, fontFamily: fonts.heavy },
+  dailyTagRow: { flexDirection: "row", alignItems: "center", gap: 5 }, dailyTag: { color: colors.gold, fontSize: 9, letterSpacing: 1.4, fontFamily: fonts.heavy }, dailyStreak: { color: colors.lime, fontSize: 9, letterSpacing: 0.8, fontFamily: fonts.heavy, marginLeft: 2 },
   dailyTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy, marginTop: 3 }, dailySub: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: fonts.body, marginTop: 2 },
   dailyPlay: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.gold }, dailyDone: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
   qpHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingHorizontal: 2 },

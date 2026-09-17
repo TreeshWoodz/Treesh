@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeAchievements, TIER_COLOR } from "@/src/game/achievements";
@@ -8,7 +8,11 @@ import { SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
+import { getDailyHistory, computeStreak } from "@/src/game/dailyChallenge";
 import { colors, fonts, rgba } from "@/src/game/theme";
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WD = ["S", "M", "T", "W", "T", "F", "S"];
 
 function timeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -30,6 +34,20 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
   const bestStars = scores.reduce((m, s) => Math.max(m, s.stars), 0);
   const notesHit = scores.reduce((sum, s) => sum + s.perfect + s.great + s.good, 0);
   const initial = (nickname || "V").trim().charAt(0).toUpperCase();
+
+  // Daily Challenge history → a little month calendar of cleared days + current streak.
+  const [history, setHistory] = useState<string[]>([]);
+  useEffect(() => { if (visible) getDailyHistory().then(setHistory); }, [visible]);
+  const cal = useMemo(() => {
+    const now = new Date(); const y = now.getFullYear(); const m = now.getMonth();
+    const cleared = new Set(history);
+    const lead = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    const cells: { day: number | null; done: boolean; today: boolean }[] = [];
+    for (let i = 0; i < lead; i++) cells.push({ day: null, done: false, today: false });
+    for (let d = 1; d <= days; d++) cells.push({ day: d, done: cleared.has(`${y}-${m + 1}-${d}`), today: d === now.getDate() });
+    return { cells, label: `${MONTHS[m]} ${y}`, streak: computeStreak(history), cleared: cleared.size };
+  }, [history]);
 
   const stat = (label: string, value: string) => <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>;
 
@@ -63,6 +81,14 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
             <View style={{ flex: 1 }}><Text style={styles.playTitle} numberOfLines={1}>{s.title}</Text><Text style={styles.playSub}>{s.difficulty} · {s.accuracy.toFixed(1)}% · {timeAgo(s.createdAt)}</Text></View>
             <View style={styles.playStars}>{[0, 1, 2, 3, 4].map(n => <Ionicons key={n} name={n < s.stars ? "star" : "star-outline"} size={12} color={n < s.stars ? colors.gold : "#4C4C55"} />)}</View>
           </View>; }) : <Text style={styles.empty}>No runs yet — play a song to fill this in.</Text>}
+
+          <Text style={styles.sectionTitle}>CHALLENGE HISTORY{cal.streak > 0 ? ` · 🔥 ${cal.streak}-DAY STREAK` : ""}</Text>
+          <View style={styles.calCard}>
+            <Text style={styles.calMonth}>{cal.label}</Text>
+            <View style={styles.calRow}>{WD.map((w, i) => <Text key={i} style={styles.calWd}>{w}</Text>)}</View>
+            <View style={styles.calGrid}>{cal.cells.map((c, i) => <View key={i} style={styles.calCell}>{c.day != null && <View style={[styles.calDay, c.done && styles.calDayDone, c.today && !c.done && styles.calDayToday]}><Text style={[styles.calDayText, c.done && { color: colors.bg }]}>{c.day}</Text></View>}</View>)}</View>
+            <View style={styles.calLegend}><View style={[styles.calDot, { backgroundColor: colors.gold }]} /><Text style={styles.calLegendText}>Challenge cleared · {cal.cleared} total</Text></View>
+          </View>
 
           <Text style={styles.sectionTitle}>ACHIEVEMENTS · {unlocked.length}/{achievements.length}</Text>
           <View style={styles.grid}>
@@ -102,6 +128,14 @@ const styles = StyleSheet.create({
   playCover: { width: 40, height: 40, borderRadius: 10, overflow: "hidden", backgroundColor: colors.bg },
   playTitle: { color: colors.text, fontSize: 14, fontFamily: fonts.bold }, playSub: { color: colors.muted, fontSize: 11, marginTop: 2 }, playStars: { flexDirection: "row" },
   empty: { color: colors.muted, fontSize: 13, paddingVertical: 8 },
+  calCard: { padding: 14, borderRadius: 18, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, gap: 8 },
+  calMonth: { color: colors.text, fontSize: 15, fontFamily: fonts.display, textAlign: "center" },
+  calRow: { flexDirection: "row" }, calWd: { flex: 1, textAlign: "center", color: colors.muted, fontSize: 10, fontFamily: fonts.heavy },
+  calGrid: { flexDirection: "row", flexWrap: "wrap" }, calCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center", padding: 2 },
+  calDay: { width: "88%", aspectRatio: 1, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.04)" },
+  calDayDone: { backgroundColor: colors.gold }, calDayToday: { borderWidth: 1.5, borderColor: colors.cyan },
+  calDayText: { color: colors.muted, fontSize: 12, fontFamily: fonts.bold },
+  calLegend: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 2 }, calDot: { width: 10, height: 10, borderRadius: 5 }, calLegendText: { color: colors.muted, fontSize: 11, fontFamily: fonts.body },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   ach: { width: "47.6%", flexGrow: 1, padding: 13, borderRadius: 16, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, gap: 6 },
   achIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },

@@ -132,7 +132,8 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
 });
 
 const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo, special, rainbow }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: Reanimated.SharedValue<number> }) {
-  return <>{notes.map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} special={special} rainbow={rainbow} />)}</>;
+  // Wavy notes are drawn entirely by WavyLayer (bead ribbon) — skip them here so they aren't double-drawn.
+  return <>{notes.filter(n => n.type !== "wavy").map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} special={special} rainbow={rainbow} />)}</>;
 });
 
 // Bright bar shown while a hold is actively sustained — drains from the receptor, leaning along the lane's perspective.
@@ -231,6 +232,7 @@ export default function GameScreen() {
   const [pulseActive, setPulseActive] = useState(false);
   const [judgment, setJudgment] = useState<{ grade: Judgment; x: number; y: number; key: number } | null>(null);
   const [windowIds, setWindowIds] = useState<string[]>([]);
+  const [wavyIds, setWavyIds] = useState<string[]>([]);
   const [activeHold, setActiveHold] = useState<Note | null>(null);
   const [tracePop, setTracePop] = useState<{ key: number } | null>(null);
   const [forceStart, setForceStart] = useState(false);
@@ -286,6 +288,7 @@ export default function GameScreen() {
   const lookahead = 2.4 / settings.noteSpeed;
   const duration = chart?.duration || 30;
   const sorted = useMemo(() => (chart ? [...chart.notes].sort((a, b) => a.time - b.time) : []), [chart]);
+  const wavyNotes = useMemo(() => sorted.filter(n => n.type === "wavy"), [sorted]);
   const scanStart = useRef(0);
 
   const jsTime = useCallback(() => ((Date.now() - clockStart.current - pauseAccum.current) / 1000) * rateRef.current + settings.audioOffset / 1000, [settings.audioOffset]);
@@ -374,6 +377,11 @@ export default function GameScreen() {
       const ids: string[] = [];
       for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > lookahead) break; if (!resolved.current.has(n.id)) ids.push(n.id); }
       setWindowIds(prev => (prev.length === ids.length && prev.every((id, i) => id === ids[i])) ? prev : ids);
+      // Wavy visibility is TIME-based and independent of hit/resolved state, so tapping/tracing a wavy
+      // note never makes its ribbon vanish. It stays on screen from spawn until its tail passes the receptor.
+      const wids: string[] = [];
+      for (const n of wavyNotes) { const d = n.duration || 0.4; if (t >= n.time - lookahead - 0.15 && t <= n.time + d + 0.35) wids.push(n.id); }
+      setWavyIds(prev => (prev.length === wids.length && prev.every((id, i) => id === wids[i])) ? prev : wids);
       if (missLane >= 0) { rockRef.current = Math.max(0, rockRef.current - 6); judgeRef.current = { grade: "MISS", lane: missLane }; if (pulseActiveRef.current) { missStreakRef.current += 1; fuelRef.current -= 34 * missStreakRef.current; if (missStreakRef.current >= 3) fuelRef.current = 0; } else pulseBase.current = comboRef.current; }
       // Sync HUD from refs (taps only touch refs, so this is the single place we re-render — keeps rapid tapping instant).
       setCombo(c => (c === comboRef.current ? c : comboRef.current));
@@ -407,7 +415,7 @@ export default function GameScreen() {
       if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail, settings.haptics, triggerPulse, jumpTo, testChart]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, wavyNotes, settings.noFail, settings.haptics, triggerPulse, jumpTo, testChart]);
 
   // Hold / wavy sustain. Holds need the start lane held; WAVY notes must be FOLLOWED across
   // lanes (the required lane changes along the path) to keep scoring. Early release grays out
@@ -488,6 +496,7 @@ export default function GameScreen() {
   const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; milestoneIdx.current = 0; milestoneBonusRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; try { if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); } catch {} player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
+  const visibleWavy = useMemo(() => { const set = new Set(wavyIds); return wavyNotes.filter(n => set.has(n.id)); }, [wavyNotes, wavyIds]);
   if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text selectable={false} style={styles.missingTitle}>Chart not ready</Text><Text selectable={false} style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
 
   const padW = width / 4;
@@ -502,7 +511,7 @@ export default function GameScreen() {
 
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <WavyLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} />
+      <WavyLayer notes={visibleWavy} clock={clock} lookahead={lookahead} geo={geo} />
       <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} special={charged} rainbow={rainbow} />
       {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} />}
     </View>
