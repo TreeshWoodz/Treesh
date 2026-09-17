@@ -10,6 +10,7 @@ import { SongCover } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
 import { computeAchievements } from "@/src/game/achievements";
+import { dailyPool, pickDaily, isDailyClaimed } from "@/src/game/dailyChallenge";
 import { colors, fonts, rgba } from "@/src/game/theme";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
@@ -62,6 +63,11 @@ export default function HomeScreen() {
   const lastPlayed = scores.length ? [...scores].sort((a, b) => b.createdAt - a.createdAt)[0] : null;
   const quickPlay = (song?: Song) => { if (!song) return; selectSong(song); setDifficulty("Normal"); router.push("/analysis"); };
   const fade = { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] };
+
+  // Daily Challenge — one featured song/day with a star target + Starlite bonus.
+  const daily = useMemo(() => pickDaily(dailyPool(songs, treeshSongs, mineSongs)), [songs, treeshSongs, mineSongs]);
+  const [dailyClaimed, setDailyClaimed] = useState(false);
+  useEffect(() => { isDailyClaimed().then(setDailyClaimed); }, [scores]);
 
   return <View style={styles.root}>
     <LinearGradient colors={[rgba(0.32), "#0B0912", "#08080A"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -118,6 +124,20 @@ export default function HomeScreen() {
               <Pressable testID="quick-play-next" onPress={() => goTo(slide + 1)} style={[styles.navArrow, { right: 18 }]} hitSlop={6}><Ionicons name="chevron-forward" size={20} color={colors.text} /></Pressable>
             </>}
           </View>
+        </Animated.View>}
+
+        {/* Daily Challenge */}
+        {daily && <Animated.View style={fade}>
+          <Pressable testID="daily-challenge-card" onPress={() => quickPlay(daily.song)} style={({ pressed }) => [styles.daily, pressed && styles.pressed]}>
+            <LinearGradient pointerEvents="none" colors={["rgba(245,200,66,0.22)", "rgba(255,122,69,0.10)", "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+            <View style={styles.dailyCover}><SongCover coverArt={daily.song.coverArt} accent={daily.song.accent} seed={daily.song.id} label={daily.song.title} iconSize={24} style={{ width: "100%", height: "100%" }} /></View>
+            <View style={{ flex: 1 }}>
+              <View style={styles.dailyTagRow}><Ionicons name="flame" size={12} color={colors.gold} /><Text style={styles.dailyTag}>DAILY CHALLENGE</Text></View>
+              <Text style={styles.dailyTitle} numberOfLines={1}>{daily.song.title}</Text>
+              <Text style={styles.dailySub} numberOfLines={1}>{dailyClaimed ? "Completed today — nice!" : `Earn ${daily.targetStars}★ for +${daily.bonus} Starlites`}</Text>
+            </View>
+            {dailyClaimed ? <View style={styles.dailyDone}><Ionicons name="checkmark" size={20} color={colors.bg} /></View> : <View style={styles.dailyPlay}><Ionicons name="play" size={22} color={colors.bg} /></View>}
+          </Pressable>
         </Animated.View>}
 
         {/* Primary action */}
@@ -196,6 +216,11 @@ const styles = StyleSheet.create({
   snapFoot: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 13, backgroundColor: "rgba(255,255,255,0.03)", borderTopWidth: 1, borderTopColor: colors.border }, snapFootLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.3, fontFamily: fonts.bold }, snapFootText: { color: colors.text, fontSize: 14, fontFamily: fonts.bold, marginTop: 2 },
   snapCta: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: colors.purple }, snapCtaText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
   pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
+  daily: { minHeight: 84, flexDirection: "row", alignItems: "center", gap: 13, padding: 12, borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(245,200,66,0.06)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", shadowColor: colors.gold, shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  dailyCover: { width: 58, height: 58, borderRadius: 14, overflow: "hidden", backgroundColor: colors.bg, borderWidth: 1, borderColor: "rgba(245,200,66,0.4)" },
+  dailyTagRow: { flexDirection: "row", alignItems: "center", gap: 5 }, dailyTag: { color: colors.gold, fontSize: 9, letterSpacing: 1.4, fontFamily: fonts.heavy },
+  dailyTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy, marginTop: 3 }, dailySub: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: fonts.body, marginTop: 2 },
+  dailyPlay: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.gold }, dailyDone: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
   qpHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingHorizontal: 2 },
   slideTagRow: { padding: 16 },
   srcTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" },

@@ -40,3 +40,8 @@
 - COVER ART: ScoreResult now carries coverArt/accent; shown on results hero, leaderboards rows, ProfileModal Recently Played.
 - LEADERBOARDS: new /leaderboards.tsx (personal bests per song+difficulty, expandable). Entry: home-leaderboards-button + results-leaderboard-button.
 - REMAINING BACKLOG: Update the 'How to Play' guide (P2, user wants LAST).
+
+## Update 7 (Jun 2026)
+- DAILY CHALLENGE: src/game/dailyChallenge.ts picks one featured song/day (deterministic from date over a stable pool) with a 3★ target + 250 Starlite bonus. Home shows a gold daily-challenge-card (cover + target, or "Completed today"). Bonus awarded once/day on results.tsx when lastResult matches the featured song and stars>=target (claim stored in AsyncStorage vocotap_daily_claim); shows daily-reward-badge.
+- EDITOR HEADER FIX: ScreenHeader restructured so the right action cluster sizes to content (headerLeft minWidth 44, title flex:1 center, headerRight flexShrink:0) — editor's ?/share/export/Save buttons no longer overlap the title. Editor title shortened to "Editor"; header icon buttons tightened (34px, gap 6).
+- EDITOR TIPS hidden by default (showHint=false) — shows a "Show tips" pill.

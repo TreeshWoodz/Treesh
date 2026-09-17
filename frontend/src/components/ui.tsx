@@ -19,9 +19,9 @@ function seededPalette(seed: string) {
 export function ScreenHeader({ title, back = true, right }: { title: string; back?: boolean; right?: React.ReactNode }) {
   const { stars } = useStarlites();
   return <View style={styles.header} testID="screen-header">
-    <View style={styles.headerSide}>{back && <Pressable testID="header-back-button" onPress={() => router.back()} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}><Ionicons name="chevron-back" size={24} color={colors.text} /></Pressable>}</View>
+    <View style={styles.headerLeft}>{back && <Pressable testID="header-back-button" onPress={() => router.back()} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}><Ionicons name="chevron-back" size={24} color={colors.text} /></Pressable>}</View>
     <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-    <View style={[styles.headerSide, styles.headerRight]}>{right || <View style={styles.stars}><Ionicons name="sparkles" size={15} color={colors.gold} /><Text style={styles.starText} testID="starlites-balance">{stars.points.toLocaleString()}</Text></View>}</View>
+    <View style={styles.headerRight}>{right || <View style={styles.stars}><Ionicons name="sparkles" size={15} color={colors.gold} /><Text style={styles.starText} testID="starlites-balance">{stars.points.toLocaleString()}</Text></View>}</View>
   </View>;
 }
 
@@ -51,9 +51,9 @@ export function NeonButton({ label, onPress, icon = "play", variant = "primary",
 }
 
 const styles = StyleSheet.create({
-  header: { height: 58, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(10,10,11,0.92)", borderBottomWidth: 1, borderBottomColor: colors.border },
-  headerSide: { width: 94, flexDirection: "row", alignItems: "center" }, headerRight: { justifyContent: "flex-end" },
-  headerTitle: { color: colors.text, fontSize: 18, fontFamily: fonts.display, letterSpacing: 0.3, flex: 1, textAlign: "center" },
+  header: { height: 58, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(10,10,11,0.92)", borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerLeft: { minWidth: 44, flexShrink: 0, flexDirection: "row", alignItems: "center" }, headerRight: { flexShrink: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
+  headerTitle: { color: colors.text, fontSize: 18, fontFamily: fonts.display, letterSpacing: 0.3, flex: 1, textAlign: "center", marginHorizontal: 8 },
   iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: colors.border }, pressed: { opacity: 0.6 },
   stars: { minHeight: 36, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 18, backgroundColor: rgba(0.12), borderWidth: 1, borderColor: rgba(0.28) }, starText: { color: colors.gold, fontSize: 13, fontFamily: fonts.heavy },
   card: { backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, borderRadius: 20, padding: 16, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.38, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 7 },
