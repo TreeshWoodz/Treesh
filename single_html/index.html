@@ -820,6 +820,14 @@
   [data-np-root].np-kar-full .k-line{ font-size:clamp(1.85rem,6vw,3rem); }
   [data-np-root].np-kar-full .kstage-scroll{ gap:0; }
 
+  /* Lyric Studio floating rhyme popover */
+  .ls-rhyme-pop{ will-change:left,top; }
+  .ls-rhyme-card{ animation:lsRhymePop .16s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes lsRhymePop{ from{ opacity:0; transform:translateY(4px) scale(.97);} to{ opacity:1; transform:none;} }
+  .ls-rhyme-arrow{ position:absolute; left:16px; bottom:-5px; width:10px; height:10px; background:#171019; border-right:1px solid rgba(147,40,255,0.35); border-bottom:1px solid rgba(147,40,255,0.35); transform:rotate(45deg); }
+  .ls-rhyme-arrow.is-below{ bottom:auto; top:-5px; border-right:none; border-bottom:none; border-left:1px solid rgba(147,40,255,0.35); border-top:1px solid rgba(147,40,255,0.35); }
+  .ls-rhyme-spin{ display:inline-block; width:11px; height:11px; border-radius:9999px; border:2px solid rgba(147,40,255,0.35); border-top-color:var(--treesh-purple); animation:tspin .6s linear infinite; }
+
 </style>
 </head>
 <body class="min-h-[100dvh] overflow-x-hidden">
@@ -4764,6 +4772,7 @@ function closeLS(force){
   state.lsOpen=false; state.ls=null;
   const c=$("#ls"); if(c) c.innerHTML="";
   syncScrollLock();
+}
 /* ---- blank documents & drafts (write lyrics without picking a song) ---- */
 function lsNewDraftId(){ return 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function openLyricBlank(draft){
@@ -4802,8 +4811,6 @@ function lsSaveDraftFromState(){
 function lsRenameDoc(){ const ls=state.ls; if(!ls) return; openPrompt("Document title", ls.title||"", (v)=>{ ls.title=(v||"").trim()||"Untitled lyrics"; const tEl=$("#ls-doc-title"); if(tEl) tEl.textContent=ls.title; lsMarkDirty(); }); }
 function lsOpenDraft(id){ const d=(state.lyricDrafts||[]).find(x=>x.id===id); if(!d) return; if($("#modal")&&$("#modal").childElementCount>0) closeModal(); openLyricBlank(d); }
 function lsDeleteDraft(id){ const d=(state.lyricDrafts||[]).find(x=>x.id===id); openConfirm("Delete this draft?", d?('"'+(d.title||'Untitled lyrics')+'" will be removed from this device.'):"", ()=>{ state.lyricDrafts=(state.lyricDrafts||[]).filter(x=>x.id!==id); lsSaveDrafts(); openLSPicker(); toast("Draft deleted"); }); }
-
-}
 
 /* ---- transport ---- */
 let _lsRAFrame=null;
@@ -5122,24 +5129,19 @@ function lsWriteHtml(){
      </div>
    </details>`;
   const findBtn = state.ls.isBlank ? '' : `<button data-act="lyrics-find" data-id="${state.ls.songId}" data-testid="ls-find-online" class="press mb-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/30 bg-[color:var(--treesh-purple)]/10 px-4 py-2.5 text-sm font-semibold text-[color:var(--treesh-purple)] transition-colors hover:bg-[color:var(--treesh-purple)]/20"><i data-lucide="sparkles" style="width:16px;height:16px"></i>Find lyrics online</button>`;
-  const rhymeDock = `<div id="ls-rhyme-dock" class="mt-2 shrink-0 rounded-2xl border border-white/10 bg-white/[0.03]" data-testid="ls-rhyme-dock">
-     <div class="flex items-center gap-2 px-3 py-2">
-       <i data-lucide="mic-vocal" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i>
-       <span class="shrink-0 text-[11px] font-bold uppercase tracking-wide text-white/55">Rhymes${state.lsRhymesOn?' for':''}</span>
-       ${state.lsRhymesOn?`<span id="ls-rhyme-word" class="clamp-1 min-w-0 text-[13px] font-semibold text-[color:var(--treesh-gold)]">type a word\u2026</span>`:'<span class="clamp-1 min-w-0 text-[12px] text-white/40">Suggestions as you write</span>'}
-       <button data-act="ls-rhyme-toggle" data-testid="ls-rhyme-toggle" role="switch" aria-checked="${state.lsRhymesOn}" class="press ml-auto shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${state.lsRhymesOn?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}">${state.lsRhymesOn?'On':'Off'}</button>
-     </div>
-     ${state.lsRhymesOn?`<div id="ls-rhyme-chips" class="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-3 pb-2.5"><span class="px-1 py-1 text-[11px] text-white/35">Rhymes appear as you type.</span></div>`:''}
-   </div>`;
+  const rhymeToggle = `<button data-act="ls-rhyme-toggle" data-testid="ls-rhyme-toggle" role="switch" aria-checked="${state.lsRhymesOn}" title="Floating rhyme suggestions appear above your cursor as you type" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${state.lsRhymesOn?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/65 hover:bg-white/10'}"><i data-lucide="mic-vocal" style="width:13px;height:13px" class="${state.lsRhymesOn?'text-[color:var(--treesh-purple)]':'text-white/50'}"></i>Rhymes<span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none ${state.lsRhymesOn?'bg-[color:var(--treesh-purple)]/30 text-white':'bg-white/10 text-white/50'}">${state.lsRhymesOn?'ON':'OFF'}</span></button>`;
   return `<div class="flex h-full flex-col py-3">
      <div class="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55"><i data-lucide="info" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i><span>One lyric per line. Wrap section names in brackets, e.g. <span class="mx-0.5 inline-block whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 font-doto text-white/80">[Verse&nbsp;1]</span></span></div>
      ${findBtn}
      ${tagPanel}
-     <textarea id="ls-write" data-testid="ls-write-textarea" placeholder="[Verse 1]\nType or paste your lyrics here\u2026\nOne line at a time" class="no-scrollbar min-h-0 flex-1 w-full resize-none rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(txt)}</textarea>
-     ${rhymeDock}
-     <div class="mt-3 flex shrink-0 items-center justify-between gap-2 pb-3">
+     <div class="relative flex min-h-0 flex-1 flex-col">
+       <textarea id="ls-write" data-testid="ls-write-textarea" placeholder="[Verse 1]\nType or paste your lyrics here\u2026\nOne line at a time" class="no-scrollbar min-h-0 flex-1 w-full resize-none rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(txt)}</textarea>
+       <div id="ls-rhyme-pop" data-testid="ls-rhyme-pop" onmousedown="event.preventDefault()" class="ls-rhyme-pop absolute left-0 top-0 z-30 hidden w-[min(280px,calc(100%-8px))]"></div>
+     </div>
+     <div class="mt-3 flex shrink-0 flex-wrap items-center gap-2 pb-3">
        <span id="ls-write-count" class="text-xs text-white/45">${txt.split(/\r?\n/).filter(l=>l.trim()).length} lines</span>
-       <button data-act="ls-goto-sync" data-testid="ls-goto-sync" class="press inline-flex h-11 items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 text-sm font-semibold text-white glow-purple">Continue to timing<i data-lucide="arrow-right" style="width:16px;height:16px"></i></button>
+       ${rhymeToggle}
+       <button data-act="ls-goto-sync" data-testid="ls-goto-sync" class="press ml-auto inline-flex h-11 items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 text-sm font-semibold text-white glow-purple">Continue to timing<i data-lucide="arrow-right" style="width:16px;height:16px"></i></button>
      </div>
    </div>`;
 }
@@ -5198,7 +5200,14 @@ function lsSyncHtml(){
 function lsWireBody(){
   if(!state.ls) return;
   if(state.ls.mode==='write'){
-    const ta=$("#ls-write"); if(ta){ ta.addEventListener("input",()=>{ const cnt=$("#ls-write-count"); if(cnt) cnt.textContent=ta.value.split(/\r?\n/).filter(l=>l.trim()).length+" lines"; lsMarkDirty(); if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; lsScheduleRhymes(); }); ta.addEventListener("keyup",()=>{ if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; lsScheduleRhymes(); }); ta.addEventListener("click",lsScheduleRhymes); ta.addEventListener("select",lsScheduleRhymes); }
+    const ta=$("#ls-write"); if(ta){
+      ta.addEventListener("input",()=>{ const cnt=$("#ls-write-count"); if(cnt) cnt.textContent=ta.value.split(/\r?\n/).filter(l=>l.trim()).length+" lines"; lsMarkDirty(); if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; lsPositionRhymePop(); lsScheduleRhymes(); });
+      ta.addEventListener("keyup",()=>{ if(ta.selectionStart===ta.value.length) ta.scrollTop=ta.scrollHeight; lsPositionRhymePop(); lsScheduleRhymes(); });
+      ta.addEventListener("click",()=>{ lsPositionRhymePop(); lsScheduleRhymes(); });
+      ta.addEventListener("select",lsScheduleRhymes);
+      ta.addEventListener("scroll",lsPositionRhymePop);
+      ta.addEventListener("blur",()=>{ setTimeout(lsHideRhymePop,150); });
+    }
     const dt=$(".ls-tags"); if(dt){ dt.addEventListener("toggle",()=>{ state.lsTagsOpen=dt.open; }); }
     if(state.lsRhymesOn) lsUpdateRhymes();
   } else if(state.ls.mode==='preview'){
@@ -5262,20 +5271,60 @@ async function lsFetchRhymes(word){
 }
 function lsCurrentWord(ta){ const v=ta.value; const s=ta.selectionStart||0; let i=s; while(i>0 && /[A-Za-z']/.test(v[i-1])) i--; let j=s; while(j<v.length && /[A-Za-z']/.test(v[j])) j++; return {word:v.slice(i,j), start:i, end:j}; }
 function lsScheduleRhymes(){ if(!state.ls||state.ls.mode!=='write'||!state.lsRhymesOn) return; clearTimeout(_lsRhymeTimer); _lsRhymeTimer=setTimeout(lsUpdateRhymes, 300); }
+let _lsMirror=null;
+function lsCaretPx(ta){
+  const pos=ta.selectionStart||0; const cs=getComputedStyle(ta);
+  let m=_lsMirror; if(!m){ m=_lsMirror=document.createElement('div'); m.setAttribute('aria-hidden','true'); document.body.appendChild(m); }
+  const s=m.style;
+  s.position='absolute'; s.visibility='hidden'; s.top='0'; s.left='-9999px'; s.overflow='hidden';
+  s.whiteSpace='pre-wrap'; s.wordWrap='break-word'; s.overflowWrap='break-word'; s.boxSizing='border-box'; s.borderStyle='solid';
+  s.width=ta.offsetWidth+'px';
+  ['paddingTop','paddingRight','paddingBottom','paddingLeft','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','fontFamily','fontSize','fontWeight','fontStyle','fontVariant','letterSpacing','lineHeight','textTransform','textIndent','wordSpacing'].forEach(p=>{ s[p]=cs[p]; });
+  m.textContent=ta.value.substring(0,pos);
+  const span=document.createElement('span'); span.textContent=ta.value.substring(pos)||'.'; m.appendChild(span);
+  const bt=parseFloat(cs.borderTopWidth)||0, bl=parseFloat(cs.borderLeftWidth)||0;
+  const lh=parseFloat(cs.lineHeight)||((parseFloat(cs.fontSize)||15)*1.5);
+  const top=span.offsetTop+bt, left=span.offsetLeft+bl;
+  m.removeChild(span);
+  return { left: left - ta.scrollLeft, top: top - ta.scrollTop, lh };
+}
+function lsPositionRhymePop(){
+  const ta=$("#ls-write"), pop=$("#ls-rhyme-pop"); if(!ta||!pop||pop.classList.contains('hidden')) return;
+  const c=lsCaretPx(ta); const maxW=ta.offsetWidth, maxH=ta.offsetHeight;
+  const pw=pop.offsetWidth||240, ph=pop.offsetHeight||64;
+  let left=c.left-14; left=Math.max(4, Math.min(left, maxW-pw-4));
+  let top=c.top-ph-10, below=false;
+  if(top<2){ top=c.top+c.lh+10; below=true; if(top+ph>maxH-2) top=Math.max(2, maxH-ph-2); }
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+  const card=pop.firstElementChild; if(card){ const arrow=card.querySelector('.ls-rhyme-arrow'); if(arrow){ let ax=c.left-left-5; ax=Math.max(12, Math.min(ax, pw-20)); arrow.style.left=ax+'px'; arrow.classList.toggle('is-below',below); } }
+}
+function lsRhymeCard(word, inner){
+  return `<div class="ls-rhyme-card relative rounded-2xl border border-[color:var(--treesh-purple)]/35 bg-[#171019]/95 p-2 shadow-[0_14px_44px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+     <div class="mb-1.5 flex items-center gap-1.5 px-1">
+       <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--treesh-purple)]"></span>
+       <span class="shrink-0 text-[9px] font-bold uppercase tracking-[0.14em] text-white/40">Rhymes for</span>
+       <span class="clamp-1 min-w-0 text-[12px] font-semibold text-[color:var(--treesh-purple)]">${esc(word)}</span>
+     </div>${inner}<span class="ls-rhyme-arrow" aria-hidden="true"></span></div>`;
+}
+function lsShowRhymePop(html){ const pop=$("#ls-rhyme-pop"); if(!pop) return; pop.innerHTML=html; pop.classList.remove('hidden'); lsPositionRhymePop(); }
+function lsHideRhymePop(){ const pop=$("#ls-rhyme-pop"); if(pop) pop.classList.add('hidden'); }
+function lsToggleRhymes(){ state.lsRhymesOn=!state.lsRhymesOn; LS.set("treesh_ls_rhymes_on", state.lsRhymesOn); _lsRhymeWord=''; lsRenderBody(); if(!state.lsRhymesOn){ lsHideRhymePop(); toast("Rhyme helper off"); } else { toast("Rhyme helper on"); const ta=$("#ls-write"); if(ta) ta.focus(); lsUpdateRhymes(); } }
 function lsUpdateRhymes(){
-  const ta=$("#ls-write"); if(!ta||!state.lsRhymesOn) return;
+  const ta=$("#ls-write"), pop=$("#ls-rhyme-pop"); if(!ta||!pop) return;
+  if(!state.lsRhymesOn){ pop.classList.add('hidden'); return; }
   const s=ta.selectionStart||0, e=ta.selectionEnd||s; let word='';
   if(e>s){ word=(ta.value.slice(s,e).trim().split(/\s+/).pop()||''); } else { word=lsCurrentWord(ta).word; }
   word=(word||'').replace(/[^A-Za-z']/g,'');
-  const label=$("#ls-rhyme-word"), chips=$("#ls-rhyme-chips");
-  if(label) label.textContent = word||'type a word\u2026';
-  if(!word || word.length<2){ if(chips) chips.innerHTML='<span class="px-1 py-1 text-[11px] text-white/35">Rhymes appear as you type.</span>'; _lsRhymeWord=''; return; }
-  if(word.toLowerCase()===_lsRhymeWord) return; _lsRhymeWord=word.toLowerCase();
-  if(chips) chips.innerHTML='<span class="px-1 py-1 text-[11px] text-white/40">Finding rhymes\u2026</span>';
-  lsFetchRhymes(word).then(list=>{ if(_lsRhymeWord!==word.toLowerCase()) return; const c=$("#ls-rhyme-chips"); if(!c) return;
-    if(list===null){ c.innerHTML='<span class="px-1 py-1 text-[11px] text-white/40">Rhymes need a connection. Check your internet.</span>'; return; }
-    if(!list.length){ c.innerHTML='<span class="px-1 py-1 text-[11px] text-white/40">No rhymes found for \u201C'+esc(word)+'\u201D.</span>'; return; }
-    c.innerHTML=list.map(w=>`<button type="button" data-act="ls-rhyme-ins" data-w="${esc(w)}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[13px] font-semibold text-white/85 transition-colors hover:border-[color:var(--treesh-purple)]/60 hover:bg-[color:var(--treesh-purple)]/15">${esc(w)}</button>`).join('');
+  if(!word || word.length<2){ pop.classList.add('hidden'); _lsRhymeWord=''; return; }
+  if(word.toLowerCase()===_lsRhymeWord && !pop.classList.contains('hidden')){ lsPositionRhymePop(); return; }
+  _lsRhymeWord=word.toLowerCase();
+  lsShowRhymePop(lsRhymeCard(word, `<div class="flex items-center gap-1.5 px-1 py-1 text-[11px] text-white/45"><span class="ls-rhyme-spin"></span>Finding rhymes\u2026</div>`));
+  lsFetchRhymes(word).then(list=>{ if(_lsRhymeWord!==word.toLowerCase()||!state.lsRhymesOn) return;
+    let inner;
+    if(list===null){ inner=`<div class="px-1 py-1 text-[11px] text-white/45">Rhymes need a connection \u2014 check your internet.</div>`; }
+    else if(!list.length){ inner=`<div class="px-1 py-1 text-[11px] text-white/45">No rhymes for \u201C${esc(word)}\u201D.</div>`; }
+    else { inner=`<div class="ls-rhyme-scroll no-scrollbar flex max-h-[116px] flex-wrap gap-1.5 overflow-y-auto">${list.slice(0,28).map(w=>`<button type="button" data-act="ls-rhyme-ins" data-w="${esc(w)}" class="press whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[12px] font-semibold text-white/85 transition-colors hover:border-[color:var(--treesh-purple)]/60 hover:bg-[color:var(--treesh-purple)]/15 active:bg-[color:var(--treesh-purple)]/25">${esc(w)}</button>`).join('')}</div>`; }
+    lsShowRhymePop(lsRhymeCard(word, inner));
   });
 }
 function lsInsertRhyme(word){ const ta=$("#ls-write"); if(!ta||!word) return; const v=ta.value; let s=ta.selectionStart||0, e=ta.selectionEnd||s; let start, end;
@@ -6443,6 +6492,8 @@ document.addEventListener("click", e=>{
     case "lsw-close": lsCloseWordSync(); break;
     case "ls-lrc-load": lsLoadLRC(); break;
     case "ls-insert-tag": lsInsertTag(t.dataset.tag, t.dataset.num==='1', t.dataset.suffix||''); break;
+    case "ls-rhyme-toggle": lsToggleRhymes(); break;
+    case "ls-rhyme-ins": lsInsertRhyme(t.dataset.w); break;
   }
   syncScrollLock();
 });
