@@ -44,7 +44,7 @@ export default function LeaderboardsScreen() {
           return <View key={b.songId} style={styles.card}>
             <Pressable testID={`leaderboard-song-${idx}`} onPress={() => setOpen(isOpen ? null : b.songId)} style={styles.cardHead}>
               <Text style={styles.rank}>{idx + 1}</Text>
-              <View style={styles.cover}><SongCover coverArt={song?.coverArt} accent={song?.accent || "#8E7CFF"} seed={b.songId} label={b.title} iconSize={20} style={{ width: "100%", height: "100%" }} /></View>
+              <View style={styles.cover}><SongCover coverArt={song?.coverArt ?? b.best.coverArt} accent={song?.accent || b.best.accent || "#8E7CFF"} seed={b.songId} label={b.title} iconSize={20} style={{ width: "100%", height: "100%" }} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.title} numberOfLines={1}>{b.title}</Text>
                 <View style={styles.headMeta}><StarRow n={b.best.stars} /><Text style={styles.plays}>{b.runs.length} play{b.runs.length > 1 ? "s" : ""}</Text></View>

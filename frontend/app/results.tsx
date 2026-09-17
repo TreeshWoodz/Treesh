@@ -4,12 +4,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { GlassCard, NeonButton, ScreenHeader } from "@/src/components/ui";
+import { GlassCard, NeonButton, ScreenHeader, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { colors, rgba } from "@/src/game/theme";
 
 export default function ResultsScreen() {
-  const { lastResult, scores } = useAppState();
+  const { lastResult, scores, songs, treeshSongs } = useAppState();
   const scale = useRef(new Animated.Value(0.5)).current;
   const bg = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.spring(scale, { toValue: 1, friction: 5, tension: 55, useNativeDriver: true }).start(); }, [scale]);
@@ -17,13 +17,18 @@ export default function ResultsScreen() {
   if (!lastResult) return <SafeAreaView style={styles.safe}><ScreenHeader title="Results" /><View style={styles.empty}><Text style={styles.title}>No recent run</Text><NeonButton testID="results-library-button" label="Choose a song" icon="library" onPress={() => router.replace("/library")} /></View></SafeAreaView>;
   const best = Math.max(...scores.filter(item => item.songId === lastResult.songId && item.difficulty === lastResult.difficulty).map(item => item.score));
   const fullCombo = lastResult.maxCombo === lastResult.totalNotes && lastResult.miss === 0;
+  const song = [...songs, ...treeshSongs].find(s => s.id === lastResult.songId);
+  const cover = lastResult.coverArt ?? song?.coverArt;
+  const accent = lastResult.accent ?? song?.accent ?? colors.purple;
   return <View style={styles.root}>
     <LinearGradient colors={[rgba(0.4), "#0B0912", "#08080A"]} start={{ x: 0.9, y: 0 }} end={{ x: 0.1, y: 1 }} style={StyleSheet.absoluteFill} />
     <Animated.View style={[StyleSheet.absoluteFill, { opacity: bg }]} pointerEvents="none"><LinearGradient colors={["#08080A", rgba(0.3), "#0B0912"]} start={{ x: 0.1, y: 0.1 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} /></Animated.View>
     <Animated.View style={[StyleSheet.absoluteFill, { opacity: bg.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0.1] }) }]} pointerEvents="none"><LinearGradient colors={["transparent", rgba(0.2), "transparent"]} start={{ x: 0, y: 0.15 }} end={{ x: 1, y: 0.85 }} style={StyleSheet.absoluteFill} /></Animated.View>
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Run Complete" back={false} />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}><Text style={styles.eyebrow}>{lastResult.score >= best ? "NEW PERSONAL BEST" : "SCORE SAVED LOCALLY"}</Text><Text style={styles.song}>{lastResult.title}</Text><Text style={styles.diff}>{lastResult.difficulty.toUpperCase()}</Text>
+      <View style={styles.hero}>
+        <View style={[styles.cover, { borderColor: `${accent}66` }]}><SongCover coverArt={cover} accent={accent} seed={lastResult.songId} label={lastResult.title} iconSize={36} style={StyleSheet.absoluteFill} /></View>
+        <Text style={styles.eyebrow}>{lastResult.score >= best ? "NEW PERSONAL BEST" : "SCORE SAVED LOCALLY"}</Text><Text style={styles.song}>{lastResult.title}</Text><Text style={styles.diff}>{lastResult.difficulty.toUpperCase()}</Text>
         <Animated.View style={[styles.stars, { transform: [{ scale }] }]}>{[0,1,2,3,4].map(index => { const full = lastResult.stars >= index + 1; const half = !full && lastResult.stars >= index + 0.5; return <Ionicons key={index} name={full ? "star" : half ? "star-half" : "star-outline"} size={42} color={full || half ? colors.gold : "#4C4C55"} />; })}</Animated.View>
         <Text style={styles.score}>{lastResult.score.toLocaleString()}</Text><Text style={styles.scoreLabel}>FINAL SCORE</Text>
         {fullCombo && <View style={styles.fc}><Ionicons name="flash" size={17} color={colors.bg} /><Text style={styles.fcText}>{lastResult.totalNotes}/{lastResult.totalNotes} FULL COMBO</Text></View>}
@@ -39,7 +44,7 @@ export default function ResultsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg }, safe: { flex: 1, backgroundColor: "transparent" }, content: { padding: 18, gap: 14, paddingBottom: 36 }, hero: { alignItems: "center", paddingVertical: 12 }, eyebrow: { color: colors.lime, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 }, song: { color: colors.text, fontSize: 26, fontWeight: "900", textAlign: "center", marginTop: 8 }, diff: { color: colors.cyan, fontSize: 10, fontWeight: "900", letterSpacing: 1.5, marginTop: 4 }, stars: { flexDirection: "row", marginTop: 18 }, score: { color: colors.text, fontSize: 45, lineHeight: 52, fontWeight: "900", marginTop: 10, letterSpacing: 1 }, scoreLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.8 }, fc: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 12, backgroundColor: colors.lime, paddingHorizontal: 14, height: 34, borderRadius: 17 }, fcText: { color: colors.bg, fontSize: 11, fontWeight: "900" },
+  root: { flex: 1, backgroundColor: colors.bg }, safe: { flex: 1, backgroundColor: "transparent" }, content: { padding: 18, gap: 14, paddingBottom: 36 }, hero: { alignItems: "center", paddingVertical: 12 }, cover: { width: 96, height: 96, borderRadius: 22, overflow: "hidden", borderWidth: 1, marginBottom: 12, backgroundColor: colors.panel }, eyebrow: { color: colors.lime, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 }, song: { color: colors.text, fontSize: 26, fontWeight: "900", textAlign: "center", marginTop: 8 }, diff: { color: colors.cyan, fontSize: 10, fontWeight: "900", letterSpacing: 1.5, marginTop: 4 }, stars: { flexDirection: "row", marginTop: 18 }, score: { color: colors.text, fontSize: 45, lineHeight: 52, fontWeight: "900", marginTop: 10, letterSpacing: 1 }, scoreLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.8 }, fc: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 12, backgroundColor: colors.lime, paddingHorizontal: 14, height: 34, borderRadius: 17 }, fcText: { color: colors.bg, fontSize: 11, fontWeight: "900" },
   summary: { flexDirection: "row", alignItems: "center" },
   starCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, starLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }, starIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }, starTitle: { color: colors.text, fontSize: 12, fontWeight: "900", letterSpacing: 1 }, starSub: { color: colors.muted, fontSize: 11, marginTop: 2, maxWidth: 200 }, starAmount: { fontSize: 26, fontWeight: "900" }, primaryStat: { flex: 1, alignItems: "center" }, statValue: { color: colors.text, fontSize: 25, fontWeight: "900" }, statLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.2, marginTop: 3 }, rule: { height: 40, width: 1, backgroundColor: colors.border }, cardTitle: { color: colors.muted, fontSize: 10, fontWeight: "900", letterSpacing: 1.3, marginBottom: 11 }, row: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 9 }, dot: { width: 7, height: 7, borderRadius: 4 }, rowLabel: { color: colors.text, width: 53, fontWeight: "700", fontSize: 13 }, rowTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: colors.panelStrong, overflow: "hidden" }, rowFill: { height: 5 }, rowValue: { color: colors.text, width: 28, textAlign: "right", fontWeight: "900" }, empty: { flex: 1, justifyContent: "center", padding: 24, gap: 20 }, title: { color: colors.text, fontSize: 28, fontWeight: "900", textAlign: "center" },
 });

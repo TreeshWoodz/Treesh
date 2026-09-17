@@ -5,8 +5,8 @@ import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient as SvgLinear, Line, Path, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
+import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Svg, { Defs, LinearGradient as SvgLinear, Line, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
@@ -14,6 +14,7 @@ import { useAppState } from "@/src/game/AppState";
 import { laneColors, colors, fonts, rgba } from "@/src/game/theme";
 import { Note, ScoreResult } from "@/src/game/types";
 import { useStarlites } from "@/src/game/starlites";
+import { computeAchievements, TIER_COLOR } from "@/src/game/achievements";
 import { useTreeshIdentity } from "@/src/game/identity";
 import { ensureHitAudio } from "@/src/game/synth";
 
@@ -28,60 +29,59 @@ export function starlitesFor(stars: number) { return stars >= 5 ? 300 : stars >=
 const MILESTONES = [50, 100, 200];
 const MBONUS = [25, 50, 100];
 const SPEEDS = [0.5, 0.75, 1];
+const LIVE_ACH: { id: string; title: string; icon: keyof typeof Ionicons.glyphMap; tier: "bronze" | "silver" | "gold"; test: (combo: number, score: number) => boolean }[] = [
+  { id: "vocopulse", title: "Vocopulse", icon: "flash", tier: "silver", test: c => c >= 25 },
+  { id: "combo50", title: "In the Groove", icon: "pulse", tier: "bronze", test: c => c >= 50 },
+  { id: "combo100", title: "Unstoppable", icon: "trending-up", tier: "silver", test: c => c >= 100 },
+  { id: "combo200", title: "Combo Master", icon: "flame", tier: "gold", test: c => c >= 200 },
+  { id: "combo500", title: "Combo Legend", icon: "rocket", tier: "gold", test: c => c >= 500 },
+  { id: "highroller", title: "High Roller", icon: "cash", tier: "gold", test: (c, s) => s >= 1000000 },
+];
 
 type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
 
-// Builds the wavy-hold path (SVG coords, y-down; bottom = head, top = tail end).
-// If the note carries a recorded finger path, we trace it; otherwise fall back to a
-// gentle sine. Amplitude tapers toward the top so it reads with the highway's depth.
-function smoothPath(pts: [number, number][]) {
-  if (pts.length < 2) return "";
-  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-  for (let i = 1; i < pts.length - 1; i++) { const mx = (pts[i][0] + pts[i + 1][0]) / 2; const my = (pts[i][1] + pts[i + 1][1]) / 2; d += ` Q ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`; }
-  const last = pts[pts.length - 1]; d += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
-  return d;
-}
-const AnimatedPath = Reanimated.createAnimatedComponent(Path);
-// Wavy note rendered in ABSOLUTE highway space: every frame we project each path point through the
-// same perspective the lanes use (x-fraction → screen x at that depth, time → screen y). This makes
-// the ribbon pass exactly through the real lane positions — faithful to what was drawn, no shear.
-const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
-  const color = laneColors[note.lane];
+// Wavy note = a chain of small "beads" sampled along the drawn path. Each bead falls using the
+// EXACT same perspective transform as a tap note (translateX/Y + scale), so the ribbon passes
+// through the real lane positions with correct depth — no animated SVG paths (which are fragile
+// on native). x is a 0..1 fraction across the highway; fr = x - 0.5 matches the lane grid.
+function sampleBeads(note: Note): { t: number; x: number }[] {
   const dur = note.duration || 0.5;
   const pts = note.path && note.path.length > 1 ? note.path : [{ t: note.time, x: (note.lane + 0.5) / 4 }, { t: note.time + dur, x: (note.lane + 0.5) / 4 }];
-  const endT = pts[pts.length - 1].t;
-  const buildD = () => {
-    "worklet";
-    let d = "";
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      const prog = (clock.value - (p.t - lookahead)) / lookahead;
-      const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
-      const persp = P_NEAR + (1 - P_NEAR) * cp;
-      const x = geo.cx + (p.x - 0.5) * 2 * geo.hw * persp;
-      const y = geo.topY + geo.span * cp;
-      d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
-    }
-    return d;
+  const start = pts[0].t, end = pts[pts.length - 1].t; const span = Math.max(0.05, end - start);
+  const n = Math.max(6, Math.min(46, Math.round(span / 0.04)));
+  const xAt = (tt: number) => {
+    if (tt <= pts[0].t) return pts[0].x;
+    if (tt >= pts[pts.length - 1].t) return pts[pts.length - 1].x;
+    for (let k = 0; k < pts.length - 1; k++) { if (tt >= pts[k].t && tt <= pts[k + 1].t) { const f = (tt - pts[k].t) / Math.max(1e-4, pts[k + 1].t - pts[k].t); return pts[k].x + (pts[k + 1].x - pts[k].x) * f; } }
+    return pts[pts.length - 1].x;
   };
-  const glow = useAnimatedProps(() => ({ d: buildD() }));
-  const core = useAnimatedProps(() => ({ d: buildD() }));
-  const shine = useAnimatedProps(() => ({ d: buildD() }));
-  const fade = useAnimatedStyle(() => {
-    const head = (clock.value - (note.time - lookahead)) / lookahead;
-    const tail = (clock.value - (endT - lookahead)) / lookahead;
+  const beads: { t: number; x: number }[] = [];
+  for (let i = 0; i <= n; i++) { const tt = start + (span * i) / n; beads.push({ t: tt, x: Math.max(0.04, Math.min(0.96, xAt(tt))) }); }
+  return beads;
+}
+
+const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, color, head }: { bead: { t: number; x: number }; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; color: string; head: boolean }) {
+  const size = geo.laneW * (head ? 0.6 : 0.44);
+  const aStyle = useAnimatedStyle(() => {
+    const prog = (clock.value - (bead.t - lookahead)) / lookahead;
+    const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
+    const persp = P_NEAR + (1 - P_NEAR) * cp;
+    const x = geo.cx + (bead.x - 0.5) * geo.hw * persp;
+    const y = geo.topY + geo.span * cp;
     let o = 1;
-    if (head < 0.05) o = head / 0.05;
-    if (tail > 1.0) o = 1 - (tail - 1.0) / 0.15;
-    return { opacity: o < 0 ? 0 : o > 1 ? 1 : o };
+    if (prog < 0.04) o = prog / 0.04;
+    if (prog > 1.0) o = 1 - (prog - 1.0) / 0.12;
+    if (o < 0) o = 0; if (o > 1) o = 1;
+    return { opacity: o, transform: [{ translateX: x }, { translateY: y }, { scale: persp }] };
   });
-  return <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, fade]}>
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-      <AnimatedPath animatedProps={glow} stroke={color} strokeWidth={geo.laneW * 0.52} strokeOpacity={0.25} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <AnimatedPath animatedProps={core} stroke={color} strokeWidth={geo.laneW * 0.3} strokeOpacity={0.98} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <AnimatedPath animatedProps={shine} stroke="rgba(255,255,255,0.72)" strokeWidth={geo.laneW * 0.1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -size / 2, top: -size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: head ? 2.5 : 0, borderColor: "#FFFFFF", shadowColor: color, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 }, aStyle]}>
+    <View style={{ position: "absolute", top: size * 0.16, left: size * 0.24, right: size * 0.24, height: size * 0.34, borderRadius: size / 2, backgroundColor: "rgba(255,255,255,0.5)" }} />
   </Reanimated.View>;
+});
+const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
+  const color = laneColors[note.lane];
+  const beads = useMemo(() => sampleBeads(note), [note]);
+  return <>{beads.map((b, i) => <WavyBead key={i} bead={b} clock={clock} lookahead={lookahead} geo={geo} color={color} head={i === 0} />)}</>;
 });
 const WavyLayer = React.memo(function WavyLayer({ notes, clock, lookahead, geo }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
   return <>{notes.filter(n => n.type === "wavy").map(n => <WavyNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} />)}</>;
@@ -210,8 +210,8 @@ const Backdrop = React.memo(function Backdrop({ coverArt, grayscale }: { coverAr
 export default function GameScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { selectedSong, selectedDifficulty, charts, settings, saveResult, testChart, setTestChart } = useAppState();
-  const { gameComplete, award } = useStarlites();
+  const { selectedSong, selectedDifficulty, charts, settings, saveResult, testChart, setTestChart, scores, songs } = useAppState();
+  const { gameComplete, award, stars } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
   const practice = useLocalSearchParams<{ practice?: string }>().practice === "1" && !testChart;
   const practiceRef = useRef(practice); useEffect(() => { practiceRef.current = practice; }, [practice]);
@@ -235,6 +235,10 @@ export default function GameScreen() {
   const [tracePop, setTracePop] = useState<{ key: number } | null>(null);
   const [forceStart, setForceStart] = useState(false);
   const [milestone, setMilestone] = useState<{ combo: number; bonus: number; key: number } | null>(null);
+  const [achToast, setAchToast] = useState<{ title: string; icon: keyof typeof Ionicons.glyphMap; tier: "bronze" | "silver" | "gold"; key: number } | null>(null);
+  const achAnim = useRef(new Animated.Value(0)).current;
+  const unlockedAtStart = useRef<Set<string>>(new Set());
+  const achPopped = useRef<Set<string>>(new Set());
   const [rate, setRate] = useState(1);
   const [loopA, setLoopA] = useState<number | null>(null);
   const [loopB, setLoopB] = useState<number | null>(null);
@@ -325,7 +329,7 @@ export default function GameScreen() {
     const hits = c.PERFECT + c.GREAT + c.GOOD; // any successful hit counts fully — no misses = 100%
     const acc = total ? Math.round((hits / total) * 10000) / 100 : 0;
     const stars = starsFor(acc);
-    const result: ScoreResult = { songId: selectedSong.id, title: selectedSong.title, difficulty: selectedDifficulty, score: scoreRef.current, accuracy: acc, maxCombo: maxCombo.current, stars, perfect: c.PERFECT, great: c.GREAT, good: c.GOOD, miss: c.MISS, totalNotes: total, createdAt: Date.now() };
+    const result: ScoreResult = { songId: selectedSong.id, title: selectedSong.title, difficulty: selectedDifficulty, score: scoreRef.current, accuracy: acc, maxCombo: maxCombo.current, stars, perfect: c.PERFECT, great: c.GREAT, good: c.GOOD, miss: c.MISS, totalNotes: total, createdAt: Date.now(), coverArt: selectedSong.coverArt, accent: selectedSong.accent };
     await gameComplete("Vocotap", 0); // count the game; reward is star-based below
     const earned = await award(starlitesFor(stars), `${stars}★ · ${selectedSong.title}`, true);
     const bonus = milestoneBonusRef.current;
@@ -349,6 +353,9 @@ export default function GameScreen() {
   useEffect(() => { if (!judgment) return; judgeAnim.setValue(0); Animated.sequence([Animated.spring(judgeAnim, { toValue: 1, friction: 5, tension: 150, useNativeDriver: true }), Animated.delay(260), Animated.timing(judgeAnim, { toValue: 0, duration: 160, useNativeDriver: true })]).start(); }, [judgment, judgeAnim]);
   useEffect(() => { if (!tracePop) return; traceAnim.setValue(0); Animated.sequence([Animated.spring(traceAnim, { toValue: 1, friction: 5, tension: 140, useNativeDriver: true }), Animated.delay(560), Animated.timing(traceAnim, { toValue: 0, duration: 240, useNativeDriver: true })]).start(); }, [tracePop, traceAnim]);
   useEffect(() => { if (!milestone) return; milestoneAnim.setValue(0); Animated.sequence([Animated.spring(milestoneAnim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(900), Animated.timing(milestoneAnim, { toValue: 0, duration: 280, useNativeDriver: true })]).start(); }, [milestone, milestoneAnim]);
+  // Capture which achievements were ALREADY unlocked when the run started, so mid-run pops only fire for NEW ones.
+  useEffect(() => { const list = computeAchievements({ scores, charts, songs, points: stars.points, streak: stars.streak, games: stars.games }); unlockedAtStart.current = new Set(list.filter(a => a.unlocked).map(a => a.id)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!achToast) return; achAnim.setValue(0); Animated.sequence([Animated.spring(achAnim, { toValue: 1, friction: 6, tension: 110, useNativeDriver: true }), Animated.delay(2200), Animated.timing(achAnim, { toValue: 0, duration: 300, useNativeDriver: true })]).start(); }, [achToast, achAnim]);
 
   // Game loop @150ms — pointer-based scan (O(visible)), miss detection, throttled HUD sync.
   useEffect(() => {
@@ -384,6 +391,12 @@ export default function GameScreen() {
         if (pv >= 100) triggerPulse(); else setPulse(p => (p === pv ? p : pv));
       }
       if (judgeRef.current) { showJudge(judgeRef.current.grade, judgeRef.current.lane); judgeRef.current = null; }
+      if (!practiceRef.current && !testChart) {
+        for (const d of LIVE_ACH) {
+          if (achPopped.current.has(d.id) || unlockedAtStart.current.has(d.id)) continue;
+          if (d.test(comboRef.current, scoreRef.current)) { achPopped.current.add(d.id); setAchToast({ title: d.title, icon: d.icon, tier: d.tier, key: Date.now() }); if (settings.haptics) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); break; }
+        }
+      }
       tickCount.current++;
       if (tickCount.current % 3 === 0) {
         const c = counts.current; const done = c.PERFECT + c.GREAT + c.GOOD + c.MISS;
@@ -394,7 +407,7 @@ export default function GameScreen() {
       if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail, triggerPulse, jumpTo]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, settings.noFail, settings.haptics, triggerPulse, jumpTo, testChart]);
 
   // Hold / wavy sustain. Holds need the start lane held; WAVY notes must be FOLLOWED across
   // lanes (the required lane changes along the path) to keep scoring. Early release grays out
@@ -510,6 +523,11 @@ export default function GameScreen() {
       <Text selectable={false} style={styles.milestoneCombo}>{milestone.combo} COMBO!</Text>
       {milestone.bonus > 0 && <View style={styles.milestoneBonus}><Ionicons name="sparkles" size={13} color={colors.gold} /><Text selectable={false} style={styles.milestoneBonusText}>+{milestone.bonus} Starlites</Text></View>}
     </Animated.View>}
+    {achToast && <Animated.View key={achToast.key} pointerEvents="none" style={[styles.achToast, { top: insets.top + 70, borderColor: TIER_COLOR[achToast.tier], opacity: achAnim, transform: [{ translateY: achAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }, { scale: achAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] }]}>
+      <View style={[styles.achToastIcon, { backgroundColor: TIER_COLOR[achToast.tier] }]}><Ionicons name={achToast.icon} size={20} color={colors.bg} /></View>
+      <View style={{ flex: 1 }}><Text selectable={false} style={styles.achToastLabel}>ACHIEVEMENT UNLOCKED</Text><Text selectable={false} style={styles.achToastTitle} numberOfLines={1}>{achToast.title}</Text></View>
+      <Ionicons name="trophy" size={18} color={TIER_COLOR[achToast.tier]} />
+    </Animated.View>}
 
     {/* Top HUD */}
     <View style={[styles.hud, { top: insets.top + 6 }]} pointerEvents="box-none">
@@ -570,6 +588,7 @@ const styles = StyleSheet.create({
   judgment: { position: "absolute", width: 180, textAlign: "center", fontSize: 26, fontFamily: fonts.display, letterSpacing: 0.5 },
   tracePop: { position: "absolute", width: 220, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, tracePopText: { color: "#EAF6FF", fontSize: 24, fontFamily: fonts.display, textShadowColor: "rgba(47,224,214,0.9)", textShadowRadius: 16 },
   milestone: { position: "absolute", width: 300, alignItems: "center", gap: 8 }, milestoneCombo: { color: colors.gold, fontSize: 40, fontFamily: fonts.display, textShadowColor: "rgba(245,200,66,0.85)", textShadowRadius: 20, letterSpacing: 1 }, milestoneBonus: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 30, borderRadius: 15, backgroundColor: "rgba(245,200,66,0.16)", borderWidth: 1, borderColor: "rgba(245,200,66,0.5)" }, milestoneBonusText: { color: colors.gold, fontSize: 13, fontFamily: fonts.heavy },
+  achToast: { position: "absolute", left: 24, right: 24, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 18, backgroundColor: "rgba(16,14,22,0.97)", borderWidth: 1.5, zIndex: 60, shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 16 }, achToastIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" }, achToastLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.6, fontFamily: fonts.heavy }, achToastTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.display, marginTop: 2 },
   practice: { position: "absolute", left: 12, right: 12, gap: 8, zIndex: 20 }, practiceRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" },
   practiceTag: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: "rgba(13,230,210,0.14)", borderWidth: 1, borderColor: "rgba(13,230,210,0.4)" }, practiceTagText: { color: colors.cyan, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
   spdChip: { minWidth: 46, height: 30, paddingHorizontal: 10, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" }, spdChipOn: { backgroundColor: colors.cyan, borderColor: colors.cyan }, spdChipText: { color: colors.text, fontSize: 13, fontFamily: fonts.heavy }, spdChipTextOn: { color: colors.bg },

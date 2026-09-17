@@ -50,6 +50,8 @@ export type ScoreResult = {
   totalNotes: number;
   createdAt: number;
   starlitesEarned?: number;
+  coverArt?: string | number;
+  accent?: string;
 };
 
 export type GameSettings = {

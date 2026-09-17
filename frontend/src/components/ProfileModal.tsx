@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeAchievements, TIER_COLOR } from "@/src/game/achievements";
+import { SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
@@ -18,7 +19,7 @@ function timeAgo(ts: number) {
 }
 
 export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { scores, charts, songs } = useAppState();
+  const { scores, charts, songs, treeshSongs } = useAppState();
   const { stars } = useStarlites();
   const { nickname, avatar, accent } = useTreeshIdentity();
 
@@ -57,10 +58,11 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
           </View>}
 
           <Text style={styles.sectionTitle}>RECENTLY PLAYED</Text>
-          {recent.length ? recent.map((s, i) => <View key={`${s.songId}-${s.createdAt}-${i}`} style={styles.playRow}>
+          {recent.length ? recent.map((s, i) => { const song = [...songs, ...treeshSongs].find(x => x.id === s.songId); const cover = s.coverArt ?? song?.coverArt; const acc = s.accent ?? song?.accent ?? colors.purple; return <View key={`${s.songId}-${s.createdAt}-${i}`} style={styles.playRow}>
+            <View style={styles.playCover}><SongCover coverArt={cover} accent={acc} seed={s.songId} label={s.title} iconSize={16} style={{ width: "100%", height: "100%" }} /></View>
             <View style={{ flex: 1 }}><Text style={styles.playTitle} numberOfLines={1}>{s.title}</Text><Text style={styles.playSub}>{s.difficulty} · {s.accuracy.toFixed(1)}% · {timeAgo(s.createdAt)}</Text></View>
             <View style={styles.playStars}>{[0, 1, 2, 3, 4].map(n => <Ionicons key={n} name={n < s.stars ? "star" : "star-outline"} size={12} color={n < s.stars ? colors.gold : "#4C4C55"} />)}</View>
-          </View>) : <Text style={styles.empty}>No runs yet — play a song to fill this in.</Text>}
+          </View>; }) : <Text style={styles.empty}>No runs yet — play a song to fill this in.</Text>}
 
           <Text style={styles.sectionTitle}>ACHIEVEMENTS · {unlocked.length}/{achievements.length}</Text>
           <View style={styles.grid}>
@@ -97,6 +99,7 @@ const styles = StyleSheet.create({
   recentAchLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.4, fontFamily: fonts.bold }, recentAchTitle: { color: colors.text, fontSize: 16, fontFamily: fonts.display, marginTop: 2 },
   sectionTitle: { color: colors.muted, fontSize: 10, letterSpacing: 1.5, fontFamily: fonts.heavy, marginTop: 4 },
   playRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 11, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
+  playCover: { width: 40, height: 40, borderRadius: 10, overflow: "hidden", backgroundColor: colors.bg },
   playTitle: { color: colors.text, fontSize: 14, fontFamily: fonts.bold }, playSub: { color: colors.muted, fontSize: 11, marginTop: 2 }, playStars: { flexDirection: "row" },
   empty: { color: colors.muted, fontSize: 13, paddingVertical: 8 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
