@@ -1600,7 +1600,7 @@ function savePlayerPrefs(){ try{ LS.set("treesh_player_prefs", {shuffle:!!state.
 /* Mobile background-playback hardening: inline playback hints + attach to DOM so
    iOS/Android treat this as the page's primary media element and keep it alive
    in the background (works together with the MediaSession wiring below). */
-try{ audio.setAttribute("playsinline",""); audio.setAttribute("webkit-playsinline",""); audio.setAttribute("x-webkit-airplay","allow"); audio.crossOrigin="anonymous"; }catch(e){}
+try{ audio.setAttribute("playsinline",""); audio.setAttribute("webkit-playsinline",""); audio.setAttribute("x-webkit-airplay","allow"); audio.crossOrigin="anonymous"; audio.preload="auto"; }catch(e){}
 /* iOS / iPadOS detection. On iOS, routing the primary <audio> element through a
    Web Audio graph (via createMediaElementSource) causes the OS to KILL audio
    output whenever the app is backgrounded, because iOS suspends the AudioContext.
@@ -1611,7 +1611,7 @@ const IS_IOS = (function(){ try{ const ua=navigator.userAgent||""; const iOSDevi
 (function attachAudioEl(){ const add=()=>{ try{ if(document.body && !audio.isConnected){ audio.style.display="none"; audio.setAttribute("aria-hidden","true"); document.body.appendChild(audio); } }catch(e){} }; if(document.body) add(); else document.addEventListener("DOMContentLoaded", add); })();
 function shuffleKeepFirst(arr, i){ let rest=arr.filter((_,x)=>x!==i); rest=rest.filter(s=>!(s&&s.id&&state.dislikes.has(s.id))); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
 function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
-function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state._playCounted=false; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl){ audio.src=song.audioUrl; audio.load(); } else { try{ audio.currentTime=0; }catch(e){} } if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{ const retry=()=>{ audio.removeEventListener("canplay",retry); const p2=audio.play(); if(p2&&p2.catch) p2.catch(()=>{}); }; audio.addEventListener("canplay",retry,{once:true}); }); } }
+function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state._playCounted=false; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl){ /* iOS background auto-advance: setting .src implicitly loads. Calling audio.load() here resets the element and makes the follow-up play() require a fresh user gesture while backgrounded, which silently fails. So we must NOT call load() on track change. */ audio.src=song.audioUrl; } else { try{ audio.currentTime=0; }catch(e){} } if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{ const retry=()=>{ audio.removeEventListener("canplay",retry); const p2=audio.play(); if(p2&&p2.catch) p2.catch(()=>{}); }; audio.addEventListener("canplay",retry,{once:true}); }); } }
 function playSong(song, list){ if(song && isDisliked(song.id)){ toast("This song is disliked","Remove the dislike to play it"); return; } let src=(list&&list.length)?list.slice():[song]; src=src.filter(x=>x && !isDisliked(x.id)); if(!src.length) src=[song]; state.base=src; let order=src, idx=Math.max(0,src.findIndex(s=>s.id===song.id)); if(state.shuffle){ order=shuffleKeepFirst(src,idx); idx=0; } state.queue=order; loadIndex(idx,order,true); state.npOpen=false; renderMini(); renderNP(); }
 function togglePlay(){ if(!curSong()) return; if(audio.paused){ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); } else audio.pause(); }
 function nextTrack(manual=false){ const q=state.queue; if(!q.length) return; if(state.repeat==="one"&&!manual){ loadIndex(state.index,q,true); return; } let n=state.index; for(let k=0;k<q.length;k++){ n++; if(n>=q.length){ if(state.repeat==="all"||manual){ n=0; } else { audio.pause(); return; } } if(q[n] && !isDisliked(q[n].id)){ loadIndex(n,q,true); return; } } audio.pause(); }
@@ -1640,13 +1640,16 @@ function ctxListFor(el){ try{ const c=el&&el.closest&&el.closest('[data-ctx]'); 
 function maybeCloseProfileOnPlay(el){ try{ if(state.profileOpen && el && el.closest && el.closest('#profile-panel')) closeProfile(); }catch(e){} }
 
 
-audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if(state.eq&&state.eq.enabled){ try{ eqEnsure(); }catch(e){} } if("mediaSession"in navigator){ navigator.mediaSession.playbackState="playing"; if(typeof updatePositionState==="function") updatePositionState(); } });
+audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if(state.eq&&state.eq.enabled){ try{ eqEnsure(); }catch(e){} } if("mediaSession"in navigator){ navigator.mediaSession.playbackState="playing"; try{ navigator.mediaSession.setActionHandler("nexttrack",()=>nextTrack(true)); navigator.mediaSession.setActionHandler("previoustrack",()=>prevTrack()); }catch(e){} if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("pause", ()=>{ state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
 let _starLastTU=-1;
 audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); if(s && ct>20 && !state._playCounted){ state._playCounted=true; bumpPlayCount(s.id); } if(Math.abs(ct-(state._posTU||0))>=1){ state._posTU=ct; if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); updateABMarkers(); if(typeof updatePositionState==="function") updatePositionState(); });
 audio.addEventListener("ended", ()=>nextTrack(false));
 audio.addEventListener("error", ()=>{ state.isPlaying=false; });
+/* iOS + EQ: Web Audio suspends when the app is backgrounded/locked, pausing sound.
+   When the user returns to the app, resume the audio graph and keep playback going. */
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState!=="visible") return; try{ if(_vizAC && _vizAC.state==="suspended") _vizAC.resume(); }catch(e){} if(state.isPlaying && audio.paused){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{}); } });
 
 /* ============================================================
    COLOR EXTRACTION (ambient gradient)
@@ -4990,16 +4993,11 @@ function renderLS(){
        <p class="flex items-center gap-2 font-display text-[11px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">${ls.isBlank?'Lyric Draft':'Lyric Studio'} <span id="ls-dirty" class="${ls.dirty?'':'hidden'} inline-block h-1.5 w-1.5 rounded-full bg-[color:var(--treesh-gold)]" title="Unsaved changes"></span></p>
        ${ls.isBlank?`<button id="ls-doc-title" data-act="ls-doc-rename" data-testid="ls-doc-title" class="flex max-w-full items-center gap-1.5 text-left text-sm font-bold hover:text-white/80"><span class="clamp-1">${esc(ls.title||'Untitled lyrics')}</span><i data-lucide="pencil" style="width:13px;height:13px" class="shrink-0 text-white/40"></i></button>`:`<p class="clamp-1 text-sm font-bold">${esc(ls.title||'Untitled')} <span class="font-normal text-white/50">\u00b7 ${esc(ls.artist||'')}</span></p>`}
      </div>
-     <button data-act="ls-import" data-testid="ls-import" aria-label="Import lyrics" class="press hidden h-10 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-sm font-semibold text-white/85 hover:bg-white/10 sm:inline-flex"><i data-lucide="import" style="width:15px;height:15px"></i>Import</button>
-     <button data-act="ls-export" data-testid="ls-export" aria-label="Export LRC" class="press hidden h-10 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 text-sm font-semibold text-white/85 hover:bg-white/10 sm:inline-flex"><i data-lucide="file-down" style="width:15px;height:15px"></i>Export</button>
-     <button data-act="ls-save" data-testid="ls-save" class="press inline-flex h-10 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-4 text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Save</button>
+     <button data-act="ls-import" data-testid="ls-import" aria-label="Import lyrics" title="Import" class="press inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-2.5 text-sm font-semibold text-white/85 hover:bg-white/10 sm:px-3"><i data-lucide="import" style="width:15px;height:15px"></i><span class="hidden sm:inline">Import</span></button>
+     <button data-act="ls-export" data-testid="ls-export" aria-label="Export LRC" title="Export" class="press inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-2.5 text-sm font-semibold text-white/85 hover:bg-white/10 sm:px-3"><i data-lucide="file-down" style="width:15px;height:15px"></i><span class="hidden sm:inline">Export</span></button>
+     <button data-act="ls-save" data-testid="ls-save" class="press inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-4 text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Save</button>
    </div>`;
-  const tabs=`<div class="flex shrink-0 items-center gap-2 px-3 pt-3 sm:px-5">${tab('write','Write','pencil')}${tab('sync','Sync','clock')}${tab('preview','Preview','play')}
-     <div class="ml-auto flex items-center gap-2 sm:hidden">
-       <button data-act="ls-import" aria-label="Import" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="import" style="width:16px;height:16px"></i></button>
-       <button data-act="ls-export" aria-label="Export" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="file-down" style="width:16px;height:16px"></i></button>
-     </div>
-   </div>`;
+  const tabs=`<div class="flex shrink-0 items-center gap-2 px-3 pt-3 sm:px-5">${tab('write','Write','pencil')}${tab('sync','Sync','clock')}${tab('preview','Preview','play')}</div>`;
   c.innerHTML=`<div data-ls-root data-testid="lyric-studio" class="fixed inset-0 z-[200] flex flex-col bg-[#08080a] text-white">
      <div class="pointer-events-none absolute inset-0"><div class="absolute -right-16 -top-24 h-72 w-72 rounded-full" style="background:radial-gradient(circle,var(--treesh-purple-soft),transparent 70%)"></div></div>
      <div class="relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col">
@@ -5130,10 +5128,23 @@ function lsWriteHtml(){
    </details>`;
   const findBtn = state.ls.isBlank ? '' : `<button data-act="lyrics-find" data-id="${state.ls.songId}" data-testid="ls-find-online" class="press mb-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/30 bg-[color:var(--treesh-purple)]/10 px-4 py-2.5 text-sm font-semibold text-[color:var(--treesh-purple)] transition-colors hover:bg-[color:var(--treesh-purple)]/20"><i data-lucide="sparkles" style="width:16px;height:16px"></i>Find lyrics online</button>`;
   const rhymeToggle = `<button data-act="ls-rhyme-toggle" data-testid="ls-rhyme-toggle" role="switch" aria-checked="${state.lsRhymesOn}" title="Floating rhyme suggestions appear above your cursor as you type" class="press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${state.lsRhymesOn?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/65 hover:bg-white/10'}"><i data-lucide="mic-vocal" style="width:13px;height:13px" class="${state.lsRhymesOn?'text-[color:var(--treesh-purple)]':'text-white/50'}"></i>Rhymes<span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none ${state.lsRhymesOn?'bg-[color:var(--treesh-purple)]/30 text-white':'bg-white/10 text-white/50'}">${state.lsRhymesOn?'ON':'OFF'}</span></button>`;
+  const mdChip=(md,label,title)=>`<button data-act="ls-md" data-md="${md}" data-testid="ls-md-${md}" title="${title}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/75 hover:bg-white/10">${label}</button>`;
+  const markupBar = `<div class="no-scrollbar -mx-0.5 mb-2 flex shrink-0 items-center gap-1.5 overflow-x-auto px-0.5 pb-0.5">
+     <span class="shrink-0 pr-0.5 text-[10px] font-bold uppercase tracking-wide text-white/35">Markup</span>
+     ${mdChip('adlib','( )','Ad-lib \u2013 wrap selection in parentheses')}
+     ${mdChip('quote','\u201C \u201D','Quote \u2013 wrap selection in quotes')}
+     ${mdChip('caps','CAPS','Emphasis \u2013 UPPERCASE the selected text')}
+     ${mdChip('lower','abc','Lowercase the selected text')}
+     ${mdChip('repeat','\u00d72','Repeat \u2013 add (\u00d72) to this line')}
+     ${mdChip('pause','\u2026','Pause / breath')}
+     ${mdChip('hold','\u2014','Held note (em dash)')}
+     <button data-act="ls-md" data-md="explain" data-testid="ls-md-explain" title="Explain this line \u2013 add a meaning shown in the player" class="press shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[color:var(--treesh-purple)]/40 bg-[color:var(--treesh-purple)]/12 px-3 py-1.5 text-xs font-semibold text-[color:var(--treesh-purple)] hover:bg-[color:var(--treesh-purple)]/20"><i data-lucide="lightbulb" style="width:13px;height:13px"></i>Explain</button>
+   </div>`;
   return `<div class="flex h-full flex-col py-3">
      <div class="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55"><i data-lucide="info" class="shrink-0 text-[color:var(--treesh-purple)]" style="width:15px;height:15px"></i><span>One lyric per line. Wrap section names in brackets, e.g. <span class="mx-0.5 inline-block whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 font-doto text-white/80">[Verse&nbsp;1]</span></span></div>
      ${findBtn}
      ${tagPanel}
+     ${markupBar}
      <div class="relative flex min-h-0 flex-1 flex-col">
        <textarea id="ls-write" data-testid="ls-write-textarea" placeholder="[Verse 1]\nType or paste your lyrics here\u2026\nOne line at a time" class="no-scrollbar min-h-0 flex-1 w-full resize-none rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[15px] leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(txt)}</textarea>
        <div id="ls-rhyme-pop" data-testid="ls-rhyme-pop" onmousedown="event.preventDefault()" class="ls-rhyme-pop absolute left-0 top-0 z-30 hidden w-[min(280px,calc(100%-8px))]"></div>
@@ -5234,20 +5245,22 @@ function lsPreviewHtml(){
   }
   const timedCount=items.filter(it=>it.type==='line'&&it.t!=null).length;
   const rows=items.map((it,i)=>{
-    if(it.type==='section'){ return `<div class="ls-pv-sec mb-1 mt-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white/35" data-ls-pv="${i}"><span class="h-px flex-1 bg-white/10"></span><span>${esc(lsSectionLabel(it.text))}</span><span class="h-px flex-1 bg-white/10"></span></div>`; }
+    if(it.type==='section'){
+      const label=lsSectionLabel(it.text)||'Section';
+      return `<div class="group/l" data-ls-pv="${i}"><div class="flex items-center justify-center gap-2.5 py-3"><span class="h-px w-8 bg-white/12"></span><span class="np-line text-[11px] font-bold uppercase tracking-[0.26em] text-white/45">${esc(label)}</span><span class="h-px w-8 bg-white/12"></span></div></div>`;
+    }
     const txt=(it.text||'').trim(); if(!txt) return '';
     const hasEx=!!(it.explain&&String(it.explain).trim());
-    return `<div class="ls-pv-line" data-ls-pv="${i}">
-       <button data-act="ls-pv-line" data-i="${i}" class="press block w-full rounded-xl px-3 py-2 text-left text-[19px] font-semibold leading-relaxed text-white/35 transition-[color,transform] duration-200 sm:text-[22px]">${esc(txt)}${hasEx?` <i data-lucide="lightbulb" class="ml-1 inline align-[-2px] text-[color:var(--treesh-gold)]" style="width:14px;height:14px"></i>`:''}</button>
-       ${hasEx?`<div data-ls-pv-ex="${i}" class="hidden mx-3 mb-2 rounded-xl border-l-2 border-[color:var(--treesh-purple)] bg-white/[0.06] px-3 py-2 text-sm leading-relaxed text-white/75">${esc(it.explain)}</div>`:''}
-     </div>`;
+    const ind=hasEx?`<span class="lyric-ex-ind ml-1.5 inline-flex h-5 w-5 -translate-y-[2px] items-center justify-center rounded-full bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)] align-middle"><i data-lucide="lightbulb" style="width:11px;height:11px"></i></span>`:'';
+    const panel=hasEx?`<div data-ls-pv-ex="${i}" class="lyric-explain-panel hidden mb-2 ml-1 mr-9 space-y-3 rounded-xl border-l-2 border-[color:var(--treesh-purple)] bg-white/[0.06] px-3.5 py-2.5"><div><span class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[color:var(--treesh-purple)]"><i data-lucide="lightbulb" style="width:12px;height:12px"></i>Meaning</span><p class="text-[15px] leading-relaxed text-white/80">${esc(it.explain)}</p></div></div>`:'';
+    return `<div class="group/l" data-ls-pv="${i}"><div class="relative pr-2"><button data-act="ls-pv-line" data-i="${i}" class="np-line select-text block w-full text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70">${esc(txt)}${ind}</button></div>${panel}</div>`;
   }).join("");
   const note = !ls.hasAudio ? `<div class="mb-2 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50"><i data-lucide="volume-x" style="width:13px;height:13px"></i>No audio on this document \u2014 tap a line to preview its meaning.</div>` : (timedCount? '' : `<div class="mb-2 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50"><i data-lucide="info" style="width:13px;height:13px"></i>Add timings in Sync to make lines highlight as the song plays.</div>`);
-  return `<div class="flex h-full flex-col py-3">${note}<div id="ls-pv-scroll" class="ls-fade no-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1 pb-6">${rows}</div></div>`;
+  return `<div class="flex h-full flex-col py-3">${note}<div id="ls-pv-scroll" class="no-scrollbar min-h-0 flex-1 overflow-y-auto px-1 py-[22%]">${rows}</div></div>`;
 }
 let _lsPvIdx=-1;
 function lsPreviewActiveIndex(){ const items=state.ls.items||[]; const t=(state.ls.hasAudio?(_lsAudio.currentTime||0):(state.ls.cur||0)); let idx=-1; for(let i=0;i<items.length;i++){ const it=items[i]; if(it.type==='line'&&it.t!=null){ if(it.t<=t+0.15) idx=i; else break; } } return idx; }
-function lsPreviewHighlight(force){ if(!state.ls||state.ls.mode!=='preview') return; const cont=$("#ls-pv-scroll"); if(!cont) return; const idx=lsPreviewActiveIndex(); if(idx===_lsPvIdx && !force) return; _lsPvIdx=idx; cont.querySelectorAll('.ls-pv-line').forEach(el=>{ const i=+el.getAttribute('data-ls-pv'); const btn=el.firstElementChild; if(!btn) return; const active=(i===idx); btn.classList.toggle('text-white',active); btn.classList.toggle('text-white/35',!active); btn.style.transform=active?'scale(1.02)':''; btn.style.transformOrigin='left'; btn.style.textShadow=active?'0 2px 30px rgba(255,255,255,0.25)':''; }); if(idx>=0){ const el=cont.querySelector('.ls-pv-line[data-ls-pv="'+idx+'"]'); if(el){ const cr=cont.getBoundingClientRect(), er=el.getBoundingClientRect(); const target=cont.scrollTop+(er.top-cr.top)-cont.clientHeight/2+er.height/2; cont.scrollTo({top:Math.max(0,target), behavior: state.perfMode?'auto':'smooth'}); } } }
+function lsPreviewHighlight(force){ if(!state.ls||state.ls.mode!=='preview') return; const cont=$("#ls-pv-scroll"); if(!cont) return; const idx=lsPreviewActiveIndex(); if(idx===_lsPvIdx && !force) return; _lsPvIdx=idx; cont.querySelectorAll('[data-ls-pv]').forEach(el=>{ const i=+el.getAttribute('data-ls-pv'); const btn=el.querySelector('button.np-line'); if(!btn) return; const active=(i===idx); btn.classList.toggle('text-white',active); btn.classList.toggle('text-white/40',!active&&i>idx); btn.classList.toggle('text-white/35',!active&&i<idx); btn.style.transform=active?'scale(1.02)':''; btn.style.transformOrigin='left'; btn.style.textShadow=active?'0 2px 30px rgba(255,255,255,0.25)':''; }); if(idx>=0){ const el=cont.querySelector('[data-ls-pv="'+idx+'"]'); if(el){ const cr=cont.getBoundingClientRect(), er=el.getBoundingClientRect(); const target=cont.scrollTop+(er.top-cr.top)-cont.clientHeight/2+er.height/2; cont.scrollTo({top:Math.max(0,target), behavior: state.perfMode?'auto':'smooth'}); } } }
 
 /* ============================================================
    LYRIC STUDIO: Rhyme helper (RhymersBlock-style suggestions)
@@ -5270,6 +5283,12 @@ async function lsFetchRhymes(word){
   }catch(e){ return null; }
 }
 function lsCurrentWord(ta){ const v=ta.value; const s=ta.selectionStart||0; let i=s; while(i>0 && /[A-Za-z']/.test(v[i-1])) i--; let j=s; while(j<v.length && /[A-Za-z']/.test(v[j])) j++; return {word:v.slice(i,j), start:i, end:j}; }
+function lsSeedWord(ta){ const s=ta.selectionStart||0, e=ta.selectionEnd||s;
+  if(e>s){ return (ta.value.slice(s,e).trim().split(/\s+/).pop()||''); }
+  const cw=lsCurrentWord(ta); if(cw.word && cw.word.length) return cw.word;
+  /* caret on an empty/new line or just after a space: rhyme with the last word typed
+     (which, right after Enter, is the last word of the previous line) */
+  const before=ta.value.slice(0,s); const m=before.match(/([A-Za-z']+)[^A-Za-z']*$/); return m?m[1]:''; }
 function lsScheduleRhymes(){ if(!state.ls||state.ls.mode!=='write'||!state.lsRhymesOn) return; clearTimeout(_lsRhymeTimer); _lsRhymeTimer=setTimeout(lsUpdateRhymes, 300); }
 let _lsMirror=null;
 function lsCaretPx(ta){
@@ -5312,9 +5331,7 @@ function lsToggleRhymes(){ state.lsRhymesOn=!state.lsRhymesOn; LS.set("treesh_ls
 function lsUpdateRhymes(){
   const ta=$("#ls-write"), pop=$("#ls-rhyme-pop"); if(!ta||!pop) return;
   if(!state.lsRhymesOn){ pop.classList.add('hidden'); return; }
-  const s=ta.selectionStart||0, e=ta.selectionEnd||s; let word='';
-  if(e>s){ word=(ta.value.slice(s,e).trim().split(/\s+/).pop()||''); } else { word=lsCurrentWord(ta).word; }
-  word=(word||'').replace(/[^A-Za-z']/g,'');
+  let word=lsSeedWord(ta).replace(/[^A-Za-z']/g,'');
   if(!word || word.length<2){ pop.classList.add('hidden'); _lsRhymeWord=''; return; }
   if(word.toLowerCase()===_lsRhymeWord && !pop.classList.contains('hidden')){ lsPositionRhymePop(); return; }
   _lsRhymeWord=word.toLowerCase();
@@ -5327,11 +5344,51 @@ function lsUpdateRhymes(){
     lsShowRhymePop(lsRhymeCard(word, inner));
   });
 }
-function lsInsertRhyme(word){ const ta=$("#ls-write"); if(!ta||!word) return; const v=ta.value; let s=ta.selectionStart||0, e=ta.selectionEnd||s; let start, end;
-  if(e>s){ start=s; end=e; } else { const cw=lsCurrentWord(ta); start=cw.start; end=cw.end; }
-  let ins=word; if(start===end){ const needSpace = start>0 && !/\s/.test(v[start-1]); ins=(needSpace?' ':'')+word; }
-  const before=v.slice(0,start), after=v.slice(end); ta.value=before+ins+after; const caret=(before+ins).length; ta.focus(); try{ ta.setSelectionRange(caret,caret); }catch(e){}
-  ta.dispatchEvent(new Event('input',{bubbles:true})); _lsRhymeWord=''; lsScheduleRhymes();
+function lsInsertRhyme(word){ const ta=$("#ls-write"); if(!ta||!word) return; const v=ta.value; let s=ta.selectionStart||0, e=ta.selectionEnd||s;
+  let insertAt;
+  if(e>s){ insertAt=e; } else { const cw=lsCurrentWord(ta); insertAt=(cw.word&&cw.word.length)?cw.end:s; }
+  const before=v.slice(0,insertAt), after=v.slice(insertAt);
+  const prevCh=before.slice(-1); const needSpaceBefore = before.length>0 && !/\s/.test(prevCh);
+  const nextCh=after.slice(0,1); const needSpaceAfter = !!nextCh && !/\s/.test(nextCh);
+  const ins=(needSpaceBefore?' ':'')+word+(needSpaceAfter?' ':'');
+  ta.value=before+ins+after; const caret=(before+(needSpaceBefore?' ':'')+word).length; ta.focus(); try{ ta.setSelectionRange(caret,caret); }catch(e){}
+  ta.dispatchEvent(new Event('input',{bubbles:true})); _lsRhymeWord=''; lsPositionRhymePop(); lsScheduleRhymes();
+}
+/* ---- Write-mode markup tools ---- */
+function lsMarkup(type){
+  const ta=$("#ls-write"); if(!ta) return;
+  if(type==='explain'){ lsExplainCurrentLine(); return; }
+  const v=ta.value; let s=ta.selectionStart||0, e=ta.selectionEnd||s; const sel=v.slice(s,e);
+  const setSel=(a,b)=>{ ta.focus(); try{ ta.setSelectionRange(a,b); }catch(_){ } };
+  const wrap=(l,r)=>{ if(sel){ ta.value=v.slice(0,s)+l+sel+r+v.slice(e); const c=s+l.length+sel.length+r.length; setSel(c,c); } else { ta.value=v.slice(0,s)+l+r+v.slice(e); const c=s+l.length; setSel(c,c); } };
+  const caseCon=(fn)=>{ if(!sel){ toast('Select some text first'); return; } ta.value=v.slice(0,s)+fn(sel)+v.slice(e); setSel(s, s+sel.length); };
+  const insertAt=(str)=>{ ta.value=v.slice(0,s)+str+v.slice(e); const c=s+str.length; setSel(c,c); };
+  switch(type){
+    case 'adlib': wrap('(',')'); break;
+    case 'quote': wrap('\u201C','\u201D'); break;
+    case 'caps': caseCon(x=>x.toUpperCase()); break;
+    case 'lower': caseCon(x=>x.toLowerCase()); break;
+    case 'repeat': { let j=e; while(j<v.length && v[j]!=='\n') j++; const ins=' (\u00d72)'; ta.value=v.slice(0,j)+ins+v.slice(j); const c=j+ins.length; setSel(c,c); break; }
+    case 'pause': insertAt('\u2026'); break;
+    case 'hold': insertAt(' \u2014'); break;
+    default: return;
+  }
+  ta.dispatchEvent(new Event('input',{bubbles:true}));
+  lsPositionRhymePop(); lsScheduleRhymes();
+}
+function lsExplainCurrentLine(){
+  const ta=$("#ls-write"); if(!ta||!state.ls) return;
+  const pos=ta.selectionStart||0;
+  state.ls.items=lsParseWriteText(ta.value, state.ls.items);
+  const allLines=ta.value.split(/\n/);
+  const curLineIdx=ta.value.slice(0,pos).split(/\n/).length-1;
+  let itemIdx=-1, count=-1;
+  for(let i=0;i<allLines.length && i<=curLineIdx;i++){ if(allLines[i].trim()){ count++; itemIdx=count; } }
+  const it=(itemIdx>=0)?state.ls.items[itemIdx]:null;
+  if(!it){ toast('Tap a lyric line first','Put your cursor on the line you want to explain'); return; }
+  if(it.type==='section'){ toast('Explanations are for lyric lines','Section tags can\u2019t hold a meaning'); return; }
+  lsMarkDirty();
+  lsEditExplain(itemIdx);
 }
 
 /* ============================================================
@@ -6044,11 +6101,186 @@ function voiceBody(mode){
     <div class="grid w-full grid-cols-2 gap-2"><button data-act="voice-cancel" data-testid="voice-cancel-button" class="press h-11 rounded-2xl border border-white/12 bg-white/5 text-sm font-semibold text-white/85 hover:bg-white/10">Close</button><button data-act="voice-retry" data-testid="voice-retry-button" class="press inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple"><i data-lucide="rotate-ccw" style="width:15px;height:15px"></i>Try again</button></div>
   </div>`;
 }
-function showVoice(){ clearTimeout(_voiceHideT); _voiceSticky=false; if($("#voice-ov")) return; const el=document.createElement("div"); el.id="voice-ov"; el.className="tr-fade-in fixed inset-0 z-[110] flex items-center justify-center p-4"; el.innerHTML=`<div data-act="voice-cancel" class="absolute inset-0 bg-black/60 backdrop-blur-md"></div><div data-voice-panel data-testid="voice-listening-overlay" class="tr-panel-in relative w-[min(92vw,420px)] rounded-[28px] glass-strong border border-white/12 p-6 pb-[calc(22px+env(safe-area-inset-bottom))] shadow-[var(--treesh-shadow)]"><div data-voice-body>${voiceBody("listening")}</div></div>`; document.body.appendChild(el); icons(); syncScrollLock(); }
+function showVoiceLegacy(){ clearTimeout(_voiceHideT); _voiceSticky=false; if($("#voice-ov")) return; const el=document.createElement("div"); el.id="voice-ov"; el.className="tr-fade-in fixed inset-0 z-[110] flex items-center justify-center p-4"; el.innerHTML=`<div data-act="voice-cancel" class="absolute inset-0 bg-black/60 backdrop-blur-md"></div><div data-voice-panel data-testid="voice-listening-overlay" class="tr-panel-in relative w-[min(92vw,420px)] rounded-[28px] glass-strong border border-white/12 p-6 pb-[calc(22px+env(safe-area-inset-bottom))] shadow-[var(--treesh-shadow)]"><div data-voice-body>${voiceBody("listening")}</div></div>`; document.body.appendChild(el); icons(); syncScrollLock(); }
 function voiceSetState(mode){ const el=$("#voice-ov"); if(!el) return; const body=el.querySelector("[data-voice-body]"); if(!body) return; body.innerHTML=voiceBody(mode); icons(); const nonSticky=(mode==="listening"||mode==="idle"); _voiceSticky=!nonSticky; clearTimeout(_voiceHideT); if(_voiceSticky){ _voiceHideT=setTimeout(()=>{ if($("#voice-ov")) voiceSetState("idle"); }, 4200); } }
 function stopVoice(){ _voiceSticky=false; clearTimeout(_voiceHideT); if(recog){ try{ recog.abort(); }catch(e){ try{ recog.stop(); }catch(_){} } } listening=false; hideVoice(); }
 function hideVoice(){ clearTimeout(_voiceHideT); _voiceSticky=false; const el=$("#voice-ov"); if(el){ el.classList.remove("tr-fade-in"); el.classList.add("tr-fade-out"); const p=el.querySelector("[data-voice-panel]"); if(p){ p.classList.remove("tr-panel-in"); p.classList.add("tr-panel-out"); } setTimeout(()=>{ if(el.parentNode) el.remove(); syncScrollLock(); },200); } else { syncScrollLock(); } }
 function handleVoice(t){ if(!t) return; _voiceHandled=true; const say=m=>toast(m); if(/(^|\s)(pause|stop)(\s|$)/.test(t)){ if(state.isPlaying)togglePlay(); say("Paused"); } else if(/(next|skip)/.test(t)){ nextTrack(true); say("Next track"); } else if(/(previous|back|last)/.test(t)){ prevTrack(); say("Previous track"); } else if(/shuffle/.test(t)){ toggleShuffle(); say("Shuffle toggled"); } else if(/repeat/.test(t)){ cycleRepeat(); say("Repeat toggled"); } else if(/^(search|find)\s+(.+)/.test(t)){ const q=t.replace(/^(search|find)\s+/,""); state.query=q; state.view="library"; setHash("library"); renderShell(); renderView(); const si=$("#search"); if(si) si.value=q; say("Searching \u201C"+q+"\u201D"); } else if(/^play\s+(.+)/.test(t)){ const q=t.replace(/^play\s+/,""); const hit=SONGS.find(s=>s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q)); if(hit){ playSong(hit,SONGS); say("Playing "+hit.title); } else { state.query=q; state.view="library"; renderShell(); renderView(); say("Looking for \u201C"+q+"\u201D"); } } else if(/(^|\s)(play|resume)(\s|$)/.test(t)){ if(!state.isPlaying&&curSong())togglePlay(); say("Playing"); } else { toast("Didn\u2019t catch that","\u201C"+t+"\u201D"); } }
+
+/* ============================================================
+   VOICE CONTROL 2.0 — engine, command interpreter, custom macros, UI
+   ============================================================ */
+let _voiceHelp=false;
+let _voiceMacros = (function(){ try{ const v=LS.get("treesh_voice_macros",[]); return Array.isArray(v)?v.filter(m=>m&&m.phrase):[]; }catch(e){ return []; } })();
+function voiceSaveMacros(){ try{ LS.set("treesh_voice_macros", _voiceMacros); }catch(e){} }
+const VOICE_HELP=[
+  ["Playback",["play","pause","stop","next song","previous song","restart","shuffle","repeat all"]],
+  ["Volume",["volume up","volume down","set volume to 50","mute","unmute"]],
+  ["Find & play",["play blinding lights","play something by drake","search love"]],
+  ["Get around",["open studios","open games","open settings","open now playing","open queue","open favorites","open equalizer","go home"]],
+  ["Look & feel",["dark mode","light mode","accent blue","performance mode on","equalizer on"]],
+  ["Info & help",["what's playing","favorite this song","help"]]
+];
+function voiceRender(){ const el=$("#voice-ov"); if(!el) return; const body=el.querySelector("[data-voice-body]"); if(!body) return; body.innerHTML=voiceBodyHtml(); icons(); }
+function voiceHeader(title, sub){
+  return `<div class="mb-4 flex items-center gap-2">
+    <div class="min-w-0 flex-1 text-left"><p class="font-display text-sm uppercase tracking-[0.16em] text-white/90">${esc(title)}</p>${sub?`<p class="mt-0.5 clamp-1 text-sm text-white/55">${esc(sub)}</p>`:''}</div>
+    <button data-act="voice-speak" aria-label="Toggle spoken replies" title="Spoken replies" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 ${_voiceSpeak?'bg-[color:var(--treesh-purple)]/20 text-white':'bg-white/5 text-white/60'} hover:bg-white/10"><i data-lucide="${_voiceSpeak?'volume-2':'volume-x'}" style="width:16px;height:16px"></i></button>
+    <button data-act="voice-cancel" aria-label="Close" data-testid="voice-close-button" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 hover:bg-white/10"><i data-lucide="x" style="width:17px;height:17px"></i></button>
+  </div>`;
+}
+function voiceChip(cmd,label){ return `<button data-act="voice-run" data-cmd="${esc(cmd)}" class="press shrink-0 whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-white/75 hover:border-[color:var(--treesh-purple)]/50 hover:bg-[color:var(--treesh-purple)]/12 hover:text-white">${esc(label)}</button>`; }
+function voiceChips(){
+  const quick=[["pause","Pause"],["play","Play"],["next song","Next"],["previous song","Previous"],["shuffle","Shuffle"],["what's playing","What\u2019s playing"],["open studios","Studios"],["dark mode","Dark mode"]];
+  const macs=_voiceMacros.slice(0,8).map(mm=>`<button data-act="voice-run-macro" data-id="${mm.id}" class="press shrink-0 inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-[color:var(--treesh-purple)]/40 bg-[color:var(--treesh-purple)]/12 px-3 py-1.5 text-[12px] font-semibold text-[color:var(--treesh-purple)] hover:bg-[color:var(--treesh-purple)]/20"><i data-lucide="wand-2" style="width:12px;height:12px"></i>${esc(mm.phrase)}</button>`).join("");
+  return `<div class="w-full">
+    <div class="mb-1.5 flex items-center justify-between"><p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">Quick commands</p><button data-act="voice-help-toggle" class="press text-[11px] font-semibold text-[color:var(--treesh-purple)]">${_voiceHelp?'Hide all':'See all'}</button></div>
+    <div class="flex flex-wrap gap-1.5">${quick.map(q=>voiceChip(q[0],q[1])).join("")}${macs}</div>
+  </div>`;
+}
+function voiceHelpPanel(){ if(!_voiceHelp) return ''; const rows=VOICE_HELP.map(cat=>`<div><p class="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--treesh-purple)]">${cat[0]}</p><div class="flex flex-wrap gap-1.5">${cat[1].map(x=>`<button data-act="voice-run" data-cmd="${esc(x)}" class="press rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70 hover:bg-white/10">\u201C${esc(x)}\u201D</button>`).join("")}</div></div>`).join(""); return `<div class="w-full space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5 text-left">${rows}</div>`; }
+function voiceControls(){
+  return `<div class="grid w-full grid-cols-2 gap-2 pt-1">
+    <button data-act="voice-mic" class="press inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/5 text-sm font-semibold text-white/85 hover:bg-white/10"><i data-lucide="${_voicePaused?'mic':'pause'}" style="width:16px;height:16px"></i>${_voicePaused?'Resume':'Pause mic'}</button>
+    <button data-act="voice-cancel" data-testid="voice-cancel-button" class="press inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:16px;height:16px"></i>Done</button>
+  </div>`;
+}
+function voiceBodyHtml(){
+  const mode=_voiceMode;
+  if(mode==="denied"||mode==="unsupported"){
+    const M = mode==="denied" ? ["mic-off","Microphone blocked","Allow microphone access in your browser, then tap a command below or try again."] : ["mic-off","Voice not supported","This browser can\u2019t hear you \u2014 but you can still tap any command below."];
+    return `${voiceHeader("Voice control", M[1])}
+      <div class="flex flex-col items-center gap-4 text-center">
+        <div class="grid h-16 w-16 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70"><i data-lucide="${M[0]}" style="width:28px;height:28px"></i></div>
+        <p class="max-w-[18rem] text-sm text-white/60">${M[2]}</p>
+        ${voiceChips()}
+        ${voiceHelpPanel()}
+        <div class="grid w-full grid-cols-2 gap-2 pt-1"><button data-act="voice-cancel" class="press h-11 rounded-2xl border border-white/12 bg-white/5 text-sm font-semibold text-white/85 hover:bg-white/10">Close</button><button data-act="voice-retry" class="press inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple"><i data-lucide="rotate-ccw" style="width:15px;height:15px"></i>Try again</button></div>
+      </div>`;
+  }
+  const listening=(mode==="listening"), speaking=(mode==="speaking"), thinking=(mode==="thinking"), paused=(mode==="paused");
+  const statusText = paused?"Paused \u2014 tap the mic to resume" : speaking?"Speaking\u2026" : thinking?"Working on it\u2026" : listening?"Listening\u2026 say a command" : "Tap the mic to start";
+  const orbInner = thinking?`<span class="ls-rhyme-spin" style="width:28px;height:28px;border-width:3px"></span>` : `<i data-lucide="${paused?'mic-off':'mic'}" style="width:34px;height:34px"></i>`;
+  const orb = `<div class="relative grid h-24 w-24 place-items-center">${listening?'<span class="voice-pulse absolute inset-0"></span>':''}<button data-act="voice-mic" data-testid="voice-listening-orb" aria-label="Toggle microphone" class="press relative grid h-24 w-24 place-items-center rounded-full ${paused?'border border-white/15 bg-white/[0.08] text-white/70':'bg-[color:var(--treesh-purple)] text-white glow-purple'}">${orbInner}</button></div>`;
+  const wave = (listening||speaking)?`<div class="voice-wave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>`:`<div class="flex h-[38px] items-center justify-center text-sm text-white/45">${paused?'Microphone paused':'Ready when you are'}</div>`;
+  let transcript;
+  if(listening){
+    transcript = `<div class="w-full rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left"><p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">Listening</p><p id="voice-utext" data-testid="voice-live-transcript" class="mt-1 min-h-[24px] text-base font-semibold text-white/55">${_voiceLast.user?esc(_voiceLast.user):`Say a command<span class="voice-dots"><span>.</span><span>.</span><span>.</span></span>`}</p>${_voiceLast.reply?`<p class="mt-2 text-xs text-white/45">${esc(_voiceLast.reply)}</p>`:''}</div>`;
+  } else {
+    transcript = `<div class="w-full rounded-2xl border border-white/10 bg-white/5 p-3.5 text-left">${_voiceLast.user?`<p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">You said</p><p data-testid="voice-live-transcript" class="mb-2 text-base font-semibold text-white">${esc(_voiceLast.user)}</p>`:''}${_voiceLast.reply?`<p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--treesh-purple)]">Treesh</p><p class="text-sm text-white/80">${esc(_voiceLast.reply)}</p>`:`<p data-testid="voice-live-transcript" class="text-sm text-white/40">Tap a command below, or the mic to speak.</p>`}</div>`;
+  }
+  return `${voiceHeader("Voice control", statusText)}
+    <div class="flex flex-col items-center gap-4 text-center">
+      ${orb}
+      ${wave}
+      ${transcript}
+      ${voiceChips()}
+      ${voiceHelpPanel()}
+      ${voiceControls()}
+    </div>`;
+}
+function showVoice(){ if($("#voice-ov")) return; const el=document.createElement("div"); el.id="voice-ov"; el.className="tr-fade-in fixed inset-0 z-[110] flex items-center justify-center p-4"; el.innerHTML=`<div data-act="voice-cancel" class="absolute inset-0 bg-black/60 backdrop-blur-md"></div><div data-voice-panel data-testid="voice-listening-overlay" class="tr-panel-in relative flex max-h-[88vh] w-[min(94vw,440px)] flex-col overflow-hidden rounded-[28px] glass-strong border border-white/12 shadow-[var(--treesh-shadow)]"><div data-voice-body class="no-scrollbar min-h-0 flex-1 overflow-y-auto p-5 pb-[calc(20px+env(safe-area-inset-bottom))]">${voiceBodyHtml()}</div></div>`; document.body.appendChild(el); icons(); syncScrollLock(); }
+function voiceToggleHelp(){ _voiceHelp=!_voiceHelp; voiceRender(); }
+function voiceRetry(){ _voiceHelp=false; if(recog===null) initVoice(); if(!recog){ _voiceNoMic=true; _voiceMode="denied"; voiceRender(); return; } _voicePaused=false; _voiceNoMic=false; _voiceActive=true; _voiceSpeaking=false; voiceListen(); }
+function voiceRun(cmd){ if(cmd) voiceRunSuggestion(cmd); }
+/* ---- interpreter ---- */
+function voiceMatchMacro(text){ const t=(text||'').toLowerCase().trim(); for(const mm of _voiceMacros){ const p=(mm.phrase||'').toLowerCase().trim(); if(!p) continue; if(t===p || t.includes(p) || (p.length>4 && p.includes(t))) return mm; } return null; }
+function voiceRunMacro(mm){ const steps=mm.steps||[]; const out=[]; for(const s of steps){ let r=null; try{ r=voiceExec((s||'').toLowerCase().trim()); }catch(e){} if(r) out.push(r); } return out.length? ('Running \u201C'+mm.phrase+'\u201D. '+out.join(' ')) : ('I ran \u201C'+mm.phrase+'\u201D but nothing matched its steps.'); }
+function voiceRunMacroById(id){ const mm=_voiceMacros.find(x=>x.id===id); if(mm) voiceRun(mm.phrase); }
+function voiceInterpret(raw){
+  let text=(raw||"").toLowerCase().trim();
+  text=text.replace(/^(hey |ok |okay |yo )?(treesh|trish|trash|tree)[,\s]+/i,'').trim();
+  text=text.replace(/\b(please|for me|go ahead and|can you|could you|would you|i want to|i wanna|i would like to|let's|lets)\b/g,' ').replace(/\s+/g,' ').trim();
+  if(!text) return null;
+  const mac=voiceMatchMacro(text); if(mac) return voiceRunMacro(mac);
+  const parts=text.split(/\s+(?:then|and then|after that)\s+|\s*;\s*/).map(s=>s.trim()).filter(Boolean);
+  const replies=[];
+  for(const p of parts){ let r=null; try{ r=voiceExec(p); }catch(e){ r=null; } if(r) replies.push(r); }
+  return replies.length? replies.join(' ') : null;
+}
+function voiceExec(c){
+  c=(c||"").toLowerCase().trim().replace(/[?.!,]+$/,'').trim(); if(!c) return null;
+  const cur=curSong();
+  const has=(...a)=>a.some(w=>c.includes(w));
+  const vol=()=> (typeof state.volume==='number'?state.volume:(audio.volume||1));
+  let pm=c.match(/^(?:play|put on|start playing|start)\s+(.+)$/);
+  if(pm){
+    let q=pm[1].trim();
+    if(/^(next|next song|next track|the next song|skip)$/.test(q)){ nextTrack(true); const s=curSong(); return s?("Playing "+s.title+"."):"Next track."; }
+    if(/^(previous|previous song|last song|go back)$/.test(q)){ prevTrack(); const s=curSong(); return s?("Playing "+s.title+"."):"Previous track."; }
+    if(/^(some\s+)?(music|it|song|songs|something|the music|playback|a song|tunes|play)$/.test(q)){ if(!cur){ if(SONGS[0]){ playSong(SONGS[0],SONGS); state.npOpen=true; renderNP(); return "Playing "+SONGS[0].title+"."; } return "Your library is empty."; } if(audio.paused) togglePlay(); return "Playing."; }
+    let art=""; const bm=q.match(/^(.*?)\s+by\s+(.+)$/); if(bm){ q=bm[1].trim(); art=bm[2].trim(); }
+    const ql=q.toLowerCase();
+    let hit=SONGS.find(s=> s.title.toLowerCase().includes(ql) && (!art||s.artist.toLowerCase().includes(art)) );
+    if(!hit && art) hit=SONGS.find(s=> s.artist.toLowerCase().includes(art));
+    if(!hit) hit=SONGS.find(s=> s.artist.toLowerCase().includes(ql));
+    if(hit){ playSong(hit,SONGS); state.npOpen=true; renderNP(); return "Playing "+hit.title+" by "+hit.artist+"."; }
+    return "I couldn\u2019t find \u201C"+q+"\u201D in your library.";
+  }
+  if(/^(stop|stop playing|stop the music)\b/.test(c)){ if(!audio.paused) togglePlay(); try{ audio.currentTime=0; }catch(e){} return "Stopped."; }
+  if(/\b(pause|hold on|hold up|wait)\b/.test(c)){ if(!audio.paused) togglePlay(); return "Paused."; }
+  if(/\b(next|skip|forward)\b/.test(c) && !has('volume')){ nextTrack(true); const s=curSong(); return s?("Playing "+s.title+"."):"Next track."; }
+  if(/\b(previous|prev|last (?:song|track)|go back a|back a (?:song|track))\b/.test(c)){ prevTrack(); const s=curSong(); return s?("Playing "+s.title+"."):"Previous track."; }
+  if(/\b(restart|start over|from the (?:start|beginning)|replay|play it again|again)\b/.test(c)){ try{ audio.currentTime=0; }catch(e){} if(audio.paused && cur) togglePlay(); return "Starting over."; }
+  if(/^(play|resume|unpause|continue|keep playing|go|carry on)\b/.test(c)){ if(!cur){ if(SONGS[0]){ playSong(SONGS[0],SONGS); state.npOpen=true; renderNP(); return "Playing "+SONGS[0].title+"."; } return "Your library is empty."; } if(audio.paused) togglePlay(); return "Playing."; }
+  if(has('shuffle')){ const want=has('off')?false:has('on')?true:!state.shuffle; if(want!==state.shuffle) toggleShuffle(); return want?"Shuffle on.":"Shuffle off."; }
+  if(has('repeat','loop')){ let r; if(has('off','none','stop repeat')) r='off'; else if(has('one','single','this song','this track')) r='one'; else if(has('all','everything','queue')) r='all'; else r=(state.repeat==='off'?'all':state.repeat==='all'?'one':'off'); state.repeat=r; try{ savePlayerPrefs(); }catch(e){} try{ renderNP(); }catch(e){} return r==='off'?"Repeat off.":r==='one'?"Repeating this song.":"Repeating all."; }
+  let vm=c.match(/(?:volume|sound)\s*(?:to|at|is|=)?\s*(\d{1,3})\s*(?:percent|%)?/); if(!vm) vm=c.match(/(?:set|make).*?(\d{1,3})\s*(?:percent|%)/);
+  if(vm){ const n=Math.max(0,Math.min(100,parseInt(vm[1])||0)); setVolume(n/100); try{ audio.muted=false; }catch(e){} return "Volume "+n+" percent."; }
+  if(/\bunmute\b/.test(c)){ audio.muted=false; return "Unmuted."; }
+  if(/\bmute\b/.test(c)){ audio.muted=true; return "Muted."; }
+  if(/\b(volume up|louder|turn it up|raise|increase)\b/.test(c)){ const n=Math.min(1,(vol()+0.1)); setVolume(n); audio.muted=false; return "Volume "+Math.round(n*100)+" percent."; }
+  if(/\b(volume down|quieter|turn it down|decrease|softer|lower)\b/.test(c)){ const n=Math.max(0,(vol()-0.1)); setVolume(n); return "Volume "+Math.round(n*100)+" percent."; }
+  if(/\b(unlike|unfavou?rite)\b/.test(c) || /\bremove\b.*\b(favou?rite|song|this|it)\b/.test(c)){ if(cur && isFav(cur.id)) toggleFav(cur.id); return cur?("Removed "+cur.title+" from favorites."):"Nothing is playing."; }
+  if(/\b(like|favou?rite|love this|save this|heart)\b/.test(c)){ if(!cur) return "Play a song first."; if(!isFav(cur.id)) toggleFav(cur.id); return "Added "+cur.title+" to your favorites."; }
+  if(/\b(what'?s playing|what is playing|what song|which song|current song|now playing|what am i listening)\b/.test(c)){ return cur?("This is "+cur.title+" by "+cur.artist+"."):"Nothing is playing right now."; }
+  if(has('open','go to','show','take me to','bring up','launch','navigate')){
+    if(has('now playing','the player','full screen','fullscreen')){ if(!cur) return "Play a song first."; state.npOpen=true; renderNP(); return "Here\u2019s the player."; }
+    if(has('queue','up next')){ state.queueOpen=true; renderQueue(); return "Here\u2019s your queue."; }
+    if(has('equalizer','equaliser')|| /\beq\b/.test(c)){ openEqualizer(); return "Opening the equalizer."; }
+    if(has('lyric')){ if(!cur) return "Play a song to see its lyrics."; state.npOpen=true; state.showLyrics=true; renderNP(); return "Showing the lyrics."; }
+    if(has('studio')){ navigate('studios'); return "Opening Studios."; }
+    if(has('game')){ navigate('game'); return "Opening Games."; }
+    if(has('setting')){ navigate('settings'); return "Opening Settings."; }
+    if(has('icon','artist')){ navigate('artists'); return "Opening Icons."; }
+    if(has('favou')){ navigate('favorites'); return "Here are your favorites."; }
+    if(has('profile','account')){ openProfile(); return "Opening your profile."; }
+    if(has('library','home','songs','music')){ navigate('library'); return "Opening your library."; }
+  }
+  if(/^(home|library)$/.test(c)){ navigate('library'); return "Opening your library."; }
+  if(/^(studios?|lyric studio)$/.test(c)){ navigate('studios'); return "Opening Studios."; }
+  if(/^(games?)$/.test(c)){ navigate('game'); return "Opening Games."; }
+  if(/^(settings?)$/.test(c)){ navigate('settings'); return "Opening Settings."; }
+  if(/^(queue|up next)$/.test(c)){ state.queueOpen=true; renderQueue(); return "Here\u2019s your queue."; }
+  if(/^(favou?rites?)$/.test(c)){ navigate('favorites'); return "Here are your favorites."; }
+  let sm=c.match(/^(?:search|find|look for|search for)\s+(.+)$/);
+  if(sm){ const q=sm[1].trim(); try{ openSearch(); }catch(e){} setTimeout(()=>{ const inp=document.querySelector('#searchlay input[type="text"], #searchlay input, #search'); if(inp){ inp.value=q; inp.dispatchEvent(new Event('input',{bubbles:true})); } },240); return "Searching for "+q+"."; }
+  if(has('dark mode','dark theme')){ state.theme='dark'; try{ LS.set('treesh_theme','dark'); }catch(e){} applyTheme(); try{ renderView(); renderNP(); }catch(e){} return "Dark mode on."; }
+  if(has('light mode','light theme')){ state.theme='light'; try{ LS.set('treesh_theme','light'); }catch(e){} applyTheme(); try{ renderView(); renderNP(); }catch(e){} return "Light mode on."; }
+  if(/\b(switch|toggle|change|flip)\b/.test(c) && has('theme') && !has('accent','colour','color')){ state.theme=(state.theme==='light'?'dark':'light'); try{ LS.set('treesh_theme',state.theme); }catch(e){} applyTheme(); try{ renderView(); renderNP(); }catch(e){} return state.theme==='light'?"Light mode on.":"Dark mode on."; }
+  if(has('accent') || (has('colour','color') && !has('background'))){
+    const COLORS={purple:'#9328ff',violet:'#7a2cff',lavender:'#b58cff',indigo:'#6366f1',blue:'#60a5fa',sky:'#60a5fa',cyan:'#22d3ee',teal:'#2dd4bf',green:'#34d399',emerald:'#34d399',mint:'#34d399',gold:'#c3ab69',amber:'#f59e0b',orange:'#f59e0b',yellow:'#f59e0b',coral:'#fb7185',pink:'#ff2d78',magenta:'#ff2d78',red:'#ff2d78',rose:'#fb7185'};
+    let hex=null,nm=null; for(const k in COLORS){ if(c.includes(k)){ hex=COLORS[k]; nm=k; break; } }
+    if(hex){ state.accent=hex; try{ LS.set('treesh_accent',hex); }catch(e){} applyAccent(hex); try{ renderView(); }catch(e){} return "Accent set to "+nm+"."; }
+    return "Which color? Try \u201Caccent blue\u201D or \u201Caccent gold\u201D.";
+  }
+  if((has('equalizer','equaliser')|| /\beq\b/.test(c)) && has('on','off','enable','disable')){ const on=!has('off','disable'); if(state.eq.enabled!==on){ state.eq.enabled=on; if(on){ eqEnsure(); if(IS_IOS && !LS.get('treesh_eq_ios_ack',false)) eqShowIosWarning(); } else { eqApply(); } try{ saveEq(); }catch(e){} } return on?"Equalizer on.":"Equalizer off."; }
+  if(has('performance mode','stage mode')){ const on=has('off')?false:has('on')?true:!state.perfMode; if(on!==state.perfMode){ state.perfMode=on; try{ LS.set('treesh_perf',state.perfMode); applyPerfMode(); renderView(); }catch(e){} } return on?"Performance mode on.":"Performance mode off."; }
+  if(has('animated background','animation background','moving background')){ const on=has('off')?false:has('on')?true:!state.animBg; if(on!==state.animBg){ state.animBg=on; try{ LS.set('treesh_anim_bg',state.animBg); applyUiPrefs(); renderView(); }catch(e){} } return on?"Animated background on.":"Animated background off."; }
+  if(/^(close|dismiss|exit|go back|back|cancel|never mind|nevermind)\b/.test(c)){
+    const m=document.getElementById('modal'); if(m && m.childElementCount){ closeModal(); return "Closed."; }
+    if(state.npOpen){ closeNP(); return "Closed the player."; }
+    if(state.queueOpen){ closeQueue(); return "Closed the queue."; }
+    if(state.profileOpen){ closeProfile(); return "Closed your profile."; }
+    if(state.searchOpen){ closeSearch(); return "Closed search."; }
+    return "There\u2019s nothing to close.";
+  }
+  if(/\b(help|what can (i|you)|commands|list commands|what do you (do|understand)|how do i use)\b/.test(c)){ _voiceHelp=true; return "You can say things like play, pause, next, set volume to 50, open studios, dark mode, or favorite this song. I\u2019ve opened the full list."; }
+  return null;
+}
+/* ---- custom command (macro) management from Settings ---- */
+function voiceMacroAddFromInputs(){ const p=$("#vm-phrase"), s=$("#vm-steps"); if(!p) return; const phrase=(p.value||'').trim(); const stepsRaw=(s?s.value:'').trim(); if(!phrase){ toast("Enter a trigger phrase"); return; } if(!stepsRaw){ toast("Enter what it should do","e.g. shuffle, then play"); return; } const steps=stepsRaw.split(/\s*(?:,|;|\bthen\b|\band then\b)\s*/i).map(x=>x.trim()).filter(Boolean); if(!steps.length){ toast("Add at least one step"); return; } _voiceMacros.push({id:'vm'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), phrase, steps}); voiceSaveMacros(); toast("Voice command saved","\u201C"+phrase+"\u201D"); if(state.view==='settings') renderView(); }
+function voiceMacroDelete(id){ _voiceMacros=_voiceMacros.filter(x=>x.id!==id); voiceSaveMacros(); if(state.view==='settings') renderView(); }
 
 /* ============================================================
    ROUTING
@@ -6494,6 +6726,8 @@ document.addEventListener("click", e=>{
     case "ls-insert-tag": lsInsertTag(t.dataset.tag, t.dataset.num==='1', t.dataset.suffix||''); break;
     case "ls-rhyme-toggle": lsToggleRhymes(); break;
     case "ls-rhyme-ins": lsInsertRhyme(t.dataset.w); break;
+    case "ls-md": lsMarkup(t.dataset.md); break;
+    case "ls-pv-line": { const i=+t.dataset.i; const it=state.ls&&state.ls.items[i]; if(!it) break; if(it.t!=null && state.ls.hasAudio){ lsSeekTo(it.t); } const panel=document.querySelector('[data-ls-pv-ex="'+i+'"]'); if(panel){ const willOpen=panel.classList.contains('hidden'); document.querySelectorAll('#ls-pv-scroll [data-ls-pv-ex]').forEach(p=>{ if(p!==panel) p.classList.add('hidden'); }); panel.classList.toggle('hidden', !willOpen); } break; }
   }
   syncScrollLock();
 });
@@ -6630,7 +6864,7 @@ const EQ_PRESETS=[
   {id:'latenight',name:'Late Night',g:[4,3,2,1,0,-1,-2,-3,-4,-5]},
   {id:'custom',name:'Custom',g:null}
 ];
-function ensureVizAudio(){ if(_vizAnalyser) return true; if(IS_IOS) return false; /* iOS: never capture main audio into Web Audio (kills background playback) */ try{ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return false; _vizAC=new AC(); _vizAnalyser=_vizAC.createAnalyser(); _vizAnalyser.fftSize=256; _vizAnalyser.smoothingTimeConstant=0.82; _vizBytes=new Uint8Array(_vizAnalyser.frequencyBinCount); _vizSrc=_vizAC.createMediaElementSource(audio);
+function ensureVizAudio(){ if(_vizAnalyser) return true; if(IS_IOS && !(state.eq && state.eq.enabled)) return false; /* iOS: only tap the <audio> element into Web Audio when the user turns EQ ON. Capturing it via MediaElementSource stops lock-screen/background playback, so for everyone else we keep the native pipeline for uninterrupted background audio. */ try{ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return false; _vizAC=new AC(); _vizAnalyser=_vizAC.createAnalyser(); _vizAnalyser.fftSize=256; _vizAnalyser.smoothingTimeConstant=0.82; _vizBytes=new Uint8Array(_vizAnalyser.frequencyBinCount); _vizSrc=_vizAC.createMediaElementSource(audio);
   _eqPreamp=_vizAC.createGain(); _eqPreamp.gain.value=1;
   _eqBands=EQ_FREQS.map((f,i)=>{ const b=_vizAC.createBiquadFilter(); b.type = i===0?'lowshelf' : (i===EQ_FREQS.length-1?'highshelf':'peaking'); b.frequency.value=f; if(b.type==='peaking') b.Q.value=1.1; b.gain.value=0; return b; });
   _vizSrc.connect(_eqPreamp); let prev=_eqPreamp; _eqBands.forEach(b=>{ prev.connect(b); prev=b; }); prev.connect(_vizAnalyser); _vizAnalyser.connect(_vizAC.destination);
@@ -6706,7 +6940,6 @@ function openEqualizer(){
     </div>
     <div id="eq-body" class="${eqOn?'':'opacity-45 pointer-events-none'} min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar transition-opacity">
       <div class="relative mb-3 h-14 w-full overflow-hidden rounded-2xl border border-white/10 bg-black/40 sm:h-16"><canvas id="eq-viz-canvas" class="h-full w-full"></canvas></div>
-      ${IS_IOS?`<div class="mb-3 flex items-start gap-2 rounded-xl border border-[color:var(--treesh-gold)]/25 bg-[color:var(--treesh-gold)]/[0.08] px-3 py-2 text-[11px] leading-snug text-white/70" data-testid="eq-ios-note"><i data-lucide="info" style="width:14px;height:14px" class="mt-0.5 shrink-0 text-[color:var(--treesh-gold)]"></i><span>On iPhone &amp; iPad the EQ is a visual preview only \u2014 this keeps your music playing in the background without interruptions.</span></div>`:''}
       <div id="eq-preset-row" class="mb-3 -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1 no-scrollbar" data-testid="eq-presets">${chips}</div>
       <div class="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5">
         <div class="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-white/45"><span class="flex items-center gap-1.5"><i data-lucide="gauge" style="width:13px;height:13px"></i>Preamp</span><span id="eq-preamp-val" class="font-doto text-white/70">${state.eq.preamp>0?'+':''}${state.eq.preamp} dB</span></div>
@@ -6748,8 +6981,21 @@ function eqApplyPreset(id){
   if(preamp!=null){ state.eq.preamp=Math.max(-12,Math.min(12,preamp)); const pa=document.getElementById('eq-preamp'); if(pa){ pa.value=state.eq.preamp; pa.style.setProperty('--fill',((state.eq.preamp+12)/24*100)+'%'); } const l=document.getElementById('eq-preamp-val'); if(l) l.textContent=(state.eq.preamp>0?'+':'')+state.eq.preamp+' dB'; }
   eqSyncBandUI(); eqHighlightPreset(); eqApply(); saveEq();
 }
+function eqShowIosWarning(){
+  if(document.getElementById('eq-ios-pop')) return;
+  const wrap=document.createElement('div');
+  wrap.id='eq-ios-pop';
+  wrap.style.zIndex='9999';
+  wrap.className='fixed inset-0 flex items-center justify-center p-5';
+  wrap.innerHTML=`<div class="eq-ios-pop-bg absolute inset-0 bg-black/60 backdrop-blur-sm"></div><div class="relative w-full max-w-sm rounded-2xl border border-white/12 bg-[#171019] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.6)]"><div class="mb-3 flex items-center gap-2.5"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="info" style="width:20px;height:20px"></i></span><h3 class="text-base font-bold leading-tight">Heads up about EQ on iPhone</h3></div><p class="mb-4 text-sm leading-relaxed text-white/70">EQ shapes your sound while the app is open. Because of an Apple limitation, locking the screen or leaving the app pauses playback while EQ is on \u2014 it resumes when you return. For uninterrupted background play, keep EQ off.</p><button id="eq-ios-pop-ok" data-testid="eq-ios-ack" class="press w-full rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold text-white glow-purple">Got it</button></div>`;
+  document.body.appendChild(wrap);
+  try{ icons(); }catch(e){}
+  const close=()=>{ try{ LS.set('treesh_eq_ios_ack', true); }catch(e){} wrap.remove(); };
+  const ok=wrap.querySelector('#eq-ios-pop-ok'); if(ok) ok.addEventListener('click', close);
+  const bg=wrap.querySelector('.eq-ios-pop-bg'); if(bg) bg.addEventListener('click', close);
+}
 function eqWire(){
-  const tg=document.getElementById('eq-toggle'); if(tg) tg.addEventListener('click',()=>{ state.eq.enabled=!state.eq.enabled; eqSetBodyEnabled(state.eq.enabled); if(state.eq.enabled){ eqEnsure(); } else { eqApply(); } eqMountSpectrum(); saveEq(); toast(state.eq.enabled?'Equalizer on':'Equalizer off'); });
+  const tg=document.getElementById('eq-toggle'); if(tg) tg.addEventListener('click',()=>{ state.eq.enabled=!state.eq.enabled; eqSetBodyEnabled(state.eq.enabled); if(state.eq.enabled){ eqEnsure(); if(IS_IOS && !LS.get('treesh_eq_ios_ack',false)) eqShowIosWarning(); } else { eqApply(); } eqMountSpectrum(); saveEq(); toast(state.eq.enabled?'Equalizer on':'Equalizer off'); });
   eqWireChips();
   for(let i=0;i<10;i++){ const el=document.getElementById('eq-band-'+i); if(!el) continue; el.addEventListener('input',()=>{ const v=Math.max(-12,Math.min(12,+el.value)); state.eq.bands[i]=v; el.style.setProperty('--fill',((v+12)/24*100)+'%'); const lbl=document.getElementById('eq-db-'+i); if(lbl) lbl.textContent=(v>0?'+':'')+v; state.eq.preset='custom'; eqHighlightPreset(); eqApply(); saveEq(); }); }
   const pa=document.getElementById('eq-preamp'); if(pa) pa.addEventListener('input',()=>{ const v=Math.max(-12,Math.min(12,+pa.value)); state.eq.preamp=v; pa.style.setProperty('--fill',((v+12)/24*100)+'%'); const l=document.getElementById('eq-preamp-val'); if(l) l.textContent=(v>0?'+':'')+v+' dB'; eqApply(); saveEq(); });
