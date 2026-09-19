@@ -62,3 +62,6 @@
 
 ## Update 11 (Jun 2026)
 - WEEKLY STREAK CHEST: dailyChallenge.ts weeklyChestReward (every 7th consecutive day → 500, +250/week, cap 2000) + claimWeeklyChest (once per milestone, stored in vocotap_streak_chests). results.tsx awards it on top of the daily/streak bonus and shows a purple 'WEEK N STREAK CHEST · +X' badge. Guide daily copy mentions the chest.
+
+## Update 12 (Jun 2026)
+- CHEST REVEAL: results.tsx ChestReveal overlay — animated gift that pops in, shakes, then bursts open with radial sparkles + a scaling reward count and a Collect button (testID chest-collect-button). Gated by showChest (only when a weekly streak chest drops). Uses RN Animated (native driver), no new deps. Verified home/results boot with no regression.

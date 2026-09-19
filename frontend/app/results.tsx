@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GlassCard, NeonButton, ScreenHeader, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
@@ -15,6 +15,7 @@ export default function ResultsScreen() {
   const { award } = useStarlites();
   const [daily, setDaily] = useState<{ bonus: number; streak: number } | null>(null);
   const [chest, setChest] = useState<{ reward: number; week: number } | null>(null);
+  const [showChest, setShowChest] = useState(false);
   const scale = useRef(new Animated.Value(0.5)).current;
   const bg = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.spring(scale, { toValue: 1, friction: 5, tension: 55, useNativeDriver: true }).start(); }, [scale]);
@@ -31,7 +32,7 @@ export default function ResultsScreen() {
       await award(bonus, `Daily Challenge · ${streak}-day streak`, true);
       setDaily({ bonus, streak });
       const chestReward = await claimWeeklyChest(streak);
-      if (chestReward) { await award(chestReward, `${streak}-day streak chest`, true); setChest({ reward: chestReward, week: streak / 7 }); }
+      if (chestReward) { await award(chestReward, `${streak}-day streak chest`, true); setChest({ reward: chestReward, week: streak / 7 }); setShowChest(true); }
     });
   }, [lastResult, songs, treeshSongs, mineSongs, award]);
   if (!lastResult) return <SafeAreaView style={styles.safe}><ScreenHeader title="Results" /><View style={styles.empty}><Text style={styles.title}>No recent run</Text><NeonButton testID="results-library-button" label="Choose a song" icon="library" onPress={() => router.replace("/library")} /></View></SafeAreaView>;
@@ -62,11 +63,52 @@ export default function ResultsScreen() {
       </GlassCard>
       <GlassCard testID="judgment-breakdown-card"><Text style={styles.cardTitle}>JUDGMENT BREAKDOWN</Text>{[["Perfect", lastResult.perfect, colors.cyan], ["Great", lastResult.great, colors.lime], ["Good", lastResult.good, colors.orange], ["Miss", lastResult.miss, colors.pink]].map(([label, value, color]) => <View key={String(label)} style={styles.row}><View style={[styles.dot, { backgroundColor: String(color) }]} /><Text style={styles.rowLabel}>{label}</Text><View style={styles.rowTrack}><View style={[styles.rowFill, { width: `${lastResult.totalNotes ? Number(value) / lastResult.totalNotes * 100 : 0}%`, backgroundColor: String(color) }]} /></View><Text style={styles.rowValue}>{value}</Text></View>)}</GlassCard>
       <NeonButton testID="results-replay-button" label="Replay" icon="refresh" onPress={() => router.replace("/game")} /><NeonButton testID="results-leaderboard-button" label="Song leaderboard" icon="trophy" variant="secondary" onPress={() => router.replace({ pathname: "/leaderboards", params: { focus: lastResult.songId } })} /><NeonButton testID="results-edit-chart-button" label="Hand-edit chart" icon="options" variant="secondary" onPress={() => router.replace("/editor")} /><NeonButton testID="results-continue-button" label="Continue" icon="arrow-forward" variant="secondary" onPress={() => router.replace("/")} />
-    </ScrollView></SafeAreaView></View>;
+    </ScrollView></SafeAreaView>
+    {showChest && chest && <ChestReveal reward={chest.reward} week={chest.week} onCollect={() => setShowChest(false)} />}
+  </View>;
+}
+
+// Celebratory chest-opening moment shown when a weekly streak chest drops.
+function ChestReveal({ reward, week, onCollect }: { reward: number; week: number; onCollect: () => void }) {
+  const pop = useRef(new Animated.Value(0)).current;
+  const shake = useRef(new Animated.Value(0)).current;
+  const open = useRef(new Animated.Value(0)).current;
+  const [opened, setOpened] = useState(false);
+  useEffect(() => {
+    Animated.sequence([
+      Animated.spring(pop, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
+      Animated.sequence([-1, 1, -1, 1, 0].map(v => Animated.timing(shake, { toValue: v, duration: 75, useNativeDriver: true }))),
+      Animated.delay(120),
+      Animated.timing(open, { toValue: 1, duration: 460, easing: Easing.out(Easing.back(2)), useNativeDriver: true }),
+    ]).start(() => setOpened(true));
+  }, [pop, shake, open]);
+  const rot = shake.interpolate({ inputRange: [-1, 1], outputRange: ["-11deg", "11deg"] });
+  const P = 9;
+  return <View style={styles.chestOverlay}>
+    <View style={styles.chestStage}>
+      <Animated.View style={[styles.chestGlow, { opacity: open.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.5] }), transform: [{ scale: open.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.3] }) }] }]} />
+      {Array.from({ length: P }).map((_, i) => { const ang = (i / P) * Math.PI * 2; return <Animated.View key={i} pointerEvents="none" style={{ position: "absolute", opacity: open.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 1, 0] }), transform: [{ translateX: open.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(ang) * 130] }) }, { translateY: open.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(ang) * 130] }) }, { scale: open.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.15] }) }] }}><Ionicons name="sparkles" size={20} color={colors.gold} /></Animated.View>; })}
+      <Animated.View style={{ position: "absolute", opacity: open.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0] }), transform: [{ scale: pop }, { rotateZ: rot }] }}><Ionicons name="gift" size={108} color={colors.gold} /></Animated.View>
+      <Animated.View pointerEvents="none" style={[styles.chestReward, { opacity: open, transform: [{ scale: open.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }] }]}>
+        <Ionicons name="sparkles" size={34} color={colors.gold} />
+        <Text style={styles.chestBig}>+{reward}</Text>
+        <Text style={styles.chestSmall}>STARLITES</Text>
+      </Animated.View>
+    </View>
+    <Text style={styles.chestTitle}>WEEK {week} STREAK CHEST!</Text>
+    <Text style={styles.chestSub}>Keep the daily habit alive for even bigger chests.</Text>
+    <Pressable testID="chest-collect-button" onPress={onCollect} disabled={!opened} style={[styles.chestBtn, !opened && { opacity: 0.4 }]}><Ionicons name="sparkles" size={17} color={colors.bg} /><Text style={styles.chestBtnText}>Collect</Text></Pressable>
+  </View>;
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg }, safe: { flex: 1, backgroundColor: "transparent" }, content: { padding: 18, gap: 14, paddingBottom: 36 }, hero: { alignItems: "center", paddingVertical: 12 }, cover: { width: 96, height: 96, borderRadius: 22, overflow: "hidden", borderWidth: 1, marginBottom: 12, backgroundColor: colors.panel }, eyebrow: { color: colors.lime, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 }, song: { color: colors.text, fontSize: 26, fontWeight: "900", textAlign: "center", marginTop: 8 }, diff: { color: colors.cyan, fontSize: 10, fontWeight: "900", letterSpacing: 1.5, marginTop: 4 }, stars: { flexDirection: "row", marginTop: 18 }, score: { color: colors.text, fontSize: 45, lineHeight: 52, fontWeight: "900", marginTop: 10, letterSpacing: 1 }, scoreLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.8 }, fc: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 12, backgroundColor: colors.lime, paddingHorizontal: 14, height: 34, borderRadius: 17 }, fcText: { color: colors.bg, fontSize: 11, fontWeight: "900" }, daily: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 10, backgroundColor: colors.gold, paddingHorizontal: 14, height: 34, borderRadius: 17 }, dailyText: { color: colors.bg, fontSize: 11, fontWeight: "900", letterSpacing: 0.5 }, chest: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 10, backgroundColor: colors.purple, paddingHorizontal: 14, height: 34, borderRadius: 17 }, chestText: { color: colors.bg, fontSize: 11, fontWeight: "900", letterSpacing: 0.5 },
   summary: { flexDirection: "row", alignItems: "center" },
   starCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, starLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }, starIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }, starTitle: { color: colors.text, fontSize: 12, fontWeight: "900", letterSpacing: 1 }, starSub: { color: colors.muted, fontSize: 11, marginTop: 2, maxWidth: 200 }, starAmount: { fontSize: 26, fontWeight: "900" }, primaryStat: { flex: 1, alignItems: "center" }, statValue: { color: colors.text, fontSize: 25, fontWeight: "900" }, statLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.2, marginTop: 3 }, rule: { height: 40, width: 1, backgroundColor: colors.border }, cardTitle: { color: colors.muted, fontSize: 10, fontWeight: "900", letterSpacing: 1.3, marginBottom: 11 }, row: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 9 }, dot: { width: 7, height: 7, borderRadius: 4 }, rowLabel: { color: colors.text, width: 53, fontWeight: "700", fontSize: 13 }, rowTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: colors.panelStrong, overflow: "hidden" }, rowFill: { height: 5 }, rowValue: { color: colors.text, width: 28, textAlign: "right", fontWeight: "900" }, empty: { flex: 1, justifyContent: "center", padding: 24, gap: 20 }, title: { color: colors.text, fontSize: 28, fontWeight: "900", textAlign: "center" },
+  chestOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(4,3,8,0.9)", alignItems: "center", justifyContent: "center", gap: 14, zIndex: 100, padding: 28 },
+  chestStage: { width: 240, height: 240, alignItems: "center", justifyContent: "center" },
+  chestGlow: { position: "absolute", width: 200, height: 200, borderRadius: 100, backgroundColor: colors.gold },
+  chestReward: { position: "absolute", alignItems: "center" }, chestBig: { color: colors.gold, fontSize: 52, fontWeight: "900", textShadowColor: "rgba(245,200,66,0.8)", textShadowRadius: 22 }, chestSmall: { color: colors.text, fontSize: 12, fontWeight: "900", letterSpacing: 2, marginTop: -2 },
+  chestTitle: { color: colors.text, fontSize: 24, fontWeight: "900", textAlign: "center" }, chestSub: { color: colors.muted, fontSize: 13, textAlign: "center", maxWidth: 280, lineHeight: 19 },
+  chestBtn: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 8, height: 52, paddingHorizontal: 34, borderRadius: 26, backgroundColor: colors.gold }, chestBtnText: { color: colors.bg, fontSize: 16, fontWeight: "900" },
 });
