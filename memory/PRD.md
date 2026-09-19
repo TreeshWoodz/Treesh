@@ -51,3 +51,8 @@
 - DAILY CHALLENGE STREAK: dailyChallenge.ts now stores a completion HISTORY (vocotap_daily_history) + computeStreak (consecutive days) + dailyStreakBonus (250 + 100/day, cap 1000). recordDailyDone on results awards the streak bonus; results badge shows N-day streak; home card shows '🔥 N-DAY'.
 - CHALLENGE HISTORY CALENDAR: ProfileModal shows a current-month calendar — cleared days gold, today cyan-outlined — plus the streak in the section header.
 - Note: results hero cover Image lacks testID='results-cover' (cosmetic; automation-only).
+
+## Update 9 (Jun 2026)
+- WAVY = CONTINUOUS RIBBON (user disliked dotted beads): game.tsx now renders each wavy note as connected rounded line SEGMENTS (WavySegment) between denser path samples — each segment is a bar sized/rotated/translated from its two projected endpoints, with rounded ends overlapping at joints so it reads as one smooth glowing line (glow layer + core). A white head bead marks the tap point. Verified visually on web (smooth S-curve ribbon, no dots).
+- WAVE-TRACE SPARK: a glowing spark (traceX/traceGlow shared values) rides the receptor line following the required wavy lane, brightening while on-track (Wave Feedback request).
+- STREAK REMINDER: home daily card shows '⚠️ Play today to keep your N-day streak!' (gold) when a streak is active but today isn't cleared; otherwise shows the reward. Uses computeStreak vs isDailyClaimed.

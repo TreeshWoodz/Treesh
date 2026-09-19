@@ -10,7 +10,7 @@ import { SongCover } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
 import { computeAchievements } from "@/src/game/achievements";
-import { dailyPool, pickDaily, isDailyClaimed, getDailyHistory, computeStreak } from "@/src/game/dailyChallenge";
+import { dailyPool, pickDaily, isDailyClaimed, getDailyHistory, computeStreak, dailyStreakBonus } from "@/src/game/dailyChallenge";
 import { colors, fonts, rgba } from "@/src/game/theme";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
@@ -135,7 +135,9 @@ export default function HomeScreen() {
             <View style={{ flex: 1 }}>
               <View style={styles.dailyTagRow}><Ionicons name="flame" size={12} color={colors.gold} /><Text style={styles.dailyTag}>DAILY CHALLENGE</Text>{dailyStreak > 0 && <Text style={styles.dailyStreak}>🔥 {dailyStreak}-DAY</Text>}</View>
               <Text style={styles.dailyTitle} numberOfLines={1}>{daily.song.title}</Text>
-              <Text style={styles.dailySub} numberOfLines={1}>{dailyClaimed ? "Completed today — nice!" : `Earn ${daily.targetStars}★ for +${daily.bonus} Starlites`}</Text>
+              {dailyClaimed ? <Text style={styles.dailySub} numberOfLines={1}>Completed today — nice!</Text>
+                : dailyStreak > 0 ? <Text style={[styles.dailySub, styles.dailyWarn]} numberOfLines={1}>⚠️ Play today to keep your {dailyStreak}-day streak!</Text>
+                : <Text style={styles.dailySub} numberOfLines={1}>Earn {daily.targetStars}★ for +{dailyStreakBonus(1)} Starlites</Text>}
             </View>
             {dailyClaimed ? <View style={styles.dailyDone}><Ionicons name="checkmark" size={20} color={colors.bg} /></View> : <View style={styles.dailyPlay}><Ionicons name="play" size={22} color={colors.bg} /></View>}
           </Pressable>
@@ -220,7 +222,7 @@ const styles = StyleSheet.create({
   daily: { minHeight: 84, flexDirection: "row", alignItems: "center", gap: 13, padding: 12, borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(245,200,66,0.06)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", shadowColor: colors.gold, shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
   dailyCover: { width: 58, height: 58, borderRadius: 14, overflow: "hidden", backgroundColor: colors.bg, borderWidth: 1, borderColor: "rgba(245,200,66,0.4)" },
   dailyTagRow: { flexDirection: "row", alignItems: "center", gap: 5 }, dailyTag: { color: colors.gold, fontSize: 9, letterSpacing: 1.4, fontFamily: fonts.heavy }, dailyStreak: { color: colors.lime, fontSize: 9, letterSpacing: 0.8, fontFamily: fonts.heavy, marginLeft: 2 },
-  dailyTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy, marginTop: 3 }, dailySub: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: fonts.body, marginTop: 2 },
+  dailyTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy, marginTop: 3 }, dailySub: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: fonts.body, marginTop: 2 }, dailyWarn: { color: colors.gold, fontFamily: fonts.bold },
   dailyPlay: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.gold }, dailyDone: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
   qpHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingHorizontal: 2 },
   slideTagRow: { padding: 16 },

@@ -40,15 +40,16 @@ const LIVE_ACH: { id: string; title: string; icon: keyof typeof Ionicons.glyphMa
 
 type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
 
-// Wavy note = a chain of small "beads" sampled along the drawn path. Each bead falls using the
-// EXACT same perspective transform as a tap note (translateX/Y + scale), so the ribbon passes
-// through the real lane positions with correct depth — no animated SVG paths (which are fragile
-// on native). x is a 0..1 fraction across the highway; fr = x - 0.5 matches the lane grid.
+// Wavy note = a CONTINUOUS ribbon drawn as a chain of connected line segments. We sample points
+// along the drawn path, then between each pair render a rounded bar sized/rotated/positioned from
+// the two projected endpoints — rounded ends overlap at every joint so it reads as one smooth line
+// (no dotted look), and it falls through the real lane positions with correct depth. No animated
+// SVG (fragile on native). x is a 0..1 fraction across the highway; fr = x - 0.5 matches the grid.
 function sampleBeads(note: Note): { t: number; x: number }[] {
   const dur = note.duration || 0.5;
   const pts = note.path && note.path.length > 1 ? note.path : [{ t: note.time, x: (note.lane + 0.5) / 4 }, { t: note.time + dur, x: (note.lane + 0.5) / 4 }];
   const start = pts[0].t, end = pts[pts.length - 1].t; const span = Math.max(0.05, end - start);
-  const n = Math.max(6, Math.min(46, Math.round(span / 0.04)));
+  const n = Math.max(8, Math.min(64, Math.round(span / 0.03)));
   const xAt = (tt: number) => {
     if (tt <= pts[0].t) return pts[0].x;
     if (tt >= pts[pts.length - 1].t) return pts[pts.length - 1].x;
@@ -60,8 +61,33 @@ function sampleBeads(note: Note): { t: number; x: number }[] {
   return beads;
 }
 
-const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, color, head }: { bead: { t: number; x: number }; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; color: string; head: boolean }) {
-  const size = geo.laneW * (head ? 0.6 : 0.44);
+// One connected segment of the ribbon between two path samples (a→b). Rounded ends fill the joints.
+const WavySegment = React.memo(function WavySegment({ a, b, clock, lookahead, geo, color, thick, glow }: { a: { t: number; x: number }; b: { t: number; x: number }; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; color: string; thick: number; glow?: boolean }) {
+  const aStyle = useAnimatedStyle(() => {
+    const pa = (clock.value - (a.t - lookahead)) / lookahead;
+    const pb = (clock.value - (b.t - lookahead)) / lookahead;
+    const cpa = pa < 0 ? 0 : pa > 1.1 ? 1.1 : pa;
+    const cpb = pb < 0 ? 0 : pb > 1.1 ? 1.1 : pb;
+    const perspA = P_NEAR + (1 - P_NEAR) * cpa;
+    const perspB = P_NEAR + (1 - P_NEAR) * cpb;
+    const ax = geo.cx + (a.x - 0.5) * geo.hw * perspA, ay = geo.topY + geo.span * cpa;
+    const bx = geo.cx + (b.x - 0.5) * geo.hw * perspB, by = geo.topY + geo.span * cpb;
+    const dx = bx - ax, dy = by - ay;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+    const h = Math.max(3, thick * ((perspA + perspB) / 2)) * (glow ? 1.9 : 1);
+    const w = len + h; // overlap joints so the line is gapless
+    const midx = (ax + bx) / 2, midy = (ay + by) / 2;
+    let o = 1;
+    if (pa < 0.04) o = pa / 0.04;
+    if (pa > 1.0) o = 1 - (pa - 1.0) / 0.14;
+    if (o < 0) o = 0; if (o > 1) o = 1;
+    return { width: w, height: h, borderRadius: h / 2, opacity: (glow ? 0.32 : 1) * o, transform: [{ translateX: midx - w / 2 }, { translateY: midy - h / 2 }, { rotateZ: `${angle}rad` }] };
+  });
+  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: 0, backgroundColor: color }, aStyle]} />;
+});
+const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, color }: { bead: { t: number; x: number }; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; color: string }) {
+  const size = geo.laneW * 0.6;
   const aStyle = useAnimatedStyle(() => {
     const prog = (clock.value - (bead.t - lookahead)) / lookahead;
     const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
@@ -74,14 +100,19 @@ const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, col
     if (o < 0) o = 0; if (o > 1) o = 1;
     return { opacity: o, transform: [{ translateX: x }, { translateY: y }, { scale: persp }] };
   });
-  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -size / 2, top: -size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: head ? 2.5 : 0, borderColor: "#FFFFFF", shadowColor: color, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 }, aStyle]}>
+  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -size / 2, top: -size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 2.5, borderColor: "#FFFFFF", shadowColor: color, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 }, aStyle]}>
     <View style={{ position: "absolute", top: size * 0.16, left: size * 0.24, right: size * 0.24, height: size * 0.34, borderRadius: size / 2, backgroundColor: "rgba(255,255,255,0.5)" }} />
   </Reanimated.View>;
 });
 const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
   const color = laneColors[note.lane];
   const beads = useMemo(() => sampleBeads(note), [note]);
-  return <>{beads.map((b, i) => <WavyBead key={i} bead={b} clock={clock} lookahead={lookahead} geo={geo} color={color} head={i === 0} />)}</>;
+  const thick = geo.laneW * 0.34;
+  return <>
+    {beads.slice(0, -1).map((b, i) => <WavySegment key={`g${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={color} thick={thick} glow />)}
+    {beads.slice(0, -1).map((b, i) => <WavySegment key={`c${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={color} thick={thick} />)}
+    <WavyBead bead={beads[0]} clock={clock} lookahead={lookahead} geo={geo} color={color} />
+  </>;
 });
 const WavyLayer = React.memo(function WavyLayer({ notes, clock, lookahead, geo }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
   return <>{notes.filter(n => n.type === "wavy").map(n => <WavyNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} />)}</>;
@@ -256,6 +287,7 @@ export default function GameScreen() {
   const clock = useSharedValue(0);
   const rainbow = useSharedValue(0);
   const traceGlow = useSharedValue(0);
+  const traceX = useSharedValue(0);
   useEffect(() => { rainbow.value = withRepeat(withTiming(1, { duration: 2600, easing: RE.linear }), -1, false); }, [rainbow]);
   const pulseActiveRef = useRef(false);
   const fuelRef = useRef(0);        // Vocopulse fuel 0..100 while active
@@ -425,13 +457,14 @@ export default function GameScreen() {
     const note = activeHold; const dur = note.duration || 0.4; const end = note.time + dur; const isWavy = note.type === "wavy";
     let litLane = isWavy ? wavyLaneAt(note, jsTime()) : note.lane;
     laneFlash[litLane].setValue(1);
+    if (isWavy) traceX.value = geo.cx + laneFrac(litLane) * geo.hw;
     let followTicks = 0, totalTicks = 0;
     const timer = setInterval(() => {
       const t = jsTime();
       const reqLane = isWavy ? wavyLaneAt(note, t) : note.lane;
       if (reqLane !== litLane) { Animated.timing(laneFlash[litLane], { toValue: 0, duration: 120, useNativeDriver: true }).start(); litLane = reqLane; laneFlash[litLane].setValue(1); }
       const following = pressed.has(reqLane);
-      if (isWavy) { totalTicks++; if (following) followTicks++; traceGlow.value = withTiming(following ? 1 : 0.2, { duration: 90 }); }
+      if (isWavy) { totalTicks++; if (following) followTicks++; traceGlow.value = withTiming(following ? 1 : 0.25, { duration: 90 }); traceX.value = withTiming(geo.cx + laneFrac(reqLane) * geo.hw, { duration: 70 }); }
       if (!isWavy && !following && t < end - 0.1) { setActiveHold(null); return; } // hold released early → stop scoring
       if (following) scoreRef.current += Math.round(24 * (pulseActive ? 2 : 1));
       if (t >= end) {
@@ -445,7 +478,10 @@ export default function GameScreen() {
       }
     }, 80);
     return () => { clearInterval(timer); Animated.timing(laneFlash[litLane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); traceGlow.value = withTiming(0, { duration: 150 }); };
-  }, [activeHold, jsTime, laneFlash, pulseActive, pressed, traceGlow, settings.haptics]);
+  }, [activeHold, jsTime, laneFlash, pulseActive, pressed, traceGlow, traceX, geo, settings.haptics]);
+
+  // Glowing spark that rides the receptor line following the traced wavy lane — brighter while on-track.
+  const traceSparkStyle = useAnimatedStyle(() => ({ opacity: traceGlow.value, transform: [{ translateX: traceX.value }, { translateY: geo.bottomY }, { scale: 0.7 + traceGlow.value * 0.6 }] }));
 
   // Taps only mutate refs + fire native-thread animations — no React state, so rapid/back-to-back tapping stays instant.
   const hitLane = useCallback((lane: number) => {
@@ -517,6 +553,9 @@ export default function GameScreen() {
     </View>
 
     <Receptors geo={geo} flash={laneFlash} />
+    {activeHold?.type === "wavy" && <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -geo.laneW * 0.35, top: -geo.laneW * 0.35, width: geo.laneW * 0.7, height: geo.laneW * 0.7, borderRadius: geo.laneW * 0.35, backgroundColor: "rgba(255,255,255,0.9)", shadowColor: laneColors[wavyLaneAt(activeHold, 0)], shadowOpacity: 1, shadowRadius: 22, elevation: 12 }, traceSparkStyle]}>
+      <View style={{ position: "absolute", top: geo.laneW * 0.16, left: geo.laneW * 0.16, right: geo.laneW * 0.16, bottom: geo.laneW * 0.16, borderRadius: geo.laneW * 0.2, backgroundColor: laneColors[activeHold.lane] }} />
+    </Reanimated.View>}
 
     {/* Combo */}
     {combo > 2 && <View pointerEvents="none" style={[styles.comboWrap, { top: geo.topY + geo.span * 0.06 }]}>
