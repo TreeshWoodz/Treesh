@@ -56,3 +56,6 @@
 - WAVY = CONTINUOUS RIBBON (user disliked dotted beads): game.tsx now renders each wavy note as connected rounded line SEGMENTS (WavySegment) between denser path samples — each segment is a bar sized/rotated/translated from its two projected endpoints, with rounded ends overlapping at joints so it reads as one smooth glowing line (glow layer + core). A white head bead marks the tap point. Verified visually on web (smooth S-curve ribbon, no dots).
 - WAVE-TRACE SPARK: a glowing spark (traceX/traceGlow shared values) rides the receptor line following the required wavy lane, brightening while on-track (Wave Feedback request).
 - STREAK REMINDER: home daily card shows '⚠️ Play today to keep your N-day streak!' (gold) when a streak is active but today isn't cleared; otherwise shows the reward. Uses computeStreak vs isDailyClaimed.
+
+## Update 10 (Jun 2026)
+- HOW TO PLAY refreshed (guide.tsx): updated wavy note copy (drag to trace the continuous ribbon + trace spark), added a 'MODES & EXTRAS' section (Daily Challenge + streaks, Practice mode A/B loop + speeds, Share/import charts by code, Leaderboards), and expanded FAQ (on-device auto-charting, star-based + milestone + daily Starlites, 33 achievements + mid-game unlock + challenge calendar, key remap). ALL backlog items complete.

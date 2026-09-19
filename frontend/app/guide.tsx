@@ -7,25 +7,34 @@ import { GlassCard, NeonButton, ScreenHeader } from "@/src/components/ui";
 import { colors, laneColors, fonts } from "@/src/game/theme";
 
 const steps = [
-  { icon: "musical-notes" as const, title: "Pick your sound", copy: "Choose a Treesh Music track, replay a Quick Play pick, or import your own audio. Vocotap keeps a private copy on your device." },
-  { icon: "pulse" as const, title: "Build the chart", copy: "Pick Easy through Expert and the on-device engine lays notes on the beat with phrasing, long notes and waves. Or craft your own in the Editor." },
-  { icon: "game-controller" as const, title: "Own the highway", copy: "Tap notes on the line, hold the tails, trace the waves, keep your streak to fire Vocopulse, then chase Starlites and trophies." },
+  { icon: "musical-notes" as const, title: "Pick your sound", copy: "Choose a Treesh Music track, replay a Quick Play pick, or import your own audio. Vocotap keeps a private copy on your device and reads the beat right on your phone." },
+  { icon: "pulse" as const, title: "Build the chart", copy: "Pick Easy through Expert and the on-device engine lays notes on the real beat with phrasing, long notes and waves. Or craft your own in the Editor." },
+  { icon: "game-controller" as const, title: "Own the highway", copy: "Tap notes on the line, hold the tails, trace the waves, keep your streak to fire Vocopulse, then chase Starlites, trophies and the Daily Challenge." },
 ];
 
 const noteTypes: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; copy: string }[] = [
   { key: "tap", label: "Tap", icon: "ellipse", color: laneColors[0], copy: "A single quick tap on its lane the instant it reaches the glowing receptor. Tighter timing = higher judgment (Perfect / Great / Good)." },
   { key: "hold", label: "Long note", icon: "remove", color: laneColors[1], copy: "Press the head and keep your finger down for the whole glowing tail. Letting go early no longer breaks your combo — it just stops scoring." },
-  { key: "wavy", label: "Wavy", icon: "water", color: laneColors[2], copy: "Press the head, then ride the squiggle — its shape follows the exact path it was charted on. Keep holding until the wave finishes." },
+  { key: "wavy", label: "Wavy", icon: "water", color: laneColors[2], copy: "Tap the white head, then DRAG your finger sideways to follow the glowing ribbon as it curves across lanes — its shape traces the exact path it was charted on. A bright spark rides the hit line to show which lane to be in; keep it lit until the wave finishes for a Nice trace bonus." },
+];
+
+const modes: { icon: keyof typeof Ionicons.glyphMap; title: string; copy: string; color: string }[] = [
+  { icon: "flame", title: "Daily Challenge", color: colors.gold, copy: "A new featured song each day with a 3★ target. Clear it for bonus Starlites — and play on back-to-back days to grow a streak (the bonus climbs from 250 up to 1,000). The home card warns you when today's run is the only thing keeping your streak alive." },
+  { icon: "school", title: "Practice mode", color: colors.cyan, copy: "From a song's screen, tap Practice to slow the track to 0.5×, 0.75× or 1× and loop a tricky section: set point A, then point B, and it repeats between them. Practice runs aren't scored — just for drilling." },
+  { icon: "share-social", title: "Share & import charts", color: colors.purple, copy: "In the Editor or a custom song's menu, tap Share code to copy a short code or send it with the share sheet. Friends paste it under Library → Customs → Import from code (or just open a shared link) to play your chart instantly — all offline." },
+  { icon: "trophy", title: "Leaderboards", color: laneColors[3], copy: "Tap the trophy on the home screen to see your personal bests per song and difficulty, then chase your own high scores." },
 ];
 
 const faqs = [
+  ["How does auto-charting work?", "Vocotap listens to the song on your device the first time you pick it (a quick one-time 'analysing' pass), then places notes on the real beats — bass drives the left lanes, treble the right. The result is cached so replays are instant."],
   ["Where are my songs stored?", "Inside Vocotap's private device storage. Audio, charts, scores and Starlites are never uploaded anywhere."],
   ["What is Vocopulse?", "A fire meter that fills as you hit 25 notes in a row. Once lit it stays active — and doubles your score — as long as your streak continues. Miss a note and it drains away over 3 seconds, then re-arms after another 25 hits."],
-  ["How do I earn Starlites?", "Finish a chart that has 200 or more notes. Your earnings show in a dedicated card on the results screen and sync with your Treesh balance."],
-  ["What are Achievements?", "Trophies you unlock by playing — big combos, 5-star runs, full combos, building custom charts and more. Tap your name or avatar on the home screen to open your Profile and track them."],
-  ["Can I make my own chart?", "Yes. Open the Editor, press Record then Play, and tap the four lanes in time. Hold for long notes, drag sideways for waves, and use two or more fingers to place notes at the same time. Tap Generate rest to auto-fill the remainder."],
-  ["What is the Customs library?", "Every song you've charted lives under Library → Customs. Tap one to jump straight into play, or use Select to remove charts in bulk. You can also export a chart to a file and import it back later."],
-  ["Do keyboards work on desktop?", "Yes. On a computer, use D / F / J / K (or the arrow keys) for the four lanes, alongside mouse and touch."],
+  ["How do I earn Starlites?", "Finish a run to earn Starlites based on your star rating (a 5★ run pays the most). You also get bonus Starlites for combo milestones at 50 / 100 / 200, and for clearing the Daily Challenge (which grows with your streak)."],
+  ["What are combo milestones?", "Hit 50, 100 or 200 notes in a row and a celebration pops up with bonus Starlites — keep the chain going for bigger rewards."],
+  ["What are Achievements?", "33 trophies you unlock by playing — big combos, 5-star runs, full combos, Expert clears, building custom charts and more. New ones pop up mid-game the moment you earn them. Tap your avatar on the home screen to see them all plus your challenge-history calendar."],
+  ["Can I make my own chart?", "Yes. Open the Editor, press Record then Play, and tap the four lanes in time. Hold for long notes, drag sideways for waves, and use two or more fingers to place notes at the same time. Tap Generate rest to auto-fill the remainder, then Share code to send it to friends."],
+  ["What is the Customs library?", "Every song you've charted lives under Library → Customs. Tap one to jump straight into play, or use Select to remove charts in bulk. You can also export a chart to a file, share it as a code, or import one."],
+  ["Do keyboards work on desktop?", "Yes. On a computer, use D / F / J / K (or the arrow keys) for the four lanes, alongside mouse and touch. You can remap the keys in Settings."],
   ["My taps feel early or late", "Open Settings and use the audio-offset presets — Speaker / Wired / Bluetooth — or the fine slider until your taps land in sync. The active preset is highlighted."],
   ["Where did Neon Warmup go?", "It's now Voco Warmup. If you delete it, you can bring it back any time from Settings → Restore Voco Warmup."],
 ];
@@ -60,6 +69,17 @@ export default function GuideScreen() {
           </View>
           {open && <Text style={styles.noteCopy}>{note.copy}</Text>}
         </Pressable>; })}
+      </View>
+
+      <Text style={styles.sectionTitle}>MODES & EXTRAS</Text>
+      <View style={styles.notes}>
+        {modes.map(m => <View key={m.title} style={styles.noteCard}>
+          <View style={styles.noteRow}>
+            <View style={[styles.noteIcon, { backgroundColor: `${m.color}22`, borderColor: m.color }]}><Ionicons name={m.icon} size={20} color={m.color} /></View>
+            <Text style={styles.noteLabel}>{m.title}</Text>
+          </View>
+          <Text style={styles.noteCopy}>{m.copy}</Text>
+        </View>)}
       </View>
 
       <Text style={styles.sectionTitle}>FAQ</Text>
