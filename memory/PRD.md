@@ -59,3 +59,6 @@
 
 ## Update 10 (Jun 2026)
 - HOW TO PLAY refreshed (guide.tsx): updated wavy note copy (drag to trace the continuous ribbon + trace spark), added a 'MODES & EXTRAS' section (Daily Challenge + streaks, Practice mode A/B loop + speeds, Share/import charts by code, Leaderboards), and expanded FAQ (on-device auto-charting, star-based + milestone + daily Starlites, 33 achievements + mid-game unlock + challenge calendar, key remap). ALL backlog items complete.
+
+## Update 11 (Jun 2026)
+- WEEKLY STREAK CHEST: dailyChallenge.ts weeklyChestReward (every 7th consecutive day → 500, +250/week, cap 2000) + claimWeeklyChest (once per milestone, stored in vocotap_streak_chests). results.tsx awards it on top of the daily/streak bonus and shows a purple 'WEEK N STREAK CHEST · +X' badge. Guide daily copy mentions the chest.

@@ -19,7 +19,7 @@ const noteTypes: { key: string; label: string; icon: keyof typeof Ionicons.glyph
 ];
 
 const modes: { icon: keyof typeof Ionicons.glyphMap; title: string; copy: string; color: string }[] = [
-  { icon: "flame", title: "Daily Challenge", color: colors.gold, copy: "A new featured song each day with a 3★ target. Clear it for bonus Starlites — and play on back-to-back days to grow a streak (the bonus climbs from 250 up to 1,000). The home card warns you when today's run is the only thing keeping your streak alive." },
+  { icon: "flame", title: "Daily Challenge", color: colors.gold, copy: "A new featured song each day with a 3★ target. Clear it for bonus Starlites — and play on back-to-back days to grow a streak (the bonus climbs from 250 up to 1,000). Every 7th day in a row drops a weekly streak chest with extra Starlites. The home card warns you when today's run is the only thing keeping your streak alive." },
   { icon: "school", title: "Practice mode", color: colors.cyan, copy: "From a song's screen, tap Practice to slow the track to 0.5×, 0.75× or 1× and loop a tricky section: set point A, then point B, and it repeats between them. Practice runs aren't scored — just for drilling." },
   { icon: "share-social", title: "Share & import charts", color: colors.purple, copy: "In the Editor or a custom song's menu, tap Share code to copy a short code or send it with the share sheet. Friends paste it under Library → Customs → Import from code (or just open a shared link) to play your chart instantly — all offline." },
   { icon: "trophy", title: "Leaderboards", color: laneColors[3], copy: "Tap the trophy on the home screen to see your personal bests per song and difficulty, then chase your own high scores." },

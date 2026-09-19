@@ -24,6 +24,28 @@ export function pickDaily(pool: Song[], dateKey = dailyKey()): DailyChallenge | 
 // Growing reward: 250 on day 1, +100 for each extra consecutive day, capped at 1000.
 export function dailyStreakBonus(streak: number) { return Math.min(1000, 250 + Math.max(0, streak - 1) * 100); }
 
+// Weekly milestone chest: every 7th consecutive day drops a bonus chest (grows each week, capped).
+export function weeklyChestReward(streak: number): number | null {
+  if (streak <= 0 || streak % 7 !== 0) return null;
+  const weeks = streak / 7;
+  return Math.min(2000, 500 + (weeks - 1) * 250);
+}
+
+const CHEST_KEY = "vocotap_streak_chests";
+async function getClaimedChests(): Promise<number[]> {
+  try { const raw = await AsyncStorage.getItem(CHEST_KEY); return raw ? JSON.parse(raw) as number[] : []; } catch { return []; }
+}
+// If the current streak just hit a new weekly milestone, returns the chest reward (once) else null.
+export async function claimWeeklyChest(streak: number): Promise<number | null> {
+  const reward = weeklyChestReward(streak);
+  if (reward == null) return null;
+  const claimed = await getClaimedChests();
+  if (claimed.includes(streak)) return null;
+  claimed.push(streak);
+  try { await AsyncStorage.setItem(CHEST_KEY, JSON.stringify(claimed.slice(-60))); } catch {}
+  return reward;
+}
+
 const HISTORY_KEY = "vocotap_daily_history";
 export async function getDailyHistory(): Promise<string[]> {
   try { const raw = await AsyncStorage.getItem(HISTORY_KEY); return raw ? JSON.parse(raw) as string[] : []; } catch { return []; }
