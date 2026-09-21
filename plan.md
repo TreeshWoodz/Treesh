@@ -1,19 +1,38 @@
 # Treesh 3.0 Continuation — Phase 5 Plan (Updated)
 
+## ▶ ACTIVE SESSION ORDER (user-confirmed)
+User confirmed on latest turn — build in this order, PHASED (test between):
+1. **Phase J — Sleek Loading Screen** (hide startup flash / FOUC). ← IN PROGRESS
+2. **Phase L — Instrum Studio DAW upgrade (MVP)**: mic recording + live monitoring, multitrack audio clip lanes, Canvas waveform, per-track volume + mute/solo + delete clip. KEEP the existing step sequencer and ADD audio tracks/recording alongside it.
+3. **Phase K — Custom Cover Art & Image Studio** (later).
+
+Constraints reminder: single-file `/app/single_html/index.html`, Tailwind CDN only, NO npm/yarn, offline-first, edits STRICTLY SEQUENTIAL on index.html. Respond to user in English.
+
+
 ## 1) Objectives
 - Restore **reliable core playback** across devices (esp. **iOS background playback**, including **auto-advance** at track end).
-- Keep **single-file architecture** (`/app/single_html/index.html`), zero build steps, offline-first (LocalStorage + IndexedDB).
+- Keep **single-file architecture** (`/app/single_html/index.html`), zero build steps, offline-first (LocalStorage + IndexedDB). **No NPM/Yarn.**
 - Ensure **Favorites playback/queue correctness** and keep Favorites as a first-class auto-playlist.
-- Maintain the **Studios hub** (Instrum + Lyric Studio) as the creative entry point.
-- Deliver a **modern Lyric Studio upgrade**:
+- Maintain the **Studios hub** (Instrum + LyricFlow) as the creative entry point.
+- Deliver a **modern LyricFlow (Lyric Studio) upgrade**:
   - Floating rhymes near caret
   - Preview that matches the player **exactly**
   - Per-line **data-explanation** editing
-  - Markup tools and improved authoring UX
-- Rebuild **Voice Controls** into a powerful, programmable assistant (commands + macros + action recording).
+  - Better authoring UX (markup tools, import/export, loops)
+  - Smooth blank-document UX (no audio = no timing UI)
+- Rebuild **Voice Controls** into a powerful, programmable assistant:
+  - **Voice + typed commands** in a single command engine
+  - Rich command set + custom macros
+  - Silent-by-default assistant (**no TTS unless enabled**)
 - Add **crossfade** (default **6s**) for manual and auto-advance transitions.
 - Upgrade **Karaoke fullscreen**, **Lyric Card Studio sticky preview**, and add **live update toast**.
 - Improve lyrics search and remaining UX fixes.
+- **NEW major objective (next): Instrum Studio DAW upgrade** (FL Studio / BandLab-like):
+  - Mic/audio input + live monitoring
+  - Vocal recording
+  - Stems / multitrack audio clip lanes
+  - Editing (trim/split/move clips) + per-track mixing
+  - Offline-first persistence
 
 ---
 
@@ -24,10 +43,9 @@
 - `IS_IOS` detection.
 - Web Audio safety guard:
   - **Previously:** `ensureVizAudio()` returned false on iOS to prevent `createMediaElementSource(audio)` (protects background playback).
-  - **Updated this session:** On iOS, `ensureVizAudio()` now returns false **unless EQ is enabled** (see EQ phase below). This keeps background playback safe by default.
+  - **Updated:** On iOS, `ensureVizAudio()` now returns false **unless EQ is enabled**. Background playback remains safe by default.
 - **Auto-advance fix (NEW, needs device validation):**
   - Removed `audio.load()` during track changes in `loadIndex()`.
-    - Rationale: iOS background/locked playback can fail to autoplay next track if `load()` resets the element and `play()` requires a fresh user gesture.
   - Added `audio.preload = "auto"`.
   - Rebind MediaSession `nexttrack` / `previoustrack` handlers on every `play` event.
   - Added a `visibilitychange` handler to resume audio (and resume AudioContext when present).
@@ -41,17 +59,9 @@
   - lock-screen next/prev buttons
 - Confirm no regressions with EQ off by default.
 
-**User stories:**
-1. As a user on iOS, I can lock my phone and music continues playing.
-2. As a user on iOS, **when a song ends**, the next song starts automatically in the background.
-3. As a user, switching tracks doesn’t cause unexpected stops.
-4. As a user, playback controls from lock screen work.
-
 ---
 
 ### Phase A — Favorites Playback Fix + Favorites Auto-Playlist + Profile Auto-Close (Done)
-**Core issue:** `state.contextList` could be overwritten by re-renders, causing wrong queues.
-
 **What’s implemented:**
 - Context-token approach using `data-ctx` for queue rebuilding on demand.
 - Favorites auto-playlist added in Profile + Library.
@@ -60,164 +70,176 @@
 **Validation tasks:**
 - Confirm play from Favorites always plays the correct song and queues Favorites.
 
-**User stories:**
-1. As a user, playing a track from Profile → Favorites plays that exact song.
-2. As a user, “Play” in Favorites plays only favorites in correct order.
-3. As a user, Favorites appears like a playlist everywhere when I have favorites.
-4. As a user, the Profile closes automatically when I start playback.
-
 ---
 
 ### Phase B — “Studios” Hub Page (Rename Instrum → Studios) (Done)
-**Goal:** A hub like Games with multiple studio entries.
-
 **What’s implemented:**
 - Navigation renamed to **Studios** and landing page created.
 - Studios view provides entry cards for:
   - Instrum Studio
-  - Lyric Studio (standalone)
-
-**User stories:**
-1. As a user, I can open a single Studios page listing all creative tools.
-2. As a user, I can enter Instrum Studio from Studios.
-3. As a user, I can enter Lyric Studio from Studios without selecting a song.
+  - LyricFlow (standalone)
 
 ---
 
-### Phase C — Lyric Studio Big Upgrade (Standalone + Rhymes + Preview + Explanations + Authoring Tools) (Mostly Done)
-This phase was expanded significantly and is now largely implemented.
-
-**What’s implemented (this session + prior work):**
+### Phase C — LyricFlow (Lyric Studio) Big Upgrade (Standalone + Rhymes + Preview + Explanations + Authoring Tools) (Done + Expanded)
+**What’s implemented (prior work + this session):**
 1. **Standalone mode**
    - Blank documents and Drafts support.
-2. **CRITICAL bug fix (NEW):**
-   - Fixed a missing closing brace in `closeLS()` that had inadvertently nested and hidden standalone Lyric Studio functions.
-   - Result: Blank Document / Draft features are functional again.
-3. **Floating rhymes near caret (P0):**
-   - Replaced the docked rhyme bar with a true floating popover that tracks caret position.
-   - Uses Datamuse API with graceful offline messaging.
+2. **Floating rhymes near caret**
+   - Datamuse API with offline messaging.
    - Rhymes toggle in Write mode.
-4. **Rhyme insertion behavior (NEW):**
-   - Clicking a rhyme now **appends after** the current word (instead of replacing it).
-   - When caret is on a new/empty line, rhyme suggestions seed from the **previous line’s last word**.
-5. **Write-mode Markup Toolbar (NEW):**
-   - Ad-lib `( )`
-   - Quote “ ”
-   - CAPS
-   - lowercase
-   - repeat `×2`
-   - pause `…`
-   - hold `—`
-   - Explain (hooks into per-line data-explanation)
-6. **Per-line data-explanation editing (NEW):**
-   - Added `Explain` tool to open explanation editing for the current line in Write mode.
-7. **Preview rendered pixel-identical to player (P0):**
-   - Preview mode now uses the same typography and layout patterns as Now Playing lyric view (np-line styling, section dividers).
-   - Active highlight + centered auto-scroll.
-   - Missing dispatcher for preview line tap was added.
-8. **Header UX change (NEW):**
-   - Import/Export buttons moved next to Save in the header (all screen sizes).
+3. **Rhyme insertion behavior**
+   - Clicking a rhyme appends after the current word.
+   - New/empty line behavior seeds from previous line.
+4. **Write-mode Markup Toolbar**
+   - Existing: adlib, quote, caps, lowercase, repeat, pause, hold, explain.
+   - **NEW:** **Bold** (`**text**`) and **Italic** (`*text*`).
+5. **Per-line data-explanation editing**
+   - Explain tool edits a line’s meaning.
+6. **Preview matches player visually**
+   - `np-line` styling, centered auto-scroll, line tap handler.
+7. **Header UX**
+   - Import/Export buttons next to Save.
+8. **Blank-doc UX (NEW)**
+   - If a document has **no audio attached**:
+     - Hide Sync + Preview tabs.
+     - Hide transport bar.
+     - Disable “Continue to timing”.
+9. **Section tags parity (NEW)**
+   - Preview section tags render like Now Playing **Performer pills**.
+10. **Light Mode parity pass (NEW)**
+    - LyricFlow root marked `dark-surface` so contrast remains readable in light theme.
+11. **Loop tags (NEW)**
+    - `[Chorus x2]` / `[Hook ×3]` repeats that section block.
+    - Applied to Preview + LRC export + saved lyrics output.
+12. **Audio upload for blank drafts (NEW)**
+    - Attach audio directly in Write mode.
+    - Persists via IndexedDB (`treesh_media`) using `id = lsdraft_<draftId>`.
+    - Unlocks Sync/Preview + transport.
+13. **Import/Export plain text (NEW)**
+    - Import plain .txt (uses Write parser).
+    - Export toggle: Timed `.LRC` or plain `.txt`.
+    - Export now commits edits from current mode (`lsCommitEdits()`).
+14. **Preview emphasis rendering (NEW)**
+    - Preview renders `**bold**` and `*italic*` as HTML.
+    - Saved lyrics + `.LRC` strip formatting markers (player stays plain).
+15. **Bigger writing area (NEW)**
+    - Slightly larger textarea sizing + improved tip banner.
 
-**Validation tasks:**
-- Confirm on mobile:
-  - caret-tracking popover positioning is stable
-  - rhyme insert appends correctly
-  - preview matches player visually
-  - explanation editing flow is intuitive
-
-**User stories:**
-1. As a user, I can open Lyric Studio without starting playback first.
-2. As a user, as I type, I see rhyme suggestions near my cursor.
-3. As a user, tapping a rhyme appends it after my current word.
-4. As a user, pressing Enter and starting a new line still shows rhymes relevant to what I just wrote.
-5. As a user, preview looks exactly like the music player lyric view.
-6. As a user, I can add per-line explanations/meanings.
+**Validation status:**
+- `node --check` passes.
+- Verified via screenshot tool:
+  - Light mode readability
+  - Audio-less docs hide timing UI
+  - Audio attach unlocks Sync/Preview
+  - `[x2]` loops expand in preview
+  - `.txt` and `.lrc` export toggles work
 
 ---
 
 ### Phase C.1 (P0) — EQ on Mobile (iOS Foreground EQ with Background-Safe Default) (Done, needs device validation)
-**Constraint:** Web Audio EQ cannot continue on iOS lock screen/background (Apple limitation).
-
-**User-selected behavior (Option A):**
-- EQ is **OFF by default** to preserve uninterrupted background playback.
-- If user enables EQ on iPhone:
-  - EQ works while the app is in the foreground.
-  - Locking/leaving the app pauses playback; returning resumes.
-
 **What’s implemented:**
-- `ensureVizAudio()` on iOS only creates `MediaElementSource(audio)` if **EQ is enabled**.
-- Updated EQ modal note to explain the tradeoff clearly.
-- Added resume logic on returning to foreground (resume AudioContext + attempt to resume playback).
+- EQ OFF by default on iOS to preserve background playback.
+- EQ ON: works in foreground; background pauses (expected constraint).
 
-**Validation tasks (iPhone 11):**
-- With EQ OFF: background playback + auto-advance remain reliable.
-- With EQ ON: EQ audibly changes sound in foreground.
-- With EQ ON: lock screen causes pause; returning resumes.
-
-**User stories:**
-1. As a user, I can use EQ on iPhone while the app is open.
-2. As a user, the app clearly explains why EQ can’t work on the lock screen.
-3. As a user, keeping EQ off preserves uninterrupted background playback.
+**Validation tasks:**
+- Device validation on iPhone 11.
 
 ---
 
-### Phase D — Voice Controls Overhaul (Commands + Custom Macros + Action Recording + UI) (Not Started)
-This remains a major P0 feature and should be started next.
+### Phase D — Voice Controls Overhaul (Commands + Custom Macros + UI + Typed Input) (Done)
+**What’s implemented:**
+- Unified command engine for typed + speech.
+- Command precedence fixes.
+- TTS off by default + toggle.
+- Mic restart reliability fixes.
 
-**POC (core workflow isolation):**
-- Reliable recognition loop (start/stop mic, transcript, confidence thresholds).
-- 10 core commands end-to-end:
-  - play/pause/next/prev
-  - open/close modals
-  - open studios/games/library
-  - set volume
-- Action Recorder MVP:
-  - record `data-act` dispatches
-  - save as named macro
-  - trigger via spoken phrase
+---
 
-**Implementation:**
-- Voice intent parser + executor.
-- Macro registry in LocalStorage.
-- UI redesign: lively assistant modal.
+### Phase D.5 (P0) — Light Mode Parity & Backdrop Blurs (Done)
+**What’s implemented (this session):**
+- Fixed light-mode contrast across:
+  - LyricFlow surfaces (`dark-surface`)
+  - External game iframe shell + game info hero cover (`dark-surface`)
+- Backdrop blur (subtle) added **LAST** as requested:
+  - Arcade tiles
+  - Game Home heroes: “What’s Next?” and “This or That”
+
+---
+
+### Phase J (P0/P1) — Sleek Loading Screen & Welcome Modal Refresh (Partially Done)
+**Welcome Modal (DONE):**
+- Onboarding reworked to **5 steps** with a dedicated accent step:
+  - Step 2: **“Make it yours”** accent colour selection
+  - Live recolor preview
+- Removed misleading `@`/at-sign from nickname step; clarified “no @ needed”.
+
+**Loading screen (DONE this session):**
+- Added an instant-paint boot splash (`#app-splash`) with dark radial-gradient bg, spinning purple ring + animated equalizer, "TREESH" wordmark + tagline.
+- CSS lives in head `<style>` (renders before Tailwind CDN → no FOUC). JS `hideSplash()` reveals the app after first render with a 750ms min-display + 7s failsafe. Reduced-motion respected. Verified via screenshot + node --check.
 
 ---
 
 ### Phase E — Crossfade & Smooth Transitions (Not Started)
 **Goal:** Crossfade for manual and auto-advance transitions, default **6s**.
 
-**POC:**
-- Fade out → switch track → fade in.
-- Verify:
-  - manual next/prev
-  - auto advance on ended
-
-**Implementation:**
-- Add `state.crossfadeSec` default 6.
-- Wrap `nextTrack/prevTrack/loadIndex` transitions.
-
 ---
 
 ### Phase F — Karaoke Fullscreen Revamp (Not Started)
-- True fullscreen black canvas, minimal chrome.
-- Tap to exit.
 
 ---
 
 ### Phase G — Lyric Card Studio: Sticky Preview + Mobile Layout (Not Started)
-- Keep preview always visible while editing.
 
 ---
 
 ### Phase H — Live Update Toast (Not Started)
-- Detect updates and show dismissible toast.
 
 ---
 
-### Phase I — Remaining Improvements (Not Started)
-- Find Lyrics search accuracy.
-- Add lyrics on upload.
-- Vocotap: pause music when game opens.
+### Phase K (P1) — Custom Cover Art Search & Image Studio (Not Started)
+
+---
+
+### Phase L (P0/P1) — Instrum Studio DAW Upgrade (In Progress / Next Major Build)
+**Current state:** Instrum is a 16-step beat sequencer with synth kit + preset system + WAV export.
+
+**Goal:** A BandLab/FL-style **offline-first mini-DAW** inside the single-file SPA.
+
+#### L1 (MVP) — Audio Input + Vocal Recording + Live Monitoring
+- Add mic permission flow + device selection (where available).
+- Live monitoring toggle (with latency warning).
+- Record vocals into an audio track as clips.
+- Persist recorded clips in IndexedDB.
+
+#### L2 (MVP) — Stems / Multitrack Clip Lanes
+- Track types:
+  - Beat tracks (existing step grid)
+  - Audio tracks (clip lanes)
+- Clip operations:
+  - move / trim (non-destructive)
+  - split
+  - delete
+- Per-track controls: vol/mute/solo, rename.
+
+#### L3 (MVP) — Unified Transport + Mixdown
+- One transport for:
+  - Sequencer playback
+  - Audio clips playback
+- Mixdown export:
+  - Render master WAV using OfflineAudioContext when possible.
+  - Fallback: realtime bounce if offline render is not possible (document constraints).
+
+#### L4 (P1+) — Editing & Quality Enhancements
+- Snap-to-grid, metronome count-in for recording.
+- Basic FX: EQ, compressor, reverb send (optional; careful with iOS constraints).
+- Waveform view + zoom.
+- Better session management.
+
+**Testing / caveats:**
+- Mic capture requires HTTPS and explicit permission.
+- Monitoring latency varies by device/browser.
+- iOS audio capture has additional constraints; requires device validation.
 
 ---
 
@@ -225,14 +247,12 @@ This remains a major P0 feature and should be started next.
 1. **iPhone 11 validation (highest priority):**
    - Confirm iOS background playback **auto-advances** at song end.
    - Confirm lock screen next/prev works.
-   - Confirm EQ behavior:
-     - EQ OFF → background playback uninterrupted
-     - EQ ON → EQ works in foreground; background pauses as explained.
-2. Begin **Phase D Voice Controls overhaul** (POC + macro recording).
+   - Confirm EQ behavior (foreground only when enabled).
+2. Start **Phase L (Instrum DAW upgrade)** with MVP (L1 → L2 → L3).
 3. Implement **Phase E Crossfade** (default 6s) for manual + auto advance.
-4. Karaoke fullscreen revamp.
-5. Lyric Card Studio sticky preview.
-6. Live update toast.
+4. Sleek loading screen (Phase J — deferred item).
+5. Karaoke fullscreen revamp.
+6. Lyric Card Studio sticky preview.
 
 ---
 
@@ -240,13 +260,24 @@ This remains a major P0 feature and should be started next.
 - iOS: background playback continues reliably after background/lock and **auto-advances** to the next song.
 - EQ:
   - iOS: works in foreground when enabled; background-safe when disabled.
-  - No regression to background playback when EQ is off.
 - Favorites: playing from Profile Favorites always plays the correct favorites queue.
-- Studios: hub exists; Instrum + Lyric Studio accessible.
-- Lyric Studio:
+- Studios: hub exists; Instrum + LyricFlow accessible.
+- LyricFlow:
   - Rhymes float near caret and insert correctly.
   - Preview matches the player exactly.
   - Explanations and markup tools work.
-- Voice assistant POC proves command execution + macro recording.
-- Crossfade works for manual + auto track changes with default 6s.
-- Karaoke fullscreen and other UI upgrades pass screenshot/e2e checks.
+  - Blank-doc UI hides Sync/Preview when no audio is attached.
+  - `[x2]/[x3]` loop tags expand in preview/export/saved output.
+  - Audio attach for drafts works and persists offline.
+  - `.txt` import/export round-trips.
+- Voice Controls:
+  - Press mic → listens immediately.
+  - Typed commands work in the same engine.
+  - TTS is off by default and only speaks when enabled.
+- Light mode:
+  - No black-on-black / white-on-white regressions in LyricFlow and embedded game surfaces.
+  - Subtle backdrop blurs present on requested tiles.
+- Instrum DAW upgrade (MVP):
+  - User can record vocals with live monitoring.
+  - User can manage stems/clips on multiple tracks.
+  - Playback + mixdown export works offline-first.
