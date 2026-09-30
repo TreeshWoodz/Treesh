@@ -70,7 +70,15 @@ var Trophies=(function(){
     ['h_happy','house','gold','💖','Happy Home','Every resident above 80% mood',function(){return [c('h_happy'),1];}],
     ['h_rooms','house','gold','🏡','Dream Home','Furnish every room (3+ items each)',function(){return [c('h_rooms'),1];}],
     ['h_upstairs','house','silver','🪜','Moving On Up','Unlock the upstairs floor',function(){return [c('h_upstairs'),1];}],
-    ['h_party','house','platinum','🪩','House Party','Have 6 residents hang out together',function(){return [c('h_party'),1];}]
+    ['h_party','house','platinum','🪩','House Party','Have 6 residents hang out together',function(){return [c('h_party'),1];}],
+    /* backyard garden + seasonal packs */
+    ['h_green','house','bronze','🌱','Green Thumb','Harvest your first crop',function(){return [c('h_harvest'),1];}],
+    ['h_farmer','house','gold','🧺','Master Gardener','Harvest 50 crops',function(){return [c('h_harvest'),50];}],
+    ['h_rain','house','silver','💧','Rain Maker','Water plants 40 times',function(){return [c('h_water'),40];}],
+    ['h_gourd','house','silver','🎃','Giant Gourd','Harvest a Moon Pumpkin',function(){return [c('h_pumpkin'),1];}],
+    ['h_bloom','house','silver','🌻','Full Bloom','Grow crops in all 5 garden beds at once',function(){return [c('h_fullbed'),1];}],
+    ['h_season','house','silver','✨','In Season','Buy 5 seasonal items',function(){return [c('h_seasonal'),5];}],
+    ['h_allyear','house','gold','📅','All Year Round','Own items from 3 different seasonal packs',function(){return [c('h_packs'),3];}]
   ].map(function(a){return {id:a[0],mode:a[1],tier:a[2],ico:a[3],name:a[4],desc:a[5],fn:a[6]};});
   var BY={};LIST.forEach(function(t){BY[t.id]=t;});
   function prog(t){try{var r=t.fn();return [Math.min(r[0]||0,r[1]),r[1]];}catch(e){return [0,1];}}
@@ -90,7 +98,7 @@ var Trophies=(function(){
   function check(){
     if(chkT)return;chkT=setTimeout(function(){chkT=null;
       var st=Treesh.streak();if(st>c('bestStreak')){C.bestStreak=st;saveC();}
-      LIST.forEach(function(t){if(U[t.id])return;var p=prog(t);if(p[0]>=p[1]){U[t.id]=Date.now();saveU();Treesh.award(TIER[t.tier].s,'Trophy: '+t.name,{silent:true});banner(t);}});
+      LIST.forEach(function(t){if(U[t.id])return;var p=prog(t);if(p[0]>=p[1]){U[t.id]=Date.now();saveU();Treesh.award(TIER[t.tier].s,'Trophy: '+t.name,{silent:true,kind:'trophy',icon:t.ico});banner(t);}});
       var b=document.getElementById('ltop-trophy-n');if(b)b.textContent=Object.keys(U).length;
     },250);
   }

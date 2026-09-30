@@ -80,7 +80,10 @@ var Furni=(function(){
     c.restore();return true;}
   function thumb(type,size,col){var cv=document.createElement('canvas');cv.width=cv.height=size*2;var c=cv.getContext('2d');var s=CAT_SIZE[type]||[60,60];var k=Math.min(size*1.5/s[0],size*1.5/s[1]);c.translate(size,size);c.scale(k,k);draw(c,type,-s[0]/2,-s[1]/2,s[0],s[1],{t:1,col:col});return cv;}
   var CAT_SIZE={};
-  return {draw:draw,has:function(t){return !!D[t];},types:Object.keys(D),def:DEF,thumb:thumb,sizes:CAT_SIZE,shade:sh,alpha:a,rr:rr};
+  return {draw:draw,has:function(t){return !!D[t];},types:Object.keys(D),def:DEF,thumb:thumb,sizes:CAT_SIZE,shade:sh,alpha:a,rr:rr,
+    /* extension API (seasonal packs etc.) */
+    add:function(type,fn,defCol){D[type]=fn;if(defCol)DEF[type]=defCol;},
+    h:{box:box,ball:ball,shadow:shadow,glow:glow,leg:leg,lg:lg,rr:rr,sh:sh,a:a}};
 })();
 /* ---- Zen Sandbox: route matching object types through the new art ---- */
 (function(){

@@ -30,15 +30,17 @@
   }
   var listeners=[];
   TS.onChange=function(fn){listeners.push(fn);};
-  function emit(e){var p=TS.points();listeners.forEach(function(fn){try{fn(p,e);}catch(x){}});
-    try{if(window.parent&&window.parent!==window)window.parent.postMessage({type:'treesh:stars',source:'frea',points:p,entry:e||null},'*');}catch(x){}}
+  /* Live sync: tell the Treesh parent (if embedded) the instant the wallet changes.
+     Payload is non-sensitive; the parent only trusts messages from its own game iframe. */
+  function emit(e,meta){var p=TS.points();listeners.forEach(function(fn){try{fn(p,e);}catch(x){}});
+    try{if(window.parent&&window.parent!==window)window.parent.postMessage({type:'treesh:stars',v:2,source:'frea',points:p,entry:e?{id:e.id,t:e.t,a:e.a,r:e.r}:null,meta:meta||null},'*');}catch(x){}}
   TS.award=function(amount,reason,opts){
     opts=opts||{};amount=Math.round(+amount||0);if(!amount)return 0;
     var e={id:'fr_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),t:Date.now(),a:amount,r:'FREA! · '+(reason||'Reward'),game:!!opts.game};
     var st=TS.stars();writeEntry(st,e);set('treesh_stars',st);
     var L=ledger();L.push(e);if(L.length>400)L.splice(0,L.length-400);set(LK,L);
     if(!opts.silent&&amount>0)TS.toast('+'+amount,reason||'Reward',opts.icon);
-    emit(e);return amount;
+    emit(e,{kind:opts.kind||(opts.game?'match':amount<0?'spend':'reward'),icon:opts.icon||null});return amount;
   };
   TS.canAfford=function(c){return TS.points()>=c;};
   TS.spend=function(cost,reason){cost=Math.round(cost);if(cost<=0)return true;if(TS.points()<cost)return false;TS.award(-cost,reason||'Purchase',{silent:true});return true;};

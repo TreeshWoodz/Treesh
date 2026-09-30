@@ -7,7 +7,7 @@ D = os.path.dirname(os.path.abspath(__file__))
 S = os.path.join(D, 'src')
 html = open(os.path.join(S, 'base.html'), encoding='utf-8').read()
 CSS = ['polish.css']
-JS = ['treesh.js', 'style.js', 'furni.js', 'trophies.js', 'house.js', 'polish.js']
+JS = ['treesh.js', 'style.js', 'furni.js', 'seasonal.js', 'trophies.js', 'house.js', 'polish.js']
 css = '\n'.join(open(os.path.join(S, f), encoding='utf-8').read() for f in CSS if os.path.exists(os.path.join(S, f)))
 js = '\n'.join('/* ---- %s ---- */\n' % f + open(os.path.join(S, f), encoding='utf-8').read() for f in JS if os.path.exists(os.path.join(S, f)))
 i = html.rfind('</head>'); html = html[:i] + '<style id="frea-polish">\n' + css + '\n</style>\n' + html[i:]

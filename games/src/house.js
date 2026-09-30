@@ -11,8 +11,9 @@ var House=(function(){
     {id:'living',name:'Living Room',f:0,x0:0,x1:620},{id:'kitchen',name:'Kitchen',f:0,x0:620,x1:980},{id:'bedroom',name:'Bedroom',f:0,x0:980,x1:1320},
     {id:'bath',name:'Bathroom',f:1,x0:0,x1:500},{id:'play',name:'Playroom',f:1,x0:500,x1:1320}];
   var UPSTAIRS_COST=400;
+  var YARD={id:'yard',name:'Backyard',f:0,x0:-660,x1:-14,outdoor:true};
   /* catalog: [type,name,cat,price,w,h,place,use] ; place: floor|wall|any ; use:[need,gain,dur,act,verb,emoji,seat] */
-  var CAT={},CATS=[['seat','Seating','🛋️'],['bed','Beds','🛏️'],['kitchen','Kitchen','🍳'],['fun','Fun','🎮'],['surf','Surfaces','🪵'],['light','Lights','💡'],['plant','Plants','🪴'],['decor','Decor','🖼️'],['bath','Bath','🛁']];
+  var CAT={},CATS=[['season','Seasonal','✨'],['seat','Seating','🛋️'],['bed','Beds','🛏️'],['kitchen','Kitchen','🍳'],['fun','Fun','🎮'],['surf','Surfaces','🪵'],['light','Lights','💡'],['plant','Plants','🪴'],['decor','Decor','🖼️'],['bath','Bath','🛁']];
   [['couch','Cloud Couch','seat',120,140,62,'floor',['energy',25,14,'sit','Nap','💤',26]],
    ['armchair','Comfy Armchair','seat',70,70,62,'floor',['fun',20,10,'sit','Relax','😌',26]],
    ['beanbag','Jelly Beanbag','seat',45,64,48,'floor',['fun',25,10,'sit','Chill','🫧',20]],
@@ -40,16 +41,18 @@ var House=(function(){
    ['rug','Round Rug','decor',35,130,18,'rug',null],['gift','Gift Box','decor',15,40,40,'any',null],['crate','Toy Crate','decor',20,46,46,'any',null],
    ['painting','Painting','decor',40,70,50,'wall',null],['window','Window','decor',50,70,70,'wall',null],['clock','Wall Clock','decor',30,36,36,'wall',null],['mirror','Mirror','decor',45,40,64,'wall',null],['shelf','Wall Shelf','decor',35,80,34,'wall',null],
    ['bathtub','Bubble Tub','bath',160,120,64,'floor',['energy',30,12,'lie','Bubble bath','🛁',18]]
-  ].forEach(function(r){CAT[r[0]]={type:r[0],name:r[1],cat:r[2],price:r[3],w:r[4],h:r[5],place:r[6],use:r[7]?{need:r[7][0],gain:r[7][1],dur:r[7][2],act:r[7][3],verb:r[7][4],emo:r[7][5],seat:r[7][6]}:null};Furni.sizes[r[0]]=[r[4],r[5]];});
+  ].forEach(function(r){addRow(r,null);});
+  function addRow(r,season){CAT[r[0]]={type:r[0],name:r[1],cat:season?'season':r[2],kind:r[2],price:r[3],w:r[4],h:r[5],place:r[6],season:season,use:r[7]?{need:r[7][0],gain:r[7][1],dur:r[7][2],act:r[7][3],verb:r[7][4],emo:r[7][5],seat:r[7][6]}:null};Furni.sizes[r[0]]=[r[4],r[5]];}
+  Seasons.packs.forEach(function(p){p.items.forEach(function(r){addRow(r,p.id);});});
   var SURF={table:1,desk:1,counter:1,dresser:1,nightstand:1};
-  var TOGGLE={tv:1,computer:1,lamp:1,floorlamp:1,fireplace:1,arcade:1,speaker:1,stove:1};
+  var TOGGLE={tv:1,computer:1,lamp:1,floorlamp:1,fireplace:1,arcade:1,speaker:1,stove:1};Object.keys(Seasons.toggles).forEach(function(k){TOGGLE[k]=1;});
   var PALETTE=['#ff7ab8','#8a5cff','#2de2ff','#39ff7a','#ffd23d','#ff7a3d','#f4efff','#2a2a3e','#b77a44','#ff4d6d'];
   var WALLS=['#3b2a5c','#ffe6f1','#dff4ff','#e9ffe6','#fff3d6','#2a3b5c','#5c2a4a','#1d1b2e','#ffd9c2','#cfc2ff'];
   var PATTERNS=['plain','stripes','dots','hearts','stars','waves','check'];
   var FLOORS=[['wood','Oak'],['dark','Walnut'],['tile','Tiles'],['carpet','Carpet'],['neon','Neon Grid'],['marble','Marble']];
   var NEEDS=[['hunger','Hunger','🍓','#ff7a3d'],['energy','Energy','⚡','#ffd23d'],['fun','Fun','🎉','#ff3db5'],['social','Social','💬','#2de2ff']];
 
-  var S=null,cv=null,c=null,root=null,open=false,raf=0,lastT=0,cam={x:620,y:-150,z:1},mode='live',sel=null,selItem=null,ghost=null,drag=null,paintRoom=null,buyCat='seat',speed=1,residents=[],pointers={},uid=1,dirty=0,happyStreak=0;
+  var S=null,cv=null,c=null,root=null,open=false,raf=0,lastT=0,cam={x:620,y:-150,z:1},mode='live',sel=null,selItem=null,ghost=null,drag=null,paintRoom=null,buyCat='season',speed=1,residents=[],pointers={},uid=1,dirty=0,happyStreak=0;
   function nid(){return 'i'+(Date.now().toString(36))+(uid++);}
   function starter(){
     var it=[],p=function(t,f,x,o){var r={id:nid(),type:t,floor:f,x:x,col:null,flip:false,on:true};Object.assign(r,o||{});it.push(r);return r;};
@@ -62,9 +65,9 @@ var House=(function(){
   }
   function blank(){return {v:1,items:starter(),rooms:{living:{wall:'#3b2a5c',pat:'stripes',floor:'wood'},kitchen:{wall:'#dff4ff',pat:'check',floor:'tile'},bedroom:{wall:'#cfc2ff',pat:'stars',floor:'carpet'},bath:{wall:'#e9ffe6',pat:'waves',floor:'marble'},play:{wall:'#2a3b5c',pat:'dots',floor:'neon'}},upstairs:false,min:8*60,day:1,res:null,happyDay:{k:'',v:0}};}
   function load(){var d=Treesh.get(SK,null);if(!d||!d.items)d=blank();Object.keys(blank().rooms).forEach(function(k){if(!d.rooms[k])d.rooms[k]=blank().rooms[k];});return d;}
-  function save(){if(!S)return;S.res=residents.map(function(r){return {key:r.key,needs:r.needs,x:r.x,floor:r.floor};});Treesh.set(SK,S);}
+  function save(){if(!S)return;S.savedAt=Date.now();S.res=residents.map(function(r){return {key:r.key,needs:r.needs,x:r.x,floor:r.floor};});Treesh.set(SK,S);}
   function floorY(f){return -f*FH;}
-  function roomAt(f,x){for(var i=0;i<ROOMS.length;i++){var r=ROOMS[i];if(r.f===f&&x>=r.x0&&x<r.x1)return r;}return null;}
+  function roomAt(f,x){for(var i=0;i<ROOMS.length;i++){var r=ROOMS[i];if(r.f===f&&x>=r.x0&&x<r.x1)return r;}if(f===0&&x>=YARD.x0&&x<YARD.x1)return YARD;return null;}
   function byId(id){for(var i=0;i<S.items.length;i++)if(S.items[i].id===id)return S.items[i];return null;}
   function cat(it){return CAT[it.type]||{w:40,h:40,place:'floor'};}
   function baseY(it){/* world y of the item's bottom */var ct=cat(it);if(ct.place==='wall')return floorY(it.floor)-SLAB-(it.wy||120);var p=it.par&&byId(it.par);if(p)return baseY(p)-cat(p).h;return floorY(it.floor)-SLAB+(ct.place==='rug'?6:0);}
@@ -72,6 +75,7 @@ var House=(function(){
   function valid(it){
     var ct=cat(it),b=bounds(it),rm=roomAt(it.floor,it.x);if(!rm)return false;if(it.floor===1&&!S.upstairs)return false;
     if(b.x0<rm.x0+8||b.x1>rm.x1-8)return false;
+    if(rm.outdoor){if(ct.place==='wall')return false;if(!it.par&&Garden.blocks(b.x0,b.x1))return false;}
     if(ct.place==='wall'){var ceil=floorY(it.floor)-FH;if(b.y0<ceil+12||b.y1>floorY(it.floor)-SLAB-40)return false;}
     for(var i=0;i<S.items.length;i++){var o=S.items[i];if(o===it||o.id===it.id||o.floor!==it.floor)continue;var oc=cat(o);
       if(ct.place==='wall'||oc.place==='wall'){if(ct.place!==oc.place)continue;var ob=bounds(o);if(b.x0<ob.x1&&b.x1>ob.x0&&b.y0<ob.y1&&b.y1>ob.y0)return false;continue;}
@@ -101,7 +105,7 @@ var House=(function(){
       r.act={k:'use',it:it,left:u.dur,u:u};r.f.action=u.act==='wiggle'?'':u.act;r.f.actionT=0;say(r,u.emo,u.dur);
       if(u.need==='hunger')Trophies.count('h_eat');if(u.act==='lie'&&it.type==='bed')Trophies.count('h_sleep');});return true;}
   function goTo(r,f,x,then){stop(r);r.act={k:'walk',f:f,x:x,then:then};}
-  function stop(r){if(r.act&&r.act.it&&r.act.it.busy===r.key)r.act.it.busy=null;if(r.act&&r.act.k==='chat'&&r.act.w&&r.act.w.act&&r.act.w.act.k==='chat'){r.act.w.act=null;r.act.w.f.action='';}r.act=null;r.f.action='';r.climb=null;}
+  function stop(r){if(r.act&&(r.act.k==='garden'||r.act.gi!=null)&&S&&S.garden){var gp=S.garden.plots[r.act.k==='garden'?r.act.i:r.act.gi];if(gp&&gp.busy===r.key)gp.busy=null;}if(r.act&&r.act.it&&r.act.it.busy===r.key)r.act.it.busy=null;if(r.act&&r.act.k==='chat'&&r.act.w&&r.act.w.act&&r.act.w.act.k==='chat'){r.act.w.act=null;r.act.w.f.action='';}r.act=null;r.f.action='';r.climb=null;}
   function chat(r,w){if(!w||w===r)return;stop(w);goTo(r,w.floor,w.x+(w.x>r.x?-46:46),function(){if(w.act&&w.act.k!=='idle'&&w.act.k!=='chat'){say(r,'🤷');return;}r.act={k:'chat',w:w,left:7};w.act={k:'chat',w:r,left:7};r.dir=w.x>r.x?1:-1;w.dir=-r.dir;});}
   function autonomous(r){
     var n=r.needs,low=NEEDS.map(function(k){return [k[0],n[k[0]]];}).sort(function(a,b){return a[1]-b[1];})[0];
@@ -112,8 +116,10 @@ var House=(function(){
       if(cands.length){cands.sort(function(a,b){return (Math.abs(a.x-r.x)+(a.floor!==r.floor?600:0))-(Math.abs(b.x-r.x)+(b.floor!==r.floor?600:0));});useItem(r,cands[Math.random()<.75?0:(Math.random()*cands.length)|0]);return;}
       say(r,{hunger:'🍽️❗',energy:'🛏️❗',fun:'🎈❗',social:'💬❗'}[low[0]],3);
     }
+    /* garden chores */
+    var gj=Garden.job();if(gj&&Math.random()<.55){sendGardener(gj[0],gj[1],r);return;}
     /* wander / idle flavor */
-    var rm=ROOMS.filter(function(q){return q.f===0||S.upstairs;});var dst=rm[(Math.random()*rm.length)|0];
+    var rm=ROOMS.filter(function(q){return q.f===0||S.upstairs;}).concat([YARD]);var dst=rm[(Math.random()*rm.length)|0];
     if(Math.random()<.6)goTo(r,dst.f,dst.x0+40+Math.random()*(dst.x1-dst.x0-80),null);else{r.act={k:'idle',left:2+Math.random()*3};if(Math.random()<.5){r.f.action=['wave','dance','wiggle','cheer','jump'][(Math.random()*5)|0];r.f.actionT=0;}}
   }
   function simStep(r,dt,gm){
@@ -125,13 +131,14 @@ var House=(function(){
     var a=r.act;if(!a){r.idleT-=dt;if(r.idleT<=0){r.idleT=1.5+Math.random()*2.5;if(r.auto!==false)autonomous(r);}return;}
     if(a.k==='walk'){
       var tf=a.f;if(tf===1&&!S.upstairs)tf=0;
-      var tx=(tf!==r.floor)?STAIR_X+60:a.x,dx=tx-r.x,sp=95*Math.min(gm*2+.5,2.5);
+      var tx=(tf!==r.floor)?STAIR_X+60:a.x,dx=tx-r.x,sp=95*Math.min(gm*2+.5,2.5)*(a.gi!=null?2.2:1);
       if(Math.abs(dx)<4){if(tf!==r.floor){r.climb={t:0,from:r.floor,to:tf};return;}var th=a.then;r.act=null;if(th)th();else{r.act={k:'idle',left:.6};}return;}
       r.dir=dx>0?1:-1;r.x+=Math.sign(dx)*Math.min(Math.abs(dx),sp*dt);f.walkT=Date.now()+120;f.gaitPhase+=dt*14;return;
     }
     if(a.k==='use'){var u=a.u;a.left-=dt*Math.max(1,gm*.8);n[u.need]=Math.min(100,n[u.need]+u.gain/u.dur*dt*Math.max(1,gm*.8));if(u.need!=='fun'&&u.act!=='sit')n.fun=Math.min(100,n.fun+dt*.6);
       if(u.act==='dance'||u.act==='jump'){if(Math.random()<dt*.6)say(r,['🎵','✨','💖','🎶'][(Math.random()*4)|0],1.2);}
       if(a.left<=0||n[u.need]>=99.5){var it=a.it;it.busy=null;if(it.type==='stove'||it.type==='tv'||it.type==='arcade'||it.type==='computer')it.on=(it.type==='tv'||it.type==='computer')?it.on:false;r.act=null;f.action='';say(r,'😊',1.4);dirty=1;}return;}
+    if(a.k==='garden'){a.left-=dt;if(a.job==='water'&&Math.random()<dt*1.2)say(r,'💧',1);if(a.left<=0){var gi=a.i,gjob=a.job;r.act=null;f.action='';gardenDo(gjob,gi,r);}return;}
     if(a.k==='chat'){a.left-=dt;n.social=Math.min(100,n.social+dt*6);n.fun=Math.min(100,n.fun+dt*1.2);if(Math.random()<dt*1.1)say(r,['💬','😂','💖','🤝','✨','🎵','👀','🍓'][(Math.random()*8)|0],1.4);f.action=Math.random()<dt*.2?'wave':f.action;
       if(a.left<=0){r.act=null;f.action='';}return;}
     if(a.k==='idle'){a.left-=dt;if(a.left<=0){r.act=null;f.action='';}}
@@ -197,7 +204,7 @@ var House=(function(){
     if(bad){c.fillStyle='rgba(255,40,80,.35)';c.fillRect(b.x0,b.y0,ct.w,ct.h);}
     if(selItem===it){c.strokeStyle='#ffd23d';c.lineWidth=2.5;c.setLineDash([6,4]);c.strokeRect(b.x0-4,b.y0-4,ct.w+8,ct.h+8);c.setLineDash([]);}
     c.restore();}
-  function lightGlow(){if(!isNight())return;c.save();c.globalCompositeOperation='lighter';S.items.forEach(function(it){if(it.on===false)return;var L={lamp:[110,'#ffcf7a'],floorlamp:[170,'#ffd98a'],fireplace:[180,'#ff8a3a'],tv:[110,'#6ad0ff'],arcade:[110,'#ff3db5'],aquarium:[90,'#2de2ff']}[it.type];if(!L)return;var b=bounds(it),g=c.createRadialGradient(it.x,b.y0+20,4,it.x,b.y0+20,L[0]);g.addColorStop(0,Furni.alpha(L[1],.28));g.addColorStop(1,Furni.alpha(L[1],0));c.fillStyle=g;c.beginPath();c.arc(it.x,b.y0+20,L[0],0,7);c.fill();});c.restore();}
+  function lightGlow(){if(!isNight())return;c.save();c.globalCompositeOperation='lighter';S.items.forEach(function(it){if(it.on===false)return;var L=({lamp:[110,'#ffcf7a'],floorlamp:[170,'#ffd98a'],fireplace:[180,'#ff8a3a'],tv:[110,'#6ad0ff'],arcade:[110,'#ff3db5'],aquarium:[90,'#2de2ff']})[it.type]||Seasons.lights[it.type];if(!L)return;var b=bounds(it),g=c.createRadialGradient(it.x,b.y0+20,4,it.x,b.y0+20,L[0]);g.addColorStop(0,Furni.alpha(L[1],.28));g.addColorStop(1,Furni.alpha(L[1],0));c.fillStyle=g;c.beginPath();c.arc(it.x,b.y0+20,L[0],0,7);c.fill();});c.restore();}
   function drawRes(r){
     var f=r.f,y=resY(r);f.face=r.dir;var lying=r.act&&r.act.k==='use'&&r.act.u.act==='lie';
     var X=r.x,Y=y-16*FS;if(r.climb){X=STAIR_X+60+(r.climb.to>r.climb.from?1:-1)*0;}
@@ -221,11 +228,11 @@ var House=(function(){
   function frame(ts){
     if(!open)return;raf=requestAnimationFrame(frame);var dt=Math.min(.05,(ts-(lastT||ts))/1000);lastT=ts;var t=ts/1000;
     var gm=speed*dt*1.0;/* game minutes per frame: 1 real sec = 1 game min at 1x */
-    if(speed>0){S.min+=gm;if(S.min>=24*60){S.min-=24*60;S.day=(S.day||1)+1;}residents.forEach(function(r){simStep(r,dt,gm);});hourTick();}
+    if(speed>0){S.min+=gm;if(S.min>=24*60){S.min-=24*60;S.day=(S.day||1)+1;}residents.forEach(function(r){simStep(r,dt,gm);});Garden.tick(gm);hourTick();}
     var W2=cv.width,H2=cv.height,dpr=cv._dpr||1;c.setTransform(1,0,0,1,0,0);drawBG(W2,H2);
     var V=view();c.setTransform(cam.z*dpr,0,0,cam.z*dpr,(V.cx-cam.x*cam.z)*dpr,(V.cy-cam.y*cam.z)*dpr);
     c.fillStyle='#1f7a4a';c.fillRect(-3000,10,HW+6000,3000);c.fillStyle='#39ff7a';c.fillRect(-2000,10,HW+4000,4);
-    drawHouse(t);
+    drawHouse(t);drawYard(t);
     var order=S.items.slice().sort(function(a,b){var la=cat(a).place==='wall'?0:cat(a).place==='rug'?1:a.par?3:2,lb=cat(b).place==='wall'?0:cat(b).place==='rug'?1:b.par?3:2;return la-lb;});
     order.forEach(function(it){if(it.floor===1&&!S.upstairs)return;if(drag&&drag.it===it)return;drawItem(it,t);});
     residents.slice().sort(function(a,b){return (sel===a)-(sel===b);}).forEach(function(r){drawRes(r);});
@@ -233,9 +240,10 @@ var House=(function(){
     if(drag&&drag.it){drawItem(drag.it,t,.85,!valid(drag.it));}
     if(ghost&&ghost.it){drawItem(ghost.it,t,.7,!valid(ghost.it)||!Treesh.canAfford(cat(ghost.it).price));}
     if(sel)paintFleaPanel();
+    if(mode==='garden'&&ts-(lastGR||0)>700){lastGR=ts;renderGarden();}
     if(dirty){dirty=0;save();}
   }
-  var lastHour=-1;
+  var lastHour=-1,lastGR=0;
   function hourTick(){var h=Math.floor(hourOf());if(h===lastHour)return;lastHour=h;
     document.getElementById('hs-clock').textContent='Day '+(S.day||1)+' · '+((h%12)||12)+':'+('0'+Math.floor(S.min%60)).slice(-2)+' '+(h<12?'AM':'PM');
     var avg=residents.reduce(function(a,r){return a+mood(r);},0)/Math.max(1,residents.length);
@@ -245,8 +253,125 @@ var House=(function(){
     save();}
   function checkRooms(){var ok=ROOMS.every(function(rm){return S.items.filter(function(it){return it.floor===rm.f&&it.x>=rm.x0&&it.x<rm.x1;}).length>=3;});if(ok&&S.upstairs)Trophies.flag('h_rooms');}
 
+  /* ---------------- 🌱 BACKYARD GARDEN ----------------
+     5 raised beds in the yard. Buy a seed (✦) → fleas water it → it grows while watered
+     (1 real sec = 1 game min at 1x) → fleas harvest ripe crops for ✦ + snacks.
+     Garden Starlites are capped per day (GARDEN_CAP) so the economy stays fair. */
+  var SEEDS=[
+    {id:'strawberry',name:'Strawberries',emo:'🍓',price:6,grow:120,reward:14,col:'#ff3d5a'},
+    {id:'carrot',name:'Carrots',emo:'🥕',price:8,grow:180,reward:20,col:'#ff8a2a'},
+    {id:'grapes',name:'Grapes',emo:'🍇',price:10,grow:240,reward:26,col:'#9b6bff'},
+    {id:'sunflower',name:'Sunflower',emo:'🌻',price:12,grow:300,reward:32,col:'#ffd23d'},
+    {id:'watermelon',name:'Watermelon',emo:'🍉',price:18,grow:420,reward:48,col:'#39c86a'},
+    {id:'pumpkin',name:'Moon Pumpkin',emo:'🎃',price:25,grow:600,reward:70,col:'#ff8a2a'}];
+  var SEED={};SEEDS.forEach(function(x){SEED[x.id]=x;});
+  var PLOT_X=[-560,-470,-380,-290,-200],PLOT_W=78,PLOT_H=20,GARDEN_CAP=160,WATER_DRAIN=0.35;
+  function fmtMin(m){m=Math.max(0,Math.round(m));var h=Math.floor(m/60),mm=m%60;return (h?h+'h ':'')+(mm||!h?mm+'m':'');}
+  var Garden={
+    st:function(){if(!S.garden||!S.garden.plots)S.garden={plots:PLOT_X.map(function(){return {seed:null,g:0,w:0};}),pantry:{},day:{k:'',v:0}};return S.garden;},
+    blocks:function(x0,x1){return PLOT_X.some(function(px){return x0<px+PLOT_W/2+6&&x1>px-PLOT_W/2-6;});},
+    ripe:function(p){return !!(p&&p.seed&&p.g>=SEED[p.seed].grow);},
+    pct:function(p){return p&&p.seed?Math.min(1,p.g/SEED[p.seed].grow):0;},
+    busy:function(p){return !!(p.busy&&performance.now()-(p.busyT||0)<25000);},
+    tick:function(gm){Garden.st().plots.forEach(function(p){if(!p.seed)return;var sd=SEED[p.seed];if(p.w>0&&p.g<sd.grow)p.g=Math.min(sd.grow,p.g+gm);p.w=Math.max(0,p.w-WATER_DRAIN*gm);});},
+    today:function(){var d=Garden.st().day;if(d.k!==Treesh.dayKey()){d.k=Treesh.dayKey();d.v=0;}return d;},
+    job:function(){var P=Garden.st().plots,i;for(i=0;i<P.length;i++)if(Garden.ripe(P[i])&&!Garden.busy(P[i]))return ['harvest',i];
+      for(i=0;i<P.length;i++)if(P[i].seed&&!Garden.ripe(P[i])&&P[i].w<30&&!Garden.busy(P[i]))return ['water',i];return null;}
+  };
+  function gardenDo(job,i,r){var G=Garden.st(),p=G.plots[i];if(!p)return;p.busy=null;
+    if(job==='water'){if(!p.seed||Garden.ripe(p))return;p.w=100;p.fxT=performance.now();Trophies.count('h_water');chime(820);}
+    if(job==='harvest'){if(!Garden.ripe(p))return;var sd=SEED[p.seed];p.seed=null;p.g=0;p.fxT=performance.now();G.pantry[sd.id]=(G.pantry[sd.id]||0)+1;
+      var d=Garden.today(),pay=Math.max(0,Math.min(sd.reward,GARDEN_CAP-d.v));d.v+=pay;
+      if(pay>0)Treesh.award(pay,'Harvested '+sd.name,{icon:sd.emo,kind:'garden'});else tip('Garden Starlites maxed for today. Snacks still go in the basket!');
+      if(r){r.needs.hunger=Math.min(100,r.needs.hunger+18);r.needs.fun=Math.min(100,r.needs.fun+10);say(r,sd.emo,2);}
+      Trophies.count('h_harvest');if(sd.id==='pumpkin')Trophies.flag('h_pumpkin');chime(990);}
+    dirty=1;if(mode==='garden')renderGarden(true);}
+  function freeFleas(){return residents.filter(function(x){return !x.climb&&!(x.act&&((x.act.k==='use'&&x.act.u.act==='lie')||x.act.k==='garden'||x.act.gi!=null));});}
+  function sendGardener(job,i,who){var px=PLOT_X[i],p=Garden.st().plots[i];
+    var r=who||freeFleas().sort(function(a,b){return (Math.abs(a.x-px)+(a.floor?700:0))-(Math.abs(b.x-px)+(b.floor?700:0));})[0];
+    if(!r){gardenDo(job,i,null);return null;}
+    p.busy=r.key;p.busyT=performance.now();r.auto=false;var tx=px+(Math.random()*16-8);
+    goTo(r,0,tx,function(){r.act={k:'garden',job:job,i:i,left:job==='harvest'?2.2:2.8};r.dir=px>=r.x?1:-1;r.f.action=job==='harvest'?'jump':'wiggle';r.f.actionT=0;say(r,job==='harvest'?'🧺':'💧',2.6);});
+    if(r.act)r.act.gi=i;setTimeout(function(){r.auto=true;},30000);return r;}
+  function plantSeed(i,id,who){var p=Garden.st().plots[i],sd=SEED[id];if(!p||p.seed||!sd)return false;
+    if(!Treesh.spend(sd.price,'Seeds: '+sd.name)){tip('Need '+(sd.price-Treesh.points())+' more ✦ for '+sd.name+' seeds',1);return false;}
+    p.seed=id;p.g=0;p.w=0;p.fxT=performance.now();Trophies.count('h_plant');chime(700);
+    if(Garden.st().plots.every(function(q){return q.seed;}))Trophies.flag('h_fullbed');
+    sendGardener('water',i,who||null);tip(sd.emo+' '+sd.name+' planted! A flea is coming to water it');dirty=1;return true;}
+  function hitPlot(w){if(floorAtY(w.y)!==0)return -1;for(var i=0;i<PLOT_X.length;i++){if(Math.abs(w.x-PLOT_X[i])<PLOT_W/2+4&&w.y>-SLAB-PLOT_H-70&&w.y<18)return i;}return -1;}
+  function plotTap(i){var p=Garden.st().plots[i];
+    if(sel){if(!p.seed){seedPicker(i,sel);return;}sendGardener(Garden.ripe(p)?'harvest':'water',i,sel);tip(sel.name+' → '+(Garden.ripe(p)?'harvest':'water')+' bed '+(i+1));return;}
+    plotModal(i);}
+  function seedPicker(i,who){var m=modal('<div class="hm-t">🌱 Plant in Bed '+(i+1)+'</div><p>Pick a seed. Fleas water it, and ripe crops pay Starlites plus a snack.</p><div class="hg-seeds">'+SEEDS.map(function(sd){var can=Treesh.canAfford(sd.price);return '<button data-seed="'+sd.id+'" '+(can?'':'disabled')+' data-testid="garden-seed-'+sd.id+'"><span>'+sd.emo+'</span><b>'+sd.name+'</b><small>✦ '+sd.price+' → <em>✦ '+sd.reward+'</em></small><i>'+fmtMin(sd.grow)+'</i></button>';}).join('')+'</div><div class="hm-row"><button data-close>Close</button></div>');
+    [].forEach.call(m.querySelectorAll('[data-seed]'),function(b){b.onclick=function(){if(plantSeed(i,b.dataset.seed,who))m.classList.remove('show');};});}
+  function plotModal(i){var p=Garden.st().plots[i];if(!p.seed){seedPicker(i);return;}var sd=SEED[p.seed],ripe=Garden.ripe(p),pc=Math.round(Garden.pct(p)*100),w=Math.round(p.w);
+    var m=modal('<div class="hm-t">'+sd.emo+' '+sd.name+' <small class="hg-bed">Bed '+(i+1)+'</small></div>'+
+      '<div class="hg-stat"><span>Growth</span><div class="hf-bar"><i style="width:'+pc+'%;background:'+sd.col+'"></i></div><b data-testid="garden-growth">'+(ripe?'Ripe!':pc+'%')+'</b></div>'+
+      '<div class="hg-stat"><span>Water</span><div class="hf-bar"><i style="width:'+w+'%;background:#2de2ff"></i></div><b data-testid="garden-water">'+w+'%</b></div>'+
+      '<p>'+(ripe?'Ready to harvest for <b style="color:#ffd23d">✦ '+sd.reward+'</b>.':(p.w<=0?'Thirsty! It stops growing until someone waters it.':'About '+fmtMin(sd.grow-p.g)+' of game time left.'))+'</p>'+
+      '<div class="hm-row"><button id="hg-dig" class="bad" data-testid="garden-dig">Dig up</button>'+(ripe?'<button class="go" id="hg-harv" data-testid="garden-harvest">🧺 Harvest</button>':'<button class="go" id="hg-water" data-testid="garden-water-btn" '+(Garden.busy(p)?'disabled':'')+'>💧 Water</button>')+'<button data-close>Close</button></div>');
+    var hv=el('hg-harv');if(hv)hv.onclick=function(){sendGardener('harvest',i);m.classList.remove('show');};
+    var wb=el('hg-water');if(wb)wb.onclick=function(){sendGardener('water',i);m.classList.remove('show');};
+    el('hg-dig').onclick=function(){if(!confirm('Dig up the '+sd.name+'? Seeds are not refunded.'))return;p.seed=null;p.g=0;p.busy=null;dirty=1;m.classList.remove('show');tip('Bed '+(i+1)+' cleared');};}
+  function drawYard(t){var gy=-SLAB,night=isNight();
+    /* lawn the fleas walk on */
+    c.fillStyle='#2c9a58';c.fillRect(YARD.x0-80,gy,(YARD.x1+14)-(YARD.x0-80),SLAB+12);c.fillStyle='#5df09a';c.fillRect(YARD.x0-80,gy,(YARD.x1+14)-(YARD.x0-80),3);
+    /* big tree (left edge) */
+    c.fillStyle='#6a4028';c.fillRect(YARD.x0-6,gy-150,18,150);[[-30,-170,46],[20,-190,52],[-4,-215,44],[36,-150,36],[-44,-140,34]].forEach(function(b){c.fillStyle=b[2]>45?'#2fae5a':'#38c46a';c.beginPath();c.arc(YARD.x0+b[0],gy+b[1],b[2],0,7);c.fill();});
+    c.fillStyle='rgba(255,255,255,.12)';c.beginPath();c.arc(YARD.x0-10,gy-205,18,0,7);c.fill();
+    /* picket fence */
+    c.fillStyle='rgba(244,239,255,.92)';for(var x=YARD.x0+30;x<YARD.x1-30;x+=18){c.beginPath();c.moveTo(x,gy);c.lineTo(x,gy-58);c.lineTo(x+5,gy-66);c.lineTo(x+10,gy-58);c.lineTo(x+10,gy);c.fill();}
+    c.fillRect(YARD.x0+26,gy-48,YARD.x1-YARD.x0-56,6);c.fillRect(YARD.x0+26,gy-22,YARD.x1-YARD.x0-56,6);
+    /* sign */
+    c.fillStyle='#8a5a3a';c.fillRect(-122,gy-96,6,96);Furni.rr(c,-166,gy-118,94,34,8);c.fillStyle='#b77a44';c.fill();c.fillStyle='#fff6dc';c.font='bold 15px Fredoka, sans-serif';c.textAlign='center';c.fillText('🌱 GARDEN',-119,gy-95);c.textAlign='left';
+    /* lamp post by the door */
+    c.fillStyle='#2a2a3e';c.fillRect(-52,gy-120,6,120);Furni.rr(c,-60,gy-138,22,20,5);c.fillStyle=night?'#ffe9a8':'#cfc6e8';c.fill();
+    if(night){var g=c.createRadialGradient(-49,gy-128,2,-49,gy-128,130);g.addColorStop(0,'rgba(255,220,140,.35)');g.addColorStop(1,'rgba(255,220,140,0)');c.fillStyle=g;c.beginPath();c.arc(-49,gy-128,130,0,7);c.fill();}
+    /* back door in the living-room wall */
+    c.fillStyle='#8a5cff';Furni.rr(c,-20,gy-112,24,112,4);c.fill();c.fillStyle='#6a3fe0';c.fillRect(-16,gy-104,16,44);c.fillStyle='#ffd23d';c.beginPath();c.arc(-3,gy-54,2.6,0,7);c.fill();c.fillStyle='#ff7ab8';Furni.rr(c,-44,gy-4,40,6,3);c.fill();
+    if(night){c.fillStyle='rgba(10,8,40,.28)';c.fillRect(YARD.x0-80,gy-260,(YARD.x1)-(YARD.x0-80),260);}
+    Garden.st().plots.forEach(function(p,i){drawPlot(p,i,t);});}
+  function drawPlot(p,i,t){var px=PLOT_X[i],gy=-SLAB,x0=px-PLOT_W/2,top=gy-PLOT_H,sd=p.seed&&SEED[p.seed],ripe=Garden.ripe(p);
+    c.fillStyle='#9a6238';Furni.rr(c,x0,top,PLOT_W,PLOT_H,5);c.fill();c.fillStyle='rgba(0,0,0,.18)';c.fillRect(x0+2,top+PLOT_H/2,PLOT_W-4,1.5);c.fillStyle='rgba(255,255,255,.18)';c.fillRect(x0+3,top+2,PLOT_W-6,2);
+    c.fillStyle=(sd&&p.w>0)?'#3e2414':'#6a4a32';Furni.rr(c,x0+5,top-3,PLOT_W-10,8,4);c.fill();
+    if(sd)drawPlant(p,sd,px,top,t,ripe);else{c.fillStyle='rgba(255,255,255,.45)';c.font='bold 16px Fredoka, sans-serif';c.textAlign='center';c.fillText('＋',px,top-8);c.textAlign='left';}
+    if(p.fxT){var age=performance.now()-p.fxT;if(age<1600){c.fillStyle='rgba(120,220,255,.85)';for(var k=0;k<6;k++){var ph=((age/600)+k/6)%1;c.beginPath();c.ellipse(px-24+k*10,top-46+ph*42,2,3.2,0,0,7);c.fill();}}}
+    if(sd&&!ripe){var bw=PLOT_W-16;c.fillStyle='rgba(0,0,0,.35)';c.fillRect(x0+8,gy+3,bw,4);c.fillStyle=sd.col;c.fillRect(x0+8,gy+3,bw*Garden.pct(p),4);c.fillStyle='rgba(0,0,0,.35)';c.fillRect(x0+8,gy+9,bw,3);c.fillStyle='#2de2ff';c.fillRect(x0+8,gy+9,bw*p.w/100,3);}
+    if(sd&&!Garden.busy(p)&&(ripe||p.w<25)){var by=top-76+Math.sin(t*3+i)*3;c.fillStyle='rgba(255,255,255,.95)';c.beginPath();c.ellipse(px,by,15,13,0,0,7);c.fill();c.beginPath();c.moveTo(px-4,by+11);c.lineTo(px,by+18);c.lineTo(px+4,by+11);c.fill();c.font='15px serif';c.textAlign='center';c.textBaseline='middle';c.fillText(ripe?sd.emo:'💧',px,by+1);c.textAlign='left';c.textBaseline='alphabetic';}}
+  function drawPlant(p,sd,px,top,t,ripe){var k=Garden.pct(p),wilt=p.w<=0&&!ripe,lc=wilt?'#a8964a':'#39c86a',dc=wilt?'#8a7a3a':'#2a9a4a',sw=Math.sin(t*2+px)*(wilt?.02:.06);
+    function lf(x,y,r,rot,col){c.save();c.translate(x,y);c.rotate(rot+(wilt?.6*Math.sign(rot||1):0));c.fillStyle=col;c.beginPath();c.ellipse(r*.9,0,r,r*.42,0,0,7);c.fill();c.restore();}
+    c.save();c.translate(px,top-1);c.rotate(sw);
+    if(k<.18){lf(0,-4,5,-2.6,lc);lf(0,-4,5,-.5,lc);c.fillStyle=dc;c.fillRect(-1,-5,2,5);c.restore();return;}
+    if(sd.id==='sunflower'){var hgt=14+46*k;c.fillStyle=dc;c.fillRect(-1.5,-hgt,3,hgt);lf(0,-hgt*.35,9,-2.7,lc);lf(0,-hgt*.55,8,-.4,lc);
+      if(k>=.55){var r=4+9*k;c.fillStyle='#ffd23d';for(var j=0;j<12;j++){var a=j*Math.PI/6;c.beginPath();c.ellipse(Math.cos(a)*r,-hgt+Math.sin(a)*r,r*.55,r*.26,a,0,7);c.fill();}c.fillStyle='#6a3a1a';c.beginPath();c.arc(0,-hgt,r*.62,0,7);c.fill();if(ripe){c.fillStyle='rgba(255,255,255,.3)';c.beginPath();c.arc(-r*.2,-hgt-r*.2,r*.22,0,7);c.fill();}}
+      else{c.fillStyle='#8adf6a';c.beginPath();c.arc(0,-hgt,4,0,7);c.fill();}c.restore();return;}
+    if(sd.id==='pumpkin'||sd.id==='watermelon'){c.strokeStyle=dc;c.lineWidth=2;c.beginPath();c.moveTo(-28,-2);c.quadraticCurveTo(0,-12,28,-2);c.stroke();[-22,-6,12,26].forEach(function(x,j){lf(x,-5,7+4*k,j%2?-.6:-2.5,lc);});
+      if(k>=.35){var fr=4+13*((k-.35)/.65),fx=4;if(sd.id==='pumpkin'){[[-.5,.8],[.5,.8],[0,1]].forEach(function(q){c.fillStyle=Furni.shade(sd.col,q[1]<1?-.12:0);c.beginPath();c.ellipse(fx+q[0]*fr*.8,-fr*.85,fr*.62,fr*.85,0,0,7);c.fill();});c.fillStyle='#3a8a3a';c.fillRect(fx-1.5,-fr*1.8,3,5);if(ripe){c.fillStyle='rgba(255,255,255,.3)';c.beginPath();c.ellipse(fx-fr*.3,-fr*1.2,fr*.18,fr*.3,-.4,0,7);c.fill();}}
+        else{c.fillStyle='#2f9a3a';c.beginPath();c.ellipse(fx,-fr*.8,fr*1.2,fr*.8,0,0,7);c.fill();c.strokeStyle='#8adf6a';c.lineWidth=2;for(var s2=-2;s2<=2;s2++){c.beginPath();c.ellipse(fx+s2*fr*.34,-fr*.8,fr*.12,fr*.76,0,0,7);c.stroke();}if(ripe){c.fillStyle='rgba(255,255,255,.3)';c.beginPath();c.ellipse(fx-fr*.5,-fr*1.2,fr*.25,fr*.14,-.3,0,7);c.fill();}}}
+      c.restore();return;}
+    if(sd.id==='carrot'){var n=5,hh=8+22*k;for(var q=0;q<n;q++){var a2=-Math.PI/2+(q-(n-1)/2)*.32;c.strokeStyle=lc;c.lineWidth=2.2;c.beginPath();c.moveTo(0,0);c.lineTo(Math.cos(a2)*hh,Math.sin(a2)*hh);c.stroke();lf(Math.cos(a2)*hh*.8,Math.sin(a2)*hh*.8,4,a2,lc);}
+      if(k>.5){c.fillStyle=sd.col;[-12,0,12].forEach(function(x){c.beginPath();c.arc(x,1,3+3*k,Math.PI,0);c.fill();});}c.restore();return;}
+    /* bushes: strawberry / grapes */
+    var br=6+13*k;[[-br*.7,-br*.7],[br*.7,-br*.7],[0,-br*1.2],[-br*.2,-br*.4],[br*.3,-br*1.4]].forEach(function(q,j){c.fillStyle=j%2?lc:dc;c.beginPath();c.arc(q[0],q[1],br*.62,0,7);c.fill();});
+    if(k>=.55&&!ripe){c.fillStyle='#fff';[[-br*.6,-br],[br*.5,-br*1.3],[0,-br*.6]].forEach(function(q){c.beginPath();c.arc(q[0],q[1],2.4,0,7);c.fill();c.fillStyle='#ffd23d';c.beginPath();c.arc(q[0],q[1],1,0,7);c.fill();c.fillStyle='#fff';});}
+    if(ripe){c.font='13px serif';c.textAlign='center';c.textBaseline='middle';[[-br*.6,-br*.8],[br*.55,-br*1.1],[0,-br*1.55]].forEach(function(q){c.fillText(sd.emo,q[0],q[1]);});c.textAlign='left';c.textBaseline='alphabetic';}
+    c.restore();}
+  var gSig='';
+  function renderGarden(force){var h=el('hs-garden');if(!h||mode!=='garden')return;var G=Garden.st(),d=Garden.today();
+    var sig=G.plots.map(function(p){return (p.seed||'-')+Math.round(Garden.pct(p)*20)+'/'+Math.round(p.w/10)+(Garden.busy(p)?'b':'');}).join('|')+JSON.stringify(G.pantry)+d.v+Treesh.points();if(!force&&sig===gSig)return;gSig=sig;
+    var snacks=Object.keys(G.pantry).filter(function(k){return G.pantry[k]>0;}),nSn=snacks.reduce(function(a,k){return a+G.pantry[k];},0);
+    h.innerHTML='<div class="hg-head"><b>🌱 Backyard Garden</b><span data-testid="garden-today">Today ✦ '+d.v+' / '+GARDEN_CAP+'</span></div><div class="hb-row">'+G.plots.map(function(p,i){var sd=p.seed&&SEED[p.seed],ripe=Garden.ripe(p);
+      return '<button class="hb-card hg-card'+(ripe?' ripe':'')+(sd&&p.w<=0&&!ripe?' dry':'')+'" data-plot="'+i+'" data-testid="garden-bed-'+i+'"><span class="hg-emo">'+(sd?sd.emo:'🟫')+'</span><b>'+(sd?sd.name:'Empty bed')+'</b><small>'+(sd?(ripe?'Ripe! ✦ '+sd.reward:Math.round(Garden.pct(p)*100)+'% · 💧 '+Math.round(p.w)+'%'):'Tap to plant')+'</small></button>';}).join('')+
+      '<div class="hg-acts"><button id="hg-waterall" data-testid="garden-water-all">💧 Water all</button><button id="hg-harvall" data-testid="garden-harvest-all">🧺 Harvest all</button><button id="hg-picnic" data-testid="garden-picnic" '+(nSn?'':'disabled')+'>🧺 Picnic'+(nSn?' <span>'+snacks.map(function(k){return SEED[k].emo+'×'+G.pantry[k];}).join(' ')+'</span>':'')+'</button></div></div>';
+    [].forEach.call(h.querySelectorAll('[data-plot]'),function(b){b.onclick=function(){var i=+b.dataset.plot;cam.x=PLOT_X[i];clampCam();plotModal(i);};});
+    el('hg-waterall').onclick=function(){var n=0;G.plots.forEach(function(p,i){if(p.seed&&!Garden.ripe(p)&&p.w<90&&!Garden.busy(p)){sendGardener('water',i);n++;}});tip(n?'Sending fleas to water '+n+' bed'+(n>1?'s':''):'Everything is watered 💧',!n);renderGarden(true);};
+    el('hg-harvall').onclick=function(){var n=0;G.plots.forEach(function(p,i){if(Garden.ripe(p)&&!Garden.busy(p)){sendGardener('harvest',i);n++;}});tip(n?'Harvest time! '+n+' crop'+(n>1?'s':''):'Nothing is ripe yet',!n);renderGarden(true);};
+    el('hg-picnic').onclick=function(){var list=[];snacks.forEach(function(k){for(var q=0;q<G.pantry[k];q++)list.push(k);});if(!list.length||!residents.length)return;var used=0;
+      residents.forEach(function(r,ix){var k=list[ix%list.length];if(ix<list.length){G.pantry[k]--;used++;}r.needs.hunger=Math.min(100,r.needs.hunger+25);r.needs.social=Math.min(100,r.needs.social+15);r.needs.fun=Math.min(100,r.needs.fun+8);say(r,SEED[k].emo,2.4);});
+      Trophies.count('h_picnic');chime(880);dirty=1;tip('Picnic! Everyone shared '+used+' snack'+(used>1?'s':'')+' 😋');renderGarden(true);};}
+
   /* ---------------- input ---------------- */
-  function insets(){var top=64,bot=(mode==='buy'||mode==='paint')?(el('hs-'+mode)?el('hs-'+mode).offsetHeight+80:260):84;return {top:top,bot:bot};}
+  function insets(){var top=64,bot=(mode==='buy'||mode==='paint'||mode==='garden')?(el('hs-'+mode)?el('hs-'+mode).offsetHeight+80:260):84;return {top:top,bot:bot};}
   function view(){var r=cv.getBoundingClientRect(),i=insets();return {w:r.width,h:Math.max(120,r.height-i.top-i.bot),cx:r.width/2,cy:i.top+(r.height-i.top-i.bot)/2,left:r.left,top:r.top};}
   function toWorld(px,py){var v=view();return {x:(px-v.left-v.cx)/cam.z+cam.x,y:(py-v.top-v.cy)/cam.z+cam.y};}
   function floorAtY(y){if(y>floorY(1)-4)return 0;return 1;}
@@ -261,10 +386,10 @@ var House=(function(){
     if(!S.upstairs&&w.y<floorY(1)&&w.y>floorY(2)&&w.x>0&&w.x<HW){askUnlock();return;}
     if(ghost){ghost.it=ghost.it||{id:'ghost',type:ghost.type,col:ghost.col,flip:false,on:true};placeAt(ghost.it,w);ghost.down=true;return;}
     if(mode==='buy'){var it=hitItem(w);if(it){selectItem(it);drag={it:it,orig:JSON.parse(JSON.stringify(it)),kids:S.items.filter(function(k){return k.par===it.id;}).map(function(k){return [k,k.x,k.floor];}),moved:false,sx:e.clientX,sy:e.clientY};return;}selectItem(null);}
-    if(mode==='paint'){var rm=roomAt(floorAtY(w.y),w.x);if(rm&&(rm.f===0||S.upstairs)){paintRoom=rm.id;renderPaint();}return;}
-    if(mode==='live'){var r=hitRes(w);if(r){selectRes(r);return;}var it2=hitItem(w);if(it2&&sel&&cat(it2).use){sel.auto=false;useItem(sel,it2);setTimeout(function(){if(sel)sel.auto=true;},(cat(it2).use.dur+8)*1000);tip(sel.name+' → '+cat(it2).use.verb);return;}
+    if(mode==='paint'){var rm=roomAt(floorAtY(w.y),w.x);if(rm&&!rm.outdoor&&(rm.f===0||S.upstairs)){paintRoom=rm.id;renderPaint();}return;}
+    if(mode==='live'||mode==='garden'){var r=hitRes(w);if(r){selectRes(r);return;}var gpi=hitPlot(w);if(gpi>=0){plotTap(gpi);return;}var it2=hitItem(w);if(it2&&sel&&cat(it2).use){sel.auto=false;useItem(sel,it2);setTimeout(function(){if(sel)sel.auto=true;},(cat(it2).use.dur+8)*1000);tip(sel.name+' → '+cat(it2).use.verb);return;}
       if(it2&&TOGGLE[it2.type]&&!sel){it2.on=it2.on===false;dirty=1;return;}
-      if(sel&&Math.abs(w.y-(floorY(floorAtY(w.y))-40))<120){var fl=floorAtY(w.y);if(fl===0||S.upstairs){sel.auto=false;goTo(sel,fl,Math.max(20,Math.min(STAIR_X-20,w.x)),function(){if(sel)sel.auto=true;});}}}
+      if(sel&&Math.abs(w.y-(floorY(floorAtY(w.y))-40))<120){var fl=floorAtY(w.y);if(fl===0||S.upstairs){sel.auto=false;goTo(sel,fl,Math.max(fl===0?YARD.x0+20:20,Math.min(STAIR_X-20,w.x)),function(){if(sel)sel.auto=true;});}}}
     drag={pan:true,sx:e.clientX,sy:e.clientY,cx:cam.x,cy:cam.y};}
   function pdist(){var p=Object.values(pointers);return Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1;}
   function onMove(e){if(pointers[e.pointerId])pointers[e.pointerId]={x:e.clientX,y:e.clientY};var w=toWorld(e.clientX,e.clientY);
@@ -275,20 +400,23 @@ var House=(function(){
     if(drag.pan){cam.x=drag.cx-(e.clientX-drag.sx)/cam.z;cam.y=drag.cy-(e.clientY-drag.sy)/cam.z;clampCam();}}
   function onUp(e){delete pointers[e.pointerId];
     if(ghost&&ghost.it&&ghost.down){ghost.down=false;var it=ghost.it,ct=cat(it);if(!valid(it)){tip('Can\'t place there — try another spot',1);return;}
+      if(ct.season&&!Seasons.isActive(ct.season)){ghost=null;renderBuy();tip('That pack is out of season. It comes back next year!',1);return;}
       if(!Treesh.spend(ct.price,'Bought '+ct.name)){tip('Need '+(ct.price-Treesh.points())+' more ✦ — win matches to earn Starlites!',1);return;}
-      var n=JSON.parse(JSON.stringify(it));n.id=nid();S.items.push(n);Trophies.count('h_placed');Trophies.count('h_bought');chime(660);dirty=1;checkRooms();tip(ct.name+' placed! −'+ct.price+' ✦');
+      var n=JSON.parse(JSON.stringify(it));n.id=nid();S.items.push(n);Trophies.count('h_placed');Trophies.count('h_bought');if(ct.season){Trophies.count('h_seasonal');S.packs=S.packs||{};S.packs[ct.season]=1;Trophies.best('h_packs',Object.keys(S.packs).length);}chime(660);dirty=1;checkRooms();tip(ct.name+' placed! −'+ct.price+' ✦');
       if(!e.shiftKey){/* keep ghost for multi-place; */}renderBuy();return;}
     if(drag&&drag.it){var d=drag;drag=null;if(d.moved){if(!valid(d.it)){Object.assign(d.it,d.orig);if(!d.orig.par)delete d.it.par;d.kids.forEach(function(k){k[0].x=k[1];k[0].floor=k[2];});tip('Invalid spot — moved back',1);}else{Trophies.count('h_placed');dirty=1;checkRooms();chime(520);}}return;}
     if(Object.keys(pointers).length<2)drag=null;}
   function clampZ(z){return Math.max(.25,Math.min(2.4,z));}
-  function clampCam(){if(!cv)return;var v=view(),hw=v.w/(2*cam.z),hh=v.h/(2*cam.z),x0=-60,x1=HW+60,y0=floorY(2)-190,y1=50;
+  function clampCam(){if(!cv)return;var v=view(),hw=v.w/(2*cam.z),hh=v.h/(2*cam.z),x0=YARD.x0-110,x1=HW+60,y0=floorY(2)-190,y1=50;
     cam.x=(x1-x0<=2*hw)?(x0+x1)/2:Math.max(x0+hw,Math.min(x1-hw,cam.x));cam.y=(y1-y0<=2*hh)?(y0+y1)/2:Math.max(y0+hh,Math.min(y1-hh,cam.y));}
   function onWheel(e){e.preventDefault();var w0=toWorld(e.clientX,e.clientY);cam.z=clampZ(cam.z*(e.deltaY<0?1.1:0.9));var w1=toWorld(e.clientX,e.clientY);cam.x+=w0.x-w1.x;cam.y+=w0.y-w1.y;clampCam();}
   function fit(keep){var r=root.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);cv.width=r.width*dpr;cv.height=r.height*dpr;cv._dpr=dpr;var v=view();
-    var zAll=Math.min(v.w/(HW+140),v.h/(2*FH+250)),zFloor=Math.min(v.w/(HW+140),v.h/(FH+40));
-    if(zAll>=0.5){cam.z=zAll;cam.x=HW/2;cam.y=floorY(1)-100;}
+    var zAll=Math.min(v.w/(HW+140),v.h/(2*FH+250)),zFloor=Math.min(v.w/(HW+140),v.h/(FH+40)),zWide=Math.min(v.w/(HW-YARD.x0+170),v.h/(2*FH+250));
+    if(zWide>=0.62){cam.z=zWide;cam.x=(YARD.x0-40+HW)/2;cam.y=floorY(1)-100;}
+    else if(zAll>=0.5){cam.z=zAll;cam.x=HW/2;cam.y=floorY(1)-100;}
     else if(zFloor>=0.5){cam.z=zFloor;cam.x=HW/2;cam.y=floorY(0)-FH/2+10;}
-    else{cam.z=clampZ(Math.max(.5,Math.min(1,v.h/(FH+60))));if(!keep){cam.x=0;}cam.y=floorY(0)-FH/2+10;}clampCam();}
+    else{cam.z=clampZ(Math.max(.5,Math.min(1,v.h/(FH+60))));if(!keep){cam.x=0;}cam.y=floorY(0)-FH/2+10;}
+    if(mode==='garden'){cam.z=clampZ(Math.min(v.w/(YARD.x1-YARD.x0+260),v.h/(FH+90)));cam.x=(YARD.x0+YARD.x1)/2-30;cam.y=floorY(0)-FH/2+30;}clampCam();}
 
   /* ---------------- UI ---------------- */
   function el(id){return document.getElementById(id);}
@@ -305,7 +433,8 @@ var House=(function(){
       '<div class="hs-itembar" id="hs-item" data-testid="house-item-toolbar"></div>'+
       '<div class="hs-drawer" id="hs-buy" data-testid="house-buy-drawer"></div>'+
       '<div class="hs-drawer" id="hs-paint" data-testid="house-paint-drawer"></div>'+
-      '<div class="hs-tabs"><button data-mode="live" class="on" data-testid="house-tab-live"><i>👁️</i>Live</button><button data-mode="buy" data-testid="house-tab-buy"><i>🛒</i>Buy</button><button data-mode="paint" data-testid="house-tab-paint"><i>🎨</i>Paint</button><button data-mode="sandbox" data-testid="house-tab-sandbox"><i>🌌</i>Sandbox</button></div>'+
+      '<div class="hs-drawer" id="hs-garden" data-testid="house-garden-drawer"></div>'+
+      '<div class="hs-tabs"><button data-mode="live" class="on" data-testid="house-tab-live"><i>👁️</i>Live</button><button data-mode="garden" data-testid="house-tab-garden"><i>🌱</i>Garden</button><button data-mode="buy" data-testid="house-tab-buy"><i>🛒</i>Buy</button><button data-mode="paint" data-testid="house-tab-paint"><i>🎨</i>Paint</button><button data-mode="sandbox" data-testid="house-tab-sandbox"><i>🌌</i>Sandbox</button></div>'+
       '<div class="hs-tip" id="hs-tip"></div><div class="hs-modal" id="hs-modal"></div>';
     document.body.appendChild(root);cv=el('house-cv');c=cv.getContext('2d');
     cv.addEventListener('pointerdown',onDown);cv.addEventListener('pointermove',onMove);window.addEventListener('pointerup',function(e){if(open)onUp(e);});cv.addEventListener('pointercancel',function(e){delete pointers[e.pointerId];drag=null;});cv.addEventListener('wheel',onWheel,{passive:false});
@@ -316,19 +445,19 @@ var House=(function(){
     window.addEventListener('keydown',function(e){if(!open)return;if(e.key==='Escape'){if(ghost){ghost=null;renderBuy();}else if(selItem)selectItem(null);else if(sel)selectRes(null);}if((e.key==='r'||e.key==='R')&&selItem){selItem.flip=!selItem.flip;dirty=1;}if(e.key==='Delete'&&selItem)sellItem(selItem);});
   }
   function setMode(m){if(m==='sandbox'){close();try{window.__zenSandbox=true;startGame();}finally{window.__zenSandbox=false;}return;}
-    mode=m;ghost=null;selectItem(null);if(m!=='live')selectRes(null);paintRoom=m==='paint'?(paintRoom||'living'):null;
+    mode=m;ghost=null;selectItem(null);if(m!=='live'&&m!=='garden')selectRes(null);if(m==='garden'){Treesh.set('frea_garden_seen',1);var gt=root.querySelector('[data-testid="house-tab-garden"]');if(gt)gt.classList.remove('new');}paintRoom=m==='paint'?(paintRoom||'living'):null;
     [].forEach.call(root.querySelectorAll('.hs-tabs [data-mode]'),function(x){x.classList.toggle('on',x.dataset.mode===m);});
-    el('hs-buy').classList.toggle('show',m==='buy');el('hs-paint').classList.toggle('show',m==='paint');if(m==='buy')renderBuy();if(m==='paint')renderPaint();fit(true);
-    tip({live:'Live mode · tap a flea to see their needs & give commands',buy:'Buy mode · pick an item, then tap the house to place · drag items to move',paint:'Paint mode · tap a room, then choose wallpaper & floors'}[m]);}
+    el('hs-buy').classList.toggle('show',m==='buy');el('hs-paint').classList.toggle('show',m==='paint');el('hs-garden').classList.toggle('show',m==='garden');if(m==='buy')renderBuy();if(m==='paint')renderPaint();if(m==='garden')renderGarden(true);fit(true);
+    tip({live:'Live mode · tap a flea to see their needs & give commands',buy:'Buy mode · pick an item, then tap the house to place · drag items to move',paint:'Paint mode · tap a room, then choose wallpaper & floors',garden:'Garden · tap a bed to plant seeds. Fleas water & harvest for ✦'}[m]);}
   function thumbFor(r){var cvs=document.createElement('canvas');cvs.width=cvs.height=64;var q=cvs.getContext('2d'),s=ctx;ctx=q;q.save();q.translate(32,38);q.scale(1.5,1.5);var f=r.f,a=f.action;f.action='';try{f.draw(f.cx,f.cy);}catch(e){}f.action=a;q.restore();ctx=s;return cvs;}
   function renderRes(){var h=el('hs-res');h.innerHTML='';residents.forEach(function(r){var b=document.createElement('button');b.className='hs-av'+(sel===r?' on':'');b.setAttribute('data-testid','house-resident-'+r.name.toLowerCase());b.title=r.name;b.appendChild(thumbFor(r));var m=document.createElement('i');m.style.background=mood(r)>70?'#39ff7a':mood(r)>40?'#ffd23d':'#ff4d6d';b.appendChild(m);b.onclick=function(){selectRes(sel===r?null:r);if(sel){cam.x=r.x;cam.y=floorY(r.floor)-FH/2;clampCam();}};h.appendChild(b);});
     if(residents.length<8){var add=document.createElement('button');add.className='hs-av add';add.textContent='＋';add.title='Invite a roommate';add.setAttribute('data-testid','house-invite');add.onclick=inviteMenu;h.appendChild(add);}}
   function selectRes(r){sel=r;if(r){selectItem(null);}renderRes();el('hs-flea').classList.toggle('show',!!r);if(r)paintFleaPanel(true);}
   var lastPanel=0;
   function paintFleaPanel(force){var now=performance.now();if(!force&&now-lastPanel<400)return;lastPanel=now;var r=sel,p=el('hs-flea');if(!r)return;
-    if(!force&&p._r===r){var dt2=p.querySelector('.hf-head span');if(dt2)dt2.textContent=r.act?(r.act.k==='use'?r.act.u.verb:r.act.k==='chat'?'Chatting with '+r.act.w.name:r.act.k==='walk'?'Walking':'Chilling'):'Deciding…';NEEDS.forEach(function(n){var v=Math.round(r.needs[n[0]]),q=p.querySelector('[data-testid="need-'+n[0]+'"]');if(q){q.querySelector('i').style.width=v+'%';q.querySelector('i').style.background=v>60?n[3]:v>30?'#ffd23d':'#ff4d6d';q.querySelector('b').textContent=v;}});return;}
+    if(!force&&p._r===r){var dt2=p.querySelector('.hf-head span');if(dt2)dt2.textContent=r.act?(r.act.k==='use'?r.act.u.verb:r.act.k==='chat'?'Chatting with '+r.act.w.name:r.act.k==='garden'?(r.act.job==='harvest'?'Harvesting':'Watering plants'):r.act.k==='walk'?'Walking':'Chilling'):'Deciding…';NEEDS.forEach(function(n){var v=Math.round(r.needs[n[0]]),q=p.querySelector('[data-testid="need-'+n[0]+'"]');if(q){q.querySelector('i').style.width=v+'%';q.querySelector('i').style.background=v>60?n[3]:v>30?'#ffd23d':'#ff4d6d';q.querySelector('b').textContent=v;}});return;}
     p._r=r;
-    var doing=r.act?(r.act.k==='use'?r.act.u.verb:r.act.k==='chat'?'Chatting with '+r.act.w.name:r.act.k==='walk'?'Walking':'Chilling'):'Deciding…';
+    var doing=r.act?(r.act.k==='use'?r.act.u.verb:r.act.k==='chat'?'Chatting with '+r.act.w.name:r.act.k==='garden'?(r.act.job==='harvest'?'Harvesting':'Watering plants'):r.act.k==='walk'?'Walking':'Chilling'):'Deciding…';
     var html='<div class="hf-head"><b>'+r.name+'</b><span>'+doing+'</span><button class="hs-x" data-testid="house-flea-close" aria-label="Close">✕</button></div><div class="hf-needs">'+NEEDS.map(function(n){var v=Math.round(r.needs[n[0]]);return '<div class="hf-need" data-testid="need-'+n[0]+'"><span>'+n[2]+' '+n[1]+'</span><div class="hf-bar"><i style="width:'+v+'%;background:'+(v>60?n[3]:v>30?'#ffd23d':'#ff4d6d')+'"></i></div><b>'+v+'</b></div>';}).join('')+'</div>'+
       '<div class="hf-acts">'+[['hunger','🍓 Eat'],['energy','😴 Rest'],['fun','🎉 Play'],['social','💬 Chat'],['dance','🕺 Dance']].map(function(a){return '<button data-act="'+a[0]+'" data-testid="house-act-'+a[0]+'">'+a[1]+'</button>';}).join('')+'</div>'+
       (r.mine?'':'<button class="hf-out" data-testid="house-move-out">Move out</button>');
@@ -345,13 +474,21 @@ var House=(function(){
     [].forEach.call(b.querySelectorAll('[data-col]'),function(x){x.onclick=function(){it.col=x.dataset.col;dirty=1;chime(700);};});}
   function sellItem(it){var ct=cat(it);S.items.filter(function(k){return k.par===it.id;}).forEach(function(k){delete k.par;if(!valid(k)){S.items.splice(S.items.indexOf(k),1);Treesh.award(Math.floor(cat(k).price/2),'Sold '+cat(k).name,{silent:true});}});
     residents.forEach(function(r){if(r.act&&r.act.it===it)stop(r);});S.items.splice(S.items.indexOf(it),1);var back=Math.floor(ct.price/2);if(back)Treesh.award(back,'Sold '+ct.name,{silent:true});selectItem(null);dirty=1;tip('Sold '+ct.name+' +'+back+' ✦');}
-  function renderBuy(){var h=el('hs-buy');var html='<div class="hb-cats">'+CATS.map(function(k){return '<button data-cat="'+k[0]+'" class="'+(buyCat===k[0]?'on':'')+'" data-testid="house-cat-'+k[0]+'">'+k[2]+' '+k[1]+'</button>';}).join('')+'</div><div class="hb-row">';
-    Object.keys(CAT).filter(function(t){return CAT[t].cat===buyCat;}).forEach(function(t){var ct=CAT[t],can=Treesh.canAfford(ct.price);html+='<button class="hb-card'+(ghost&&ghost.type===t?' on':'')+(can?'':' poor')+'" data-type="'+t+'" data-testid="house-buy-'+t+'"><span class="hb-th" data-th="'+t+'"></span><b>'+ct.name+'</b><small>✦ '+ct.price+(ct.use?' · '+ct.use.emo:'')+'</small></button>';});
-    h.innerHTML=html+'</div>'+(ghost?'<div class="hb-hint">Placing <b>'+CAT[ghost.type].name+'</b> — tap/drag in the house · <button data-testid="house-buy-cancel" id="hb-cancel">Cancel</button></div>':'');
+  function buyCard(t,locked,note){var ct=CAT[t],can=Treesh.canAfford(ct.price);return '<button class="hb-card'+(ghost&&ghost.type===t?' on':'')+(locked?' locked':(can?'':' poor'))+'" '+(locked?'disabled aria-disabled="true"':'data-type="'+t+'"')+' data-testid="house-buy-'+t+'"><span class="hb-th" data-th="'+t+'"></span><b>'+ct.name+'</b><small>'+(locked?note:'✦ '+ct.price+(ct.use?' · '+ct.use.emo:''))+'</small></button>';}
+  function renderBuy(){var h=el('hs-buy');if(buyCat==='season'&&S){S.seenPacks=S.seenPacks||{};Seasons.active().forEach(function(pk){S.seenPacks[pk.id+Seasons.now().getFullYear()]=1;});}var html='<div class="hb-cats">'+CATS.map(function(k){return '<button data-cat="'+k[0]+'" class="'+(buyCat===k[0]?'on':'')+(k[0]==='season'&&seasonIsNew()?' new':'')+'" data-testid="house-cat-'+k[0]+'">'+k[2]+' '+k[1]+'</button>';}).join('')+'</div><div class="hb-row">';
+    if(buyCat==='season'){var act=Seasons.active(),up=Seasons.upcoming()[0];
+      act.forEach(function(pk){var dl=Seasons.daysLeft(pk);html+='<div class="hb-pack" data-testid="season-pack-'+pk.id+'"><i>'+pk.emo+'</i><b>'+pk.name+'</b><small>'+(dl<=1?'Last day!':dl+' days left')+'</small></div>';pk.items.forEach(function(r){html+=buyCard(r[0],false);});});
+      if(up){var si=Seasons.startsIn(up);html+='<div class="hb-pack soon" data-testid="season-pack-next-'+up.id+'"><i>'+up.emo+'</i><b>Coming up</b><small>'+up.name+' in '+si+' day'+(si===1?'':'s')+'</small></div>';up.items.forEach(function(r){html+=buyCard(r[0],true,'🔒 Soon');});}
+      dirty=1;var tb=root&&root.querySelector('[data-testid="house-tab-buy"]');if(tb)tb.classList.remove('new');}
+    else Object.keys(CAT).filter(function(t){return CAT[t].cat===buyCat;}).forEach(function(t){html+=buyCard(t,false);});
+    h.innerHTML=html+'</div>'+(ghost?'<div class="hb-hint">Placing <b>'+CAT[ghost.type].name+'</b> · tap/drag in the house or yard · <button data-testid="house-buy-cancel" id="hb-cancel">Cancel</button></div>':'');
     [].forEach.call(h.querySelectorAll('[data-th]'),function(s){s.appendChild(Furni.thumb(s.dataset.th,30));});
     [].forEach.call(h.querySelectorAll('[data-cat]'),function(b){b.onclick=function(){buyCat=b.dataset.cat;renderBuy();};});
     [].forEach.call(h.querySelectorAll('[data-type]'),function(b){b.onclick=function(){var t=b.dataset.type;ghost=(ghost&&ghost.type===t)?null:{type:t,it:null};selectItem(null);renderBuy();if(ghost)tip('Tap inside a room to place the '+CAT[t].name);};});
     var cc=el('hb-cancel');if(cc)cc.onclick=function(){ghost=null;renderBuy();};}
+  function seasonIsNew(){if(!S)return false;var seen=S.seenPacks||{},yr=Seasons.now().getFullYear();return Seasons.active().some(function(pk){return !seen[pk.id+yr];});}
+  function seasonNudge(){if(!seasonIsNew())return;var tb=root.querySelector('[data-testid="house-tab-buy"]');if(tb)tb.classList.add('new');var pk=Seasons.active().filter(function(p){return !(S.seenPacks||{})[p.id+Seasons.now().getFullYear()];})[0];
+    setTimeout(function(){if(open)tip(pk.emo+' '+pk.name+' furniture just arrived in the Buy shop!');},1400);}
   function renderPaint(){var h=el('hs-paint'),rm=ROOMS.find(function(r){return r.id===paintRoom;})||ROOMS[0],st=S.rooms[rm.id];
     h.innerHTML='<div class="hp-room">'+ROOMS.map(function(r){return '<button data-room="'+r.id+'" class="'+(r.id===rm.id?'on':'')+'" '+(r.f===1&&!S.upstairs?'disabled':'')+' data-testid="house-room-'+r.id+'">'+r.name+'</button>';}).join('')+'</div>'+
       '<div class="hp-lbl">Wallpaper</div><div class="hp-sw">'+WALLS.map(function(w){return '<i data-wall="'+w+'" class="'+(st.wall===w?'on':'')+'" style="background:'+w+'"></i>';}).join('')+'</div>'+
@@ -374,10 +511,11 @@ var House=(function(){
     [].forEach.call(m.querySelectorAll('[data-ld]'),function(b){b.onclick=function(){var d=Treesh.get('frea_house_slot_'+b.dataset.ld,null);if(!d)return;var up=S.upstairs;S=JSON.parse(JSON.stringify(d.data));S.upstairs=S.upstairs||up;buildResidents();renderRes();save();m.classList.remove('show');tip('Loaded slot '+b.dataset.ld);};});
     el('hm-reset').onclick=function(){if(!confirm('Reset your Flea House to the starter home? (Upstairs stays unlocked)'))return;var up=S.upstairs,g=S.guests;S=blank();S.upstairs=up;S.guests=g;buildResidents();renderRes();save();m.classList.remove('show');};}
   function openHouse(){
-    if(!root)build();S=load();buildResidents();open=true;root.classList.add('show');isPaused=true;
+    if(!root)build();S=load();Garden.st();if(S.savedAt){var away=Math.min(720,Math.max(0,(Date.now()-S.savedAt)/1000));if(away>5)Garden.tick(away);}buildResidents();open=true;root.classList.add('show');isPaused=true;
     try{document.getElementById('overlay').classList.add('gone');}catch(e){}
-    fit();setMode('live');renderRes();Treesh.paint();lastT=0;lastHour=-1;raf=requestAnimationFrame(frame);bump('matchesPlayed');bumpMode('matchesByMode','zen');
-    if(!Treesh.get('frea_house_seen',0)){Treesh.set('frea_house_seen',1);setTimeout(function(){modal('<div class="hm-t">🏠 Welcome to your Flea House!</div><ul class="hm-list"><li>👁️ <b>Live</b> — tap a flea to see needs & send them to eat, rest, play or chat</li><li>🛒 <b>Buy</b> — spend ✦ Starlites on furniture, drag to rearrange, flip & recolor, stack small items on tables</li><li>🎨 <b>Paint</b> — wallpaper & floors for every room</li><li>💖 Happy fleas earn you bonus Starlites & trophies</li></ul><div class="hm-row"><button class="go" data-close data-testid="house-welcome-ok">Let\'s go!</button></div>');},500);}
+    fit();setMode('live');renderRes();seasonNudge();
+    if(!Treesh.get('frea_garden_seen',0)){var gt=root.querySelector('[data-testid="house-tab-garden"]');if(gt)gt.classList.add('new');if(Treesh.get('frea_house_seen',0))setTimeout(function(){if(open)tip('🌱 New: a Backyard Garden! Open the Garden tab to plant seeds');},3200);}Treesh.paint();lastT=0;lastHour=-1;raf=requestAnimationFrame(frame);bump('matchesPlayed');bumpMode('matchesByMode','zen');
+    if(!Treesh.get('frea_house_seen',0)){Treesh.set('frea_house_seen',1);setTimeout(function(){modal('<div class="hm-t">🏠 Welcome to your Flea House!</div><ul class="hm-list"><li>👁️ <b>Live</b> — tap a flea to see needs & send them to eat, rest, play or chat</li><li>🛒 <b>Buy</b> — spend ✦ Starlites on furniture, drag to rearrange, flip & recolor, stack small items on tables</li><li>🎨 <b>Paint</b> — wallpaper & floors for every room</li><li>🌱 <b>Garden</b> — plant seeds out back; fleas water & harvest them for ✦</li><li>✨ <b>Seasonal</b> — new holiday furniture rotates in through the year</li><li>💖 Happy fleas earn you bonus Starlites & trophies</li></ul><div class="hm-row"><button class="go" data-close data-testid="house-welcome-ok">Let\'s go!</button></div>');},500);}
   }
   function close(){open=false;cancelAnimationFrame(raf);save();if(root)root.classList.remove('show');isPaused=false;residents.forEach(function(r){stop(r);});S.items.forEach(function(i){i.busy=null;});
     try{toLobby();}catch(e){try{document.getElementById('overlay').classList.remove('gone');}catch(x){}}}
