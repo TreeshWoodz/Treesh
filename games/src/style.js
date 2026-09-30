@@ -41,7 +41,7 @@
     ctx.save();var x=2,y=3.2;
     ctx.fillStyle='#3a0f24';ctx.beginPath();ctx.moveTo(x-3.4,y);ctx.quadraticCurveTo(x,y-0.8,x+3.4,y);ctx.quadraticCurveTo(x+3.1,y+4.6,x,y+4.8);ctx.quadraticCurveTo(x-3.1,y+4.6,x-3.4,y);ctx.fill();
     ctx.save();ctx.clip();ctx.fillStyle='#ff5f8f';ctx.beginPath();ctx.ellipse(x+0.2,y+4.4,2.4,1.9,0,0,7);ctx.fill();ctx.restore();
-    ctx.strokeStyle='rgba(20,6,14,.55)';ctx.lineWidth=0.6;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x-3.4,y);ctx.quadraticCurveTo(x,y-0.8,x+3.4,y);ctx.quadraticCurveTo(x+3.1,y+4.6,x,y+4.8);ctx.quadraticCurveTo(x-3.1,y+4.6,x-3.4,y);ctx.strokeStyle='rgba(20,6,14,.55)';ctx.lineWidth=0.6;ctx.stroke();
     ctx.restore();
   };
   /* ---- thick glossy white antennae with ball tips ---- */

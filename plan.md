@@ -1,7 +1,12 @@
 # Development Plan — FREA! (Treesh Arcade)
 
 ## 1) Objectives
-- Ship an upgraded **self‑contained** `games/frea.html` (served at `treesh.app/games/frea`) with noticeably improved **character rendering**, **UI polish**, **mode completeness**, and a **Sims‑like Zen mode**.
+- Ship an upgraded **self‑contained** `games/frea.html` (served at `treesh.app/games/frea`) with noticeably improved:
+  - **Character rendering + customization** (detailed, cohesive, modern model)
+  - **UI polish** (including a standalone character creator)
+  - **Game environments** (beautiful, cohesive art direction)
+  - **Mode completeness + stability** (bug-squash across *all* modes)
+  - **Sims‑like Zen gameplay** (Flea House life-sim + upgraded Zen Sandbox)
 - Implement **Treesh profile + Starlites** integration:
   - Read `treesh_profile` (nickname, birthday, zodiac, avatar) and surface it in-game.
   - Award Starlites into the parent schema `treesh_stars` **safely** with a ledger + reconciliation (survive parent overwrites).
@@ -10,7 +15,7 @@
   - **Backyard Garden** (plant → water → grow → harvest) that pays Starlites with a daily cap.
   - **Seasonal Furniture** packs that rotate through the year.
 - Ensure **live balance sync** when embedded in the Treesh arcade iframe: parent counters update instantly when trophies/rewards are earned.
-- Finalize delivery by confirming with the user that the visuals (character style + Zen mechanics) meet expectations.
+- Finalize delivery by confirming with the user that the visuals (character style + environments + Zen features) meet expectations.
 
 ## 2) Implementation Steps
 
@@ -33,7 +38,7 @@ Completed outcomes:
 - **Rule documented:** do not edit `frea.html` directly; edit `src/*` and rebuild.
 
 #### 2) Character model overhaul (match reference image)
-**Status:** ✅ Implemented (pending user visual confirmation)
+**Status:** ✅ Implemented (pending ongoing iteration)
 - Updated the flea renderer to the new “reference look” (glossy eyes, blush, wings, antennae, etc.).
 - Named cast integrated via `src/style.js`.
 
@@ -132,18 +137,105 @@ Completed outcomes:
    - Confirm character visuals match reference.
    - Confirm Zen/Flea House feel (furniture placement + garden loop + seasonal shop pacing).
 
+### Phase 5 — Studio + Environments + Zen Sandbox+ + Bug Sweep (current)
+**Status:** 🔄 In progress
+
+#### 1) Standalone Character Studio modal (P0)
+**Status:** ✅ Implemented + wired
+- New standalone, visual character customizer:
+  - `src/studio.js` + `src/studio.css`.
+  - Tile-based selection with live flea preview, roster switching, undo, randomize.
+  - Opened from lobby **Customize** button.
+- Legacy “Customize” tab removed from profile modal UI (kept hidden as a compatibility/data source layer for selects + OPT lists).
+
+#### 2) Detailed, cohesive customization art for **ALL** parts (P0)
+**Status:** ✅ Implemented + iterating
+- New unified rendering pass for all customization options in `src/parts.js`:
+  - Redrawn hats, glasses, wings, capes, accessories, mouths, eyes, antenna variants, brows in a cohesive “glossy jelly-toy” style.
+  - Alignment normalized to the Style-2.0 face.
+  - RNG seeding to prevent flicker for hair + glitter/pattern details.
+- Added new options:
+  - Hats: `tiara`, `bunny`, `cat`, `headphones`, `propeller`, `beret`
+  - Glasses: `nerd`, `goggles`
+  - Wings: `bat`, `crystal`
+  - Capes: `star`, `custom` (accent color)
+  - Accessories: `bowtie`, `flowerlei`
+  - Mouths: `cat`, `teeth`
+  - Eyes: `sparkle`, `cat`
+- Bug fixes:
+  - Removed stray mouth ring from Style 2.0 (`src/style.js`).
+
+#### 3) Environments redesign + new environments (P1)
+**Status:** ✅ Implemented (needs playtest and tune)
+- New parallax scene engine (`src/arenas.js`): cached, layered, neon-cozy art direction.
+- **Arcade rule (A): one themed arena per mode**
+  - `classic` → Crystal Kingdom
+  - `race` → Sunset Speedway
+  - `survival` → Ember Peaks
+  - `tag` → Slime Swamp
+  - `hns` → Moonlit Grove
+  - `hoops` → Rooftop Court
+  - `tutorial/title` → Neon Meadow
+- **Zen rule (B): multiple pickable worlds**
+  - Rebuilt all prior Zen worlds on the new engine (now selectable via env chip).
+  - Added 6 new worlds:
+    - Sakura Garden, Cloud Kingdom, Northern Lights, Glow Shroom Forest, Autumn Park, Neon Lagoon
+- Improvements:
+  - Themed ground band replaces the pale floor slab.
+  - Floor platform set to `wall=true` only when it’s the normal ground platform so it stops visually clashing.
+  - Fix: sun stripes now clip correctly (no punching holes in sky).
+- Debug helper:
+  - `FreaArenas.start(mode, env)` to jump into a mode/environment for testing.
+
+#### 4) Zen Sandbox UI + features upgrade (P1)
+**Status:** ✅ Implemented (needs bug-sweep + mobile validation)
+- `src/zenplus.js` + `src/zenplus.css`:
+  - Dock restyle (glass, larger tiles).
+  - New **Worlds** tab with painted thumbnails.
+  - New **Magic** tab:
+    - Weather overlays (rain/snow/petals/confetti/fireflies)
+    - Time of day overlay (day/sunset/night)
+    - Gravity presets (moon/normal/heavy)
+    - Party mode (lights + auto group emotes)
+    - Group emotes (dance/wave/flip)
+    - Flea rain (spawn extra fleas overhead)
+    - Photo mode (download canvas PNG; hides HUD temporarily)
+  - Fix: dock position no longer overlaps emote FAB on desktop.
+  - Themed prop spawning for new worlds (maps to existing prop sets).
+
+#### 5) Comprehensive bug sweep in Zen Sandbox + all modes (P1)
+**Status:** ⏳ Not started (next)
+- Full playtest + screenshot/Playwright run across:
+  - Character Studio open/close flows + persistence
+  - Every arcade mode with new arenas
+  - Zen Sandbox+ (Worlds/Magic, edit mode, spawn/clear, props)
+  - Flea House (furniture placement, shop, garden, seasonal packs)
+- Fix any regressions found.
+
+#### 6) Documentation updates (P2)
+**Status:** ⏳ Not started (next)
+- Update `games/README.md` with Phase 5 modules:
+  - `arenas.js`, `parts.js`, `studio.js`, `zenplus.js` and new CSS files.
+  - Debug helpers/flags (`FreaArenas.start`, ZenPlus state storage key `frea_zenplus`).
+- Update `/app/memory/PRD.md` with Phase 5 summary and UX notes.
+
+**Current build ordering**
+- CSS: `polish.css`, `studio.css`, `zenplus.css`
+- JS: `treesh.js`, `style.js`, `parts.js`, `furni.js`, `seasonal.js`, `trophies.js`, `house.js`, `polish.js`, `arenas.js`, `zenplus.js`, `studio.js`
+
 ## 3) Next Actions
-1) **Testing (blocking before release):**
-   - Automated smoke + screenshot checks covering garden, seasonal packs, and parent live sync.
-2) **Docs (handoff readiness):**
-   - Ensure README/PRD reflect the new garden + seasonal + live sync integration.
-3) **User verification (blocking):**
-   - Review character style vs reference image.
-   - Review Flea House + Backyard Garden mechanics and overall intuitiveness.
-   - Review trophy balance and reward pacing.
-4) **Handoff:**
-   - Provide the preview URL for final confirmation: `https://frea-refined.preview.emergentagent.com/games/frea.html`.
-   - Once approved, finalize delivery.
+1) **Bug sweep (blocking):**
+   - Run screenshot-tool/Playwright across Studio + all modes + Zen Sandbox+ + Flea House.
+   - Fix any runtime errors, UI overlap issues (esp. mobile), broken interactions, or persistence issues.
+2) **Performance pass (recommended):**
+   - Ensure arena parallax stays smooth on low-end devices (respect `perfMode`).
+   - Verify ZenPlus overlays don’t tank FPS.
+3) **Docs (handoff readiness):**
+   - Update README/PRD for Phase 5 modules + new worlds/options.
+4) **User verification (blocking):**
+   - Confirm the new customization model (all options) is cohesive and “awesome”.
+   - Confirm environments match the desired neon‑cozy aesthetic.
+   - Confirm Zen Sandbox+ features feel fun and intuitive.
 
 ## 4) Success Criteria
 - `treesh.app/games/frea` loads as a single file and plays smoothly on desktop + mobile.
@@ -154,7 +246,17 @@ Completed outcomes:
   - Survive parent overwrites via reconciliation (no duplicate awards).
   - When embedded, parent UI updates **immediately** (message + storage sync) and parent memory never overwrites game awards.
 - Every mode feels “finished”: clear goals, readable HUD, satisfying end screen + rewards.
+- Environments:
+  - Arcade: one cohesive, upgraded arena per mode.
+  - Zen: multiple pickable worlds, including newly added ones.
+- Character customization:
+  - Standalone Character Studio is discoverable and pleasant.
+  - Every customization option is cohesive, high-quality, and visually aligned.
+  - New options persist correctly in `frea_v4`.
 - Zen “Flea House” supports: build/buy, place/rotate/snap/stack, needs + autonomy, save/load.
+- Zen Sandbox+ supports:
+  - Build dock usability, worlds selection via thumbnails, magic toggles, photo mode.
+  - No UI overlap with emote controls (desktop + mobile).
 - Backyard Garden supports: plant/water/grow/harvest/picnic, autonomy + direct commands, offline growth, daily payout cap.
 - Seasonal shop supports: rotating packs, locked coming-soon previews, out-of-season guard, debug date override.
 - Achievements unlock reliably, show in UI, and grant stars once (now **55** trophies).
