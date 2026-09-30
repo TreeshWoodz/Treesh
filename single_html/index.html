@@ -956,6 +956,38 @@
   [data-np-root].np-kar-full .k-line{ font-size:clamp(1.85rem,6vw,3rem); }
   [data-np-root].np-kar-full .kstage-scroll{ gap:0; }
 
+  /* ===== Karaoke fullscreen stage ===== */
+  .kfs{ --kfs-c1:var(--treesh-purple); --kfs-c2:var(--treesh-purple-soft); }
+  .kfs.kfs-g-rainbow{ --kfs-c1:#ff3d9a; --kfs-c2:rgba(255,61,154,0.55); }
+  .kfs-aura{ position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  .kfs-aura span{ position:absolute; left:50%; top:46%; width:min(900px,125vw); height:min(900px,125vw); border-radius:9999px; transform:translate(-50%,-50%); background:radial-gradient(circle, var(--kfs-c1) 0%, transparent 60%); opacity:.2; filter:blur(80px); animation:kfsPulse 7s ease-in-out infinite alternate; }
+  .kfs-aura span:nth-child(2){ left:32%; top:72%; width:min(620px,95vw); height:min(620px,95vw); background:radial-gradient(circle, var(--kfs-c2) 0%, transparent 62%); animation-duration:11s; animation-delay:-4s; }
+  @keyframes kfsPulse{ 0%{ transform:translate(-50%,-50%) scale(.88); opacity:.12; } 100%{ transform:translate(-50%,-54%) scale(1.12); opacity:.3; } }
+  .kfs.kfs-g-rainbow .kfs-aura, .kfs.kfs-g-rainbow .kfs-stage, .kfs.kfs-g-rainbow .kfs-prog-fill{ animation:kfsHue 14s linear infinite; }
+  @keyframes kfsHue{ to{ filter:hue-rotate(360deg); } }
+  [data-np-root].kfs .kstage-glow{ display:none; }
+  [data-np-root].kfs .k-line{ font-size:clamp(1.2rem,3.1vw,1.95rem); font-weight:800; color:rgba(255,255,255,0.5); opacity:0; filter:blur(2px); background:none !important; border-color:transparent !important; box-shadow:none !important; transform:scale(.94); padding:6px 20px; transition:opacity .55s ease, transform .55s cubic-bezier(.22,1,.36,1), filter .55s ease; }
+  [data-np-root].kfs .k-line.k-prev{ opacity:.2; filter:blur(1px); }
+  [data-np-root].kfs .k-line.k-next{ opacity:.5; filter:none; transform:scale(.97); }
+  [data-np-root].kfs .k-line.k-next2{ opacity:.2; filter:blur(1px); }
+  [data-np-root].kfs .k-line.active{ opacity:1; filter:none; transform:scale(1); font-size:clamp(2rem,6.4vw,4.3rem); line-height:1.12; padding:12px 22px; max-width:min(94vw,64rem); }
+  [data-np-root].kfs .k-line.active .k-char{ color:rgba(255,255,255,0.3); }
+  [data-np-root].kfs .k-line.active .k-char.lit{ color:#fff; text-shadow:0 0 16px var(--kfs-c1), 0 0 44px var(--kfs-c2), 0 0 90px var(--kfs-c2); }
+  [data-np-root].kfs .k-line.active .k-char.lit-edge{ color:#fff; text-shadow:0 0 10px var(--kfs-c2); }
+  [data-np-root].kfs .k-line.past .k-char.lit{ color:rgba(255,255,255,0.55); text-shadow:none; }
+  html.theme-light [data-np-root].kfs .k-line{ color:rgba(255,255,255,0.5); }
+  html.theme-light [data-np-root].kfs .text-white\/55{ color:rgba(255,255,255,0.6) !important; }
+  html.theme-light [data-np-root].kfs .bg-white\/5{ background-color:rgba(255,255,255,0.06) !important; }
+  html.theme-light [data-np-root].kfs .border-white\/12{ border-color:rgba(255,255,255,0.14) !important; }
+  .kfs-ui{ transition:opacity .5s ease, transform .5s ease; }
+  .kfs.kfs-idle .kfs-ui{ opacity:0; pointer-events:none; }
+  .kfs.kfs-idle .kfs-top{ transform:translateY(-8px); }
+  .kfs.kfs-idle .kfs-bottom{ transform:translateY(8px); }
+  .kfs.kfs-idle, .kfs.kfs-idle *{ cursor:none; }
+  .kfs-prog-fill{ background:var(--kfs-c1); box-shadow:0 0 12px var(--kfs-c2); transition:width .25s linear; }
+  html.perf-mode .kfs-aura span, html.a11y-reduce-motion .kfs-aura span, html.perf-mode .kfs.kfs-g-rainbow .kfs-aura, html.perf-mode .kfs.kfs-g-rainbow .kfs-stage, html.perf-mode .kfs.kfs-g-rainbow .kfs-prog-fill{ animation:none; }
+  html.perf-mode [data-np-root].kfs .k-line{ filter:none; }
+
   /* Lyric Studio floating rhyme popover */
   .ls-rhyme-pop{ will-change:left,top; }
   .ls-rhyme-card{ animation:lsRhymePop .16s cubic-bezier(.22,1,.36,1) both; }
@@ -1420,6 +1452,7 @@ const state = {
   profileOpen: false, profileTab: "favorites", settingsTab: "display",
   searchOpen: false, searchTab: "songs", searchQuery: "", searchFilter: "all", searchSort: "relevance", recentSearches: LS.get("treesh_recent_searches", []),
   karaoke: false, lyricsEdit: false, lyricEdits: LS.get("treesh_lyric_edits", {}),
+  xf: Object.assign({sec:6, mode:"auto"}, LS.get("treesh_xf", {})), karGlow: LS.get("treesh_kar_glow", "accent"),
   lsOpen: false, ls: null, lsw: null, karCountIn: LS.get("treesh_kar_countin", 1),
   lyricDrafts: LS.get("treesh_lyric_drafts", []), lsRhymesOn: LS.get("treesh_ls_rhymes_on", true),
   lyricSelect: false, lyricSel: [],
@@ -2138,7 +2171,64 @@ function importAllDataFromFile(file){
 (function attachAudioEl(){ const add=()=>{ try{ if(document.body && !audio.isConnected){ audio.style.display="none"; audio.setAttribute("aria-hidden","true"); document.body.appendChild(audio); } }catch(e){} }; if(document.body) add(); else document.addEventListener("DOMContentLoaded", add); })();
 function shuffleKeepFirst(arr, i){ let rest=arr.filter((_,x)=>x!==i); rest=rest.filter(s=>!(s&&s.id&&state.dislikes.has(s.id))); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
 function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
-function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state._playCounted=false; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl){ /* iOS background auto-advance: setting .src implicitly loads. Calling audio.load() here resets the element and makes the follow-up play() require a fresh user gesture while backgrounded, which silently fails. So we must NOT call load() on track change. */ audio.src=song.audioUrl; } else { try{ audio.currentTime=0; }catch(e){} } if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{ const retry=()=>{ audio.removeEventListener("canplay",retry); const p2=audio.play(); if(p2&&p2.catch) p2.catch(()=>{}); }; audio.addEventListener("canplay",retry,{once:true}); }); } }
+function loadIndex(i, list, autoplay=true){ const q=list||state.queue; if(i<0||i>=q.length) return; if(state.lyricSelect){ state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } _starLastTU=-1; state._playCounted=false; state.abA=null; state.abB=null; state.index=i; const song=q[i]; if(audio.src!==song.audioUrl){ if(autoplay && xfBegin(song)) return; xfCancel(); /* iOS background auto-advance: setting .src implicitly loads. Calling audio.load() here resets the element and makes the follow-up play() require a fresh user gesture while backgrounded, which silently fails. So we must NOT call load() on track change. */ audio.src=song.audioUrl; } else { xfCancel(); try{ audio.currentTime=0; }catch(e){} } if(autoplay){ const p=audio.play(); if(p&&p.catch) p.catch(()=>{ const retry=()=>{ audio.removeEventListener("canplay",retry); const p2=audio.play(); if(p2&&p2.catch) p2.catch(()=>{}); }; audio.addEventListener("canplay",retry,{once:true}); }); } }
+/* ---------- Crossfade: a ghost element plays the outgoing tail while the main <audio> fades in the next song.
+   iOS Safari ignores .volume, so there we advance a hair early for a tight, gap-free switch instead. ---------- */
+let _xf=null, _xfAuto=false, _xfGhost=null, _xfGhostNode=null, _xfEarlySrc="";
+function xfSec(){ const v=+((state.xf||{}).sec); return isNaN(v)?6:Math.max(0,Math.min(12,v)); }
+function xfOn(){ return xfSec()>0; }
+function saveXf(){ LS.set("treesh_xf", {sec:xfSec(), mode:(state.xf&&state.xf.mode==="manual")?"manual":"auto", last:(state.xf&&state.xf.last)||6}); }
+function xfHasNext(){ const q=state.queue; if(!q.length||state.repeat==="one") return false; for(let k=1;k<q.length;k++){ let n=state.index+k; if(n>=q.length){ if(state.repeat!=="all") return false; n-=q.length; } if(q[n] && !isDisliked(q[n].id)) return true; } return false; }
+function xfGetGhost(){
+  if(!_xfGhost){ _xfGhost=new Audio(); _xfGhost.preload="auto"; try{ _xfGhost.crossOrigin="anonymous"; _xfGhost.setAttribute("playsinline",""); }catch(e){} _xfGhost.addEventListener("ended",()=>{ if(_xf&&_xf.phase==="fade") xfFinish(); }); }
+  if(!_xfGhostNode && typeof _vizAC!=="undefined" && _vizAC && typeof _eqPreamp!=="undefined" && _eqPreamp){ try{ _xfGhostNode=_vizAC.createMediaElementSource(_xfGhost); _xfGhostNode.connect(_eqPreamp); }catch(e){} }
+  return _xfGhost; }
+function xfStopGhost(){ const g=_xfGhost; if(!g) return; try{ g.pause(); g.removeAttribute("src"); g.load(); }catch(e){} }
+function xfFinish(){ const x=_xf; if(!x) return; _xf=null; (x.timers||[]).forEach(clearTimeout); if(x.iv) clearInterval(x.iv); if(x.off) x.off(); xfStopGhost(); try{ audio.volume=(typeof state.volume==="number"?state.volume:1); }catch(e){} }
+function xfCancel(){ if(_xf) xfFinish(); }
+function xfBegin(song){
+  if(!xfOn() || IS_IOS) return false;
+  if(!(_xfAuto || (state.xf && state.xf.mode==="manual"))) return false;
+  if(audio.paused || !audio.src || (audio.currentTime||0)<0.5) return false;
+  const dur=audio.duration||0, t0=audio.currentTime||0, left=(dur&&isFinite(dur))?dur-t0:Infinity;
+  if(left<1.2) return false;
+  xfCancel();
+  const g=xfGetGhost(); const target=t0+0.45;
+  const x=_xf={ phase:"prep", song, sec:xfSec(), target, timers:[] };
+  const check=()=>{ if(_xf!==x || x.phase!=="prep" || x.synced) return; if(!g.seeking && g.readyState>=3 && Math.abs((g.currentTime||0)-target)<0.4){ x.synced=true; xfWaitSync(x); } };
+  const onMeta=()=>{ if(_xf!==x) return; try{ g.currentTime=target; }catch(e){} };
+  g.addEventListener("loadedmetadata", onMeta, {once:true}); g.addEventListener("canplay", check); g.addEventListener("seeked", check);
+  x.off=()=>{ g.removeEventListener("loadedmetadata", onMeta); g.removeEventListener("canplay", check); g.removeEventListener("seeked", check); };
+  g.muted=false; g.volume=audio.volume; g.src=audio.currentSrc||audio.src;
+  x.timers.push(setTimeout(()=>{ if(_xf===x && x.phase==="prep") xfCommit(x,false); }, 1600));
+  return true;
+}
+function xfWaitSync(x){ if(_xf!==x) return; if(audio.paused){ xfCommit(x,false); return; } const now=audio.currentTime||0; if(now>=x.target-0.015){ xfCommit(x,true); return; } x.timers.push(setTimeout(()=>xfWaitSync(x), Math.max(4,Math.min(40,(x.target-now)*1000-10)))); }
+function xfCommit(x, withGhost, forcePlay){
+  if(_xf!==x) return; (x.timers||[]).forEach(clearTimeout); x.timers=[]; if(x.off){ x.off(); x.off=null; }
+  const g=_xfGhost, vol=(typeof state.volume==="number"?state.volume:1);
+  if(withGhost && g){ try{ const drift=(audio.currentTime||0)-x.target; if(drift>0.08) g.currentTime=audio.currentTime; }catch(e){} g.volume=vol; const gp=g.play(); if(gp&&gp.catch) gp.catch(()=>{}); }
+  const wasPaused=audio.paused;
+  audio.src=x.song.audioUrl; audio.volume=withGhost?0:vol;
+  if(!withGhost){ _xf=null; xfStopGhost(); if(wasPaused && !forcePlay) return; }
+  const p=audio.play(); if(p&&p.catch) p.catch(()=>{ const retry=()=>{ const p2=audio.play(); if(p2&&p2.catch) p2.catch(()=>{}); }; audio.addEventListener("canplay",retry,{once:true}); });
+  if(!withGhost) return;
+  x.phase="fade"; x.commitAt=performance.now(); x.mainStart=0;
+  audio.addEventListener("playing",()=>{ if(_xf===x && !x.mainStart){ x.mainStart=performance.now(); const left=(g&&g.duration&&isFinite(g.duration))?(g.duration-(g.currentTime||0)):x.sec; x.D=Math.max(0.6,Math.min(x.sec,left))*1000; } },{once:true});
+  x.iv=setInterval(()=>xfTick(x), 40);
+}
+function xfTick(x){ if(_xf!==x){ clearInterval(x.iv); return; } const v=(typeof state.volume==="number"?state.volume:1), g=_xfGhost, now=performance.now();
+  if(!x.mainStart){ if(now-x.commitAt>3000){ x.mainStart=now; x.D=x.sec*1000; } else { audio.volume=0; if(g) g.volume=v; return; } }
+  const p=Math.min(1,(now-x.mainStart)/(x.D||1));
+  try{ audio.volume=Math.max(0,Math.min(1,v*Math.sin(p*Math.PI/2))); if(g) g.volume=Math.max(0,Math.min(1,v*Math.cos(p*Math.PI/2))); }catch(e){}
+  if(p>=1) xfFinish(); }
+function xfOnTime(ct){
+  if(_xf || !xfOn() || !state.isPlaying || audio.paused || state.repeat==="one" || state.abA!=null) return;
+  const d=audio.duration||0; if(!d || !isFinite(d)) return;
+  if(IS_IOS){ if(d>10 && d-ct<=0.5 && d-ct>0 && _xfEarlySrc!==audio.src && xfHasNext()){ _xfEarlySrc=audio.src; nextTrack(false); } return; }
+  const sec=xfSec(); if(d>sec*2+4 && d-ct<=sec && d-ct>1.3 && xfHasNext()){ _xfAuto=true; try{ nextTrack(false); }finally{ _xfAuto=false; } } }
+function xfSetSec(v){ v=Math.max(0,Math.min(12,parseInt(v,10)||0)); state.xf=state.xf||{}; if(v>0) state.xf.last=v; state.xf.sec=v; saveXf(); if(!v) xfCancel(); const l=document.getElementById("xf-val"); if(l) l.textContent=v?v+"s":"Off"; const m=document.getElementById("xf-mode-wrap"); if(m) m.classList.toggle("opacity-40",!v); }
+function xfToggle(){ state.xf=state.xf||{}; if(xfOn()){ state.xf.last=xfSec(); xfSetSec(0); } else xfSetSec(state.xf.last||6); toast(xfOn()?("Crossfade on \u00b7 "+xfSec()+"s"):"Crossfade off"); if(state.view==="settings") renderView(); }
 function playSong(song, list){ if(song && isDisliked(song.id)){ toast("This song is disliked","Remove the dislike to play it"); return; } let src=(list&&list.length)?list.slice():[song]; src=src.filter(x=>x && !isDisliked(x.id)); if(!src.length) src=[song]; state.base=src; let order=src, idx=Math.max(0,src.findIndex(s=>s.id===song.id)); if(state.shuffle){ order=shuffleKeepFirst(src,idx); idx=0; } state.queue=order; loadIndex(idx,order,true); state.npOpen=false; renderMini(); renderNP(); }
 function togglePlay(){ if(!curSong()) return; if(audio.paused){ const p=audio.play(); if(p&&p.catch)p.catch(()=>{}); } else audio.pause(); }
 function nextTrack(manual=false){ const q=state.queue; if(!q.length) return; if(state.repeat==="one"&&!manual){ loadIndex(state.index,q,true); return; } let n=state.index; for(let k=0;k<q.length;k++){ n++; if(n>=q.length){ if(state.repeat==="all"||manual){ n=0; } else { audio.pause(); return; } } if(q[n] && !isDisliked(q[n].id)){ loadIndex(n,q,true); return; } } audio.pause(); }
@@ -2168,11 +2258,11 @@ function maybeCloseProfileOnPlay(el){ try{ if(state.profileOpen && el && el.clos
 
 
 audio.addEventListener("play", ()=>{ state.isPlaying=true; updatePlayIcons(); if(state.eq&&state.eq.enabled){ try{ eqEnsure(); }catch(e){} } if("mediaSession"in navigator){ navigator.mediaSession.playbackState="playing"; try{ navigator.mediaSession.setActionHandler("nexttrack",()=>nextTrack(true)); navigator.mediaSession.setActionHandler("previoustrack",()=>prevTrack()); }catch(e){} if(typeof updatePositionState==="function") updatePositionState(); } });
-audio.addEventListener("pause", ()=>{ state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
+audio.addEventListener("pause", ()=>{ if(_xf && _xf.phase==="fade" && performance.now()-_xf.commitAt>400 && audio.paused) xfFinish(); state.isPlaying=false; updatePlayIcons(); if("mediaSession"in navigator) navigator.mediaSession.playbackState="paused"; });
 let _starLastTU=-1;
-audio.addEventListener("timeupdate", ()=>{ const ct=audio.currentTime||0; if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); if(s && ct>20 && !state._playCounted){ state._playCounted=true; bumpPlayCount(s.id); } if(Math.abs(ct-(state._posTU||0))>=1){ state._posTU=ct; if(typeof updatePositionState==="function") updatePositionState(); } });
+audio.addEventListener("timeupdate", ()=>{ if(_xf && _xf.phase==="prep") return; const ct=audio.currentTime||0; xfOnTime(ct); if(state.abA!=null && state.abB!=null && ct>=state.abB-0.03){ try{ audio.currentTime=state.abA; }catch(e){} return; } if(state.isPlaying && _starLastTU>=0){ const d=ct-_starLastTU; if(d>0 && d<2) starListenTick(d); } _starLastTU=ct; state.currentTime=ct; updateProgress(); const s=curSong(); if(s && ct>20) starNewSong(s.id); if(s && ct>20 && !state._playCounted){ state._playCounted=true; bumpPlayCount(s.id); } if(Math.abs(ct-(state._posTU||0))>=1){ state._posTU=ct; if(typeof updatePositionState==="function") updatePositionState(); } });
 audio.addEventListener("loadedmetadata", ()=>{ state.duration=audio.duration||0; updateProgress(); updateABMarkers(); if(typeof updatePositionState==="function") updatePositionState(); });
-audio.addEventListener("ended", ()=>nextTrack(false));
+audio.addEventListener("ended", ()=>{ if(_xf && _xf.phase==="prep"){ xfCommit(_xf,false,true); return; } nextTrack(false); });
 audio.addEventListener("error", ()=>{ state.isPlaying=false; });
 /* iOS + EQ: Web Audio suspends when the app is backgrounded/locked, pausing sound.
    When the user returns to the app, resume the audio graph and keep playback going. */
@@ -2304,6 +2394,9 @@ SETTINGS_INDEX.push(
   _sGo('go-groups','Artist groups','Create custom artist groups','artist groups duo band members custom','users','lyrics','Artist groups'),
   _sGo('go-about','About Treesh','Version, install & app info','about version info install home screen app update','info','about','About'),
   _sGo('go-erase','Erase all data','Reset Treesh on this device','erase reset delete all data factory wipe start over','trash-2','account','[data-testid="settings-danger"]'),
+  { id:'crossfade', label:'Crossfade', desc:'Blend songs together at the end of each track', kw:'crossfade cross fade transition blend smooth gapless mix fade songs', ic:'blend', type:'toggle', get:()=>xfOn(), toggle:()=>xfToggle() },
+  { id:'crossfade-skips', label:'Crossfade on skips', desc:'Also blend when you tap next, previous or pick a song', kw:'crossfade skips manual next previous transition blend', ic:'skip-forward', type:'toggle', get:()=>xfOn()&&state.xf&&state.xf.mode==='manual', toggle:()=>{ state.xf=state.xf||{}; const on=!(xfOn()&&state.xf.mode==='manual'); state.xf.mode=on?'manual':'auto'; if(on&&!xfOn()) state.xf.sec=state.xf.last||6; saveXf(); if(state.view==='settings') renderView(); } },
+  _sGo('go-crossfade','Crossfade length','Set how long songs blend (1\u201312s)','crossfade length seconds duration transition fade time','blend','display','Sound'),
   { id:'go-profile', label:'Edit profile', desc:'Nickname, birthday & avatar', kw:'profile edit nickname name birthday avatar photo picture', ic:'user', type:'action', go:()=>{ state.settingsEditProfile=true; goSettingSection('account','Edit profile'); } }
 );
 SETTINGS_INDEX.forEach(it=>{ if(it.id==='voice-speak'||it.id==='go-voice') it.voice=true; });
@@ -3242,6 +3335,15 @@ function updateCustomMusicStorage(){
   }).catch(()=>{});
 }
 
+function crossfadeCardHtml(){ const sec=xfSec(), mode=(state.xf&&state.xf.mode==="manual")?"manual":"auto";
+  const mb=(v,l)=>`<button data-act="xf-mode" data-val="${v}" data-testid="xf-mode-${v}" aria-pressed="${mode===v}" class="press h-9 flex-1 rounded-lg px-2 text-xs font-semibold transition-colors ${mode===v?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:text-white'}">${l}</button>`;
+  return `<div class="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" data-testid="settings-crossfade">
+    <div class="flex items-center gap-3"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="blend" style="width:20px;height:20px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Crossfade</p><p class="clamp-2 text-xs text-white/50">Fade one song out while the next fades in</p></div><span id="xf-val" data-testid="xf-value" class="shrink-0 font-doto text-sm font-bold text-white/80">${sec?sec+'s':'Off'}</span></div>
+    <input type="range" min="0" max="12" step="1" value="${sec}" oninput="xfSetSec(this.value)" data-testid="xf-slider" aria-label="Crossfade length" class="mt-3 w-full accent-[color:var(--treesh-purple)]">
+    <div class="mt-0.5 flex justify-between text-[10px] text-white/35"><span>Off</span><span>6s</span><span>12s</span></div>
+    <div id="xf-mode-wrap" class="mt-3 ${sec?'':'opacity-40'}"><p class="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-white/40">When to crossfade</p><div class="flex gap-1 rounded-xl border border-white/10 bg-white/5 p-1">${mb('auto','Song endings')}${mb('manual','Endings + skips')}</div></div>
+    ${IS_IOS?`<p class="mt-2.5 flex items-start gap-1.5 text-[11px] text-amber-200/80" data-testid="xf-ios-note"><i data-lucide="info" class="mt-px shrink-0" style="width:12px;height:12px"></i>On iPhone and iPad, Safari doesn\u2019t allow volume fades, so songs switch gap-free instead.</p>`:''}
+  </div>`; }
 function viewSettings(){
   const p=state.profile||{}; const z=zodiac(p.birthday);
   const acc=(state.accent||"#9328ff");
@@ -3366,12 +3468,13 @@ function viewSettings(){
 
   <section data-testid="settings-audio" class="${tab==='display'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="audio-lines" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Sound</h2></div>
-    <p class="mb-4 pl-11 text-sm text-white/50">Shape your audio with a 10-band equalizer.</p>
+    <p class="mb-4 pl-11 text-sm text-white/50">Equalizer and smooth song transitions.</p>
     <button data-act="open-eq" data-testid="settings-open-eq" class="press flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5 text-left transition-colors hover:bg-white/[0.06]">
       <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sliders-vertical" style="width:20px;height:20px"></i></span>
       <span class="min-w-0 flex-1"><span class="block text-sm font-semibold">Equalizer</span><span class="clamp-1 block text-xs text-white/50">${state.eq.enabled?('On \u00b7 '+eqCurrentPreset().name):'Off'} \u00b7 10 bands, preamp &amp; presets</span></span>
       <i data-lucide="chevron-right" class="shrink-0 text-white/40" style="width:18px;height:18px"></i>
     </button>
+    ${crossfadeCardHtml()}
   </section>
 
   <section data-testid="settings-personalize" class="${tab==='display'?'':'hidden'} space-y-5">
@@ -3612,7 +3715,9 @@ const WHATS_NEW = {
     { icon:"hard-drive", title:"Storage and data", desc:"See what is saved on this device and clear any part of it whenever you like." },
     { icon:"lock", title:"App and page locks", desc:"Add a PIN or password to keep the app or single pages private." },
   ]},
-  player: { v:3, date:"September 17, 2026", title:"Music Player", sub:"A richer way to listen.", items:[
+  player: { v:4, date:"September 30, 2026", title:"Music Player", sub:"A richer way to listen.", items:[
+    { icon:"blend", title:"Crossfade", desc:"Songs blend into each other (6s by default). Pick song endings only or endings + skips in Settings \u2192 Sound." },
+    { icon:"maximize", title:"Karaoke stage", desc:"Fullscreen karaoke with big glowing lyrics, accent, cover or rainbow glow, and controls that fade away while you sing." },
     { icon:"smartphone", title:"Reliable background play", desc:"Your music keeps playing when the screen locks or you switch apps, even on iPhone and iPad." },
     { icon:"sliders-vertical", title:"10-band Equalizer", desc:"Shape your sound with a graphic EQ, preamp, 13 presets and a live spectrum. Save your own presets too \u2014 open it from the player or Settings." },
     { icon:"mic-vocal", title:"Tighter karaoke timing", desc:"Fixed line and word timing so the highlight and the performer tag stay perfectly in sync, even with section headers." },
@@ -4900,6 +5005,7 @@ function updateKaraoke(force){
   if(idx!==_karIdx||force){
     _karIdx=idx;
     _karLineEls.forEach((el,i)=>{ const a=(i===idx); const p=(i<idx); if(el._a!==a){ el._a=a; el.classList.toggle("active",a); } if(el._p!==p){ el._p=p; el.classList.toggle("past",p); }
+      const pv=(i===idx-1), n1=(i===idx+1), n2=(i===idx+2); if(el._pv!==pv){ el._pv=pv; el.classList.toggle("k-prev",pv); } if(el._n1!==n1){ el._n1=n1; el.classList.toggle("k-next",n1); } if(el._n2!==n2){ el._n2=n2; el.classList.toggle("k-next2",n2); }
       if(i<idx){ el.querySelectorAll(".k-char:not(.lit)").forEach(c=>{ c.classList.add("lit"); c.classList.remove("lit-edge"); c._lit=true; c._edge=false; }); }
       else if(i>idx){ el.querySelectorAll(".k-char.lit,.k-char.lit-edge").forEach(c=>{ c.classList.remove("lit","lit-edge"); c._lit=false; c._edge=false; }); }
     });
@@ -5213,6 +5319,52 @@ function refreshLyricsRegion(){
   else { stopKaraokeLoop(); }
   if(!state.lyricSelect) updateLyricHighlight();
 }
+/* ---------- Karaoke fullscreen stage ---------- */
+let _kfsIdleT=null, _kfsFS=false;
+function kfsRequestFS(){ try{ if(document.fullscreenElement||document.webkitFullscreenElement) return; const el=document.documentElement; const fn=el.requestFullscreen||el.webkitRequestFullscreen; if(fn){ const p=fn.call(el); if(p&&p.catch) p.catch(()=>{}); } }catch(e){} }
+function kfsExitFS(){ try{ if(!_kfsFS) return; _kfsFS=false; if(document.fullscreenElement||document.webkitFullscreenElement){ const fn=document.exitFullscreen||document.webkitExitFullscreen; if(fn){ const p=fn.call(document); if(p&&p.catch) p.catch(()=>{}); } } }catch(e){} }
+function _kfsFsChange(){ const on=!!(document.fullscreenElement||document.webkitFullscreenElement); if(on){ _kfsFS=!!state.karFull; return; } if(_kfsFS && state.karFull){ _kfsFS=false; state.karFull=false; if(state.npOpen) renderNP(); } _kfsFS=false; }
+document.addEventListener("fullscreenchange", _kfsFsChange); document.addEventListener("webkitfullscreenchange", _kfsFsChange);
+function kfsWake(){ const r=document.querySelector("#np .kfs"); if(!r) return; r.classList.remove("kfs-idle"); clearTimeout(_kfsIdleT);
+  const arm=()=>{ _kfsIdleT=setTimeout(()=>{ const rr=document.querySelector("#np .kfs"); if(!rr) return; if(!state.isPlaying){ arm(); return; } rr.classList.add("kfs-idle"); },3000); }; arm(); }
+function kfsWire(){ const r=document.querySelector("#np .kfs"); if(!r) return; ["pointermove","pointerdown","wheel","touchstart"].forEach(ev=>r.addEventListener(ev,kfsWake,{passive:true})); kfsWake();
+  const bar=document.getElementById("kfs-bar"); if(bar) bar.addEventListener("click",e=>{ const rc=bar.getBoundingClientRect(); const p=Math.max(0,Math.min(1,(e.clientX-rc.left)/Math.max(1,rc.width))); if(state.duration) seekTo(p*state.duration); }); }
+function renderKaraokeFS(c, s, wasOpen){
+  const glow=state.karGlow||"accent", pal=state.palette;
+  const vars=(glow==="cover" && pal && pal[0])?`--kfs-c1:${rgb(pal[0],0.95)};--kfs-c2:${rgb(pal[1]||pal[0],0.55)};`:"";
+  const coverSw=(pal&&pal[0])?`linear-gradient(135deg,${rgb(pal[0],1)},${rgb(pal[1]||pal[0],1)})`:"linear-gradient(135deg,#9a9a9a,#444)";
+  const gBtn=(v,l,sw)=>`<button data-act="kfs-glow" data-val="${v}" data-testid="kfs-glow-${v}" aria-pressed="${glow===v}" title="${l} glow" class="press inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold ${glow===v?"bg-white/15 text-white":"text-white/55 hover:text-white"}"><span class="h-3.5 w-3.5 rounded-full ring-1 ring-white/20" style="background:${sw}"></span><span class="hidden sm:inline">${l}</span></button>`;
+  const pct=state.duration?(state.currentTime/state.duration*100):0;
+  const ib="press grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10";
+  c.innerHTML=`<div data-np-root data-testid="karaoke-fullscreen" class="kfs kfs-g-${glow} np-kar-full fixed inset-0 z-[60] overflow-hidden bg-black text-white ${wasOpen?"":"np-entering"}" style="${vars}">
+    <div class="kfs-aura" aria-hidden="true"><span></span><span></span></div>
+    <div class="kfs-top kfs-ui absolute inset-x-0 top-0 z-20 flex items-center gap-2.5 px-4 pt-[calc(12px+env(safe-area-inset-top))] sm:gap-3 sm:px-8">
+      <div class="h-9 w-9 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,"h-full w-full object-cover")}</div>
+      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-bold" data-testid="kfs-title">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55" data-testid="kfs-artist">${esc(s.artist)}</p></div>
+      <div class="flex shrink-0 items-center gap-0.5 rounded-full border border-white/12 bg-white/5 p-0.5" data-testid="kfs-glow-picker">${gBtn("accent","Accent","var(--treesh-purple)")}${gBtn("cover","Cover",coverSw)}${gBtn("rainbow","Rainbow","conic-gradient(#ff4d4d,#ffd24d,#4dff88,#4dc3ff,#b04dff,#ff4d4d)")}</div>
+      <button data-act="toggle-countin" data-testid="kfs-countin" aria-label="Count-in" title="Count-in: ${["Off","Visual","Visual + tick"][state.karCountIn||0]}" class="${ib} ${state.karCountIn?"":"opacity-60"}"><i data-lucide="${["timer-off","timer","bell-ring"][state.karCountIn||0]}" style="width:17px;height:17px"></i></button>
+      <button data-act="toggle-kar-full" data-testid="kfs-exit" aria-label="Exit fullscreen karaoke" class="${ib}"><i data-lucide="minimize" style="width:17px;height:17px"></i></button>
+    </div>
+    <div class="kfs-stage absolute inset-0 z-10 flex flex-col pb-[calc(92px+env(safe-area-inset-bottom))] pt-[calc(62px+env(safe-area-inset-top))]">
+      <div class="relative h-9 shrink-0"><div id="np-performer" class="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-2"></div></div>
+      ${karaokeStageHtml()}
+    </div>
+    <div class="kfs-bottom kfs-ui absolute inset-x-0 bottom-0 z-20 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] sm:px-8">
+      <div id="kfs-bar" data-testid="kfs-progress" class="relative h-5 cursor-pointer" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 overflow-hidden rounded-full bg-white/15"><div id="kfs-prog" class="kfs-prog-fill h-full rounded-full" style="width:${pct}%"></div></div></div>
+      <div class="flex items-center justify-between gap-3">
+        <span id="kfs-cur" class="w-12 font-doto text-[11px] text-white/55">${fmt(state.currentTime)}</span>
+        <div class="flex items-center gap-3 sm:gap-5">
+          <button data-act="prev" data-testid="kfs-prev" aria-label="Previous" class="press grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10"><i data-lucide="skip-back" style="width:22px;height:22px" class="fill-current"></i></button>
+          <button data-act="toggle-play" id="np-pp" data-testid="kfs-play" aria-label="Play or pause" class="press grid h-14 w-14 place-items-center rounded-full bg-white text-black shadow-[0_8px_34px_rgba(255,255,255,0.22)]"><i data-lucide="${state.isPlaying?"pause":"play"}" style="width:26px;height:26px" class="fill-current"></i></button>
+          <button data-act="next" data-testid="kfs-next" aria-label="Next" class="press grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10"><i data-lucide="skip-forward" style="width:22px;height:22px" class="fill-current"></i></button>
+        </div>
+        <span id="kfs-dur" class="w-12 text-right font-doto text-[11px] text-white/55">${fmt(state.duration)}</span>
+      </div>
+    </div>
+  </div>`;
+  icons(); _perfKey="__init__"; _karIdx=-1; _karSpans=null; _karSongSig="";
+  updateKaraoke(true); startKaraokeLoop(); syncScrollLock(); kfsWire();
+}
 function renderNP(){
   const c=$("#np"); const s=curSong();
   const _lt=state.theme==='light';
@@ -5221,6 +5373,7 @@ function renderNP(){
   const npMode = state.showLyrics ? "lyrics" : (state.vinylMode ? "vinyl" : "art");
   const modeChanged = wasOpen && state._npMode !== npMode;
   state._npMode = npMode;
+  if(state.karaoke && state.karFull && state.showLyrics && !state.lyricsEdit){ renderKaraokeFS(c, s, wasOpen); return; }
   const pal=state.palette; const c0=pal&&pal[0],c1=pal&&(pal[1]||pal[0]),c2=pal&&(pal[2]||pal[1]||pal[0]);
   const controls=`
     <div class="flex items-center gap-3"><span id="np-cur" class="font-doto w-9 text-right text-[11px] text-white/70">${fmt(state.currentTime)}</span><div class="relative flex-1"><input id="np-seek" data-testid="now-playing-seek-slider" class="tr w-full" type="range" min="0" max="100" step="0.1" value="${state.duration?(state.currentTime/state.duration*100):0}"><div id="np-ab-markers" class="pointer-events-none absolute inset-0"></div></div><span class="font-doto w-9 text-[11px] text-white/70">${fmt(state.duration)}</span></div>
@@ -5342,7 +5495,7 @@ function wireNPSwipe(){
 }
 function closeNP(){
   const root=$("#np [data-np-root]");
-  stopKaraokeLoop();
+  stopKaraokeLoop(); kfsExitFS();
   state.npOpen=false; state.showLyrics=false; state.karaoke=false; state.karFull=false; state._npMode=null; state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); syncScrollLock();
   if(!root){ $("#np").innerHTML=""; return; }
   root.classList.remove("np-entering"); root.classList.add("np-leaving");
@@ -6955,6 +7108,7 @@ function updateProgress(){ const s=curSong(); const d=state.duration||0,cur=stat
   const mp=$("#mini-prog"); if(mp) mp.style.width=pct+"%";
   const seek=$("#np-seek"); if(seek){ if(document.activeElement!==seek){ seek.value=pct; } fillSlider(seek); }
   const curEl=$("#np-cur"); if(curEl) curEl.textContent=fmt(cur);
+  const kp=document.getElementById("kfs-prog"); if(kp){ kp.style.width=pct+"%"; const kc=document.getElementById("kfs-cur"); if(kc) kc.textContent=fmt(cur); const kd=document.getElementById("kfs-dur"); if(kd) kd.textContent=fmt(d); }
   updateLyricHighlight();
   updateKaraoke();
 }
@@ -7469,8 +7623,10 @@ document.addEventListener("click", e=>{
     case "mini-open": state.npOpen=true; renderNP(); break;
     case "np-close": closeNP(); break;
     case "toggle-lyrics": state.showLyrics=!state.showLyrics; if(!state.showLyrics){ state.karaoke=false; state.karFull=false; state.lyricsEdit=false; state.lyricSelect=false; state.lyricSel=[]; closeLyricPop(); } renderNP(); break;
-    case "toggle-karaoke": { state.karaoke=!state.karaoke; if(state.karaoke){ state.showLyrics=true; state.lyricsEdit=false; } else { state.karFull=false; } _karIdx=-1; renderNP(); break; }
-    case "toggle-kar-full": { state.karFull=!state.karFull; renderNP(); break; }
+    case "toggle-karaoke": { state.karaoke=!state.karaoke; if(state.karaoke){ state.showLyrics=true; state.lyricsEdit=false; } else { state.karFull=false; kfsExitFS(); } _karIdx=-1; renderNP(); break; }
+    case "toggle-kar-full": { state.karFull=!state.karFull; if(state.karFull) kfsRequestFS(); else kfsExitFS(); renderNP(); break; }
+    case "kfs-glow": { state.karGlow=["accent","cover","rainbow"].includes(t.dataset.val)?t.dataset.val:"accent"; LS.set("treesh_kar_glow",state.karGlow); renderNP(); break; }
+    case "xf-mode": { state.xf=state.xf||{}; state.xf.mode=(t.dataset.val==="manual")?"manual":"auto"; if(!xfOn()) state.xf.sec=state.xf.last||6; saveXf(); renderView(); toast(state.xf.mode==="manual"?"Crossfade on endings + skips":"Crossfade on song endings"); break; }
     case "toggle-countin": { state.karCountIn=((state.karCountIn||0)+1)%3; LS.set("treesh_kar_countin", state.karCountIn); if(state.karCountIn===2){ lsPlayTick(); } toast("Count-in: "+['Off','Visual','Visual + tick'][state.karCountIn]); renderNP(); break; }
     case "copy-lyrics": copyLyrics(id||(curSong()&&curSong().id)); break;
     case "lyric-resume": resumeLyricAutoScroll(); break;
