@@ -1,0 +1,1 @@
+(globalThis.webpackChunkfrontend||=[]).push([[527],{908(e){function o(e){return Promise.resolve().then(()=>{const o=new Error("Cannot find module '"+e+"'");throw o.code="MODULE_NOT_FOUND",o})}o.keys=()=>[],o.resolve=o,o.id=908,e.exports=o}}]);
