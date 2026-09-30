@@ -10,6 +10,22 @@ Order confirmed by user. All 5 COMPLETED & verified this session:
 
 NEXT (P1 backlog, user-approved to continue in order): Backdrops revamp → Custom Music Manager UI cleanup → Like buttons on custom music → Lyric Studio tips UI → Font color settings → Voice controls upgrade → Search upgrade → (P2) rename Cover Art → Image Studio.
 
+## ▶ SESSION LOG 2 (current continuation)
+DONE this session: Custom Song Likes (heart on custom songs in lists/cards), Music Manager cleanup (My Music list rows now Edit+Trash inline + ⋯ menu via songRow opts.manager), Lyric Studio Tips (removed always-on tip; inline info button `ls-tips-toggle` expands `#ls-tips-panel`), Backdrops Studio (9 images, slideshow fade/rotate/flip + seq/random + all/selected + time slider, per-image+global filters & text overlay, dim slider 20-90%, 6 new gradient presets), and Instrum Vocals STEM EDITING.
+
+### STEM EDITING (DONE + verified)
+- Clip model extended: {offset,len,rate,buflen,fx} + derived dur=len/rate. Normalized in iNormalizeAudioTracks; set on record/import; iLoadBuffer sets buflen.
+- Playback (iTransportPlay): src.playbackRate=rate; src.start(t0+start, offset, len); per-stem FX chain overrides track FX when clip.fx set.
+- Trim handles (.idaw-h-l/.idaw-h-r) cut start/end; separate Speed handle (.idaw-speed, drag sideways) changes playbackRate keeping content (inward=faster/higher, outward=slower/lower). Waveform (iDrawWave) draws only the [offset,offset+len] slice.
+- Clip body drag = move along lane (when not in select mode). Paste lands at playhead (S.playheadSec, set by tapping empty lane) then draggable.
+- Copy/Paste/Delete + per-stem FX via Select bar. Shared mediaId guarded on delete (iMediaRefs).
+- Selection: "Select" toggle + tap multi-select; desktop-style marquee (mouse drag on empty lane, or ~550ms hold on touch) via global pointer listeners on #i-lanes-wrap.
+- Verified: copy/paste@playhead, stem FX apply/clear, trim math, speed math, selection all via screenshot + evaluate; no console errors.
+
+NEXT (remaining P1 backlog): Font color settings → Voice controls upgrade → Search upgrade → (P2) rename Cover Art → Image Studio, Karaoke fullscreen, Lyric Card Studio, Crossfade, Find Lyrics formatting.
+
+
+
 ## ▶ ACTIVE SESSION ORDER (user-confirmed)
 User confirmed on latest turn — build in this order, PHASED (test between):
 1. **Phase J — Sleek Loading Screen** (hide startup flash / FOUC). ← IN PROGRESS
