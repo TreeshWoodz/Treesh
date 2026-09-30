@@ -48,7 +48,7 @@ async def main():
             print("=" * 70)
             
             await page.set_viewport_size({"width": 1440, "height": 900})
-            await page.goto("https://melody-boost-3.preview.emergentagent.com", wait_until="domcontentloaded", timeout=60000)
+            await page.goto("https://treesh-phase5.preview.emergentagent.com", wait_until="domcontentloaded", timeout=60000)
             await page.wait_for_timeout(2000)
             print("Page loaded successfully")
             

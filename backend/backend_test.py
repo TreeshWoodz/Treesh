@@ -2,7 +2,7 @@ import requests
 import sys
 import uuid
 
-BASE_URL = "https://melody-boost-3.preview.emergentagent.com/api"
+BASE_URL = "https://treesh-phase5.preview.emergentagent.com/api"
 
 class BackendTester:
     def __init__(self):
