@@ -2129,6 +2129,51 @@ function searchSongsList(q){ q=(q||"").trim(); if(!q) return []; const by=parseB
 function searchArtistsList(q){ q=(q||"").trim(); if(!q) return []; let scored=[]; for(const a of ARTISTS){ const sc=scoreFields([{text:a.name,weight:1},{text:a.role||"",weight:0.4}],q); if(sc>0) scored.push({a,score:sc}); } scored.sort((x,y)=>y.score-x.score); return scored.map(x=>x.a).slice(0,60); }
 function searchLyricsList(q){ q=(q||"").trim(); if(!q) return []; const qn=normStr(q); const qc=qn.replace(/ /g,""); const out=[]; for(const s of vis(SONGS)){ const lines=s.lyrics||[]; for(let i=0;i<lines.length;i++){ const tx=lines[i]&&lines[i].text; if(!tx) continue; const hn=normStr(tx); if(hn.includes(qn) || (qc.length>=3 && hn.replace(/ /g,"").includes(qc))){ out.push({song:s,line:tx,i,t:lines[i].t}); if(out.length>=60) break; } } if(out.length>=60) break; } return out; }
 function searchEmpty(q){ return `<div class="flex min-h-[38vh] flex-col items-center justify-center gap-3 text-center text-white/50"><i data-lucide="search-x" style="width:38px;height:38px"></i><p class="text-sm">No ${esc(state.searchTab)} match \u201C${esc(q)}\u201D</p></div>`; }
+/* ---- Settings search: a registry of toggleable/openable settings ---- */
+const SETTINGS_INDEX=[
+  { id:'theme', label:'Light mode', desc:'Switch between light and dark theme', kw:'theme dark light appearance mode day night', ic:'sun', type:'toggle',
+    get:()=>state.theme==='light',
+    toggle:()=>{ state.theme=(state.theme==='light'?'dark':'light'); try{LS.set('treesh_theme',state.theme);}catch(e){} applyTheme(); try{renderView(); renderNP();}catch(e){} } },
+  { id:'voice-speak', label:'Spoken replies', desc:'Let the voice assistant talk back out loud', kw:'voice assistant speak talk sound reply audio', ic:'volume-2', type:'toggle',
+    get:()=>!!_voiceSpeak, toggle:()=>{ voiceToggleSpeak(); } },
+  { id:'anim-bg', label:'Animated background', desc:'Drifting starfield behind the app', kw:'animated background starfield stars motion moving', ic:'sparkles', type:'toggle',
+    get:()=>!!state.animBg, toggle:()=>{ state.animBg=!state.animBg; try{LS.set('treesh_anim_bg',state.animBg);}catch(e){} applyUiPrefs(); try{renderView();}catch(e){} } },
+  { id:'ui-glow', label:'Interface glow', desc:'Soft accent glow on buttons and highlights', kw:'glow neon accent light interface highlight', ic:'flashlight', type:'toggle',
+    get:()=>!!state.uiGlow, toggle:()=>{ state.uiGlow=!state.uiGlow; try{LS.set('treesh_ui_glow',state.uiGlow);}catch(e){} applyUiPrefs(); try{renderView();}catch(e){} } },
+  { id:'vinyl', label:'Vinyl record player', desc:'Spin a record instead of the cover art', kw:'vinyl record spin turntable player artwork disc', ic:'disc-3', type:'toggle',
+    get:()=>!!state.vinylMode, toggle:()=>{ state.vinylMode=!state.vinylMode; try{LS.set('treesh_vinyl',state.vinylMode);}catch(e){} try{renderNP();}catch(e){} } },
+  { id:'perf', label:'Performance mode', desc:'Reduce animations for smoother playback', kw:'performance battery smooth reduce lag older device speed', ic:'zap', type:'toggle',
+    get:()=>!!state.perfMode, toggle:()=>{ state.perfMode=!state.perfMode; try{LS.set('treesh_perf',state.perfMode);}catch(e){} applyPerfMode(); try{renderView();}catch(e){} } },
+  { id:'reduce-motion', label:'Reduce motion', desc:'Minimize animations and transitions', kw:'accessibility reduce motion animation transitions', ic:'gauge', type:'toggle',
+    get:()=>!!(state.a11y&&state.a11y.reduceMotion), toggle:()=>{ state.a11y=state.a11y||{}; state.a11y.reduceMotion=!state.a11y.reduceMotion; try{saveA11y(); applyA11y(); renderView();}catch(e){} } },
+  { id:'high-contrast', label:'High contrast', desc:'Boost contrast for readability', kw:'accessibility high contrast readable vision', ic:'contrast', type:'toggle',
+    get:()=>!!(state.a11y&&state.a11y.highContrast), toggle:()=>{ state.a11y=state.a11y||{}; state.a11y.highContrast=!state.a11y.highContrast; try{saveA11y(); applyA11y(); renderView();}catch(e){} } },
+  { id:'bold-text', label:'Bolder text', desc:'Increase text weight across the app', kw:'accessibility bold text weight heavy', ic:'bold', type:'toggle',
+    get:()=>!!(state.a11y&&state.a11y.boldText), toggle:()=>{ state.a11y=state.a11y||{}; state.a11y.boldText=!state.a11y.boldText; try{saveA11y(); applyA11y(); renderView();}catch(e){} } },
+  { id:'dyslexia', label:'Readable font', desc:'Switch to a more legible typeface', kw:'accessibility dyslexia readable font legible', ic:'book-open', type:'toggle',
+    get:()=>!!(state.a11y&&state.a11y.dyslexia), toggle:()=>{ state.a11y=state.a11y||{}; state.a11y.dyslexia=!state.a11y.dyslexia; try{saveA11y(); applyA11y(); renderView();}catch(e){} } },
+  { id:'explain-auto', label:'Auto-show lyric meanings', desc:'Reveal lyric explanations automatically', kw:'lyrics meaning explain auto annotation', ic:'sparkles', type:'toggle',
+    get:()=>!!state.explainAuto, toggle:()=>{ state.explainAuto=!state.explainAuto; try{LS.set('treesh_explain_auto',state.explainAuto); renderView(); if(state.npOpen) renderNP();}catch(e){} } },
+  { id:'explicit', label:'Explicit content', desc:'Unlock explicit tracks (re-locks on reopen)', kw:'explicit content lock adult mature parental clean', ic:'shield', type:'toggle',
+    get:()=>!!state.explicitUnlocked, toggle:()=>{ if(state.explicitUnlocked) lockExplicit(); else unlockExplicit(); } },
+  { id:'equalizer', label:'Equalizer', desc:'Enable the graphic equalizer', kw:'eq equalizer bass treble sound tone audio', ic:'audio-lines', type:'toggle',
+    get:()=>!!(state.eq&&state.eq.enabled), toggle:()=>{ state.eq=state.eq||{}; const on=!state.eq.enabled; state.eq.enabled=on; try{ if(on){ eqEnsure(); } else { eqApply(); } saveEq(); }catch(e){} } },
+  /* quick jumps */
+  { id:'go-eq', label:'Open equalizer', desc:'Fine-tune bass, mids and treble', kw:'equalizer eq open bass treble presets', ic:'sliders-horizontal', type:'action',
+    go:()=>{ closeSearch(); setTimeout(()=>{ try{ openEqualizer(); }catch(e){} },210); } },
+  { id:'go-sleep', label:'Sleep timer', desc:'Fade out and stop after a set time', kw:'sleep timer bedtime stop fade night clock', ic:'moon-star', type:'action',
+    go:()=>{ closeSearch(); setTimeout(()=>{ try{ showSleepOverlay(); }catch(e){} },210); } },
+  { id:'go-appearance', label:'Appearance & colors', desc:'Theme, accent, fonts, surfaces & font color', kw:'appearance theme accent color font background wallpaper surface text', ic:'palette', type:'action',
+    go:()=>{ state.settingsTab='display'; closeSearch(); setTimeout(()=>{ try{ navigate('settings'); }catch(e){} },210); } },
+  { id:'go-backdrops', label:'Backdrops & wallpaper', desc:'Image backdrops with text and stickers', kw:'backdrop wallpaper background image sticker photo', ic:'image', type:'action',
+    go:()=>{ closeSearch(); setTimeout(()=>{ try{ openBackdrops(); }catch(e){} },210); } },
+  { id:'go-voice', label:'Voice commands', desc:'Create and edit custom voice commands', kw:'voice command macro assistant mic custom', ic:'mic', type:'action',
+    go:()=>{ state.settingsTab = VOICE_OK?'voice':'display'; closeSearch(); setTimeout(()=>{ try{ navigate('settings'); }catch(e){} },210); } }
+];
+function searchSettingsList(q){ q=(q||'').trim(); if(!q) return SETTINGS_INDEX.slice(); let scored=[]; for(const it of SETTINGS_INDEX){ const sc=scoreFields([{text:it.label,weight:1},{text:it.desc||'',weight:0.5},{text:it.kw||'',weight:0.7}], q); if(sc>0) scored.push({it,score:sc}); } scored.sort((a,b)=>b.score-a.score); return scored.map(x=>x.it); }
+function settingsResultRow(it){ const isToggle=it.type==='toggle'; const on=isToggle?!!it.get():false;
+  return `<button data-act="${isToggle?'settings-search-toggle':'settings-search-go'}" data-sid="${it.id}" data-testid="search-setting-${it.id}" ${isToggle?`aria-pressed="${on}" role="switch" aria-checked="${on}"`:''} class="press flex w-full items-center gap-3 rounded-2xl border ${isToggle&&on?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/[0.10]':'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'} p-3 text-left"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl ${isToggle&&on?'bg-[color:var(--treesh-purple)] text-white':'bg-white/10 text-white/65'}"><i data-lucide="${it.ic||'settings'}" style="width:18px;height:18px"></i></span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(it.label)}</span><span class="clamp-1 block text-xs text-white/50">${esc(it.desc||'')}</span></span>${isToggle?`<span class="relative grid h-6 w-11 shrink-0 rounded-full ${on?'bg-[color:var(--treesh-purple)]':'bg-white/15'}"><span class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" style="left:2px;transform:translateX(${on?'20px':'0px'})"></span></span>`:`<i data-lucide="chevron-right" class="shrink-0 text-white/35" style="width:18px;height:18px"></i>`}</button>`;
+}
 function searchResultsHtml(){
   const q=(state.searchQuery||"").trim();
   if(!q){
@@ -3252,13 +3297,24 @@ function viewSettings(){
      </div>
      <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
        <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="wand-2" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Custom voice commands</h2></div>
-       <p class="mb-4 pl-11 text-sm text-white/50">Create your own trigger phrase and the steps it runs. Separate steps with commas or the word \u201Cthen\u201D \u2014 e.g. <span class="text-white/70">shuffle, then play, then volume up</span>.</p>
-       <div class="mb-4 space-y-2">
-         <input id="vm-phrase" data-testid="voice-macro-phrase" placeholder="Trigger phrase \u2014 e.g. party mode" class="h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
-         <input id="vm-steps" data-testid="voice-macro-steps" placeholder="Steps \u2014 e.g. shuffle, then play" class="h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
-         <button data-act="voice-macro-add" data-testid="voice-macro-add" class="press inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i>Save command</button>
+       <p class="mb-4 pl-11 text-sm text-white/50">Give a trigger phrase the steps it should run. Tap actions below to add them, or type your own separated by commas or \u201Cthen\u201D.</p>
+       <div class="mb-3 space-y-2">
+         <input id="vm-phrase" data-testid="voice-macro-phrase" value="${_vmEditId?esc((_voiceMacros.find(x=>x.id===_vmEditId)||{}).phrase||''):''}" placeholder="Trigger phrase \u2014 e.g. party mode" class="h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
+         <input id="vm-steps" data-testid="voice-macro-steps" value="${_vmEditId?esc(((_voiceMacros.find(x=>x.id===_vmEditId)||{}).steps||[]).join(', ')):''}" placeholder="Steps \u2014 e.g. shuffle, then play" class="h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
        </div>
-       ${_voiceMacros.length?`<div class="space-y-2">${_voiceMacros.map(mm=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="wand-2" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">\u201C${esc(mm.phrase)}\u201D</p><p class="clamp-1 text-xs text-white/45">${esc((mm.steps||[]).join(' \u2192 '))}</p></div><button data-act="voice-macro-del" data-id="${mm.id}" data-testid="voice-macro-del-${mm.id}" aria-label="Delete command" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`:`<p class="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-5 text-center text-sm text-white/40">No custom commands yet \u2014 create one above.</p>`}
+       <details class="mb-3 rounded-2xl border border-white/10 bg-white/[0.02] px-3.5 py-2" open>
+         <summary class="cursor-pointer list-none py-1 text-[11px] font-bold uppercase tracking-wide text-white/50">Tap to add an action</summary>
+         <div class="space-y-2.5 pb-1 pt-2.5">
+           <div class="flex justify-end"><button data-act="voice-steps-clear" data-testid="voice-steps-clear" class="text-[11px] font-semibold text-white/45 hover:text-white/80">Clear steps</button></div>
+           ${VOICE_STEP_PICKS.map(cat=>`<div><p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-white/35">${cat[0]}</p><div class="flex flex-wrap gap-1.5">${cat[1].map(c=>`<button data-act="voice-step-add" data-step="${esc(c)}" class="press rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/75 hover:border-[color:var(--treesh-purple)]/50 hover:bg-[color:var(--treesh-purple)]/12 hover:text-white">${esc(c)}</button>`).join('')}</div></div>`).join('')}
+           <div class="pt-0.5"><p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-white/35">Quick templates</p><div class="flex flex-wrap gap-1.5">${VOICE_TEMPLATES.map((tp,i)=>`<button data-act="voice-template" data-i="${i}" class="press inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/35 bg-[color:var(--treesh-gold)]/10 px-2.5 py-1 text-[11px] font-semibold text-[color:var(--treesh-gold)] hover:bg-[color:var(--treesh-gold)]/18"><i data-lucide="sparkles" style="width:11px;height:11px"></i>${esc(tp.phrase)}</button>`).join('')}</div></div>
+         </div>
+       </details>
+       <div class="mb-4 flex gap-2">
+         <button data-act="voice-macro-add" data-testid="voice-macro-add" class="press inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple"><i data-lucide="${_vmEditId?'check':'plus'}" style="width:16px;height:16px"></i>${_vmEditId?'Update command':'Save command'}</button>
+         ${_vmEditId?`<button data-act="voice-macro-cancel-edit" data-testid="voice-macro-cancel-edit" class="press inline-flex h-11 items-center justify-center rounded-xl border border-white/12 bg-white/5 px-4 text-sm font-semibold text-white/70 hover:bg-white/10">Cancel</button>`:''}
+       </div>
+       ${_voiceMacros.length?`<div class="space-y-2">${_voiceMacros.map(mm=>`<div class="flex items-center gap-3 rounded-2xl border ${_vmEditId===mm.id?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/[0.08]':'border-white/10 bg-white/[0.03]'} px-3.5 py-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="wand-2" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">\u201C${esc(mm.phrase)}\u201D</p><p class="clamp-1 text-xs text-white/45">${esc((mm.steps||[]).join(' \u2192 '))}</p></div><button data-act="voice-macro-edit" data-id="${mm.id}" data-testid="voice-macro-edit-${mm.id}" aria-label="Edit command" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="voice-macro-del" data-id="${mm.id}" data-testid="voice-macro-del-${mm.id}" aria-label="Delete command" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`:`<p class="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-5 text-center text-sm text-white/40">No custom commands yet \u2014 create one above.</p>`}
      </div>
    </section>
 
@@ -3372,7 +3428,7 @@ const WHATS_NEW = {
     { icon:"drum", title:"Presets, swing and metronome", desc:"Start from a preset, add groove with swing, keep time with the metronome, then save your beats on this device." },
     { icon:"maximize-2", title:"Full screen mode", desc:"Give the grid the whole screen when you want more room to build." },
   ]},
-  game: { v:1, title:"Games", sub:"More ways to play and win.", items:[
+  game: { v:1, title:"Games & Things", sub:"More ways to play and win.", items:[
     { icon:"gamepad-2", title:"What's Next", desc:"Train your ear by guessing the track that comes next and build up a streak." },
     { icon:"swords", title:"This or That", desc:"Two clips go head to head. Pick your favorite and crown a champion." },
     { icon:"trophy", title:"Starlites rewards", desc:"Earn Starlites as you play and keep an eye on your stats over time." },
@@ -3469,12 +3525,16 @@ function viewBlog(){
 
 /* ---------- Games arcade (embedded iframe games) ---------- */
 const GAMES=[
-  {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'https://64.media.tumblr.com/1fd0db4d82ed14192794f682ab768843/e4c300405ca5fd6e-fc/s1280x1920/dca2d086ba9e13671a9f45a186e0c792636d7be3.png', banner:'https://64.media.tumblr.com/a7702e3ce56a7902d5ea66fd32d97ded/d05b67bfd24521c9-70/s1280x1920/9f7d5339d7475e71226af55500432429369a2c93.png', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'July 28, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
+  {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'https://64.media.tumblr.com/1fd0db4d82ed14192794f682ab768843/e4c300405ca5fd6e-fc/s1280x1920/dca2d086ba9e13671a9f45a186e0c792636d7be3.png', banner:'https://64.media.tumblr.com/a7702e3ce56a7902d5ea66fd32d97ded/d05b67bfd24521c9-70/s1280x1920/9f7d5339d7475e71226af55500432429369a2c93.png', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'September 30, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
   {key:'vocotap', name:'Vocotap', url:'https://treesh.app/games/vocotap', logo:'https://64.media.tumblr.com/a357f99f483f505944ed61ffbf91b627/4e72d08b7a6373f7-5b/s1280x1920/d3c5f169e906422bdb6ddd62f303634dde4b4b82.png', banner:'https://64.media.tumblr.com/d98166e80ddeb9217260a083247df1b3/c06c3fcd705d5320-b3/s1280x1920/05620948bd3dfb29596125826783f3204a891337.png', mono:'V', a:'#e0567a', b:'#7a2540', age:'PG-13', updated:'September 20, 2026', desc:'Tap in time with the vocals! Play along with tracks from Treesh Music or upload your own, then test your rhythm and rack up combos.'},
-  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', banner:'https://64.media.tumblr.com/12c5bcd00d6eab86052e258de28b19c9/b6dc260cabef24e0-5c/s400x600/ef38354ebff5bd73f43312be103d4b08f63f0a31.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'June 20, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},,
+  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', banner:'https://64.media.tumblr.com/12c5bcd00d6eab86052e258de28b19c9/b6dc260cabef24e0-5c/s400x600/ef38354ebff5bd73f43312be103d4b08f63f0a31.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'September 30, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},
   {key:'nects', name:'Nects', url:'https://treesh.app/games/nects', logo:'https://64.media.tumblr.com/1262b7cc04c787803b22c81af52e91a7/f03bc58006e10b13-94/s1280x1920/3f25f6b1f824f57464f60a2220db75167ad18e21.png', mono:'N', a:'#1f9a9a', b:'#0d5757', age:'6+', updated:'July 26, 2026', desc:'A four-in-a-row showdown. Spot and connect the right emoji on the board before your opponent does.'}
 ];
-const GAME_BY_KEY={}; GAMES.forEach(g=>GAME_BY_KEY[g.key]=g);
+/* ---------- Things: Treesh mini-apps & tools (open in the same frame as games) ---------- */
+const THINGS=[
+  {key:'hoop', name:'Hoop from Treesh', url:'https://treesh.app/hoop', logo:'', banner:'', mono:'H', a:'#f97316', b:'#9a3412', age:'All', updated:'September 30, 2026', desc:'Your basketball home base. Find the nearest courts on a live map, run games like 21, HORSE and Around the World, follow guided workouts and drills, and more.'}
+];
+const GAME_BY_KEY={}; [...GAMES,...THINGS].forEach(g=>{ if(g) GAME_BY_KEY[g.key]=g; });
 function gameTile(g){
   return `<button data-act="game-open" data-key="${g.key}" data-testid="game-open-${g.key}" aria-label="Play ${esc(g.name)}" class="press card-lift group relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-center backdrop-blur-sm">
     <span class="pointer-events-none absolute inset-x-0 -top-8 h-20 opacity-40 blur-2xl" style="background:linear-gradient(135deg,${g.a},${g.b})"></span>
@@ -3487,6 +3547,13 @@ function gamesArcadeHtml(){
     <div class="mb-2 flex items-center gap-2"><i data-lucide="joystick" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i><h2 class="text-lg font-bold">Arcade</h2></div>
     <p class="mb-3 text-sm text-white/55">More Treesh games, right here. Minimize any game to keep browsing while you play.</p>
     <div class="grid grid-cols-3 gap-3">${GAMES.map(gameTile).join("")}</div>
+  </div>`;
+}
+function thingsSectionHtml(){
+  return `<div data-testid="things-section">
+    <div class="mb-2 flex items-center gap-2"><i data-lucide="shapes" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i><h2 class="text-lg font-bold">Things</h2></div>
+    <p class="mb-3 text-sm text-white/55">Treesh apps and tools beyond games. Tap to open \u2014 minimize any one to keep browsing.</p>
+    <div class="grid grid-cols-3 gap-3">${THINGS.map(gameTile).join("")}</div>
   </div>`;
 }
 function openGameInfo(key){
@@ -4212,6 +4279,7 @@ function gameHomeHtml(){ const st=state.gameStats||{}; const tw=state.totWins||{
       <div class="relative mt-4 flex flex-wrap gap-2 text-[11px] font-semibold text-white/70"><span class="rounded-full bg-black/25 px-2.5 py-1">${tw.plays||0} rounds played</span><span class="rounded-full bg-black/25 px-2.5 py-1">Best streak ${tw.bestStreak||0}</span></div>
     </button>
     ${gamesArcadeHtml()}
+    ${thingsSectionHtml()}
   </div>`;
 }
 function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.totWins||{wins:{}}; const wins=tw.wins||{};
@@ -4231,7 +4299,7 @@ function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.
 function viewGame(){ const tab=state.gameTab||"home"; const open=!!state.gameStatsOpen; const pts=fmtNum((state.stars&&state.stars.points)||0);
   return `<div class="space-y-6">
     <div class="flex items-start justify-between gap-3">
-      <div><p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">Games</h1></div>
+      <div><p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">Games &amp; Things</h1></div>
       <button data-act="game-stats-toggle" data-testid="game-starlites" aria-expanded="${open?'true':'false'}" aria-label="Starlites and stats" class="press inline-flex shrink-0 items-center gap-2 rounded-2xl border border-[color:var(--treesh-gold)]/30 bg-[color:var(--treesh-gold)]/[0.1] px-3 py-2 transition-colors hover:bg-[color:var(--treesh-gold)]/[0.16]">
         <span class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:16px;height:16px"></i></span>
         <span class="text-left leading-none"><span class="block text-[9px] font-semibold uppercase tracking-[0.12em] text-white/50">Starlites</span><span class="mt-0.5 block font-doto text-lg font-bold leading-none text-white" data-star-count>${pts}</span></span>
@@ -6621,9 +6689,24 @@ const VOICE_HELP=[
   ["Playback",["play","pause","stop","resume","next song","previous song","restart this song","play it again"]],
   ["Volume & seek",["volume up","volume down","set volume to 50","mute","unmute","full volume","skip ahead 30 seconds","rewind 10 seconds","go to 1:30"]],
   ["Find & play",["play blinding lights","play something by drake","play my favorites","shuffle my music","repeat this song","repeat all","search love"]],
-  ["Get around",["open now playing","open queue","open favorites","open equalizer","open studios","open games","open settings","open profile","go home"]],
+  ["Get around",["open now playing","open queue","open favorites","open equalizer","open studios","open games","open settings","open profile","go home","open search"]],
   ["Look & feel",["dark mode","light mode","change theme to blue","accent purple","make it green","performance mode on","animated background off","equalizer on"]],
-  ["Extras",["karaoke mode on","sleep timer 20 minutes","what's playing","who sings this","favorite this song","help","close"]]
+  ["Extras",["karaoke mode on","sleep timer 20 minutes","what's playing","who sings this","what album is this","favorite this song","unfavorite this song","help","close"]]
+];
+/* built-in single actions the macro builder can add with one tap (all supported by voiceExec) */
+const VOICE_STEP_PICKS=[
+  ["Playback",["play","pause","next song","previous song","restart this song","shuffle","repeat all","repeat this song"]],
+  ["Volume",["volume up","volume down","full volume","set volume to 50","mute","unmute"]],
+  ["Navigate",["open now playing","open queue","open favorites","open equalizer","open search","go home","open settings"]],
+  ["Look & feel",["dark mode","light mode","accent purple","performance mode on","animated background off","karaoke mode on"]],
+  ["Extras",["favorite this song","sleep timer 20 minutes"]]
+];
+/* one-tap starter recipes: fill both the trigger phrase and its steps */
+const VOICE_TEMPLATES=[
+  {phrase:"party mode", steps:["shuffle","play","full volume"]},
+  {phrase:"study mode", steps:["open favorites","repeat all","play"]},
+  {phrase:"wind down", steps:["light mode","volume down","sleep timer 20 minutes"]},
+  {phrase:"focus", steps:["dark mode","performance mode on","play"]}
 ];
 function voiceRender(){ const el=$("#voice-ov"); if(!el) return; const body=el.querySelector("[data-voice-body]"); if(!body) return; const ae=document.activeElement; const wasTyping=!!(ae&&ae.id==="voice-input"); const caret=wasTyping?ae.selectionStart:null; body.innerHTML=voiceBodyHtml(); icons(); if(wasTyping){ const ni=$("#voice-input"); if(ni){ try{ ni.focus(); if(caret!=null) ni.setSelectionRange(caret,caret); }catch(e){} } } }
 function voiceHeader(title, sub){
@@ -6837,7 +6920,16 @@ function voiceExec(c){
   return null;
 }
 /* ---- custom command (macro) management from Settings ---- */
-function voiceMacroAddFromInputs(){ const p=$("#vm-phrase"), s=$("#vm-steps"); if(!p) return; const phrase=(p.value||'').trim(); const stepsRaw=(s?s.value:'').trim(); if(!phrase){ toast("Enter a trigger phrase"); return; } if(!stepsRaw){ toast("Enter what it should do","e.g. shuffle, then play"); return; } const steps=stepsRaw.split(/\s*(?:,|;|\bthen\b|\band then\b)\s*/i).map(x=>x.trim()).filter(Boolean); if(!steps.length){ toast("Add at least one step"); return; } _voiceMacros.push({id:'vm'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), phrase, steps}); voiceSaveMacros(); toast("Voice command saved","\u201C"+phrase+"\u201D"); if(state.view==='settings') renderView(); }
+let _vmEditId=null;
+function voiceMacroAddFromInputs(){ const p=$("#vm-phrase"), s=$("#vm-steps"); if(!p) return; const phrase=(p.value||'').trim(); const stepsRaw=(s?s.value:'').trim(); if(!phrase){ toast("Enter a trigger phrase"); return; } if(!stepsRaw){ toast("Enter what it should do","e.g. shuffle, then play"); return; } const steps=stepsRaw.split(/\s*(?:,|;|\bthen\b|\band then\b)\s*/i).map(x=>x.trim()).filter(Boolean); if(!steps.length){ toast("Add at least one step"); return; }
+  if(_vmEditId){ const mm=_voiceMacros.find(x=>x.id===_vmEditId); if(mm){ mm.phrase=phrase; mm.steps=steps; } _vmEditId=null; voiceSaveMacros(); toast("Voice command updated","\u201C"+phrase+"\u201D"); }
+  else { _voiceMacros.push({id:'vm'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), phrase, steps}); voiceSaveMacros(); toast("Voice command saved","\u201C"+phrase+"\u201D"); }
+  if(state.view==='settings') renderView(); }
+function voiceMacroEdit(id){ if(!_voiceMacros.some(x=>x.id===id)) return; _vmEditId=id; if(state.view==='settings') renderView(); setTimeout(()=>{ const p=$("#vm-phrase"); if(p){ try{ p.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){} p.focus(); } },60); }
+function voiceMacroCancelEdit(){ _vmEditId=null; if(state.view==='settings') renderView(); }
+function voiceStepAdd(step){ const s=$("#vm-steps"); if(!s||!step) return; const cur=(s.value||'').trim(); s.value = cur ? (cur.replace(/[\s,]+$/,'')+', '+step) : step; s.focus(); try{ s.setSelectionRange(s.value.length,s.value.length); }catch(_){} }
+function voiceStepsClear(){ const s=$("#vm-steps"); if(s){ s.value=''; s.focus(); } }
+function voiceTemplate(i){ const tp=VOICE_TEMPLATES[i]; if(!tp) return; const p=$("#vm-phrase"), s=$("#vm-steps"); if(p) p.value=tp.phrase; if(s) s.value=(tp.steps||[]).join(', '); if(p) p.focus(); toast("Template loaded","Tweak it, then Save command"); }
 function voiceMacroDelete(id){ _voiceMacros=_voiceMacros.filter(x=>x.id!==id); voiceSaveMacros(); if(state.view==='settings') renderView(); }
 
 /* ============================================================
@@ -7295,6 +7387,11 @@ document.addEventListener("click", e=>{
     case "voice-help-toggle": voiceToggleHelp(); break;
     case "voice-macro-add": voiceMacroAddFromInputs(); break;
     case "voice-macro-del": voiceMacroDelete(t.dataset.id); break;
+    case "voice-macro-edit": voiceMacroEdit(t.dataset.id); break;
+    case "voice-macro-cancel-edit": voiceMacroCancelEdit(); break;
+    case "voice-step-add": voiceStepAdd(t.dataset.step); break;
+    case "voice-steps-clear": voiceStepsClear(); break;
+    case "voice-template": voiceTemplate(parseInt(t.dataset.i,10)||0); break;
     case "retry-load": retryLoad(); break;
     case "refresh-catalog": { toast("Refreshing catalog\u2026"); loadCatalog().then(()=>{ softRefresh(); toast("Catalog updated", SONGS.length+" tracks"); }).catch(()=>toast("Couldn\u2019t refresh","Check your connection")); break; }
     /* ---- Lyric Studio ---- */

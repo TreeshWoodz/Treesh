@@ -72,13 +72,15 @@ DONE in prior session (already in codebase):
 ---
 
 ## ▶ ACTIVE SESSION ORDER (user-confirmed)
-Phase M completed. Next backlog to implement (not started yet):
-1. **Voice Controls Upgrade (P1)** — make custom voice controls editable + add more built-ins
-2. **Search Upgrade (P1)** — search settings and toggle options directly from results
-3. **Rename “Cover Art Studio” → “Image Studio” (P2)** + planned updates
-4. **Karaoke Mode Fullscreen Revamp (P2)**
-5. **Lyric Card Studio Revamp (P2)** — preview always showing
-6. **Crossfade & Smooth Transitions (P2)** — default 6s
+Phase M completed. Next backlog to implement (user confirmed scope 1a/2a/3a):
+1. **Phase N: Voice Commands upgrade (P1)** — editable saved commands + tap-to-pick builder for built-in actions + expanded built-in commands/suggestions
+2. **Phase O: Settings Search upgrade (P1)** — new **Settings** tab inside the global search overlay; search settings and toggle directly from results
+3. **Phase K: Image Studio (P2)** — rename **Cover Art Studio → Image Studio** everywhere + add Backdrops-style layer suite (text + emoji stickers, drag/rotate/resize, fonts, colors) baked into export
+
+Then continue with:
+- Karaoke Mode Fullscreen Revamp (P2)
+- Lyric Card Studio Revamp (P2) — preview ALWAYS showing
+- Crossfade & Smooth Transitions (P2) — default 6s
 
 Constraints reminder:
 - Single-file `/app/single_html/index.html` only
@@ -100,15 +102,14 @@ Testing reminders:
 - Keep **single-file architecture** (`/app/single_html/index.html`), zero build steps, offline-first (LocalStorage + IndexedDB). **No NPM/Yarn.**
 - Maintain and extend **Instrum Studio mini-DAW** while preserving stability.
 - Completed UX-critical fixes:
-  - ✅ Backdrops Studio usable on mobile + now supports **multi-layer text/stickers**
+  - ✅ Backdrops Studio usable on mobile + now supports **multi-layer text/stickers** (with rotation/fonts/colors)
   - ✅ My Music Manager shows song + artist names correctly
   - ✅ Queue drawer correct in Light Mode
   - ✅ Global Font Color setting implemented
 - Next objectives (P1/P2):
-  - Voice Controls upgrade (editable + more commands)
-  - Search upgrade (settings search + quick toggles)
-  - Rename Cover Art Studio → Image Studio
-  - Crossfade, Karaoke fullscreen, Lyric Card Studio improvements
+  - **Voice Commands**: edit saved commands + easier creation via built-in picker + more built-in commands
+  - **Settings Search**: find settings and toggle directly from search results (in global Search overlay)
+  - **Image Studio**: rename Cover Art Studio and add Backdrops-grade layers baked into export
 
 ---
 
@@ -179,23 +180,71 @@ Testing:
 
 ---
 
-### Phase N (NEXT) — Voice Controls Upgrade (Not Started)
-Planned scope:
-- Editable custom commands (currently delete-only)
-- Expand built-in command set
-- Keep silent-by-default assistant policy
+### Phase N (NEXT) — Voice Commands Upgrade (Scoped  2a)
+**User-confirmed scope:** editable saved macros + tap-to-pick builder of built-in actions + more built-ins/suggestions.
+
+Planned implementation:
+- **Edit existing macros**:
+  - Add “Edit” action on each saved macro row (in Settings)
+  - Load macro into the phrase/steps inputs for update
+  - Add `voice-macro-save` (update existing) vs `voice-macro-add` (new)
+  - Preserve IDs; allow cancel.
+- **Tap-to-pick builder**:
+  - Add a “Suggested actions” list with chips (e.g., `shuffle`, `repeat`, `open queue`, etc.)
+  - Clicking a chip appends to the steps input (comma-separated)
+  - Provide “clear steps” and quick templates (“Party mode”, “Study mode”, “Sleep mode”).
+- **Expand built-in commands**:
+  - Extend `VOICE_HELP` categories with additional commands
+  - Expand `voiceChips()` suggestions (context-aware: queue open, now playing, etc.)
+  - Ensure `voiceExec()` supports all new commands (add missing cases).
+
+Testing:
+- Screenshot: Settings → Voice section macro edit flow
+- Voice overlay: verify new suggestion chips appear; run a saved macro executes multiple steps
 
 ---
 
-### Phase O (NEXT) — Search Upgrade (Not Started)
-Planned scope:
-- Search settings options
-- Toggle settings directly from search results
+### Phase O (NEXT) — Settings Search inside Global Search Overlay (Scoped  3a)
+**User-confirmed scope:** new “Settings” tab inside the existing global Search overlay.
+
+Planned implementation:
+- Add new tab: `settings` to search overlay UI (alongside songs/artists/lyrics)
+- Create a lightweight `SETTINGS_INDEX` registry describing:
+  - id, label, description, section, type (`toggle` | `action` | `picker`), getter/setter
+  - example: Theme toggle, Animated background, Performance mode, Explicit lock, Karaoke mode, etc.
+- Implement `searchSettingsList(q)` using the existing `scoreFields()` utility.
+- Render results as cards/rows with:
+  - Label + description
+  - Inline **toggle** UI for boolean settings
+  - “Go to setting” button for complex/picker settings (navigates to Settings view and scrolls to the relevant card)
+- Ensure state updates call existing functions (`applyTheme`, `applyCustomColors`, `renderView`, etc.) without regressions.
+
+Testing:
+- Screenshot: Search overlay → Settings tab
+- Interactions: toggle settings directly from results; ensure UI updates immediately
 
 ---
 
-### Phase K (P2) — Rename Cover Art Studio → Image Studio (Not Started)
-- Rename module + apply planned updates
+### Phase K (NEXT) — Image Studio (Cover Art Studio → Image Studio) + Backdrops-grade Layers (Scoped  1a)
+**User-confirmed scope:** rename + add Backdrops-style layer suite baked into export.
+
+Planned implementation:
+- **Rename** all user-facing strings:
+  - “Cover Art Studio” → “Image Studio”
+  - Update tooltips, help strings, data-testids only if safe (avoid breaking existing tests unless requested)
+- **Layer suite** (baked into output canvas):
+  - Add `cvLayers[]` with similar schema to Backdrops: `{id, kind:'text'|'emoji', text, x,y,size,rot,color,align,font}`
+  - Preview overlay on the canvas area (SVG/DOM overlay OR draw handles on canvas + HTML controls)
+  - Add UI panel:
+    - Add text layer, add emoji sticker
+    - Per-layer edit: content (text), font, color, size, rotation, X/Y
+    - Drag to move, pinch/wheel/handle resize, rotate handle (desktop + mobile)
+  - Update `cvRender(ctx, S)` to draw all layers after image/filter adjustments.
+- Ensure image export remains a Blob and continues to integrate with Music Manager cover saving (`_amCoverBlob`, `_amCoverURL`).
+
+Testing:
+- Screenshot: Image Studio open, with 2 layers (text + emoji) rotated and resized
+- Apply cover: ensure exported cover shows layers in preview, persists on save
 
 ---
 
@@ -214,27 +263,27 @@ Planned scope:
 ---
 
 ## 3) Next Actions (Immediate)
-1. Begin **Phase N** Voice Controls upgrade (editable commands + more built-ins)
-2. Begin **Phase O** Search upgrade (settings search + toggles)
-3. Then proceed with P2 items (Image Studio rename, Karaoke, Lyric Card, Crossfade)
-4. Run regression screenshots after each major UI module change
+1. Implement **Phase N** Voice Commands upgrade (editable + tap-to-pick + more built-ins)
+2. Implement **Phase O** Settings Search tab in global search overlay (search + toggles)
+3. Implement **Phase K** Image Studio rename + layer suite baked into export
+4. Run regression screenshots after each phase (mobile portrait focus for modals)
 
 ---
 
 ## 4) Success Criteria (updated)
-- Backdrops Studio:
-  - Modal never overflows on mobile portrait
-  - Supports **multiple layers** (text + emoji stickers)
-  - Per-layer drag/move, resize (pinch/wheel/handle), rotate (handle/slider/twist)
-  - Per-layer font + color
-- Music Manager:
-  - Song + artist names readable on mobile
-  - Manager mode shows only Edit/Trash inline
-- Queue:
-  - Light mode queue drawer is light and readable
-- Font Color Settings:
-  - Global font color can be changed and persists
-  - Immersive overlays/toasts remain readable
+- Voice Commands:
+  - Existing saved commands can be edited (phrase + steps) and re-saved
+  - Built-in actions can be appended via taps (no typing required)
+  - Expanded built-in list is reflected in help + chips, and all are supported by `voiceExec()`
+- Settings Search:
+  - New Settings tab exists in global Search overlay
+  - Query returns relevant settings
+  - Boolean settings can be toggled directly from results
+  - Complex settings can be navigated-to reliably
+- Image Studio:
+  - UI renamed from Cover Art Studio → Image Studio everywhere
+  - Supports text + emoji layers with drag/resize/rotate and fonts/colors
+  - Exported image includes layers baked in and still saves as cover art
 - No regressions:
   - App remains offline-first
   - No code wipes (sequential edits only)
