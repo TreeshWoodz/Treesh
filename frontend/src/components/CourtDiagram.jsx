@@ -201,15 +201,18 @@ function renderOp(op, i) {
           </text>
         </g>
       );
-    case "whistle":
+    case "whistle": {
+      const label = a[0] || "FOUL";
+      const w = Math.max(18, label.length * 3.6 + 7);
       return (
-        <g key={i} transform="translate(8 80)">
-          <rect width="18" height="10" rx="5" fill="#0A0A0D" stroke={WHITE} strokeWidth=".8" />
-          <text x="9" y="6.8" textAnchor="middle" fontSize="5" fontWeight="900" fill={WHITE} fontFamily="Manrope">
-            {a[0] || "FOUL"}
+        <g key={i} transform="translate(6 79)">
+          <rect width={w} height="10" rx="5" fill="#0A0A0D" stroke={WHITE} strokeWidth=".8" />
+          <text x={w / 2} y="6.8" textAnchor="middle" fontSize="5" fontWeight="900" fill={WHITE} fontFamily="Manrope">
+            {label}
           </text>
         </g>
       );
+    }
     default:
       return null;
   }

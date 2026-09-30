@@ -171,7 +171,7 @@ export default function Position() {
                 <ul className="mt-3 space-y-1.5">
                   {result.notes.map((n) => <li key={n} className="flex gap-2 text-[13.5px] text-[#B7BBCB]"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#FF3EA5]" />{n}</li>)}
                 </ul>
-                <div className="mt-4 text-xs text-[#8B90A6]">Study: <span className="font-semibold text-[#E6E8EF]">{top.comps.join(" \u00b7 ")}</span></div>
+                <div className="mt-4 text-xs text-[#8B90A6]">Study: <span className="font-semibold text-[#E6E8EF]">{top.comps.join(" · ")}</span></div>
               </div>
               <div className="hp-card p-5">
                 <div className="hp-eyebrow mb-4">All five positions</div>

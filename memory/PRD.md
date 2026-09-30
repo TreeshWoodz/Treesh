@@ -1,0 +1,4 @@
+# Hoop by Treesh — PRD
+Served at /hoop (React Router basename). Black & pink restrained dark UI, fonts Special Gothic Expanded One / Manrope / Doto.
+Pages: Courts (OSM Nominatim + Overpass via FastAPI /api/geocode, /api/reverse, /api/courts; browser-direct Overpass fallback; Leaflet map), Drills (72 drills/14 lanes, steps, cues, YouTube per lane), Plan (generator, templates, weekly planner, intervals, saved plans, global fullscreen/minimizable timer), Dictionary (89 terms with SVG court diagrams), Position (body → PG..C), Games (21 games, 12 scorekeeper types), Favorites (localStorage + JSON export/import), Form Check (MediaPipe PoseLandmarker on-device, 5 checks, per-shot report, voice), Profile (reads/writes parent Treesh localStorage key `treesh_profile` {nickname,birthday,zodiac,avatar}; Hoop data under `treesh_hoop_*`).
+No auth. No mocks.

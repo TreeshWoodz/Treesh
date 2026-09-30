@@ -27,9 +27,36 @@ UA = {"User-Agent": "HoopByTreesh/1.0 (https://treesh.app/hoop)", "Accept-Langua
 NOMINATIM = "https://nominatim.openstreetmap.org"
 OVERPASS_MIRRORS = [
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
 ]
+
+
+async def overpass_race(query: str, total_timeout: float = 28.0):
+    """Query all mirrors at once, return the first valid response (fastest wins)."""
+    async with httpx.AsyncClient(timeout=httpx.Timeout(26.0, connect=6.0), headers=UA) as c:
+        async def one(url):
+            r = await c.post(url, data={"data": query})
+            r.raise_for_status()
+            j = r.json()
+            if "elements" not in j:
+                raise ValueError("bad payload")
+            return j["elements"]
+
+        tasks = [asyncio.create_task(one(u)) for u in OVERPASS_MIRRORS]
+        try:
+            for fut in asyncio.as_completed(tasks, timeout=total_timeout):
+                try:
+                    return await fut
+                except Exception as e:
+                    logger.warning("overpass mirror failed: %s", e)
+        except asyncio.TimeoutError:
+            logger.warning("overpass race timed out")
+        finally:
+            for t in tasks:
+                t.cancel()
+    return None
 
 _cache: dict = {}
 _nominatim_lock = asyncio.Lock()
@@ -163,33 +190,28 @@ def normalize_court(e, lat, lon):
 
 @api_router.get("/courts")
 async def courts(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), radius: int = Query(5000, ge=300, le=25000)):
-    key = f"courts:{round(lat, 3)}:{round(lon, 3)}:{radius}"
-    hit = cache_get(key, 60 * 30)
-    if hit is not None:
-        return hit
-    q = f"""[out:json][timeout:25];
-(
-  nwr["sport"~"basketball"](around:{radius},{lat},{lon});
-);
-out center tags 300;"""
-    last_err = None
-    elements = None
-    async with httpx.AsyncClient(timeout=30, headers=UA) as c:
-        for url in OVERPASS_MIRRORS:
-            try:
-                r = await c.post(url, data={"data": q})
-                if r.status_code in (429, 504):
-                    last_err = f"{url} {r.status_code}"
-                    continue
-                r.raise_for_status()
-                elements = r.json().get("elements", [])
-                break
-            except Exception as e:
-                last_err = str(e)
-                logger.warning("overpass mirror failed %s: %s", url, e)
+    glat, glon = round(lat, 2), round(lon, 2)  # ~1 km grid so nearby searches share cache
+    key = f"courts:{glat}:{glon}:{radius}"
+    elements = cache_get(key, 60 * 60)
     if elements is None:
-        logger.error("all overpass mirrors failed: %s", last_err)
-        raise HTTPException(503, "Court lookup servers are busy. Try again in a moment.")
+        try:
+            doc = await db.court_cache.find_one({"key": key}, {"_id": 0})
+            if doc and time.time() - doc.get("at", 0) < 7 * 24 * 3600:
+                elements = doc["elements"]
+        except Exception as e:
+            logger.warning("cache read failed %s", e)
+    if elements is None:
+        q = f"""[out:json][timeout:25];
+nwr["sport"~"basketball"](around:{radius + 800},{glat},{glon});
+out center tags 400;"""
+        elements = await overpass_race(q)
+        if elements is None:
+            raise HTTPException(503, "Court lookup servers are busy. Try again in a moment.")
+        try:
+            await db.court_cache.update_one({"key": key}, {"$set": {"key": key, "elements": elements, "at": time.time()}}, upsert=True)
+        except Exception as e:
+            logger.warning("cache write failed %s", e)
+    cache_set(key, elements)
     seen = set()
     out = []
     for e in elements:
@@ -202,10 +224,9 @@ out center tags 300;"""
             continue
         seen.add(k)
         out.append(n)
+    out = [c for c in out if c["distance_m"] <= radius]
     out.sort(key=lambda x: x["distance_m"])
-    result = {"center": {"lat": lat, "lon": lon}, "radius": radius, "count": len(out), "courts": out[:150]}
-    cache_set(key, result)
-    return result
+    return {"center": {"lat": lat, "lon": lon}, "radius": radius, "count": len(out), "courts": out[:150]}
 
 
 app.include_router(api_router)

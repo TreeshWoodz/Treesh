@@ -7,7 +7,7 @@ import { Btn } from "@/components/PinkButton";
 import CourtMap from "@/components/CourtMap";
 import { CourtRow, FavoritesIO, useFavorites } from "@/components/CourtBits";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, apiError } from "@/lib/api";
+import { findCourts, geocode, reverse } from "@/lib/api";
 import { getSettings, KEYS, LS } from "@/lib/storage";
 
 const RADII = [
@@ -43,6 +43,7 @@ export default function Courts() {
   const [selectedId, setSelectedId] = useState(null);
   const reqId = useRef(0);
   const sugTimer = useRef(null);
+  const sugSeq = useRef(0);
 
   const search = useCallback(async (p, r) => {
     if (!p) return;
@@ -51,14 +52,14 @@ export default function Courts() {
     setError("");
     setSelectedId(null);
     try {
-      const { data } = await api.get("/courts", { params: { lat: p.lat, lon: p.lon, radius: r } });
+      const list = await findCourts(p.lat, p.lon, r);
       if (my !== reqId.current) return;
-      setCourts(data.courts || []);
+      setCourts(list);
       LS.set(KEYS.lastSearch, { ...p, radius: r });
     } catch (e) {
       if (my !== reqId.current) return;
       setCourts([]);
-      setError(apiError(e, "Couldn't load courts. Check your connection and try again."));
+      setError(e.message || "Couldn't load courts. Try again.");
     } finally {
       if (my === reqId.current) setLoading(false);
     }
@@ -78,10 +79,12 @@ export default function Courts() {
       return;
     }
     sugTimer.current = setTimeout(async () => {
+      const mySeq = ++sugSeq.current;
       setSugLoading(true);
       try {
-        const { data } = await api.get("/geocode", { params: { q: v.trim(), limit: 5 } });
-        setSugs(data.results || []);
+        const results = await geocode(v.trim(), 5);
+        if (mySeq !== sugSeq.current) return;
+        setSugs(results);
         setSugOpen(true);
       } catch (e) {
         setSugs([]);
@@ -92,6 +95,8 @@ export default function Courts() {
   };
 
   const choose = (s) => {
+    clearTimeout(sugTimer.current);
+    sugSeq.current++;
     const p = { lat: s.lat, lon: s.lon, label: s.name && s.short && !s.short.startsWith(s.name) ? `${s.name}, ${s.short}` : s.short || s.label };
     setQ(p.label);
     setSugOpen(false);
@@ -105,16 +110,16 @@ export default function Courts() {
     if (sugs.length) return choose(sugs[0]);
     setLoading(true);
     try {
-      const { data } = await api.get("/geocode", { params: { q: q.trim(), limit: 1 } });
-      if (!data.results?.length) {
+      const results = await geocode(q.trim(), 1);
+      if (!results.length) {
         setLoading(false);
         setError("We couldn't find that address. Try a city, street or park name.");
         return;
       }
-      choose(data.results[0]);
+      choose(results[0]);
     } catch (err) {
       setLoading(false);
-      setError(apiError(err));
+      setError("Address lookup is unavailable right now. Try again.");
     }
   };
 
@@ -130,7 +135,7 @@ export default function Courts() {
         setLocating(false);
         search(p, radius);
         try {
-          const { data } = await api.get("/reverse", { params: { lat: p.lat, lon: p.lon } });
+          const data = await reverse(p.lat, p.lon);
           const labeled = { ...p, label: data.short || "Your location" };
           setPlace(labeled);
           setQ(labeled.label);
@@ -262,6 +267,7 @@ export default function Courts() {
             </div>
             {loading ? (
               <div className="space-y-2.5" data-testid="courts-loading">
+                <div className="flex items-center gap-2 text-[13px] font-semibold text-[#B7BBCB]"><Loader2 size={14} className="hp-spin text-[#FF3EA5]" /> Scanning OpenStreetMap for courts… big cities can take a few seconds.</div>
                 {[0, 1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-[118px] rounded-[18px] bg-[#14151d]" />
                 ))}

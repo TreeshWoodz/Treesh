@@ -20,9 +20,9 @@ export function beep(freq = 880, dur = 0.12, vol = 0.18) {
     o.stop(_ac.currentTime + dur + 0.02);
   } catch (e) {}
 }
-export function speak(text) {
+export function speak(text, force = false) {
   try {
-    if (!getSettings().voice || !window.speechSynthesis) return;
+    if ((!force && !getSettings().voice) || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;

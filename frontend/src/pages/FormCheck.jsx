@@ -14,7 +14,7 @@ const MODELS = {
   precise: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
 };
 const COLOR = { good: "#2EE59D", ok: "#FFCC66", bad: "#FF5A5A", idle: "#F5F6F8" };
-const PHASE_LABEL = { ready: "Ready \u00b7 bring the ball up", set: "Set point", follow: "Release \u00b7 hold it", none: "Step into frame" };
+const PHASE_LABEL = { ready: "Ready · bring the ball up", set: "Set point", follow: "Release · hold it", none: "Step into frame" };
 
 let landmarkerCache = {};
 async function getLandmarker(kind) {
@@ -103,9 +103,7 @@ export default function FormCheck() {
     setHistory((h) => [{ score: rep.score, at: rep.at, checks: Object.fromEntries(Object.entries(rep.checks).map(([k, v]) => [k, v.status])) }, ...h].slice(0, 100));
     bumpStats((s) => { s.shots += 1; s.bestShot = Math.max(s.bestShot || 0, rep.score); return s; });
     if (voiceRef.current) {
-      const prev = LS.get(KEYS.settings, {});
-      LS.set(KEYS.settings, { ...prev, voice: true });
-      speak(rep.score >= 85 ? `${rep.score}. Pure.` : `${rep.score}. ${rep.topTip}`);
+      speak(rep.score >= 85 ? `${rep.score}. Pure.` : `${rep.score}. ${rep.topTip}`, true);
     }
   }, [setHistory]);
 
@@ -226,7 +224,7 @@ export default function FormCheck() {
 
   return (
     <div data-testid="form-check-page">
-      <PageHeader eyebrow="New \u00b7 On-device AI" title="Form Check" sub="Live pose tracking scores every shot on elbow alignment, knee bend, release, follow-through and balance. Nothing leaves your phone." testid="form-title" />
+      <PageHeader eyebrow="New · On-device AI" title="Form Check" sub="Live pose tracking scores every shot on elbow alignment, knee bend, release, follow-through and balance. Nothing leaves your phone." testid="form-title" />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
         <div>
@@ -238,14 +236,14 @@ export default function FormCheck() {
                 {status === "loading" ? (
                   <>
                     <Loader2 size={30} className="hp-spin text-[#FF3EA5]" />
-                    <div className="mt-3 text-sm font-bold">Loading pose model\u2026</div>
-                    <div className="mt-1 text-xs text-[#8B90A6]">First load downloads ~5\u201310 MB, then it's cached.</div>
+                    <div className="mt-3 text-sm font-bold">Loading pose model…</div>
+                    <div className="mt-1 text-xs text-[#8B90A6]">First load downloads ~5–10 MB, then it's cached.</div>
                   </>
                 ) : (
                   <>
                     <span className="grid h-16 w-16 place-items-center rounded-2xl border border-[#25273a] bg-[#121319]"><Target size={28} className="text-[#FF3EA5]" /></span>
                     <div className="font-display mt-4 text-2xl">Shoot a perfect form</div>
-                    <p className="mt-1.5 max-w-md text-sm text-[#B7BBCB]">Prop your phone 8\u201312 ft away, side-on to your shooting hand, full body in frame. Then shoot at game speed.</p>
+                    <p className="mt-1.5 max-w-md text-sm text-[#B7BBCB]">Prop your phone 8–12 ft away, side-on to your shooting hand, full body in frame. Then shoot at game speed.</p>
                     {error && <p className="mt-3 max-w-md text-sm font-semibold text-[#FF7A7A]" data-testid="form-error">{error}</p>}
                     <div className="mt-5 flex flex-wrap justify-center gap-2">
                       <Btn onClick={() => startCamera()} data-testid="form-camera-start-button"><Camera size={16} /> Start camera</Btn>
@@ -274,7 +272,7 @@ export default function FormCheck() {
                   <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex gap-2">
                       {[["Elbow", live.elbow], ["Knee", live.knee], ["Arm", live.armElev]].map(([l, v]) => (
-                        <span key={l} className="rounded-xl border border-[#2a2c40] bg-[#0A0A0D]/85 px-2.5 py-1.5 text-center"><span className="block text-[9.5px] font-extrabold uppercase tracking-wider text-[#8B90A6]">{l}</span><span className="font-num text-[15px] font-black">{Math.round(v)}\u00b0</span></span>
+                        <span key={l} className="rounded-xl border border-[#2a2c40] bg-[#0A0A0D]/85 px-2.5 py-1.5 text-center"><span className="block text-[9.5px] font-extrabold uppercase tracking-wider text-[#8B90A6]">{l}</span><span className="font-num text-[15px] font-black">{Math.round(v)}°</span></span>
                       ))}
                     </div>
                     {phase === "set" && live.knee > 165 && live.ankleVis > 0.4 && <span className="rounded-full bg-[#FFCC66] px-3 py-1.5 text-[12px] font-extrabold text-[#0A0A0D]">Bend your knees</span>}
@@ -309,7 +307,7 @@ export default function FormCheck() {
         <div className="space-y-3">
           <div className="hp-card grid grid-cols-3 p-4 text-center">
             <div><div className="hp-eyebrow">Session</div><div className="font-num text-3xl font-black" data-testid="form-session-shots">{reports.length}</div></div>
-            <div><div className="hp-eyebrow">Avg (20)</div><div className="font-num text-3xl font-black text-[#FF3EA5]">{avg ?? "\u2013"}</div></div>
+            <div><div className="hp-eyebrow">Avg (20)</div><div className="font-num text-3xl font-black text-[#FF3EA5]">{avg ?? "–"}</div></div>
             <div><div className="hp-eyebrow">All-time</div><div className="font-num text-3xl font-black">{history.length}</div></div>
           </div>
           <AnimatePresence mode="popLayout">
@@ -325,7 +323,7 @@ export default function FormCheck() {
                   <li><span className="font-bold text-[#F5F6F8]">4. Finish.</span> How long you hold the follow-through and if your wrist snaps.</li>
                   <li><span className="font-bold text-[#F5F6F8]">5. Balance.</span> Lean and drift from takeoff to landing.</li>
                 </ol>
-                <p className="mt-3 text-[12px] text-[#8B90A6]">Every detected shot gets a 0\u2013100 score with the #1 fix, spoken out loud if voice is on.</p>
+                <p className="mt-3 text-[12px] text-[#8B90A6]">Every detected shot gets a 0–100 score with the #1 fix, spoken out loud if voice is on.</p>
               </div>
             )}
           </AnimatePresence>
