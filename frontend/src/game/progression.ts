@@ -63,10 +63,34 @@ export const SKINS: Skin[] = [
 ];
 export const skinById = (id: string) => SKINS.find(s => s.id === id) || SKINS[0];
 
+// ---------- Highway themes (full gameplay backdrops) ----------
+export type HighwayTheme = { id: string; name: string; price: number; tag: string; glow: string };
+export const THEMES: HighwayTheme[] = [
+  { id: "classic", name: "Classic Grid", price: 0, tag: "DEFAULT", glow: "#00E5FF" },
+  { id: "city", name: "Neon City", price: 800, tag: "URBAN", glow: "#FF2D7A" },
+  { id: "space", name: "Deep Space", price: 1000, tag: "COSMIC", glow: "#8B5CFF" },
+  { id: "sunset", name: "Sunset Drive", price: 1200, tag: "RETRO", glow: "#FF8A00" },
+];
+export const themeById = (id: string) => THEMES.find(t => t.id === id) || THEMES[0];
+
+// ---------- Crown challenges: one-time Starlite bonus per song + difficulty ----------
+export const CROWN_BONUS = { gold: 150, diamond: 400 } as const;
+const CLAIM_KEY = "vocotap_crown_claims";
+export async function claimCrowns(r: ScoreResult): Promise<{ bonus: number; crown?: "gold" | "diamond" }> {
+  if (r.difficulty === "Custom" || !isFullCombo(r)) return { bonus: 0 };
+  let claims: string[] = [];
+  try { claims = JSON.parse((await AsyncStorage.getItem(CLAIM_KEY)) || "[]"); } catch {}
+  const base = `${r.songId}-${r.difficulty}`; let bonus = 0; let crown: "gold" | "diamond" | undefined;
+  if (!claims.includes(`${base}-gold`)) { claims.push(`${base}-gold`); bonus += CROWN_BONUS.gold; crown = "gold"; }
+  if (isAllPerfect(r) && !claims.includes(`${base}-diamond`)) { claims.push(`${base}-diamond`); bonus += CROWN_BONUS.diamond; crown = "diamond"; }
+  if (bonus) await AsyncStorage.setItem(CLAIM_KEY, JSON.stringify(claims)).catch(() => {});
+  return { bonus, crown };
+}
+
 // ---------- Persistent store (tiny pub-sub, no provider needed) ----------
-export type Progress = { xp: number; owned: string[]; skin: string };
+export type Progress = { xp: number; owned: string[]; skin: string; themes: string[]; theme: string };
 const KEY = "vocotap_progress";
-let state: Progress = { xp: 0, owned: ["neon"], skin: "neon" };
+let state: Progress = { xp: 0, owned: ["neon"], skin: "neon", themes: ["classic"], theme: "classic" };
 let loaded = false;
 const listeners = new Set<(p: Progress) => void>();
 const emit = () => { setLaneSkin(skinById(state.skin).lanes); listeners.forEach(l => l(state)); };
@@ -86,3 +110,5 @@ export async function addXp(amount: number) {
 }
 export async function buySkin(id: string) { await load; if (!state.owned.includes(id)) { state = { ...state, owned: [...state.owned, id], skin: id }; await save(); emit(); } }
 export async function equipSkin(id: string) { await load; if (state.owned.includes(id)) { state = { ...state, skin: id }; await save(); emit(); } }
+export async function buyTheme(id: string) { await load; if (!state.themes.includes(id)) { state = { ...state, themes: [...state.themes, id], theme: id }; await save(); emit(); } }
+export async function equipTheme(id: string) { await load; if (state.themes.includes(id)) { state = { ...state, theme: id }; await save(); emit(); } }

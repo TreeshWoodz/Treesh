@@ -34,6 +34,25 @@ export function estimateBpm(fileName: string, duration = 30) {
 }
 
 // Clamp every hold/wavy so it ends just before the next note in the same lane (no overlapping sustains).
+// Swipe (flick) notes: turn a share of well-spaced taps into arrow notes on Normal+ (none on Easy).
+// Only isolated taps qualify (room before/after, no chord partner) so the flick is always readable.
+const SWIPE_FRAC: Record<string, number> = { Easy: 0, Normal: 0.07, Hard: 0.1, Expert: 0.13, Custom: 0 };
+export function addSwipes(notes: Note[], difficulty: Difficulty, random: () => number): Note[] {
+  const frac = SWIPE_FRAC[difficulty] ?? 0; if (!frac) return notes;
+  const sorted = [...notes].sort((a, b) => a.time - b.time);
+  let lastSwipe = -10;
+  sorted.forEach((n, i) => {
+    if (n.type !== "tap") return;
+    const prev = sorted[i - 1], next = sorted[i + 1];
+    if ((prev && n.time - prev.time < 0.3) || (next && next.time - n.time < 0.42) || n.time - lastSwipe < 1.2) return;
+    if (random() >= frac * 2.2) return;
+    const r = random();
+    n.type = "swipe"; n.dir = n.lane === 0 ? (r < 0.6 ? "left" : "up") : n.lane === 3 ? (r < 0.6 ? "right" : "up") : r < 0.5 ? "up" : r < 0.75 ? "left" : "right";
+    lastSwipe = n.time;
+  });
+  return notes;
+}
+
 export function clampHolds(notes: Note[]): Note[] {
   const sorted = [...notes].sort((a, b) => a.time - b.time);
   const lanes: Record<number, Note[]> = { 0: [], 1: [], 2: [], 3: [] };
@@ -90,7 +109,7 @@ function chartFromOnsets(songId: string, difficulty: Difficulty, duration: numbe
     }
   }
   const waveform = Array.from({ length: 96 }, (_, i) => Math.min(1, 0.16 + Math.abs(Math.sin(i * 0.42)) + random() * 0.15));
-  return { songId, difficulty, bpm: data.bpm || 120, duration, notes: clampHolds(notes), waveform };
+  return { songId, difficulty, bpm: data.bpm || 120, duration, notes: addSwipes(clampHolds(notes), difficulty, random), waveform };
 }
 
 export function generateChart(songId: string, fileName: string, duration: number, difficulty: Difficulty, onsetData?: OnsetData | null): Chart {
@@ -159,7 +178,7 @@ export function generateChart(songId: string, fileName: string, duration: number
   }
 
   const waveform = Array.from({ length: 96 }, (_, i) => Math.min(1, 0.16 + Math.abs(Math.sin(i * 0.42) * 0.55 + Math.sin(i * 0.13) * 0.25) + random() * 0.2));
-  return { songId, difficulty, bpm, duration, notes: clampHolds(notes), waveform };
+  return { songId, difficulty, bpm, duration, notes: addSwipes(clampHolds(notes), difficulty, random), waveform };
 }
 
 export function trainingChart(): Chart {
@@ -168,7 +187,9 @@ export function trainingChart(): Chart {
     const isWavy = index % 12 === 11;
     const time = 1.5 + index * 0.42;
     const lane = index % 4;
-    const note: Note = { id: `warmup-${index}`, time, lane, type: isWavy ? "wavy" : isHold ? "hold" : "tap", duration: isHold ? 0.82 : isWavy ? 1.15 : undefined };
+    const isSwipe = index % 12 === 3;
+    const note: Note = { id: `warmup-${index}`, time, lane, type: isWavy ? "wavy" : isHold ? "hold" : isSwipe ? "swipe" : "tap", duration: isHold ? 0.82 : isWavy ? 1.15 : undefined };
+    if (isSwipe) note.dir = lane === 0 ? "left" : lane === 3 ? "right" : "up";
     if (isWavy) note.path = wavePath(lane, time, 1.15, index % 8 < 4 ? 1 : -1);
     return note;
   });

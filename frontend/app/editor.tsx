@@ -15,7 +15,7 @@ import { clampHolds, generateChart } from "@/src/game/chartEngine";
 import { encodeChartCode } from "@/src/game/shareCode";
 import { Chart, Note } from "@/src/game/types";
 
-const noteIcon = { tap: "ellipse", hold: "remove", wavy: "water", slide: "arrow-forward", chord: "grid", special: "sparkles" } as const;
+const noteIcon = { tap: "ellipse", hold: "remove", wavy: "water", slide: "arrow-forward", chord: "grid", special: "sparkles", swipe: "arrow-up" } as const;
 
 const TUTORIAL: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
   { icon: "sparkles", title: "Welcome to the Editor", body: "Build a custom chart by tapping in time with the music. Here's the quick tour." },
@@ -82,7 +82,7 @@ function EditorNote({ note, clock, lookahead, boardH, laneW, hw, selected, onPre
           <Path d={wavePath} stroke="rgba(255,255,255,0.7)" strokeWidth={size * 0.1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       : <View style={{ position: "absolute", width: size * 0.4, left: size * 0.3, bottom: size * 0.5, height: tailLen, borderRadius: 8, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA` }} />)}
-    <Pressable onPress={onPress} style={[styles.eNote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderColor: selected ? colors.text : "rgba(255,255,255,0.7)", borderWidth: selected ? 3 : 2 }]}><Ionicons name={noteIcon[note.type]} size={size * 0.36} color={colors.bg} /></Pressable>
+    <Pressable onPress={onPress} style={[styles.eNote, { width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderColor: selected ? colors.text : "rgba(255,255,255,0.7)", borderWidth: selected ? 3 : 2 }]}><Ionicons name={note.type === "swipe" ? (note.dir === "left" ? "arrow-back" : note.dir === "right" ? "arrow-forward" : "arrow-up") : noteIcon[note.type]} size={size * 0.42} color={colors.bg} /></Pressable>
   </Animated.View>;
 }
 

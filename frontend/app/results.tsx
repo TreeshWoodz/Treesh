@@ -84,6 +84,7 @@ function ResultsBody({ daily, chest, showChest, onCollect }: { daily: { bonus: n
         <View style={styles.medals}>
           {ap ? <View testID="medal-all-perfect" style={[styles.medal, { backgroundColor: "#7DF9FF" }]}><Ionicons name="diamond" size={14} color="#001018" /><Text style={styles.medalText}>ALL PERFECT</Text></View>
             : fc ? <View testID="medal-full-combo" style={[styles.medal, { backgroundColor: colors.lime }]}><Ionicons name="flash" size={14} color="#001018" /><Text style={styles.medalText}>FULL COMBO</Text></View> : null}
+          {r.crownNew && <View testID="medal-crown-bonus" style={[styles.medal, { backgroundColor: CROWN_COLOR[r.crownNew] }]}><Ionicons name="ribbon" size={14} color="#001018" /><Text style={styles.medalText}>{r.crownNew === "diamond" ? "DIAMOND" : "GOLD"} CROWN · +{r.crownBonus}</Text></View>}
           {daily && <View testID="daily-reward-badge" style={[styles.medal, { backgroundColor: colors.gold }]}><Ionicons name="flame" size={14} color="#001018" /><Text style={styles.medalText}>DAILY · {daily.streak}D · +{daily.bonus}</Text></View>}
           {chest && <View testID="streak-chest-badge" style={[styles.medal, { backgroundColor: colors.purple }]}><Ionicons name="gift" size={14} color="#001018" /><Text style={styles.medalText}>WEEK {chest.week} CHEST · +{chest.reward}</Text></View>}
         </View>

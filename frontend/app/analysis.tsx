@@ -10,7 +10,7 @@ import { ScreenHeader, NeonButton, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { analyzeAudio, analyzeAudioNative, AudioAnalysis } from "@/src/game/audioAnalysis";
 import { colors, fonts, neonGlow, textGlow } from "@/src/game/theme";
-import { CROWN_COLOR, GRADE_COLOR, masteryFor } from "@/src/game/progression";
+import { CROWN_BONUS, CROWN_COLOR, GRADE_COLOR, masteryFor } from "@/src/game/progression";
 import { Difficulty } from "@/src/game/types";
 
 const analysisKey = (songId: string) => `vocotap_analysis_${songId}`;
@@ -112,6 +112,14 @@ export default function AnalysisScreen() {
               <Text style={styles.diffNote}>{m.best ? `Best ${m.best.score.toLocaleString()}` : meta[d].note}</Text>
             </Pressable>; })}
           </View>
+          {selectedDifficulty !== "Custom" && (() => { const c = masteryFor(scores, selectedSong.id, selectedDifficulty).crown; const gold = c === "gold" || c === "diamond"; const dia = c === "diamond"; return <View testID="crown-goals" style={styles.goals}>
+            <Text style={styles.goalsTitle}>CROWN CHALLENGES · {selectedDifficulty.toUpperCase()}</Text>
+            {[["gold", "Gold crown", "Full Combo — no misses", CROWN_BONUS.gold, gold], ["diamond", "Diamond crown", "All Perfect — every hit Perfect", CROWN_BONUS.diamond, dia]].map(([k, name, req, bonus, done]) => <View key={String(k)} testID={`crown-goal-${k}`} style={styles.goalRow}>
+              <Ionicons name={done ? "checkmark-circle" : "ribbon"} size={22} color={CROWN_COLOR[k as "gold" | "diamond"]} />
+              <View style={{ flex: 1 }}><Text style={styles.goalName}>{String(name)}</Text><Text style={styles.goalReq}>{String(req)}</Text></View>
+              <Text style={[styles.goalBonus, done && { color: colors.muted, textDecorationLine: "line-through" }]}>+{String(bonus)}</Text>
+            </View>)}
+          </View>; })()}
           <NeonButton testID="play-generated-chart-button" label={selectedDifficulty === "Custom" ? "Play custom chart" : `Generate & play ${selectedDifficulty}`} icon="play" onPress={() => play(false)} />
           <NeonButton testID="practice-mode-button" label="Practice mode (slow + loop)" icon="school" variant="secondary" onPress={() => play(true)} />
           <NeonButton testID="edit-generated-chart-button" label={hasCustom ? "Edit custom chart" : "Create a custom chart"} icon="options" variant="secondary" onPress={() => router.push("/editor")} />
@@ -126,6 +134,10 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 22, fontFamily: fonts.arcadeBlack, marginTop: 18, textAlign: "center", letterSpacing: 0.5, ...textGlow(colors.pink, 14) }, artist: { color: colors.muted, marginTop: 6, fontFamily: fonts.body, fontSize: 14 },
   building: { alignItems: "center", gap: 12, paddingVertical: 34 }, buildingText: { color: colors.text, fontFamily: fonts.bold, fontSize: 15, textAlign: "center" }, buildingSub: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, marginTop: -4, textAlign: "center", maxWidth: 280 },
   progOuter: { width: "80%", maxWidth: 300, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden", marginTop: 8 }, progInner: { height: 8, borderRadius: 4, backgroundColor: colors.cyan }, progPct: { color: colors.cyan, fontFamily: fonts.heavy, fontSize: 13 },
+  goals: { padding: 14, borderRadius: 14, gap: 10, backgroundColor: "rgba(14,11,38,0.82)", borderWidth: 1, borderColor: "rgba(255,214,0,0.35)" },
+  goalsTitle: { color: colors.gold, fontSize: 10, fontFamily: fonts.arcade, letterSpacing: 1.5 },
+  goalRow: { flexDirection: "row", alignItems: "center", gap: 12 }, goalName: { color: colors.text, fontSize: 14, fontFamily: fonts.heavy }, goalReq: { color: colors.muted, fontSize: 11, fontFamily: fonts.body, marginTop: 1 },
+  goalBonus: { color: colors.gold, fontSize: 14, fontFamily: fonts.arcadeBlack },
   label: { color: colors.cyan, fontSize: 11, letterSpacing: 2, fontFamily: fonts.arcade, marginTop: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, diff: { width: "47%", flexGrow: 1, padding: 14, borderRadius: 14, backgroundColor: "rgba(14,11,38,0.82)", borderWidth: 1.5, gap: 8 }, diffTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, diffBest: { flexDirection: "row", alignItems: "center", gap: 4 }, diffGrade: { fontSize: 16, fontFamily: fonts.arcadeBlack }, diffIcon: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center" }, diffName: { fontSize: 15, fontFamily: fonts.arcadeBlack, letterSpacing: 1 }, diffNote: { color: colors.muted, fontSize: 12, fontFamily: fonts.bold },
 });

@@ -5,7 +5,7 @@ import { Chart, Note, NoteType, Song } from "./types";
 // the OS share sheet. No server, no upload — everything travels inside the code itself.
 
 const PREFIX = "VOCO1-";
-const TYPES: NoteType[] = ["tap", "hold", "wavy", "slide", "chord", "special"];
+const TYPES: NoteType[] = ["tap", "hold", "wavy", "slide", "chord", "special", "swipe"];
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 // --- cross-platform base64 over a UTF-8 string (no Buffer / btoa dependency) ---
@@ -55,15 +55,17 @@ function utf8ToStr(bytes: number[]): string {
 }
 
 function packNote(n: Note): any[] {
-  const t = [r3(n.time), n.lane, TYPES.indexOf(n.type)];
+  const t: any[] = [r3(n.time), n.lane, TYPES.indexOf(n.type)];
   if (n.duration) t.push(r3(n.duration)); else t.push(0);
-  if (n.path && n.path.length) t.push(n.path.map(p => [r3(p.t), r3(p.x)]));
+  if (n.path && n.path.length) t.push(n.path.map(p => [r3(p.t), r3(p.x)])); else if (n.dir) t.push(0);
+  if (n.dir) t.push(n.dir);
   return t;
 }
 function unpackNote(a: any[], i: number): Note {
   const note: Note = { id: `share-${i}`, time: a[0], lane: a[1], type: TYPES[a[2]] || "tap" };
   if (a[3]) note.duration = a[3];
   if (a[4] && Array.isArray(a[4])) note.path = a[4].map((p: any[]) => ({ t: p[0], x: p[1] }));
+  if (a[5] === "up" || a[5] === "left" || a[5] === "right") note.dir = a[5];
   return note;
 }
 

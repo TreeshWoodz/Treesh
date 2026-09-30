@@ -5,7 +5,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Polygon, Rect } from "react-native-svg";
 import { ScreenHeader } from "@/src/components/ui";
-import { buySkin, equipSkin, Skin, SKINS, useProgress } from "@/src/game/progression";
+import { buySkin, buyTheme, equipSkin, equipTheme, HighwayTheme, Skin, SKINS, THEMES, useProgress } from "@/src/game/progression";
+import { HighwayScene } from "@/src/components/HighwayScene";
 import { useStarlites } from "@/src/game/starlites";
 import { alpha, colors, fonts, neonGlow, textGlow } from "@/src/game/theme";
 
@@ -22,12 +23,33 @@ function SkinPreview({ skin, w = 120, h = 84 }: { skin: Skin; w?: number; h?: nu
   </Svg>;
 }
 
+// Mini gameplay scene: the theme's scenery with a small highway running from the horizon.
+function ThemePreview({ theme, w = 120, h = 84 }: { theme: HighwayTheme; w?: number; h?: number }) {
+  const hz = h * 0.42; const cx = w / 2; const top = w * 0.08, bot = w * 0.9;
+  return <View style={{ width: w, height: h, borderRadius: 8, overflow: "hidden", backgroundColor: "#06051A" }}>
+    {theme.id === "classic" ? <Svg width={w} height={h}><Line x1={0} y1={hz} x2={w} y2={hz} stroke="#FF2D7A" strokeOpacity={0.6} />{[-3, -2, -1, 0, 1, 2, 3].map(i => <Line key={i} x1={cx + i * 6} y1={hz} x2={cx + i * 40} y2={h} stroke="#B537FF" strokeOpacity={0.35} />)}</Svg> : <HighwayScene theme={theme.id} w={w} h={h} horizon={hz} />}
+    <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
+      <Polygon points={`${cx - top / 2},${hz} ${cx + top / 2},${hz} ${cx + bot / 2},${h} ${cx - bot / 2},${h}`} fill="rgba(20,15,72,0.7)" />
+      {[-0.5, 0, 0.5].map((e, i) => <Line key={i} x1={cx + e * top} y1={hz} x2={cx + e * bot} y2={h} stroke={e === 0 ? "rgba(160,200,255,0.25)" : theme.glow} strokeWidth={1.4} />)}
+    </Svg>
+  </View>;
+}
+
 export default function ShopScreen() {
   const prog = useProgress();
   const { stars, award } = useStarlites();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const equipped = SKINS.find(s => s.id === prog.skin) || SKINS[0];
+
+  const onTheme = async (t: HighwayTheme) => {
+    if (prog.themes.includes(t.id)) { await equipTheme(t.id); setMsg(`${t.name} equipped`); Haptics.selectionAsync(); return; }
+    if (stars.points < t.price) { setMsg(`Need ${(t.price - stars.points).toLocaleString()} more Starlites`); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); return; }
+    if (confirm !== `t-${t.id}`) { setConfirm(`t-${t.id}`); return; }
+    await award(-t.price, `Highway theme · ${t.name}`, true);
+    await buyTheme(t.id); setConfirm(null); setMsg(`Unlocked ${t.name}!`);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
 
   const onPress = async (skin: Skin) => {
     const owned = prog.owned.includes(skin.id);
@@ -39,7 +61,7 @@ export default function ShopScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Skin Shop" />
+  return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Shop" />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={[styles.hero, { borderColor: alpha(equipped.glow, 0.55) }, neonGlow(equipped.glow, 18, 0.35)]}>
         <SkinPreview skin={equipped} w={150} h={104} />
@@ -65,6 +87,22 @@ export default function ShopScreen() {
             {on ? <><Ionicons name="checkmark" size={14} color="#001018" /><Text style={[styles.actionText, { color: "#001018" }]}>ON</Text></>
               : owned ? <Text style={styles.actionText}>EQUIP</Text>
               : <><Ionicons name={afford ? "sparkles" : "lock-closed"} size={12} color={asking ? "#001018" : colors.gold} /><Text style={[styles.actionText, { color: asking ? "#001018" : colors.gold }]}>{asking ? "CONFIRM" : skin.price.toLocaleString()}</Text></>}
+          </View>
+        </Pressable>;
+      })}
+      <Text style={styles.section}>HIGHWAY THEMES · {prog.themes.length}/{THEMES.length} OWNED</Text>
+      {THEMES.map(t => {
+        const owned = prog.themes.includes(t.id); const on = prog.theme === t.id; const afford = stars.points >= t.price; const asking = confirm === `t-${t.id}`;
+        return <Pressable key={t.id} testID={`theme-card-${t.id}`} onPress={() => onTheme(t)} style={({ pressed }) => [styles.card, { borderColor: on ? t.glow : alpha(t.glow, 0.28) }, on && neonGlow(t.glow, 14, 0.4), pressed && { transform: [{ scale: 0.985 }] }]}>
+          <ThemePreview theme={t} />
+          <View style={{ flex: 1, gap: 5 }}>
+            <View style={[styles.tag, { borderColor: alpha(t.glow, 0.6) }]}><Text style={[styles.tagText, { color: t.glow }]}>{t.tag}</Text></View>
+            <Text style={styles.name}>{t.name}</Text>
+          </View>
+          <View testID={`theme-action-${t.id}`} style={[styles.action, on ? styles.actionOn : owned ? styles.actionOwned : asking ? styles.actionConfirm : !afford && styles.actionLocked]}>
+            {on ? <><Ionicons name="checkmark" size={14} color="#001018" /><Text style={[styles.actionText, { color: "#001018" }]}>ON</Text></>
+              : owned ? <Text style={styles.actionText}>EQUIP</Text>
+              : <><Ionicons name={afford ? "sparkles" : "lock-closed"} size={12} color={asking ? "#001018" : colors.gold} /><Text style={[styles.actionText, { color: asking ? "#001018" : colors.gold }]}>{asking ? "CONFIRM" : t.price.toLocaleString()}</Text></>}
           </View>
         </Pressable>;
       })}

@@ -12,8 +12,9 @@ import { NeonButton } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
 import { laneColors, colors, fonts, rgba, alpha, neonGlow, textGlow } from "@/src/game/theme";
-import { addXp, levelUpReward, skinById, useProgress, xpForRun } from "@/src/game/progression";
-import { Note, ScoreResult } from "@/src/game/types";
+import { addXp, claimCrowns, levelUpReward, skinById, useProgress, xpForRun } from "@/src/game/progression";
+import { HighwayScene } from "@/src/components/HighwayScene";
+import { Note, ScoreResult, SwipeDir } from "@/src/game/types";
 import { useStarlites } from "@/src/game/starlites";
 import { computeAchievements, TIER_COLOR } from "@/src/game/achievements";
 import { useTreeshIdentity } from "@/src/game/identity";
@@ -28,6 +29,8 @@ const comboColor = (c: number) => (c >= 200 ? "#FF2D7A" : c >= 100 ? "#FFD600" :
 // Stars from accuracy (half-star tiers) + the Starlite reward for a run.
 export function starsFor(acc: number) { return acc >= 100 ? 5 : acc >= 96 ? 4.5 : acc >= 86 ? 4 : acc >= 80 ? 3.5 : acc >= 70 ? 3 : acc >= 66 ? 2.5 : acc >= 50 ? 2 : 1; }
 export function starlitesFor(stars: number) { return stars >= 5 ? 300 : stars >= 4 ? 150 : stars >= 2.5 ? 100 : 50; }
+const ARROW: Record<SwipeDir, keyof typeof Ionicons.glyphMap> = { up: "arrow-up", left: "arrow-back", right: "arrow-forward" };
+const ARROW_CH: Record<SwipeDir, string> = { up: "↑", left: "←", right: "→" };
 const MILESTONES = [50, 100, 200];
 const MBONUS = [25, 50, 100];
 const SPEEDS = [0.5, 0.75, 1];
@@ -131,8 +134,9 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   const color = laneColors[note.lane];
   const isWavy = note.type === "wavy";
   const isHold = note.type === "hold" || note.type === "wavy";
+  const isSwipe = note.type === "swipe" && !!note.dir;
   const baseW = geo.laneW * 0.66;
-  const baseH = 20;
+  const baseH = isSwipe ? 26 : 20;
   const tailW = baseW * 0.4;
   const tailLen = isHold ? Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span)) : 0;
   const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI; // lean the tail toward the vanishing point
@@ -158,9 +162,10 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
       {isHold && !isWavy && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
       <View style={{ position: "absolute", left: -6, top: -6, width: baseW + 12, height: baseH + 12, borderRadius: (baseH + 12) / 2, backgroundColor: alpha(color, special ? 0.5 : 0.28) }} />
-      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.7)" }, capStyle]}>
+      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: isSwipe ? 8 : baseH / 2, borderColor: special || isSwipe ? "#FFFFFF" : "rgba(255,255,255,0.7)", borderWidth: isSwipe ? 2.5 : 1.5 }, capStyle]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
-        <View style={{ position: "absolute", left: baseW * 0.28, right: baseW * 0.28, top: baseH / 2 - 2, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.95)" }} />
+        {isSwipe ? <Ionicons name={ARROW[note.dir as SwipeDir]} size={20} color="#FFFFFF" style={{ textShadowColor: "#000", textShadowRadius: 4 }} />
+          : <View style={{ position: "absolute", left: baseW * 0.28, right: baseW * 0.28, top: baseH / 2 - 2, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.95)" }} />}
       </Reanimated.View>
     </Reanimated.View>
   );
@@ -269,11 +274,12 @@ const BeatLines = React.memo(function BeatLines({ beat, clock, lookahead, geo, f
   return <>{Array.from({ length: n }, (_, k) => <BeatLine key={k} k={k} beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={fever} />)}</>;
 });
 
-const Backdrop = React.memo(function Backdrop({ coverArt, grayscale }: { coverArt?: string | number; grayscale: boolean }) {
+const Backdrop = React.memo(function Backdrop({ coverArt, grayscale, theme, w, h, horizon }: { coverArt?: string | number; grayscale: boolean; theme: string; w: number; h: number; horizon: number }) {
+  const scene = theme !== "classic";
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#06051A" }]}>
-      {coverArt && <Image testID="gameplay-cover-backdrop" source={typeof coverArt === "number" ? coverArt : { uri: coverArt }} style={[styles.cover, { opacity: grayscale ? 0.14 : 0.32 }]} resizeMode="cover" />}
-      <LinearGradient colors={["rgba(6,5,26,0.45)", "rgba(6,5,26,0.8)", "#06051A"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+    <View testID={`gameplay-theme-${theme}`} style={[StyleSheet.absoluteFill, { backgroundColor: "#06051A" }]}>
+      {scene ? <HighwayScene theme={theme} w={w} h={h} horizon={horizon} /> : coverArt ? <Image testID="gameplay-cover-backdrop" source={typeof coverArt === "number" ? coverArt : { uri: coverArt }} style={[styles.cover, { opacity: grayscale ? 0.14 : 0.32 }]} resizeMode="cover" /> : null}
+      <LinearGradient colors={scene ? ["rgba(6,5,26,0.15)", "rgba(6,5,26,0.35)", "rgba(6,5,26,0.85)"] : ["rgba(6,5,26,0.45)", "rgba(6,5,26,0.8)", "#06051A"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
     </View>
   );
 });
@@ -300,10 +306,12 @@ export default function GameScreen() {
   const [progress, setProgress] = useState(0);
   const [pulse, setPulse] = useState(0);
   const [pulseActive, setPulseActive] = useState(false);
-  const [judgment, setJudgment] = useState<{ grade: Judgment; plus: boolean; early: boolean | null; x: number; y: number; key: number } | null>(null);
+  const [judgment, setJudgment] = useState<{ grade: Judgment; plus: boolean; early: boolean | null; flick?: SwipeDir; x: number; y: number; key: number } | null>(null);
   const [feverPop, setFeverPop] = useState(0);
   const [goPop, setGoPop] = useState(0);
-  const skin = skinById(useProgress().skin);
+  const prog = useProgress();
+  const skin = skinById(prog.skin);
+  const pendingSwipe = useRef<{ note: Note; grade: Judgment; plus: boolean; early: boolean | null; lane: number; id: string; x: number; y: number; t: number } | null>(null);
   const laneBurst = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const shake = useRef(new Animated.Value(0)).current;
   const comboAnim = useRef(new Animated.Value(0)).current;
@@ -314,7 +322,7 @@ export default function GameScreen() {
   const [windowIds, setWindowIds] = useState<string[]>([]);
   const [wavyIds, setWavyIds] = useState<string[]>([]);
   const [activeHold, setActiveHold] = useState<Note | null>(null);
-  const [tracePop, setTracePop] = useState<{ key: number } | null>(null);
+  const [tracePop, setTracePop] = useState<{ key: number; perfect: boolean; x: number } | null>(null);
   const [forceStart, setForceStart] = useState(false);
   const [milestone, setMilestone] = useState<{ combo: number; bonus: number; key: number } | null>(null);
   const [achToast, setAchToast] = useState<{ title: string; icon: keyof typeof Ionicons.glyphMap; tier: "bronze" | "silver" | "gold"; key: number } | null>(null);
@@ -349,7 +357,7 @@ export default function GameScreen() {
   const clockStart = useRef(0); const pauseAccum = useRef(0); const pauseAt = useRef(0);
   const resolved = useRef(new Set<string>());
   const counts = useRef({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
-  const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false); const pulseBase = useRef(0); const tickCount = useRef(0); const rockRef = useRef(70); const judgeRef = useRef<{ grade: Judgment; lane: number; plus?: boolean; early?: boolean | null } | null>(null);
+  const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false); const pulseBase = useRef(0); const tickCount = useRef(0); const rockRef = useRef(70); const judgeRef = useRef<{ grade: Judgment; lane: number; plus?: boolean; early?: boolean | null; flick?: SwipeDir } | null>(null);
   const laneFlash = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const pressed = useRef(new Set<number>()).current;
   const judgeAnim = useRef(new Animated.Value(0)).current;
@@ -374,13 +382,21 @@ export default function GameScreen() {
 
   const jsTime = useCallback(() => ((Date.now() - clockStart.current - pauseAccum.current) / 1000) * rateRef.current + settings.audioOffset / 1000, [settings.audioOffset]);
   const flashLane = useCallback((lane: number) => { laneFlash[lane].setValue(1); Animated.timing(laneFlash[lane], { toValue: 0, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [laneFlash]);
-  const showJudge = useCallback((grade: Judgment, lane: number, plus = false, early: boolean | null = null) => {
+  const showJudge = useCallback((grade: Judgment, lane: number, plus = false, early: boolean | null = null, flick?: SwipeDir) => {
     const persp = P_NEAR + (1 - P_NEAR) * 0.62;
-    setJudgment({ grade, plus, early, x: geo.cx + laneFrac(lane) * geo.hw * persp, y: geo.topY + geo.span * 0.62, key: Date.now() });
+    setJudgment({ grade, plus, early, flick, x: geo.cx + laneFrac(lane) * geo.hw * persp, y: geo.topY + geo.span * 0.62, key: Date.now() });
   }, [geo]);
   const fx = !settings.reducedParticles && !settings.performanceMode;
   const fireBurst = useCallback((lane: number) => { laneBurst[lane].setValue(0); Animated.timing(laneBurst[lane], { toValue: 1, duration: 420, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [laneBurst]);
   const doShake = useCallback((amp: number) => { if (!fx) return; shake.stopAnimation(); Animated.sequence([amp, -amp * 0.8, amp * 0.55, -amp * 0.3, 0].map(v => Animated.timing(shake, { toValue: v, duration: 45, useNativeDriver: true }))).start(); }, [shake, fx]);
+  // A swipe that was grabbed but not flicked correctly (wrong way / released / too slow) counts as a miss.
+  const failSwipe = useCallback(() => {
+    const p = pendingSwipe.current; if (!p) return; pendingSwipe.current = null;
+    counts.current.MISS += 1; comboRef.current = 0; rockRef.current = Math.max(0, rockRef.current - 6);
+    judgeRef.current = { grade: "MISS", lane: p.lane };
+    if (pulseActiveRef.current) { missStreakRef.current += 1; fuelRef.current -= 34 * missStreakRef.current; } else pulseBase.current = 0;
+    doShake(4);
+  }, [doShake]);
   const startClock = useCallback((from: number) => { cancelAnimation(clock); clock.value = from; clock.value = withTiming(duration, { duration: Math.max(10, ((duration - from) / rateRef.current) * 1000), easing: RE.linear }); }, [clock, duration]);
   // Vocopulse now auto-fires when the meter fills (no button press needed).
   // Vocopulse: fills over 25 consecutive hits, then stays lit while the streak continues.
@@ -426,7 +442,10 @@ export default function GameScreen() {
     let lvReward = 0; for (let L = lv.levelBefore + 1; L <= lv.levelAfter; L++) lvReward += levelUpReward(L);
     if (lvReward) await award(lvReward, `Reached level ${lv.levelAfter}`, true);
     Object.assign(result, { xpGained: xp, xpBefore: lv.xpBefore, levelBefore: lv.levelBefore, levelAfter: lv.levelAfter, levelReward: lvReward });
-    result.starlitesEarned = earned + bonus + lvReward;
+    const cr = await claimCrowns(result);
+    if (cr.bonus) await award(cr.bonus, `${cr.crown === "diamond" ? "Diamond" : "Gold"} crown · ${selectedSong.title}`, true);
+    result.crownBonus = cr.bonus; result.crownNew = cr.crown;
+    result.starlitesEarned = earned + bonus + lvReward + cr.bonus;
     await saveResult(result); setTestChart(null); router.replace("/results");
   }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, award, player, clock, setTestChart]);
 
@@ -459,6 +478,7 @@ export default function GameScreen() {
       if (paused || finishing.current) return;
       const t = jsTime();
       if (practiceRef.current && loopBRef.current != null && loopARef.current != null && t >= loopBRef.current) { jumpTo(loopARef.current); return; }
+      if (pendingSwipe.current && Date.now() - pendingSwipe.current.t > 550) failSwipe();
       let missLane = -1;
       // Advance the start pointer past notes that have fully passed; flag any unhit ones as misses.
       while (scanStart.current < sorted.length && t - sorted[scanStart.current].time > 0.42) {
@@ -490,7 +510,7 @@ export default function GameScreen() {
         const pv = Math.min(100, Math.max(0, ((comboRef.current - pulseBase.current) / 25) * 100));
         if (pv >= 100) triggerPulse(); else setPulse(p => (p === pv ? p : pv));
       }
-      if (judgeRef.current) { showJudge(judgeRef.current.grade, judgeRef.current.lane, !!judgeRef.current.plus, judgeRef.current.early ?? null); judgeRef.current = null; }
+      if (judgeRef.current) { showJudge(judgeRef.current.grade, judgeRef.current.lane, !!judgeRef.current.plus, judgeRef.current.early ?? null, judgeRef.current.flick); judgeRef.current = null; }
       if (!practiceRef.current && !testChart) {
         for (const d of LIVE_ACH) {
           if (achPopped.current.has(d.id) || unlockedAtStart.current.has(d.id)) continue;
@@ -507,7 +527,7 @@ export default function GameScreen() {
       if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, wavyNotes, settings.noFail, settings.haptics, triggerPulse, jumpTo, testChart, doShake, feverSV]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, wavyNotes, settings.noFail, settings.haptics, triggerPulse, jumpTo, testChart, doShake, feverSV, failSwipe]);
 
   // Hold / wavy sustain. Holds need the start lane held; WAVY notes must be FOLLOWED across
   // lanes (the required lane changes along the path) to keep scoring. Early release grays out
@@ -531,27 +551,24 @@ export default function GameScreen() {
         setActiveHold(null);
         if (following) scoreRef.current += Math.round(400 * (pulseActive ? 2 : 1));
         if (isWavy && totalTicks > 0 && followTicks / totalTicks >= 0.7) {
-          scoreRef.current += Math.round(500 * (pulseActive ? 2 : 1));
-          setTracePop({ key: Date.now() });
+          const perfect = followTicks / totalTicks >= 0.9;
+          scoreRef.current += Math.round((perfect ? 1200 : 500) * (pulseActive ? 2 : 1));
+          setTracePop({ key: Date.now(), perfect, x: geo.cx + laneFrac(wavyLaneAt(note, end)) * geo.hw });
+          if (perfect) { if (fx) for (let l = 0; l < 4; l++) fireBurst(l); doShake(7); }
           if (settings.haptics) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       }
     }, 80);
     return () => { clearInterval(timer); Animated.timing(laneFlash[litLane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); traceGlow.value = withTiming(0, { duration: 150 }); };
-  }, [activeHold, jsTime, laneFlash, pulseActive, pressed, traceGlow, traceX, geo, settings.haptics]);
+  }, [activeHold, jsTime, laneFlash, pulseActive, pressed, traceGlow, traceX, geo, settings.haptics, fx, fireBurst, doShake]);
 
   // Glowing spark that rides the receptor line following the traced wavy lane — brighter while on-track.
   const traceSparkStyle = useAnimatedStyle(() => ({ opacity: traceGlow.value, transform: [{ translateX: traceX.value }, { translateY: geo.bottomY }, { scale: 0.7 + traceGlow.value * 0.6 }] }));
 
   // Taps only mutate refs + fire native-thread animations — no React state, so rapid/back-to-back tapping stays instant.
-  const hitLane = useCallback((lane: number) => {
-    if (!chart || countdown > 0 || paused) return;
-    const t = jsTime();
-    let target: Note | undefined; let best = Infinity;
-    for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > 0.5) break; if (n.lane !== lane || resolved.current.has(n.id)) continue; const d = Math.abs(n.time - t); if (d < best) { best = d; target = n; } }
-    if (!target || best > 0.42) { flashLane(lane); return; }
-    const grade: Judgment = best <= 0.11 ? "PERFECT" : best <= 0.24 ? "GREAT" : "GOOD";
-    const plus = best <= 0.045; if (plus) perfectPlusRef.current += 1;
+  // Scores a resolved hit. Swipe notes land here only after a correct flick (or instantly on keyboard).
+  const applyHit = useCallback((target: Note, grade: Judgment, plus: boolean, early: boolean | null, lane: number, flick?: SwipeDir) => {
+    if (plus) perfectPlusRef.current += 1;
     resolved.current.add(target.id); counts.current[grade] += 1;
     comboRef.current += 1; maxCombo.current = Math.max(maxCombo.current, comboRef.current);
     if (milestoneIdx.current < MILESTONES.length && comboRef.current >= MILESTONES[milestoneIdx.current]) {
@@ -563,19 +580,38 @@ export default function GameScreen() {
     }
     if (pulseActiveRef.current) { fuelRef.current = Math.min(100, fuelRef.current + 26); missStreakRef.current = 0; }
     const multiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10)) * (pulseActive ? 2 : 1);
-    scoreRef.current += Math.round(1000 * weights[grade] * multiplier * (plus ? 1.15 : 1));
+    scoreRef.current += Math.round(1000 * weights[grade] * multiplier * (plus ? 1.15 : 1)) + (flick ? 300 * multiplier : 0);
     rockRef.current = Math.min(100, rockRef.current + (grade === "PERFECT" ? 3 : 1));
-    judgeRef.current = { grade, lane, plus, early: grade === "PERFECT" ? null : target.time > t }; flashLane(lane); if (fx) fireBurst(lane);
+    judgeRef.current = { grade, lane, plus, early, flick }; flashLane(lane); if (fx) fireBurst(lane);
     if (target.type === "hold" || target.type === "wavy") setActiveHold(target);
     // Fire SFX/haptics off the touch handler so the hit registers instantly.
     if (settings.hitSfx) setTimeout(() => { try { hitPlayer.seekTo(0); hitPlayer.play(); } catch {} }, 0);
-    if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
-  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted, testChart, fx, fireBurst, doShake]);
+    if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" || flick ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
+  }, [pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, testChart, fx, fireBurst, doShake]);
 
-  const onPadsTouchStart = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); touchLane.current[String(tt.identifier)] = lane; pressed.add(lane); hitLane(lane); } };
+
+  const hitLane = useCallback((lane: number, touch?: { id: string; x: number; y: number }) => {
+    if (!chart || countdown > 0 || paused) return;
+    const t = jsTime();
+    let target: Note | undefined; let best = Infinity;
+    for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > 0.5) break; if (n.lane !== lane || resolved.current.has(n.id)) continue; const d = Math.abs(n.time - t); if (d < best) { best = d; target = n; } }
+    if (!target || best > 0.42) { flashLane(lane); return; }
+    const grade: Judgment = best <= 0.11 ? "PERFECT" : best <= 0.24 ? "GREAT" : "GOOD";
+    const plus = best <= 0.045; const early = grade === "PERFECT" ? null : target.time > t;
+    if (target.type === "swipe" && target.dir) {
+      // Touch: grab the arrow now, score it once the finger flicks the right way. Keyboard: flick is implied.
+      if (touch) { if (pendingSwipe.current) failSwipe(); resolved.current.add(target.id); pendingSwipe.current = { note: target, grade, plus, early, lane, id: touch.id, x: touch.x, y: touch.y, t: Date.now() }; flashLane(lane); return; }
+      applyHit(target, grade, plus, early, lane, target.dir); return;
+    }
+    applyHit(target, grade, plus, early, lane);
+  }, [chart, countdown, paused, jsTime, sorted, flashLane, applyHit, failSwipe]);
+
+  const onPadsTouchStart = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); touchLane.current[String(tt.identifier)] = lane; pressed.add(lane); hitLane(lane, { id: String(tt.identifier), x: tt.pageX, y: tt.pageY }); } };
   // Dragging a finger across lanes retargets the held lane in real time — this is how WAVY notes get TRACED (not just held).
-  const onPadsTouchMove = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier); const prev = touchLane.current[key]; if (prev === undefined) continue; const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); if (lane !== prev) { pressed.delete(prev); pressed.add(lane); touchLane.current[key] = lane; flashLane(lane); } } };
-  const onPadsTouchEnd = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier); const lane = touchLane.current[key]; if (lane !== undefined) { pressed.delete(lane); delete touchLane.current[key]; } } };
+  const onPadsTouchMove = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier);
+    const ps = pendingSwipe.current;
+    if (ps && ps.id === key) { const dx = tt.pageX - ps.x, dy = tt.pageY - ps.y; if (dx * dx + dy * dy >= 22 * 22) { const dir: SwipeDir | null = -dy > Math.abs(dx) ? "up" : Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "left" : "right") : null; pendingSwipe.current = null; if (dir === ps.note.dir) applyHit(ps.note, ps.grade, ps.plus, ps.early, ps.lane, dir); else { pendingSwipe.current = ps; failSwipe(); } continue; } } const prev = touchLane.current[key]; if (prev === undefined) continue; const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); if (lane !== prev) { pressed.delete(prev); pressed.add(lane); touchLane.current[key] = lane; flashLane(lane); } } };
+  const onPadsTouchEnd = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier); if (pendingSwipe.current?.id === key) failSwipe(); const lane = touchLane.current[key]; if (lane !== undefined) { pressed.delete(lane); delete touchLane.current[key]; } } };
 
   // Desktop keyboard controls: D/F/J/K (or arrow keys) drive the 4 lanes.
   useEffect(() => {
@@ -590,7 +626,7 @@ export default function GameScreen() {
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, [hitLane, pressed, settings.keyBindings]);
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
-  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; perfectPlusRef.current = 0; feverSV.value = 0; milestoneIdx.current = 0; milestoneBonusRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; try { if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); } catch {} player.play(); startClock(0); };
+  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; perfectPlusRef.current = 0; pendingSwipe.current = null; feverSV.value = 0; milestoneIdx.current = 0; milestoneBonusRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; try { if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); } catch {} player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
   const visibleWavy = useMemo(() => { const set = new Set(wavyIds); return wavyNotes.filter(n => set.has(n.id)); }, [wavyNotes, wavyIds]);
@@ -607,7 +643,7 @@ export default function GameScreen() {
   const jColor = judgment ? judgeColor(judgment.grade, judgment.plus) : "#fff";
 
   return <View style={styles.root} testID="gameplay-screen">
-    <Backdrop coverArt={selectedSong.coverArt} grayscale={settings.grayscaleCovers} />
+    <Backdrop coverArt={selectedSong.coverArt} grayscale={settings.grayscaleCovers} theme={prog.theme} w={width} h={height} horizon={geo.topY + geo.span * 0.32} />
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateX: shake }, { translateY: shake.interpolate({ inputRange: [-10, 10], outputRange: [4, -4] }) }] }]}>
     <Grid geo={geo} w={width} h={height} tint={skin.glow} fever={pulseActive} />
     <View pointerEvents="none" style={StyleSheet.absoluteFill}><BeatLines beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={feverSV} /></View>
@@ -637,13 +673,18 @@ export default function GameScreen() {
     {/* Judgment (per-lane, mid highway) */}
     {judgment && <Animated.View key={`j${judgment.key}`} pointerEvents="none" style={[styles.judgeWrap, { left: judgment.x - 100, top: judgment.y, opacity: judgeAnim, transform: [{ scale: judgeAnim.interpolate({ inputRange: [0, 1], outputRange: [1.7, 1] }) }] }]}>
       <Text selectable={false} testID="judgment-text" style={[styles.judgment, { color: jColor, textShadowColor: jColor }]}>{judgment.grade === "PERFECT" && judgment.plus ? "PERFECT+" : judgment.grade}</Text>
-      {judgment.early != null && judgment.grade !== "MISS" && <Text selectable={false} style={[styles.judgeTiming, { color: judgment.early ? "#00E5FF" : "#FF8A00" }]}>{judgment.early ? "FAST" : "SLOW"}</Text>}
+      {judgment.flick && <Text selectable={false} testID="judgment-flick" style={[styles.judgeTiming, { color: "#FFD600", fontSize: 13 }]}>FLICK {ARROW_CH[judgment.flick]}</Text>}
+      {!judgment.flick && judgment.early != null && judgment.grade !== "MISS" && <Text selectable={false} style={[styles.judgeTiming, { color: judgment.early ? "#00E5FF" : "#FF8A00" }]}>{judgment.early ? "FAST" : "SLOW"}</Text>}
     </Animated.View>}
     {feverPop > 0 && <Animated.View key={`f${feverPop}`} pointerEvents="none" style={[styles.feverPop, { top: geo.topY + geo.span * 0.24, opacity: feverAnim, transform: [{ scale: feverAnim.interpolate({ inputRange: [0, 1], outputRange: [2.2, 1] }) }] }]}>
       <Text selectable={false} style={styles.feverText}>VOCOPULSE!</Text><Text selectable={false} style={styles.feverSub}>FEVER · ×2 SCORE</Text>
     </Animated.View>}
     {goPop > 0 && <Animated.View key={`g${goPop}`} pointerEvents="none" style={[styles.feverPop, { top: geo.topY + geo.span * 0.3, opacity: goAnim, transform: [{ scale: goAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.1] }) }] }]}><Text selectable={false} style={styles.goText}>GO!</Text></Animated.View>}
-    {tracePop && <Animated.View key={`t${tracePop.key}`} pointerEvents="none" style={[styles.tracePop, { top: geo.bottomY - 128, left: geo.cx - 110, opacity: traceAnim, transform: [{ translateY: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }, { scale: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }]}><Ionicons name="sparkles" size={17} color={laneColors[1]} /><Text selectable={false} style={styles.tracePopText}>Nice trace!</Text></Animated.View>}
+    {tracePop?.perfect && fx && <View key={`ts${tracePop.key}`} pointerEvents="none" style={StyleSheet.absoluteFill}>{Array.from({ length: 14 }).map((_, i) => { const ang = (i / 14) * Math.PI * 2; const d = 70 + (i % 3) * 22; return <Animated.View key={i} style={{ position: "absolute", left: tracePop.x - 5, top: geo.bottomY - 40, width: 10, height: 10, borderRadius: 5, backgroundColor: i % 2 ? "#FFD600" : "#FFFFFF", opacity: traceAnim.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 0] }), transform: [{ translateX: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(ang) * d] }) }, { translateY: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(ang) * d] }) }] }} />; })}</View>}
+    {tracePop && <Animated.View key={`t${tracePop.key}`} testID={tracePop.perfect ? "perfect-trace-pop" : "trace-pop"} pointerEvents="none" style={[styles.tracePop, { top: geo.bottomY - 150, left: geo.cx - 150, opacity: traceAnim, transform: [{ translateY: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }, { scale: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [tracePop.perfect ? 1.6 : 0.8, 1] }) }] }]}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><Ionicons name="sparkles" size={17} color={tracePop.perfect ? "#FFD600" : laneColors[1]} /><Text selectable={false} style={[styles.tracePopText, tracePop.perfect && styles.perfectTraceText]}>{tracePop.perfect ? "PERFECT TRACE!" : "Nice trace!"}</Text></View>
+      <Text selectable={false} style={styles.traceBonus}>+{tracePop.perfect ? 1200 : 500}</Text>
+    </Animated.View>}
     {milestone && <Animated.View key={`m${milestone.key}`} pointerEvents="none" style={[styles.milestone, { top: geo.topY + geo.span * 0.3, left: geo.cx - 150, opacity: milestoneAnim, transform: [{ scale: milestoneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}>
       <Text selectable={false} style={styles.milestoneCombo}>{milestone.combo} COMBO!</Text>
       {milestone.bonus > 0 && <View style={styles.milestoneBonus}><Ionicons name="sparkles" size={13} color={colors.gold} /><Text selectable={false} style={styles.milestoneBonusText}>+{milestone.bonus} Starlites</Text></View>}
@@ -719,7 +760,8 @@ const styles = StyleSheet.create({
   feverPop: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   feverText: { color: "#FFD600", fontSize: 40, fontFamily: fonts.arcadeBlack, letterSpacing: 2, ...textGlow("#FF8A00", 26) }, feverSub: { color: "#FFFFFF", fontSize: 12, fontFamily: fonts.arcade, letterSpacing: 4, marginTop: 2, ...textGlow("#FF2D7A", 12) },
   goText: { color: "#CCFF00", fontSize: 96, fontFamily: fonts.arcadeBlack, ...textGlow("#CCFF00", 30) },
-  tracePop: { position: "absolute", width: 220, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, tracePopText: { color: "#EAF6FF", fontSize: 22, fontFamily: fonts.arcadeBlack, textShadowColor: "rgba(47,224,214,0.9)", textShadowRadius: 16 },
+  tracePop: { position: "absolute", width: 300, alignItems: "center", justifyContent: "center", gap: 2 },
+  perfectTraceText: { color: "#FFD600", fontSize: 24, textShadowColor: "#FF8A00", textShadowRadius: 20 }, traceBonus: { color: "#FFFFFF", fontSize: 13, fontFamily: fonts.arcade, letterSpacing: 2 }, tracePopText: { color: "#EAF6FF", fontSize: 22, fontFamily: fonts.arcadeBlack, textShadowColor: "rgba(47,224,214,0.9)", textShadowRadius: 16 },
   milestone: { position: "absolute", width: 300, alignItems: "center", gap: 8 }, milestoneCombo: { color: colors.gold, fontSize: 36, fontFamily: fonts.arcadeBlack, textShadowColor: "rgba(245,200,66,0.85)", textShadowRadius: 20, letterSpacing: 1 }, milestoneBonus: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 30, borderRadius: 15, backgroundColor: "rgba(245,200,66,0.16)", borderWidth: 1, borderColor: "rgba(245,200,66,0.5)" }, milestoneBonusText: { color: colors.gold, fontSize: 13, fontFamily: fonts.heavy },
   achToast: { position: "absolute", left: 24, right: 24, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 18, backgroundColor: "rgba(16,14,22,0.97)", borderWidth: 1.5, zIndex: 60, shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 16 }, achToastIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" }, achToastLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.6, fontFamily: fonts.heavy }, achToastTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.display, marginTop: 2 },
   practice: { position: "absolute", left: 12, right: 12, gap: 8, zIndex: 20 }, practiceRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" },

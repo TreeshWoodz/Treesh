@@ -1,5 +1,6 @@
 export type Difficulty = "Easy" | "Normal" | "Hard" | "Expert" | "Custom";
-export type NoteType = "tap" | "hold" | "wavy" | "slide" | "chord" | "special";
+export type NoteType = "tap" | "hold" | "wavy" | "slide" | "chord" | "special" | "swipe";
+export type SwipeDir = "up" | "left" | "right";
 
 export type Note = {
   id: string;
@@ -8,6 +9,7 @@ export type Note = {
   type: NoteType;
   duration?: number;
   path?: { t: number; x: number }[];
+  dir?: SwipeDir;
   hit?: boolean;
   missed?: boolean;
 };
@@ -58,6 +60,8 @@ export type ScoreResult = {
   levelBefore?: number;
   levelAfter?: number;
   levelReward?: number;
+  crownBonus?: number;
+  crownNew?: "gold" | "diamond";
 };
 
 export type GameSettings = {
