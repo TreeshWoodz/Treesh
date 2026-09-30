@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Song Coder · Treesh</title>
+<meta name="theme-color" content="#0a0a0b" />
+<meta name="robots" content="noindex" />
+<link rel="icon" type="image/png" href="https://ik.imagekit.io/treesh/IMG_5825.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&family=Special+Gothic+Expanded+One&family=Doto:wght@400..900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+<style>
+:root{
+  --bg0:#0a0a0b; --bg1:#121214; --bg2:#1a1a1f;
+  --purple:#9328ff; --purple-2:#b779ff; --purple-soft:rgba(147,40,255,.22); --purple-faint:rgba(147,40,255,.10);
+  --stroke:rgba(255,255,255,.13); --stroke-faint:rgba(255,255,255,.07);
+  --text:#f5f5f7; --muted:rgba(245,245,247,.58); --dim:rgba(245,245,247,.34);
+  --ok:#3ddc97; --warn:#ffb547; --err:#ff5c7a;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --glow:0 0 0 1px rgba(147,40,255,.35),0 0 32px rgba(147,40,255,.28);
+  --focus:0 0 0 1px rgba(255,255,255,.08),0 0 0 4px var(--purple-soft);
+  --display:'Special Gothic Expanded One','Manrope',sans-serif;
+  --sans:'Manrope',system-ui,sans-serif;
+  --doto:'Doto','Manrope',monospace;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+*{-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg0);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5}
+body{min-height:100vh;overflow-x:hidden}
+::selection{background:var(--purple-soft);color:#fff}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+img{-webkit-user-drag:none}
+a{color:var(--purple-2)}
+[hidden]{display:none !important}
+.soft-scroll::-webkit-scrollbar{width:8px;height:8px}
+.soft-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:999px}
+.soft-scroll::-webkit-scrollbar-track{background:transparent}
+svg.lucide{width:18px;height:18px;stroke-width:2;flex:none}
+
+/* ambient */
+#ambient{position:fixed;inset:-10%;z-index:0;background-size:cover;background-position:center;filter:blur(90px) saturate(1.4);opacity:0;transition:opacity .9s var(--ease),background-image .9s;pointer-events:none}
+#ambient.on{opacity:.28}
+.glowfield{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(60% 50% at 12% -10%,rgba(147,40,255,.20),transparent 70%),radial-gradient(40% 40% at 100% 0%,rgba(147,40,255,.08),transparent 70%)}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.06;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:18px;padding:14px clamp(16px,3vw,40px);background:rgba(10,10,11,.72);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-bottom:1px solid var(--stroke-faint)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;text-decoration:none;color:inherit}
+.brand img{width:36px;height:36px;border-radius:11px;box-shadow:0 0 0 1px var(--stroke),0 8px 24px rgba(147,40,255,.25)}
+.brand b{display:block;font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:.2em;line-height:1}
+.brand small{display:block;margin-top:5px;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--dim);line-height:1}
+.tabs{position:relative;display:flex;margin:0 auto;padding:4px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--stroke-faint)}
+.tab{position:relative;z-index:1;display:flex;align-items:center;gap:8px;padding:9px 20px;border-radius:999px;font-weight:700;font-size:13px;color:var(--muted);transition:color .25s var(--ease)}
+.tab.active{color:#fff}
+.tab .count{font-family:var(--doto);font-weight:800;font-size:13px;color:var(--purple-2)}
+.tab-ind{position:absolute;z-index:0;top:4px;bottom:4px;border-radius:999px;background:var(--purple);box-shadow:var(--glow);transition:left .42s var(--ease),width .42s var(--ease)}
+.tab.active .count{color:#fff}
+.top-right{display:flex;align-items:center;gap:10px}
+.conn{display:flex;align-items:center;gap:9px;padding:8px 14px;border-radius:999px;border:1px solid var(--stroke-faint);background:rgba(255,255,255,.04);font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;transition:border-color .2s,background-color .2s}
+.conn:hover{border-color:var(--stroke);background:rgba(255,255,255,.07)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+.conn[data-state=github] .dot{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.conn[data-state=site] .dot{background:var(--warn);box-shadow:0 0 10px var(--warn)}
+.conn[data-state=offline] .dot{background:var(--err);box-shadow:0 0 10px var(--err)}
+.icon-btn{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;border:1px solid var(--stroke-faint);background:rgba(255,255,255,.04);color:var(--text);transition:background-color .2s,border-color .2s,transform .15s}
+.icon-btn:hover{background:rgba(255,255,255,.09);border-color:var(--stroke)}
+.icon-btn:active{transform:scale(.92)}
+.icon-btn.danger:hover{background:rgba(255,92,122,.14);border-color:rgba(255,92,122,.4);color:var(--err)}
+
+/* layout */
+main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20px,3vw,40px) clamp(16px,3vw,40px) 120px}
+.view{animation:viewIn .5s var(--ease) both}
+@keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:28px;flex-wrap:wrap}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--purple-2)}
+.page-head h1{margin:8px 0 0;font-family:var(--display);font-weight:400;font-size:clamp(26px,3.4vw,40px);line-height:1.05;letter-spacing:.02em}
+.page-head p{margin:10px 0 0;color:var(--muted);max-width:520px}
+.compose-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:32px;align-items:start}
+
+/* cards */
+.card{position:relative;margin-bottom:22px;padding:24px;border-radius:26px;background:rgba(255,255,255,.035);border:1px solid var(--stroke-faint);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);animation:rise .6s var(--ease) both}
+.card:nth-child(2){animation-delay:.05s}.card:nth-child(3){animation-delay:.1s}.card:nth-child(4){animation-delay:.15s}.card:nth-child(5){animation-delay:.2s}.card:nth-child(6){animation-delay:.25s}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.card-head{display:flex;align-items:baseline;gap:14px;margin-bottom:20px}
+.card-head .num{font-family:var(--doto);font-weight:800;font-size:18px;color:var(--purple-2);line-height:1}
+.card-head h2{margin:0;font-family:var(--display);font-weight:400;font-size:13px;letter-spacing:.16em;text-transform:uppercase}
+.card-head p{margin:0 0 0 auto;font-size:12px;color:var(--dim);text-align:right}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.span2{grid-column:1/-1}
+
+/* fields */
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.field>label,.lbl{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.req{color:var(--purple-2)}
+.lbl-action{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--purple-2);padding:2px 8px;border-radius:999px;transition:background-color .2s}
+.lbl-action:hover{background:var(--purple-faint)}
+.input,.select,.textarea{width:100%;padding:13px 15px;border-radius:15px;background:rgba(255,255,255,.045);border:1px solid var(--stroke);color:var(--text);outline:none;font-size:15px;transition:border-color .2s,box-shadow .2s,background-color .2s}
+.input::placeholder,.textarea::placeholder{color:var(--dim)}
+.input:hover,.select:hover,.textarea:hover{border-color:rgba(255,255,255,.2)}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--purple);box-shadow:var(--focus);background:rgba(255,255,255,.06)}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px}
+.select option{background:var(--bg1);color:var(--text)}
+.textarea{min-height:120px;resize:vertical;line-height:1.55}
+.field.invalid .input,.field.invalid .chip-input,.field.invalid .drop{border-color:var(--err) !important;box-shadow:0 0 0 4px rgba(255,92,122,.14)}
+.err{display:none;margin:0;font-size:12px;font-weight:600;color:var(--err)}
+.field.invalid .err{display:block}
+.hint{margin:0;font-size:12px;color:var(--dim)}
+.hint.warn{color:var(--warn)}
+.with-btn{position:relative}
+.with-btn .input{padding-right:52px}
+.with-btn .in-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:var(--muted);transition:background-color .2s,color .2s}
+.with-btn .in-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+.sr-date{position:absolute;right:6px;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none}
+
+/* chips */
+.chip-input{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:50px;padding:7px 9px;border-radius:15px;background:rgba(255,255,255,.045);border:1px solid var(--stroke);transition:border-color .2s,box-shadow .2s}
+.chip-input:focus-within{border-color:var(--purple);box-shadow:var(--focus)}
+.chip-input input{flex:1;min-width:120px;border:0;outline:0;background:transparent;padding:6px;font-size:15px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;border-radius:999px;background:var(--purple-soft);border:1px solid rgba(147,40,255,.5);font-size:13px;font-weight:600;animation:pop .3s var(--ease)}
+.chip button{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;color:var(--muted)}
+.chip button:hover{background:rgba(255,255,255,.15);color:#fff}
+.chip button svg{width:13px;height:13px}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
+.suggest{display:flex;flex-wrap:wrap;gap:6px}
+.sug{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--stroke-faint);transition:background-color .2s,color .2s,border-color .2s,transform .15s}
+.sug:hover{color:#fff;border-color:var(--stroke);background:rgba(255,255,255,.08)}
+.sug:active{transform:scale(.94)}
+.sug.on{color:#fff;background:var(--purple-soft);border-color:rgba(147,40,255,.55)}
+
+/* drop zones */
+.drops{display:grid;grid-template-columns:1.35fr 1fr;gap:18px}
+.drop{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;min-height:196px;padding:22px;border-radius:22px;border:1.5px dashed rgba(255,255,255,.18);background:rgba(255,255,255,.025);text-align:center;cursor:pointer;overflow:hidden;transition:border-color .25s,background-color .25s,box-shadow .25s,transform .25s var(--ease)}
+.drop:hover{border-color:rgba(147,40,255,.6);background:var(--purple-faint)}
+.drop.over{border-color:var(--purple);background:var(--purple-soft);box-shadow:var(--glow);transform:scale(1.01)}
+.drop .ico{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:rgba(147,40,255,.16);color:var(--purple-2)}
+.drop .ico svg{width:24px;height:24px}
+.drop b{font-size:15px}
+.drop span.sub{font-size:12px;color:var(--dim)}
+.drop.has-file{border-style:solid;border-color:rgba(147,40,255,.45)}
+.drop-cover{padding:0}
+.drop-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.drop-cover .shade{position:absolute;inset:auto 0 0 0;padding:14px;background:linear-gradient(transparent,rgba(0,0,0,.8));font-size:12px;font-weight:600;text-align:left}
+.file-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left}
+.file-row .meta{min-width:0;flex:1}
+.file-row .meta b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-row .meta span{font-family:var(--doto);font-weight:700;font-size:13px;color:var(--muted)}
+.progress{position:relative;width:100%;height:6px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}
+.progress i{position:absolute;inset:0 auto 0 0;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--purple),var(--purple-2));box-shadow:0 0 12px var(--purple);transition:width .2s}
+.status-line{display:flex;align-items:center;gap:8px;width:100%;font-size:12px;font-weight:600;color:var(--muted);text-align:left}
+.status-line.ok{color:var(--ok)}.status-line.warn{color:var(--warn)}.status-line.bad{color:var(--err)}
+.status-line svg{width:15px;height:15px}
+.url-row{margin-top:14px}
+
+/* eq loader */
+.eq{display:inline-flex;align-items:flex-end;gap:3px;height:16px}
+.eq span{display:block;width:3px;height:100%;background:currentColor;border-radius:2px;transform-origin:bottom;animation:teq .9s ease-in-out infinite}
+.eq span:nth-child(2){animation-delay:.15s}.eq span:nth-child(3){animation-delay:.3s}.eq span:nth-child(4){animation-delay:.45s}
+@keyframes teq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* roster */
+.roster{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity}
+.ros{flex:none;width:76px;display:flex;flex-direction:column;align-items:center;gap:8px;scroll-snap-align:start}
+.ros .av{position:relative;width:62px;height:62px;border-radius:50%;padding:3px;border:2px solid transparent;transition:border-color .25s,transform .25s var(--ease),box-shadow .25s}
+.ros .av img{width:100%;height:100%;border-radius:50%;object-fit:cover;filter:grayscale(.85) brightness(.7);transition:filter .25s}
+.ros:hover .av{transform:translateY(-3px)}
+.ros:hover .av img{filter:none}
+.ros .nm{font-size:11px;font-weight:600;color:var(--muted);text-align:center;line-height:1.2;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ros .role{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);padding:1px 7px;border-radius:999px;font-size:9px;font-weight:800;letter-spacing:.1em;background:var(--purple);color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.4)}
+.ros.on .av{border-color:var(--purple);box-shadow:var(--glow)}
+.ros.on .av img{filter:none}
+.ros.on .nm{color:#fff}
+.ros .rid{font-family:var(--doto);font-weight:800;font-size:11px;color:var(--dim)}
+
+/* badge toggles */
+.tog{display:flex;align-items:flex-start;gap:12px;padding:15px;border-radius:18px;border:1px solid var(--stroke-faint);background:rgba(255,255,255,.03);text-align:left;transition:border-color .25s,background-color .25s,transform .15s}
+.tog:hover{border-color:var(--stroke)}
+.tog:active{transform:scale(.98)}
+.tog .tico{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.06);color:var(--muted);flex:none;transition:background-color .25s,color .25s}
+.tog b{display:block;font-size:14px}
+.tog small{display:block;font-size:12px;color:var(--dim);line-height:1.35;margin-top:2px}
+.tog.on{border-color:rgba(147,40,255,.6);background:var(--purple-faint)}
+.tog.on .tico{background:var(--purple);color:#fff;box-shadow:0 0 18px rgba(147,40,255,.5)}
+
+/* preview column */
+.preview-col{position:sticky;top:92px;display:flex;flex-direction:column;gap:18px;animation:rise .7s var(--ease) .1s both}
+.pv-card{position:relative;border-radius:30px;overflow:hidden;background:var(--bg1);border:1px solid var(--stroke-faint);box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.pv-cover{position:relative;aspect-ratio:1/1;background:linear-gradient(135deg,#1c1424,#0d0d10)}
+.pv-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s}
+.pv-cover img.ok{opacity:1}
+.pv-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim)}
+.pv-empty svg{width:44px;height:44px;stroke-width:1.4}
+.pv-play{position:absolute;right:18px;bottom:18px;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:var(--purple);color:#fff;box-shadow:var(--glow),0 14px 30px rgba(0,0,0,.5);transition:transform .2s var(--ease),opacity .2s}
+.pv-play:hover{transform:scale(1.07)}
+.pv-play:active{transform:scale(.94)}
+.pv-play:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.pv-play svg{width:24px;height:24px;fill:currentColor}
+.pv-bar{height:3px;background:rgba(255,255,255,.08)}
+.pv-bar i{display:block;height:100%;width:0;background:var(--purple);box-shadow:0 0 10px var(--purple);transition:width .25s linear}
+.pv-info{padding:20px 22px 22px}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:0}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,255,255,.1);color:#fff}
+.badge.e{background:#fff;color:#000}
+.badge.x{background:var(--purple)}
+.badge svg{width:11px;height:11px}
+.pv-info h2{margin:0;font-size:22px;font-weight:700;line-height:1.25;word-break:break-word}
+.pv-info h3{margin:6px 0 0;font-family:var(--display);font-weight:400;font-size:12px;letter-spacing:.1em;text-transform:uppercase;background:linear-gradient(180deg,#fff 0%,#9a8fb0 140%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pv-meta{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin:0;border-top:1px solid var(--stroke-faint);background:var(--stroke-faint)}
+.pv-meta div{padding:12px 22px;background:var(--bg1)}
+.pv-meta dt{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.pv-meta dd{margin:3px 0 0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pv-meta dd.d{font-family:var(--doto);font-weight:800;font-size:14px}
+
+.panel{border-radius:22px;background:rgba(255,255,255,.035);border:1px solid var(--stroke-faint);overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px 14px 20px;cursor:pointer;user-select:none}
+.panel-head b{font-family:var(--display);font-weight:400;font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+.panel-head .chev{margin-left:auto;transition:transform .3s var(--ease)}
+.panel.open .panel-head .chev{transform:rotate(180deg)}
+.code{display:none;max-height:260px;overflow:auto;margin:0;padding:0 20px 18px;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre-wrap;word-break:break-all;color:rgba(245,245,247,.7);user-select:text}
+.panel.open .code{display:block}
+.c-k{color:var(--purple-2)}.c-v{color:#e9d8ff}.c-t{color:#7ee0c3}
+
+.dock{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:rgba(18,18,20,.8);border:1px solid var(--stroke-faint);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--stroke-faint)}
+.seg button{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 10px;border-radius:999px;font-size:12px;font-weight:700;color:var(--muted);transition:color .25s}
+.seg button.on{color:#fff}
+.seg button svg{width:15px;height:15px}
+.seg .ind{position:absolute;z-index:0;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:999px;background:rgba(255,255,255,.12);border:1px solid var(--stroke);transition:transform .4s var(--ease)}
+.seg[data-mode=live] .ind{transform:translateX(100%)}
+.mode-note{margin:0;font-size:12px;color:var(--dim);text-align:center;min-height:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 20px;border-radius:999px;font-weight:700;font-size:14px;border:1px solid var(--stroke);background:rgba(255,255,255,.05);transition:background-color .2s,border-color .2s,box-shadow .25s,transform .15s,opacity .2s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.1)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--purple);border-color:transparent;color:#fff;box-shadow:0 10px 30px rgba(147,40,255,.35)}
+.btn-primary:hover{background:#a043ff;box-shadow:var(--glow),0 12px 34px rgba(147,40,255,.45)}
+.btn-big{width:100%;padding:17px 22px;font-size:15px}
+.btn-sm{padding:9px 14px;font-size:12px}
+.btn-danger{background:var(--err);border-color:transparent;color:#fff}
+.btn-danger:hover{background:#ff7590}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kbd{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.14);color:rgba(255,255,255,.8)}
+
+.edit-banner{display:flex;align-items:center;gap:14px;margin-bottom:22px;padding:14px 16px 14px 20px;border-radius:20px;background:linear-gradient(90deg,rgba(147,40,255,.2),rgba(147,40,255,.05));border:1px solid rgba(147,40,255,.45);animation:rise .4s var(--ease) both}
+.edit-banner img{width:44px;height:44px;border-radius:12px;object-fit:cover;background:var(--bg2)}
+.edit-banner .t{min-width:0;flex:1}
+.edit-banner .t small{display:block;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--purple-2)}
+.edit-banner .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dup{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:rgba(255,181,71,.08);border:1px solid rgba(255,181,71,.3);color:var(--warn);font-size:13px;font-weight:600;margin-top:4px}
+
+/* catalog */
+.cat-tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:22px}
+.search{position:relative;flex:1;min-width:220px}
+.search svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--dim)}
+.search .input{padding-left:44px;border-radius:999px}
+.cat-tools .select{width:auto;min-width:150px;border-radius:999px}
+.notice{display:flex;align-items:center;gap:14px;padding:16px 18px;margin-bottom:22px;border-radius:20px;border:1px solid rgba(255,181,71,.3);background:rgba(255,181,71,.06);font-size:14px}
+.notice svg{color:var(--warn)}
+.notice .btn{margin-left:auto}
+.prs{margin-bottom:26px}
+.prs-list{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px}
+.pr{flex:none;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;border:1px solid var(--stroke-faint);background:rgba(255,255,255,.04);font-size:13px;font-weight:600;color:var(--text);text-decoration:none;transition:border-color .2s,background-color .2s}
+.pr:hover{border-color:rgba(147,40,255,.5);background:var(--purple-faint)}
+.pr .n{font-family:var(--doto);font-weight:800;color:var(--purple-2)}
+.lbl-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:24px}
+.song{position:relative;display:flex;flex-direction:column;border-radius:24px;overflow:hidden;background:var(--bg1);border:1px solid var(--stroke-faint);transition:transform .3s var(--ease),border-color .3s,box-shadow .3s;animation:rise .5s var(--ease) both}
+.song:hover{transform:translateY(-5px);border-color:var(--stroke);box-shadow:0 24px 50px rgba(0,0,0,.5)}
+.song .cv{position:relative;aspect-ratio:1/1;background:linear-gradient(135deg,#1c1424,#0d0d10)}
+.song .cv img{width:100%;height:100%;object-fit:cover;display:block}
+.song .acts{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;padding:12px;background:linear-gradient(transparent 45%,rgba(0,0,0,.78));opacity:0;transition:opacity .25s}
+.song:hover .acts,.song.playing .acts,.song:focus-within .acts{opacity:1}
+.song .acts .grp{display:flex;gap:8px}
+.song .acts .icon-btn{background:rgba(10,10,11,.6);backdrop-filter:blur(10px);border-color:var(--stroke)}
+.song .acts .play{width:46px;height:46px;background:var(--purple);border-color:transparent;box-shadow:var(--glow)}
+.song .acts .play svg{fill:currentColor}
+.song .inf{padding:14px 16px 16px}
+.song .inf h3{margin:0;font-size:15px;font-weight:700;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song .inf p{margin:3px 0 0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.song .inf .row{display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap}
+.song .g{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(255,255,255,.06);color:var(--muted)}
+.song .idx{position:absolute;left:12px;top:12px;padding:2px 8px;border-radius:8px;font-family:var(--doto);font-weight:800;font-size:12px;background:rgba(10,10,11,.6);backdrop-filter:blur(8px)}
+.song.playing{border-color:rgba(147,40,255,.6);box-shadow:var(--glow)}
+.song .pbar{height:3px;background:rgba(255,255,255,.06)}
+.song .pbar i{display:block;height:100%;width:0;background:var(--purple)}
+.empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:14px;padding:70px 20px;border-radius:26px;border:1px dashed var(--stroke);text-align:center;color:var(--muted)}
+.empty svg{width:34px;height:34px;color:var(--dim)}
+.skel{border-radius:24px;aspect-ratio:.78;background:linear-gradient(100deg,rgba(255,255,255,.03) 30%,rgba(255,255,255,.07) 50%,rgba(255,255,255,.03) 70%);background-size:200% 100%;animation:shim 1.3s linear infinite}
+@keyframes shim{to{background-position:-200% 0}}
+
+/* drawer */
+.scrim{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);animation:fadeIn .25s ease both}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.drawer{position:fixed;top:0;right:0;bottom:0;z-index:61;width:min(480px,100%);display:flex;flex-direction:column;background:rgba(18,18,20,.96);border-left:1px solid var(--stroke);box-shadow:-30px 0 80px rgba(0,0,0,.6);animation:drawerIn .45s var(--ease) both}
+@keyframes drawerIn{from{transform:translateX(100%)}to{transform:none}}
+.drawer-head{display:flex;align-items:center;gap:12px;padding:20px 22px;border-bottom:1px solid var(--stroke-faint)}
+.drawer-head h2{margin:0;font-family:var(--display);font-weight:400;font-size:16px;letter-spacing:.14em;text-transform:uppercase}
+.drawer-head .icon-btn{margin-left:auto}
+.drawer-body{flex:1;overflow-y:auto;padding:22px}
+.drawer-foot{display:flex;gap:10px;padding:16px 22px;border-top:1px solid var(--stroke-faint)}
+.drawer-foot .btn{flex:1}
+.set-sec{margin-bottom:28px}
+.set-sec h3{display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:14px;font-weight:700}
+.set-sec h3 svg{color:var(--purple-2)}
+.set-sec>p{margin:0 0 16px;font-size:12.5px;color:var(--dim)}
+.set-sec .field{margin-bottom:14px}
+.checks{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.checks .status-line{font-size:13px}
+
+/* modal */
+.modal-wrap{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);animation:fadeIn .25s ease both}
+.modal{width:min(460px,100%);padding:28px;border-radius:28px;background:var(--bg1);border:1px solid var(--stroke);box-shadow:0 40px 100px rgba(0,0,0,.7);animation:panelIn .45s var(--ease) both}
+@keyframes panelIn{from{opacity:0;transform:translateY(16px) scale(.95)}to{opacity:1;transform:none}}
+.modal .m-ico{display:grid;place-items:center;width:56px;height:56px;border-radius:18px;margin-bottom:18px;background:var(--purple-soft);color:var(--purple-2)}
+.modal .m-ico svg{width:26px;height:26px}
+.modal.danger .m-ico{background:rgba(255,92,122,.14);color:var(--err)}
+.modal.success .m-ico{background:rgba(61,220,151,.14);color:var(--ok)}
+.modal h2{margin:0 0 8px;font-family:var(--display);font-weight:400;font-size:19px;letter-spacing:.04em;line-height:1.25}
+.modal .m-body{color:var(--muted);font-size:14px}
+.modal .m-body p{margin:0 0 10px}
+.modal .m-acts{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:22px}
+
+/* toasts */
+.toasts{position:fixed;top:84px;left:50%;z-index:90;display:flex;flex-direction:column;align-items:center;gap:10px;transform:translateX(-50%);pointer-events:none;width:min(440px,calc(100% - 32px))}
+.toast{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:16px;background:rgba(26,26,31,.95);border:1px solid var(--stroke);box-shadow:0 20px 50px rgba(0,0,0,.5);font-size:13.5px;font-weight:600;pointer-events:auto;animation:toastIn .35s var(--ease) both}
+.toast.out{animation:toastOut .28s ease both}
+.toast.ok svg{color:var(--ok)}.toast.bad svg{color:var(--err)}.toast.info svg{color:var(--purple-2)}
+@keyframes toastIn{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-10px)}}
+
+/* responsive */
+@media (max-width:1060px){
+  .compose-grid{grid-template-columns:1fr}
+  .preview-col{position:relative;top:0;order:-1}
+  .pv-card{display:grid;grid-template-columns:132px 1fr}
+  .pv-cover{aspect-ratio:auto;min-height:132px}
+  .pv-play{width:44px;height:44px;right:10px;bottom:10px}
+  .pv-play svg{width:18px;height:18px}
+  .pv-bar{display:none}
+  .pv-info{padding:16px 18px}
+  .pv-info h2{font-size:18px}
+  .pv-meta{grid-column:1/-1}
+  .dock{position:fixed;left:12px;right:12px;bottom:12px;z-index:25;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .dock .btn-row,.dock .mode-note{display:none}
+  .dock-inner{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;align-items:center}
+  .panel-code{display:none}
+  main{padding-bottom:150px}
+}
+@media (min-width:1061px){.dock-inner{display:contents}}
+@media (max-width:760px){
+  .topbar{flex-wrap:wrap;gap:12px}
+  .tabs{order:3;width:100%;margin:0}
+  .tab{flex:1;justify-content:center}
+  .conn .conn-text{display:none}
+  .top-right{margin-left:auto}
+  .grid2,.drops{grid-template-columns:1fr}
+  .grid3{grid-template-columns:1fr}
+  .card{padding:18px;border-radius:22px}
+  .card-head p{display:none}
+  .cat-grid{grid-template-columns:repeat(2,1fr);gap:14px}
+  .song .acts{opacity:1}
+  .toasts{top:120px}
+  .input,.select,.textarea,.chip-input input{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+<div id="ambient"></div><div class="glowfield"></div><div class="grain"></div>
+
+<header class="topbar">
+  <a class="brand" href="https://treesh.app" data-testid="brand-link">
+    <img src="https://ik.imagekit.io/treesh/IMG_5825.png" alt="Treesh">
+    <span><b>SONG CODER</b><small>Treesh Tools</small></span>
+  </a>
+  <nav class="tabs" id="tabs" data-testid="view-tabs">
+    <span class="tab-ind" id="tab-ind"></span>
+    <button class="tab active" data-view="compose" data-testid="tab-compose"><i data-lucide="disc-3"></i><span id="tab-compose-label">Compose</span></button>
+    <button class="tab" data-view="catalog" data-testid="tab-catalog"><i data-lucide="library-big"></i>Catalog <span class="count" id="cat-count" data-testid="catalog-count">··</span></button>
+  </nav>
+  <div class="top-right">
+    <button class="conn" id="conn" data-state="offline" data-testid="connection-pill"><span class="dot"></span><span class="conn-text" id="conn-text">Connecting…</span></button>
+    <button class="icon-btn" id="open-settings" title="Settings" data-testid="open-settings-btn"><i data-lucide="settings-2"></i></button>
+  </div>
+</header>
+
+<main>
+  <!-- COMPOSE -->
+  <section class="view" id="view-compose" data-testid="compose-view">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow" id="compose-eyebrow">New release</div>
+        <h1 id="compose-title">Drop a song into the Woodz.</h1>
+        <p id="compose-sub">Fill in the track, preview it live, then upload. It lands in the Treesh catalog as a pull request or goes straight live.</p>
+      </div>
+    </div>
+
+    <div class="edit-banner" id="edit-banner" hidden data-testid="edit-banner">
+      <img id="edit-cover" alt="">
+      <div class="t"><small>Editing catalog song</small><b id="edit-name"></b></div>
+      <button class="btn btn-sm" id="cancel-edit" data-testid="cancel-edit-btn"><i data-lucide="x"></i>Cancel edit</button>
+    </div>
+
+    <div class="compose-grid">
+      <form id="song-form" novalidate autocomplete="off" data-testid="song-form">
+
+        <div class="card">
+          <div class="card-head"><span class="num">01</span><h2>Media</h2><p>Drop files, or paste hosted links</p></div>
+          <div class="drops">
+            <div class="field" data-f="mp3">
+              <div class="drop" id="drop-audio" tabindex="0" data-testid="audio-dropzone">
+                <div class="ico"><i data-lucide="audio-lines"></i></div>
+                <b>Drop the track</b>
+                <span class="sub">MP3, WAV, M4A · reads title, artist &amp; artwork</span>
+              </div>
+              <input type="file" id="file-audio" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg" hidden data-testid="audio-file-input">
+            </div>
+            <div class="field" data-f="cover">
+              <div class="drop drop-cover" id="drop-cover" tabindex="0" data-testid="cover-dropzone">
+                <div class="ico"><i data-lucide="image-plus"></i></div>
+                <b>Cover art</b>
+                <span class="sub">Square image, 1000px+</span>
+              </div>
+              <input type="file" id="file-cover" accept="image/*" hidden data-testid="cover-file-input">
+            </div>
+          </div>
+          <div class="grid2 url-row">
+            <div class="field" data-f="mp3">
+              <label for="f-mp3">Audio link <span class="req">*</span></label>
+              <input class="input" id="f-mp3" placeholder="https://audio.jukehost.co.uk/…" data-testid="input-mp3">
+              <p class="err" data-testid="error-mp3"></p>
+            </div>
+            <div class="field" data-f="cover">
+              <label for="f-cover">Cover art link <span class="req">*</span></label>
+              <input class="input" id="f-cover" placeholder="https://res.cloudinary.com/treesh/…" data-testid="input-cover">
+              <p class="err" data-testid="error-cover"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="num">02</span><h2>The Track</h2><p>What listeners see first</p></div>
+          <div class="grid2">
+            <div class="field span2" data-f="title">
+              <label for="f-title">Track title <span class="req">*</span></label>
+              <input class="input" id="f-title" placeholder="Welcome to the Woodz" data-testid="input-title">
+              <p class="err" data-testid="error-title"></p>
+              <div class="dup" id="dup-warn" hidden data-testid="duplicate-warning"><i data-lucide="copy"></i><span></span></div>
+            </div>
+            <div class="field" data-f="artist">
+              <label for="f-artist">Main artist <span class="req">*</span></label>
+              <input class="input" id="f-artist" list="roster-list" placeholder="Pick or type a name" data-testid="input-artist">
+              <datalist id="roster-list"></datalist>
+              <p class="err" data-testid="error-artist"></p>
+            </div>
+            <div class="field" data-f="featured">
+              <label>Featuring</label>
+              <div class="chip-input" id="feat-box" data-testid="featured-chip-input">
+                <span id="feat-chips"></span>
+                <input id="f-feat" list="roster-list" placeholder="Add artist, press Enter" data-testid="input-featured">
+              </div>
+            </div>
+            <div class="field" data-f="genre">
+              <label for="f-genre">Genre <span class="req">*</span></label>
+              <input class="input" id="f-genre" list="genre-list" placeholder="rap, R&amp;B, pop…" data-testid="input-genre">
+              <datalist id="genre-list"></datalist>
+              <div class="suggest" id="genre-sug" data-testid="genre-suggestions"></div>
+              <p class="err" data-testid="error-genre"></p>
+            </div>
+            <div class="field" data-f="mood">
+              <label for="f-mood">Mood</label>
+              <input class="input" id="f-mood" placeholder="party, fun" data-testid="input-mood">
+              <div class="suggest" id="mood-sug" data-testid="mood-suggestions"></div>
+            </div>
+            <div class="field" data-f="date">
+              <label for="f-date">Release date <button type="button" class="lbl-action" id="date-today" data-testid="date-today-btn">Today</button></label>
+              <div class="with-btn">
+                <input class="input" id="f-date" placeholder="May 10, 2025" data-testid="input-date">
+                <button type="button" class="in-btn" id="date-pick" title="Pick a date" data-testid="date-picker-btn"><i data-lucide="calendar-days"></i></button>
+                <input type="date" class="sr-date" id="f-date-native" tabindex="-1" aria-hidden="true">
+              </div>
+            </div>
+            <div class="field" data-f="album">
+              <label for="f-album">Album / project</label>
+              <input class="input" id="f-album" placeholder="LOVE: the ExPerience" data-testid="input-album">
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="num">03</span><h2>Linked profiles</h2><p>Where this song shows on artist pages</p></div>
+          <div class="roster soft-scroll" id="roster" data-testid="roster-strip"></div>
+          <p class="hint" id="ids-hint" data-testid="linked-ids-hint">Main &amp; featured artists link automatically. Tap others to link them too (e.g. group members).</p>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="num">04</span><h2>Credits</h2><p>Give everyone their flowers</p></div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-written">Written by <button type="button" class="lbl-action" id="fill-writers" data-testid="fill-writers-btn">Use artists</button></label>
+              <input class="input" id="f-written" placeholder="Who wrote it" data-testid="input-written-by">
+            </div>
+            <div class="field">
+              <label for="f-producer">Produced by</label>
+              <input class="input" id="f-producer" placeholder="Who made the beat" data-testid="input-producer">
+            </div>
+            <div class="field">
+              <label for="f-mixer">Mixed by</label>
+              <input class="input" id="f-mixer" placeholder="Who mixed it" data-testid="input-mixer">
+            </div>
+            <div class="field">
+              <label for="f-videographer">Videographer</label>
+              <input class="input" id="f-videographer" placeholder="Who shot the video" data-testid="input-videographer">
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="num">05</span><h2>Story &amp; badges</h2><p>Context that makes it hit</p></div>
+          <div class="grid2">
+            <div class="field">
+              <label for="f-video">YouTube video</label>
+              <input class="input" id="f-video" placeholder="Paste a YouTube link or ID" data-testid="input-video">
+              <p class="hint" id="video-hint"></p>
+            </div>
+            <div class="field">
+              <label for="f-label">Shelf label</label>
+              <select class="select" id="f-label" data-testid="select-label">
+                <option value="">None</option>
+                <option value="fave">Fave</option>
+                <option value="exclusive">Exclusive</option>
+              </select>
+            </div>
+            <div class="field span2">
+              <label for="f-bio">Bio <span class="lbl-action" id="bio-count" style="cursor:default">0</span></label>
+              <textarea class="textarea" id="f-bio" placeholder="What's the song about? Where did it come from?" data-testid="input-bio"></textarea>
+            </div>
+            <div class="span2 grid3" id="toggles">
+              <button type="button" class="tog" data-flag="explicit" data-testid="toggle-explicit"><span class="tico"><i data-lucide="shield-alert"></i></span><span><b>Explicit</b><small>Shows the E tag</small></span></button>
+              <button type="button" class="tog" data-flag="exclusive" data-testid="toggle-exclusive"><span class="tico"><i data-lucide="gem"></i></span><span><b>Exclusive</b><small>Only on Treesh</small></span></button>
+              <button type="button" class="tog" data-flag="treeshchoice" data-testid="toggle-treeshchoice"><span class="tico"><i data-lucide="sparkles"></i></span><span><b>Treesh Choice</b><small>Staff pick spotlight</small></span></button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <aside class="preview-col" data-testid="preview-column">
+        <div class="pv-card" data-testid="preview-card">
+          <div class="pv-cover">
+            <div class="pv-empty"><i data-lucide="disc-3"></i></div>
+            <img id="pv-img" alt="" data-testid="preview-cover">
+            <button type="button" class="pv-play" id="pv-play" disabled title="Preview audio" data-testid="preview-play-btn"><i data-lucide="play"></i></button>
+          </div>
+          <div class="pv-bar"><i id="pv-bar"></i></div>
+          <div>
+            <div class="pv-info">
+              <div class="badges" id="pv-badges" data-testid="preview-badges"></div>
+              <h2 id="pv-title" data-testid="preview-title">Untitled</h2>
+              <h3 id="pv-artist" data-testid="preview-artist">Artist</h3>
+            </div>
+          </div>
+          <dl class="pv-meta">
+            <div><dt>Genre</dt><dd id="pv-genre" data-testid="preview-genre">—</dd></div>
+            <div><dt>Released</dt><dd id="pv-date" data-testid="preview-date">—</dd></div>
+            <div><dt>Length</dt><dd class="d" id="pv-dur" data-testid="preview-duration">--:--</dd></div>
+            <div><dt>Profiles</dt><dd class="d" id="pv-ids" data-testid="preview-ids">—</dd></div>
+          </dl>
+        </div>
+
+        <div class="panel panel-code" id="code-panel" data-testid="code-panel">
+          <div class="panel-head" id="code-toggle" data-testid="code-panel-toggle"><i data-lucide="code-xml"></i><b>Catalog code</b><i class="chev" data-lucide="chevron-down"></i></div>
+          <pre class="code soft-scroll" id="code" data-testid="generated-code"></pre>
+        </div>
+
+        <div class="dock" data-testid="publish-dock">
+          <div class="dock-inner">
+            <div class="seg" id="mode-seg" data-mode="pr" data-testid="publish-mode-toggle">
+              <span class="ind"></span>
+              <button type="button" data-mode="pr" class="on" data-testid="mode-pr-btn"><i data-lucide="git-pull-request"></i>Review</button>
+              <button type="button" data-mode="live" data-testid="mode-live-btn"><i data-lucide="zap"></i>Go live</button>
+            </div>
+            <button type="button" class="btn btn-primary btn-big" id="publish" data-testid="upload-to-catalog-btn"><i data-lucide="upload-cloud"></i><span id="publish-label">Upload to catalog</span></button>
+          </div>
+          <p class="mode-note" id="mode-note" data-testid="mode-note"></p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-sm" id="copy-code" data-testid="copy-code-btn"><i data-lucide="copy"></i>Copy code</button>
+            <button type="button" class="btn btn-sm" id="reset-form" data-testid="reset-form-btn"><i data-lucide="rotate-ccw"></i>Start over</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- CATALOG -->
+  <section class="view" id="view-catalog" hidden data-testid="catalog-view">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">content/songs.html</div>
+        <h1>The Catalog</h1>
+        <p id="cat-sub">Every song on Treesh. Play, edit or remove any track.</p>
+      </div>
+      <button class="btn" id="new-song" data-testid="catalog-new-song-btn"><i data-lucide="plus"></i>New song</button>
+    </div>
+    <div class="notice" id="ro-notice" hidden data-testid="readonly-notice"><i data-lucide="lock"></i><span id="ro-text">Read-only view. Connect GitHub in Settings to edit or delete songs.</span><button class="btn btn-sm" id="ro-connect" data-testid="readonly-connect-btn">Connect GitHub</button></div>
+    <div class="prs" id="prs" hidden data-testid="pending-prs">
+      <div class="lbl-row"><i data-lucide="git-pull-request"></i>Waiting for review</div>
+      <div class="prs-list soft-scroll" id="prs-list"></div>
+    </div>
+    <div class="cat-tools">
+      <label class="search"><i data-lucide="search"></i><input class="input" id="cat-search" placeholder="Search songs, artists, producers…" data-testid="catalog-search-input"></label>
+      <select class="select" id="cat-artist" data-testid="catalog-artist-filter"><option value="">All artists</option></select>
+      <select class="select" id="cat-genre" data-testid="catalog-genre-filter"><option value="">All genres</option></select>
+      <select class="select" id="cat-sort" data-testid="catalog-sort"><option value="order">Catalog order</option><option value="az">Title A–Z</option><option value="artist">Artist</option></select>
+      <button class="icon-btn" id="cat-refresh" title="Refresh from source" data-testid="catalog-refresh-btn"><i data-lucide="refresh-cw"></i></button>
+    </div>
+    <div class="cat-grid" id="cat-grid" data-testid="catalog-grid"></div>
+  </section>
+</main>
+
+<div id="drawer-root"></div>
+<div id="modal-root"></div>
+<div class="toasts" id="toasts" data-testid="toast-container"></div>
+
+<template id="tpl-settings">
+  <div class="scrim" data-close></div>
+  <aside class="drawer" data-testid="settings-drawer">
+    <div class="drawer-head"><i data-lucide="settings-2"></i><h2>Settings</h2><button class="icon-btn" data-close data-testid="close-settings-btn"><i data-lucide="x"></i></button></div>
+    <div class="drawer-body soft-scroll">
+      <div class="set-sec">
+        <h3><i data-lucide="github"></i>GitHub</h3>
+        <p>Song Coder saves to your repo through the GitHub API. Your token stays in this browser only. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" data-testid="create-token-link">Create a fine-grained token</a> for <b>TreeshWoodz/Treesh</b> with <b>Contents</b> and <b>Pull requests</b> set to read &amp; write.</p>
+        <div class="field">
+          <label for="s-token">Access token</label>
+          <div class="with-btn"><input class="input" id="s-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false" data-testid="settings-token-input"><button type="button" class="in-btn" id="s-eye" title="Show / hide" data-testid="settings-token-toggle"><i data-lucide="eye"></i></button></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="s-owner">Owner</label><input class="input" id="s-owner" data-testid="settings-owner-input"></div>
+          <div class="field"><label for="s-repo">Repo</label><input class="input" id="s-repo" data-testid="settings-repo-input"></div>
+          <div class="field"><label for="s-branch">Branch</label><input class="input" id="s-branch" data-testid="settings-branch-input"></div>
+          <div class="field"><label for="s-songs">Catalog file</label><input class="input" id="s-songs" data-testid="settings-songs-path-input"></div>
+          <div class="field span2"><label for="s-icons">Artists file</label><input class="input" id="s-icons" data-testid="settings-icons-path-input"></div>
+        </div>
+        <button type="button" class="btn btn-sm" id="s-test" data-testid="settings-test-connection-btn"><i data-lucide="plug-zap"></i>Test connection</button>
+        <div class="checks" id="s-checks" data-testid="settings-connection-results"></div>
+      </div>
+      <div class="set-sec">
+        <h3><i data-lucide="cloud-upload"></i>Cloudinary uploads</h3>
+        <p>Optional. Add an <b>unsigned upload preset</b> (Cloudinary → Settings → Upload → Upload presets) and dropped files upload automatically. Leave it empty to paste links instead.</p>
+        <div class="grid2">
+          <div class="field"><label for="s-cloud">Cloud name</label><input class="input" id="s-cloud" placeholder="treesh" data-testid="settings-cloud-name-input"></div>
+          <div class="field"><label for="s-preset">Upload preset</label><input class="input" id="s-preset" placeholder="songcoder_unsigned" data-testid="settings-preset-input"></div>
+          <div class="field span2"><label for="s-folder">Folder</label><input class="input" id="s-folder" placeholder="treesh/music" data-testid="settings-folder-input"></div>
+        </div>
+      </div>
+      <div class="set-sec">
+        <h3><i data-lucide="flask-conical"></i>Advanced</h3>
+        <p>API address. Leave as <code>https://api.github.com</code> unless you're testing.</p>
+        <div class="field"><label for="s-api">GitHub API base</label><input class="input" id="s-api" data-testid="settings-api-base-input"></div>
+        <button type="button" class="btn btn-sm" id="s-clear" data-testid="settings-clear-btn"><i data-lucide="trash-2"></i>Forget token &amp; keys</button>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn" data-close data-testid="settings-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="s-save" data-testid="settings-save-btn"><i data-lucide="check"></i>Save</button>
+    </div>
+  </aside>
+</template>
+
+<script>
+'use strict';
+(() => {
+/* ---------- config ---------- */
+const CFG_KEY = 'treesh_songcoder_cfg_v2', DRAFT_KEY = 'treesh_songcoder_draft_v2';
+const DEFAULTS = { token:'', owner:'TreeshWoodz', repo:'Treesh', branch:'main', songsPath:'content/songs.html', iconsPath:'content/icons.html', mode:'pr', cloudName:'treesh', preset:'', folder:'treesh/music', apiBase:'https://api.github.com' };
+const SITE = { songs:['/content/songs','/content/songs.html','https://treesh.app/content/songs'], icons:['/content/icons','/content/icons.html','https://treesh.app/content/icons'] };
+const GENRES = ['rap','hip hop','hip pop','R&B','pop','trap','drill','dance','rock','alternative','spoken word','storytelling'];
+const MOODS = ['party','fun','club','romantic','sad','motivation','thrill','sensual','peaceful','savage','inspirational'];
+let cfg = { ...DEFAULTS, ...safeJSON(localStorage.getItem(CFG_KEY)) };
+
+const state = { view:'compose', catalog:{ text:'', songs:[], source:'', error:'' }, roster:[], featured:[], manualIds:[], flags:{ explicit:false, exclusive:false, treeshchoice:false }, editing:null, localAudio:'', localCover:'', duration:0, busy:false, prs:[], playing:null };
+
+/* ---------- utils ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+function safeJSON(s){ try { return JSON.parse(s) || {}; } catch { return {}; } }
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const normKey = s => String(s ?? '').toLowerCase().replace(/[\u2018\u2019\u201c\u201d]/g,"'").replace(/[^a-z0-9]+/g,'');
+const slug = s => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'song';
+const isUrl = s => /^https?:\/\/[^\s]+\.[^\s]+/i.test(s || '');
+const icon = (n, cls = '') => `<i data-lucide="${n}" class="${cls}"></i>`;
+const icons = () => window.lucide && window.lucide.createIcons();
+const val = id => ($('#' + id).value || '').trim();
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const fmtTime = s => !s || !isFinite(s) ? '--:--' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function fmtDate(iso){ const [y, m, d] = iso.split('-').map(Number); return y && m && d ? `${MONTHS[m - 1]} ${d}, ${y}` : ''; }
+function toIso(text){ if (!/\d{4}/.test(text)) return ''; const d = new Date(text); if (isNaN(d)) return ''; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function splitNames(s){ return String(s || '').split(/\s*(?:,|&|\+)\s*/).map(x => x.trim()).filter(Boolean); }
+function joinNames(a){ return a.length < 2 ? (a[0] || '') : a.length === 2 ? `${a[0]} & ${a[1]}` : `${a.slice(0, -1).join(', ')} & ${a[a.length - 1]}`; }
+function ytId(v){ v = (v || '').trim(); const m = v.match(/(?:youtu\.be\/|v=|\/shorts\/|\/embed\/|\/live\/)([\w-]{11})/); return m ? m[1] : v; }
+function fromB64(b64){ const bin = atob(b64.replace(/\s/g, '')); const bytes = Uint8Array.from(bin, c => c.charCodeAt(0)); return new TextDecoder('utf-8').decode(bytes); }
+function toB64(text){ const bytes = new TextEncoder().encode(text); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin); }
+function saveCfg(){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+const hasToken = () => !!cfg.token;
+
+/* ---------- toasts & modals ---------- */
+function toast(msg, kind = 'info', ms = 3200){
+  const ic = { ok:'check-circle-2', bad:'alert-circle', info:'info' }[kind] || 'info';
+  const el = document.createElement('div');
+  el.className = `toast ${kind}`; el.setAttribute('data-testid', 'toast');
+  el.innerHTML = `${icon(ic)}<span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(el); icons();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, ms);
+}
+function modal({ title, body = '', ico = 'info', tone = '', actions = [], testid = 'modal' }){
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-wrap';
+  wrap.innerHTML = `<div class="modal ${tone}" data-testid="${testid}"><div class="m-ico">${icon(ico)}</div><h2>${esc(title)}</h2><div class="m-body">${body}</div><div class="m-acts"></div></div>`;
+  const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  actions.forEach(a => {
+    const b = document.createElement(a.href ? 'a' : 'button');
+    b.className = `btn ${a.kind || ''}`; b.innerHTML = (a.icon ? icon(a.icon) : '') + esc(a.label);
+    b.setAttribute('data-testid', a.testid || 'modal-action');
+    if (a.href){ b.href = a.href; b.target = '_blank'; b.rel = 'noopener'; b.style.textDecoration = 'none'; b.style.color = '#fff'; }
+    b.addEventListener('click', () => { if (a.onClick) a.onClick(close); else if (!a.href) close(); });
+    $('.m-acts', wrap).appendChild(b);
+  });
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+  document.addEventListener('keydown', onKey);
+  $('#modal-root').appendChild(wrap); icons();
+  return close;
+}
+const confirmModal = opts => new Promise(res => modal({ ...opts, actions:[
+  { label:'Cancel', testid:'confirm-cancel-btn', onClick: c => { c(); res(false); } },
+  { label:opts.ok || 'Confirm', kind:opts.okKind || 'btn-primary', icon:opts.okIcon, testid:'confirm-ok-btn', onClick: c => { c(); res(true); } }
+] }));
+
+/* ---------- GitHub ---------- */
+const encPath = p => p.split('/').map(encodeURIComponent).join('/');
+function ghError(status, msg){
+  const m = {
+    401: 'GitHub rejected the token. Paste a fresh one in Settings.',
+    403: /rate limit/i.test(msg || '') ? 'GitHub rate limit hit. Try again in a few minutes.' : 'This token can’t write here. Give it Contents + Pull requests (read & write).',
+    404: 'Not found. Check owner, repo, branch and file path in Settings.',
+    409: 'The catalog changed on GitHub while you worked. Refresh and try again.',
+    422: msg || 'GitHub couldn’t process that request.'
+  };
+  return m[status] || `GitHub error ${status}${msg ? ': ' + msg : ''}`;
+}
+const gh = {
+  root(){ return `${cfg.apiBase.replace(/\/+$/, '')}/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}`; },
+  async req(path, opts = {}){
+    let r;
+    try {
+      r = await fetch(this.root() + path, { ...opts, cache:'no-store', headers:{ Authorization:`Bearer ${cfg.token}`, Accept:'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28', ...(opts.body ? { 'Content-Type':'application/json' } : {}) } });
+    } catch { const e = new Error('Can’t reach GitHub. Check your connection.'); e.status = 0; throw e; }
+    let d = null; try { d = await r.json(); } catch {}
+    if (!r.ok){ const e = new Error(ghError(r.status, d && d.message)); e.status = r.status; throw e; }
+    return d;
+  },
+  repo(){ return this.req(''); },
+  async getFile(path, ref){ const d = await this.req(`/contents/${encPath(path)}?ref=${encodeURIComponent(ref)}`); if (!d || typeof d.content !== 'string') throw new Error(`${path} isn’t a file GitHub can return (over 1 MB?)`); return { text: fromB64(d.content), sha: d.sha }; },
+  putFile(path, text, sha, message, branch){ return this.req(`/contents/${encPath(path)}`, { method:'PUT', body: JSON.stringify({ message, content: toB64(text), sha, branch }) }); },
+  async headSha(branch){ return (await this.req(`/git/ref/heads/${encPath(branch)}`)).object.sha; },
+  createBranch(name, sha){ return this.req('/git/refs', { method:'POST', body: JSON.stringify({ ref:`refs/heads/${name}`, sha }) }); },
+  openPR(o){ return this.req('/pulls', { method:'POST', body: JSON.stringify(o) }); },
+  listPRs(){ return this.req('/pulls?state=open&per_page=50'); }
+};
+
+/* ---------- catalog parsing ---------- */
+function findSongBlocks(text){
+  const lower = text.toLowerCase(), comments = [], out = [];
+  const cre = /<!--[\s\S]*?-->/g; let m;
+  while ((m = cre.exec(text))) comments.push([m.index, m.index + m[0].length]);
+  const re = /<ul\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+  while ((m = re.exec(text))){
+    const start = m.index;
+    if (comments.some(([a, b]) => start >= a && start < b)) continue;
+    const cm = m[0].match(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+    if (!cm || !/(^|\s)song(\s|$)/i.test(cm[1] ?? cm[2])) continue;
+    const close = lower.indexOf('</ul>', re.lastIndex);
+    if (close < 0) break;
+    out.push({ start, end: close + 5, raw: text.slice(start, close + 5) });
+    re.lastIndex = close + 5;
+  }
+  return out;
+}
+function parseBlock(b, i){
+  const t = document.createElement('template'); t.innerHTML = b.raw;
+  const el = t.content.querySelector('ul'), attrs = {};
+  for (const a of el.attributes) attrs[a.name.toLowerCase()] = a.value;
+  const g = k => (attrs['data-' + k] || '').trim();
+  const img = el.querySelector('img');
+  return { ...b, index: i, attrs, title: g('track'), artist: g('artist'), ids: g('artist-id'), featuring: g('featuring'), genre: g('genre'), mood: g('mood'), date: g('creation-date'), writtenBy: g('written-by'), producer: g('producer'), mixer: g('mixer'), videographer: g('videographer'), cover: g('coverart') || (img && img.getAttribute('src')) || '', mp3: g('mp3'), video: g('video'), bio: attrs['data-bio'] || '', album: g('album'), label: g('label'), explicit: 'data-explicit' in attrs, exclusive: 'data-exclusive' in attrs, treeshchoice: 'data-treeshchoice' in attrs, h3: ((el.querySelector('h3') || {}).textContent || '').trim() };
+}
+const parseCatalog = text => findSongBlocks(text).map(parseBlock);
+function parseRoster(text){
+  const doc = new DOMParser().parseFromString(text, 'text/html');
+  return [...doc.querySelectorAll('article.artist')].map(el => {
+    const img = el.querySelector('img.artist__image') || el.querySelector('img');
+    return { id: (el.getAttribute('data-artist-id') || '').trim(), name: (el.getAttribute('data-name') || '').trim(), image: (img && img.getAttribute('src')) || el.getAttribute('data-bg') || '' };
+  }).filter(a => a.id && a.name).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/* ---------- code generation ---------- */
+const KNOWN = new Set(['class','data-track','data-artist-id','data-artist','data-featuring','data-genre','data-mood','data-creation-date','data-written-by','data-producer','data-mixer','data-videographer','data-coverart','data-mp3','data-video','data-bio','data-album','data-label','data-explicit','data-exclusive','data-treeshchoice']);
+function buildBlock(f, original){
+  const parts = [], add = (k, v) => parts.push(`${k}="${esc(v)}"`);
+  add('class', original ? (original.attrs.class || 'song') : 'song');
+  add('data-track', f.title); add('data-artist-id', f.ids.join(',')); add('data-artist', f.artist);
+  if (f.featured.length) add('data-featuring', joinNames(f.featured));
+  add('data-genre', f.genre); add('data-mood', f.mood); add('data-creation-date', f.date);
+  add('data-written-by', f.writtenBy); add('data-producer', f.producer); add('data-mixer', f.mixer); add('data-videographer', f.videographer);
+  add('data-coverart', f.cover); add('data-mp3', f.mp3); add('data-video', f.video); add('data-bio', f.bio);
+  if (f.album) add('data-album', f.album);
+  if (f.label) add('data-label', f.label);
+  if (original) Object.entries(original.attrs).forEach(([k, v]) => { if (!KNOWN.has(k)) add(k, v); });
+  ['explicit','exclusive','treeshchoice'].forEach(k => { if (f[k]) parts.push(`data-${k}=""`); });
+  const line = [f.artist, ...f.featured].filter(Boolean).join(' x ');
+  const txt = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<ul ${parts.join(' ')}><span>
+                      <section><img src="${esc(f.cover)}" alt="${esc(f.title)}" class="coverart"></section>
+                      <section>
+                        <song-info-tag>
+                          <h2>${txt(f.title)}</h2>
+                          <h3>${txt(line)}</h3>
+                        </song-info-tag>
+                      </section>
+                    </span></ul>`;
+}
+function highlight(code){
+  return esc(code).replace(/([a-z][\w-]*)=&quot;([\s\S]*?)&quot;/g, '<span class="c-k">$1</span>=<span class="c-v">&quot;$2&quot;</span>').replace(/&lt;(\/?)(ul|span|section|img|song-info-tag|h2|h3)/g, '&lt;$1<span class="c-t">$2</span>');
+}
+function applyOp(text, op){
+  if (op.kind === 'add'){
+    const blocks = findSongBlocks(text);
+    const pos = blocks.length ? text.lastIndexOf('\n', blocks[0].start - 1) + 1 : 0;
+    return text.slice(0, pos) + op.block + '\n\n' + text.slice(pos);
+  }
+  const idx = text.indexOf(op.target.raw);
+  if (idx < 0) throw new Error('This song changed on GitHub since you loaded it. Refresh the catalog and try again.');
+  const after = text.slice(idx + op.target.raw.length);
+  if (op.kind === 'edit') return text.slice(0, idx) + op.block + after;
+  return text.slice(0, idx).replace(/[ \t]*$/, '') + after.replace(/^[ \t]*\r?\n/, '');
+}
+
+/* ---------- form ---------- */
+const rosterByName = n => state.roster.find(a => normKey(a.name) === normKey(n));
+function autoIds(){
+  const ids = [], push = id => { if (id && !ids.includes(String(id))) ids.push(String(id)); };
+  const m = rosterByName(val('f-artist')); if (m) push(m.id);
+  state.featured.forEach(n => { const r = rosterByName(n); if (r) push(r.id); });
+  return ids;
+}
+function computeIds(){ const ids = autoIds(); state.manualIds.forEach(id => { if (!ids.includes(id)) ids.push(id); }); return ids; }
+function readForm(){
+  return { title: val('f-title'), artist: val('f-artist'), featured: [...state.featured], ids: computeIds(), genre: val('f-genre'), mood: val('f-mood'), date: val('f-date'), album: val('f-album'), writtenBy: val('f-written'), producer: val('f-producer'), mixer: val('f-mixer'), videographer: val('f-videographer'), cover: val('f-cover'), mp3: val('f-mp3'), video: ytId(val('f-video')), bio: $('#f-bio').value.replace(/\r\n/g, '\n').trim(), label: $('#f-label').value, ...state.flags };
+}
+function validate(f){
+  const e = {};
+  if (!f.title) e.title = 'Give the track a name.';
+  if (!f.artist) e.artist = 'Who’s the main artist?';
+  if (!f.genre) e.genre = 'Pick a genre.';
+  if (!f.mp3) e.mp3 = state.localAudio ? 'Local files can’t go in the catalog. Paste a hosted link or set up Cloudinary.' : 'Add a hosted audio link, or drop a file.';
+  else if (!isUrl(f.mp3)) e.mp3 = 'Needs to be a public https:// link.';
+  if (!f.cover) e.cover = state.localCover ? 'Paste a hosted link for this image, or set up Cloudinary.' : 'Add a cover art link, or drop an image.';
+  else if (!isUrl(f.cover)) e.cover = 'Needs to be a public https:// link.';
+  return e;
+}
+function showErrors(e){
+  $$('.field[data-f]').forEach(fl => {
+    const k = fl.dataset.f, bad = !!e[k];
+    fl.classList.toggle('invalid', bad);
+    const p = $('.err', fl); if (p) p.textContent = e[k] || '';
+  });
+}
+const FIELD_IDS = ['f-title','f-artist','f-genre','f-mood','f-date','f-album','f-written','f-producer','f-mixer','f-videographer','f-cover','f-mp3','f-video','f-bio','f-label'];
+function fillForm(d){
+  FIELD_IDS.forEach(id => { $('#' + id).value = d[id] || ''; });
+  state.featured = [...(d.featured || [])]; state.manualIds = [...(d.manualIds || [])];
+  state.flags = { explicit: !!d.explicit, exclusive: !!d.exclusive, treeshchoice: !!d.treeshchoice };
+}
+function snapshot(){
+  const d = {}; FIELD_IDS.forEach(id => { d[id] = $('#' + id).value; });
+  return { ...d, featured: state.featured, manualIds: state.manualIds, ...state.flags };
+}
+const saveDraft = debounce(() => { if (!state.editing) localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot())); }, 400);
+function clearMedia(){
+  [state.localAudio, state.localCover].forEach(u => u && URL.revokeObjectURL(u));
+  state.localAudio = ''; state.localCover = ''; state.duration = 0;
+  resetDrop('audio'); resetDrop('cover');
+}
+function resetForm(){
+  fillForm({}); clearMedia(); showErrors({}); stopAudio();
+  localStorage.removeItem(DRAFT_KEY); refreshAll();
+}
+
+function renderFeatured(){
+  $('#feat-chips').innerHTML = state.featured.map((n, i) => `<span class="chip" data-testid="featured-chip">${esc(n)}<button type="button" data-rm="${i}" aria-label="Remove ${esc(n)}" data-testid="featured-chip-remove">${icon('x')}</button></span>`).join('');
+  $('#feat-chips').style.display = state.featured.length ? 'contents' : 'none';
+  icons();
+}
+function addFeatured(name){
+  name = name.trim(); if (!name) return;
+  const r = rosterByName(name); name = r ? r.name : name;
+  if (normKey(name) === normKey(val('f-artist'))) return toast('That’s already the main artist.', 'info');
+  if (!state.featured.some(n => normKey(n) === normKey(name))) state.featured.push(name);
+  $('#f-feat').value = ''; refreshAll();
+}
+function renderRoster(){
+  const auto = autoIds(), main = rosterByName(val('f-artist'));
+  $('#roster').innerHTML = state.roster.length ? state.roster.map(a => {
+    const isMain = main && main.id === a.id, isAuto = auto.includes(a.id), isMan = state.manualIds.includes(a.id);
+    const role = isMain ? 'MAIN' : isAuto ? 'FEAT' : isMan ? 'LINK' : '';
+    return `<button type="button" class="ros ${role ? 'on' : ''}" data-id="${esc(a.id)}" title="${esc(a.name)} · #${esc(a.id)}" data-testid="roster-artist-${esc(a.id)}"><span class="av"><img src="${esc(a.image)}" alt="" loading="lazy">${role ? `<span class="role">${role}</span>` : ''}</span><span class="nm">${esc(a.name)}</span><span class="rid">#${esc(a.id)}</span></button>`;
+  }).join('') : `<p class="hint">Artist roster not loaded yet. Connect GitHub or open this tool on treesh.app.</p>`;
+}
+function renderSuggest(){
+  const cat = state.catalog.songs;
+  const gset = new Map(); [...GENRES, ...cat.map(s => s.genre)].forEach(g => { if (g && !gset.has(normKey(g))) gset.set(normKey(g), g); });
+  const genres = [...gset.values()];
+  $('#genre-list').innerHTML = genres.map(g => `<option value="${esc(g)}">`).join('');
+  const cur = normKey(val('f-genre'));
+  $('#genre-sug').innerHTML = genres.slice(0, 10).map(g => `<button type="button" class="sug ${normKey(g) === cur ? 'on' : ''}" data-genre="${esc(g)}" data-testid="genre-chip">${esc(g)}</button>`).join('');
+  const moodsNow = splitMoods(val('f-mood')).map(normKey);
+  $('#mood-sug').innerHTML = MOODS.map(m => `<button type="button" class="sug ${moodsNow.includes(normKey(m)) ? 'on' : ''}" data-mood="${esc(m)}" data-testid="mood-chip">${esc(m)}</button>`).join('');
+}
+const splitMoods = s => String(s || '').split(/[,\s]+/).filter(Boolean);
+
+function renderPreview(){
+  const f = readForm();
+  const src = isUrl(f.cover) ? f.cover : state.localCover;
+  const img = $('#pv-img');
+  if (src && img.dataset.src !== src){ img.classList.remove('ok'); img.dataset.src = src; img.onload = () => img.classList.add('ok'); img.onerror = () => img.classList.remove('ok'); img.src = src; }
+  if (!src){ img.classList.remove('ok'); img.removeAttribute('src'); img.dataset.src = ''; }
+  const amb = $('#ambient');
+  if (src){ amb.style.backgroundImage = `url("${src.replace(/"/g, '%22')}")`; amb.classList.add('on'); } else amb.classList.remove('on');
+  $('#pv-title').textContent = f.title || 'Untitled';
+  $('#pv-artist').textContent = [f.artist || 'Artist', ...f.featured].join(' x ');
+  $('#pv-genre').textContent = f.genre || '—';
+  $('#pv-date').textContent = f.date || '—';
+  $('#pv-ids').textContent = f.ids.length ? f.ids.map(i => '#' + i).join(' ') : '—';
+  $('#pv-dur').textContent = fmtTime(state.duration);
+  const b = [];
+  if (f.explicit) b.push('<span class="badge e" data-testid="badge-explicit">E</span>');
+  if (f.exclusive) b.push(`<span class="badge x" data-testid="badge-exclusive">${icon('gem')}Exclusive</span>`);
+  if (f.treeshchoice) b.push(`<span class="badge" data-testid="badge-treeshchoice">${icon('sparkles')}Treesh Choice</span>`);
+  if (f.label) b.push(`<span class="badge">${esc(f.label)}</span>`);
+  $('#pv-badges').innerHTML = b.join(''); $('#pv-badges').style.display = b.length ? 'flex' : 'none';
+  $('#pv-play').disabled = !(isUrl(f.mp3) || state.localAudio);
+  $('#code').innerHTML = highlight(buildBlock(f, state.editing));
+  $('#bio-count').textContent = `${f.bio.length} chars`;
+  $('#video-hint').textContent = f.video && f.video !== val('f-video') ? `Video ID: ${f.video}` : '';
+  const dup = !state.editing && f.title && state.catalog.songs.find(s => normKey(s.title) === normKey(f.title) && (!f.artist || normKey(s.artist) === normKey(f.artist)));
+  $('#dup-warn').hidden = !dup;
+  if (dup) $('#dup-warn span').textContent = `“${dup.title}” by ${dup.artist} is already in the catalog.`;
+  $$('#toggles .tog').forEach(t => t.classList.toggle('on', !!state.flags[t.dataset.flag]));
+  icons();
+}
+function refreshAll(){ renderFeatured(); renderRoster(); renderSuggest(); renderPreview(); saveDraft(); }
+
+/* ---------- media ---------- */
+const cloudReady = () => !!(cfg.cloudName && cfg.preset);
+function cloudUpload(file, kind, onProgress){
+  return new Promise((res, rej) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${encodeURIComponent(cfg.cloudName)}/${kind === 'audio' ? 'video' : 'image'}/upload`);
+    xhr.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => { const d = safeJSON(xhr.responseText); if (xhr.status < 300 && d.secure_url) res(d.secure_url); else rej(new Error((d.error && d.error.message) || `Upload failed (${xhr.status})`)); };
+    xhr.onerror = () => rej(new Error('Network error while uploading.'));
+    const fd = new FormData(); fd.append('file', file); fd.append('upload_preset', cfg.preset); if (cfg.folder) fd.append('folder', cfg.folder);
+    xhr.send(fd);
+  });
+}
+const DROP_DEFAULT = {};
+function resetDrop(kind){ const d = $('#drop-' + kind); d.className = 'drop' + (kind === 'cover' ? ' drop-cover' : ''); d.innerHTML = DROP_DEFAULT[kind]; icons(); }
+function dropStatus(kind, html){ const s = $(`#drop-${kind} .status-line`); if (s) s.outerHTML = html; icons(); }
+const statusHtml = (cls, ic, msg, tid) => `<div class="status-line ${cls}" data-testid="${tid}">${ic === 'eq' ? '<span class="eq"><span></span><span></span><span></span><span></span></span>' : icon(ic)}<span>${esc(msg)}</span></div>`;
+function readTags(file){
+  return new Promise(res => {
+    if (!window.jsmediatags) return res({});
+    try { window.jsmediatags.read(file, { onSuccess: t => res(t.tags || {}), onError: () => res({}) }); } catch { res({}); }
+  });
+}
+async function handleAudio(file){
+  if (!file) return;
+  if (!/^audio\//.test(file.type) && !/\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(file.name)) return toast('That doesn’t look like an audio file.', 'bad');
+  if (state.localAudio) URL.revokeObjectURL(state.localAudio);
+  state.localAudio = URL.createObjectURL(file);
+  const d = $('#drop-audio'); d.className = 'drop has-file';
+  d.innerHTML = `<div class="file-row"><div class="ico">${icon('audio-lines')}</div><div class="meta"><b data-testid="audio-file-name">${esc(file.name)}</b><span id="audio-meta">${(file.size / 1048576).toFixed(1)} MB</span></div><button type="button" class="icon-btn" data-clear="audio" title="Remove" data-testid="audio-clear-btn">${icon('x')}</button></div><div class="progress" hidden><i></i></div>${statusHtml('', 'eq', 'Reading tags…', 'audio-status')}`;
+  icons();
+  const probe = new Audio(); probe.preload = 'metadata'; probe.src = state.localAudio;
+  probe.onloadedmetadata = () => { state.duration = probe.duration; const m = $('#audio-meta'); if (m) m.textContent = `${fmtTime(probe.duration)} · ${(file.size / 1048576).toFixed(1)} MB`; renderPreview(); };
+  const tags = await readTags(file);
+  const base = file.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim();
+  const dash = base.split(/\s+-\s+/);
+  if (!val('f-title')) $('#f-title').value = tags.title || (dash.length > 1 ? dash.slice(1).join(' - ') : base);
+  const tagArtist = tags.artist || (dash.length > 1 ? dash[0] : '');
+  if (!val('f-artist') && tagArtist){ const names = splitNames(tagArtist.replace(/\s+(?:feat\.?|ft\.?|x)\s+/gi, ',')); const m = rosterByName(names[0]); $('#f-artist').value = m ? m.name : names[0]; names.slice(1).forEach(n => { const r = rosterByName(n); const nm = r ? r.name : n; if (!state.featured.some(x => normKey(x) === normKey(nm))) state.featured.push(nm); }); }
+  if (!val('f-album') && tags.album) $('#f-album').value = tags.album;
+  if (!val('f-genre') && tags.genre) $('#f-genre').value = String(tags.genre).replace(/^\(\d+\)/, '').trim();
+  if (!val('f-date') && tags.year && /^\d{4}$/.test(String(tags.year).trim())) $('#f-date').value = String(tags.year).trim();
+  if (!val('f-date') && !tags.year) $('#f-date').value = fmtDate(new Date().toISOString().slice(0, 10));
+  if (tags.picture && !val('f-cover') && !state.localCover){
+    const blob = new Blob([new Uint8Array(tags.picture.data)], { type: tags.picture.format || 'image/jpeg' });
+    handleCover(new File([blob], slug(val('f-title')) + '-cover.' + ((tags.picture.format || '').split('/')[1] || 'jpg'), { type: blob.type }), true);
+  }
+  refreshAll();
+  const found = [tags.title && 'title', tags.artist && 'artist', tags.picture && 'artwork'].filter(Boolean);
+  if (cloudReady()) upload('audio', file);
+  else dropStatus('audio', statusHtml('warn', 'info', `${found.length ? 'Read ' + found.join(', ') + '. ' : ''}Preview only: paste the hosted link below or set up Cloudinary.`, 'audio-status'));
+}
+function handleCover(file, fromTags){
+  if (!file || !/^image\//.test(file.type)) return toast('That doesn’t look like an image.', 'bad');
+  if (state.localCover) URL.revokeObjectURL(state.localCover);
+  state.localCover = URL.createObjectURL(file);
+  const d = $('#drop-cover'); d.className = 'drop drop-cover has-file';
+  d.innerHTML = `<img src="${state.localCover}" alt="" data-testid="cover-local-preview"><div class="shade"><div class="progress" hidden><i></i></div>${statusHtml('', 'image', fromTags ? 'Artwork found in the audio file' : file.name, 'cover-status')}</div><button type="button" class="icon-btn" data-clear="cover" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5)" title="Remove" data-testid="cover-clear-btn">${icon('x')}</button>`;
+  icons(); renderPreview();
+  if (cloudReady()) upload('cover', file);
+  else dropStatus('cover', statusHtml('warn', 'info', 'Preview only. Paste a hosted link below.', 'cover-status'));
+}
+async function upload(kind, file){
+  const d = $('#drop-' + kind), bar = $('.progress', d);
+  bar.hidden = false;
+  dropStatus(kind, statusHtml('', 'eq', 'Uploading to Cloudinary… 0%', `${kind}-status`));
+  try {
+    const url = await cloudUpload(file, kind, p => { $('i', bar).style.width = `${Math.round(p * 100)}%`; const s = $(`#drop-${kind} .status-line span:last-child`); if (s) s.textContent = `Uploading to Cloudinary… ${Math.round(p * 100)}%`; });
+    $(kind === 'audio' ? '#f-mp3' : '#f-cover').value = url;
+    bar.hidden = true;
+    dropStatus(kind, statusHtml('ok', 'check-circle-2', 'Uploaded & linked', `${kind}-status`));
+    toast(kind === 'audio' ? 'Track uploaded.' : 'Cover uploaded.', 'ok');
+    refreshAll();
+  } catch (e){
+    bar.hidden = true;
+    dropStatus(kind, statusHtml('bad', 'alert-circle', e.message + ' Paste a link instead.', `${kind}-status`));
+  }
+}
+function wireDrop(kind, handler){
+  const d = $('#drop-' + kind), inp = $('#file-' + kind);
+  DROP_DEFAULT[kind] = d.innerHTML;
+  d.addEventListener('click', e => { const c = e.target.closest('[data-clear]'); if (c){ e.stopPropagation(); if (kind === 'audio'){ state.localAudio && URL.revokeObjectURL(state.localAudio); state.localAudio = ''; state.duration = 0; stopAudio(); } else { state.localCover && URL.revokeObjectURL(state.localCover); state.localCover = ''; } resetDrop(kind); refreshAll(); return; } inp.click(); });
+  d.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inp.click(); } });
+  inp.addEventListener('change', () => { handler(inp.files[0]); inp.value = ''; });
+  ['dragenter','dragover'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e => handler(e.dataTransfer.files[0]));
+}
+
+/* ---------- audio player ---------- */
+const player = new Audio(); player.preload = 'none';
+function setPlayIcons(){
+  const on = !player.paused;
+  $('#pv-play').innerHTML = icon(on && state.playing === 'preview' ? 'pause' : 'play');
+  $$('.song').forEach(el => { const me = on && state.playing === el.dataset.key; el.classList.toggle('playing', me); const b = $('.play', el); if (b) b.innerHTML = icon(me ? 'pause' : 'play'); });
+  icons();
+}
+function playSrc(src, key){
+  if (state.playing === key && !player.paused){ player.pause(); return; }
+  if (player.dataset.src !== src){ player.src = src; player.dataset.src = src; }
+  state.playing = key;
+  player.play().catch(() => toast('Couldn’t play that audio link.', 'bad'));
+}
+function stopAudio(){ player.pause(); state.playing = null; setPlayIcons(); }
+player.addEventListener('play', setPlayIcons); player.addEventListener('pause', setPlayIcons); player.addEventListener('ended', setPlayIcons);
+player.addEventListener('timeupdate', () => {
+  const p = player.duration ? (player.currentTime / player.duration) * 100 : 0;
+  if (state.playing === 'preview'){ $('#pv-bar').style.width = p + '%'; if (!state.duration && player.duration) { state.duration = player.duration; $('#pv-dur').textContent = fmtTime(player.duration); } }
+  const el = state.playing && $(`.song[data-key="${state.playing}"] .pbar i`); if (el) el.style.width = p + '%';
+});
+
+/* ---------- loading ---------- */
+async function fetchSite(urls, test){
+  for (const u of urls){
+    try { const r = await fetch(u, { cache:'no-store' }); if (r.ok){ const t = await r.text(); if (test.test(t)) return t; } } catch {}
+  }
+  throw new Error('unreachable');
+}
+async function loadText(kind){
+  const path = kind === 'songs' ? cfg.songsPath : cfg.iconsPath, test = kind === 'songs' ? /<ul[^>]*class\s*=\s*["'][^"']*\bsong\b/i : /class\s*=\s*["']artist\b/i;
+  if (hasToken()){ const { text } = await gh.getFile(path, cfg.branch); return { text, source:'github' }; }
+  return { text: await fetchSite(SITE[kind], test), source:'site' };
+}
+async function loadRoster(){
+  try { state.roster = parseRoster((await loadText('icons')).text); }
+  catch { state.roster = []; }
+  $('#roster-list').innerHTML = state.roster.map(a => `<option value="${esc(a.name)}">`).join('');
+  renderRoster(); renderPreview();
+}
+async function loadCatalog(){
+  if (state.view === 'catalog') renderCatalogSkeleton();
+  try {
+    const { text, source } = await loadText('songs');
+    state.catalog = { text, songs: parseCatalog(text), source, error:'' };
+  } catch (e){
+    state.catalog = { text:'', songs:[], source:'', error: e.message === 'unreachable' ? 'Couldn’t reach the live catalog from here. Connect GitHub in Settings.' : e.message };
+  }
+  updateConn(); renderCatalog(); renderSuggest(); renderPreview();
+  if (hasToken() && state.catalog.source === 'github') loadPRs();
+}
+async function loadPRs(){
+  try { state.prs = (await gh.listPRs()).filter(p => p.head && /^songcoder\//.test(p.head.ref)); } catch { state.prs = []; }
+  renderPRs();
+}
+function updateConn(){
+  const c = $('#conn'), t = $('#conn-text'), src = state.catalog.source;
+  const st = src === 'github' ? 'github' : src === 'site' ? 'site' : 'offline';
+  c.dataset.state = st;
+  t.textContent = st === 'github' ? `${cfg.owner}/${cfg.repo} · ${cfg.branch}` : st === 'site' ? 'Read-only · treesh.app' : (hasToken() ? 'GitHub error' : 'Not connected');
+  c.title = state.catalog.error || t.textContent;
+  $('#cat-count').textContent = state.catalog.songs.length || '··';
+}
+
+/* ---------- catalog view ---------- */
+function renderCatalogSkeleton(){ $('#cat-grid').innerHTML = Array.from({ length: 8 }, () => '<div class="skel"></div>').join(''); }
+function renderPRs(){
+  $('#prs').hidden = !state.prs.length;
+  $('#prs-list').innerHTML = state.prs.map(p => `<a class="pr" href="${esc(p.html_url)}" target="_blank" rel="noopener" data-testid="pending-pr-${p.number}"><span class="n">#${p.number}</span>${esc(p.title)}${icon('arrow-up-right')}</a>`).join('');
+  icons();
+}
+function renderCatalog(){
+  const c = state.catalog, canEdit = c.source === 'github';
+  $('#ro-notice').hidden = canEdit || (!c.source && !c.error);
+  $('#ro-text').textContent = c.error || 'Read-only view from treesh.app. Connect GitHub in Settings to edit or delete songs.';
+  const artists = [...new Set(c.songs.map(s => s.artist).filter(Boolean).map(a => a))].sort((a, b) => a.localeCompare(b));
+  const genres = [...new Set(c.songs.map(s => s.genre).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const fill = (sel, list, first) => { const v = sel.value; sel.innerHTML = `<option value="">${first}</option>` + list.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join(''); sel.value = list.includes(v) ? v : ''; };
+  fill($('#cat-artist'), artists, 'All artists'); fill($('#cat-genre'), genres, 'All genres');
+  const q = normKey($('#cat-search').value), fa = $('#cat-artist').value, fg = $('#cat-genre').value, sort = $('#cat-sort').value;
+  let list = c.songs.filter(s => (!fa || s.artist === fa) && (!fg || s.genre === fg) && (!q || normKey([s.title, s.artist, s.featuring, s.h3, s.genre, s.producer, s.writtenBy, s.album].join(' ')).includes(q)));
+  if (sort === 'az') list = [...list].sort((a, b) => a.title.localeCompare(b.title));
+  if (sort === 'artist') list = [...list].sort((a, b) => a.artist.localeCompare(b.artist) || a.title.localeCompare(b.title));
+  if (!c.songs.length){
+    $('#cat-grid').innerHTML = `<div class="empty" data-testid="catalog-empty">${icon(c.error ? 'cloud-off' : 'music-4')}<b>${c.error ? 'Catalog unavailable' : 'No songs yet'}</b><span>${esc(c.error || 'Add the first one from Compose.')}</span>${c.error ? '<button class="btn btn-sm" data-open-settings data-testid="catalog-empty-settings-btn">Open settings</button>' : ''}</div>`;
+    return icons();
+  }
+  if (!list.length){ $('#cat-grid').innerHTML = `<div class="empty" data-testid="catalog-no-results">${icon('search-x')}<b>No matches</b><span>Try another search or filter.</span></div>`; return icons(); }
+  $('#cat-grid').innerHTML = list.map((s, i) => {
+    const key = 's' + s.index;
+    return `<article class="song" data-key="${key}" data-i="${s.index}" style="animation-delay:${Math.min(i, 16) * 25}ms" data-testid="catalog-song-card">
+      <div class="cv">${s.cover ? `<img src="${esc(s.cover)}" alt="" loading="lazy">` : ''}<span class="idx">${String(s.index + 1).padStart(2, '0')}</span>
+        <div class="acts"><button class="icon-btn play" data-act="play" title="Play" data-testid="catalog-play-btn">${icon('play')}</button><div class="grp">
+          <button class="icon-btn" data-act="edit" title="Edit" data-testid="catalog-edit-btn">${icon('pencil')}</button>
+          <button class="icon-btn danger" data-act="delete" title="Delete" data-testid="catalog-delete-btn">${icon('trash-2')}</button></div></div></div>
+      <div class="pbar"><i></i></div>
+      <div class="inf"><h3 title="${esc(s.title)}" data-testid="catalog-song-title">${esc(s.title)}</h3><p>${esc(s.h3 || s.artist)}</p>
+        <div class="row">${s.genre ? `<span class="g">${esc(s.genre)}</span>` : ''}${s.explicit ? '<span class="badge e">E</span>' : ''}${s.exclusive ? '<span class="badge x">EXCL</span>' : ''}${s.treeshchoice ? `<span class="badge">${icon('sparkles')}</span>` : ''}</div></div>
+    </article>`;
+  }).join('');
+  setPlayIcons();
+}
+function requireGitHub(){
+  if (state.catalog.source === 'github') return true;
+  modal({ title:'Connect GitHub first', ico:'github', body:'<p>Editing, deleting and uploading write to <b>content/songs.html</b> in your repo, so Song Coder needs a GitHub token. It’s saved only in this browser.</p>', actions:[{ label:'Not now', testid:'connect-later-btn' }, { label:'Open settings', kind:'btn-primary', icon:'settings-2', testid:'connect-open-settings-btn', onClick: c => { c(); openSettings(); } }], testid:'connect-github-modal' });
+  return false;
+}
+function startEdit(s){
+  if (!requireGitHub()) return;
+  stopAudio(); clearMedia();
+  const featured = splitNames(s.featuring);
+  state.editing = s;
+  fillForm({ 'f-title': s.title, 'f-artist': s.artist, 'f-genre': s.genre, 'f-mood': s.mood, 'f-date': s.date, 'f-album': s.album, 'f-written': s.writtenBy, 'f-producer': s.producer, 'f-mixer': s.mixer, 'f-videographer': s.videographer, 'f-cover': s.cover, 'f-mp3': s.mp3, 'f-video': s.video, 'f-bio': s.bio, 'f-label': s.label, featured, explicit: s.explicit, exclusive: s.exclusive, treeshchoice: s.treeshchoice });
+  const auto = autoIds();
+  state.manualIds = s.ids.split(',').map(x => x.trim()).filter(x => x && !auto.includes(x));
+  if (!['', 'fave', 'exclusive'].includes(s.label)){ const o = document.createElement('option'); o.value = o.textContent = s.label; $('#f-label').appendChild(o); $('#f-label').value = s.label; }
+  showErrors({}); setEditUI(); refreshAll(); switchView('compose'); window.scrollTo({ top:0, behavior:'smooth' });
+}
+function exitEdit(){ state.editing = null; setEditUI(); const d = safeJSON(localStorage.getItem(DRAFT_KEY)); fillForm(d); clearMedia(); showErrors({}); refreshAll(); }
+function setEditUI(){
+  const e = state.editing;
+  $('#edit-banner').hidden = !e;
+  if (e){ $('#edit-name').textContent = `${e.title} · ${e.artist}`; $('#edit-cover').src = e.cover || ''; }
+  $('#compose-eyebrow').textContent = e ? 'Edit mode' : 'New release';
+  $('#compose-title').textContent = e ? 'Fine-tune this track.' : 'Drop a song into the Woodz.';
+  $('#publish-label').textContent = e ? 'Save changes' : 'Upload to catalog';
+  $('#tab-compose-label').textContent = e ? 'Editing' : 'Compose';
+}
+async function deleteSong(s){
+  if (!requireGitHub()) return;
+  const live = cfg.mode === 'live';
+  const ok = await confirmModal({ title:`Remove “${s.title}”?`, ico:'trash-2', tone:'danger', testid:'delete-confirm-modal', body:`<p>${esc(s.h3 || s.artist)}</p><p>${live ? 'This goes <b>live immediately</b>. The song disappears from Treesh after Netlify redeploys.' : 'A <b>pull request</b> will be opened. The song stays live until you merge it.'}</p>`, ok: live ? 'Delete now' : 'Open removal PR', okKind:'btn-danger', okIcon:'trash-2' });
+  if (!ok) return;
+  toast(live ? 'Removing song…' : 'Opening pull request…', 'info', 2000);
+  try { const r = await commitChange({ kind:'delete', target:s, title:s.title, artist:s.artist }); done(r, 'delete', s.title); }
+  catch (e){ failModal(e); }
+}
+
+/* ---------- publish ---------- */
+function prBody(op, f){
+  const rows = f ? [['Track', f.title], ['Artist', [f.artist, ...f.featured].join(' x ')], ['Genre', f.genre], ['Mood', f.mood], ['Released', f.date], ['Written by', f.writtenBy], ['Produced by', f.producer], ['Mixed by', f.mixer], ['Audio', f.mp3], ['Cover', f.cover], ['Video', f.video && `https://youtu.be/${f.video}`], ['Badges', ['explicit','exclusive','treeshchoice'].filter(k => f[k]).join(', ')]].filter(r => r[1]) : [['Track', op.title], ['Artist', op.artist]];
+  const verb = { add:'Adds a new song to', edit:'Updates a song in', delete:'Removes a song from' }[op.kind];
+  return `${verb} \`${cfg.songsPath}\`.\n\n| Field | Value |\n|---|---|\n${rows.map(([k, v]) => `| ${k} | ${String(v).replace(/\|/g, '\\|').replace(/\n/g, ' ')} |`).join('\n')}\n${f && f.cover ? `\n<img src="${f.cover}" width="160">\n` : ''}\n_Submitted with Song Coder_`;
+}
+async function commitChange(op, f, step = () => {}){
+  const verb = { add:'Add', edit:'Update', delete:'Remove' }[op.kind];
+  const msg = `${verb} song: ${op.title} — ${op.artist}`;
+  for (let attempt = 0; attempt < 2; attempt++){
+    step('Reading the latest catalog…');
+    const { text, sha } = await gh.getFile(cfg.songsPath, cfg.branch);
+    const next = applyOp(text, op);
+    try {
+      if (cfg.mode === 'live'){
+        step('Publishing to ' + cfg.branch + '…');
+        await gh.putFile(cfg.songsPath, next, sha, msg, cfg.branch);
+        state.catalog = { text: next, songs: parseCatalog(next), source:'github', error:'' };
+        updateConn(); renderCatalog();
+        return { mode:'live' };
+      }
+      step('Creating a review branch…');
+      const branch = `songcoder/${op.kind}-${slug(op.title).slice(0, 40)}-${Date.now().toString(36)}`;
+      await gh.createBranch(branch, await gh.headSha(cfg.branch));
+      step('Committing the change…');
+      await gh.putFile(cfg.songsPath, next, sha, msg, branch);
+      step('Opening pull request…');
+      const pr = await gh.openPR({ title: msg, head: branch, base: cfg.branch, body: prBody(op, f) });
+      state.prs = [pr, ...state.prs]; renderPRs();
+      return { mode:'pr', pr };
+    } catch (e){ if (e.status === 409 && attempt === 0) continue; throw e; }
+  }
+}
+function done(r, kind, title){
+  const verb = { add:'added', edit:'updated', delete:'removed' }[kind];
+  if (r.mode === 'pr') modal({ title:'Pull request opened', ico:'git-pull-request', tone:'success', testid:'publish-success-modal', body:`<p><b>#${r.pr.number}</b> · ${esc(r.pr.title)}</p><p>Merge it on GitHub and “${esc(title)}” gets ${verb} on Treesh.</p>`, actions:[{ label:'Close', testid:'success-close-btn' }, { label:'Review on GitHub', kind:'btn-primary', icon:'arrow-up-right', href:r.pr.html_url, testid:'success-open-pr-link' }] });
+  else modal({ title: kind === 'delete' ? 'Removed from Treesh' : 'Live on Treesh', ico:'zap', tone:'success', testid:'publish-success-modal', body:`<p>“${esc(title)}” was ${verb} on <b>${esc(cfg.branch)}</b>.</p><p>Netlify usually redeploys within a minute.</p>`, actions:[{ label:'Close', testid:'success-close-btn' }, { label:'View catalog', kind:'btn-primary', icon:'library-big', testid:'success-view-catalog-btn', onClick: c => { c(); switchView('catalog'); } }] });
+}
+function failModal(e){
+  modal({ title:'That didn’t go through', ico:'alert-triangle', tone:'danger', testid:'publish-error-modal', body:`<p data-testid="publish-error-message">${esc(e.message)}</p>`, actions:[{ label:'Close', testid:'error-close-btn' }, ...(e.status === 401 || e.status === 403 || e.status === 404 ? [{ label:'Open settings', kind:'btn-primary', icon:'settings-2', testid:'error-open-settings-btn', onClick: c => { c(); openSettings(); } }] : [])] });
+}
+async function publish(){
+  if (state.busy) return;
+  const f = readForm(), errs = validate(f);
+  showErrors(errs);
+  if (Object.keys(errs).length){
+    const first = $('.field.invalid'); if (first) first.scrollIntoView({ behavior:'smooth', block:'center' });
+    return toast(`Fix ${Object.keys(errs).length} field${Object.keys(errs).length > 1 ? 's' : ''} first.`, 'bad');
+  }
+  if (!requireGitHub()) return;
+  const editing = state.editing, kind = editing ? 'edit' : 'add';
+  const btn = $('#publish'), label = $('#publish-label'), orig = label.textContent;
+  state.busy = true; btn.disabled = true; btn.querySelector('svg, i').outerHTML = icon('loader-2', 'spin'); icons();
+  try {
+    const r = await commitChange({ kind, block: buildBlock(f, editing), target: editing, title: f.title, artist: [f.artist, ...f.featured].join(' x ') }, f, s => { label.textContent = s; });
+    done(r, kind, f.title);
+    if (editing){ state.editing = null; setEditUI(); fillForm(safeJSON(localStorage.getItem(DRAFT_KEY))); clearMedia(); refreshAll(); if (r.mode === 'live') switchView('catalog'); }
+    else resetForm();
+    if (r.mode === 'live') setTimeout(loadCatalog, 800);
+  } catch (e){ failModal(e); }
+  finally { state.busy = false; btn.disabled = false; label.textContent = state.editing ? 'Save changes' : orig; const sv = btn.querySelector('svg, i'); if (sv) sv.outerHTML = icon('upload-cloud'); icons(); }
+}
+async function copyCode(){
+  const code = buildBlock(readForm(), state.editing);
+  try { await navigator.clipboard.writeText(code); }
+  catch { const t = document.createElement('textarea'); t.value = code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+  toast('Catalog code copied.', 'ok');
+}
+
+/* ---------- mode + views ---------- */
+function setMode(m){
+  cfg.mode = m; saveCfg();
+  $('#mode-seg').dataset.mode = m;
+  $$('#mode-seg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  $('#mode-note').textContent = m === 'pr' ? 'Opens a pull request so you can approve it first.' : `Commits straight to ${cfg.branch}. Live after Netlify redeploys.`;
+}
+function moveInd(){ const a = $('.tab.active'), ind = $('#tab-ind'); if (!a) return; ind.style.left = a.offsetLeft + 'px'; ind.style.width = a.offsetWidth + 'px'; }
+function switchView(v){
+  state.view = v;
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === v));
+  $('#view-compose').hidden = v !== 'compose'; $('#view-catalog').hidden = v !== 'catalog';
+  moveInd();
+  if (v === 'catalog') renderCatalog();
+}
+
+/* ---------- settings ---------- */
+function openSettings(){
+  const root = $('#drawer-root');
+  root.innerHTML = ''; root.appendChild($('#tpl-settings').content.cloneNode(true));
+  const map = { 's-token':'token', 's-owner':'owner', 's-repo':'repo', 's-branch':'branch', 's-songs':'songsPath', 's-icons':'iconsPath', 's-cloud':'cloudName', 's-preset':'preset', 's-folder':'folder', 's-api':'apiBase' };
+  Object.entries(map).forEach(([id, k]) => { $('#' + id).value = cfg[k] || ''; });
+  const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  $$('[data-close]', root).forEach(b => b.addEventListener('click', close));
+  const read = () => { const o = {}; Object.entries(map).forEach(([id, k]) => { o[k] = ($('#' + id).value || '').trim(); }); o.apiBase = o.apiBase || DEFAULTS.apiBase; o.branch = o.branch || 'main'; return o; };
+  $('#s-eye').addEventListener('click', () => { const t = $('#s-token'); t.type = t.type === 'password' ? 'text' : 'password'; });
+  $('#s-test').addEventListener('click', async () => {
+    const box = $('#s-checks'), prev = cfg; cfg = { ...cfg, ...read() };
+    const line = (cls, ic, m, id) => statusHtml(cls, ic, m, id);
+    box.innerHTML = line('', 'eq', 'Checking…', 'check-running'); icons();
+    const out = [];
+    try {
+      if (!cfg.token) throw Object.assign(new Error('Paste a token first.'), { status: -1 });
+      const repo = await gh.repo();
+      out.push(line('ok', 'check-circle-2', `Found ${repo.full_name}${repo.private ? ' (private)' : ''}`, 'check-repo'));
+      out.push(repo.permissions && repo.permissions.push ? line('ok', 'check-circle-2', 'Token can write to this repo', 'check-write') : line('bad', 'x-circle', 'Token is read-only. Give it Contents: read & write.', 'check-write'));
+      const { text } = await gh.getFile(cfg.songsPath, cfg.branch);
+      out.push(line('ok', 'check-circle-2', `${parseCatalog(text).length} songs in ${cfg.songsPath} on ${cfg.branch}`, 'check-songs'));
+      try { const r = parseRoster((await gh.getFile(cfg.iconsPath, cfg.branch)).text); out.push(line('ok', 'check-circle-2', `${r.length} artists in ${cfg.iconsPath}`, 'check-icons')); }
+      catch (e){ out.push(line('warn', 'alert-circle', `Artists file: ${e.message}`, 'check-icons')); }
+    } catch (e){ out.push(line('bad', 'x-circle', e.message + (e.status === 404 && cfg.branch !== cfg.branch.toLowerCase() ? ` Branch names are case-sensitive; try “${cfg.branch.toLowerCase()}”.` : ''), 'check-error')); }
+    cfg = prev; box.innerHTML = out.join(''); icons();
+  });
+  $('#s-clear').addEventListener('click', () => { $('#s-token').value = ''; $('#s-preset').value = ''; toast('Cleared. Press Save to apply.', 'info'); });
+  $('#s-save').addEventListener('click', () => {
+    cfg = { ...cfg, ...read() }; saveCfg(); close(); setMode(cfg.mode);
+    toast('Settings saved.', 'ok'); loadRoster(); loadCatalog();
+  });
+  icons(); setTimeout(() => $('#s-token').focus(), 300);
+}
+
+/* ---------- events ---------- */
+function wire(){
+  wireDrop('audio', handleAudio); wireDrop('cover', f => handleCover(f, false));
+  $('#song-form').addEventListener('input', e => {
+    if (e.target.id === 'f-feat') return;
+    const fl = e.target.closest('.field'); if (fl && fl.classList.contains('invalid')){ fl.classList.remove('invalid'); }
+    if (e.target.id === 'f-artist') state.featured = state.featured.filter(n => normKey(n) !== normKey(val('f-artist')));
+    refreshAll();
+  });
+  $('#song-form').addEventListener('submit', e => e.preventDefault());
+  $('#f-feat').addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ','){ e.preventDefault(); addFeatured(e.target.value); }
+    if (e.key === 'Backspace' && !e.target.value && state.featured.length){ state.featured.pop(); refreshAll(); }
+  });
+  $('#f-feat').addEventListener('change', e => { if (rosterByName(e.target.value)) addFeatured(e.target.value); });
+  $('#f-feat').addEventListener('blur', e => { if (e.target.value.trim()) addFeatured(e.target.value); });
+  $('#feat-box').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b){ state.featured.splice(+b.dataset.rm, 1); refreshAll(); } else $('#f-feat').focus(); });
+  $('#roster').addEventListener('click', e => {
+    const b = e.target.closest('.ros'); if (!b) return;
+    const id = b.dataset.id;
+    if (autoIds().includes(id)) return toast('Linked automatically as the main or featured artist.', 'info');
+    state.manualIds = state.manualIds.includes(id) ? state.manualIds.filter(x => x !== id) : [...state.manualIds, id];
+    refreshAll();
+  });
+  $('#genre-sug').addEventListener('click', e => { const b = e.target.closest('[data-genre]'); if (!b) return; $('#f-genre').value = b.dataset.genre; $('#f-genre').closest('.field').classList.remove('invalid'); refreshAll(); });
+  $('#mood-sug').addEventListener('click', e => {
+    const b = e.target.closest('[data-mood]'); if (!b) return;
+    let list = splitMoods(val('f-mood')); const m = b.dataset.mood;
+    list = list.some(x => normKey(x) === normKey(m)) ? list.filter(x => normKey(x) !== normKey(m)) : [...list, m];
+    $('#f-mood').value = list.join(','); refreshAll();
+  });
+  $('#toggles').addEventListener('click', e => { const t = e.target.closest('.tog'); if (!t) return; state.flags[t.dataset.flag] = !state.flags[t.dataset.flag]; refreshAll(); });
+  $('#date-today').addEventListener('click', () => { $('#f-date').value = fmtDate(new Date().toISOString().slice(0, 10)); refreshAll(); });
+  $('#date-pick').addEventListener('click', () => { const n = $('#f-date-native'); n.value = toIso(val('f-date')); try { n.showPicker(); } catch { n.focus(); n.click(); } });
+  $('#f-date-native').addEventListener('change', e => { if (e.target.value){ $('#f-date').value = fmtDate(e.target.value); refreshAll(); } });
+  $('#fill-writers').addEventListener('click', () => { const n = [val('f-artist'), ...state.featured].filter(Boolean); if (!n.length) return toast('Add the artists first.', 'info'); $('#f-written').value = joinNames(n); refreshAll(); });
+  $('#pv-play').addEventListener('click', () => { const f = readForm(); playSrc(isUrl(f.mp3) ? f.mp3 : state.localAudio, 'preview'); });
+  $('#code-toggle').addEventListener('click', () => $('#code-panel').classList.toggle('open'));
+  $('#copy-code').addEventListener('click', copyCode);
+  $('#reset-form').addEventListener('click', async () => { if (state.editing) return exitEdit(); if (await confirmModal({ title:'Start over?', ico:'rotate-ccw', body:'<p>This clears every field in the form.</p>', ok:'Clear form', testid:'reset-confirm-modal' })) resetForm(); });
+  $('#publish').addEventListener('click', publish);
+  $$('#mode-seg button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  $('#cancel-edit').addEventListener('click', exitEdit);
+  $$('.tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
+  $('#open-settings').addEventListener('click', openSettings);
+  $('#conn').addEventListener('click', openSettings);
+  $('#ro-connect').addEventListener('click', openSettings);
+  $('#new-song').addEventListener('click', () => { if (state.editing) exitEdit(); switchView('compose'); });
+  $('#cat-refresh').addEventListener('click', async () => { const b = $('#cat-refresh'); b.firstElementChild.classList.add('spin'); await Promise.all([loadCatalog(), loadRoster()]); toast('Catalog refreshed.', 'ok', 1800); });
+  ['cat-search','cat-artist','cat-genre','cat-sort'].forEach(id => $('#' + id).addEventListener('input', renderCatalog));
+  $('#cat-grid').addEventListener('click', e => {
+    if (e.target.closest('[data-open-settings]')) return openSettings();
+    const a = e.target.closest('[data-act]'), card = e.target.closest('.song'); if (!a || !card) return;
+    const s = state.catalog.songs[+card.dataset.i]; if (!s) return;
+    if (a.dataset.act === 'play'){ if (!s.mp3) return toast('No audio link on this song.', 'bad'); playSrc(s.mp3, card.dataset.key); }
+    if (a.dataset.act === 'edit') startEdit(s);
+    if (a.dataset.act === 'delete') deleteSong(s);
+  });
+  document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && state.view === 'compose'){ e.preventDefault(); publish(); } });
+  window.addEventListener('resize', moveInd);
+  window.addEventListener('beforeunload', () => { if (state.editing) return; localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot())); });
+}
+
+/* ---------- boot ---------- */
+function boot(){
+  wire(); icons();
+  fillForm(safeJSON(localStorage.getItem(DRAFT_KEY)));
+  setMode(cfg.mode === 'live' ? 'live' : 'pr');
+  refreshAll(); moveInd();
+  if (document.fonts) document.fonts.ready.then(moveInd);
+  loadRoster(); loadCatalog();
+}
+boot();
+})();
+</script>
+</body>
+</html>
