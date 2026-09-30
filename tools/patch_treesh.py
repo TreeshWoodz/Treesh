@@ -47,8 +47,8 @@ s = s.replace('keys:["treesh_game_stats","treesh_game_opts","treesh_tot","treesh
 s = s.replace('function gfLoaded(){ state._gfLoaded=true;',
               'function gfLoaded(){ try{ const f=document.getElementById("gf-frame"); if(f&&f.contentWindow) f.contentWindow.postMessage(treeshGameState(), "*"); }catch(e){} state._gfLoaded=true;', 1)
 
-os.makedirs('/app/deliverables', exist_ok=True)
-open('/app/deliverables/index.html', 'w', encoding='utf-8').write(s)
+os.makedirs('/app/treesh-site', exist_ok=True)
+open('/app/treesh-site/index.html', 'w', encoding='utf-8').write(s)
 # preview copy: open the local Chainz build instead of the production URL
 prev = s.replace("url:'https://treesh.app/games/chainz'", "url:'/chainz.html'")
 open('/app/frontend/public/treesh.html', 'w', encoding='utf-8').write(prev)

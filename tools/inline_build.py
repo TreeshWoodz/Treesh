@@ -1,9 +1,8 @@
 """Turn the CRA build into ONE self-contained chainz.html (JS + CSS + word bank inlined).
-Drop-in replacement for treesh repo -> main -> games/chainz(.html), served at https://treesh.app/games/chainz"""
+Drop-in replacement for Treesh repo -> main -> games/chainz.html, served at https://treesh.app/games/chainz"""
 import re, os
 B='/app/frontend/build'
 html=open(f'{B}/index.html').read()
-html=re.sub(r'<script src="https://assets\.emergent\.sh/scripts/emergent-main\.js"></script>','',html)
 SCRIPTS=[]
 def js(m):
     code=open(os.path.join(B, m.group(1).lstrip('./'))).read().replace('</script','<\\/script')
@@ -19,8 +18,8 @@ html=html.replace('<div id="root"></div>','<div id="root"></div><script type="ap
 # app script must run after #root exists (it was 'defer' in the head)
 html=html.replace('</body>',''.join(SCRIPTS)+'</body>',1)
 assert SCRIPTS, 'no scripts found' 
-banner='<!--\nDesign: TREESH GAMES | CHAINZ\nVersion: 2.0.0\nCOPYRIGHT TREESH WOODZ 2026 All Rights Reserved.\nSingle-file build of the Chainz React app. Source: /frontend/src. Rebuild: bash deliverables/build.sh\n-->\n'
+banner='<!--\nDesign: TREESH GAMES | CHAINZ\nVersion: 2.0.0\nCOPYRIGHT TREESH WOODZ 2026 All Rights Reserved.\nSingle-file build of the Chainz React app. Source: /frontend/src. Rebuild: bash treesh-site/build.sh\n-->\n'
 html=html.replace('<!doctype html>','<!doctype html>\n'+banner,1)
-os.makedirs('/app/deliverables',exist_ok=True)
-open('/app/deliverables/chainz.html','w').write(html)
+os.makedirs('/app/treesh-site/games',exist_ok=True)
+open('/app/treesh-site/games/chainz.html','w').write(html)
 print('chainz.html bytes', len(html))
