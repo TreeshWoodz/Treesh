@@ -1,0 +1,77 @@
+# Hoop by Treesh -> https://treesh.app/hoop
+#
+# Lives on the `hoop` branch. Every push to `hoop` (e.g. "Save to GitHub"):
+#   1. builds the static Hoop app (base path /hoop)
+#   2. copies the result into the `hoop/` folder of the `main` branch
+#   3. pushes to `main` -> Netlify auto-deploys treesh.app as usual
+# Nothing outside the `hoop/` folder on `main` is ever touched.
+name: Deploy Hoop to treesh.app/hoop
+
+on:
+  push:
+    branches: [hoop]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-hoop
+  cancel-in-progress: false
+
+env:
+  # Folder on `main` that Netlify serves as /hoop. If your Netlify publish directory is a
+  # sub-folder (e.g. `public`), set the repo variable HOOP_TARGET_DIR to `public/hoop`.
+  TARGET_DIR: ${{ vars.HOOP_TARGET_DIR || 'hoop' }}
+  SITE_BRANCH: main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hoop branch
+        uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: src/frontend/yarn.lock
+
+      - name: Install dependencies
+        working-directory: src/frontend
+        run: yarn install --frozen-lockfile --network-timeout 600000
+
+      - name: Build static Hoop (/hoop)
+        env:
+          HOOP_OUT_DIR: ${{ github.workspace }}/dist/hoop
+        run: bash src/scripts/build-hoop-static.sh
+
+      - name: Checkout main (website)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SITE_BRANCH }}
+          path: site
+          # Optional: add a HOOP_DEPLOY_TOKEN secret (PAT) if `main` is branch-protected
+          token: ${{ secrets.HOOP_DEPLOY_TOKEN || github.token }}
+
+      - name: Copy build into main/${{ env.TARGET_DIR }}
+        run: |
+          mkdir -p "site/$TARGET_DIR"
+          rsync -a --delete "dist/hoop/" "site/$TARGET_DIR/"
+
+      - name: Commit & push to main
+        working-directory: site
+        run: |
+          git config user.name  "hoop-deploy[bot]"
+          git config user.email "hoop-deploy[bot]@users.noreply.github.com"
+          git add -A "$TARGET_DIR"
+          if git diff --cached --quiet; then
+            echo "No changes to deploy."
+            exit 0
+          fi
+          git commit -m "Deploy Hoop from hoop@${GITHUB_SHA::7}"
+          git push origin "HEAD:$SITE_BRANCH"

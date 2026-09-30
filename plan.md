@@ -113,3 +113,6 @@
 - Plan page generates usable sessions and timer works fullscreen/minimized/closed.
 - Form Check runs on-device with MediaPipe Pose and provides live, understandable cues.
 - Polished mobile UX with consistent restrained black/pink design and hoop logo branding.
+## Phase: GitHub branch deployment (Status: COMPLETED)
+- `hoop` branch → GitHub Action → `main:/hoop/` → Netlify → treesh.app/hoop
+- Files: .github/workflows/deploy-hoop.yml, scripts/build-hoop-static.sh, HOOP_DEPLOY.md

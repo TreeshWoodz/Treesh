@@ -30,7 +30,7 @@ class HoopBackendTester:
                 print(f"✅ Passed - Status: {response.status_code}")
                 try:
                     return success, response.json()
-                except:
+                except ValueError:
                     return success, {}
             else:
                 self.tests_failed.append(f"{name}: Expected {expected_status}, got {response.status_code}")
