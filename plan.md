@@ -1,5 +1,12 @@
 # Treesh 3.0 Continuation — Phase 5 Plan (Updated)
 
+## ▶ SESSION LOG 3 (latest) — Roomier Storage + Settings Search + Image Studio ✅
+- Phase S3 DONE: fonts/backdrops in IndexedDB `treesh_media/assets` (v2), legacy migration, "Fonts & backgrounds" storage row, backup v2 includes assets.
+- Phase O DONE: Settings tab in global search, inline toggles, go-to with highlight, quick block on Songs tab.
+- Phase K DONE: Image Studio rename + text/emoji layer suite baked into export.
+- Verified: /app/test_reports/iteration_11.json (100% frontend).
+- Still blocked: Vocotap/Nects stats (need save files).
+
 ## ▶ SESSION LOG (latest continuation — Games/Things + Storage emergency + Install/Transfer)
 This continuation focused on **Games & Things organization**, **game stats/Starlites surfacing**, an **urgent storage failure** caused by browser LocalStorage quota, and finishing the **Install/Add-to-Home-Screen + Data Transfer (no servers)** task.
 

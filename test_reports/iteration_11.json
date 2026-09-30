@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only regression + deep testing of Treesh single-file app (Phase 5): (1) IDB storage migration for fonts + backdrops, (2) Settings Search tab in global overlay, (3) Image Studio (renamed from Cover Art Studio) with Text & stickers layers. All primary flows PASS. Migration works, legacy keys removed, IDB records persisted across reloads and included in v2 backup. Backdrops Studio upload via input.bd-file-input writes only to IDB. Font upload via #set-font-file leaves only {name, idb:true} in localStorage and stores data in IDB. Storage UI shows 'Fonts & backgrounds' row with async byte estimate and working clear-assets confirm modal ('Clear Fonts & backgrounds?'). Backup JSON: type='treesh-backup', v=2, contains assets[]. Settings search: 44 settings listed on empty query, in-place toggles for ui-glow/theme/notif-nav/whatsnew/reduce-motion (overlay stays open, aria-pressed updates, state flips). Go-to actions close overlay and jump to Accent/Storage/App Lock/Transfer/Profile with .setting-flash highlight. Songs tab quick-settings block shows up to 3 settings and See all switches tab to Settings; no quick block when no matches; songs/artists/lyrics regression search still returns results. Image Studio: title='Image Studio' (no 'Cover Art Studio' string anywhere), Adjust tab keeps zoom/rotate/flip/filters, Text & stickers tab supports add text, 14 fonts, size/rotation/color/align/position edits, emoji stickers, max 10 layers enforced, delete layer works, Apply produces image/jpeg blob (~80KB) with baked-in white text pixels visible on render. Mobile 390x844: 4 search tabs fit, Image Studio layout usable.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "index.html is 8593 lines - very large single file; consider modularization for maintainability (existing app design decision).",
+    "Font chip click in Image Studio does not appear to update _cv.layers[i].font in state (remained empty string after clicking image-studio-font-*). Visual baking still works with default font. Verify chip -> layer.font assignment logic.",
+    "Synthetic PointerEvent drag on image-studio-layer-0 did not move x/y (may require real trusted pointer capture; unable to fully assert drag from test). Real user drag likely works based on _cv.layers structure; consider exposing a data attribute or programmatic API for testability."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "None (offline app, profile seeded via localStorage.treesh_profile).",
+  "seed_data_creation": "Bypassed onboarding by seeding localStorage treesh_whatsnew_off=true and treesh_profile={nickname:Tester,...}. Seeded legacy treesh_bg_images (canvas JPEG dataURL) and treesh_custom_font ({data,name}) to test migration.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "App is /app/single_html/index.html served at preview root. Always seed treesh_whatsnew_off + treesh_profile to skip onboarding. Global search input is #search-input (not #gs-input). State names: state.uiGlow, state.theme, state.notifInNav (not notifNav), state.a11y.reduceMotion. Image Studio globals: window._cv.layers, window._amCoverBlob. Storage assets in IDB DB 'treesh_media', store 'assets'; use assetGet('bg_images'|'custom_font') / assetAll() / assetClear(). Backdrops Studio file input selector: input.bd-file-input. Font input: #set-font-file. Backup export: exportAllData() creates blob via URL.createObjectURL — intercept there to inspect."
+}
