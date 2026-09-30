@@ -30,3 +30,8 @@ Polish every mode, the character models and the UI. Turn Zen into a Sims-like mo
 
 ## Backlog
 - More Flea House content: outdoor yard, more room types, and seasonal items
+
+## Phase 4 (Party Mode update)
+- Party Mode: pick which modes rotate (Zen excluded), rounds, order, rivals; points 3/2/1 per round; final podium + Starlites bonus.
+- New modes: King of the Hill, Floor is Lava, Star Rush, Red Light Green Light, Freeze Tag.
+- Unified HUD: mode banner w/ goal + party round, How-to-play intro card, cleaner results chips.

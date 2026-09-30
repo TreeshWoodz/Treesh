@@ -131,3 +131,16 @@ Treesh.reconcile()                                      // re-apply missing awar
 FreaHouse.state().garden                                // garden beds, basket and today's garden earnings
 FreaSeasons.active().map(p=>p.name)                     // packs in season right now
 ```
+
+## Phase 4 — Party Mode, new modes, unified HUD
+New modules (all listed in `build.py`):
+- `src/modes.js` — 5 new modes registered in the `EXTRA_MODES` registry (`base.html` dispatches
+  `layout/bounds/build/still/setup/go/tick/second/ai/aiHold/drawBack/drawFront/score/endSub`):
+  `koth` King of the Hill, `lava` Floor is Lava, `stars` Star Rush, `redlight` Red Light Green Light, `freeze` Freeze Tag.
+  Debug: `FreaModes.start('koth')`, `FreaModes.state()`, `FreaModes.dbg()`.
+- `src/hud.js` + `src/hud.css` — top mode banner (icon, name, one-line goal, party round), "How to play" card
+  on the intro splash (`MI_MS` = 5.2s, tap to skip), results chips (mode · time · your stat), side-by-side end buttons.
+- `src/party.js` + `src/party.css` — Party Mode tile (full-width, top of grid), setup modal (games, rounds 3/5/8/12,
+  shuffle/in order, rivals 2/4/6/8), rotating rounds, stable rival roster, points 3/2/1, next-up panel with 12s
+  auto-advance, final podium (+60/+30/+15 Starlites). LocalStorage: `frea_party_v1`, `frea_party_sel`.
+  Party overrides: 60s Capture, 50s new modes, HnS 12s hide/60s seek, Hoops solo 45s. Debug: `FreaParty.status()`.

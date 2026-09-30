@@ -1542,6 +1542,8 @@ rsz();
 var GRAV=0.4, MAX_DRAG=120, SLING_POWER=1.25, PLAYER_MAX=48, AI_MAX=34, AI_LEAP_CAP=20, WALL_STICK_MS=10000;
 var FAST_SPIN=0.0042, FLING_SPEED=14;
 var STATE='title', gameMode='classic', arenaLayout='random', activeLayout='horiz';
+var EXTRA_MODES={}; /* plugin registry for extra modes (src/modes.js) */
+function XM(){return EXTRA_MODES[gameMode]||null;}
 var platformDensity='normal';try{var _pd=localStorage.getItem('frea_platdensity');if(_pd)platformDensity=_pd;}catch(e){}
 var configAi=3, matchTime=90, fuseMax=10000, fuse=fuseMax;
 var allowMoving=true, allowSpinning=true;
@@ -3764,6 +3766,7 @@ else if(t==='cactus'){
 }
 
 function chooseLayout(){
+  if(XM()&&XM().layout){activeLayout=XM().layout;return;}
   if(gameMode==='race'){activeLayout='vert';return;}
   if(gameMode==='tag'||gameMode==='hns'){activeLayout='box';return;}
   if(gameMode==='tutorial'){activeLayout='box';return;}
@@ -3773,6 +3776,7 @@ function chooseLayout(){
 function worldBounds(){
   var bw=Math.max(W,560),bh=Math.max(H,460);
   if(gameMode==='tutorial'){WORLD_W=Math.max(W,560);WORLD_H=Math.max(H,460);return;}
+  if(XM()&&XM().bounds){var _xb=XM().bounds(bw,bh);WORLD_W=_xb[0];WORLD_H=_xb[1];return;}
   if(gameMode==='hoops'&&HOOPS_CFG.ball){WORLD_W=W;WORLD_H=H;return;}
   if(gameMode==='hoops'){WORLD_W=Math.max(bw*1.15,820);WORLD_H=Math.max(bh,560);return;}
   if(gameMode==='tag'){WORLD_W=bw*2.8;WORLD_H=bh*2.2;return;}
@@ -4095,6 +4099,7 @@ function fleeTarget(f,threat,dist){
   return {x:Math.max(40,Math.min(WORLD_W-40,f.cx+bx/bm*(dist||560))),y:Math.max(40,Math.min(WORLD_H-100,f.cy+by/bm*(dist?dist*0.6:320))),flee:true};
 }
 function aiTarget(f){
+  if(XM()&&XM().ai){var _xt=XM().ai(f);if(_xt)return _xt;}
   if(gameMode==='hoops'){return hoopsAiTarget(f);}
   if(gameMode==='hns'){
     if(f===hnsSeeker){
@@ -4150,6 +4155,7 @@ Flea.prototype.aiUpdate=function(dt){
   if(this.hidden)return;
   if(STATE!=='play'||this.isP||!this.stuck)return;
   if(this.frozen&&Date.now()<this.frozen)return;
+  if(XM()&&XM().aiHold&&XM().aiHold(this))return;
   if(this.action){this.ait--;return;} /* busy performing an action */
   if(gameMode==='zen'&&Math.random()<0.004){this.action=pick(ACTION_KEYS);this.actionT=0;this.actionUntil=Date.now()+2200+Math.random()*2600;return;}
   var zen=gameMode==='zen',t=aiTarget(this);
@@ -4811,6 +4817,7 @@ function buildLevel(){
   platforms.push(new Platform({kind:'rect',x:0,y:0,w:15,h:WORLD_H}));
   platforms.push(new Platform({kind:'rect',x:WORLD_W-15,y:0,w:15,h:WORLD_H}));
   if(gameMode==='tutorial')return; /* tutorial steps add their own platforms */
+  if(XM()&&XM().build&&XM().build())return;
   if(gameMode==='hoops'){if(HOOPS_CFG.ball){platforms=[];return;}if(HOOPS_CFG.platforms){var _np=4+Math.floor(Math.random()*4);for(var _hp=0;_hp<_np;_hp++){var _pw=90+Math.random()*90,_px=70+Math.random()*(WORLD_W-220),_py=WORLD_H*0.30+Math.random()*(WORLD_H*0.38);platforms.push(new Platform({kind:'rect',x:_px,y:_py,w:_pw,h:16}));}}return;}
   var pool=Object.keys(enabledShapes).filter(function(k){return enabledShapes[k];});
   if(!pool.length)pool=['rect'];
@@ -4838,7 +4845,7 @@ function buildLevel(){
   }
   /* assign motion */
   for(var i=3;i<platforms.length;i++){var p=platforms[i],kind=p._kind;
-    if(gameMode==='hns')continue; /* Hide & Seek: no moving/spinning platforms */
+    if(gameMode==='hns'||(XM()&&XM().still))continue; /* Hide & Seek / still modes: no moving/spinning platforms */
     var roll=Math.random();
     if(allowSpinning&&SPINNABLE[kind]&&roll<0.28){
       var fast=Math.random()<0.32;
@@ -4965,6 +4972,7 @@ function updScore(){
     });
     c.appendChild(grid);
   }
+  if(XM()&&XM().score){XM().score(c,{title:title,pills:pillRow,list:listRows});return;}
   if(gameMode==='zen'){title('Zen Sandbox');pillRow([{v:fleas.length,l:'Fleas',c:'#9b6bff'}]);return;}
   if(gameMode==='hns'){
     var pIsS=(hnsSeeker===player);
@@ -5455,6 +5463,7 @@ function loop(ts){
       STATE='play';cd.innerHTML='<span class="cd-num go">GO!</span>';
       setTimeout(function(){if(STATE!=='countdown')cd.style.display='none';},700);
       if(gameMode==='survival')assignOrbToRandom();
+      if(XM()&&XM().go)XM().go();
       if(gameMode==='hns'){
         if(hnsSeeker===player){var ov=document.getElementById('hns-overlay');if(ov)ov.classList.add('show');}
         else{var em=HNS_EMOJI[player.hideType]||'📦';flash('You are a HIDER! Move & hide — you become '+em,'#39ff7a');}
@@ -5473,6 +5482,7 @@ function loop(ts){
   if(STATE==='play'&&!editMode){for(var i=0;i<platforms.length;i++)platforms[i].update(dt);if(gameMode==='zen'){updateDecoPhysics(dt);updateZenCarry(dt);}carryStuckFleas();}
   for(var i=0;i<platforms.length;i++)platforms[i].draw(camera.x,camera.y);
   if(gameMode==='hoops'&&STATE!=='title')drawHoops(camera.x,camera.y);
+  if(XM()&&XM().drawBack&&STATE!=='title')XM().drawBack(camera.x,camera.y);
   if(STATE==='play'&&!editMode){
     STATS.playMs+=dt;
     chatterTimer+=dt;
@@ -5486,7 +5496,8 @@ function loop(ts){
     else if(gameMode==='hns'){hnsTick(dt);}
     else if(gameMode==='tutorial'){tutorialTick(dt);}
     else if(gameMode==='hoops'){hoopsTick(dt);}
-    hudT+=dt;if(hudT>240){hudT=0;if(gameMode==='race'||gameMode==='classic'||gameMode==='tag'||gameMode==='hns'||gameMode==='hoops')updScore();}
+    else if(XM()){XM().tick(dt);}
+    hudT+=dt;if(hudT>240){hudT=0;if(gameMode==='race'||gameMode==='classic'||gameMode==='tag'||gameMode==='hns'||gameMode==='hoops'||XM())updScore();}
   }else if(!editMode){
     for(var i=0;i<fleas.length;i++)fleas[i].update(dt);
   }
@@ -5503,6 +5514,7 @@ function loop(ts){
     for(var i=0;i<fleas.length;i++)fleas[i].draw(camera.x,camera.y);
   }
   drawRemoteZenPlayers();
+  if(XM()&&XM().drawFront&&STATE!=='title')XM().drawFront(camera.x,camera.y);
   if(gameMode==='hoops'&&STATE!=='title'){drawHoopTeamOutlines(camera.x,camera.y);drawHoopBall(camera.x,camera.y);drawHoopNotes(camera.x,camera.y);}
   updateEmotes(dt);drawEmotes();
   drawStatusFX();
@@ -5590,7 +5602,7 @@ function startGame(){
   chooseLayout();worldBounds();buildLevel();
   fleas=[];parts=[];sparks=[];orbHolder=null;fuse=fuseMax;aim.on=false;aim.dragging=false;tapMarker=null;touchRipple=null;
   countdown=3.0;lastCd=3;camera.shake=0;
-  var maxOpp=(gameMode==='tutorial')?0:(gameMode==='hoops')?(HOOPS_CFG.ball?0:Math.min(configAi,30)):((gameMode==='zen'||gameMode==='tag')?Math.min(configAi,29):configAi);
+  var maxOpp=XM()?Math.min(configAi,XM().maxAi||12):(gameMode==='tutorial')?0:(gameMode==='hoops')?(HOOPS_CFG.ball?0:Math.min(configAi,30)):((gameMode==='zen'||gameMode==='tag')?Math.min(configAi,29):configAi);
   var total=1+maxOpp,bottomY=WORLD_H-60,seg=WORLD_W/(total+1);
   var me=saved.find(function(f){return f.id===activeId;})||saved[0];
   player=new Flea(seg-13,bottomY-30,true,me.name,me);fleas.push(player);
@@ -5615,6 +5627,7 @@ function startGame(){
   else if(gameMode==='hns'){orb=null;setupHideSeek();hnsSeekLeft=seekTime*1000;document.getElementById('timer-lbl').textContent='Hide';document.getElementById('tval').textContent=Math.ceil(HNS_HIDE_MS/1000);var hcEl=document.getElementById('hns-count');if(hcEl)hcEl.textContent=Math.ceil(HNS_HIDE_MS/1000);}
   else if(gameMode==='tutorial'){orb=null;document.getElementById('timer-lbl').textContent='Step';document.getElementById('tval').textContent='1/'+TUT_STEPS.length;}
   else if(gameMode==='hoops'){orb=null;hoopsSetup();document.getElementById('timer-lbl').textContent='Time';document.getElementById('tval').textContent=(HOOPS_CFG.time>0?HOOPS_CFG.time:'\u221e');}
+  else if(XM()){orb=null;XM().setup();}
   else{orb=null;document.getElementById('timer-lbl').textContent='Zen';document.getElementById('tval').textContent='∞';}
   document.getElementById('overlay').classList.add('gone');
   document.getElementById('pause-overlay').classList.remove('show');
@@ -5632,6 +5645,7 @@ function startGame(){
   timerIv=setInterval(function(){
     if(STATE!=='play'||isPaused)return;
     if(gameMode==='classic'){left--;document.getElementById('tval').textContent=left;if(left<=10)document.getElementById('tbox').classList.add('danger');if(left<=0)endGame(leader());}
+    else if(XM()&&XM().second)XM().second();
   },1000);
   lt=performance.now();if(fid)cancelAnimationFrame(fid);fid=requestAnimationFrame(loop);
 }
@@ -6060,7 +6074,7 @@ var MODE_INTRO={
 };
 MODE_INTRO.hoops={ico:'\ud83c\udfc0',name:'Hoops',sub:'Bank it or swish it \u2014 jump your fleas through the hoop for points!',col:['#10203a','#ff7a1a']};
 try{if(window.FREA_TILES){Object.keys(MODE_INTRO).forEach(function(k){var t=(window.FREA_TILES_T&&window.FREA_TILES_T[k])||window.FREA_TILES[k];if(t)MODE_INTRO[k].img=t;});}}catch(e){}
-var introTimer=null;
+var introTimer=null,MI_MS=3000;
 function showModeIntro(cb){
   var mi=document.getElementById('mode-intro');var d=MODE_INTRO[gameMode]||MODE_INTRO.classic;
   document.getElementById('mi-ico').textContent=d.ico;document.getElementById('mi-ico').style.color=d.col[1];
@@ -6069,14 +6083,14 @@ function showModeIntro(cb){
   document.getElementById('mi-sub').textContent=d.sub;
   document.getElementById('mi-bg').style.background='radial-gradient(120% 90% at 50% 40%,'+d.col[0]+' 0%,#05060f 80%)';
   /* restart bar animation */
-  var bar=mi.querySelector('.mi-bar i');bar.style.animation='none';void bar.offsetWidth;bar.style.animation='miBar 3s linear forwards';
+  var bar=mi.querySelector('.mi-bar i');bar.style.animation='none';void bar.offsetWidth;bar.style.animation='miBar '+(MI_MS/1000)+'s linear forwards';
   mi.classList.remove('out');mi.classList.add('show');
   var done=false;
   var cancelBtn=document.getElementById('mi-cancel');
   function cleanup(){clearTimeout(introTimer);mi.removeEventListener('click',finish);if(cancelBtn)cancelBtn.removeEventListener('click',onCancel);}
   function finish(){if(done)return;done=true;cleanup();mi.classList.add('out');setTimeout(function(){mi.classList.remove('show','out');cb();},420);}
   function onCancel(e){if(e)e.stopPropagation();if(done)return;done=true;cleanup();mi.classList.add('out');setTimeout(function(){mi.classList.remove('show','out');toLobby();},420);}
-  introTimer=setTimeout(finish,3000);
+  introTimer=setTimeout(finish,MI_MS);
   mi.addEventListener('click',finish);
   if(cancelBtn)cancelBtn.addEventListener('click',onCancel);
 }
@@ -6152,7 +6166,7 @@ function endGame(winner){
   /* record stats */
   if(gameMode==='classic'&&player)bumpMode('pointsByMode','classic',player.matchPoints||0);
   if(won){bumpMode('winsByMode',gameMode);if(gameMode!=='classic')bumpMode('pointsByMode',gameMode);}
-  es.textContent={classic:'Match Complete',race:'Race Finished',survival:'Last Flea Standing',tag:'Last Safe Flea',hns:won?'You unmasked everyone!':'The hiders escaped!'}[gameMode]||'Round Complete';
+  es.textContent={classic:'Match Complete',race:'Race Finished',survival:'Last Flea Standing',tag:'Last Safe Flea',hns:won?'You unmasked everyone!':'The hiders escaped!'}[gameMode]||(XM()&&XM().endSub?XM().endSub(won,winner):'')||'Round Complete';
   if(won){et.textContent='VICTORY!';et.style.color='#ffd23d';wr.textContent='Champion';}
   else{et.textContent='DEFEAT';et.style.color='#ff3db5';wr.textContent='Winner';}
   wn.textContent=winner?winner.name:'—';
