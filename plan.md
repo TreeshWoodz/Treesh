@@ -1,5 +1,15 @@
 # Treesh 3.0 Continuation — Phase 5 Plan (Updated)
 
+## ▶ SESSION LOG (latest continuation — user-confirmed 5-item batch)
+Order confirmed by user. All 5 COMPLETED & verified this session:
+1. **Vocal FX in DAW (COMPLETED)** — added missing `i-fx-mix` slider handler (input + change/history + live monitor rebuild). FX preset chips + Mix% panel render on Vocals page; routing shared by live monitoring & clip playback via `iBuildFxChain`.
+2. **Audio leak on exit (COMPLETED)** — `renderView` cleanup now also triggers when `state.instrum.playing`; `iCleanupAudio` now unconditionally `iStop()`s the beat sequencer. Verified: beat playing True → False after navigating to Library.
+3. **Toolbar unified (COMPLETED)** — File/Info/Expand buttons moved into a single non-wrapping header row (always inline, far right). Vocals & Audio control bar converted from flex-wrap to a single horizontal-scroll row (no line breaks).
+4. **Split Instrum into 2 pages (COMPLETED)** — new `instrumPagerHtml` tabs (Beat Maker first, then Vocals & Audio) + prev/next arrows + edge-swipe (touch) via global `#i-pages` listeners. Applied to both normal and fullscreen. Directional page-in animation.
+5. **Light-mode NP dropdowns (COMPLETED)** — added `dark-surface` class to the two lyric popovers (`openLyricPop`, `openLyricToolsMenu`). Verified in light mode: popBg rgba(20,20,24,0.95) + white text.
+
+NEXT (P1 backlog, user-approved to continue in order): Backdrops revamp → Custom Music Manager UI cleanup → Like buttons on custom music → Lyric Studio tips UI → Font color settings → Voice controls upgrade → Search upgrade → (P2) rename Cover Art → Image Studio.
+
 ## ▶ ACTIVE SESSION ORDER (user-confirmed)
 User confirmed on latest turn — build in this order, PHASED (test between):
 1. **Phase J — Sleek Loading Screen** (hide startup flash / FOUC). ← IN PROGRESS
