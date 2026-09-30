@@ -27,6 +27,11 @@
 <link rel="apple-touch-icon" href="https://ik.imagekit.io/treesh/IMG_5825.png" />
 <meta name="description" content="Treesh 3.0. Stream the underground. Music to Live For." />
 <meta name="theme-color" content="#0a0a0b" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Treesh" />
+<meta name="application-name" content="Treesh" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Manrope:wght@200..800&family=Special+Gothic+Expanded+One&family=Doto:wght@100..900&display=swap" rel="stylesheet">
@@ -1342,9 +1347,12 @@ function startCatalogPolling(){
 }
 
 /* ---------- local storage ---------- */
+let _lsFullToastAt=0;
+function isQuotaError(e){ return !!(e && (e.name==='QuotaExceededError' || e.name==='NS_ERROR_DOM_QUOTA_REACHED' || e.code===22 || e.code===1014 || /quota|exceeded/i.test(e.message||''))); }
+function notifyStorageFull(){ try{ const now=Date.now(); state._storageFull=true; if(now-_lsFullToastAt<4000) return; _lsFullToastAt=now; if(typeof toast==='function') toast("Storage full","Free up space in Settings \u2192 Storage so new changes can save."); }catch(e){} }
 const LS = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
-  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ if(isQuotaError(e)) notifyStorageFull(); return false; } },
 };
 
 /* ---------- state ---------- */
@@ -2032,6 +2040,69 @@ try{ audio.setAttribute("playsinline",""); audio.setAttribute("webkit-playsinlin
    element into Web Audio on iOS (EQ becomes visual-only; the spectrum falls back
    to a synthetic animation). This is the intentional, correct tradeoff. */
 const IS_IOS = (function(){ try{ const ua=navigator.userAgent||""; const iOSDevice=/iP(hone|ad|od)/.test(navigator.platform||"") || /iPad|iPhone|iPod/.test(ua); const iPadOS13=(navigator.platform==="MacIntel" || ua.includes("Macintosh")) && (navigator.maxTouchPoints||0)>1; return (iOSDevice||iPadOS13) && !window.MSStream; }catch(e){ return false; } })();
+/* ---------- Install / Add to Home Screen (PWA-style) ---------- */
+function isStandalone(){ try{ return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone===true || (document.referrer||"").indexOf("android-app://")===0; }catch(e){ return false; } }
+let _deferredInstall=null;
+try{ window.addEventListener("beforeinstallprompt",(e)=>{ e.preventDefault(); _deferredInstall=e; }); }catch(e){}
+try{ window.addEventListener("appinstalled",()=>{ _deferredInstall=null; try{ toast("Added to device","Treesh is now an app on your home screen"); }catch(_){} }); }catch(e){}
+(function injectManifest(){ try{ if(document.querySelector('link[rel="manifest"]')) return; const icon="https://ik.imagekit.io/treesh/IMG_5825.png"; const base=location.origin+location.pathname; const mani={ name:"Treesh", short_name:"Treesh", description:"Music to Live For. Stream the underground.", start_url:base, scope:location.origin+location.pathname.replace(/[^/]*$/,""), display:"standalone", background_color:"#08080a", theme_color:"#0a0a0b", icons:[{src:icon, sizes:"192x192", type:"image/png"},{src:icon, sizes:"512x512", type:"image/png", purpose:"any maskable"}] }; const blob=new Blob([JSON.stringify(mani)],{type:"application/manifest+json"}); const url=URL.createObjectURL(blob); const link=document.createElement("link"); link.rel="manifest"; link.href=url; (document.head||document.documentElement).appendChild(link); }catch(e){} })();
+function canPromptInstall(){ return !!_deferredInstall; }
+async function triggerInstall(){ if(!_deferredInstall) return false; try{ _deferredInstall.prompt(); const c=await _deferredInstall.userChoice; _deferredInstall=null; return !!(c && c.outcome==="accepted"); }catch(e){ return false; } }
+function installHintHtml(){
+  if(isStandalone()) return "";
+  if(IS_IOS){
+    return `<div class="rounded-2xl border border-[color:var(--treesh-gold)]/30 bg-[color:var(--treesh-gold)]/[0.08] p-3.5" data-testid="install-hint-ios">
+      <div class="flex items-start gap-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="square-arrow-up" style="width:18px;height:18px"></i></span><div class="min-w-0"><p class="text-sm font-bold">Add Treesh to your Home Screen</p><p class="mt-0.5 text-xs text-white/60">Make it a real app: tap <span class="font-semibold text-white/80">Share</span> <i data-lucide="square-arrow-up" class="inline align-[-2px]" style="width:12px;height:12px"></i> in Safari, then <span class="font-semibold text-white/80">Add to Home Screen</span>.</p></div></div>
+    </div>`;
+  }
+  if(canPromptInstall()){
+    return `<div class="rounded-2xl border border-[color:var(--treesh-gold)]/30 bg-[color:var(--treesh-gold)]/[0.08] p-3.5" data-testid="install-hint-prompt">
+      <div class="flex items-center gap-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="download" style="width:18px;height:18px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-bold">Install Treesh</p><p class="mt-0.5 text-xs text-white/60">Add it to your device for a full-screen, app-like experience.</p></div><button data-act="install-app" data-testid="install-app-btn" class="press shrink-0 rounded-full bg-[color:var(--treesh-purple)] px-4 py-2 text-xs font-bold text-white glow-purple">Install</button></div>
+    </div>`;
+  }
+  return "";
+}
+/* ---------- Full data transfer (export/import) \u2014 no servers, file-based ---------- */
+const TRANSFER_PREFIXES=["treesh","frea_","chainz_","vocotap_","voco_","nects_"];
+function _blobToDataURL(blob){ return new Promise((res)=>{ try{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>res(null); r.readAsDataURL(blob); }catch(e){ res(null); } }); }
+function _dataURLToBlob(u){ try{ const i=u.indexOf(","); const meta=u.slice(0,i), b64=u.slice(i+1); const mime=(meta.match(/data:([^;]+)/)||[])[1]||"application/octet-stream"; const bin=atob(b64); const len=bin.length; const arr=new Uint8Array(len); for(let j=0;j<len;j++) arr[j]=bin.charCodeAt(j); return new Blob([arr],{type:mime}); }catch(e){ return null; } }
+async function exportAllData(){
+  try{
+    toast("Preparing backup","Packing your data\u2026");
+    const ls={};
+    for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)){ try{ ls[k]=localStorage.getItem(k); }catch(e){} } }
+    const media=[];
+    try{ const recs=await idbGetAll(); for(const r of (recs||[])){ const rec={ id:r.id, audioType:r.audioType||"", coverType:r.coverType||"", meta:r.meta||null, duration:r.duration||0, addedAt:r.addedAt||0 }; if(r.audioBlob) rec.audio=await _blobToDataURL(r.audioBlob); if(r.coverBlob) rec.cover=await _blobToDataURL(r.coverBlob); media.push(rec); } }catch(e){}
+    const payload={ app:"treesh", type:"treesh-backup", v:1, exportedAt:new Date().toISOString(), localStorage:ls, media };
+    const json=JSON.stringify(payload);
+    const blob=new Blob([json],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; const d=new Date(), pad=n=>String(n).padStart(2,"0"); a.download=`treesh-backup-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(e){} },4000);
+    const mb=json.length/1048576; toast("Backup ready", (mb<0.1?Math.round(json.length/1024)+" KB":mb.toFixed(1)+" MB")+" \u00b7 keep this file to restore on any device");
+  }catch(e){ toast("Couldn\u2019t export","Please try again"); }
+}
+function importAllDataFromFile(file){
+  if(!file) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let data=null; try{ data=JSON.parse(String(r.result||"")); }catch(e){ toast("Invalid file","That isn\u2019t a Treesh backup"); return; }
+    if(!data || data.type!=="treesh-backup" || typeof data.localStorage!=="object"){ toast("Invalid file","That isn\u2019t a Treesh backup"); return; }
+    const nKeys=Object.keys(data.localStorage||{}).length, nMedia=Array.isArray(data.media)?data.media.length:0;
+    openConfirm("Restore this backup?","This replaces the data on this device with the backup\u2019s profile, playlists, settings, game saves"+(nMedia?" and "+nMedia+" music file"+(nMedia!==1?"s":""):"")+". This can\u2019t be undone.", async ()=>{
+      try{
+        const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)) rm.push(k); }
+        rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+        Object.keys(data.localStorage).forEach(k=>{ try{ localStorage.setItem(k, data.localStorage[k]); }catch(e){ if(isQuotaError(e)) notifyStorageFull(); } });
+        if(Array.isArray(data.media)){ for(const m of data.media){ const rec={ id:m.id, audioType:m.audioType||"", coverType:m.coverType||"", meta:m.meta||null, duration:m.duration||0, addedAt:m.addedAt||Date.now() }; if(m.audio) rec.audioBlob=_dataURLToBlob(m.audio); if(m.cover) rec.coverBlob=_dataURLToBlob(m.cover); try{ await idbPut(rec); }catch(e){} } }
+        toast("Restoring\u2026","Reloading with your data");
+        setTimeout(()=>{ try{ location.reload(); }catch(e){} },800);
+      }catch(e){ toast("Couldn\u2019t restore","The backup may be damaged"); }
+    });
+  };
+  r.onerror=()=>toast("Couldn\u2019t read that file");
+  r.readAsText(file);
+}
+
 (function attachAudioEl(){ const add=()=>{ try{ if(document.body && !audio.isConnected){ audio.style.display="none"; audio.setAttribute("aria-hidden","true"); document.body.appendChild(audio); } }catch(e){} }; if(document.body) add(); else document.addEventListener("DOMContentLoaded", add); })();
 function shuffleKeepFirst(arr, i){ let rest=arr.filter((_,x)=>x!==i); rest=rest.filter(s=>!(s&&s.id&&state.dislikes.has(s.id))); for(let k=rest.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [rest[k],rest[j]]=[rest[j],rest[k]]; } return [arr[i],...rest]; }
 function curSong(){ return state.index>=0 && state.index<state.queue.length ? state.queue[state.index] : null; }
@@ -2865,11 +2936,12 @@ const STORAGE_GROUPS=[
   { id:"activity", label:"Games & rewards", icon:"trophy", desc:"Game stats, This or That & Starlites", keys:["treesh_game_stats","treesh_game_opts","treesh_tot","treesh_stars","treesh_stats"] },
   { id:"personalize", label:"Appearance & profile", icon:"palette", desc:"Profile, theme, colors, fonts & background", keys:["treesh_profile","treesh_accent","treesh_theme","treesh_bg","treesh_bg_image","treesh_bg_overlay","treesh_text_size","treesh_anim_bg","treesh_ui_glow","treesh_sleep","treesh_vinyl","treesh_lib_grid","treesh_game_grid","treesh_viz","treesh_nav_color","treesh_topbar_color","treesh_row_color","treesh_ink_color","treesh_font","treesh_custom_font","treesh_label","treesh_notif_nav","treesh_explain_auto","treesh_perf","treesh_perf_opts","treesh_bday_edits"] },
   { id:"cache", label:"Cache", icon:"database", desc:"Offline catalog copy & recent searches", keys:[CATALOG_KEY,"treesh_recent_searches"] },
+  { id:"gamedata", label:"Games & apps data", icon:"gamepad-2", desc:"Saves, stats & Starlites from Chainz, FREA!, Vocotap & other Treesh games", prefixes:["frea_","chainz_","vocotap_","voco_","nects_"], idb:["chainz_db","vocotap_db","nects_db"] },
   { id:"security", label:"Security", icon:"shield", desc:"App lock & parent PIN", keys:["treesh_lock","treesh_parent_pin"] },
 ];
 function lsBytes(k){ try{ const v=localStorage.getItem(k); if(v==null) return 0; return (k.length+v.length)*2; }catch(e){ return 0; } }
 function fmtBytes(b){ b=b||0; if(b<1024) return Math.round(b)+" B"; if(b<1024*1024) return (b/1024).toFixed(b<10240?1:0)+" KB"; if(b<1024*1024*1024) return (b/1048576).toFixed(b<10*1048576?1:0)+" MB"; return (b/1073741824).toFixed(2)+" GB"; }
-function groupBytes(g){ return g.keys.reduce((a,k)=>a+lsBytes(k),0); }
+function groupBytes(g){ let t=(g.keys||[]).reduce((a,k)=>a+lsBytes(k),0); if(g.prefixes&&g.prefixes.length){ try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && g.prefixes.some(p=>k.indexOf(p)===0)) t+=lsBytes(k); } }catch(e){} } return t; }
 const LS_BUDGET=5*1024*1024; /* ~5 MB: near-universal browser localStorage cap per origin, independent of disk space */
 function lsAllBytes(){ let t=0; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k==null) continue; const v=localStorage.getItem(k); t+=(k.length+((v&&v.length)||0))*2; } }catch(e){} return t; }
 function treeshTotalBytes(){ let t=0; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) t+=lsBytes(k); } }catch(e){} return t; }
@@ -2994,6 +3066,14 @@ function storageSection(tab){
       <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:18px;height:18px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Custom music</p><p id="custom-music-sub" data-testid="custom-music-sub" class="clamp-1 text-xs text-white/45">${USER_SONGS.length} track${USER_SONGS.length!==1?'s':''} on this device</p></div><span id="custom-music-size" data-testid="custom-music-size" class="shrink-0 font-doto text-sm text-white/70">\u2026</span></div>
       <div id="custom-music-manage" class="mt-3">${customMusicManageHtml()}</div>
     </div>
+    <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-testid="transfer-data">
+      <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="arrow-left-right" style="width:18px;height:18px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Transfer to another device</p><p class="clamp-1 text-xs text-white/45">Move everything to a new phone or browser \u2014 no account needed.</p></div></div>
+      <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+        <button data-act="export-all-data" data-testid="export-all-data" class="press inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] py-2.5 text-sm font-semibold text-white glow-purple"><i data-lucide="download" style="width:15px;height:15px"></i>Export backup</button>
+        <label class="press inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"><i data-lucide="upload" style="width:15px;height:15px"></i>Import backup<input type="file" accept="application/json,.json" id="transfer-import-input" data-testid="transfer-import-input" class="hidden"></label>
+      </div>
+      <p class="mt-2 text-[11px] text-white/40">Includes your profile, playlists, settings, game saves and uploaded music. Save the file to cloud storage or AirDrop it to your other device, then Import.</p>
+    </div>
     <div class="mt-4 space-y-2.5" data-testid="storage-groups">${rows}</div>
     <button data-act="storage-clear-all" data-testid="storage-clear-all-button" class="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3 text-sm font-semibold text-rose-200 transition-colors hover:bg-rose-500/20"><i data-lucide="trash-2" style="width:16px;height:16px"></i>Clear all Treesh data</button>
   </section>`;
@@ -3042,30 +3122,38 @@ function updateStorageEstimate(){
   const totalEl=document.getElementById("storage-total");
   const quotaEl=document.getElementById("storage-quota-text");
   const bar=document.getElementById("storage-gauge-bar");
-  const lsTotal=treeshTotalBytes();
+  // --- localStorage meter: the real ~5 MB cap that blocks saving ---
+  const lsUsedEl=document.getElementById("ls-storage-used");
+  const lsBar=document.getElementById("ls-storage-bar");
+  const lsWarn=document.getElementById("ls-storage-warn");
+  const lsAll=lsAllBytes();
+  const lsPct=Math.min(100, Math.max(lsAll>0?2:0, Math.round(lsAll/LS_BUDGET*100)));
+  const nearFull=lsPct>=85;
+  if(lsUsedEl) lsUsedEl.textContent=fmtBytes(lsAll);
+  if(lsBar){ lsBar.style.width=lsPct+"%"; lsBar.className="h-full rounded-full "+(nearFull?"bg-rose-400":"bg-[color:var(--treesh-purple)]"); }
+  if(lsWarn) lsWarn.classList.toggle("hidden", !nearFull);
+  // --- media meter: IndexedDB uses real device space ---
   idbGetAll().then(recs=>{
     recs=recs||[]; let idb=0; state._userSizes=state._userSizes||{};
     recs.forEach(r=>{ let sz=0; if(r.audioBlob&&r.audioBlob.size) sz+=r.audioBlob.size; if(r.coverBlob&&r.coverBlob.size) sz+=r.coverBlob.size; idb+=sz; if(r.id) state._userSizes[r.id]=sz; });
     state._idbBytes=idb;
-    const total=lsTotal+idb;
-    if(totalEl) totalEl.textContent=fmtBytes(total);
+    if(totalEl) totalEl.textContent=fmtBytes(idb);
     const paint=(quota,usage)=>{
       state._storageQuota=quota||0;
       if(quota && quota>0){
-        const usedForBar=Math.max(total, usage||0);           // reflect the real measured footprint if larger
-        const pct=Math.min(100, Math.max(total>0?1:0, Math.round(usedForBar/quota*100)));
+        const pct=Math.min(100, Math.max(idb>0?1:0, Math.round((usage||idb)/quota*100)));
         if(bar) bar.style.width=pct+"%";
-        const free=Math.max(0,(quota||0)-(usage||total));
+        const free=Math.max(0,(quota||0)-(usage||idb));
         if(quotaEl) quotaEl.innerHTML=`<span class="text-white/70 font-semibold">${fmtBytes(free)}</span> free on device`;
       } else {
-        if(bar) bar.style.width=(total>0?4:0)+"%";
+        if(bar) bar.style.width=(idb>0?4:0)+"%";
         if(quotaEl) quotaEl.textContent="Device estimate unavailable";
       }
     };
     if(navigator.storage && navigator.storage.estimate){
       navigator.storage.estimate().then(est=>paint((est&&est.quota)||0,(est&&est.usage)||0)).catch(()=>paint(0,0));
     } else { paint(0,0); }
-  }).catch(()=>{ if(totalEl) totalEl.textContent=fmtBytes(lsTotal); if(quotaEl) quotaEl.textContent="Device estimate unavailable"; });
+  }).catch(()=>{ if(totalEl) totalEl.textContent=fmtBytes(0); if(quotaEl) quotaEl.textContent="Device estimate unavailable"; });
 }
 function updateCustomMusicStorage(){
   const sizeEl=document.getElementById("custom-music-size"), subEl=document.getElementById("custom-music-sub");
@@ -3375,6 +3463,7 @@ function viewSettings(){
    <section data-testid="settings-about" class="${tab==='about'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
      <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="info" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">About</h2></div>
      <p class="mb-4 pl-11 text-sm text-white/50">Legal &amp; app information.</p>
+     ${installHintHtml()?`<div class="mb-4">${installHintHtml()}</div>`:''}
      <div class="overflow-hidden rounded-2xl border border-white/10 divide-y divide-white/10">
        <a href="https://treesh.app" target="_blank" rel="noopener" data-testid="link-privacy" class="press flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-white/5"><span class="flex items-center gap-3 text-sm font-semibold"><i data-lucide="shield-check" class="text-white/60" style="width:17px;height:17px"></i>Privacy Policy</span><i data-lucide="external-link" class="text-white/40" style="width:16px;height:16px"></i></a>
        <a href="https://treesh.app" target="_blank" rel="noopener" data-testid="link-terms" class="press flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-white/5"><span class="flex items-center gap-3 text-sm font-semibold"><i data-lucide="scroll-text" class="text-white/60" style="width:17px;height:17px"></i>Terms of Use</span><i data-lucide="external-link" class="text-white/40" style="width:16px;height:16px"></i></a>
@@ -3747,8 +3836,9 @@ function renderView(animate=false){
   const bday=$("#set-bday"); if(bday){ const updSB=()=>{ syncDateField(bday); const z=zodiac(bday.value); const el=$("#set-zodiac"); if(el) el.textContent=z; const zw=$("#set-zodiac-wrap"); if(zw) zw.classList.toggle("hidden",!z); }; bday.addEventListener("input",updSB); bday.addEventListener("change",updSB); }
   const ai=$("#set-avatar-input"); if(ai){ ai.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ state._tmpAvatar=r.result; const av=$("#set-avatar"); if(av) av.innerHTML=img(r.result,'h-full w-full object-cover'); }; r.readAsDataURL(f); }); }
   document.querySelectorAll(".bg-image-input").forEach(bgi=>{ bgi.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>12*1024*1024){ toast("Image too large","Use one under 12 MB"); return; } if((state.bgImages||[]).length>=3){ toast("Limit reached","You can save up to 3 images"); return; } const r=new FileReader(); r.onload=()=>{ compressImageDataUrl(r.result, 1600, 0.82).then(small=>{ state.bgImages=(state.bgImages||[]).filter(Boolean); state.bgImages.push(small); state.bgIndex=state.bgImages.length-1; const prevBg=state.bg; state.bg="custom"; const ok=bgSaveImages(); if(!ok){ state.bgImages.pop(); state.bgIndex=Math.max(0,state.bgImages.length-1); state.bg=prevBg; bgSaveImages(); applyTheme(); renderView(); toast("Storage full","Couldn\u2019t save. Remove an image and try again"); return; } LS.set("treesh_bg","custom"); applyTheme(); renderView(); toast("Background added", `Image ${state.bgIndex+1} of ${state.bgImages.length}`); }).catch(()=>toast("Couldn\u2019t read image","Try a different file")); }; r.readAsDataURL(f); }); });
-  const ff=$("#set-font-file"); if(ff){ ff.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>3*1024*1024){ toast("Font too large","Use one under 3 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ state.customFont={data:r.result, name:(f.name||'Custom').replace(/\.[^.]+$/,'')}; state.uiFont=""; _customFontLoaded=false; LS.set("treesh_custom_font",state.customFont); applyUiFont(); renderView(); toast("Custom font applied", state.customFont.name); }catch(err){ toast("Couldn\u2019t load font"); } }; r.readAsDataURL(f); }); }
+  const ff=$("#set-font-file"); if(ff){ ff.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>3*1024*1024){ toast("Font too large","Use one under 3 MB"); return; } const r=new FileReader(); r.onload=()=>{ try{ const prev=state.customFont; state.customFont={data:r.result, name:(f.name||'Custom').replace(/\.[^.]+$/,'')}; state.uiFont=""; _customFontLoaded=false; const ok=LS.set("treesh_custom_font",state.customFont); if(!ok){ state.customFont=prev; _customFontLoaded=false; applyUiFont(); renderView(); toast("Storage full","Not enough room to save this font. Free up space in Settings \u2192 Storage, then try again."); return; } applyUiFont(); renderView(); toast("Custom font applied", state.customFont.name); }catch(err){ toast("Couldn\u2019t load font"); } }; r.readAsDataURL(f); }); }
   const li=$("#lyrics-import-input"); if(li){ li.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(!f){ return; } if(f.size>10*1024*1024){ toast("File too large","Backups are usually tiny"); return; } const r=new FileReader(); r.onload=()=>{ let obj=null; try{ obj=JSON.parse(String(r.result||"")); }catch(err){ toast("That file isn\u2019t valid JSON"); return; } importLyricsData(obj); }; r.onerror=()=>toast("Couldn\u2019t read that file"); r.readAsText(f); e.target.value=""; }); }
+  const ti=$("#transfer-import-input"); if(ti){ ti.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(f) importAllDataFromFile(f); try{ e.target.value=""; }catch(_){} }); }
   const gm=$("#group-members"); const gn=$("#group-name"); const gkey=(ev)=>{ if(ev.key==="Enter"){ ev.preventDefault(); addUserGroup(); } }; if(gm) gm.addEventListener("keydown",gkey); if(gn) gn.addEventListener("keydown",gkey);
   iRenderMenu();
   wireAllReorder();
@@ -6571,7 +6661,7 @@ function renderOnboarding(){
   const z=zodiac(onboard.bday);
   const PRESETS=["https://static.tumblr.com/9leohrr/04Hspf8x9/icon-crazy.png","https://static.tumblr.com/9leohrr/BCJspf9yo/londonllafareartist.png","https://static.tumblr.com/9leohrr/7eVspf9iu/chelly_banqz.jpg","https://static.tumblr.com/9leohrr/7L3spf9lt/pio_milano.jpg"];
   let body="";
-  if(onboard.step===0){ const feats=[["radio","Stream the underground","An indie catalog of Icons, always fresh."],["mic-vocal","Sing &amp; learn","Karaoke, lyric meanings &amp; the What\u2019s Next game."],["sliders-horizontal","Make beats","Produce in Instrum, your pocket studio."]]; body=`<div class="space-y-2.5">${feats.map(([ic,t,d])=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.05] p-3.5"><div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="${ic}" style="width:20px;height:20px"></i></div><div class="min-w-0"><p class="text-sm font-bold">${t}</p><p class="text-xs text-white/55">${d}</p></div></div>`).join("")}<p class="pt-1.5 text-center text-xs text-white/40"><i data-lucide="shield-check" style="width:12px;height:12px" class="mr-1 inline align-[-2px]"></i>No signup needed. Everything saves on this device.</p></div>`; }
+  if(onboard.step===0){ const feats=[["radio","Stream the underground","An indie catalog of Icons, always fresh."],["mic-vocal","Sing &amp; learn","Karaoke, lyric meanings &amp; the What\u2019s Next game."],["sliders-horizontal","Make beats","Produce in Instrum, your pocket studio."]]; body=`<div class="space-y-2.5">${feats.map(([ic,t,d])=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.05] p-3.5"><div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="${ic}" style="width:20px;height:20px"></i></div><div class="min-w-0"><p class="text-sm font-bold">${t}</p><p class="text-xs text-white/55">${d}</p></div></div>`).join("")}<p class="pt-1.5 text-center text-xs text-white/40"><i data-lucide="shield-check" style="width:12px;height:12px" class="mr-1 inline align-[-2px]"></i>No signup needed. Everything saves on this device.</p>${installHintHtml()}</div>`; }
   else if(onboard.step===1){ const accCur=(state.accent||"#9328ff").toLowerCase(); body=`<div class="space-y-5"><div class="flex flex-wrap items-center justify-center gap-3">${ACCENTS.map(([hex,name])=>`<button data-act="ob-accent" data-hex="${hex}" title="${name}" aria-label="${name}" data-testid="ob-accent-${hex.replace('#','')}" class="press relative grid h-12 w-12 place-items-center rounded-full transition-transform hover:scale-110" style="background:${hex};box-shadow:${accCur===hex.toLowerCase()?`0 0 0 3px #fff,0 0 20px ${hex}`:`0 0 0 1px rgba(255,255,255,0.18)`}">${accCur===hex.toLowerCase()?`<i data-lucide="check" class="text-white" style="width:18px;height:18px"></i>`:''}</button>`).join("")}</div><div class="flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5"><span class="h-9 w-9 shrink-0 rounded-full" style="background:var(--treesh-purple);box-shadow:0 0 20px var(--treesh-purple)"></span><p class="text-sm text-white/70">Your accent glows across buttons, players &amp; highlights. Change it anytime in Settings.</p></div></div>`; }
   else if(onboard.step===2){ body=`<div><div class="relative"><input id="ob-nick" data-testid="onboarding-nickname" value="${esc(onboard.nick)}" placeholder="Your nickname" maxlength="24" class="h-14 w-full rounded-2xl border border-white/15 bg-white/[0.06] px-4 text-lg font-semibold text-white outline-none transition-colors placeholder:text-white/35 focus:border-[color:var(--treesh-purple)] focus:bg-white/[0.09]"></div><p class="mt-2 pl-1 text-xs text-white/40">This is how you\u2019ll show up across Treesh \u2013 no @ needed.</p></div>`; }
   else if(onboard.step===3){ body=`<div class="space-y-4">${dateFieldHTML({id:'ob-bday',value:onboard.bday,testid:'onboarding-birthday',center:true,placeholder:'Select your birthday',boxClass:'h-14 rounded-2xl border border-white/15 bg-white/[0.06] text-base font-semibold'})}<div id="ob-zodiac-wrap">${obZodiacHtml(z)}</div></div>`; }
@@ -7421,9 +7511,11 @@ document.addEventListener("click", e=>{
     case "group-add": addUserGroup(); break;
     case "group-remove": removeUserGroup(parseInt(t.dataset.idx,10)); break;
     case "lyrics-export": exportLyrics(); break;
+    case "install-app": { triggerInstall(); break; }
+    case "export-all-data": { exportAllData(); break; }
 
     case "erase-data": openConfirm("Erase everything?","Your nickname, avatar, favorites, playlists, uploaded music, beats, lyrics, settings and locks on this device will be permanently erased and Treesh will start fresh. This can\u2019t be undone.",()=>{ eraseAllData(); }); break;
-    case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ g.keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); location.reload(); }); break; }
+    case "storage-clear-group": { const gid=t.dataset.group; const g=STORAGE_GROUPS.find(x=>x.id===gid); if(!g) break; openConfirm("Clear "+g.label+"?","This permanently deletes "+g.desc.toLowerCase()+" from this device. This can\u2019t be undone.",()=>{ (g.keys||[]).forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); if(g.prefixes&&g.prefixes.length){ try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && g.prefixes.some(p=>k.indexOf(p)===0)) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} } if(g.idb&&g.idb.length){ g.idb.forEach(db=>{ try{ indexedDB.deleteDatabase(db); }catch(e){} }); } location.reload(); }); break; }
     case "storage-user-toggle": { if(!state.storageSel) state.storageSel={}; if(state.storageSel[id]) delete state.storageSel[id]; else state.storageSel[id]=true; refreshCustomMusicManage(); break; }
     case "storage-user-toggle-all": { const mine=USER_SONGS.slice(); const sel=state.storageSel||{}; const allOn=mine.length>0 && mine.every(s=>sel[s.id]); state.storageSel={}; if(!allOn){ mine.forEach(s=>{ state.storageSel[s.id]=true; }); } refreshCustomMusicManage(); break; }
     case "storage-user-del-one": { const s=USER_SONGS.find(x=>x.id===id); openConfirm("Remove this track?","\u201C"+((s&&s.title)||"This upload")+"\u201D will be permanently deleted from this device.",()=>{ deleteUserSongs([id]); }); break; }
