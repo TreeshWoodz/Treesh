@@ -4,12 +4,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeAchievements, TIER_COLOR } from "@/src/game/achievements";
-import { SongCover } from "@/src/components/ui";
+import { NeonBackground, SongCover } from "@/src/components/ui";
+import { levelInfo, levelTitle, useProgress, gradeFor, GRADE_COLOR } from "@/src/game/progression";
 import { useAppState } from "@/src/game/AppState";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
 import { getDailyHistory, computeStreak } from "@/src/game/dailyChallenge";
-import { colors, fonts, rgba } from "@/src/game/theme";
+import { colors, fonts, rgba, neonGlow, textGlow } from "@/src/game/theme";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const WD = ["S", "M", "T", "W", "T", "F", "S"];
@@ -34,6 +35,7 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
   const bestStars = scores.reduce((m, s) => Math.max(m, s.stars), 0);
   const notesHit = scores.reduce((sum, s) => sum + s.perfect + s.great + s.good, 0);
   const initial = (nickname || "V").trim().charAt(0).toUpperCase();
+  const prog = useProgress(); const lv = levelInfo(prog.xp);
 
   // Daily Challenge history → a little month calendar of cleared days + current streak.
   const [history, setHistory] = useState<string[]>([]);
@@ -53,7 +55,7 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
 
   return <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
     <View style={styles.root}>
-      <LinearGradient colors={[rgba(0.4), "#0B0912", "#08080A"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+      <NeonBackground />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <View style={styles.head}>
           <Text style={styles.headTitle}>PROFILE</Text>
@@ -68,6 +70,11 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
             <View style={styles.starPill}><Ionicons name="sparkles" size={14} color={colors.gold} /><Text style={styles.starPillText}>{stars.points.toLocaleString()} Starlites</Text></View>
           </View>
 
+          <View testID="profile-level-card" style={styles.lvCard}>
+            <View style={styles.lvRow}><Text style={styles.lvBig}>LV {lv.level}</Text><Text style={styles.lvTitle}>{levelTitle(lv.level)}</Text><Text style={styles.lvXp}>{lv.into} / {lv.need} XP</Text></View>
+            <View style={styles.lvTrack}><LinearGradient colors={[colors.cyan, colors.lime]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: "100%", width: `${Math.max(3, lv.frac * 100)}%` }} /></View>
+          </View>
+
           <View style={styles.statStrip}>{stat("GAMES", String(stars.games))}{stat("BEST", `${bestStars}★`)}{stat("NOTES", notesHit.toLocaleString())}{stat("STREAK", `${stars.streak}d`)}</View>
 
           {recentAchievement && <View style={styles.recentAch}>
@@ -79,7 +86,7 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
           {recent.length ? recent.map((s, i) => { const song = [...songs, ...treeshSongs].find(x => x.id === s.songId); const cover = s.coverArt ?? song?.coverArt; const acc = s.accent ?? song?.accent ?? colors.purple; return <View key={`${s.songId}-${s.createdAt}-${i}`} style={styles.playRow}>
             <View style={styles.playCover}><SongCover coverArt={cover} accent={acc} seed={s.songId} label={s.title} iconSize={16} style={{ width: "100%", height: "100%" }} /></View>
             <View style={{ flex: 1 }}><Text style={styles.playTitle} numberOfLines={1}>{s.title}</Text><Text style={styles.playSub}>{s.difficulty} · {s.accuracy.toFixed(1)}% · {timeAgo(s.createdAt)}</Text></View>
-            <View style={styles.playStars}>{[0, 1, 2, 3, 4].map(n => <Ionicons key={n} name={n < s.stars ? "star" : "star-outline"} size={12} color={n < s.stars ? colors.gold : "#4C4C55"} />)}</View>
+            <Text style={[styles.playGrade, { color: GRADE_COLOR[gradeFor(s)] }]}>{gradeFor(s)}</Text>
           </View>; }) : <Text style={styles.empty}>No runs yet — play a song to fill this in.</Text>}
 
           <Text style={styles.sectionTitle}>CHALLENGE HISTORY{cal.streak > 0 ? ` · 🔥 ${cal.streak}-DAY STREAK` : ""}</Text>
@@ -109,27 +116,31 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 12 },
-  headTitle: { color: colors.text, fontSize: 13, letterSpacing: 3, fontFamily: fonts.heavy },
-  closeBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
+  headTitle: { color: colors.text, fontSize: 15, letterSpacing: 3, fontFamily: fonts.arcadeBlack, ...textGlow(colors.cyan, 10) },
+  lvCard: { padding: 14, borderRadius: 16, backgroundColor: "rgba(0,229,255,0.07)", borderWidth: 1, borderColor: "rgba(0,229,255,0.4)", gap: 10 },
+  lvRow: { flexDirection: "row", alignItems: "baseline", gap: 10 }, lvBig: { color: colors.cyan, fontFamily: fonts.arcadeBlack, fontSize: 22, ...textGlow(colors.cyan, 12) }, lvTitle: { flex: 1, color: colors.lime, fontFamily: fonts.arcade, fontSize: 11, letterSpacing: 2 }, lvXp: { color: colors.muted, fontFamily: fonts.arcade, fontSize: 10 },
+  lvTrack: { height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  playGrade: { fontFamily: fonts.arcadeBlack, fontSize: 20, width: 40, textAlign: "center" },
+  closeBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
   hero: { alignItems: "center", gap: 10 },
-  avatar: { width: 92, height: 92, borderRadius: 46, overflow: "hidden", borderWidth: 3, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel },
+  avatar: { width: 92, height: 92, borderRadius: 46, overflow: "hidden", borderWidth: 3, ...neonGlow(colors.cyan, 16, 0.6), alignItems: "center", justifyContent: "center", backgroundColor: colors.panel },
   avatarText: { fontSize: 40, fontFamily: fonts.display },
-  name: { color: colors.text, fontSize: 24, fontFamily: fonts.display },
+  name: { color: colors.text, fontSize: 22, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
   starPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: "rgba(245,200,66,0.12)", borderWidth: 1, borderColor: "rgba(245,200,66,0.35)" },
   starPillText: { color: colors.gold, fontSize: 12, fontFamily: fonts.heavy },
   statStrip: { flexDirection: "row", borderRadius: 18, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, paddingVertical: 14 },
-  stat: { flex: 1, alignItems: "center" }, statValue: { color: colors.text, fontSize: 18, fontFamily: fonts.heavy }, statLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1, marginTop: 3, fontFamily: fonts.bold },
+  stat: { flex: 1, alignItems: "center" }, statValue: { color: colors.text, fontSize: 16, fontFamily: fonts.arcadeBlack }, statLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1, marginTop: 3, fontFamily: fonts.bold },
   recentAch: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16, backgroundColor: rgba(0.1), borderWidth: 1, borderColor: rgba(0.35) },
   recentAchIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   recentAchLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.4, fontFamily: fonts.bold }, recentAchTitle: { color: colors.text, fontSize: 16, fontFamily: fonts.display, marginTop: 2 },
-  sectionTitle: { color: colors.muted, fontSize: 10, letterSpacing: 1.5, fontFamily: fonts.heavy, marginTop: 4 },
+  sectionTitle: { color: colors.cyan, fontSize: 11, letterSpacing: 2, fontFamily: fonts.arcade, marginTop: 6 },
   playRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 11, paddingHorizontal: 13, borderRadius: 13, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
   playCover: { width: 40, height: 40, borderRadius: 10, overflow: "hidden", backgroundColor: colors.bg },
   playTitle: { color: colors.text, fontSize: 14, fontFamily: fonts.bold }, playSub: { color: colors.muted, fontSize: 11, marginTop: 2 }, playStars: { flexDirection: "row" },
   empty: { color: colors.muted, fontSize: 13, paddingVertical: 8 },
   calCard: { padding: 14, borderRadius: 18, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, gap: 8 },
-  calMonth: { color: colors.text, fontSize: 15, fontFamily: fonts.display, textAlign: "center" },
+  calMonth: { color: colors.text, fontSize: 14, fontFamily: fonts.arcade, letterSpacing: 1, textAlign: "center" },
   calRow: { flexDirection: "row" }, calWd: { flex: 1, textAlign: "center", color: colors.muted, fontSize: 10, fontFamily: fonts.heavy },
   calGrid: { flexDirection: "row", flexWrap: "wrap" }, calCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center", padding: 2 },
   calDay: { width: "88%", aspectRatio: 1, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.04)" },

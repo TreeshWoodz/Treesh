@@ -9,7 +9,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader, NeonButton, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { analyzeAudio, analyzeAudioNative, AudioAnalysis } from "@/src/game/audioAnalysis";
-import { colors, fonts, rgba } from "@/src/game/theme";
+import { colors, fonts, neonGlow, textGlow } from "@/src/game/theme";
+import { CROWN_COLOR, GRADE_COLOR, masteryFor } from "@/src/game/progression";
 import { Difficulty } from "@/src/game/types";
 
 const analysisKey = (songId: string) => `vocotap_analysis_${songId}`;
@@ -21,12 +22,13 @@ async function writeCachedAnalysis(songId: string, data: AudioAnalysis) {
 }
 
 const standard: Difficulty[] = ["Easy", "Normal", "Hard", "Expert"];
+const DCOL: Record<string, string> = { Easy: "#CCFF00", Normal: "#00E5FF", Hard: "#FF8A00", Expert: "#FF2D7A", Custom: "#B537FF" };
 const meta: Record<string, { note: string; icon: keyof typeof Ionicons.glyphMap }> = {
   Easy: { note: "Relaxed", icon: "leaf" }, Normal: { note: "Balanced", icon: "musical-note" }, Hard: { note: "Fast", icon: "flame" }, Expert: { note: "Brutal", icon: "skull" }, Custom: { note: "Your chart", icon: "options" },
 };
 
 export default function AnalysisScreen() {
-  const { selectedSong, selectedDifficulty, setDifficulty, charts, generateFor } = useAppState();
+  const { selectedSong, selectedDifficulty, setDifficulty, charts, generateFor, scores } = useAppState();
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null);
   const status = useAudioPlayerStatus(player);
   const [phase, setPhase] = useState<"pick" | "building" | "analyzing" | "error">("pick");
@@ -101,10 +103,13 @@ export default function AnalysisScreen() {
         : <>
           <Text style={styles.label}>SELECT DIFFICULTY</Text>
           <View style={styles.grid}>
-            {available.map(d => { const active = selectedDifficulty === d; return <Pressable key={d} testID={`difficulty-${d.toLowerCase()}-chip`} onPress={() => setDifficulty(d)} style={[styles.diff, active && styles.diffActive]}>
-              <View style={[styles.diffIcon, active && { backgroundColor: rgba(0.9) }]}><Ionicons name={meta[d].icon} size={18} color={active ? colors.bg : colors.purple} /></View>
-              <Text style={[styles.diffName, active && { color: colors.bg }]}>{d}</Text>
-              <Text style={[styles.diffNote, active && { color: "rgba(10,10,11,0.7)" }]}>{meta[d].note}</Text>
+            {available.map(d => { const active = selectedDifficulty === d; const c = DCOL[d]; const m = masteryFor(scores, selectedSong.id, d); return <Pressable key={d} testID={`difficulty-${d.toLowerCase()}-chip`} onPress={() => setDifficulty(d)} style={[styles.diff, { borderColor: active ? c : `${c}40` }, active && { backgroundColor: `${c}22`, ...neonGlow(c, 14, 0.5) }]}>
+              <View style={styles.diffTop}>
+                <View style={[styles.diffIcon, { borderColor: c, backgroundColor: active ? c : "transparent" }]}><Ionicons name={meta[d].icon} size={18} color={active ? "#001018" : c} /></View>
+                {m.grade && <View style={styles.diffBest}><Text style={[styles.diffGrade, { color: GRADE_COLOR[m.grade] }]}>{m.grade}</Text><Ionicons name="ribbon" size={12} color={CROWN_COLOR[m.crown]} /></View>}
+              </View>
+              <Text style={[styles.diffName, { color: active ? c : colors.text }]}>{d.toUpperCase()}</Text>
+              <Text style={styles.diffNote}>{m.best ? `Best ${m.best.score.toLocaleString()}` : meta[d].note}</Text>
             </Pressable>; })}
           </View>
           <NeonButton testID="play-generated-chart-button" label={selectedDifficulty === "Custom" ? "Play custom chart" : `Generate & play ${selectedDifficulty}`} icon="play" onPress={() => play(false)} />
@@ -116,11 +121,11 @@ export default function AnalysisScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg }, content: { padding: 20, gap: 16, paddingBottom: 40 }, center: { flex: 1, justifyContent: "center", padding: 24, gap: 20 },
-  hero: { alignItems: "center", paddingTop: 6 }, cover: { width: 168, height: 168, borderRadius: 26, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, shadowColor: colors.purple, shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12 },
-  title: { color: colors.text, fontSize: 26, fontFamily: fonts.display, marginTop: 18, textAlign: "center" }, artist: { color: colors.muted, marginTop: 6, fontFamily: fonts.body, fontSize: 14 },
+  safe: { flex: 1, backgroundColor: "transparent" }, content: { padding: 20, gap: 16, paddingBottom: 40 }, center: { flex: 1, justifyContent: "center", padding: 24, gap: 20 },
+  hero: { alignItems: "center", paddingTop: 6 }, cover: { width: 168, height: 168, borderRadius: 18, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 2, borderColor: colors.cyan, ...neonGlow(colors.cyan, 24, 0.55) },
+  title: { color: colors.text, fontSize: 22, fontFamily: fonts.arcadeBlack, marginTop: 18, textAlign: "center", letterSpacing: 0.5, ...textGlow(colors.pink, 14) }, artist: { color: colors.muted, marginTop: 6, fontFamily: fonts.body, fontSize: 14 },
   building: { alignItems: "center", gap: 12, paddingVertical: 34 }, buildingText: { color: colors.text, fontFamily: fonts.bold, fontSize: 15, textAlign: "center" }, buildingSub: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, marginTop: -4, textAlign: "center", maxWidth: 280 },
   progOuter: { width: "80%", maxWidth: 300, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden", marginTop: 8 }, progInner: { height: 8, borderRadius: 4, backgroundColor: colors.cyan }, progPct: { color: colors.cyan, fontFamily: fonts.heavy, fontSize: 13 },
-  label: { color: colors.muted, fontSize: 10, letterSpacing: 1.5, fontFamily: fonts.heavy, marginTop: 4 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, diff: { width: "47%", flexGrow: 1, padding: 14, borderRadius: 18, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border, gap: 8, shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 5 }, diffActive: { backgroundColor: colors.purple, borderColor: colors.purple }, diffIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: rgba(0.15) }, diffName: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy }, diffNote: { color: colors.muted, fontSize: 12, fontFamily: fonts.body },
+  label: { color: colors.cyan, fontSize: 11, letterSpacing: 2, fontFamily: fonts.arcade, marginTop: 4 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, diff: { width: "47%", flexGrow: 1, padding: 14, borderRadius: 14, backgroundColor: "rgba(14,11,38,0.82)", borderWidth: 1.5, gap: 8 }, diffTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, diffBest: { flexDirection: "row", alignItems: "center", gap: 4 }, diffGrade: { fontSize: 16, fontFamily: fonts.arcadeBlack }, diffIcon: { width: 40, height: 40, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center" }, diffName: { fontSize: 15, fontFamily: fonts.arcadeBlack, letterSpacing: 1 }, diffNote: { color: colors.muted, fontSize: 12, fontFamily: fonts.bold },
 });

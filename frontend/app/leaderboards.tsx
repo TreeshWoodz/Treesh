@@ -73,13 +73,13 @@ export default function LeaderboardsScreen() {
 function byong(map: Record<string, ScoreResult[]>, key: string) { if (!map[key]) map[key] = []; return map[key]; }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg }, safe: { flex: 1, backgroundColor: "transparent" }, content: { padding: 16, gap: 12 },
+  root: { flex: 1, backgroundColor: "transparent" }, safe: { flex: 1, backgroundColor: "transparent" }, content: { padding: 16, gap: 12 },
   intro: { color: colors.muted, fontSize: 13, lineHeight: 19, fontFamily: fonts.body, marginBottom: 2 },
   empty: { paddingVertical: 70, alignItems: "center", gap: 10 }, emptyTitle: { color: colors.text, fontSize: 22, fontFamily: fonts.display }, emptyCopy: { color: colors.muted, fontFamily: fonts.body, textAlign: "center" }, playCta: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 10, paddingHorizontal: 18, height: 44, borderRadius: 22, backgroundColor: colors.lime }, playCtaText: { color: colors.bg, fontFamily: fonts.heavy, fontSize: 14 },
-  card: { borderRadius: 20, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", overflow: "hidden" },
+  card: { borderRadius: 14, backgroundColor: "rgba(14,11,38,0.82)", borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   cardHead: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12 }, rank: { color: colors.gold, fontSize: 18, fontFamily: fonts.display, width: 22, textAlign: "center" },
   cover: { width: 52, height: 52, borderRadius: 13, overflow: "hidden", backgroundColor: colors.bg }, title: { color: colors.text, fontSize: 16, fontFamily: fonts.heavy }, headMeta: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 }, plays: { color: colors.muted, fontSize: 11, fontFamily: fonts.body },
-  bestBox: { alignItems: "flex-end", gap: 2 }, bestScore: { color: colors.text, fontSize: 15, fontFamily: fonts.heavy },
+  bestBox: { alignItems: "flex-end", gap: 2 }, bestScore: { color: colors.text, fontSize: 14, fontFamily: fonts.arcadeBlack },
   detail: { paddingHorizontal: 12, paddingBottom: 12, gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
   diffRow: { flexDirection: "row", alignItems: "center", gap: 10 }, diffTag: { width: 62, paddingVertical: 3, borderRadius: 7, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center" }, diffTagText: { color: colors.cyan, fontSize: 9, fontFamily: fonts.heavy, letterSpacing: 0.6 }, diffAcc: { color: colors.muted, fontSize: 12, fontFamily: fonts.bold, width: 52 }, diffCombo: { color: colors.muted, fontSize: 12, fontFamily: fonts.bold, flex: 1 }, diffScore: { color: colors.text, fontSize: 13, fontFamily: fonts.heavy },
   replayRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)" }, replayText: { color: colors.cyan, fontSize: 12, fontFamily: fonts.bold },

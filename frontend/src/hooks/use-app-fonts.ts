@@ -10,4 +10,6 @@ export const useAppFonts = (): readonly [boolean, Error | null] =>
     "Manrope-Bold": `${base}/manrope@latest/latin-700-normal.ttf`,
     "Manrope-Heavy": `${base}/manrope@latest/latin-800-normal.ttf`,
     "Display": `${base}/special-gothic-expanded-one@latest/latin-400-normal.ttf`,
+    "Orbitron": `${base}/orbitron@latest/latin-700-normal.ttf`,
+    "Orbitron-Black": `${base}/orbitron@latest/latin-900-normal.ttf`,
   });

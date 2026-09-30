@@ -65,3 +65,11 @@
 
 ## Update 12 (Jun 2026)
 - CHEST REVEAL: results.tsx ChestReveal overlay — animated gift that pops in, shakes, then bursts open with radial sparkles + a scaling reward count and a Collect button (testID chest-collect-button). Gated by showChest (only when a weekly streak chest drops). Uses RN Animated (native driver), no new deps. Verified home/results boot with no regression.
+
+## Update 13 (Jun 2026) — NEON GAME REDESIGN ("10x better")
+- Neon arcade theme (theme.ts: fixed cyan/pink/lime/violet/gold palette, Orbitron + Orbitron-Black fonts; fonts.display now Orbitron-Black). App-wide NeonBackground (synthwave grid + orbs) rendered behind the Stack; navigation ThemeProvider background transparent; screens use transparent roots.
+- ui.tsx: neon ScreenHeader (gradient underline), GlassCard (tint), NeonButton (cyan gradient primary / outline secondary), LevelBadge.
+- Gameplay (game.tsx): PERFECT+ (<=45ms, +15% score), FAST/SLOW, lane hit bursts, screen shake (miss/milestone/fever; off with reducedParticles/performanceMode), scrolling beat lines (bpm), neon highway edges + strike line, Vocopulse fever pop + gold highway, GO! pop, combo bump/tier colour/multiplier chip, HP bar, new HUD. Popup keys prefixed to avoid duplicate-key warnings. Wavy logic untouched.
+- progression.ts: XP/levels (xpForRun, level-up Starlite reward 100+20*lv), grades S+/S/A/B/C/D, per-song crowns (bronze/gold FC/diamond AP), 7 note skins bought with Starlites (store vocotap_progress: xp/owned/skin; setLaneSkin mutates laneColors).
+- Results redesign (grade reveal, count-up score, medals, 6 judgment tiles, XP bar + LEVEL UP, Starlites). New /shop screen. Home redesign (level badge, currency row, shop/ranks, PLAY CTA, 2x2 mode grid, crowns stat). Library rows + analysis difficulty cards show best grade/crown. Profile shows level card + grades. Settings/Guide/Leaderboards/Loading restyled. Guide copy updated (PERFECT+, levels/crowns, Skin Shop).
+- Tested: iteration_12 (7/7 pass).

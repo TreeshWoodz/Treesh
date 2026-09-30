@@ -4,14 +4,16 @@ import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from "react-native-svg";
 import { StarlitesModal } from "@/src/components/StarlitesModal";
 import { ProfileModal } from "@/src/components/ProfileModal";
-import { SongCover } from "@/src/components/ui";
+import { LevelBadge, SongCover } from "@/src/components/ui";
+import { GRADE_COLOR, levelInfo, levelTitle, masteryFor, useProgress } from "@/src/game/progression";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
 import { computeAchievements } from "@/src/game/achievements";
 import { dailyPool, pickDaily, isDailyClaimed, getDailyHistory, computeStreak, dailyStreakBonus } from "@/src/game/dailyChallenge";
-import { colors, fonts, rgba } from "@/src/game/theme";
+import { colors, fonts, neonGlow, textGlow } from "@/src/game/theme";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
 import { Song } from "@/src/game/types";
@@ -60,6 +62,8 @@ export default function HomeScreen() {
   const [profileOpen, setProfileOpen] = useState(false);
   const achievements = useMemo(() => computeAchievements({ scores, charts, songs, points: stars.points, streak: stars.streak, games: stars.games }), [scores, charts, songs, stars]);
   const unlockedCount = achievements.filter(a => a.unlocked).length;
+  const lv = levelInfo(useProgress().xp);
+  const crowns = useMemo(() => new Set(scores.filter(r => r.stars >= 3).map(r => r.songId)).size, [scores]);
   const lastPlayed = scores.length ? [...scores].sort((a, b) => b.createdAt - a.createdAt)[0] : null;
   const quickPlay = (song?: Song) => { if (!song) return; selectSong(song); setDifficulty("Normal"); router.push("/analysis"); };
   const fade = { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] };
@@ -71,30 +75,33 @@ export default function HomeScreen() {
   useEffect(() => { isDailyClaimed().then(setDailyClaimed); getDailyHistory().then(h => setDailyStreak(computeStreak(h))); }, [scores]);
 
   return <View style={styles.root}>
-    <LinearGradient colors={[rgba(0.32), "#0B0912", "#08080A"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity: bg }]} pointerEvents="none"><LinearGradient colors={["#08080A", rgba(0.26), "#0B0912"]} start={{ x: 0.9, y: 0.1 }} end={{ x: 0.1, y: 1 }} style={StyleSheet.absoluteFill} /></Animated.View>
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity: bg.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }) }]} pointerEvents="none"><LinearGradient colors={["transparent", rgba(0.18), "transparent"]} start={{ x: 0, y: 0.2 }} end={{ x: 1, y: 0.8 }} style={StyleSheet.absoluteFill} /></Animated.View>
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topbar}>
-          <Pressable testID="home-profile-button" onPress={() => setProfileOpen(true)} style={styles.greet}><Avatar avatar={avatar} nickname={nickname} size={44} /><View><Text style={styles.byline}>WELCOME BACK</Text><Text style={styles.greetName} numberOfLines={1}>{nickname}</Text></View></Pressable>
+          <Pressable testID="home-profile-button" onPress={() => setProfileOpen(true)} style={styles.greet}><Avatar avatar={avatar} nickname={nickname} size={40} /><View><Text style={styles.greetName} numberOfLines={1}>{nickname}</Text><Text style={styles.byline}>{levelTitle(lv.level)}</Text></View></Pressable>
           <View style={styles.topRight}>
-            <Pressable testID="home-leaderboards-button" onPress={() => router.push("/leaderboards")} style={styles.iconPill}><Ionicons name="trophy" size={16} color={colors.gold} /></Pressable>
-            <Pressable testID="home-starlites-button" onPress={() => setStarsOpen(true)} style={styles.stars}><Ionicons name="sparkles" size={16} color={colors.gold} /><Text style={styles.starsText}>{stars.points.toLocaleString()}</Text></Pressable>
+            <LevelBadge testID="home-level-badge" onPress={() => setProfileOpen(true)} />
           </View>
         </View>
+        <View style={styles.currencyRow}>
+          <Pressable testID="home-starlites-button" onPress={() => setStarsOpen(true)} style={styles.stars}><Ionicons name="sparkles" size={15} color={colors.gold} /><Text style={styles.starsText}>{stars.points.toLocaleString()}</Text><Ionicons name="add-circle" size={16} color={colors.gold} /></Pressable>
+          <Pressable testID="home-leaderboards-button" onPress={() => router.push("/leaderboards")} style={styles.iconPill}><Ionicons name="trophy" size={16} color={colors.gold} /><Text style={styles.iconPillText}>RANKS</Text></Pressable>
+          <Pressable testID="home-shop-button" onPress={() => router.push("/shop")} style={[styles.iconPill, { borderColor: "rgba(255,45,122,0.55)", backgroundColor: "rgba(255,45,122,0.1)" }]}><Ionicons name="color-palette" size={16} color={colors.pink} /><Text style={[styles.iconPillText, { color: colors.pink }]}>SHOP</Text></Pressable>
+        </View>
 
-        <Animated.View style={fade}>
+        <Animated.View style={[styles.logoWrap, fade]}>
+          <Animated.View pointerEvents="none" style={[styles.logoGlow, { opacity: bg.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) }]}>
+            <Svg width={320} height={170}><Defs><RadialGradient id="lg" cx="50%" cy="50%" r="50%"><Stop offset="0" stopColor="#B537FF" stopOpacity={0.55} /><Stop offset="0.6" stopColor="#FF2D7A" stopOpacity={0.12} /><Stop offset="1" stopColor="#FF2D7A" stopOpacity={0} /></RadialGradient></Defs><Ellipse cx={160} cy={85} rx={160} ry={85} fill="url(#lg)" /></Svg>
+          </Animated.View>
           <Image source={require("../assets/images/vocotap-logo-v2.png")} resizeMode="contain" style={styles.logoImg} />
-          <Text style={styles.title}>Your music,{"\n"}<Text style={styles.titleAccent}>your stage.</Text></Text>
-          <Text style={styles.subtitle}>Import any track, auto build a chart, then tap, hold and ride the wave.</Text>
+          <Text style={styles.tagline}>TAP · HOLD · RIDE THE WAVE</Text>
         </Animated.View>
 
         {/* Quick Play — swipeable carousel of device + Treesh tracks */}
         {slides.length > 0 && <Animated.View style={fade}>
           <View style={styles.qpHead}>
-            <View style={styles.featuredTag}><View style={styles.liveDot} /><Text style={styles.featuredTagText}>{ready ? "QUICK PLAY" : "PREPARING"}</Text></View>
-            {dotCount > 1 && <View style={styles.dots}>{Array.from({ length: dotCount }).map((_, i) => <View key={i} style={[styles.dot, i === slide % dotCount && { width: 16, backgroundColor: colors.purple }]} />)}</View>}
+            <View style={styles.featuredTag}><View style={styles.liveDot} /><Text style={styles.featuredTagText}>{ready ? "QUICK PLAY" : "LOADING"}</Text></View>
+            {dotCount > 1 && <View style={styles.dots}>{Array.from({ length: dotCount }).map((_, i) => <View key={i} style={[styles.dot, i === slide % dotCount && { width: 18, backgroundColor: colors.cyan }]} />)}</View>}
           </View>
           <View>
             <ScrollView
@@ -110,27 +117,42 @@ export default function HomeScreen() {
               onMomentumScrollEnd={(e) => { userTouching.current = false; onScrollEnd(e); }}
               onScrollEndDrag={onScrollEnd}
             >
-              {slides.map((s, i) => <Pressable key={`${s.id}-${i}`} testID={i === 0 ? "quick-play-button" : `quick-play-slide-${i}`} disabled={!ready} onPress={() => quickPlay(s)} style={({ pressed }) => [styles.featured, { width: CARD_W, marginRight: 12 }, pressed && styles.pressed]}>
+              {slides.map((s, i) => { const m = masteryFor(scores, s.id); return <Pressable key={`${s.id}-${i}`} testID={i === 0 ? "quick-play-button" : `quick-play-slide-${i}`} disabled={!ready} onPress={() => quickPlay(s)} style={({ pressed }) => [styles.featured, { width: CARD_W, marginRight: 12 }, pressed && styles.pressed]}>
                 <SongCover coverArt={s.coverArt} accent={s.accent} seed={s.id} label={s.title} iconSize={64} style={styles.featuredArt} />
-                <LinearGradient colors={["rgba(6,6,10,0.12)", "rgba(6,6,10,0.5)", "rgba(6,6,10,0.94)"]} style={StyleSheet.absoluteFill} />
-                <View style={styles.slideTagRow}><View style={styles.srcTag}><Ionicons name={s.source === "device" ? "phone-portrait" : "musical-notes"} size={11} color={colors.text} /><Text style={styles.srcTagText}>{s.source === "device" ? "YOUR IMPORT" : s.source === "built-in" ? "WARMUP" : "TREESH MUSIC"}</Text></View></View>
+                <LinearGradient colors={["rgba(6,5,26,0.1)", "rgba(6,5,26,0.45)", "rgba(6,5,26,0.96)"]} style={StyleSheet.absoluteFill} />
+                <View style={styles.slideTagRow}>
+                  <View style={styles.srcTag}><Ionicons name={s.source === "device" ? "phone-portrait" : "musical-notes"} size={11} color={colors.cyan} /><Text style={styles.srcTagText}>{s.source === "device" ? "YOUR IMPORT" : s.source === "built-in" ? "WARMUP" : "TREESH MUSIC"}</Text></View>
+                  {m.grade && <View style={[styles.gradeTag, { borderColor: GRADE_COLOR[m.grade] }]}><Text style={[styles.gradeTagText, { color: GRADE_COLOR[m.grade] }]}>{m.grade}</Text></View>}
+                </View>
                 <View style={styles.featuredBottom}>
                   <View style={{ flex: 1 }}><Text style={styles.featuredTitle} numberOfLines={1}>{s.title}</Text><Text style={styles.featuredArtist} numberOfLines={1}>{s.artist}</Text></View>
-                  <View style={[styles.featuredPlay, { backgroundColor: s.accent }]}><Ionicons name="play" size={26} color={colors.bg} /></View>
+                  <View style={styles.featuredPlay}><Ionicons name="play" size={26} color="#001018" /></View>
                 </View>
-              </Pressable>)}
+                <View pointerEvents="none" style={styles.featuredEdge} />
+              </Pressable>; })}
             </ScrollView>
             {slides.length > 1 && <>
-              <Pressable testID="quick-play-prev" onPress={() => goTo(slide - 1)} style={[styles.navArrow, { left: 6 }]} hitSlop={6}><Ionicons name="chevron-back" size={20} color={colors.text} /></Pressable>
-              <Pressable testID="quick-play-next" onPress={() => goTo(slide + 1)} style={[styles.navArrow, { right: 18 }]} hitSlop={6}><Ionicons name="chevron-forward" size={20} color={colors.text} /></Pressable>
+              <Pressable testID="quick-play-prev" onPress={() => goTo(slide - 1)} style={[styles.navArrow, { left: 6 }]} hitSlop={6}><Ionicons name="chevron-back" size={20} color={colors.cyan} /></Pressable>
+              <Pressable testID="quick-play-next" onPress={() => goTo(slide + 1)} style={[styles.navArrow, { right: 18 }]} hitSlop={6}><Ionicons name="chevron-forward" size={20} color={colors.cyan} /></Pressable>
             </>}
           </View>
         </Animated.View>}
 
+        {/* Primary action */}
+        <Animated.View style={fade}>
+          <Pressable testID="browse-library-button" onPress={() => router.push("/library")} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
+            <LinearGradient pointerEvents="none" colors={[colors.cyan, "#6A5CFF", colors.pink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />
+            <LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.35)", "rgba(255,255,255,0.05)", "transparent"]} locations={[0, 0.5, 1]} style={styles.glossPrimary} />
+            <View style={styles.primaryIcon}><Ionicons name="play" size={26} color={colors.text} /></View>
+            <View style={{ flex: 1 }}><Text style={styles.primaryTitle}>PLAY</Text><Text style={styles.primaryCopy}>Pick any song · auto-charted to the beat</Text></View>
+            <Ionicons name="chevron-forward" size={22} color={colors.text} />
+          </Pressable>
+        </Animated.View>
+
         {/* Daily Challenge */}
         {daily && <Animated.View style={fade}>
           <Pressable testID="daily-challenge-card" onPress={() => quickPlay(daily.song)} style={({ pressed }) => [styles.daily, pressed && styles.pressed]}>
-            <LinearGradient pointerEvents="none" colors={["rgba(245,200,66,0.22)", "rgba(255,122,69,0.10)", "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+            <LinearGradient pointerEvents="none" colors={["rgba(255,214,0,0.2)", "rgba(255,138,0,0.08)", "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             <View style={styles.dailyCover}><SongCover coverArt={daily.song.coverArt} accent={daily.song.accent} seed={daily.song.id} label={daily.song.title} iconSize={24} style={{ width: "100%", height: "100%" }} /></View>
             <View style={{ flex: 1 }}>
               <View style={styles.dailyTagRow}><Ionicons name="flame" size={12} color={colors.gold} /><Text style={styles.dailyTag}>DAILY CHALLENGE</Text>{dailyStreak > 0 && <Text style={styles.dailyStreak}>🔥 {dailyStreak}-DAY</Text>}</View>
@@ -139,38 +161,23 @@ export default function HomeScreen() {
                 : dailyStreak > 0 ? <Text style={[styles.dailySub, styles.dailyWarn]} numberOfLines={1}>⚠️ Play today to keep your {dailyStreak}-day streak!</Text>
                 : <Text style={styles.dailySub} numberOfLines={1}>Earn {daily.targetStars}★ for +{dailyStreakBonus(1)} Starlites</Text>}
             </View>
-            {dailyClaimed ? <View style={styles.dailyDone}><Ionicons name="checkmark" size={20} color={colors.bg} /></View> : <View style={styles.dailyPlay}><Ionicons name="play" size={22} color={colors.bg} /></View>}
+            {dailyClaimed ? <View style={styles.dailyDone}><Ionicons name="checkmark" size={20} color="#001018" /></View> : <View style={styles.dailyPlay}><Ionicons name="play" size={22} color="#001018" /></View>}
           </Pressable>
         </Animated.View>}
 
-        {/* Primary action */}
-        <Animated.View style={fade}>
-          <Pressable testID="browse-library-button" onPress={() => router.push("/library")} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-            <LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.3)", "rgba(255,255,255,0.06)", "transparent"]} locations={[0, 0.5, 1]} style={styles.glossPrimary} />
-            <View style={styles.primaryIcon}><Ionicons name="musical-notes" size={22} color={colors.bg} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.primaryTitle}>Choose a song</Text><Text style={styles.primaryCopy}>Browse Treesh Music or import your own</Text></View>
-            <Ionicons name="chevron-forward" size={20} color={colors.bg} />
-          </Pressable>
-        </Animated.View>
-
-        {/* Secondary tiles */}
+        {/* Mode grid */}
         <Animated.View style={[styles.tiles, fade]}>
           {[
-            { key: "editor", testID: "open-editor-button", icon: "construct" as const, label: "Editor", caption: "Build charts", tint: "#8E7CFF", onPress: () => router.push("/editor") },
-            { key: "settings", testID: "open-calibration-button", icon: "options" as const, label: "Settings", caption: "Tune & sync", tint: "#2FE0D6", onPress: () => router.push("/settings") },
-            { key: "guide", testID: "open-guide-button", icon: "compass" as const, label: "How to play", caption: "Learn it", tint: "#F5C842", onPress: () => router.push("/guide") },
+            { key: "editor", testID: "open-editor-button", icon: "construct" as const, label: "EDITOR", caption: "Build charts", tint: colors.purple, onPress: () => router.push("/editor") },
+            { key: "shop", testID: "open-shop-tile", icon: "color-palette" as const, label: "SKINS", caption: "Note styles", tint: colors.pink, onPress: () => router.push("/shop") },
+            { key: "settings", testID: "open-calibration-button", icon: "options" as const, label: "SETTINGS", caption: "Tune & sync", tint: colors.cyan, onPress: () => router.push("/settings") },
+            { key: "guide", testID: "open-guide-button", icon: "compass" as const, label: "GUIDE", caption: "How to play", tint: colors.lime, onPress: () => router.push("/guide") },
           ].map(t => (
-            <Pressable key={t.key} testID={t.testID} onPress={t.onPress} style={({ pressed }) => [styles.tile, { borderColor: `${t.tint}3D` }, pressed && styles.pressed]}>
-              <LinearGradient pointerEvents="none" colors={[`${t.tint}2E`, "transparent"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.tileGlow} />
-              <View style={[styles.tileIcon, { shadowColor: t.tint }]}>
-                <LinearGradient colors={[t.tint, `${t.tint}99`]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                <View style={styles.tileIconGloss} />
-                <Ionicons name={t.icon} size={22} color="#0A0A0B" />
-              </View>
-              <View style={styles.tileTextWrap}>
-                <Text style={styles.tileText} numberOfLines={1}>{t.label}</Text>
-                <Text style={styles.tileCaption} numberOfLines={1}>{t.caption}</Text>
-              </View>
+            <Pressable key={t.key} testID={t.testID} onPress={t.onPress} style={({ pressed }) => [styles.tile, { borderColor: `${t.tint}66` }, pressed && styles.pressed]}>
+              <LinearGradient pointerEvents="none" colors={[`${t.tint}30`, "transparent"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
+              <View style={[styles.tileIcon, { borderColor: t.tint, shadowColor: t.tint }]}><Ionicons name={t.icon} size={20} color={t.tint} /></View>
+              <Text style={styles.tileText} numberOfLines={1}>{t.label}</Text>
+              <Text style={styles.tileCaption} numberOfLines={1}>{t.caption}</Text>
             </Pressable>
           ))}
         </Animated.View>
@@ -179,15 +186,17 @@ export default function HomeScreen() {
         <Animated.View style={fade}>
           <Pressable testID="home-progress-card" onPress={() => setProfileOpen(true)} style={({ pressed }) => [styles.snapCard, pressed && styles.pressed]}>
             <View style={styles.snapRow}>
-              <View style={styles.snapCol}><Text style={styles.statLabel}>BEST</Text><View style={styles.statInline}><Ionicons name="star" size={15} color={colors.gold} /><Text style={styles.statValue}>{bestStars || 0}</Text></View></View>
+              <View style={styles.snapCol}><Text style={styles.statLabel}>BEST</Text><View style={styles.statInline}><Ionicons name="star" size={14} color={colors.gold} /><Text style={styles.statValue}>{bestStars || 0}</Text></View></View>
               <View style={styles.statDivider} />
               <View style={styles.snapCol}><Text style={styles.statLabel}>GAMES</Text><View style={styles.statInline}><Ionicons name="game-controller" size={14} color={colors.cyan} /><Text style={[styles.statValue, { color: colors.cyan }]}>{stars.games}</Text></View></View>
+              <View style={styles.statDivider} />
+              <View style={styles.snapCol}><Text style={styles.statLabel}>CROWNS</Text><View style={styles.statInline}><Ionicons name="ribbon" size={14} color={colors.lime} /><Text style={[styles.statValue, { color: colors.lime }]}>{crowns}</Text></View></View>
               <View style={styles.statDivider} />
               <View style={styles.snapCol}><Text style={styles.statLabel}>TROPHIES</Text><View style={styles.statInline}><Ionicons name="trophy" size={14} color={colors.gold} /><Text style={[styles.statValue, { color: colors.gold }]}>{unlockedCount}</Text></View></View>
             </View>
             <View style={styles.snapFoot}>
               <View style={{ flex: 1 }}><Text style={styles.snapFootLabel}>{lastPlayed ? "LAST PLAYED" : "RECENTLY PLAYED"}</Text><Text style={styles.snapFootText} numberOfLines={1}>{lastPlayed ? lastPlayed.title : "Nothing yet — pick a song to begin"}</Text></View>
-              <View style={styles.snapCta}><Text style={styles.snapCtaText}>Profile</Text><Ionicons name="chevron-forward" size={14} color={colors.bg} /></View>
+              <View style={styles.snapCta}><Text style={styles.snapCtaText}>PROFILE</Text><Ionicons name="chevron-forward" size={14} color="#001018" /></View>
             </View>
           </Pressable>
         </Animated.View>
@@ -199,34 +208,45 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg }, safe: { flex: 1 }, content: { paddingHorizontal: 20, paddingBottom: 32, gap: 18 },
-  blobTop: { position: "absolute", top: -120, right: -80, width: 320, height: 320, borderRadius: 160, opacity: 0.9 }, blobBottom: { position: "absolute", bottom: -140, left: -90, width: 340, height: 340, borderRadius: 170, opacity: 0.7 },
-  topbar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6, marginBottom: 4 },
-  greet: { flexDirection: "row", alignItems: "center", gap: 11 }, greetName: { color: colors.text, fontSize: 18, fontFamily: fonts.heavy, maxWidth: 150 },
-  byline: { color: colors.muted, fontSize: 10, fontWeight: "800", letterSpacing: 2, fontFamily: fonts.bold }, logoImg: { width: 300, height: 160, marginBottom: 4, marginLeft: -6, marginTop: -6 },
-  stars: { minHeight: 40, flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 14, borderRadius: 20, backgroundColor: rgba(0.1), borderWidth: 1, borderColor: rgba(0.32) }, starsText: { color: colors.gold, fontFamily: fonts.heavy, fontSize: 14 },
-  topRight: { flexDirection: "row", alignItems: "center", gap: 8 }, iconPill: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: rgba(0.1), borderWidth: 1, borderColor: rgba(0.32) },
-  title: { color: colors.text, fontSize: 38, lineHeight: 41, fontFamily: fonts.display, letterSpacing: -0.5, marginTop: 2 }, titleAccent: { color: colors.purple }, subtitle: { color: colors.muted, marginTop: 12, fontSize: 15, lineHeight: 22, maxWidth: 320, fontFamily: fonts.body },
-  featured: { height: 220, borderRadius: 26, overflow: "hidden", justifyContent: "space-between", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", shadowColor: "#000", shadowOpacity: 0.55, shadowRadius: 22, shadowOffset: { width: 0, height: 14 }, elevation: 14 }, featuredArt: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
-  featuredTop: { flexDirection: "row", padding: 16, justifyContent: "space-between", alignItems: "flex-start" }, featuredTag: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 11, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)" }, liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.lime }, featuredTagText: { color: colors.text, fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
-  dots: { flexDirection: "row", alignItems: "center", gap: 5, height: 28 }, dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.4)" },
-  featuredBottom: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 }, featuredTitle: { color: colors.text, fontSize: 24, fontWeight: "900", letterSpacing: -0.5 }, featuredArtist: { color: "rgba(255,255,255,0.7)", fontSize: 14, marginTop: 3 }, featuredPlay: { width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
-  primary: { minHeight: 74, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.lime, shadowColor: colors.purple, shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 10 }, glossPrimary: { position: "absolute", top: 0, left: 0, right: 0, height: "58%", borderTopLeftRadius: 22, borderTopRightRadius: 22 }, glossTile: { position: "absolute", top: 0, left: 0, right: 0, height: "55%", borderTopLeftRadius: 20, borderTopRightRadius: 20 }, primaryIcon: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.12)" }, primaryTitle: { color: colors.bg, fontSize: 18, fontFamily: fonts.heavy }, primaryCopy: { color: "rgba(10,10,12,0.7)", fontSize: 13, fontFamily: fonts.bold, marginTop: 2 },
-  tiles: { flexDirection: "row", gap: 10 }, tile: { flex: 1, height: 118, borderRadius: 22, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 6, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.045)", borderWidth: 1, shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 }, tileGlow: { position: "absolute", top: 0, left: 0, right: 0, height: "72%" }, tileIcon: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowOpacity: 0.65, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 8 }, tileIconGloss: { position: "absolute", top: 0, left: 0, right: 0, height: "52%", backgroundColor: "rgba(255,255,255,0.32)" }, tileTextWrap: { alignItems: "center", gap: 3 }, tileText: { color: colors.text, fontSize: 13.5, fontFamily: fonts.heavy }, tileCaption: { color: colors.muted, fontSize: 9, letterSpacing: 0.8, fontFamily: fonts.bold, textTransform: "uppercase" },
-  statCard: { flexDirection: "row", alignItems: "center", paddingVertical: 18, paddingHorizontal: 8, borderRadius: 22, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5 }, statCol: { flex: 1, alignItems: "center", gap: 8 }, statLabel: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.4 }, statInline: { flexDirection: "row", alignItems: "center", gap: 6 }, statValue: { color: colors.text, fontSize: 16, fontWeight: "900" }, statDivider: { width: 1, height: 40, backgroundColor: "rgba(255,255,255,0.09)" },
-  snapCard: { borderRadius: 22, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
-  snapRow: { flexDirection: "row", alignItems: "center", paddingVertical: 16, paddingHorizontal: 8 }, snapCol: { flex: 1, alignItems: "center", gap: 7 },
-  snapFoot: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 13, backgroundColor: "rgba(255,255,255,0.03)", borderTopWidth: 1, borderTopColor: colors.border }, snapFootLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.3, fontFamily: fonts.bold }, snapFootText: { color: colors.text, fontSize: 14, fontFamily: fonts.bold, marginTop: 2 },
-  snapCta: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: colors.purple }, snapCtaText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
-  daily: { minHeight: 84, flexDirection: "row", alignItems: "center", gap: 13, padding: 12, borderRadius: 22, overflow: "hidden", backgroundColor: "rgba(245,200,66,0.06)", borderWidth: 1, borderColor: "rgba(245,200,66,0.4)", shadowColor: colors.gold, shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
-  dailyCover: { width: 58, height: 58, borderRadius: 14, overflow: "hidden", backgroundColor: colors.bg, borderWidth: 1, borderColor: "rgba(245,200,66,0.4)" },
-  dailyTagRow: { flexDirection: "row", alignItems: "center", gap: 5 }, dailyTag: { color: colors.gold, fontSize: 9, letterSpacing: 1.4, fontFamily: fonts.heavy }, dailyStreak: { color: colors.lime, fontSize: 9, letterSpacing: 0.8, fontFamily: fonts.heavy, marginLeft: 2 },
-  dailyTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy, marginTop: 3 }, dailySub: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: fonts.body, marginTop: 2 }, dailyWarn: { color: colors.gold, fontFamily: fonts.bold },
-  dailyPlay: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.gold }, dailyDone: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
+  root: { flex: 1, backgroundColor: "transparent" }, safe: { flex: 1 }, content: { paddingHorizontal: 18, paddingBottom: 32, gap: 16 },
+  topbar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6 },
+  greet: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }, greetName: { color: colors.text, fontSize: 15, fontFamily: fonts.heavy, maxWidth: 140 },
+  byline: { color: colors.lime, fontSize: 9, letterSpacing: 2, fontFamily: fonts.arcade, marginTop: 2 },
+  topRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  currencyRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  stars: { flex: 1, minHeight: 40, flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 12, borderRadius: 10, backgroundColor: "rgba(255,214,0,0.08)", borderWidth: 1, borderColor: "rgba(255,214,0,0.45)" }, starsText: { flex: 1, color: colors.gold, fontFamily: fonts.arcadeBlack, fontSize: 14 },
+  iconPill: { height: 40, paddingHorizontal: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,214,0,0.08)", borderWidth: 1, borderColor: "rgba(255,214,0,0.45)" }, iconPillText: { color: colors.gold, fontSize: 10, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
+  logoWrap: { alignItems: "center", marginTop: -4 }, logoGlow: { position: "absolute", top: -14 },
+  logoImg: { width: 290, height: 140 },
+  tagline: { color: colors.cyan, fontSize: 10, letterSpacing: 4, fontFamily: fonts.arcade, marginTop: -6, ...textGlow(colors.cyan, 10) },
+  featured: { height: 230, borderRadius: 18, overflow: "hidden", justifyContent: "space-between", borderWidth: 1.5, borderColor: "rgba(0,229,255,0.55)", ...neonGlow(colors.cyan, 18, 0.35) }, featuredArt: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  featuredEdge: { position: "absolute", left: 20, right: 20, top: 0, height: 2, backgroundColor: colors.cyan, borderRadius: 1 },
+  featuredTag: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 11, height: 28, borderRadius: 8, backgroundColor: "rgba(0,229,255,0.1)", borderWidth: 1, borderColor: "rgba(0,229,255,0.45)" }, liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.lime, ...neonGlow(colors.lime, 6, 1) }, featuredTagText: { color: colors.cyan, fontSize: 10, fontFamily: fonts.arcadeBlack, letterSpacing: 1.5 },
+  dots: { flexDirection: "row", alignItems: "center", gap: 5, height: 28 }, dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.3)" },
+  featuredBottom: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 }, featuredTitle: { color: colors.text, fontSize: 22, fontFamily: fonts.arcadeBlack, letterSpacing: 0.3 }, featuredArtist: { color: "rgba(214,214,255,0.75)", fontSize: 13, marginTop: 3, fontFamily: fonts.bold },
+  featuredPlay: { width: 58, height: 58, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.cyan, ...neonGlow(colors.cyan, 16, 0.8) },
+  primary: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, borderRadius: 16, ...neonGlow(colors.pink, 20, 0.5) }, glossPrimary: { position: "absolute", top: 0, left: 0, right: 0, height: "55%", borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+  primaryIcon: { width: 50, height: 50, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.25)", borderWidth: 1, borderColor: "rgba(255,255,255,0.4)" },
+  primaryTitle: { color: colors.text, fontSize: 26, fontFamily: fonts.arcadeBlack, letterSpacing: 4, ...textGlow("#000", 8) }, primaryCopy: { color: "rgba(255,255,255,0.9)", fontSize: 12, fontFamily: fonts.bold, marginTop: 1 },
+  tiles: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tile: { width: "47%", flexGrow: 1, height: 104, borderRadius: 14, justifyContent: "center", paddingHorizontal: 14, gap: 4, overflow: "hidden", backgroundColor: "rgba(14,11,38,0.78)", borderWidth: 1 },
+  tileIcon: { width: 38, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 1.5, backgroundColor: "rgba(6,5,26,0.6)", shadowOpacity: 0.8, shadowRadius: 10, shadowOffset: { width: 0, height: 0 }, marginBottom: 4 },
+  tileText: { color: colors.text, fontSize: 13, fontFamily: fonts.arcadeBlack, letterSpacing: 1.5 }, tileCaption: { color: colors.muted, fontSize: 11, fontFamily: fonts.bold },
+  statLabel: { color: colors.muted, fontSize: 8, fontFamily: fonts.arcade, letterSpacing: 1.4 }, statInline: { flexDirection: "row", alignItems: "center", gap: 5 }, statValue: { color: colors.text, fontSize: 15, fontFamily: fonts.arcadeBlack }, statDivider: { width: 1, height: 36, backgroundColor: colors.border },
+  snapCard: { borderRadius: 16, backgroundColor: "rgba(14,11,38,0.8)", borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
+  snapRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 6 }, snapCol: { flex: 1, alignItems: "center", gap: 7 },
+  snapFoot: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: "rgba(0,229,255,0.04)", borderTopWidth: 1, borderTopColor: colors.border }, snapFootLabel: { color: colors.muted, fontSize: 8, letterSpacing: 1.4, fontFamily: fonts.arcade }, snapFootText: { color: colors.text, fontSize: 14, fontFamily: fonts.bold, marginTop: 3 },
+  snapCta: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, height: 32, borderRadius: 8, backgroundColor: colors.cyan }, snapCtaText: { color: "#001018", fontSize: 10, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
+  pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
+  daily: { minHeight: 84, flexDirection: "row", alignItems: "center", gap: 13, padding: 12, borderRadius: 16, overflow: "hidden", backgroundColor: "rgba(14,11,38,0.8)", borderWidth: 1.5, borderColor: "rgba(255,214,0,0.55)", ...neonGlow(colors.gold, 14, 0.3) },
+  dailyCover: { width: 58, height: 58, borderRadius: 10, overflow: "hidden", backgroundColor: colors.bg, borderWidth: 1, borderColor: "rgba(255,214,0,0.5)" },
+  dailyTagRow: { flexDirection: "row", alignItems: "center", gap: 5 }, dailyTag: { color: colors.gold, fontSize: 9, letterSpacing: 1.5, fontFamily: fonts.arcadeBlack }, dailyStreak: { color: colors.lime, fontSize: 9, letterSpacing: 0.8, fontFamily: fonts.arcadeBlack, marginLeft: 2 },
+  dailyTitle: { color: colors.text, fontSize: 16, fontFamily: fonts.heavy, marginTop: 3 }, dailySub: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: fonts.body, marginTop: 2 }, dailyWarn: { color: colors.gold, fontFamily: fonts.bold },
+  dailyPlay: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.gold, ...neonGlow(colors.gold, 12, 0.7) }, dailyDone: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
   qpHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingHorizontal: 2 },
-  slideTagRow: { padding: 16 },
-  srcTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" },
-  srcTagText: { color: colors.text, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
-  navArrow: { position: "absolute", top: 90, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(8,8,12,0.62)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
+  slideTagRow: { padding: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  srcTag: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, height: 26, borderRadius: 7, backgroundColor: "rgba(6,5,26,0.7)", borderWidth: 1, borderColor: "rgba(0,229,255,0.4)" },
+  srcTagText: { color: colors.cyan, fontSize: 9, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
+  gradeTag: { minWidth: 40, height: 34, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1.5, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(6,5,26,0.75)" }, gradeTagText: { fontSize: 16, fontFamily: fonts.arcadeBlack },
+  navArrow: { position: "absolute", top: 95, width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(6,5,26,0.7)", borderWidth: 1, borderColor: "rgba(0,229,255,0.45)" },
 });

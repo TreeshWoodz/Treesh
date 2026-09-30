@@ -1,4 +1,5 @@
 import { Stack, router } from "expo-router";
+import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
@@ -12,7 +13,8 @@ import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { useAppFonts } from "@/src/hooks/use-app-fonts";
 import { AppStateProvider, useAppState } from "@/src/game/AppState";
 import { StarlitesProvider, useStarlites } from "@/src/game/starlites";
-import { colors } from "@/src/game/theme";
+import { colors, fonts, neonGlow } from "@/src/game/theme";
+import { NeonBackground } from "@/src/components/ui";
 
 
 // Disable logbox errors etc so that users can see the app
@@ -75,8 +77,10 @@ export default function RootLayout() {
   // the app - icons/fonts will fall back, but the app still boots.
   if ((!loaded && !error) || (!textLoaded && !textError)) return null;
 
-  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider><StarlitesProvider><AppStateProvider><StatusBar style="light" /><AppStack /></AppStateProvider></StarlitesProvider></SafeAreaProvider></GestureHandlerRootView>;
+  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider><StarlitesProvider><AppStateProvider><StatusBar style="light" /><ThemeProvider value={NAV_THEME}><AppStack /></ThemeProvider></AppStateProvider></StarlitesProvider></SafeAreaProvider></GestureHandlerRootView>;
 }
+
+const NAV_THEME = { ...DarkTheme, colors: { ...DarkTheme.colors, background: "transparent", card: "transparent" } };
 
 function AppStack() {
   const { toast, dismissToast } = useStarlites();
@@ -99,7 +103,8 @@ function AppStack() {
   }, [ready, importChartFromCode]);
 
   return <View style={styles.root}>
-    <Stack screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: colors.bg } }} />
+    <NeonBackground />
+    <Stack screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
     {toast && <Pressable testID="starlites-toast" onPress={dismissToast} style={styles.toast}>
       <Text style={styles.toastAmount}>+{toast.amount} Starlites</Text><Text style={styles.toastReason}>{toast.reason}</Text>
     </Pressable>}
@@ -109,6 +114,6 @@ function AppStack() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  toast: { position: "absolute", top: 58, alignSelf: "center", width: "86%", maxWidth: 420, paddingVertical: 13, paddingHorizontal: 18, borderRadius: 18, backgroundColor: "#251F10", borderWidth: 1, borderColor: "rgba(147,40,255,0.45)" },
-  toastAmount: { color: colors.gold, fontWeight: "900", fontSize: 15, textAlign: "center" }, toastReason: { color: colors.text, fontSize: 12, marginTop: 2, textAlign: "center" },
+  toast: { position: "absolute", top: 58, alignSelf: "center", width: "86%", maxWidth: 420, paddingVertical: 13, paddingHorizontal: 18, borderRadius: 14, backgroundColor: "rgba(14,11,38,0.97)", borderWidth: 1.5, borderColor: colors.gold, ...neonGlow(colors.gold, 14, 0.5) },
+  toastAmount: { color: colors.gold, fontFamily: fonts.arcadeBlack, fontSize: 15, textAlign: "center", letterSpacing: 1 }, toastReason: { color: colors.text, fontSize: 12, marginTop: 2, textAlign: "center" },
 });

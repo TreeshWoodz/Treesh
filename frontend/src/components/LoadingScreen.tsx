@@ -1,7 +1,8 @@
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing, Image, StyleSheet, useWindowDimensions, View } from "react-native";
-import { colors, fonts, rgba } from "@/src/game/theme";
+import { Animated, Easing, StyleSheet, useWindowDimensions, View } from "react-native";
+import { colors, fonts, rgba, textGlow } from "@/src/game/theme";
+import { NeonBackground } from "@/src/components/ui";
 
 const logo = require("../../assets/images/vocotap-logo.png");
 
@@ -50,7 +51,7 @@ export function LoadingScreen({ onFinish }: { onFinish: () => void }) {
   return (
     <View style={styles.root}>
       {/* base gradient — full screen, edge to edge */}
-      <LinearGradient colors={["#150B2B", "#0C0A16", "#070609"]} locations={[0, 0.52, 1]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
+      <NeonBackground />
       {/* soft accent lighting anchored to corners so it reads as ambient glow, not a blob */}
       <LinearGradient pointerEvents="none" colors={[rgba(0.3), "transparent"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.75, y: 0.55 }} style={StyleSheet.absoluteFill} />
       <LinearGradient pointerEvents="none" colors={["transparent", "rgba(255,77,141,0.14)"]} start={{ x: 0.85, y: 0.55 }} end={{ x: 0.3, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -65,11 +66,11 @@ export function LoadingScreen({ onFinish }: { onFinish: () => void }) {
         <Animated.View style={[styles.barBlock, { opacity: intro }]}>
           <View style={[styles.track, { width: barW }]}>
             <Animated.View style={[styles.fill, { width: progress.interpolate({ inputRange: [0, 1], outputRange: ["6%", "100%"] }) }]}>
-              <LinearGradient colors={["#FF4D8D", "#8E7CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={["#FF2D7A", "#B537FF", "#00E5FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
             </Animated.View>
             <Animated.View pointerEvents="none" style={[styles.shimmer, { transform: [{ translateX: shimmer.interpolate({ inputRange: [0, 1], outputRange: [-40, barW + 40] }) }, { rotate: "20deg" }] }]} />
           </View>
-          <Animated.Text selectable={false} style={[styles.caption, { opacity: pulse }]}>TUNING THE STAGE</Animated.Text>
+          <Animated.Text selectable={false} style={[styles.caption, { opacity: pulse }]}>LOADING STAGE</Animated.Text>
         </Animated.View>
       </View>
     </View>
@@ -77,11 +78,11 @@ export function LoadingScreen({ onFinish }: { onFinish: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject, backgroundColor: "#070609", alignItems: "center", justifyContent: "center", zIndex: 999 },
+  root: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center", zIndex: 999 },
   center: { alignItems: "center", gap: 40, paddingHorizontal: 24, marginTop: -20 },
   barBlock: { alignItems: "center", gap: 16 },
-  track: { height: 5, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.09)", overflow: "hidden" },
+  track: { height: 6, borderWidth: 1, borderColor: "rgba(0,229,255,0.4)", borderRadius: 3, backgroundColor: "rgba(255,255,255,0.09)", overflow: "hidden" },
   fill: { position: "absolute", left: 0, top: 0, bottom: 0, borderRadius: 3, overflow: "hidden" },
   shimmer: { position: "absolute", top: -8, width: 20, height: 22, backgroundColor: "rgba(255,255,255,0.55)", borderRadius: 6 },
-  caption: { color: "rgba(245,245,247,0.7)", fontSize: 11, letterSpacing: 5, fontFamily: fonts.heavy },
+  caption: { color: colors.cyan, fontSize: 11, letterSpacing: 5, fontFamily: fonts.arcade, ...textGlow(colors.cyan, 10) },
 });

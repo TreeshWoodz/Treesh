@@ -52,6 +52,12 @@ export type ScoreResult = {
   starlitesEarned?: number;
   coverArt?: string | number;
   accent?: string;
+  perfectPlus?: number;
+  xpGained?: number;
+  xpBefore?: number;
+  levelBefore?: number;
+  levelAfter?: number;
+  levelReward?: number;
 };
 
 export type GameSettings = {

@@ -11,7 +11,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
-import { laneColors, colors, fonts, rgba } from "@/src/game/theme";
+import { laneColors, colors, fonts, rgba, alpha, neonGlow, textGlow } from "@/src/game/theme";
+import { addXp, levelUpReward, skinById, useProgress, xpForRun } from "@/src/game/progression";
 import { Note, ScoreResult } from "@/src/game/types";
 import { useStarlites } from "@/src/game/starlites";
 import { computeAchievements, TIER_COLOR } from "@/src/game/achievements";
@@ -22,7 +23,8 @@ type Judgment = "PERFECT" | "GREAT" | "GOOD" | "MISS";
 const weights = { PERFECT: 1, GREAT: 0.75, GOOD: 0.45, MISS: 0 };
 const P_NEAR = 0.12; // lane width at the vanishing point as a fraction of the bottom width
 const laneFrac = (lane: number) => (lane + 0.5) / 4 - 0.5;
-const judgeColor = (g: Judgment) => (g === "PERFECT" ? "#EAF6FF" : g === "GREAT" ? laneColors[1] : g === "GOOD" ? laneColors[3] : "#FF5C7A");
+const judgeColor = (g: Judgment, plus?: boolean) => (g === "PERFECT" ? (plus ? "#CCFF00" : "#00E5FF") : g === "GREAT" ? "#FF2D7A" : g === "GOOD" ? "#B537FF" : "#FF0044");
+const comboColor = (c: number) => (c >= 200 ? "#FF2D7A" : c >= 100 ? "#FFD600" : c >= 50 ? "#CCFF00" : c >= 25 ? "#00E5FF" : "#FFFFFF");
 // Stars from accuracy (half-star tiers) + the Starlite reward for a run.
 export function starsFor(acc: number) { return acc >= 100 ? 5 : acc >= 96 ? 4.5 : acc >= 86 ? 4 : acc >= 80 ? 3.5 : acc >= 70 ? 3 : acc >= 66 ? 2.5 : acc >= 50 ? 2 : 1; }
 export function starlitesFor(stars: number) { return stars >= 5 ? 300 : stars >= 4 ? 150 : stars >= 2.5 ? 100 : 50; }
@@ -155,8 +157,10 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
       {isHold && !isWavy && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
-      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.55)" }, capStyle]}>
+      <View style={{ position: "absolute", left: -6, top: -6, width: baseW + 12, height: baseH + 12, borderRadius: (baseH + 12) / 2, backgroundColor: alpha(color, special ? 0.5 : 0.28) }} />
+      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: baseH / 2, borderColor: special ? "#FFFFFF" : "rgba(255,255,255,0.7)" }, capStyle]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
+        <View style={{ position: "absolute", left: baseW * 0.28, right: baseW * 0.28, top: baseH / 2 - 2, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.95)" }} />
       </Reanimated.View>
     </Reanimated.View>
   );
@@ -189,7 +193,7 @@ function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Rea
 }
 
 // ---- Static perspective grid (SVG, rendered once) ----
-const Grid = React.memo(function Grid({ geo, w, h }: { geo: Geo; w: number; h: number }) {
+const Grid = React.memo(function Grid({ geo, w, h, tint, fever }: { geo: Geo; w: number; h: number; tint: string; fever: boolean }) {
   const topX = (fr: number) => geo.cx + fr * geo.hw * P_NEAR;
   const botX = (fr: number) => geo.cx + fr * geo.hw;
   const edges = [-0.5, -0.25, 0, 0.25, 0.5];
@@ -198,18 +202,20 @@ const Grid = React.memo(function Grid({ geo, w, h }: { geo: Geo; w: number; h: n
     <Svg width={w} height={h} style={StyleSheet.absoluteFill} pointerEvents="none">
       <Defs>
         <RadialGradient id="glow" cx="50%" cy={`${(geo.topY / h) * 100}%`} r="55%">
-          <Stop offset="0" stopColor={colors.purple} stopOpacity={0.4} />
-          <Stop offset="1" stopColor={colors.purple} stopOpacity={0} />
+          <Stop offset="0" stopColor={fever ? "#FFD600" : tint} stopOpacity={fever ? 0.5 : 0.34} />
+          <Stop offset="1" stopColor={fever ? "#FFD600" : tint} stopOpacity={0} />
         </RadialGradient>
         <SvgLinear id="lane" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#12101C" stopOpacity={0.25} />
-          <Stop offset="1" stopColor="#1A1730" stopOpacity={0.55} />
+          <Stop offset="0" stopColor="#0A0830" stopOpacity={0.35} />
+          <Stop offset="1" stopColor={fever ? "#3A1A40" : "#140F48"} stopOpacity={0.78} />
         </SvgLinear>
       </Defs>
       <Rect x={0} y={0} width={w} height={h} fill="url(#glow)" />
       <Polygon points={poly} fill="url(#lane)" />
-      {edges.map((e, i) => <Line key={i} x1={topX(e)} y1={geo.topY} x2={botX(e)} y2={geo.bottomY} stroke="rgba(255,255,255,0.13)" strokeWidth={i === 2 ? 1.3 : 1} />)}
-      {[0.4, 0.68, 0.88].map((p, i) => { const y = geo.topY + geo.span * p; const persp = P_NEAR + (1 - P_NEAR) * p; return <Line key={`d${i}`} x1={geo.cx - geo.hw * 0.5 * persp} y1={y} x2={geo.cx + geo.hw * 0.5 * persp} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />; })}
+      {edges.map((e, i) => { const outer = i === 0 || i === 4; const c = fever ? "#FFD600" : tint; return outer ? <React.Fragment key={i}><Line x1={topX(e)} y1={geo.topY} x2={botX(e)} y2={geo.bottomY + 40} stroke={c} strokeOpacity={0.25} strokeWidth={9} /><Line x1={topX(e)} y1={geo.topY} x2={botX(e)} y2={geo.bottomY + 40} stroke={c} strokeWidth={2.2} /></React.Fragment> : <Line key={i} x1={topX(e)} y1={geo.topY} x2={botX(e)} y2={geo.bottomY + 40} stroke="rgba(160,200,255,0.16)" strokeWidth={1} />; })}
+      <Line x1={geo.cx - geo.hw / 2 - 6} y1={geo.bottomY} x2={geo.cx + geo.hw / 2 + 6} y2={geo.bottomY} stroke={fever ? "#FFD600" : tint} strokeOpacity={0.35} strokeWidth={14} />
+      <Line x1={geo.cx - geo.hw / 2 - 6} y1={geo.bottomY} x2={geo.cx + geo.hw / 2 + 6} y2={geo.bottomY} stroke="#FFFFFF" strokeOpacity={0.85} strokeWidth={2} />
+      {[0.4, 0.68, 0.88].map((p, i) => { const y = geo.topY + geo.span * p; const persp = P_NEAR + (1 - P_NEAR) * p; return <Line key={`d${i}`} x1={geo.cx - geo.hw * 0.5 * persp} y1={y} x2={geo.cx + geo.hw * 0.5 * persp} y2={y} stroke="rgba(255,255,255,0.03)" strokeWidth={1} />; })}
     </Svg>
   );
 });
@@ -221,8 +227,9 @@ const Receptors = React.memo(function Receptors({ geo, flash }: { geo: Geo; flas
       {laneColors.map((c, l) => {
         const x = geo.cx + laneFrac(l) * geo.hw;
         return (
-          <Animated.View key={l} style={[styles.receptor, { width: capW, left: x - capW / 2, top: geo.bottomY - 16, borderColor: c, transform: [{ scale: flash[l].interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] }) }] }]}>
-            <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 16, backgroundColor: c, opacity: flash[l].interpolate({ inputRange: [0, 1], outputRange: [0.06, 0.92] }) }]} />
+          <Animated.View key={l} style={[styles.receptor, { width: capW, left: x - capW / 2, top: geo.bottomY - 16, borderColor: c, shadowColor: c, transform: [{ scale: flash[l].interpolate({ inputRange: [0, 1], outputRange: [1, 1.16] }) }] }]}>
+            <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 16, backgroundColor: c, opacity: flash[l].interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.95] }) }]} />
+            <View style={{ width: capW * 0.34, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.85)" }} />
           </Animated.View>
         );
       })}
@@ -230,11 +237,43 @@ const Receptors = React.memo(function Receptors({ geo, flash }: { geo: Geo; flas
   );
 });
 
+// Hit explosion per lane: expanding ring + light pillar + sparks, all native-driver Animated.
+const LaneBursts = React.memo(function LaneBursts({ geo, burst, sparks }: { geo: Geo; burst: Animated.Value[]; sparks: boolean }) {
+  const S = sparks ? 7 : 0;
+  return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    {burst.map((b, l) => {
+      const c = laneColors[l]; const x = geo.cx + laneFrac(l) * geo.hw; const y = geo.bottomY; const R = geo.laneW * 0.5;
+      const fade = b.interpolate({ inputRange: [0, 0.08, 1], outputRange: [0, 1, 0] });
+      return <React.Fragment key={l}>
+        <Animated.View style={{ position: "absolute", left: x - R * 0.55, top: y - R * 3.2, width: R * 1.1, height: R * 3.2, borderRadius: R * 0.55, backgroundColor: c, opacity: b.interpolate({ inputRange: [0, 0.06, 1], outputRange: [0, 0.42, 0] }), transform: [{ translateY: R * 1.6 }, { scaleY: b.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }, { translateY: -R * 1.6 }] }} />
+        <Animated.View style={{ position: "absolute", left: x - R, top: y - R, width: R * 2, height: R * 2, borderRadius: R, borderWidth: 3, borderColor: c, opacity: fade, transform: [{ scaleY: 0.5 }, { scale: b.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1.7] }) }] }} />
+        {Array.from({ length: S }).map((_, i) => { const ang = -Math.PI / 2 + (i - (S - 1) / 2) * 0.36; const d = R * (1.8 + (i % 3) * 0.5); return <Animated.View key={i} style={{ position: "absolute", left: x - 3, top: y - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: i % 2 ? "#FFFFFF" : c, opacity: fade, transform: [{ translateX: b.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(ang) * d] }) }, { translateY: b.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(ang) * d] }) }, { scale: b.interpolate({ inputRange: [0, 1], outputRange: [1.5, 0.2] }) }] }} />; })}
+      </React.Fragment>;
+    })}
+  </View>;
+});
+
+// Beat lines rushing down the highway on every beat (brighter on the bar) — pure UI-thread, fixed pool.
+function BeatLine({ k, beat, clock, lookahead, geo, fever }: { k: number; beat: number; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; fever: Reanimated.SharedValue<number> }) {
+  const st = useAnimatedStyle(() => {
+    const c = clock.value; const idx = Math.ceil(c / beat) + k; const prog = (c - (idx * beat - lookahead)) / lookahead;
+    const on = prog >= 0 && prog <= 1; const p = on ? prog : 0;
+    const persp = P_NEAR + (1 - P_NEAR) * p; const w = geo.hw * persp;
+    const bar = idx % 4 === 0;
+    return { opacity: on ? ((bar ? 0.5 : 0.16) + fever.value * 0.3) * Math.min(1, p * 5) : 0, width: w, transform: [{ translateX: geo.cx - w / 2 }, { translateY: geo.topY + geo.span * p }] };
+  });
+  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: -1, height: 2, backgroundColor: "#8FE9FF" }, st]} />;
+}
+const BeatLines = React.memo(function BeatLines({ beat, clock, lookahead, geo, fever }: { beat: number; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; fever: Reanimated.SharedValue<number> }) {
+  const n = Math.min(24, Math.ceil(lookahead / beat) + 1);
+  return <>{Array.from({ length: n }, (_, k) => <BeatLine key={k} k={k} beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={fever} />)}</>;
+});
+
 const Backdrop = React.memo(function Backdrop({ coverArt, grayscale }: { coverArt?: string | number; grayscale: boolean }) {
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#07060C" }]}>
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: "#06051A" }]}>
       {coverArt && <Image testID="gameplay-cover-backdrop" source={typeof coverArt === "number" ? coverArt : { uri: coverArt }} style={[styles.cover, { opacity: grayscale ? 0.14 : 0.32 }]} resizeMode="cover" />}
-      <LinearGradient colors={["rgba(7,6,12,0.4)", "rgba(7,6,12,0.72)", "#07060C"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <LinearGradient colors={["rgba(6,5,26,0.45)", "rgba(6,5,26,0.8)", "#06051A"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
     </View>
   );
 });
@@ -261,7 +300,17 @@ export default function GameScreen() {
   const [progress, setProgress] = useState(0);
   const [pulse, setPulse] = useState(0);
   const [pulseActive, setPulseActive] = useState(false);
-  const [judgment, setJudgment] = useState<{ grade: Judgment; x: number; y: number; key: number } | null>(null);
+  const [judgment, setJudgment] = useState<{ grade: Judgment; plus: boolean; early: boolean | null; x: number; y: number; key: number } | null>(null);
+  const [feverPop, setFeverPop] = useState(0);
+  const [goPop, setGoPop] = useState(0);
+  const skin = skinById(useProgress().skin);
+  const laneBurst = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
+  const shake = useRef(new Animated.Value(0)).current;
+  const comboAnim = useRef(new Animated.Value(0)).current;
+  const feverAnim = useRef(new Animated.Value(0)).current;
+  const goAnim = useRef(new Animated.Value(0)).current;
+  const perfectPlusRef = useRef(0);
+  const feverSV = useSharedValue(0);
   const [windowIds, setWindowIds] = useState<string[]>([]);
   const [wavyIds, setWavyIds] = useState<string[]>([]);
   const [activeHold, setActiveHold] = useState<Note | null>(null);
@@ -300,7 +349,7 @@ export default function GameScreen() {
   const clockStart = useRef(0); const pauseAccum = useRef(0); const pauseAt = useRef(0);
   const resolved = useRef(new Set<string>());
   const counts = useRef({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
-  const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false); const pulseBase = useRef(0); const tickCount = useRef(0); const rockRef = useRef(70); const judgeRef = useRef<{ grade: Judgment; lane: number } | null>(null);
+  const comboRef = useRef(0); const maxCombo = useRef(0); const scoreRef = useRef(0); const finishing = useRef(false); const pulseBase = useRef(0); const tickCount = useRef(0); const rockRef = useRef(70); const judgeRef = useRef<{ grade: Judgment; lane: number; plus?: boolean; early?: boolean | null } | null>(null);
   const laneFlash = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const pressed = useRef(new Set<number>()).current;
   const judgeAnim = useRef(new Animated.Value(0)).current;
@@ -325,14 +374,17 @@ export default function GameScreen() {
 
   const jsTime = useCallback(() => ((Date.now() - clockStart.current - pauseAccum.current) / 1000) * rateRef.current + settings.audioOffset / 1000, [settings.audioOffset]);
   const flashLane = useCallback((lane: number) => { laneFlash[lane].setValue(1); Animated.timing(laneFlash[lane], { toValue: 0, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [laneFlash]);
-  const showJudge = useCallback((grade: Judgment, lane: number) => {
-    const persp = P_NEAR + (1 - P_NEAR) * 0.52;
-    setJudgment({ grade, x: geo.cx + laneFrac(lane) * geo.hw * persp, y: geo.topY + geo.span * 0.52, key: Date.now() });
+  const showJudge = useCallback((grade: Judgment, lane: number, plus = false, early: boolean | null = null) => {
+    const persp = P_NEAR + (1 - P_NEAR) * 0.62;
+    setJudgment({ grade, plus, early, x: geo.cx + laneFrac(lane) * geo.hw * persp, y: geo.topY + geo.span * 0.62, key: Date.now() });
   }, [geo]);
+  const fx = !settings.reducedParticles && !settings.performanceMode;
+  const fireBurst = useCallback((lane: number) => { laneBurst[lane].setValue(0); Animated.timing(laneBurst[lane], { toValue: 1, duration: 420, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [laneBurst]);
+  const doShake = useCallback((amp: number) => { if (!fx) return; shake.stopAnimation(); Animated.sequence([amp, -amp * 0.8, amp * 0.55, -amp * 0.3, 0].map(v => Animated.timing(shake, { toValue: v, duration: 45, useNativeDriver: true }))).start(); }, [shake, fx]);
   const startClock = useCallback((from: number) => { cancelAnimation(clock); clock.value = from; clock.value = withTiming(duration, { duration: Math.max(10, ((duration - from) / rateRef.current) * 1000), easing: RE.linear }); }, [clock, duration]);
   // Vocopulse now auto-fires when the meter fills (no button press needed).
   // Vocopulse: fills over 25 consecutive hits, then stays lit while the streak continues.
-  const triggerPulse = useCallback(() => { pulseBase.current = comboRef.current; fuelRef.current = 100; missStreakRef.current = 0; lastPulseT.current = Date.now(); setPulse(100); setPulseActive(true); pulseActiveRef.current = true; Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }, []);
+  const triggerPulse = useCallback(() => { pulseBase.current = comboRef.current; fuelRef.current = 100; missStreakRef.current = 0; lastPulseT.current = Date.now(); setPulse(100); setPulseActive(true); pulseActiveRef.current = true; setFeverPop(Date.now()); feverSV.value = withTiming(1, { duration: 300 }); doShake(10); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }, [feverSV, doShake]);
 
   // Practice: change playback speed mid-song without a time jump, keeping the highway + audio in sync.
   const applyRate = useCallback((r: number) => {
@@ -369,7 +421,12 @@ export default function GameScreen() {
     const earned = await award(starlitesFor(stars), `${stars}★ · ${selectedSong.title}`, true);
     const bonus = milestoneBonusRef.current;
     if (bonus > 0) await award(bonus, "Combo milestones", true);
-    result.starlitesEarned = earned + bonus;
+    result.perfectPlus = perfectPlusRef.current;
+    const xp = xpForRun(result); const lv = await addXp(xp);
+    let lvReward = 0; for (let L = lv.levelBefore + 1; L <= lv.levelAfter; L++) lvReward += levelUpReward(L);
+    if (lvReward) await award(lvReward, `Reached level ${lv.levelAfter}`, true);
+    Object.assign(result, { xpGained: xp, xpBefore: lv.xpBefore, levelBefore: lv.levelBefore, levelAfter: lv.levelAfter, levelReward: lvReward });
+    result.starlitesEarned = earned + bonus + lvReward;
     await saveResult(result); setTestChart(null); router.replace("/results");
   }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, award, player, clock, setTestChart]);
 
@@ -379,13 +436,16 @@ export default function GameScreen() {
     if (!chart || !selectedSong?.uri || startedRef.current || !(status.isLoaded || forceStart)) return;
     startedRef.current = true;
     let v = 3; setCountdown(v);
-    countdownTimer.current = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(countdownTimer.current); scanStart.current = 0; clockStart.current = Date.now(); pauseAccum.current = 0; try { player.seekTo(0); if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); player.play(); } catch {} startClock(0); } }, 720);
+    countdownTimer.current = setInterval(() => { v -= 1; setCountdown(v); if (v <= 0) { clearInterval(countdownTimer.current); setGoPop(Date.now()); scanStart.current = 0; clockStart.current = Date.now(); pauseAccum.current = 0; try { player.seekTo(0); if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); player.play(); } catch {} startClock(0); } }, 720);
   }, [chart, selectedSong?.uri, status.isLoaded, forceStart, player, startClock]);
   useEffect(() => { const t = setTimeout(() => setForceStart(true), 2500); return () => clearTimeout(t); }, []);
   useEffect(() => () => { if (countdownTimer.current) clearInterval(countdownTimer.current); try { player.pause(); } catch {} cancelAnimation(clock); }, [player, clock]);
 
   useEffect(() => { ensureHitAudio().then(uri => hitPlayer.replace({ uri })).catch(() => {}); }, [hitPlayer]);
   useEffect(() => { if (!judgment) return; judgeAnim.setValue(0); Animated.sequence([Animated.spring(judgeAnim, { toValue: 1, friction: 5, tension: 150, useNativeDriver: true }), Animated.delay(260), Animated.timing(judgeAnim, { toValue: 0, duration: 160, useNativeDriver: true })]).start(); }, [judgment, judgeAnim]);
+  useEffect(() => { if (combo <= 2) return; comboAnim.setValue(1); Animated.spring(comboAnim, { toValue: 0, friction: 4, tension: 160, useNativeDriver: true }).start(); }, [combo, comboAnim]);
+  useEffect(() => { if (!feverPop) return; feverAnim.setValue(0); Animated.sequence([Animated.spring(feverAnim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(700), Animated.timing(feverAnim, { toValue: 0, duration: 260, useNativeDriver: true })]).start(); }, [feverPop, feverAnim]);
+  useEffect(() => { if (!goPop) return; goAnim.setValue(0); Animated.sequence([Animated.spring(goAnim, { toValue: 1, friction: 5, tension: 140, useNativeDriver: true }), Animated.delay(250), Animated.timing(goAnim, { toValue: 0, duration: 260, useNativeDriver: true })]).start(); }, [goPop, goAnim]);
   useEffect(() => { if (!tracePop) return; traceAnim.setValue(0); Animated.sequence([Animated.spring(traceAnim, { toValue: 1, friction: 5, tension: 140, useNativeDriver: true }), Animated.delay(560), Animated.timing(traceAnim, { toValue: 0, duration: 240, useNativeDriver: true })]).start(); }, [tracePop, traceAnim]);
   useEffect(() => { if (!milestone) return; milestoneAnim.setValue(0); Animated.sequence([Animated.spring(milestoneAnim, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), Animated.delay(900), Animated.timing(milestoneAnim, { toValue: 0, duration: 280, useNativeDriver: true })]).start(); }, [milestone, milestoneAnim]);
   // Capture which achievements were ALREADY unlocked when the run started, so mid-run pops only fire for NEW ones.
@@ -414,7 +474,7 @@ export default function GameScreen() {
       const wids: string[] = [];
       for (const n of wavyNotes) { const d = n.duration || 0.4; if (t >= n.time - lookahead - 0.15 && t <= n.time + d + 0.35) wids.push(n.id); }
       setWavyIds(prev => (prev.length === wids.length && prev.every((id, i) => id === wids[i])) ? prev : wids);
-      if (missLane >= 0) { rockRef.current = Math.max(0, rockRef.current - 6); judgeRef.current = { grade: "MISS", lane: missLane }; if (pulseActiveRef.current) { missStreakRef.current += 1; fuelRef.current -= 34 * missStreakRef.current; if (missStreakRef.current >= 3) fuelRef.current = 0; } else pulseBase.current = comboRef.current; }
+      if (missLane >= 0) { rockRef.current = Math.max(0, rockRef.current - 6); judgeRef.current = { grade: "MISS", lane: missLane }; doShake(4); if (pulseActiveRef.current) { missStreakRef.current += 1; fuelRef.current -= 34 * missStreakRef.current; if (missStreakRef.current >= 3) fuelRef.current = 0; } else pulseBase.current = comboRef.current; }
       // Sync HUD from refs (taps only touch refs, so this is the single place we re-render — keeps rapid tapping instant).
       setCombo(c => (c === comboRef.current ? c : comboRef.current));
       setRock(r => (r === rockRef.current ? r : rockRef.current));
@@ -423,14 +483,14 @@ export default function GameScreen() {
         // Fuel drains fully in ~5s if idle; each hit refuels, misses drain it faster.
         const now = Date.now(); const dt = lastPulseT.current ? Math.min(0.25, (now - lastPulseT.current) / 1000) : 0.08; lastPulseT.current = now;
         fuelRef.current -= 20 * dt;
-        if (fuelRef.current <= 0) { fuelRef.current = 0; setPulseActive(false); pulseActiveRef.current = false; pulseBase.current = comboRef.current; missStreakRef.current = 0; setPulse(0); }
+        if (fuelRef.current <= 0) { fuelRef.current = 0; setPulseActive(false); pulseActiveRef.current = false; feverSV.value = withTiming(0, { duration: 400 }); pulseBase.current = comboRef.current; missStreakRef.current = 0; setPulse(0); }
         else setPulse(p => { const v = fuelRef.current; return Math.abs(p - v) < 0.8 ? p : v; });
       } else {
         lastPulseT.current = 0;
         const pv = Math.min(100, Math.max(0, ((comboRef.current - pulseBase.current) / 25) * 100));
         if (pv >= 100) triggerPulse(); else setPulse(p => (p === pv ? p : pv));
       }
-      if (judgeRef.current) { showJudge(judgeRef.current.grade, judgeRef.current.lane); judgeRef.current = null; }
+      if (judgeRef.current) { showJudge(judgeRef.current.grade, judgeRef.current.lane, !!judgeRef.current.plus, judgeRef.current.early ?? null); judgeRef.current = null; }
       if (!practiceRef.current && !testChart) {
         for (const d of LIVE_ACH) {
           if (achPopped.current.has(d.id) || unlockedAtStart.current.has(d.id)) continue;
@@ -447,7 +507,7 @@ export default function GameScreen() {
       if (t >= duration - 0.05) finish();
     }, 150);
     return () => clearInterval(tick);
-  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, wavyNotes, settings.noFail, settings.haptics, triggerPulse, jumpTo, testChart]);
+  }, [chart, countdown, paused, jsTime, lookahead, duration, finish, showJudge, sorted, wavyNotes, settings.noFail, settings.haptics, triggerPulse, jumpTo, testChart, doShake, feverSV]);
 
   // Hold / wavy sustain. Holds need the start lane held; WAVY notes must be FOLLOWED across
   // lanes (the required lane changes along the path) to keep scoring. Early release grays out
@@ -491,25 +551,26 @@ export default function GameScreen() {
     for (let j = scanStart.current; j < sorted.length; j++) { const n = sorted[j]; if (n.time - t > 0.5) break; if (n.lane !== lane || resolved.current.has(n.id)) continue; const d = Math.abs(n.time - t); if (d < best) { best = d; target = n; } }
     if (!target || best > 0.42) { flashLane(lane); return; }
     const grade: Judgment = best <= 0.11 ? "PERFECT" : best <= 0.24 ? "GREAT" : "GOOD";
+    const plus = best <= 0.045; if (plus) perfectPlusRef.current += 1;
     resolved.current.add(target.id); counts.current[grade] += 1;
     comboRef.current += 1; maxCombo.current = Math.max(maxCombo.current, comboRef.current);
     if (milestoneIdx.current < MILESTONES.length && comboRef.current >= MILESTONES[milestoneIdx.current]) {
       const mi = milestoneIdx.current; milestoneIdx.current += 1;
       const scored = !practiceRef.current && !testChart;
       if (scored) milestoneBonusRef.current += MBONUS[mi];
-      setMilestone({ combo: MILESTONES[mi], bonus: scored ? MBONUS[mi] : 0, key: Date.now() });
+      setMilestone({ combo: MILESTONES[mi], bonus: scored ? MBONUS[mi] : 0, key: Date.now() }); doShake(8);
       if (settings.haptics) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     if (pulseActiveRef.current) { fuelRef.current = Math.min(100, fuelRef.current + 26); missStreakRef.current = 0; }
     const multiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10)) * (pulseActive ? 2 : 1);
-    scoreRef.current += Math.round(1000 * weights[grade] * multiplier);
+    scoreRef.current += Math.round(1000 * weights[grade] * multiplier * (plus ? 1.15 : 1));
     rockRef.current = Math.min(100, rockRef.current + (grade === "PERFECT" ? 3 : 1));
-    judgeRef.current = { grade, lane }; flashLane(lane);
+    judgeRef.current = { grade, lane, plus, early: grade === "PERFECT" ? null : target.time > t }; flashLane(lane); if (fx) fireBurst(lane);
     if (target.type === "hold" || target.type === "wavy") setActiveHold(target);
     // Fire SFX/haptics off the touch handler so the hit registers instantly.
     if (settings.hitSfx) setTimeout(() => { try { hitPlayer.seekTo(0); hitPlayer.play(); } catch {} }, 0);
     if (settings.haptics) Haptics.impactAsync(grade === "PERFECT" ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
-  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted, testChart]);
+  }, [chart, countdown, paused, jsTime, pulseActive, flashLane, settings.haptics, settings.hitSfx, hitPlayer, sorted, testChart, fx, fireBurst, doShake]);
 
   const onPadsTouchStart = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); touchLane.current[String(tt.identifier)] = lane; pressed.add(lane); hitLane(lane); } };
   // Dragging a finger across lanes retargets the held lane in real time — this is how WAVY notes get TRACED (not just held).
@@ -529,7 +590,7 @@ export default function GameScreen() {
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, [hitLane, pressed, settings.keyBindings]);
   const togglePause = () => { if (paused) { pauseAccum.current += Date.now() - pauseAt.current; player.play(); startClock(jsTime() - settings.audioOffset / 1000); } else { pauseAt.current = Date.now(); player.pause(); cancelAnimation(clock); } setPaused(!paused); };
-  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; milestoneIdx.current = 0; milestoneBonusRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; try { if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); } catch {} player.play(); startClock(0); };
+  const restart = () => { player.seekTo(0); cancelAnimation(clock); clock.value = 0; scanStart.current = 0; pulseBase.current = 0; fuelRef.current = 0; missStreakRef.current = 0; lastPulseT.current = 0; rockRef.current = 70; resolved.current.clear(); counts.current = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 }; scoreRef.current = 0; comboRef.current = 0; perfectPlusRef.current = 0; feverSV.value = 0; milestoneIdx.current = 0; milestoneBonusRef.current = 0; setScore(0); setCombo(0); setRock(70); setAccuracy(100); setProgress(0); setPulse(0); setPulseActive(false); setPaused(false); setActiveHold(null); clockStart.current = Date.now(); pauseAccum.current = 0; try { if (rateRef.current !== 1) player.setPlaybackRate(rateRef.current, "high"); } catch {} player.play(); startClock(0); };
 
   const visibleNotes = useMemo(() => { if (!chart) return []; const set = new Set(windowIds); return chart.notes.filter(n => set.has(n.id)); }, [chart, windowIds]);
   const visibleWavy = useMemo(() => { const set = new Set(wavyIds); return wavyNotes.filter(n => set.has(n.id)); }, [wavyNotes, wavyIds]);
@@ -539,11 +600,18 @@ export default function GameScreen() {
   const pulseReady = pulse >= 100;
   const charged = pulseReady || pulseActive;
   const liveStars = starsFor(accuracy);
+  const beat = Math.max(0.25, Math.min(1.2, 60 / (chart.bpm || 120)));
+  const mult = Math.min(4, 1 + Math.floor(combo / 10)) * (pulseActive ? 2 : 1);
+  const hpColor = rock < 30 ? "#FF0044" : rock < 60 ? "#FFD600" : "#CCFF00";
+  const cc = comboColor(combo);
+  const jColor = judgment ? judgeColor(judgment.grade, judgment.plus) : "#fff";
 
   return <View style={styles.root} testID="gameplay-screen">
     <Backdrop coverArt={selectedSong.coverArt} grayscale={settings.grayscaleCovers} />
-    <Grid geo={geo} w={width} h={height} />
-    {pulseActive && <LinearGradient pointerEvents="none" colors={["rgba(255,77,141,0.16)", "rgba(179,124,255,0.14)", "rgba(47,224,214,0.16)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateX: shake }, { translateY: shake.interpolate({ inputRange: [-10, 10], outputRange: [4, -4] }) }] }]}>
+    <Grid geo={geo} w={width} h={height} tint={skin.glow} fever={pulseActive} />
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}><BeatLines beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={feverSV} /></View>
+    {pulseActive && <LinearGradient pointerEvents="none" colors={["rgba(255,214,0,0.16)", "rgba(255,45,122,0.14)", "rgba(181,55,255,0.18)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
 
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -553,25 +621,34 @@ export default function GameScreen() {
     </View>
 
     <Receptors geo={geo} flash={laneFlash} />
+    <LaneBursts geo={geo} burst={laneBurst} sparks={fx} />
     {activeHold?.type === "wavy" && <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -geo.laneW * 0.35, top: -geo.laneW * 0.35, width: geo.laneW * 0.7, height: geo.laneW * 0.7, borderRadius: geo.laneW * 0.35, backgroundColor: "rgba(255,255,255,0.9)", shadowColor: laneColors[wavyLaneAt(activeHold, 0)], shadowOpacity: 1, shadowRadius: 22, elevation: 12 }, traceSparkStyle]}>
       <View style={{ position: "absolute", top: geo.laneW * 0.16, left: geo.laneW * 0.16, right: geo.laneW * 0.16, bottom: geo.laneW * 0.16, borderRadius: geo.laneW * 0.2, backgroundColor: laneColors[activeHold.lane] }} />
     </Reanimated.View>}
+    </Animated.View>
 
     {/* Combo */}
-    {combo > 2 && <View pointerEvents="none" style={[styles.comboWrap, { top: geo.topY + geo.span * 0.06 }]}>
-      <View style={styles.comboGlow} />
-      <Text selectable={false} style={styles.combo}>{combo}</Text>
+    {combo > 2 && <Animated.View pointerEvents="none" style={[styles.comboWrap, { top: geo.topY + geo.span * 0.1, transform: [{ scale: comboAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.28] }) }] }]}>
+      <Text selectable={false} style={[styles.combo, { color: cc, textShadowColor: cc }]}>{combo}</Text>
       <Text selectable={false} style={styles.comboLabel}>COMBO</Text>
-    </View>}
+      {mult > 1 && <View style={[styles.multChip, { borderColor: cc }]}><Text selectable={false} style={[styles.multText, { color: cc }]}>×{mult}</Text></View>}
+    </Animated.View>}
 
     {/* Judgment (per-lane, mid highway) */}
-    {judgment && <Animated.Text selectable={false} key={judgment.key} pointerEvents="none" style={[styles.judgment, { color: judgeColor(judgment.grade), left: judgment.x - 90, top: judgment.y, opacity: judgeAnim, transform: [{ translateY: judgeAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{judgment.grade === "MISS" ? "Miss" : judgment.grade === "PERFECT" ? "Perfect" : judgment.grade === "GREAT" ? "Great" : "Good"}</Animated.Text>}
-    {tracePop && <Animated.View key={tracePop.key} pointerEvents="none" style={[styles.tracePop, { top: geo.bottomY - 128, left: geo.cx - 110, opacity: traceAnim, transform: [{ translateY: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }, { scale: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }]}><Ionicons name="sparkles" size={17} color={laneColors[1]} /><Text selectable={false} style={styles.tracePopText}>Nice trace!</Text></Animated.View>}
-    {milestone && <Animated.View key={milestone.key} pointerEvents="none" style={[styles.milestone, { top: geo.topY + geo.span * 0.3, left: geo.cx - 150, opacity: milestoneAnim, transform: [{ scale: milestoneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}>
+    {judgment && <Animated.View key={`j${judgment.key}`} pointerEvents="none" style={[styles.judgeWrap, { left: judgment.x - 100, top: judgment.y, opacity: judgeAnim, transform: [{ scale: judgeAnim.interpolate({ inputRange: [0, 1], outputRange: [1.7, 1] }) }] }]}>
+      <Text selectable={false} testID="judgment-text" style={[styles.judgment, { color: jColor, textShadowColor: jColor }]}>{judgment.grade === "PERFECT" && judgment.plus ? "PERFECT+" : judgment.grade}</Text>
+      {judgment.early != null && judgment.grade !== "MISS" && <Text selectable={false} style={[styles.judgeTiming, { color: judgment.early ? "#00E5FF" : "#FF8A00" }]}>{judgment.early ? "FAST" : "SLOW"}</Text>}
+    </Animated.View>}
+    {feverPop > 0 && <Animated.View key={`f${feverPop}`} pointerEvents="none" style={[styles.feverPop, { top: geo.topY + geo.span * 0.24, opacity: feverAnim, transform: [{ scale: feverAnim.interpolate({ inputRange: [0, 1], outputRange: [2.2, 1] }) }] }]}>
+      <Text selectable={false} style={styles.feverText}>VOCOPULSE!</Text><Text selectable={false} style={styles.feverSub}>FEVER · ×2 SCORE</Text>
+    </Animated.View>}
+    {goPop > 0 && <Animated.View key={`g${goPop}`} pointerEvents="none" style={[styles.feverPop, { top: geo.topY + geo.span * 0.3, opacity: goAnim, transform: [{ scale: goAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.1] }) }] }]}><Text selectable={false} style={styles.goText}>GO!</Text></Animated.View>}
+    {tracePop && <Animated.View key={`t${tracePop.key}`} pointerEvents="none" style={[styles.tracePop, { top: geo.bottomY - 128, left: geo.cx - 110, opacity: traceAnim, transform: [{ translateY: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }, { scale: traceAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }]}><Ionicons name="sparkles" size={17} color={laneColors[1]} /><Text selectable={false} style={styles.tracePopText}>Nice trace!</Text></Animated.View>}
+    {milestone && <Animated.View key={`m${milestone.key}`} pointerEvents="none" style={[styles.milestone, { top: geo.topY + geo.span * 0.3, left: geo.cx - 150, opacity: milestoneAnim, transform: [{ scale: milestoneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}>
       <Text selectable={false} style={styles.milestoneCombo}>{milestone.combo} COMBO!</Text>
       {milestone.bonus > 0 && <View style={styles.milestoneBonus}><Ionicons name="sparkles" size={13} color={colors.gold} /><Text selectable={false} style={styles.milestoneBonusText}>+{milestone.bonus} Starlites</Text></View>}
     </Animated.View>}
-    {achToast && <Animated.View key={achToast.key} pointerEvents="none" style={[styles.achToast, { top: insets.top + 70, borderColor: TIER_COLOR[achToast.tier], opacity: achAnim, transform: [{ translateY: achAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }, { scale: achAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] }]}>
+    {achToast && <Animated.View key={`a${achToast.key}`} pointerEvents="none" style={[styles.achToast, { top: insets.top + 70, borderColor: TIER_COLOR[achToast.tier], opacity: achAnim, transform: [{ translateY: achAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }, { scale: achAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] }]}>
       <View style={[styles.achToastIcon, { backgroundColor: TIER_COLOR[achToast.tier] }]}><Ionicons name={achToast.icon} size={20} color={colors.bg} /></View>
       <View style={{ flex: 1 }}><Text selectable={false} style={styles.achToastLabel}>ACHIEVEMENT UNLOCKED</Text><Text selectable={false} style={styles.achToastTitle} numberOfLines={1}>{achToast.title}</Text></View>
       <Ionicons name="trophy" size={18} color={TIER_COLOR[achToast.tier]} />
@@ -579,23 +656,24 @@ export default function GameScreen() {
 
     {/* Top HUD */}
     <View style={[styles.hud, { top: insets.top + 6 }]} pointerEvents="box-none">
+      <View style={styles.progTrack}><LinearGradient colors={[skin.glow, colors.pink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.progFill, { width: `${progress * 100}%` }]} /></View>
       <View style={styles.hudRow}>
         <View style={{ flex: 1 }}>
-          <Text selectable={false} style={styles.score}>{score.toLocaleString()}</Text>
-          <Text selectable={false} style={styles.songMeta} numberOfLines={1}>{selectedSong.title} · {selectedDifficulty}</Text>
+          <Text selectable={false} style={styles.scoreLabel}>SCORE</Text>
+          <Text selectable={false} testID="hud-score" style={[styles.score, { textShadowColor: skin.glow }]}>{score.toLocaleString()}</Text>
+          <Text selectable={false} style={styles.songMeta} numberOfLines={1}>{selectedSong.title} · {selectedDifficulty.toUpperCase()}</Text>
         </View>
-        <Pressable testID="pause-game-button" onPress={togglePause} style={styles.pause}><Ionicons name="pause" size={18} color={colors.text} /></Pressable>
+        <View style={styles.hudRight}>
+          <View style={styles.liveStars}>{[0, 1, 2, 3, 4].map(n => { const full = liveStars >= n + 1; const half = !full && liveStars >= n + 0.5; return <Ionicons key={n} name={full ? "star" : half ? "star-half" : "star-outline"} size={13} color={full || half ? colors.gold : "rgba(255,255,255,0.28)"} />; })}</View>
+          <Text selectable={false} style={styles.accText}>{accuracy.toFixed(1)}%</Text>
+        </View>
+        <Pressable testID="pause-game-button" onPress={togglePause} style={styles.pause}><Ionicons name="pause" size={18} color={colors.cyan} /></Pressable>
       </View>
-      <View style={styles.accRow}>
-        <View style={styles.accTrack}><LinearGradient colors={["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.accFill, { width: `${accuracy}%` }]} /></View>
-        <View style={styles.liveStars}>{[0, 1, 2, 3, 4].map(n => { const full = liveStars >= n + 1; const half = !full && liveStars >= n + 0.5; return <Ionicons key={n} name={full ? "star" : half ? "star-half" : "star-outline"} size={13} color={full || half ? colors.gold : "rgba(255,255,255,0.28)"} />; })}</View>
-        <Text selectable={false} style={styles.accText}>{accuracy.toFixed(1)}%</Text>
-      </View>
-      <View style={styles.progTrack}><View style={[styles.progFill, { width: `${progress * 100}%`, backgroundColor: rock < 30 ? "#FF5C7A" : "rgba(255,255,255,0.5)" }]} /></View>
+      <View style={styles.hpRow}><Ionicons name="heart" size={13} color={hpColor} /><View style={styles.hpTrack}><View testID="hud-health" style={[styles.hpFill, { width: `${rock}%`, backgroundColor: hpColor, shadowColor: hpColor }]} /></View></View>
     </View>
 
     {/* Practice controls — speed + A/B loop (practice mode only) */}
-    {practice && <View testID="practice-bar" style={[styles.practice, { top: insets.top + 92 }]} pointerEvents="box-none">
+    {practice && <View testID="practice-bar" style={[styles.practice, { top: insets.top + 104 }]} pointerEvents="box-none">
       <View style={styles.practiceRow}>
         <View style={styles.practiceTag}><Ionicons name="school" size={12} color={colors.cyan} /><Text selectable={false} style={styles.practiceTagText}>PRACTICE</Text></View>
         {SPEEDS.map(s => <Pressable key={s} testID={`practice-speed-${s}`} onPress={() => applyRate(s)} style={[styles.spdChip, rate === s && styles.spdChipOn]}><Text selectable={false} style={[styles.spdChipText, rate === s && styles.spdChipTextOn]}>{s}×</Text></Pressable>)}
@@ -609,8 +687,9 @@ export default function GameScreen() {
 
     {/* VOCO / Vocopulse meter — auto-fires when full */}
     <View testID="vocopulse-meter" style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, (pulseReady || pulseActive) && styles.vocoReady]}>
-      <Ionicons name="flame" size={20} color={pulseActive ? "#FFB020" : pulseReady ? "#FF7A45" : "rgba(255,120,70,0.8)"} />
-      <View style={styles.vocoTrack}><Animated.View style={[styles.vocoFill, { width: pulseAnim.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) }]}><LinearGradient colors={pulseActive ? ["#FFB020", "#FF4D8D"] : ["#FF4D8D", "#B37CFF", "#2FE0D6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} /></Animated.View></View>
+      <Ionicons name="flame" size={20} color={pulseActive ? "#FFD600" : pulseReady ? "#FF8A00" : "rgba(255,138,0,0.8)"} />
+      <Text selectable={false} style={[styles.vocoLabel, pulseActive && { color: "#FFD600" }]}>{pulseActive ? "FEVER" : "PULSE"}</Text>
+      <View style={styles.vocoTrack}><Animated.View style={[styles.vocoFill, { width: pulseAnim.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) }]}><LinearGradient colors={pulseActive ? ["#FFD600", "#FF2D7A"] : ["#FF2D7A", "#B537FF", "#00E5FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} /></Animated.View></View>
       <Text selectable={false} style={[styles.vocoMult, (pulseReady || pulseActive) && { color: "#FFB020" }]}>{pulseActive ? "2×" : "1×"}</Text>
     </View>
 
@@ -621,37 +700,46 @@ export default function GameScreen() {
 
     {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text selectable={false} style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text selectable={false} key={countdown} style={styles.count}>{countdown}</Text><Text selectable={false} style={styles.readySong}>{selectedSong.title}</Text></View>}
 
-    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.purple} /></View><Text selectable={false} style={styles.pauseTitle}>Paused</Text><Text selectable={false} style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={testChart ? "Back to editor" : practice ? "Exit practice" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (testChart) { setTestChart(null); router.back(); } else if (practice) { router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
+    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.cyan} /></View><Text selectable={false} style={styles.pauseTitle}>Paused</Text><Text selectable={false} style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={testChart ? "Back to editor" : practice ? "Exit practice" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (testChart) { setTestChart(null); router.back(); } else if (practice) { router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#07060C", overflow: "hidden" },
+  root: { flex: 1, backgroundColor: "#06051A", overflow: "hidden" },
   cover: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%", opacity: 0.5, transform: [{ scale: 1.2 }] },
   note: { alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)" },
   noteGloss: { position: "absolute", top: 1.5, left: 4, right: 4, height: "42%", backgroundColor: "rgba(255,255,255,0.35)" },
-  receptor: { position: "absolute", height: 32, borderRadius: 16, borderWidth: 2.5, overflow: "hidden" },
-  comboWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" }, comboGlow: { position: "absolute", width: 110, height: 110, borderRadius: 55, backgroundColor: rgba(0.16), top: -22 },
-  combo: { color: colors.text, fontSize: 48, lineHeight: 52, fontFamily: fonts.display, textShadowColor: rgba(0.9), textShadowRadius: 14 }, comboLabel: { color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 5, fontFamily: fonts.heavy, marginTop: 1 },
-  judgment: { position: "absolute", width: 180, textAlign: "center", fontSize: 26, fontFamily: fonts.display, letterSpacing: 0.5 },
-  tracePop: { position: "absolute", width: 220, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, tracePopText: { color: "#EAF6FF", fontSize: 24, fontFamily: fonts.display, textShadowColor: "rgba(47,224,214,0.9)", textShadowRadius: 16 },
-  milestone: { position: "absolute", width: 300, alignItems: "center", gap: 8 }, milestoneCombo: { color: colors.gold, fontSize: 40, fontFamily: fonts.display, textShadowColor: "rgba(245,200,66,0.85)", textShadowRadius: 20, letterSpacing: 1 }, milestoneBonus: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 30, borderRadius: 15, backgroundColor: "rgba(245,200,66,0.16)", borderWidth: 1, borderColor: "rgba(245,200,66,0.5)" }, milestoneBonusText: { color: colors.gold, fontSize: 13, fontFamily: fonts.heavy },
+  receptor: { position: "absolute", height: 32, borderRadius: 16, borderWidth: 2.5, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(6,5,26,0.6)", shadowOpacity: 0.9, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
+  comboWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" },
+  combo: { fontSize: 54, lineHeight: 62, fontFamily: fonts.arcadeBlack, textShadowRadius: 22, textShadowOffset: { width: 0, height: 0 } }, comboLabel: { color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 6, fontFamily: fonts.arcade, marginTop: -2 },
+  multChip: { marginTop: 6, paddingHorizontal: 10, height: 22, borderRadius: 6, borderWidth: 1.5, justifyContent: "center", backgroundColor: "rgba(6,5,26,0.6)" }, multText: { fontSize: 12, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
+  judgeWrap: { position: "absolute", width: 200, alignItems: "center" },
+  judgment: { textAlign: "center", fontSize: 24, fontFamily: fonts.arcadeBlack, letterSpacing: 1.5, textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 } },
+  judgeTiming: { fontSize: 10, fontFamily: fonts.arcade, letterSpacing: 3, marginTop: 1 },
+  feverPop: { position: "absolute", left: 0, right: 0, alignItems: "center" },
+  feverText: { color: "#FFD600", fontSize: 40, fontFamily: fonts.arcadeBlack, letterSpacing: 2, ...textGlow("#FF8A00", 26) }, feverSub: { color: "#FFFFFF", fontSize: 12, fontFamily: fonts.arcade, letterSpacing: 4, marginTop: 2, ...textGlow("#FF2D7A", 12) },
+  goText: { color: "#CCFF00", fontSize: 96, fontFamily: fonts.arcadeBlack, ...textGlow("#CCFF00", 30) },
+  tracePop: { position: "absolute", width: 220, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, tracePopText: { color: "#EAF6FF", fontSize: 22, fontFamily: fonts.arcadeBlack, textShadowColor: "rgba(47,224,214,0.9)", textShadowRadius: 16 },
+  milestone: { position: "absolute", width: 300, alignItems: "center", gap: 8 }, milestoneCombo: { color: colors.gold, fontSize: 36, fontFamily: fonts.arcadeBlack, textShadowColor: "rgba(245,200,66,0.85)", textShadowRadius: 20, letterSpacing: 1 }, milestoneBonus: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 30, borderRadius: 15, backgroundColor: "rgba(245,200,66,0.16)", borderWidth: 1, borderColor: "rgba(245,200,66,0.5)" }, milestoneBonusText: { color: colors.gold, fontSize: 13, fontFamily: fonts.heavy },
   achToast: { position: "absolute", left: 24, right: 24, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 18, backgroundColor: "rgba(16,14,22,0.97)", borderWidth: 1.5, zIndex: 60, shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 16 }, achToastIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" }, achToastLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.6, fontFamily: fonts.heavy }, achToastTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.display, marginTop: 2 },
   practice: { position: "absolute", left: 12, right: 12, gap: 8, zIndex: 20 }, practiceRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" },
   practiceTag: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: "rgba(13,230,210,0.14)", borderWidth: 1, borderColor: "rgba(13,230,210,0.4)" }, practiceTagText: { color: colors.cyan, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
   spdChip: { minWidth: 46, height: 30, paddingHorizontal: 10, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" }, spdChipOn: { backgroundColor: colors.cyan, borderColor: colors.cyan }, spdChipText: { color: colors.text, fontSize: 13, fontFamily: fonts.heavy }, spdChipTextOn: { color: colors.bg },
   loopBtn: { flexDirection: "row", alignItems: "center", gap: 4, minWidth: 62, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)", justifyContent: "center" }, loopClear: { borderColor: "rgba(255,92,122,0.5)" }, loopBtnText: { color: colors.text, fontSize: 12, fontFamily: fonts.heavy },
-  hud: { position: "absolute", left: 18, right: 18 }, hudRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  score: { color: colors.text, fontSize: 34, lineHeight: 38, fontFamily: fonts.display, textShadowColor: rgba(0.6), textShadowRadius: 12 }, songMeta: { color: "rgba(245,245,247,0.55)", fontSize: 13, fontFamily: fonts.body, marginTop: 1 },
-  pause: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
-  accRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 }, accTrack: { flex: 1, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, accFill: { height: 7, borderRadius: 4 }, accText: { color: "rgba(245,245,247,0.85)", fontSize: 13, fontFamily: fonts.bold, width: 52, textAlign: "right" },
+  hud: { position: "absolute", left: 16, right: 16 }, hudRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 },
+  scoreLabel: { color: colors.muted, fontSize: 9, letterSpacing: 3, fontFamily: fonts.arcade },
+  score: { color: colors.text, fontSize: 28, lineHeight: 34, fontFamily: fonts.arcadeBlack, textShadowRadius: 14, textShadowOffset: { width: 0, height: 0 } }, songMeta: { color: "rgba(214,214,255,0.6)", fontSize: 11, fontFamily: fonts.bold, marginTop: 1, letterSpacing: 0.5 },
+  hudRight: { alignItems: "flex-end", gap: 4 },
+  pause: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,229,255,0.08)", borderWidth: 1, borderColor: "rgba(0,229,255,0.45)" },
+  accText: { color: colors.text, fontSize: 13, fontFamily: fonts.arcade, textAlign: "right" },
   liveStars: { flexDirection: "row", alignItems: "center", gap: 1 },
-  progTrack: { height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.08)", marginTop: 8, overflow: "hidden" }, progFill: { height: 4, borderRadius: 2 },
-  voco: { position: "absolute", left: 18, right: 18, height: 44, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
-  vocoReady: { borderColor: "#FFE27A", backgroundColor: "rgba(255,226,122,0.12)" },
-  vocoLabel: { color: "rgba(245,245,247,0.8)", fontSize: 12, letterSpacing: 2, fontFamily: fonts.heavy }, vocoTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, vocoFill: { height: 8, borderRadius: 4 }, vocoMult: { color: "rgba(245,245,247,0.9)", fontSize: 14, fontFamily: fonts.heavy, width: 26, textAlign: "right" },
+  hpRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }, hpTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, hpFill: { height: 6, borderRadius: 3, shadowOpacity: 1, shadowRadius: 6 },
+  progTrack: { height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" }, progFill: { height: 3, borderRadius: 2 },
+  voco: { position: "absolute", left: 18, right: 18, height: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, backgroundColor: "rgba(6,5,26,0.7)", borderWidth: 1, borderColor: "rgba(255,138,0,0.35)" },
+  vocoReady: { borderColor: "#FFD600", backgroundColor: "rgba(255,214,0,0.12)", ...neonGlow("#FFD600", 14, 0.6) },
+  vocoLabel: { color: "rgba(255,200,120,0.9)", fontSize: 10, letterSpacing: 2, fontFamily: fonts.arcadeBlack, width: 50 }, vocoTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, vocoFill: { height: 8, borderRadius: 4 }, vocoMult: { color: "rgba(245,245,247,0.9)", fontSize: 14, fontFamily: fonts.arcadeBlack, width: 30, textAlign: "right" },
   pads: { position: "absolute", left: 0, right: 0, flexDirection: "row" }, pad: { flex: 1, margin: 3, borderRadius: 18 },
-  countdown: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" }, ready: { color: colors.purple, fontSize: 13, letterSpacing: 4, fontFamily: fonts.heavy }, count: { color: colors.text, fontSize: 118, lineHeight: 132, fontFamily: fonts.display }, readySong: { color: colors.muted, fontSize: 14, marginTop: 4, fontFamily: fonts.body },
-  modal: { flex: 1, backgroundColor: "rgba(0,0,0,0.82)", alignItems: "center", justifyContent: "center", padding: 24 }, pauseCard: { width: "100%", maxWidth: 360, padding: 24, borderRadius: 28, gap: 12, backgroundColor: "#121214", borderWidth: 1, borderColor: colors.border }, pauseIcon: { alignSelf: "center", width: 60, height: 60, borderRadius: 30, alignItems: "center", justifyContent: "center", backgroundColor: rgba(0.14), borderWidth: 1, borderColor: colors.purpleSoft }, pauseTitle: { color: colors.text, textAlign: "center", fontSize: 30, fontFamily: fonts.display }, pauseCopy: { color: colors.muted, textAlign: "center", marginBottom: 8, fontSize: 14, fontFamily: fonts.body },
+  countdown: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" }, ready: { color: colors.cyan, fontSize: 12, letterSpacing: 4, fontFamily: fonts.arcade, ...textGlow(colors.cyan, 10) }, count: { color: colors.text, fontSize: 120, lineHeight: 140, fontFamily: fonts.arcadeBlack, ...textGlow(colors.pink, 30) }, readySong: { color: colors.muted, fontSize: 14, marginTop: 4, fontFamily: fonts.body },
+  modal: { flex: 1, backgroundColor: "rgba(0,0,0,0.82)", alignItems: "center", justifyContent: "center", padding: 24 }, pauseCard: { width: "100%", maxWidth: 360, padding: 24, borderRadius: 20, gap: 12, backgroundColor: "#0E0B26", borderWidth: 1.5, borderColor: "rgba(0,229,255,0.45)", ...neonGlow(colors.cyan, 20, 0.35) }, pauseIcon: { alignSelf: "center", width: 60, height: 60, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: rgba(0.12), borderWidth: 1.5, borderColor: rgba(0.5) }, pauseTitle: { color: colors.text, textAlign: "center", fontSize: 26, fontFamily: fonts.arcadeBlack, letterSpacing: 3 }, pauseCopy: { color: colors.muted, textAlign: "center", marginBottom: 8, fontSize: 14, fontFamily: fonts.body },
   missing: { flex: 1, justifyContent: "center", padding: 28, gap: 16, backgroundColor: colors.bg }, missingTitle: { color: colors.text, fontSize: 30, fontFamily: fonts.display, textAlign: "center" }, missingCopy: { color: colors.muted, fontSize: 15, textAlign: "center", lineHeight: 22, marginBottom: 8, fontFamily: fonts.body },
 });
