@@ -440,7 +440,14 @@
   html.theme-light{ --app-bg:#fefefe; --app-text:#17171b; }
   #bg-layer{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; transition:background .35s ease, opacity .35s ease; }
   #bg-layer .bg-img{ position:absolute; inset:0; background-size:cover; background-position:center; background-repeat:no-repeat; will-change:opacity, transform; }
-  #bg-text{ position:absolute; inset:0; display:flex; justify-content:center; padding:8vw 6vw; z-index:2; }
+  #bg-text{ position:absolute; inset:0; z-index:2; pointer-events:none; }
+  .bd-preview{ position:relative; width:100%; aspect-ratio:16/10; border-radius:16px; overflow:hidden; container-type:size; background:#0b0b0f; border:1px solid rgba(255,255,255,0.12); touch-action:none; user-select:none; }
+  .bd-prev-img{ position:absolute; inset:0; background-size:cover; background-position:center; }
+  .bd-prev-text{ position:absolute; transform:translate(-50%,-50%); max-width:92%; font-family:var(--treesh-font-display,inherit); font-weight:800; line-height:1.08; letter-spacing:-0.01em; text-shadow:0 2px 18px rgba(0,0,0,0.6); cursor:grab; pointer-events:auto; padding:2px 4px; border-radius:6px; white-space:pre-wrap; }
+  .bd-prev-text:active{ cursor:grabbing; }
+  .bd-prev-text.is-empty{ opacity:.55; outline:1.5px dashed rgba(255,255,255,0.45); }
+  .bd-prev-hint{ position:absolute; left:8px; bottom:8px; right:8px; display:flex; justify-content:center; gap:6px; pointer-events:none; }
+  .bd-prev-hint span{ background:rgba(0,0,0,0.5); color:rgba(255,255,255,0.85); font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; backdrop-filter:blur(6px); }
   @keyframes bgFadeIn{ from{opacity:0} to{opacity:1} }
   @keyframes bgRotateIn{ from{opacity:0; transform:scale(1.08) rotate(-3deg)} to{opacity:1; transform:none} }
   @keyframes bgFlipIn{ from{opacity:0; transform:perspective(1200px) rotateY(24deg)} to{opacity:1; transform:none} }
@@ -509,6 +516,18 @@
   html.theme-light :is(#voice-ov,#toast,#sleep,.dark-surface) .border-white\/15{ border-color:rgba(255,255,255,0.15) !important; }
   html.theme-light :is(#voice-ov,#toast,#sleep,.dark-surface) .glass-strong{ background:rgba(255,255,255,0.09) !important; border-color:var(--treesh-stroke) !important; }
   html.theme-light :is(#voice-ov,#toast,#sleep,.dark-surface) .text-black{ color:#000 !important; }
+
+  /* ---------- Backdrops layered text / sticker editor ---------- */
+  .bd-ptext{ position:absolute; transform:translate(-50%,-50%); max-width:92%; font-weight:800; line-height:1.1; letter-spacing:-0.01em; white-space:pre-wrap; text-shadow:0 2px 14px rgba(0,0,0,0.6); cursor:move; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .bd-ptext-sel{ outline:1.5px dashed rgba(255,255,255,0.9); outline-offset:5px; border-radius:3px; }
+  .bd-ph-handle{ position:absolute; display:none; height:24px; width:24px; place-items:center; border-radius:9999px; border:2px solid rgba(255,255,255,0.75); background:var(--treesh-purple); color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.45); touch-action:none; z-index:3; }
+  .bd-ptext-sel .bd-ph-handle{ display:grid; }
+  .bd-ph-handle.bd-rh{ bottom:-13px; right:-13px; cursor:nwse-resize; }
+  .bd-ph-handle.bd-rot{ top:-13px; left:50%; transform:translateX(-50%); cursor:grab; }
+
+  /* ---------- Queue drawer: light mode surface ---------- */
+  html.theme-light .queue-panel{ background:rgba(254,254,254,0.96) !important; border-color:rgba(17,17,20,0.1) !important; }
+  html.theme-light .queue-panel .border-white\/10{ border-color:rgba(17,17,20,0.1) !important; }
 
   [data-lucide]{ width:1em; height:1em; }
   /* ---------- performance mode: kill all motion + heavy effects ---------- */
@@ -848,6 +867,11 @@
   html.tr-navcolor aside.nav-glass, html.tr-navcolor #mobile-nav{ background: var(--nav-bg) !important; }
   html.tr-topcolor header .topbar-surface{ background: var(--topbar-bg) !important; }
   html.tr-rowcolor [data-song-row]{ background: var(--row-bg) !important; }
+
+  /* --- custom font (ink) color: tints primary text, keeps immersive dark surfaces --- */
+  html.tr-inkcolor{ --app-text: var(--ink); }
+  html.tr-inkcolor .text-white{ color: var(--ink) !important; }
+  html.tr-inkcolor :is(#voice-ov,#toast,#sleep,.dark-surface,#bg-text) .text-white{ color:#fff !important; }
 
   /* --- Instrum: keep dense studio controls from overflowing at large text --- */
   [data-instrum-root]{ font-size:14px; }
@@ -1393,6 +1417,7 @@ const state = {
   navColor: LS.get("treesh_nav_color", ""),
   topbarColor: LS.get("treesh_topbar_color", ""),
   rowColor: LS.get("treesh_row_color", ""),
+  inkColor: LS.get("treesh_ink_color", ""),
   uiFont: LS.get("treesh_font", "figtree"),
   customFont: LS.get("treesh_custom_font", null),
   notifInNav: LS.get("treesh_notif_nav", false),
@@ -1438,12 +1463,15 @@ function bgSaveSlide(){ try{ localStorage.setItem("treesh_bg_slide", JSON.string
 function bgSaveTextStyle(){ try{ localStorage.setItem("treesh_bg_text_style", JSON.stringify(state.bgTextStyle)); }catch(e){} }
 function bgMetaAt(i){ if(!Array.isArray(state.bgMeta)) state.bgMeta=[]; if(!state.bgMeta[i]) state.bgMeta[i]={filter:'none',text:''}; return state.bgMeta[i]; }
 /* ---------------- Backdrops Studio (custom wallpapers modal) ---------------- */
-function openBackdrops(){ if(!Array.isArray(state.bgMeta)) state.bgMeta=[]; const count=(state.bgImages||[]).filter(Boolean).length; state.bgFocus=Math.min(state.bgFocus||0, Math.max(0,count-1)); refreshBackdrops(); }
-function refreshBackdrops(){ const m=document.getElementById("modal"); if(!m) return; m.innerHTML=modalWrap(bdModalHtml(),"backdrops-modal","xl"); icons(); bdBindInputs(); }
+function openBackdrops(){ if(!Array.isArray(state.bgMeta)) state.bgMeta=[]; const count=(state.bgImages||[]).filter(Boolean).length; state.bgFocus=Math.min(state.bgFocus||0, Math.max(0,count-1)); bgEnsureFonts(); refreshBackdrops(); }
+function refreshBackdrops(){ const m=document.getElementById("modal"); if(!m) return; m.innerHTML=bdModalHtml(); icons(); bdBindInputs(); bdBindPreview(); }
 function bdBindInputs(){
   document.querySelectorAll(".bd-file-input").forEach(inp=>{ inp.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(f) bdAddImage(f); try{ e.target.value=""; }catch(_){} }); });
   const txt=document.getElementById("bd-text-input");
-  if(txt){ txt.addEventListener("input",()=>{ const i=state.bgFocus||0; if(!(state.bgImages||[])[i]) return; bgMetaAt(i).text=txt.value.slice(0,80); bgSaveMeta(); const badge=document.getElementById("bd-tile-text-"+i); renderBackground(); }); }
+  if(txt){ txt.addEventListener("input",()=>{ const L=bdSelLayer(); if(!L) return; const v=txt.value.slice(0,80); L.text=v; bgSaveMeta();
+    const box=document.getElementById("bd-preview"); const el=box&&box.querySelector('.bd-ptext[data-id="'+L.id+'"] .bd-ptext-inner'); if(el) el.textContent=v.trim()?v:'\u00A0';
+    const ph=document.getElementById("bd-preview-ph"); if(ph){ const any=bdCurTexts().some(x=>(x.text||'').trim()); ph.style.display=any?"none":""; }
+    renderBackground(); }); }
 }
 function bdAddImage(f){
   if(!f) return;
@@ -1467,15 +1495,71 @@ function bdAddImage(f){
 }
 function bdSetTime(v){ v=Math.max(2,Math.min(60,+v||8)); if(!state.bgSlide) state.bgSlide={}; state.bgSlide.time=v; bgSaveSlide(); const l=document.getElementById("bd-time-val"); if(l) l.textContent=v+"s"; if(state.bg==="custom"&&state.bgSlide.on) renderBackground(); }
 function bdSetDim(v){ v=Math.max(0.2,Math.min(0.9,(+v||60)/100)); state.bgDim=v; bgSaveDim(); const l=document.getElementById("bd-dim-val"); if(l) l.textContent=Math.round(v*100)+"%"; renderBackground(); }
-function bdSetTextColor(v){ if(!state.bgTextStyle) state.bgTextStyle={}; state.bgTextStyle.color=v; bgSaveTextStyle(); renderBackground(); }
+function bdSetTextColor(v){ const L=bdSelLayer(); if(!L) return; L.color=v; bgSaveMeta(); bdRenderPreviewText(); renderBackground(); }
+function bdSetTextFont(id){ const L=bdSelLayer(); if(!L) return; L.font=id||''; if(id) bgFontStack(id); bgSaveMeta(); renderBackground(); refreshBackdrops(); }
+/* ---- Backdrops layered text overlays + emoji stickers (drag / pinch / rotate) ---- */
+const BG_EMOJIS=["\u2764\uFE0F","\uD83D\uDD25","\u2728","\u2B50","\uD83D\uDCAB","\uD83D\uDE0E","\uD83E\uDD73","\uD83D\uDE0D","\uD83C\uDFB5","\uD83C\uDFA7","\uD83C\uDF08","\u2600\uFE0F","\uD83C\uDF19","\u26A1","\uD83D\uDC9C","\uD83D\uDC96","\uD83D\uDC51","\uD83E\uDD8B","\uD83C\uDF38","\uD83C\uDF40","\uD83D\uDCAF","\uD83D\uDE4C","\uD83E\uDEE0","\uD83C\uDF89","\uD83D\uDDA4","\uD83D\uDC80","\uD83D\uDE2D","\uD83D\uDE02","\uD83D\uDC4B","\uD83C\uDF7E","\uD83E\uDE77","\uD83C\uDFB6"];
+function bgUID(){ return 'tx'+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); }
+function bgFontStack(id){ if(!id) return "var(--treesh-font-display,'Manrope',sans-serif)"; const f=(typeof FONTS!=='undefined')&&FONTS.find(x=>x.id===id); if(f){ if(f.g) loadGoogleFont(f.g); return f.stack; } return "var(--treesh-font-display,'Manrope',sans-serif)"; }
+function bgNormTexts(idx){ if(!Array.isArray(state.bgMeta)) state.bgMeta=[]; const meta=state.bgMeta[idx]||(state.bgMeta[idx]={filter:'none'});
+  if(!Array.isArray(meta.texts)){ meta.texts=[]; const legacy=(meta.text||'').trim(); if(legacy){ const ts=state.bgTextStyle||{}; let size=ts.size; if(typeof size==='string') size=(size==='sm'?4:(size==='lg'?9:6)); if(!(size>0)) size=6; let x=ts.x, y=ts.y; if(x==null||isNaN(x)) x=50; if(y==null||isNaN(y)) y=(ts.pos==='top'?16:(ts.pos==='center'?50:84)); meta.texts.push({id:bgUID(),kind:'text',text:legacy.slice(0,80),x:x,y:y,size:size,rot:0,color:ts.color||'#ffffff',align:ts.align||'center',font:''}); } }
+  meta.texts.forEach(L=>{ if(!L.id) L.id=bgUID(); if(L.kind!=='emoji') L.kind='text'; L.text=(L.text||'').slice(0,80); if(L.x==null||isNaN(L.x)) L.x=50; if(L.y==null||isNaN(L.y)) L.y=(L.kind==='emoji'?50:84); L.x=Math.max(2,Math.min(98,L.x)); L.y=Math.max(4,Math.min(96,L.y)); if(typeof L.size==='string') L.size=(L.size==='sm'?4:(L.size==='lg'?9:6)); if(!(L.size>0)) L.size=(L.kind==='emoji'?12:6); L.size=Math.max(3,Math.min(30,L.size)); if(L.rot==null||isNaN(L.rot)) L.rot=0; L.rot=Math.round(((L.rot%360)+540)%360-180); if(!L.color) L.color='#ffffff'; if(!L.align) L.align='center'; if(L.font==null) L.font=''; });
+  return meta.texts; }
+function bgEnsureFonts(){ try{ (state.bgImages||[]).forEach((s,i)=>{ if(!s) return; const arr=(state.bgMeta&&state.bgMeta[i]&&state.bgMeta[i].texts)||[]; arr.forEach(L=>{ if(L&&L.font) bgFontStack(L.font); }); }); }catch(_){} }
+function bdFocusIdx(){ const imgs=state.bgImages||[]; const count=imgs.filter(Boolean).length; return Math.min(state.bgFocus||0, Math.max(0,count-1)); }
+function bdCurTexts(){ return bgNormTexts(bdFocusIdx()); }
+function bdSelLayer(){ const arr=bdCurTexts(); if(!arr.length){ state.bgTextSel=null; return null; } let L=arr.find(x=>x.id===state.bgTextSel); if(!L){ L=arr[arr.length-1]; state.bgTextSel=L.id; } return L; }
+function bdApplyLayerPos(x,y){ const L=bdSelLayer(); if(!L) return; L.x=Math.max(2,Math.min(98,Math.round((+x||0)*10)/10)); L.y=Math.max(4,Math.min(96,Math.round((+y||0)*10)/10)); bdRenderPreviewText(); bdSyncTextControls(); }
+function bdApplyLayerSize(s){ const L=bdSelLayer(); if(!L) return; L.size=Math.max(3,Math.min(30,Math.round((+s||6)*10)/10)); bdRenderPreviewText(); bdSyncTextControls(); }
+function bdApplyLayerRot(r){ const L=bdSelLayer(); if(!L) return; r=((r%360)+540)%360-180; L.rot=Math.round(r); bdRenderPreviewText(); bdSyncTextControls(); }
+function bdSetTextX(v){ const L=bdSelLayer(); if(!L) return; bdApplyLayerPos(v,L.y); bgSaveMeta(); }
+function bdSetTextY(v){ const L=bdSelLayer(); if(!L) return; bdApplyLayerPos(L.x,v); bgSaveMeta(); }
+function bdSetTextSizeV(v){ bdApplyLayerSize(v); bgSaveMeta(); }
+function bdSetTextRot(v){ bdApplyLayerRot(+v||0); bgSaveMeta(); }
+function bdSyncTextControls(){ const L=bdSelLayer(); if(!L) return;
+  const sx=document.getElementById("bd-x"); if(sx&&document.activeElement!==sx) sx.value=Math.round(L.x);
+  const sy=document.getElementById("bd-y"); if(sy&&document.activeElement!==sy) sy.value=Math.round(L.y);
+  const ss=document.getElementById("bd-size"); if(ss&&document.activeElement!==ss) ss.value=Math.round(L.size);
+  const sr=document.getElementById("bd-rot"); if(sr&&document.activeElement!==sr) sr.value=Math.round(L.rot);
+  const lv=document.getElementById("bd-size-val"); if(lv) lv.textContent=Math.round(L.size);
+  const lr=document.getElementById("bd-rot-val"); if(lr) lr.textContent=Math.round(L.rot)+"\u00B0";
+}
+function bdRenderPreviewText(){ const box=document.getElementById("bd-preview"); if(!box) return; const arr=bdCurTexts(); const w=box.clientWidth||300, h=box.clientHeight||220; const selId=(bdSelLayer()||{}).id;
+  arr.forEach(L=>{ const el=box.querySelector('.bd-ptext[data-id="'+L.id+'"]'); if(!el) return; el.style.left=L.x+"%"; el.style.top=L.y+"%"; el.style.transform="translate(-50%,-50%) rotate("+L.rot+"deg)"; el.style.fontSize=(L.size/100*Math.min(w,h))+"px"; if(L.kind==='text'){ el.style.color=L.color||"#ffffff"; el.style.textAlign=L.align||"center"; el.style.fontFamily=bgFontStack(L.font); } el.classList.toggle("bd-ptext-sel", L.id===selId); }); }
+function bdBindPreview(){ const box=document.getElementById("bd-preview"); if(!box) return; bdRenderPreviewText(); bdSyncTextControls();
+  const pts=new Map(); let mode=null, sx=0, sy=0, bx=0, by=0, bsize=0, brot=0, pd=0, ps=0, pa=0, pr=0;
+  const rect=()=>box.getBoundingClientRect();
+  function layerCenter(){ const L=bdSelLayer(); const r=rect(); return {x:r.left+(L?L.x:50)/100*r.width, y:r.top+(L?L.y:50)/100*r.height}; }
+  function markSel(){ box.querySelectorAll('.bd-ptext').forEach(el=>el.classList.toggle('bd-ptext-sel', el.getAttribute('data-id')===state.bgTextSel)); }
+  function start(e, layerEl, kind){ try{ box.setPointerCapture(e.pointerId); }catch(_){} pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.preventDefault(); e.stopPropagation();
+    const id=layerEl?layerEl.getAttribute('data-id'):state.bgTextSel; if(id&&state.bgTextSel!==id){ state.bgTextSel=id; markSel(); bdSyncTextControls(); }
+    if(pts.size>=2){ const p=[...pts.values()]; pd=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1; pa=Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x); const L=bdSelLayer(); ps=L?L.size:6; pr=L?L.rot:0; mode='pinch'; return; }
+    const L=bdSelLayer(); if(!L){ mode=null; return; }
+    if(kind==='handle'){ mode='resize'; bsize=L.size; sy=e.clientY; }
+    else if(kind==='rot'){ mode='rotate'; brot=L.rot; }
+    else { mode='move'; bx=L.x; by=L.y; sx=e.clientX; sy=e.clientY; }
+  }
+  function moveEv(e){ if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const r=rect();
+    if(mode==='pinch' && pts.size>=2){ const p=[...pts.values()]; const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1; const a=Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x); bdApplyLayerSize(ps*(d/pd)); bdApplyLayerRot(pr+(a-pa)*180/Math.PI); return; }
+    if(mode==='move'){ bdApplyLayerPos(bx+(e.clientX-sx)/r.width*100, by+(e.clientY-sy)/r.height*100); }
+    else if(mode==='resize'){ bdApplyLayerSize(bsize+(e.clientY-sy)/r.height*100*0.6); }
+    else if(mode==='rotate'){ const c=layerCenter(); bdApplyLayerRot(Math.atan2(e.clientY-c.y, e.clientX-c.x)*180/Math.PI+90); }
+  }
+  function end(e){ pts.delete(e.pointerId); if(mode==='pinch'&&pts.size<2) mode=(pts.size===1?'move':null); if(pts.size===0){ if(mode){ bgSaveMeta(); renderBackground(); refreshBackdrops(); } mode=null; } }
+  box.querySelectorAll('.bd-ptext').forEach(el=>{ el.addEventListener('pointerdown', e=>{ if(e.target.closest('[data-rh]')) return start(e, el, 'handle'); if(e.target.closest('[data-rot]')) return start(e, el, 'rot'); start(e, el, 'move'); }); });
+  box.addEventListener('pointermove', moveEv);
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
+  box.addEventListener('wheel', e=>{ e.preventDefault(); const L=bdSelLayer(); if(!L) return; bdApplyLayerSize(L.size + (e.deltaY<0?0.6:-0.6)); bgSaveMeta(); }, {passive:false});
+}
 function bdModalHtml(){
   const imgs=state.bgImages||[]; const count=imgs.filter(Boolean).length;
   if(!Array.isArray(state.bgMeta)) state.bgMeta=[];
   const focus=Math.min(state.bgFocus||0, Math.max(0,count-1));
   const S=state.bgSlide||{on:false,source:'all',order:'seq',time:8,fx:'fade',sel:[]};
   const dimPct=Math.round((state.bgDim!=null?state.bgDim:0.6)*100);
-  const ts=state.bgTextStyle||{pos:'bottom',size:'md',color:'#ffffff'};
-  const head=`<div class="mb-3 flex items-center gap-2.5">
+  const ts=bgNormText();
+  const head=`<div class="flex items-center gap-2.5 border-b border-white/10 px-4 py-3 sm:px-5">
      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="image" style="width:18px;height:18px"></i></span>
      <div class="min-w-0 flex-1"><p class="font-display text-[9px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Backdrops</p><h3 class="text-lg font-extrabold leading-tight">Your wallpapers</h3></div>
      <span class="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/55" data-testid="bd-count">${count}/9</span>
@@ -1487,31 +1571,65 @@ function bdModalHtml(){
        <button data-act="bd-focus" data-idx="${i}" data-testid="bd-focus-${i}" class="press block aspect-[4/3] w-full"><img src="${src}" alt="Backdrop ${i+1}" draggable="false" class="h-full w-full object-cover" style="${fcss?`filter:${fcss}`:''}"></button>
        ${selMode?`<button data-act="bd-sel-toggle" data-idx="${i}" data-testid="bd-sel-${i}" aria-pressed="${inSel}" aria-label="Include backdrop ${i+1} in slideshow" class="press absolute left-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-md border ${inSel?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/45 bg-black/50 text-transparent'} backdrop-blur"><i data-lucide="check" style="width:13px;height:13px"></i></button>`:(isActive?`<span class="pointer-events-none absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-[color:var(--treesh-purple)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"><i data-lucide="check" style="width:10px;height:10px"></i>Active</span>`:'')}
        <button data-act="bd-remove" data-idx="${i}" data-testid="bd-remove-${i}" aria-label="Remove backdrop ${i+1}" class="press absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/55 text-white/85 backdrop-blur hover:bg-black/75 hover:text-rose-300"><i data-lucide="x" style="width:13px;height:13px"></i></button>
-       ${meta.text?`<span id="bd-tile-text-${i}" class="pointer-events-none absolute inset-x-1 bottom-1 clamp-1 rounded bg-black/55 px-1.5 py-0.5 text-center text-[9px] font-semibold text-white backdrop-blur">${esc(meta.text)}</span>`:''}
+       ${(()=>{ const ta=(meta.texts||[]).filter(L=>(L.text||'').trim()); const first=ta.length?ta[0].text:((meta.text||'').trim()); return first?`<span class="pointer-events-none absolute inset-x-1 bottom-1 clamp-1 rounded bg-black/55 px-1.5 py-0.5 text-center text-[9px] font-semibold text-white backdrop-blur">${esc(first)}${ta.length>1?' +'+(ta.length-1):''}</span>`:''; })()}
      </div>`; };
   const addSlot = count<9 ? `<label data-testid="bd-add" class="press grid aspect-[4/3] cursor-pointer place-items-center rounded-xl border border-dashed border-white/20 bg-white/[0.02] text-white/55 transition hover:bg-white/5 hover:text-white/80"><span class="flex flex-col items-center gap-1"><i data-lucide="image-plus" style="width:22px;height:22px"></i><span class="text-[10px] font-semibold">Add</span></span><input type="file" accept="image/*" class="hidden bd-file-input"></label>` : '';
   let grid;
   if(count){ grid=`<div class="grid grid-cols-3 gap-2.5" data-testid="bd-grid">${imgs.map((s,i)=>s?tile(i):'').join('')}${addSlot}</div>`; }
   else { grid=`<div class="grid grid-cols-3 gap-2.5" data-testid="bd-grid">${addSlot}</div><p class="mt-2 text-center text-xs text-white/45">Add up to 9 images. Photos are optimized automatically.</p>`; }
-  // per-image editor
+  // live preview of the focused backdrop (drag layers, pinch/wheel to size, rotate handle)
+  let preview='';
+  if(count){ const meta=state.bgMeta[focus]||{}; const fcss=bgFilterCss(meta.filter||'none'); const texts=bgNormTexts(focus); const selId=(bdSelLayer()||{}).id;
+    const showPh = !texts.some(L=>(L.text||'').trim());
+    const layersHtml=texts.map((L,i)=>`<div class="bd-ptext${L.id===selId?' bd-ptext-sel':''}" data-id="${L.id}" data-testid="bd-ptext-${i}" style="left:${L.x}%;top:${L.y}%;transform:translate(-50%,-50%) rotate(${L.rot||0}deg)${L.kind==='text'?`;text-align:${L.align};color:${L.color};font-family:${bgFontStack(L.font)}`:''}"><span class="bd-ptext-inner">${esc((L.text||'').trim()?L.text:'\u00A0')}</span><span class="bd-ph-handle bd-rot" data-rot aria-label="Rotate"><i data-lucide="rotate-cw" style="width:12px;height:12px"></i></span><span class="bd-ph-handle bd-rh" data-rh aria-label="Resize"><i data-lucide="move" style="width:12px;height:12px"></i></span></div>`).join('');
+    preview=`<div>
+       <div class="mb-1.5 flex items-center justify-between"><p class="text-[11px] font-bold uppercase tracking-wide text-white/40">Preview \u00B7 backdrop ${focus+1}</p><span class="text-[10px] text-white/40">Drag \u00B7 pinch / scroll to size</span></div>
+       <div id="bd-preview" data-testid="bd-preview" class="relative mx-auto aspect-[4/3] w-full max-w-[320px] touch-none select-none overflow-hidden rounded-2xl border border-white/12 bg-black">
+         <img src="${imgs[focus]}" alt="Preview" draggable="false" class="pointer-events-none absolute inset-0 h-full w-full object-cover" style="${fcss?`filter:${fcss}`:''}">
+         ${state.bgOverlay?`<div class="pointer-events-none absolute inset-0" style="background:var(--app-bg);opacity:${Math.max(0.2,Math.min(0.9,state.bgDim!=null?state.bgDim:0.6))}"></div>`:''}
+         <div id="bd-preview-ph" class="pointer-events-none absolute inset-0 grid place-items-center" style="${showPh?'':'display:none'}"><span class="rounded-full bg-black/45 px-3 py-1 text-[11px] font-medium text-white/70 backdrop-blur">Add text or a sticker below</span></div>
+         ${layersHtml}
+       </div>
+     </div>`;
+  }
+  // per-image editor (filter + layered text/sticker controls)
   let editor='';
-  if(count){ const meta=state.bgMeta[focus]||{};
+  if(count){ const meta=state.bgMeta[focus]||{}; const texts=bgNormTexts(focus); const sel=bdSelLayer();
     const filterChips=BG_FILTERS.map(([id,label])=>`<button data-act="bd-filter" data-f="${id}" data-testid="bd-filter-${id}" aria-pressed="${(meta.filter||'none')===id}" class="press shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${(meta.filter||'none')===id?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}">${label}</button>`).join('');
-    const posBtn=(v,l)=>`<button data-act="bd-text-pos" data-v="${v}" data-testid="bd-text-pos-${v}" aria-pressed="${ts.pos===v}" class="press flex-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors ${ts.pos===v?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:text-white'}">${l}</button>`;
-    const sizeBtn=(v,l)=>`<button data-act="bd-text-size" data-v="${v}" data-testid="bd-text-size-${v}" aria-pressed="${ts.size===v}" class="press flex-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors ${ts.size===v?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:text-white'}">${l}</button>`;
+    const layerChips=texts.map((L,i)=>`<button data-act="bd-text-select" data-id="${L.id}" data-testid="bd-layer-chip-${i}" aria-pressed="${sel&&sel.id===L.id}" class="press inline-flex max-w-[150px] shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${sel&&sel.id===L.id?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${L.kind==='emoji'?'smile':'type'}" style="width:12px;height:12px"></i><span class="clamp-1">${esc((L.text||'').trim()||('Layer '+(i+1)))}</span></button>`).join('');
+    const addTextChip = texts.length<10 ? `<button data-act="bd-text-add" data-testid="bd-text-add" class="press inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-white/25 bg-white/[0.02] px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10"><i data-lucide="plus" style="width:12px;height:12px"></i>Text</button>` : '';
+    const emojiRow=BG_EMOJIS.map(em=>`<button data-act="bd-emoji-add" data-em="${em}" aria-label="Add ${em} sticker" class="press grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 text-lg leading-none hover:bg-white/10">${em}</button>`).join('');
+    const fontChips=(typeof FONTS!=='undefined'?FONTS:[]).map(f=>`<button data-act="bd-text-font" data-font="${f.id}" data-testid="bd-font-${f.id}" aria-pressed="${sel&&sel.font===f.id}" class="press shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${sel&&sel.font===f.id?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}" style="font-family:${f.stack}">${f.name}</button>`).join('');
+    const defFontChip=`<button data-act="bd-text-font" data-font="" data-testid="bd-font-default" aria-pressed="${sel&&!sel.font}" class="press shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${sel&&!sel.font?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}">Default</button>`;
+    const posBtn=(v,l)=>`<button data-act="bd-text-pos" data-v="${v}" data-testid="bd-text-pos-${v}" class="press flex-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-white/60 transition-colors hover:bg-white/10 hover:text-white">${l}</button>`;
+    const alignBtn=(v,ic)=>`<button data-act="bd-text-align" data-v="${v}" data-testid="bd-text-align-${v}" aria-pressed="${sel&&(sel.align||'center')===v}" class="press flex-1 inline-flex items-center justify-center rounded-lg px-2 py-1.5 transition-colors ${sel&&(sel.align||'center')===v?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:text-white'}"><i data-lucide="${ic}" style="width:14px;height:14px"></i></button>`;
+    let layerEditor='';
+    if(sel){ const isText=sel.kind==='text';
+      layerEditor=`<div class="mb-2 space-y-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5" data-testid="bd-text-controls">
+         ${isText?`<input id="bd-text-input" data-testid="bd-text-input" value="${esc(sel.text||'')}" maxlength="80" placeholder="Type your words\u2026" class="w-full rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-[color:var(--treesh-purple)]">
+         <div class="no-scrollbar -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${defFontChip}${fontChips}</div>`:`<p class="text-[11px] text-white/50">Emoji sticker \u2014 drag it on the preview, pinch or scroll to resize, and use the top handle (or Rotation slider) to spin it.</p>`}
+         <div><div class="mb-0.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-white/40"><span>Size</span><span id="bd-size-val" class="font-doto text-white/70">${Math.round(sel.size)}</span></div><input id="bd-size" type="range" min="3" max="30" step="1" value="${Math.round(sel.size)}" oninput="bdSetTextSizeV(this.value)" data-testid="bd-text-size-slider" class="w-full accent-[color:var(--treesh-purple)]"></div>
+         <div><div class="mb-0.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-white/40"><span>Rotation</span><span id="bd-rot-val" class="font-doto text-white/70">${Math.round(sel.rot)}\u00B0</span></div><input id="bd-rot" type="range" min="-180" max="180" step="1" value="${Math.round(sel.rot)}" oninput="bdSetTextRot(this.value)" data-testid="bd-text-rot" class="w-full accent-[color:var(--treesh-purple)]"></div>
+         <div><p class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">Horizontal position</p><input id="bd-x" type="range" min="2" max="98" step="1" value="${Math.round(sel.x)}" oninput="bdSetTextX(this.value)" data-testid="bd-text-x" class="w-full accent-[color:var(--treesh-purple)]"></div>
+         <div><p class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">Vertical position</p><input id="bd-y" type="range" min="4" max="96" step="1" value="${Math.round(sel.y)}" oninput="bdSetTextY(this.value)" data-testid="bd-text-y" class="w-full accent-[color:var(--treesh-purple)]"></div>
+         <div class="flex flex-wrap items-center gap-2">
+           ${isText?`<div class="flex min-w-[110px] flex-1 gap-1 rounded-lg border border-white/10 bg-white/5 p-1">${alignBtn('left','align-left')}${alignBtn('center','align-center')}${alignBtn('right','align-right')}</div>`:''}
+           <div class="flex min-w-[150px] flex-1 gap-1 rounded-lg border border-white/10 bg-white/5 p-1">${posBtn('top','Top')}${posBtn('center','Middle')}${posBtn('bottom','Bottom')}</div>
+           ${isText?`<label class="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-semibold text-white/70"><span>Color</span><input type="color" value="${sel.color||'#ffffff'}" oninput="bdSetTextColor(this.value)" data-testid="bd-text-color" class="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"></label>`:''}
+         </div>
+         <button data-act="bd-text-delete" data-testid="bd-text-delete" class="press inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-[11px] font-semibold text-rose-200 hover:bg-rose-500/20"><i data-lucide="trash-2" style="width:12px;height:12px"></i>Delete this layer</button>
+       </div>`;
+    }
     editor=`<div class="rounded-2xl border border-white/10 bg-white/[0.03] p-3" data-testid="bd-editor">
        <p class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/50"><i data-lucide="wand-2" class="text-[color:var(--treesh-purple)]" style="width:14px;height:14px"></i>Editing backdrop ${focus+1}</p>
        <p class="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/40">Filter</p>
        <div class="no-scrollbar -mx-0.5 mb-1.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${filterChips}</div>
        <button data-act="bd-apply-filter-all" data-testid="bd-apply-filter-all" class="press mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"><i data-lucide="copy" style="width:12px;height:12px"></i>Apply filter to all</button>
-       <p class="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/40">Text overlay</p>
-       <input id="bd-text-input" data-testid="bd-text-input" value="${esc(meta.text||'')}" maxlength="80" placeholder="Add a word or quote (optional)" class="mb-2 w-full rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-[color:var(--treesh-purple)]">
-       <div class="mb-2 flex flex-wrap items-center gap-2">
-         <div class="flex flex-1 min-w-[160px] gap-1 rounded-xl border border-white/10 bg-white/5 p-1">${posBtn('top','Top')}${posBtn('center','Center')}${posBtn('bottom','Bottom')}</div>
-         <div class="flex flex-1 min-w-[140px] gap-1 rounded-xl border border-white/10 bg-white/5 p-1">${sizeBtn('sm','S')}${sizeBtn('md','M')}${sizeBtn('lg','L')}</div>
-         <label class="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-semibold text-white/70"><span>Color</span><input type="color" value="${ts.color||'#ffffff'}" oninput="bdSetTextColor(this.value)" data-testid="bd-text-color" class="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"></label>
-       </div>
-       <button data-act="bd-apply-text-all" data-testid="bd-apply-text-all" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"><i data-lucide="copy" style="width:12px;height:12px"></i>Apply text to all</button>
+       <p class="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/40">Text &amp; stickers</p>
+       <div class="no-scrollbar -mx-0.5 mb-2 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${layerChips}${addTextChip}</div>
+       <div class="mb-2"><p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-white/35">Tap a sticker to add it</p><div class="no-scrollbar -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${emojiRow}</div></div>
+       ${layerEditor}
+       <button data-act="bd-apply-text-all" data-testid="bd-apply-text-all" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"><i data-lucide="copy" style="width:12px;height:12px"></i>Copy layers to every backdrop</button>
      </div>`;
   }
   // slideshow
@@ -1541,8 +1659,8 @@ function bdModalHtml(){
        </button>
        ${state.bgOverlay?`<div><div class="mb-1 flex items-center justify-between"><p class="text-[11px] font-bold uppercase tracking-wide text-white/40">Darkness</p><span id="bd-dim-val" class="font-doto text-xs text-white/70">${dimPct}%</span></div><input type="range" min="20" max="90" value="${dimPct}" oninput="bdSetDim(this.value)" data-testid="bd-dim" class="w-full accent-[color:var(--treesh-purple)]"></div>`:''}
      </div>`;
-  const body=`<div class="max-h-[68vh] space-y-3.5 overflow-y-auto no-scrollbar pr-1" data-testid="bd-body">${grid}${editor}${slideshow}${dim}</div>`;
-  return head+body;
+  const body=`<div class="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain soft-scroll px-4 py-4 sm:px-5" data-testid="bd-body">${preview}${grid}${editor}${slideshow}${dim}</div>`;
+  return `<div data-act="modal-backdrop" data-testid="backdrops-modal" class="fixed inset-0 z-[210] grid place-items-center bg-black/60 p-2 backdrop-blur-sm backdrop-in sm:p-4"><div data-act="modal-stop" class="glass-strong panel-in relative flex max-h-[calc(100dvh-1rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border-white/15 text-white">${head}${body}</div></div>`;
 }
 
 /* Downscale + recompress an uploaded image so it reliably fits in localStorage.
@@ -1605,6 +1723,7 @@ function applyCustomColors(){ const rs=document.documentElement.style; const cl=
   if(state.navColor){ rs.setProperty("--nav-bg", state.navColor); cl.add("tr-navcolor"); } else cl.remove("tr-navcolor");
   if(state.topbarColor){ rs.setProperty("--topbar-bg", state.topbarColor); cl.add("tr-topcolor"); } else cl.remove("tr-topcolor");
   if(state.rowColor){ rs.setProperty("--row-bg", state.rowColor); cl.add("tr-rowcolor"); } else cl.remove("tr-rowcolor");
+  if(state.inkColor){ rs.setProperty("--ink", state.inkColor); cl.add("tr-inkcolor"); } else cl.remove("tr-inkcolor");
 }
 /* ---------- card label styling ---------- */
 function applyLabelStyle(){ const L=state.label||{}; const rs=document.documentElement.style;
@@ -1711,20 +1830,19 @@ function bgPoolIndices(){
   if(S.source==='sel' && Array.isArray(S.sel) && S.sel.length){ const sel=S.sel.filter(i=>all.indexOf(i)>=0); return sel.length?sel:all; }
   return all;
 }
+function bgNormText(){ const ts=state.bgTextStyle||{}; if(typeof ts.size==="string"){ ts.size = ts.size==="sm"?4:(ts.size==="lg"?9:6); } if(!(ts.size>0)) ts.size=6; ts.size=Math.max(3,Math.min(16,ts.size)); if(ts.x==null||isNaN(ts.x)) ts.x=50; if(ts.y==null||isNaN(ts.y)) ts.y=(ts.pos==="top"?16:(ts.pos==="center"?50:84)); ts.x=Math.max(2,Math.min(98,ts.x)); ts.y=Math.max(4,Math.min(96,ts.y)); if(!ts.color) ts.color="#ffffff"; if(!ts.align) ts.align="center"; state.bgTextStyle=ts; return ts; }
 function bgLayerInnerHtml(idx, fx){
   const src=state.bgImages[idx]; if(!src) return "";
   const meta=(state.bgMeta&&state.bgMeta[idx])||{};
   const filter=bgFilterCss(meta.filter||'none');
   const dim=Math.max(0.2,Math.min(0.9, state.bgDim!=null?state.bgDim:0.6));
-  const text=(meta.text||'').trim();
-  const ts=state.bgTextStyle||{pos:'bottom',size:'md',color:'#ffffff'};
-  const align = ts.pos==='top'?'flex-start':(ts.pos==='center'?'center':'flex-end');
-  const fsize = ts.size==='sm'?'clamp(18px,4vw,30px)':(ts.size==='lg'?'clamp(34px,8vw,74px)':'clamp(24px,6vw,50px)');
+  const layers=bgNormTexts(idx).filter(L=>(L.text||'').trim());
   let html=`<div class="bg-img ${fx?('bg-fx-'+fx):''}" style="background-image:url('${src}');${filter?`filter:${filter};`:''}"></div>`;
   if(state.bgOverlay){ html+=`<div style="position:absolute;inset:0;background:var(--app-bg);opacity:${dim}"></div>`; }
-  if(text){ html+=`<div id="bg-text" style="align-items:${align}"><span style="max-width:90%;text-align:center;font-family:var(--treesh-font-display,inherit);font-weight:800;line-height:1.1;letter-spacing:-0.01em;color:${ts.color};font-size:${fsize};text-shadow:0 2px 20px rgba(0,0,0,0.6)">${esc(text)}</span></div>`; }
+  if(layers.length){ html+=`<div id="bg-text" style="position:absolute;inset:0;pointer-events:none;z-index:2">`+layers.map(L=>{ const base=`position:absolute;left:${L.x}%;top:${L.y}%;transform:translate(-50%,-50%) rotate(${L.rot||0}deg);max-width:92%;white-space:pre-wrap;line-height:1.08;font-size:${L.size}vmin`; if(L.kind==='emoji'){ return `<span style="${base};text-shadow:0 2px 18px rgba(0,0,0,0.45)">${esc(L.text)}</span>`; } return `<span style="${base};text-align:${L.align||'center'};font-family:${bgFontStack(L.font)};font-weight:800;letter-spacing:-0.01em;color:${L.color||'#fff'};text-shadow:0 2px 20px rgba(0,0,0,0.6)">${esc(L.text)}</span>`; }).join('')+`</div>`; }
   return html;
 }
+function bgUpdateTextLive(){ const span=document.querySelector("#bg-text span"); const ts=state.bgTextStyle; if(span&&ts){ span.style.left=ts.x+"%"; span.style.top=ts.y+"%"; span.style.fontSize=ts.size+"vmin"; span.style.color=ts.color; span.style.textAlign=ts.align; } }
 let _bgSlideTimer=null, _bgSlidePos=0;
 function bgStopSlideshow(){ if(_bgSlideTimer){ clearInterval(_bgSlideTimer); _bgSlideTimer=null; } }
 function bgStartSlideshow(){
@@ -1751,6 +1869,7 @@ function renderBackground(){
   if(bg==="solid"||isSpace){ /* body base color shows through */ }
   else if(bg==="accent"){ layer.style.background="radial-gradient(90% 65% at 50% -12%, var(--treesh-purple-soft), transparent 62%)"; layer.innerHTML=`<div style="position:absolute;inset:0;background:var(--treesh-purple);opacity:0.06"></div>`; }
   else if(bg==="custom"){
+    bgEnsureFonts();
     const pool=bgPoolIndices();
     let activeIdx = state.bgImages[state.bgIndex] ? state.bgIndex : (pool.length?pool[0]:-1);
     if(activeIdx>=0 && state.bgImages[activeIdx]){
@@ -2010,6 +2129,51 @@ function searchSongsList(q){ q=(q||"").trim(); if(!q) return []; const by=parseB
 function searchArtistsList(q){ q=(q||"").trim(); if(!q) return []; let scored=[]; for(const a of ARTISTS){ const sc=scoreFields([{text:a.name,weight:1},{text:a.role||"",weight:0.4}],q); if(sc>0) scored.push({a,score:sc}); } scored.sort((x,y)=>y.score-x.score); return scored.map(x=>x.a).slice(0,60); }
 function searchLyricsList(q){ q=(q||"").trim(); if(!q) return []; const qn=normStr(q); const qc=qn.replace(/ /g,""); const out=[]; for(const s of vis(SONGS)){ const lines=s.lyrics||[]; for(let i=0;i<lines.length;i++){ const tx=lines[i]&&lines[i].text; if(!tx) continue; const hn=normStr(tx); if(hn.includes(qn) || (qc.length>=3 && hn.replace(/ /g,"").includes(qc))){ out.push({song:s,line:tx,i,t:lines[i].t}); if(out.length>=60) break; } } if(out.length>=60) break; } return out; }
 function searchEmpty(q){ return `<div class="flex min-h-[38vh] flex-col items-center justify-center gap-3 text-center text-white/50"><i data-lucide="search-x" style="width:38px;height:38px"></i><p class="text-sm">No ${esc(state.searchTab)} match \u201C${esc(q)}\u201D</p></div>`; }
+/* ---- Settings search: a registry of toggleable/openable settings ---- */
+const SETTINGS_INDEX=[
+  { id:'theme', label:'Light mode', desc:'Switch between light and dark theme', kw:'theme dark light appearance mode day night', ic:'sun', type:'toggle',
+    get:()=>state.theme==='light',
+    toggle:()=>{ state.theme=(state.theme==='light'?'dark':'light'); try{LS.set('treesh_theme',state.theme);}catch(e){} applyTheme(); try{renderView(); renderNP();}catch(e){} } },
+  { id:'voice-speak', label:'Spoken replies', desc:'Let the voice assistant talk back out loud', kw:'voice assistant speak talk sound reply audio', ic:'volume-2', type:'toggle',
+    get:()=>!!_voiceSpeak, toggle:()=>{ voiceToggleSpeak(); } },
+  { id:'anim-bg', label:'Animated background', desc:'Drifting starfield behind the app', kw:'animated background starfield stars motion moving', ic:'sparkles', type:'toggle',
+    get:()=>!!state.animBg, toggle:()=>{ state.animBg=!state.animBg; try{LS.set('treesh_anim_bg',state.animBg);}catch(e){} applyUiPrefs(); try{renderView();}catch(e){} } },
+  { id:'ui-glow', label:'Interface glow', desc:'Soft accent glow on buttons and highlights', kw:'glow neon accent light interface highlight', ic:'flashlight', type:'toggle',
+    get:()=>!!state.uiGlow, toggle:()=>{ state.uiGlow=!state.uiGlow; try{LS.set('treesh_ui_glow',state.uiGlow);}catch(e){} applyUiPrefs(); try{renderView();}catch(e){} } },
+  { id:'vinyl', label:'Vinyl record player', desc:'Spin a record instead of the cover art', kw:'vinyl record spin turntable player artwork disc', ic:'disc-3', type:'toggle',
+    get:()=>!!state.vinylMode, toggle:()=>{ state.vinylMode=!state.vinylMode; try{LS.set('treesh_vinyl',state.vinylMode);}catch(e){} try{renderNP();}catch(e){} } },
+  { id:'perf', label:'Performance mode', desc:'Reduce animations for smoother playback', kw:'performance battery smooth reduce lag older device speed', ic:'zap', type:'toggle',
+    get:()=>!!state.perfMode, toggle:()=>{ state.perfMode=!state.perfMode; try{LS.set('treesh_perf',state.perfMode);}catch(e){} applyPerfMode(); try{renderView();}catch(e){} } },
+  { id:'reduce-motion', label:'Reduce motion', desc:'Minimize animations and transitions', kw:'accessibility reduce motion animation transitions', ic:'gauge', type:'toggle',
+    get:()=>!!(state.a11y&&state.a11y.reduceMotion), toggle:()=>{ state.a11y=state.a11y||{}; state.a11y.reduceMotion=!state.a11y.reduceMotion; try{saveA11y(); applyA11y(); renderView();}catch(e){} } },
+  { id:'high-contrast', label:'High contrast', desc:'Boost contrast for readability', kw:'accessibility high contrast readable vision', ic:'contrast', type:'toggle',
+    get:()=>!!(state.a11y&&state.a11y.highContrast), toggle:()=>{ state.a11y=state.a11y||{}; state.a11y.highContrast=!state.a11y.highContrast; try{saveA11y(); applyA11y(); renderView();}catch(e){} } },
+  { id:'bold-text', label:'Bolder text', desc:'Increase text weight across the app', kw:'accessibility bold text weight heavy', ic:'bold', type:'toggle',
+    get:()=>!!(state.a11y&&state.a11y.boldText), toggle:()=>{ state.a11y=state.a11y||{}; state.a11y.boldText=!state.a11y.boldText; try{saveA11y(); applyA11y(); renderView();}catch(e){} } },
+  { id:'dyslexia', label:'Readable font', desc:'Switch to a more legible typeface', kw:'accessibility dyslexia readable font legible', ic:'book-open', type:'toggle',
+    get:()=>!!(state.a11y&&state.a11y.dyslexia), toggle:()=>{ state.a11y=state.a11y||{}; state.a11y.dyslexia=!state.a11y.dyslexia; try{saveA11y(); applyA11y(); renderView();}catch(e){} } },
+  { id:'explain-auto', label:'Auto-show lyric meanings', desc:'Reveal lyric explanations automatically', kw:'lyrics meaning explain auto annotation', ic:'sparkles', type:'toggle',
+    get:()=>!!state.explainAuto, toggle:()=>{ state.explainAuto=!state.explainAuto; try{LS.set('treesh_explain_auto',state.explainAuto); renderView(); if(state.npOpen) renderNP();}catch(e){} } },
+  { id:'explicit', label:'Explicit content', desc:'Unlock explicit tracks (re-locks on reopen)', kw:'explicit content lock adult mature parental clean', ic:'shield', type:'toggle',
+    get:()=>!!state.explicitUnlocked, toggle:()=>{ if(state.explicitUnlocked) lockExplicit(); else unlockExplicit(); } },
+  { id:'equalizer', label:'Equalizer', desc:'Enable the graphic equalizer', kw:'eq equalizer bass treble sound tone audio', ic:'audio-lines', type:'toggle',
+    get:()=>!!(state.eq&&state.eq.enabled), toggle:()=>{ state.eq=state.eq||{}; const on=!state.eq.enabled; state.eq.enabled=on; try{ if(on){ eqEnsure(); } else { eqApply(); } saveEq(); }catch(e){} } },
+  /* quick jumps */
+  { id:'go-eq', label:'Open equalizer', desc:'Fine-tune bass, mids and treble', kw:'equalizer eq open bass treble presets', ic:'sliders-horizontal', type:'action',
+    go:()=>{ closeSearch(); setTimeout(()=>{ try{ openEqualizer(); }catch(e){} },210); } },
+  { id:'go-sleep', label:'Sleep timer', desc:'Fade out and stop after a set time', kw:'sleep timer bedtime stop fade night clock', ic:'moon-star', type:'action',
+    go:()=>{ closeSearch(); setTimeout(()=>{ try{ showSleepOverlay(); }catch(e){} },210); } },
+  { id:'go-appearance', label:'Appearance & colors', desc:'Theme, accent, fonts, surfaces & font color', kw:'appearance theme accent color font background wallpaper surface text', ic:'palette', type:'action',
+    go:()=>{ state.settingsTab='display'; closeSearch(); setTimeout(()=>{ try{ navigate('settings'); }catch(e){} },210); } },
+  { id:'go-backdrops', label:'Backdrops & wallpaper', desc:'Image backdrops with text and stickers', kw:'backdrop wallpaper background image sticker photo', ic:'image', type:'action',
+    go:()=>{ closeSearch(); setTimeout(()=>{ try{ openBackdrops(); }catch(e){} },210); } },
+  { id:'go-voice', label:'Voice commands', desc:'Create and edit custom voice commands', kw:'voice command macro assistant mic custom', ic:'mic', type:'action',
+    go:()=>{ state.settingsTab = VOICE_OK?'voice':'display'; closeSearch(); setTimeout(()=>{ try{ navigate('settings'); }catch(e){} },210); } }
+];
+function searchSettingsList(q){ q=(q||'').trim(); if(!q) return SETTINGS_INDEX.slice(); let scored=[]; for(const it of SETTINGS_INDEX){ const sc=scoreFields([{text:it.label,weight:1},{text:it.desc||'',weight:0.5},{text:it.kw||'',weight:0.7}], q); if(sc>0) scored.push({it,score:sc}); } scored.sort((a,b)=>b.score-a.score); return scored.map(x=>x.it); }
+function settingsResultRow(it){ const isToggle=it.type==='toggle'; const on=isToggle?!!it.get():false;
+  return `<button data-act="${isToggle?'settings-search-toggle':'settings-search-go'}" data-sid="${it.id}" data-testid="search-setting-${it.id}" ${isToggle?`aria-pressed="${on}" role="switch" aria-checked="${on}"`:''} class="press flex w-full items-center gap-3 rounded-2xl border ${isToggle&&on?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/[0.10]':'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'} p-3 text-left"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl ${isToggle&&on?'bg-[color:var(--treesh-purple)] text-white':'bg-white/10 text-white/65'}"><i data-lucide="${it.ic||'settings'}" style="width:18px;height:18px"></i></span><span class="min-w-0 flex-1"><span class="clamp-1 block text-sm font-semibold">${esc(it.label)}</span><span class="clamp-1 block text-xs text-white/50">${esc(it.desc||'')}</span></span>${isToggle?`<span class="relative grid h-6 w-11 shrink-0 rounded-full ${on?'bg-[color:var(--treesh-purple)]':'bg-white/15'}"><span class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" style="left:2px;transform:translateX(${on?'20px':'0px'})"></span></span>`:`<i data-lucide="chevron-right" class="shrink-0 text-white/35" style="width:18px;height:18px"></i>`}</button>`;
+}
 function searchResultsHtml(){
   const q=(state.searchQuery||"").trim();
   if(!q){
@@ -2147,10 +2311,10 @@ function songRow(s, i, removable, act, opts){ opts=opts||{}; const clean=!!opts.
       <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
     </div>
     ${(!clean&&s.genre)?`<span class="hidden md:inline rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45">${esc(s.genre)}</span>`:""}
-    ${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="hidden sm:inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}
+    ${(mp && !opts.manager)?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="hidden sm:inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}
     ${(s._user&&opts.manager)?`<button data-act="m-edit-details" data-id="${s.id}" aria-label="Edit details" title="Edit details" data-testid="mm-edit-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="m-remove-upload" data-id="${s.id}" aria-label="Delete track" title="Delete" data-testid="mm-trash-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-rose-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>`:""}
     ${(!s._user||!opts.manager)?`<button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-like-${s.id}" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>`:""}
-    ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" aria-label="More options" class="press grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:18px;height:18px"></i></button>`}
+    ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:(opts.manager?'':`<button data-act="songmenu" data-id="${s.id}" aria-label="More options" class="press grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:18px;height:18px"></i></button>`)}
   </div>`; }
 
 function grid(list, act, opts){ return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">${list.map(s=>songCard(s,act,opts)).join("")}</div>`; }
@@ -2699,7 +2863,7 @@ const STORAGE_GROUPS=[
   { id:"library", label:"Library & playlists", icon:"library-big", desc:"Playlists, favorites, dislikes & lyric edits", keys:["treesh_playlists","treesh_favorites","treesh_dislikes","treesh_fav_lyrics","treesh_lyric_edits"] },
   { id:"beats", label:"Beats & presets", icon:"drum", desc:"Instrum projects and your custom presets", keys:["treesh_beats","treesh_user_presets"] },
   { id:"activity", label:"Games & rewards", icon:"trophy", desc:"Game stats, This or That & Starlites", keys:["treesh_game_stats","treesh_game_opts","treesh_tot","treesh_stars","treesh_stats"] },
-  { id:"personalize", label:"Appearance & profile", icon:"palette", desc:"Profile, theme, colors, fonts & background", keys:["treesh_profile","treesh_accent","treesh_theme","treesh_bg","treesh_bg_image","treesh_bg_overlay","treesh_text_size","treesh_anim_bg","treesh_ui_glow","treesh_sleep","treesh_vinyl","treesh_lib_grid","treesh_game_grid","treesh_viz","treesh_nav_color","treesh_topbar_color","treesh_row_color","treesh_font","treesh_custom_font","treesh_label","treesh_notif_nav","treesh_explain_auto","treesh_perf","treesh_perf_opts","treesh_bday_edits"] },
+  { id:"personalize", label:"Appearance & profile", icon:"palette", desc:"Profile, theme, colors, fonts & background", keys:["treesh_profile","treesh_accent","treesh_theme","treesh_bg","treesh_bg_image","treesh_bg_overlay","treesh_text_size","treesh_anim_bg","treesh_ui_glow","treesh_sleep","treesh_vinyl","treesh_lib_grid","treesh_game_grid","treesh_viz","treesh_nav_color","treesh_topbar_color","treesh_row_color","treesh_ink_color","treesh_font","treesh_custom_font","treesh_label","treesh_notif_nav","treesh_explain_auto","treesh_perf","treesh_perf_opts","treesh_bday_edits"] },
   { id:"cache", label:"Cache", icon:"database", desc:"Offline catalog copy & recent searches", keys:[CATALOG_KEY,"treesh_recent_searches"] },
   { id:"security", label:"Security", icon:"shield", desc:"App lock & parent PIN", keys:["treesh_lock","treesh_parent_pin"] },
 ];
@@ -3069,6 +3233,14 @@ function viewSettings(){
     </div>
 
     <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+      <div class="mb-1 flex items-center justify-between gap-2"><div class="flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="type" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Font color</h2></div>${state.inkColor?`<button data-act="reset-ink-color" data-testid="reset-ink-color" class="press rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10">Reset</button>`:''}</div>
+      <p class="mb-4 pl-11 text-sm text-white/50">Tint the main text across the app. Pick a shade that stays readable with your theme.</p>
+      <div class="space-y-2.5">
+        ${colorRow('set-ink-color','reset-ink-color',state.inkColor,'baseline','Text color','Headings &amp; primary text')}
+      </div>
+    </div>
+
+    <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <div class="mb-1 flex items-center justify-between gap-2"><div class="flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="tag" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Card labels</h2></div><button data-act="reset-label" class="press rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10">Reset</button></div>
       <p class="mb-4 pl-11 text-sm text-white/50">Style badges like \u201cTreesh\u2019s Pick\u201d.</p>
       <div class="mb-4 flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] py-6"><span class="tr-label inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] backdrop-blur"><i data-lucide="sparkles" style="width:12px;height:12px"></i>Treesh\u2019s Pick</span></div>
@@ -3125,13 +3297,24 @@ function viewSettings(){
      </div>
      <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
        <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="wand-2" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Custom voice commands</h2></div>
-       <p class="mb-4 pl-11 text-sm text-white/50">Create your own trigger phrase and the steps it runs. Separate steps with commas or the word \u201Cthen\u201D \u2014 e.g. <span class="text-white/70">shuffle, then play, then volume up</span>.</p>
-       <div class="mb-4 space-y-2">
-         <input id="vm-phrase" data-testid="voice-macro-phrase" placeholder="Trigger phrase \u2014 e.g. party mode" class="h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
-         <input id="vm-steps" data-testid="voice-macro-steps" placeholder="Steps \u2014 e.g. shuffle, then play" class="h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
-         <button data-act="voice-macro-add" data-testid="voice-macro-add" class="press inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple"><i data-lucide="plus" style="width:16px;height:16px"></i>Save command</button>
+       <p class="mb-4 pl-11 text-sm text-white/50">Give a trigger phrase the steps it should run. Tap actions below to add them, or type your own separated by commas or \u201Cthen\u201D.</p>
+       <div class="mb-3 space-y-2">
+         <input id="vm-phrase" data-testid="voice-macro-phrase" value="${_vmEditId?esc((_voiceMacros.find(x=>x.id===_vmEditId)||{}).phrase||''):''}" placeholder="Trigger phrase \u2014 e.g. party mode" class="h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
+         <input id="vm-steps" data-testid="voice-macro-steps" value="${_vmEditId?esc(((_voiceMacros.find(x=>x.id===_vmEditId)||{}).steps||[]).join(', ')):''}" placeholder="Steps \u2014 e.g. shuffle, then play" class="h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]">
        </div>
-       ${_voiceMacros.length?`<div class="space-y-2">${_voiceMacros.map(mm=>`<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="wand-2" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">\u201C${esc(mm.phrase)}\u201D</p><p class="clamp-1 text-xs text-white/45">${esc((mm.steps||[]).join(' \u2192 '))}</p></div><button data-act="voice-macro-del" data-id="${mm.id}" data-testid="voice-macro-del-${mm.id}" aria-label="Delete command" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`:`<p class="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-5 text-center text-sm text-white/40">No custom commands yet \u2014 create one above.</p>`}
+       <details class="mb-3 rounded-2xl border border-white/10 bg-white/[0.02] px-3.5 py-2" open>
+         <summary class="cursor-pointer list-none py-1 text-[11px] font-bold uppercase tracking-wide text-white/50">Tap to add an action</summary>
+         <div class="space-y-2.5 pb-1 pt-2.5">
+           <div class="flex justify-end"><button data-act="voice-steps-clear" data-testid="voice-steps-clear" class="text-[11px] font-semibold text-white/45 hover:text-white/80">Clear steps</button></div>
+           ${VOICE_STEP_PICKS.map(cat=>`<div><p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-white/35">${cat[0]}</p><div class="flex flex-wrap gap-1.5">${cat[1].map(c=>`<button data-act="voice-step-add" data-step="${esc(c)}" class="press rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/75 hover:border-[color:var(--treesh-purple)]/50 hover:bg-[color:var(--treesh-purple)]/12 hover:text-white">${esc(c)}</button>`).join('')}</div></div>`).join('')}
+           <div class="pt-0.5"><p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-white/35">Quick templates</p><div class="flex flex-wrap gap-1.5">${VOICE_TEMPLATES.map((tp,i)=>`<button data-act="voice-template" data-i="${i}" class="press inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/35 bg-[color:var(--treesh-gold)]/10 px-2.5 py-1 text-[11px] font-semibold text-[color:var(--treesh-gold)] hover:bg-[color:var(--treesh-gold)]/18"><i data-lucide="sparkles" style="width:11px;height:11px"></i>${esc(tp.phrase)}</button>`).join('')}</div></div>
+         </div>
+       </details>
+       <div class="mb-4 flex gap-2">
+         <button data-act="voice-macro-add" data-testid="voice-macro-add" class="press inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[color:var(--treesh-purple)] text-sm font-semibold text-white glow-purple"><i data-lucide="${_vmEditId?'check':'plus'}" style="width:16px;height:16px"></i>${_vmEditId?'Update command':'Save command'}</button>
+         ${_vmEditId?`<button data-act="voice-macro-cancel-edit" data-testid="voice-macro-cancel-edit" class="press inline-flex h-11 items-center justify-center rounded-xl border border-white/12 bg-white/5 px-4 text-sm font-semibold text-white/70 hover:bg-white/10">Cancel</button>`:''}
+       </div>
+       ${_voiceMacros.length?`<div class="space-y-2">${_voiceMacros.map(mm=>`<div class="flex items-center gap-3 rounded-2xl border ${_vmEditId===mm.id?'border-[color:var(--treesh-purple)]/50 bg-[color:var(--treesh-purple)]/[0.08]':'border-white/10 bg-white/[0.03]'} px-3.5 py-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="wand-2" style="width:16px;height:16px"></i></span><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">\u201C${esc(mm.phrase)}\u201D</p><p class="clamp-1 text-xs text-white/45">${esc((mm.steps||[]).join(' \u2192 '))}</p></div><button data-act="voice-macro-edit" data-id="${mm.id}" data-testid="voice-macro-edit-${mm.id}" aria-label="Edit command" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="voice-macro-del" data-id="${mm.id}" data-testid="voice-macro-del-${mm.id}" aria-label="Delete command" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button></div>`).join("")}</div>`:`<p class="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-5 text-center text-sm text-white/40">No custom commands yet \u2014 create one above.</p>`}
      </div>
    </section>
 
@@ -3245,7 +3428,7 @@ const WHATS_NEW = {
     { icon:"drum", title:"Presets, swing and metronome", desc:"Start from a preset, add groove with swing, keep time with the metronome, then save your beats on this device." },
     { icon:"maximize-2", title:"Full screen mode", desc:"Give the grid the whole screen when you want more room to build." },
   ]},
-  game: { v:1, title:"Games", sub:"More ways to play and win.", items:[
+  game: { v:1, title:"Games & Things", sub:"More ways to play and win.", items:[
     { icon:"gamepad-2", title:"What's Next", desc:"Train your ear by guessing the track that comes next and build up a streak." },
     { icon:"swords", title:"This or That", desc:"Two clips go head to head. Pick your favorite and crown a champion." },
     { icon:"trophy", title:"Starlites rewards", desc:"Earn Starlites as you play and keep an eye on your stats over time." },
@@ -3342,12 +3525,16 @@ function viewBlog(){
 
 /* ---------- Games arcade (embedded iframe games) ---------- */
 const GAMES=[
-  {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'https://64.media.tumblr.com/1fd0db4d82ed14192794f682ab768843/e4c300405ca5fd6e-fc/s1280x1920/dca2d086ba9e13671a9f45a186e0c792636d7be3.png', banner:'https://64.media.tumblr.com/a7702e3ce56a7902d5ea66fd32d97ded/d05b67bfd24521c9-70/s1280x1920/9f7d5339d7475e71226af55500432429369a2c93.png', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'July 28, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
+  {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'https://64.media.tumblr.com/1fd0db4d82ed14192794f682ab768843/e4c300405ca5fd6e-fc/s1280x1920/dca2d086ba9e13671a9f45a186e0c792636d7be3.png', banner:'https://64.media.tumblr.com/a7702e3ce56a7902d5ea66fd32d97ded/d05b67bfd24521c9-70/s1280x1920/9f7d5339d7475e71226af55500432429369a2c93.png', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'September 30, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
   {key:'vocotap', name:'Vocotap', url:'https://treesh.app/games/vocotap', logo:'https://64.media.tumblr.com/a357f99f483f505944ed61ffbf91b627/4e72d08b7a6373f7-5b/s1280x1920/d3c5f169e906422bdb6ddd62f303634dde4b4b82.png', banner:'https://64.media.tumblr.com/d98166e80ddeb9217260a083247df1b3/c06c3fcd705d5320-b3/s1280x1920/05620948bd3dfb29596125826783f3204a891337.png', mono:'V', a:'#e0567a', b:'#7a2540', age:'PG-13', updated:'September 20, 2026', desc:'Tap in time with the vocals! Play along with tracks from Treesh Music or upload your own, then test your rhythm and rack up combos.'},
-  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', banner:'https://64.media.tumblr.com/12c5bcd00d6eab86052e258de28b19c9/b6dc260cabef24e0-5c/s400x600/ef38354ebff5bd73f43312be103d4b08f63f0a31.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'June 20, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},,
+  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', banner:'https://64.media.tumblr.com/12c5bcd00d6eab86052e258de28b19c9/b6dc260cabef24e0-5c/s400x600/ef38354ebff5bd73f43312be103d4b08f63f0a31.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'September 30, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},
   {key:'nects', name:'Nects', url:'https://treesh.app/games/nects', logo:'https://64.media.tumblr.com/1262b7cc04c787803b22c81af52e91a7/f03bc58006e10b13-94/s1280x1920/3f25f6b1f824f57464f60a2220db75167ad18e21.png', mono:'N', a:'#1f9a9a', b:'#0d5757', age:'6+', updated:'July 26, 2026', desc:'A four-in-a-row showdown. Spot and connect the right emoji on the board before your opponent does.'}
 ];
-const GAME_BY_KEY={}; GAMES.forEach(g=>GAME_BY_KEY[g.key]=g);
+/* ---------- Things: Treesh mini-apps & tools (open in the same frame as games) ---------- */
+const THINGS=[
+  {key:'hoop', name:'Hoop from Treesh', url:'https://treesh.app/hoop', logo:'', banner:'', mono:'H', a:'#f97316', b:'#9a3412', age:'All', updated:'September 30, 2026', desc:'Your basketball home base. Find the nearest courts on a live map, run games like 21, HORSE and Around the World, follow guided workouts and drills, and more.'}
+];
+const GAME_BY_KEY={}; [...GAMES,...THINGS].forEach(g=>{ if(g) GAME_BY_KEY[g.key]=g; });
 function gameTile(g){
   return `<button data-act="game-open" data-key="${g.key}" data-testid="game-open-${g.key}" aria-label="Play ${esc(g.name)}" class="press card-lift group relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-center backdrop-blur-sm">
     <span class="pointer-events-none absolute inset-x-0 -top-8 h-20 opacity-40 blur-2xl" style="background:linear-gradient(135deg,${g.a},${g.b})"></span>
@@ -3360,6 +3547,13 @@ function gamesArcadeHtml(){
     <div class="mb-2 flex items-center gap-2"><i data-lucide="joystick" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i><h2 class="text-lg font-bold">Arcade</h2></div>
     <p class="mb-3 text-sm text-white/55">More Treesh games, right here. Minimize any game to keep browsing while you play.</p>
     <div class="grid grid-cols-3 gap-3">${GAMES.map(gameTile).join("")}</div>
+  </div>`;
+}
+function thingsSectionHtml(){
+  return `<div data-testid="things-section">
+    <div class="mb-2 flex items-center gap-2"><i data-lucide="shapes" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i><h2 class="text-lg font-bold">Things</h2></div>
+    <p class="mb-3 text-sm text-white/55">Treesh apps and tools beyond games. Tap to open \u2014 minimize any one to keep browsing.</p>
+    <div class="grid grid-cols-3 gap-3">${THINGS.map(gameTile).join("")}</div>
   </div>`;
 }
 function openGameInfo(key){
@@ -4085,6 +4279,7 @@ function gameHomeHtml(){ const st=state.gameStats||{}; const tw=state.totWins||{
       <div class="relative mt-4 flex flex-wrap gap-2 text-[11px] font-semibold text-white/70"><span class="rounded-full bg-black/25 px-2.5 py-1">${tw.plays||0} rounds played</span><span class="rounded-full bg-black/25 px-2.5 py-1">Best streak ${tw.bestStreak||0}</span></div>
     </button>
     ${gamesArcadeHtml()}
+    ${thingsSectionHtml()}
   </div>`;
 }
 function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.totWins||{wins:{}}; const wins=tw.wins||{};
@@ -4104,7 +4299,7 @@ function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.
 function viewGame(){ const tab=state.gameTab||"home"; const open=!!state.gameStatsOpen; const pts=fmtNum((state.stars&&state.stars.points)||0);
   return `<div class="space-y-6">
     <div class="flex items-start justify-between gap-3">
-      <div><p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">Games</h1></div>
+      <div><p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">Games &amp; Things</h1></div>
       <button data-act="game-stats-toggle" data-testid="game-starlites" aria-expanded="${open?'true':'false'}" aria-label="Starlites and stats" class="press inline-flex shrink-0 items-center gap-2 rounded-2xl border border-[color:var(--treesh-gold)]/30 bg-[color:var(--treesh-gold)]/[0.1] px-3 py-2 transition-colors hover:bg-[color:var(--treesh-gold)]/[0.16]">
         <span class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:16px;height:16px"></i></span>
         <span class="text-left leading-none"><span class="block text-[9px] font-semibold uppercase tracking-[0.12em] text-white/50">Starlites</span><span class="mt-0.5 block font-doto text-lg font-bold leading-none text-white" data-star-count>${pts}</span></span>
@@ -6494,9 +6689,24 @@ const VOICE_HELP=[
   ["Playback",["play","pause","stop","resume","next song","previous song","restart this song","play it again"]],
   ["Volume & seek",["volume up","volume down","set volume to 50","mute","unmute","full volume","skip ahead 30 seconds","rewind 10 seconds","go to 1:30"]],
   ["Find & play",["play blinding lights","play something by drake","play my favorites","shuffle my music","repeat this song","repeat all","search love"]],
-  ["Get around",["open now playing","open queue","open favorites","open equalizer","open studios","open games","open settings","open profile","go home"]],
+  ["Get around",["open now playing","open queue","open favorites","open equalizer","open studios","open games","open settings","open profile","go home","open search"]],
   ["Look & feel",["dark mode","light mode","change theme to blue","accent purple","make it green","performance mode on","animated background off","equalizer on"]],
-  ["Extras",["karaoke mode on","sleep timer 20 minutes","what's playing","who sings this","favorite this song","help","close"]]
+  ["Extras",["karaoke mode on","sleep timer 20 minutes","what's playing","who sings this","what album is this","favorite this song","unfavorite this song","help","close"]]
+];
+/* built-in single actions the macro builder can add with one tap (all supported by voiceExec) */
+const VOICE_STEP_PICKS=[
+  ["Playback",["play","pause","next song","previous song","restart this song","shuffle","repeat all","repeat this song"]],
+  ["Volume",["volume up","volume down","full volume","set volume to 50","mute","unmute"]],
+  ["Navigate",["open now playing","open queue","open favorites","open equalizer","open search","go home","open settings"]],
+  ["Look & feel",["dark mode","light mode","accent purple","performance mode on","animated background off","karaoke mode on"]],
+  ["Extras",["favorite this song","sleep timer 20 minutes"]]
+];
+/* one-tap starter recipes: fill both the trigger phrase and its steps */
+const VOICE_TEMPLATES=[
+  {phrase:"party mode", steps:["shuffle","play","full volume"]},
+  {phrase:"study mode", steps:["open favorites","repeat all","play"]},
+  {phrase:"wind down", steps:["light mode","volume down","sleep timer 20 minutes"]},
+  {phrase:"focus", steps:["dark mode","performance mode on","play"]}
 ];
 function voiceRender(){ const el=$("#voice-ov"); if(!el) return; const body=el.querySelector("[data-voice-body]"); if(!body) return; const ae=document.activeElement; const wasTyping=!!(ae&&ae.id==="voice-input"); const caret=wasTyping?ae.selectionStart:null; body.innerHTML=voiceBodyHtml(); icons(); if(wasTyping){ const ni=$("#voice-input"); if(ni){ try{ ni.focus(); if(caret!=null) ni.setSelectionRange(caret,caret); }catch(e){} } } }
 function voiceHeader(title, sub){
@@ -6710,7 +6920,16 @@ function voiceExec(c){
   return null;
 }
 /* ---- custom command (macro) management from Settings ---- */
-function voiceMacroAddFromInputs(){ const p=$("#vm-phrase"), s=$("#vm-steps"); if(!p) return; const phrase=(p.value||'').trim(); const stepsRaw=(s?s.value:'').trim(); if(!phrase){ toast("Enter a trigger phrase"); return; } if(!stepsRaw){ toast("Enter what it should do","e.g. shuffle, then play"); return; } const steps=stepsRaw.split(/\s*(?:,|;|\bthen\b|\band then\b)\s*/i).map(x=>x.trim()).filter(Boolean); if(!steps.length){ toast("Add at least one step"); return; } _voiceMacros.push({id:'vm'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), phrase, steps}); voiceSaveMacros(); toast("Voice command saved","\u201C"+phrase+"\u201D"); if(state.view==='settings') renderView(); }
+let _vmEditId=null;
+function voiceMacroAddFromInputs(){ const p=$("#vm-phrase"), s=$("#vm-steps"); if(!p) return; const phrase=(p.value||'').trim(); const stepsRaw=(s?s.value:'').trim(); if(!phrase){ toast("Enter a trigger phrase"); return; } if(!stepsRaw){ toast("Enter what it should do","e.g. shuffle, then play"); return; } const steps=stepsRaw.split(/\s*(?:,|;|\bthen\b|\band then\b)\s*/i).map(x=>x.trim()).filter(Boolean); if(!steps.length){ toast("Add at least one step"); return; }
+  if(_vmEditId){ const mm=_voiceMacros.find(x=>x.id===_vmEditId); if(mm){ mm.phrase=phrase; mm.steps=steps; } _vmEditId=null; voiceSaveMacros(); toast("Voice command updated","\u201C"+phrase+"\u201D"); }
+  else { _voiceMacros.push({id:'vm'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), phrase, steps}); voiceSaveMacros(); toast("Voice command saved","\u201C"+phrase+"\u201D"); }
+  if(state.view==='settings') renderView(); }
+function voiceMacroEdit(id){ if(!_voiceMacros.some(x=>x.id===id)) return; _vmEditId=id; if(state.view==='settings') renderView(); setTimeout(()=>{ const p=$("#vm-phrase"); if(p){ try{ p.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){} p.focus(); } },60); }
+function voiceMacroCancelEdit(){ _vmEditId=null; if(state.view==='settings') renderView(); }
+function voiceStepAdd(step){ const s=$("#vm-steps"); if(!s||!step) return; const cur=(s.value||'').trim(); s.value = cur ? (cur.replace(/[\s,]+$/,'')+', '+step) : step; s.focus(); try{ s.setSelectionRange(s.value.length,s.value.length); }catch(_){} }
+function voiceStepsClear(){ const s=$("#vm-steps"); if(s){ s.value=''; s.focus(); } }
+function voiceTemplate(i){ const tp=VOICE_TEMPLATES[i]; if(!tp) return; const p=$("#vm-phrase"), s=$("#vm-steps"); if(p) p.value=tp.phrase; if(s) s.value=(tp.steps||[]).join(', '); if(p) p.focus(); toast("Template loaded","Tweak it, then Save command"); }
 function voiceMacroDelete(id){ _voiceMacros=_voiceMacros.filter(x=>x.id!==id); voiceSaveMacros(); if(state.view==='settings') renderView(); }
 
 /* ============================================================
@@ -6728,6 +6947,7 @@ document.addEventListener("input", e=>{
   if(act==="set-nav-color"){ state.navColor=el.value; LS.set("treesh_nav_color",el.value); applyCustomColors(); return; }
   if(act==="set-topbar-color"){ state.topbarColor=el.value; LS.set("treesh_topbar_color",el.value); applyCustomColors(); return; }
   if(act==="set-row-color"){ state.rowColor=el.value; LS.set("treesh_row_color",el.value); applyCustomColors(); return; }
+  if(act==="set-ink-color"){ state.inkColor=el.value; LS.set("treesh_ink_color",el.value); applyCustomColors(); return; }
   if(act==="set-label-text"){ state.label.text=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   if(act==="set-label-bg"){ state.label.bg=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   if(act==="set-label-border-color"){ state.label.borderColor=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
@@ -7086,13 +7306,18 @@ document.addEventListener("click", e=>{
     case "lib-load-more": { const k=t.dataset.key||""; const size=state.libPageSize||0; if(!state._pageShown) state._pageShown={}; state._pageShown[k]=(state._pageShown[k]||size)+size; renderView(); break; }
     case "toggle-bg-overlay": { state.bgOverlay=!state.bgOverlay; LS.set("treesh_bg_overlay",state.bgOverlay); renderBackground(); if(document.querySelector('[data-testid="backdrops-modal"]')){ refreshBackdrops(); } else { renderView(); } break; }
     case "open-backdrops": openBackdrops(); break;
-    case "bd-focus": { const i=parseInt(t.dataset.idx,10)||0; if(state.bgImages[i]){ state.bgFocus=i; if(!(state.bgSlide&&state.bgSlide.on)){ state.bgIndex=i; state.bg="custom"; LS.set("treesh_bg","custom"); bgSaveImages(); } renderBackground(); refreshBackdrops(); } break; }
+    case "bd-focus": { const i=parseInt(t.dataset.idx,10)||0; if(state.bgImages[i]){ state.bgFocus=i; state.bgTextSel=null; if(!(state.bgSlide&&state.bgSlide.on)){ state.bgIndex=i; state.bg="custom"; LS.set("treesh_bg","custom"); bgSaveImages(); } renderBackground(); refreshBackdrops(); } break; }
     case "bd-remove": { const i=parseInt(t.dataset.idx,10); if(state.bgImages[i]!=null){ state.bgImages.splice(i,1); if(Array.isArray(state.bgMeta)) state.bgMeta.splice(i,1); if(state.bgSlide&&Array.isArray(state.bgSlide.sel)){ state.bgSlide.sel=state.bgSlide.sel.filter(x=>x!==i).map(x=>x>i?x-1:x); bgSaveSlide(); } if(state.bgIndex>=state.bgImages.length) state.bgIndex=Math.max(0,state.bgImages.length-1); if(state.bgFocus>=state.bgImages.length) state.bgFocus=Math.max(0,state.bgImages.length-1); bgSaveImages(); renderBackground(); renderView(); refreshBackdrops(); toast(state.bgImages.length?"Backdrop removed":"All backdrops removed"); } break; }
     case "bd-filter": { const i=state.bgFocus||0; if(state.bgImages[i]){ bgMetaAt(i).filter=t.dataset.f||'none'; bgSaveMeta(); renderBackground(); refreshBackdrops(); } break; }
     case "bd-apply-filter-all": { const i=state.bgFocus||0; const f=(bgMetaAt(i).filter)||'none'; (state.bgImages||[]).forEach((s,idx)=>{ if(s) bgMetaAt(idx).filter=f; }); bgSaveMeta(); renderBackground(); refreshBackdrops(); toast("Filter applied to all"); break; }
-    case "bd-apply-text-all": { const i=state.bgFocus||0; const tx=(bgMetaAt(i).text)||''; (state.bgImages||[]).forEach((s,idx)=>{ if(s) bgMetaAt(idx).text=tx; }); bgSaveMeta(); renderBackground(); refreshBackdrops(); toast(tx?"Text applied to all":"Text cleared on all"); break; }
-    case "bd-text-pos": { if(!state.bgTextStyle) state.bgTextStyle={}; state.bgTextStyle.pos=t.dataset.v||'bottom'; bgSaveTextStyle(); renderBackground(); refreshBackdrops(); break; }
-    case "bd-text-size": { if(!state.bgTextStyle) state.bgTextStyle={}; state.bgTextStyle.size=t.dataset.v||'md'; bgSaveTextStyle(); renderBackground(); refreshBackdrops(); break; }
+    case "bd-apply-text-all": { const idx=bdFocusIdx(); const src=bgNormTexts(idx); (state.bgImages||[]).forEach((s,i)=>{ if(!s||i===idx) return; bgMetaAt(i).texts=src.map(L=>Object.assign({},L,{id:bgUID()})); }); bgSaveMeta(); renderBackground(); refreshBackdrops(); toast(src.length?"Layers copied to all backdrops":"Layers cleared on all"); break; }
+    case "bd-text-pos": { const L=bdSelLayer(); if(L){ const v=t.dataset.v||'bottom'; L.y=(v==='top'?16:(v==='center'?50:84)); bgSaveMeta(); renderBackground(); refreshBackdrops(); } break; }
+    case "bd-text-align": { const L=bdSelLayer(); if(L){ L.align=t.dataset.v||'center'; bgSaveMeta(); renderBackground(); refreshBackdrops(); } break; }
+    case "bd-text-font": { bdSetTextFont(t.dataset.font||''); break; }
+    case "bd-text-select": { state.bgTextSel=t.dataset.id; refreshBackdrops(); break; }
+    case "bd-text-add": { const idx=bdFocusIdx(); const arr=bgNormTexts(idx); if(arr.length>=10){ toast("Limit reached","Up to 10 layers per backdrop"); break; } const L={id:bgUID(),kind:'text',text:'Text',x:50,y:50,size:6,rot:0,color:'#ffffff',align:'center',font:''}; arr.push(L); state.bgTextSel=L.id; bgSaveMeta(); renderBackground(); refreshBackdrops(); break; }
+    case "bd-emoji-add": { const idx=bdFocusIdx(); const arr=bgNormTexts(idx); if(arr.length>=10){ toast("Limit reached","Up to 10 layers per backdrop"); break; } const em=t.dataset.em||"\u2728"; const L={id:bgUID(),kind:'emoji',text:em,x:50,y:50,size:12,rot:0,color:'#ffffff',align:'center',font:''}; arr.push(L); state.bgTextSel=L.id; bgSaveMeta(); renderBackground(); refreshBackdrops(); break; }
+    case "bd-text-delete": { const idx=bdFocusIdx(); const arr=bgNormTexts(idx); const i=arr.findIndex(L=>L.id===state.bgTextSel); if(i>=0){ arr.splice(i,1); state.bgTextSel = arr.length? arr[Math.max(0,i-1)].id : null; bgSaveMeta(); renderBackground(); refreshBackdrops(); } break; }
     case "bd-slide-toggle": { if(!state.bgSlide) state.bgSlide={}; state.bgSlide.on=!state.bgSlide.on; bgSaveSlide(); if(state.bg==="custom") renderBackground(); refreshBackdrops(); break; }
     case "bd-slide-source": { if(!state.bgSlide) state.bgSlide={}; state.bgSlide.source=t.dataset.v||'all'; if(state.bgSlide.source==='sel'&&!Array.isArray(state.bgSlide.sel)) state.bgSlide.sel=[]; bgSaveSlide(); if(state.bg==="custom"&&state.bgSlide.on) renderBackground(); refreshBackdrops(); break; }
     case "bd-slide-order": { if(!state.bgSlide) state.bgSlide={}; state.bgSlide.order=t.dataset.v||'seq'; bgSaveSlide(); refreshBackdrops(); break; }
@@ -7109,6 +7334,7 @@ document.addEventListener("click", e=>{
     case "reset-nav-color": { state.navColor=""; LS.set("treesh_nav_color",""); applyCustomColors(); renderView(); break; }
     case "reset-topbar-color": { state.topbarColor=""; LS.set("treesh_topbar_color",""); applyCustomColors(); renderView(); break; }
     case "reset-row-color": { state.rowColor=""; LS.set("treesh_row_color",""); applyCustomColors(); renderView(); break; }
+    case "reset-ink-color": { state.inkColor=""; LS.set("treesh_ink_color",""); applyCustomColors(); renderView(); toast("Font color reset"); break; }
     case "reset-all-colors": { state.navColor=state.topbarColor=state.rowColor=""; LS.set("treesh_nav_color",""); LS.set("treesh_topbar_color",""); LS.set("treesh_row_color",""); applyCustomColors(); renderView(); toast("Surface colors reset"); break; }
     case "toggle-label-border": { state.label.border=!state.label.border; LS.set("treesh_label",state.label); applyLabelStyle(); renderView(); break; }
     case "toggle-label-shadow": { state.label.shadow=!state.label.shadow; LS.set("treesh_label",state.label); applyLabelStyle(); renderView(); break; }
@@ -7161,6 +7387,11 @@ document.addEventListener("click", e=>{
     case "voice-help-toggle": voiceToggleHelp(); break;
     case "voice-macro-add": voiceMacroAddFromInputs(); break;
     case "voice-macro-del": voiceMacroDelete(t.dataset.id); break;
+    case "voice-macro-edit": voiceMacroEdit(t.dataset.id); break;
+    case "voice-macro-cancel-edit": voiceMacroCancelEdit(); break;
+    case "voice-step-add": voiceStepAdd(t.dataset.step); break;
+    case "voice-steps-clear": voiceStepsClear(); break;
+    case "voice-template": voiceTemplate(parseInt(t.dataset.i,10)||0); break;
     case "retry-load": retryLoad(); break;
     case "refresh-catalog": { toast("Refreshing catalog\u2026"); loadCatalog().then(()=>{ softRefresh(); toast("Catalog updated", SONGS.length+" tracks"); }).catch(()=>toast("Couldn\u2019t refresh","Check your connection")); break; }
     /* ---- Lyric Studio ---- */
