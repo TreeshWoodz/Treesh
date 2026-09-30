@@ -1393,7 +1393,7 @@ const state = {
   _pageShown: {},
   gameGrid: LS.get("treesh_game_grid", false),
   gameQuery: "",
-  gameTab: "home",
+  gameTab: "games",
   totGenre: "",
   totWins: LS.get("treesh_tot", {wins:{}, plays:0, bestStreak:0}),
   explicitUnlocked: false,
@@ -2870,6 +2870,8 @@ const STORAGE_GROUPS=[
 function lsBytes(k){ try{ const v=localStorage.getItem(k); if(v==null) return 0; return (k.length+v.length)*2; }catch(e){ return 0; } }
 function fmtBytes(b){ b=b||0; if(b<1024) return Math.round(b)+" B"; if(b<1024*1024) return (b/1024).toFixed(b<10240?1:0)+" KB"; if(b<1024*1024*1024) return (b/1048576).toFixed(b<10*1048576?1:0)+" MB"; return (b/1073741824).toFixed(2)+" GB"; }
 function groupBytes(g){ return g.keys.reduce((a,k)=>a+lsBytes(k),0); }
+const LS_BUDGET=5*1024*1024; /* ~5 MB: near-universal browser localStorage cap per origin, independent of disk space */
+function lsAllBytes(){ let t=0; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k==null) continue; const v=localStorage.getItem(k); t+=(k.length+((v&&v.length)||0))*2; } }catch(e){} return t; }
 function treeshTotalBytes(){ let t=0; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) t+=lsBytes(k); } }catch(e){} return t; }
 /* ---- Custom artist groups (user-defined, persisted) ---- */
 function getUserGroups(){ try{ const g=LS.get("treesh_groups",null); return Array.isArray(g)?g.filter(x=>x&&x.name):[]; }catch(e){ return []; } }
@@ -2966,11 +2968,10 @@ function lyricsSettingsSection(tab){
 }
 
 function storageSection(tab){
-  const lsTotal=treeshTotalBytes();
+  const lsAll=lsAllBytes();
+  const lsPct=Math.min(100, Math.max(lsAll>0?2:0, Math.round(lsAll/LS_BUDGET*100)));
+  const lsNearFull=lsPct>=85;
   const idbCache=state._idbBytes||0;
-  const total=lsTotal+idbCache;
-  const quota=state._storageQuota||0;
-  const pct = quota ? Math.min(100, Math.max(total>0?1:0, Math.round(total/quota*100))) : (total>0?2:0);
   const rows=STORAGE_GROUPS.map(g=>{ const bytes=groupBytes(g); const empty=bytes<=0; return `<div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" data-testid="storage-group-${g.id}">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="${g.icon}" style="width:18px;height:18px"></i></span>
       <div class="min-w-0 flex-1"><p class="text-sm font-semibold">${g.label}</p><p class="clamp-1 text-xs text-white/45">${g.desc}</p></div>
@@ -2980,9 +2981,14 @@ function storageSection(tab){
   return `<section data-testid="settings-storage" class="${tab==='account'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
     <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="hard-drive" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Storage &amp; data</h2></div>
     <p class="mb-4 pl-11 text-sm text-white/50">Everything in Treesh is saved only on this device. Review what\u2019s stored and free up space.</p>
-    <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-widest text-white/45">Treesh storage used</p><p class="mt-1 font-doto text-2xl font-bold" id="storage-total" data-testid="storage-total">${fmtBytes(total)}</p></div><p id="storage-quota-text" data-testid="storage-quota-text" class="text-right text-xs text-white/45">Estimating device space\u2026</p></div>
-      <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10"><div id="storage-gauge-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:${pct}%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
+    <div class="rounded-2xl border ${lsNearFull?'border-rose-500/40 bg-rose-500/[0.06]':'border-white/10 bg-white/[0.03]'} p-4" data-testid="ls-storage-card">
+      <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-widest text-white/45">App storage used</p><p class="mt-1 font-doto text-2xl font-bold" id="ls-storage-used" data-testid="ls-storage-used">${fmtBytes(lsAll)}</p><p class="mt-0.5 text-[11px] text-white/40">Settings, themes, playlists &amp; game saves</p></div><p id="ls-storage-cap" data-testid="ls-storage-cap" class="shrink-0 text-right text-xs text-white/45">of ~${fmtBytes(LS_BUDGET)} limit</p></div>
+      <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10"><div id="ls-storage-bar" class="h-full rounded-full ${lsNearFull?'bg-rose-400':'bg-[color:var(--treesh-purple)]'}" style="width:${lsPct}%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
+      <p id="ls-storage-warn" data-testid="ls-storage-warn" class="mt-2 flex items-center gap-1.5 text-xs font-semibold text-rose-200 ${lsNearFull?'':'hidden'}"><i data-lucide="alert-triangle" style="width:13px;height:13px"></i>Almost full \u2014 clear items below so new changes can save.</p>
+    </div>
+    <div class="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-testid="device-storage-card">
+      <div class="flex items-end justify-between gap-3"><div><p class="text-xs uppercase tracking-widest text-white/45">Media on device</p><p class="mt-1 font-doto text-2xl font-bold" id="storage-total" data-testid="storage-total">${fmtBytes(idbCache)}</p><p class="mt-0.5 text-[11px] text-white/40">Uploaded music &amp; recordings</p></div><p id="storage-quota-text" data-testid="storage-quota-text" class="shrink-0 text-right text-xs text-white/45">Estimating device space\u2026</p></div>
+      <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10"><div id="storage-gauge-bar" class="h-full rounded-full bg-[color:var(--treesh-purple)]" style="width:0%;transition:width var(--treesh-dur-3,420ms) var(--treesh-ease,ease)"></div></div>
     </div>
     <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-testid="custom-music-storage">
       <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/12 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:18px;height:18px"></i></span><div class="min-w-0 flex-1"><p class="text-sm font-semibold">Custom music</p><p id="custom-music-sub" data-testid="custom-music-sub" class="clamp-1 text-xs text-white/45">${USER_SONGS.length} track${USER_SONGS.length!==1?'s':''} on this device</p></div><span id="custom-music-size" data-testid="custom-music-size" class="shrink-0 font-doto text-sm text-white/70">\u2026</span></div>
@@ -3527,37 +3533,89 @@ function viewBlog(){
 const GAMES=[
   {key:'frea', name:'FREA!', url:'https://treesh.app/games/frea', logo:'https://64.media.tumblr.com/1fd0db4d82ed14192794f682ab768843/e4c300405ca5fd6e-fc/s1280x1920/dca2d086ba9e13671a9f45a186e0c792636d7be3.png', banner:'https://64.media.tumblr.com/a7702e3ce56a7902d5ea66fd32d97ded/d05b67bfd24521c9-70/s1280x1920/9f7d5339d7475e71226af55500432429369a2c93.png', mono:'F', a:'#c3ab69', b:'#7c6626', age:'6+', updated:'September 30, 2026', desc:'Jump into a party of fast, chaotic minigames. Survive each round, outlast everyone and be the last one standing.'},
   {key:'vocotap', name:'Vocotap', url:'https://treesh.app/games/vocotap', logo:'https://64.media.tumblr.com/a357f99f483f505944ed61ffbf91b627/4e72d08b7a6373f7-5b/s1280x1920/d3c5f169e906422bdb6ddd62f303634dde4b4b82.png', banner:'https://64.media.tumblr.com/d98166e80ddeb9217260a083247df1b3/c06c3fcd705d5320-b3/s1280x1920/05620948bd3dfb29596125826783f3204a891337.png', mono:'V', a:'#e0567a', b:'#7a2540', age:'PG-13', updated:'September 20, 2026', desc:'Tap in time with the vocals! Play along with tracks from Treesh Music or upload your own, then test your rhythm and rack up combos.'},
-  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', banner:'https://64.media.tumblr.com/12c5bcd00d6eab86052e258de28b19c9/b6dc260cabef24e0-5c/s400x600/ef38354ebff5bd73f43312be103d4b08f63f0a31.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'September 30, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},
+  {key:'chainz', name:'Chainz', url:'https://treesh.app/games/chainz', logo:'https://64.media.tumblr.com/a14ddc49bc95a5e789e0a214107081b1/fc10d15f479e0a9e-bd/s1280x1920/134b3a7593973ce8f9a71418a36337cf74ec13b1.png', banner:'https://customer-assets-gfyr7b9c.emergentagent.net/job_melody-boost-3/artifacts/wpz1wxpz_IMG_6287.png', mono:'C', a:'#9328ff', b:'#4d128f', age:'13+', updated:'September 30, 2026', desc:'A fast-paced word chaining game. Link word after word, keep the chain alive and beat the clock.'},
   {key:'nects', name:'Nects', url:'https://treesh.app/games/nects', logo:'https://64.media.tumblr.com/1262b7cc04c787803b22c81af52e91a7/f03bc58006e10b13-94/s1280x1920/3f25f6b1f824f57464f60a2220db75167ad18e21.png', mono:'N', a:'#1f9a9a', b:'#0d5757', age:'6+', updated:'July 26, 2026', desc:'A four-in-a-row showdown. Spot and connect the right emoji on the board before your opponent does.'}
 ];
 /* ---------- Things: Treesh mini-apps & tools (open in the same frame as games) ---------- */
 const THINGS=[
-  {key:'hoop', name:'Hoop from Treesh', url:'https://treesh.app/hoop', logo:'', banner:'', mono:'H', a:'#f97316', b:'#9a3412', age:'All', updated:'September 30, 2026', desc:'Your basketball home base. Find the nearest courts on a live map, run games like 21, HORSE and Around the World, follow guided workouts and drills, and more.'}
+  {key:'hoop', name:'Hoop from Treesh', url:'https://treesh.app/hoop', logo:'', banner:'', mono:'H', a:'#f97316', b:'#9a3412', age:'All', updated:'September 30, 2026', label:'Treesh Active', desc:'Your basketball home base. Find the nearest courts on a live map, run games like 21, HORSE and Around the World, follow guided workouts and drills, and more.'}
 ];
 const GAME_BY_KEY={}; [...GAMES,...THINGS].forEach(g=>{ if(g) GAME_BY_KEY[g.key]=g; });
-function gameTile(g){
-  return `<button data-act="game-open" data-key="${g.key}" data-testid="game-open-${g.key}" aria-label="Play ${esc(g.name)}" class="press card-lift group relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-center backdrop-blur-sm">
+const THING_KEYS=new Set(THINGS.map(t=>t.key));
+function isThingKey(k){ return THING_KEYS.has(k); }
+/* ---------- Cross-game data bridge ----------
+   In production the Treesh games run in same-origin iframes (treesh.app),
+   so their localStorage/IndexedDB live in the SAME bucket as this app.
+   These helpers read each game's own storage keys to surface Starlites &
+   stats inside the main app + profile. They fail-safe to empty when a game
+   hasn't been played (or when running cross-origin in preview). */
+function _gdRaw(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function _gdInt(k){ const n=parseInt(_gdRaw(k),10); return isNaN(n)?0:Math.max(0,n); }
+function _gdJson(k,d){ try{ const v=_gdRaw(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
+function gdFmtDur(sec){ sec=Math.max(0,Math.round(sec||0)); const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60); if(h) return h+"h "+(m?m+"m":""); if(m) return m+"m"; return sec+"s"; }
+const GAME_DATA_SOURCES=[
+  { key:"frea", name:"FREA!", mono:"F", a:"#c3ab69", b:"#7c6626",
+    starlites:()=> _gdInt("frea_starlites"),
+    hasData:()=> _gdRaw("frea_stats_v1")!=null || _gdRaw("frea_starlites")!=null,
+    stats:()=>{ const s=_gdJson("frea_stats_v1",{})||{}; const wins=Object.values(s.winsByMode||{}).reduce((a,b)=>a+(+b||0),0); return [["Matches",fmtNum(s.matchesPlayed||0)],["Rounds won",fmtNum(s.roundsWon||wins||0)],["Play time",gdFmtDur((s.playMs||0)/1000)]]; } },
+  { key:"chainz", name:"Chainz", mono:"C", a:"#9328ff", b:"#4d128f",
+    starlites:()=>{ const sv=_gdJson("chainz_save_v2",{})||{}; return (sv.stats&&+sv.stats.starlitesEarned)||0; },
+    hasData:()=> _gdRaw("chainz_save_v2")!=null,
+    stats:()=>{ const sv=_gdJson("chainz_save_v2",{})||{}; const st=sv.stats||{}; return [["Best score",fmtNum(st.bestScore||0)],["Best chain",fmtNum(st.bestChain||0)],["Perfect runs",fmtNum(st.perfectRuns||0)]]; } },
+];
+function gamesDataTotalStarlites(){ return GAME_DATA_SOURCES.reduce((a,g)=>a+(g.hasData()?(g.starlites()||0):0),0); }
+function gamesDataSectionHtml(){
+  const played=GAME_DATA_SOURCES.filter(g=>{ try{ return g.hasData(); }catch(e){ return false; } });
+  let h=`<section data-testid="stats-arcade-games"><div class="mb-2.5 flex items-center gap-2"><h3 class="flex flex-1 items-center gap-2 text-sm font-bold uppercase tracking-wide text-white/70"><i data-lucide="joystick" class="text-[color:var(--treesh-gold)]" style="width:15px;height:15px"></i>Arcade games</h3>${played.length?`<span class="inline-flex items-center gap-1 rounded-full bg-[color:var(--treesh-gold)]/15 px-2.5 py-1 text-xs font-bold text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:12px;height:12px"></i>${fmtNum(gamesDataTotalStarlites())}</span>`:''}</div>`;
+  if(!played.length){
+    h+=`<div class="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] p-5 text-center" data-testid="arcade-games-empty"><span class="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="joystick" style="width:18px;height:18px"></i></span><p class="text-sm font-semibold">No arcade progress yet</p><p class="mx-auto mt-1 max-w-xs text-xs text-white/50">Play Chainz, FREA! and more from the Games tab. Your Starlites &amp; stats sync here automatically.</p></div>`;
+  } else {
+    h+=`<div class="space-y-2.5">`;
+    played.forEach(g=>{ const sl=g.starlites()||0; const rows=(g.stats()||[]).filter(Boolean);
+      h+=`<div class="rounded-2xl border border-white/10 bg-white/[0.04] p-3.5" data-testid="arcade-game-${g.key}">
+        <div class="flex items-center gap-3">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white" style="background:linear-gradient(135deg,${g.a},${g.b})">${g.mono}</span>
+          <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-bold">${esc(g.name)}</p><p class="text-[11px] text-white/45">Synced from ${esc(g.name)}</p></div>
+          <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-[color:var(--treesh-gold)]/12 px-2.5 py-1 text-xs font-bold text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:12px;height:12px"></i>${fmtNum(sl)}</span>
+        </div>
+        ${rows.length?`<div class="mt-3 grid grid-cols-3 gap-2">${rows.map(r=>`<div class="rounded-xl border border-white/10 bg-white/[0.03] p-2 text-center"><p class="font-doto text-base font-bold leading-none">${r[1]}</p><p class="mt-1 text-[10px] uppercase tracking-wide text-white/45">${esc(r[0])}</p></div>`).join("")}</div>`:''}
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</section>`;
+  return h;
+}
+function gameTile(g, thing){
+  const label = thing ? 'Visit' : 'Play';
+  const ic = thing ? 'external-link' : 'play';
+  const iconCls = thing ? '' : 'fill-current';
+  return `<button data-act="game-open" data-key="${g.key}" data-testid="game-open-${g.key}" aria-label="${thing?'Visit':'Play'} ${esc(g.name)}" class="press card-lift group relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-center backdrop-blur-sm">
     <span class="pointer-events-none absolute inset-x-0 -top-8 h-20 opacity-40 blur-2xl" style="background:linear-gradient(135deg,${g.a},${g.b})"></span>
     <span class="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/12 text-3xl font-extrabold text-white" style="background:linear-gradient(135deg,${g.a},${g.b})">${g.logo?`<img src="${g.logo}" alt="${esc(g.name)} logo" loading="lazy" class="h-full w-full object-cover object-center">`:`<span class="font-display">${g.mono}</span>`}</span>
-    <span class="relative w-full min-w-0"><span class="block truncate text-sm font-bold">${esc(g.name)}</span><span class="mt-0.5 inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-white/55 transition-colors group-hover:text-[color:var(--treesh-purple)]"><i data-lucide="play" class="fill-current" style="width:11px;height:11px"></i>Play</span></span>
+    <span class="relative w-full min-w-0"><span class="block truncate text-sm font-bold">${esc(g.name)}</span><span class="mt-0.5 inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-white/55 transition-colors group-hover:text-[color:var(--treesh-purple)]"><i data-lucide="${ic}" class="${iconCls}" style="width:11px;height:11px"></i>${label}</span></span>
   </button>`;
 }
 function gamesArcadeHtml(){
   return `<div data-testid="games-arcade">
     <div class="mb-2 flex items-center gap-2"><i data-lucide="joystick" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i><h2 class="text-lg font-bold">Arcade</h2></div>
     <p class="mb-3 text-sm text-white/55">More Treesh games, right here. Minimize any game to keep browsing while you play.</p>
-    <div class="grid grid-cols-3 gap-3">${GAMES.map(gameTile).join("")}</div>
+    <div class="grid grid-cols-3 gap-3">${GAMES.map(g=>gameTile(g,false)).join("")}</div>
   </div>`;
 }
 function thingsSectionHtml(){
   return `<div data-testid="things-section">
     <div class="mb-2 flex items-center gap-2"><i data-lucide="shapes" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i><h2 class="text-lg font-bold">Things</h2></div>
     <p class="mb-3 text-sm text-white/55">Treesh apps and tools beyond games. Tap to open \u2014 minimize any one to keep browsing.</p>
-    <div class="grid grid-cols-3 gap-3">${THINGS.map(gameTile).join("")}</div>
+    <div class="grid grid-cols-3 gap-3">${THINGS.map(g=>gameTile(g,true)).join("")}</div>
   </div>`;
 }
 function openGameInfo(key){
   const g=GAME_BY_KEY[key]; if(!g) return;
+  const thing=isThingKey(g.key);
+  const cta=thing?'Visit':'Play';
+  const ctaIc=thing?'external-link':'play';
+  const ctaIcCls=thing?'':'fill-current';
   const grad=`linear-gradient(135deg,${g.a||'#9328ff'},${g.b||'#4d128f'})`;
   const coverSrc = g.banner || g.logo;
   const cover = coverSrc
@@ -3570,7 +3628,7 @@ function openGameInfo(key){
       <div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(8,8,10,0) 38%,rgba(8,8,10,0.55) 70%,rgba(8,8,10,0.95) 100%)"></div>
       <div class="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4">
         <span class="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/15 text-2xl font-extrabold text-white shadow-lg" style="background:${grad}">${badge}</span>
-        <div class="min-w-0"><h2 class="clamp-1 font-display text-2xl font-bold leading-tight">${esc(g.name)}</h2><p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--treesh-gold)]">Treesh Arcade</p></div>
+        <div class="min-w-0"><h2 class="clamp-1 font-display text-2xl font-bold leading-tight">${esc(g.name)}</h2><p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--treesh-gold)]">${esc(g.label||'Treesh Arcade')}</p></div>
       </div>
     </div>
     <div class="mb-4 flex flex-wrap items-center gap-2">
@@ -3579,7 +3637,7 @@ function openGameInfo(key){
     </div>
     <p class="mb-5 text-sm leading-relaxed text-white/70">${esc(g.desc||'')}</p>
     <div class="flex items-center gap-2">
-      <button data-act="game-play" data-key="${g.key}" data-testid="game-info-play-${g.key}" class="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple hover:opacity-90"><i data-lucide="play" class="fill-current" style="width:16px;height:16px"></i>Play</button>
+      <button data-act="game-play" data-key="${g.key}" data-testid="game-info-play-${g.key}" class="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple hover:opacity-90"><i data-lucide="${ctaIc}" class="${ctaIcCls}" style="width:16px;height:16px"></i>${cta}</button>
       <button data-act="modal-close" class="press inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 hover:bg-white/10">Close</button>
     </div>`;
   $("#modal").innerHTML=modalWrap(inner, "game-info-"+g.key);
@@ -3595,7 +3653,7 @@ function renderGameFrame(){
   c.innerHTML=`<div class="gf-shell dark-surface gf-open ${G.min?'gf-min':''}" data-testid="game-frame">
     <div class="gf-head flex items-center gap-2 border-b border-white/10 bg-black/40 px-3 py-2.5 backdrop-blur">
       <span class="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/12 text-sm font-extrabold text-white" style="background:${grad}">${badge}</span>
-      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-bold leading-tight">${esc(g.name)}</p><p class="gf-title-sub clamp-1 text-[11px] text-white/45">Treesh Arcade</p></div>
+      <div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-bold leading-tight">${esc(g.name)}</p><p class="gf-title-sub clamp-1 text-[11px] text-white/45">${esc(g.label||'Treesh Arcade')}</p></div>
       <a href="${g.url}" target="_blank" rel="noopener noreferrer" data-testid="game-frame-newtab" aria-label="Open in new tab" title="Open in new tab" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="external-link" style="width:16px;height:16px"></i></a>
       <button data-act="game-frame-music" data-testid="game-frame-music" aria-label="Music controls" title="Show music controls" class="gf-music-btn press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 ${state.gfMusic?'gf-music-on':''}"><i data-lucide="music" style="width:16px;height:16px"></i></button>
       <button data-act="game-frame-min" data-testid="game-frame-min" aria-label="${G.min?'Restore':'Minimize'}" title="${G.min?'Restore':'Minimize'}" class="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="${G.min?'maximize-2':'minimize-2'}" style="width:16px;height:16px"></i></button>
@@ -3831,7 +3889,9 @@ function profileStatsHtml(){
   else { h+=`<div class="grid grid-cols-2 gap-2.5">${stat('Runs',tw.plays||0,'swords')}${stat('Best streak',tw.bestStreak||0,'flame')}${stat('Total picks',totWinsTotal,'thumbs-up')}${stat('Tracks faced',Object.keys(tw.wins||{}).length,'disc-3')}</div>`;
     if(champ){ h+=`<div class="mt-2.5 flex items-center gap-3 rounded-2xl border border-[color:var(--treesh-purple)]/25 bg-[color:var(--treesh-purple)]/10 p-2.5"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(champ.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="text-[10px] font-bold uppercase tracking-wide text-[color:var(--treesh-purple)]">Your champion \u00B7 ${champN} win${champN!==1?'s':''}</p><p class="clamp-1 text-sm font-semibold">${esc(champ.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(champ.artist)}</p></div></div>`; }
   }
-  h+=`</section></div>`;
+  h+=`</section>`;
+  h+=gamesDataSectionHtml();
+  h+=`</div>`;
   return h;
 }
 /* --- favorite-lyric / full-song playback --- */
@@ -4257,28 +4317,40 @@ function gameVoiceInput(){
     gameRecog.start(); const mb=$("#game-mic"); if(mb) mb.classList.add("voice-pulse","border-[color:var(--treesh-purple)]","text-white");
   }catch(e){}
 }
-function gameTabBar(){ const tab=state.gameTab||"home"; const tabs=[["home","Home","layout-grid"],["lyrics","What\u2019s Next?","gamepad-2"],["tot","This or That","swords"]]; return `<div class="settings-tabs-bar -mx-1" data-testid="game-tabs"><div class="no-scrollbar flex gap-2 overflow-x-auto px-1 py-2">${tabs.map(([id,label,ic])=>{const on=tab===id;return `<button data-act="game-tab" data-val="${id}" data-testid="game-tab-${id}" aria-pressed="${on}" class="press inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${on?'border-transparent bg-[color:var(--treesh-purple)] text-white glow-purple backdrop-blur-lg':'border-white/15 bg-white/10 text-white/70 shadow-[0_4px_18px_rgba(0,0,0,0.28)] backdrop-blur-lg hover:bg-white/20 hover:text-white'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;}).join("")}</div></div>`; }
-function gameHomeHtml(){ const st=state.gameStats||{}; const tw=state.totWins||{wins:{}};
+function gameTabBar(){ let tab=state.gameTab||"games"; if(tab==='home') tab='games'; const tabs=[["games","Games","joystick"],["things","Things","shapes"]]; return `<div class="settings-tabs-bar -mx-1" data-testid="game-tabs"><div class="no-scrollbar flex gap-2 overflow-x-auto px-1 py-2">${tabs.map(([id,label,ic])=>{const on=tab===id;return `<button data-act="game-tab" data-val="${id}" data-testid="game-tab-${id}" aria-pressed="${on}" class="press inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors ${on?'border-transparent bg-[color:var(--treesh-purple)] text-white glow-purple backdrop-blur-lg':'border-white/15 bg-white/10 text-white/70 shadow-[0_4px_18px_rgba(0,0,0,0.28)] backdrop-blur-lg hover:bg-white/20 hover:text-white'}"><i data-lucide="${ic}" style="width:16px;height:16px"></i>${label}</button>`;}).join("")}</div></div>`; }
+function gameSubBackHtml(){ return `<div class="settings-tabs-bar -mx-1"><div class="flex px-1 py-2"><button data-act="game-tab" data-val="games" data-testid="game-back-to-games" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/80 shadow-[0_4px_18px_rgba(0,0,0,0.28)] backdrop-blur-lg transition-colors hover:bg-white/20 hover:text-white"><i data-lucide="chevron-left" style="width:16px;height:16px"></i>Back to Games</button></div></div>`; }
+function gameGamesHtml(){ const st=state.gameStats||{}; const tw=state.totWins||{wins:{}};
   return `<div class="space-y-5">
-    <button data-act="game-tab" data-val="lyrics" data-testid="game-hero-lyrics" class="dark-surface press card-lift relative block w-full overflow-hidden rounded-3xl border border-white/10 p-6 text-left backdrop-blur-sm sm:p-8" style="background:linear-gradient(135deg,var(--treesh-purple),rgba(12,12,14,0.42))">
+    <div class="flex gap-[6px]">
+    <button data-act="game-tab" data-val="lyrics" data-testid="game-hero-lyrics" class="dark-surface press card-lift relative block flex-1 min-w-0 overflow-hidden rounded-3xl border border-white/10 p-5 text-left backdrop-blur-sm" style="background:linear-gradient(135deg,var(--treesh-purple),rgba(12,12,14,0.42))">
       <div class="pointer-events-none absolute right-[-30px] top-[-30px] h-44 w-44 rounded-full opacity-40 blur-[70px]" style="background:var(--treesh-gold)"></div>
-      <div class="relative flex items-center gap-4">
-        <div class="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur"><i data-lucide="gamepad-2" style="width:30px;height:30px"></i></div>
-        <div class="min-w-0 flex-1"><p class="font-display text-[11px] uppercase tracking-[0.28em] text-white/80">Lyric game</p><h2 class="mt-0.5 text-2xl font-extrabold sm:text-3xl">What\u2019s Next?</h2><p class="mt-1 text-sm text-white/85">Guess the next lyric by typing or speaking. Build streaks &amp; beat your high score.</p></div>
-        <i data-lucide="arrow-right" class="hidden shrink-0 sm:block" style="width:24px;height:24px"></i>
+      <div class="relative flex flex-col gap-3">
+        <div class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur"><i data-lucide="gamepad-2" style="width:26px;height:26px"></i></div>
+        <div class="min-w-0"><p class="font-display text-[11px] uppercase tracking-[0.28em] text-white/80">Lyric game</p><h2 class="mt-0.5 text-xl font-extrabold sm:text-2xl">What\u2019s Next?</h2><p class="mt-1 text-sm text-white/85">Guess the next lyric by typing or speaking. Build streaks &amp; beat your high score.</p></div>
       </div>
       <div class="relative mt-4 flex flex-wrap gap-2 text-[11px] font-semibold text-white/85"><span class="rounded-full bg-black/25 px-2.5 py-1">High score ${st.bestScore||0}</span><span class="rounded-full bg-black/25 px-2.5 py-1">${st.games||0} games</span></div>
     </button>
-    <button data-act="game-tab" data-val="tot" data-testid="game-hero-tot" class="dark-surface press card-lift relative block w-full overflow-hidden rounded-3xl border border-white/10 p-6 text-left backdrop-blur-sm sm:p-8" style="background:linear-gradient(135deg,#2a2540,rgba(12,12,14,0.5))">
+    <button data-act="game-tab" data-val="tot" data-testid="game-hero-tot" class="dark-surface press card-lift relative block flex-1 min-w-0 overflow-hidden rounded-3xl border border-white/10 p-5 text-left backdrop-blur-sm" style="background:linear-gradient(135deg,#2a2540,rgba(12,12,14,0.5))">
       <div class="pointer-events-none absolute right-[-30px] top-[-30px] h-44 w-44 rounded-full opacity-40 blur-[70px]" style="background:var(--treesh-purple)"></div>
-      <div class="relative flex items-center gap-4">
-        <div class="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/30 text-white backdrop-blur"><i data-lucide="swords" style="width:30px;height:30px"></i></div>
-        <div class="min-w-0 flex-1"><p class="font-display text-[11px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Head to head</p><h2 class="mt-0.5 text-2xl font-extrabold sm:text-3xl">This or That</h2><p class="mt-1 text-sm text-white/75">Two tracks enter, you pick the vibe. Build a champion, but 3 skips ends the run.</p></div>
-        <i data-lucide="arrow-right" class="hidden shrink-0 text-white/70 sm:block" style="width:24px;height:24px"></i>
+      <div class="relative flex flex-col gap-3">
+        <div class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/30 text-white backdrop-blur"><i data-lucide="swords" style="width:26px;height:26px"></i></div>
+        <div class="min-w-0"><p class="font-display text-[11px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Head to head</p><h2 class="mt-0.5 text-xl font-extrabold sm:text-2xl">This or That</h2><p class="mt-1 text-sm text-white/75">Two tracks enter, you pick the vibe. Build a champion, but 3 skips ends the run.</p></div>
       </div>
       <div class="relative mt-4 flex flex-wrap gap-2 text-[11px] font-semibold text-white/70"><span class="rounded-full bg-black/25 px-2.5 py-1">${tw.plays||0} rounds played</span><span class="rounded-full bg-black/25 px-2.5 py-1">Best streak ${tw.bestStreak||0}</span></div>
     </button>
+    </div>
     ${gamesArcadeHtml()}
+  </div>`;
+}
+function gameThingsHtml(){
+  return `<div class="space-y-5">
+    <div class="dark-surface relative overflow-hidden rounded-3xl border border-white/10 p-6 text-left backdrop-blur-sm sm:p-8" style="background:linear-gradient(135deg,#f97316,rgba(12,12,14,0.5))">
+      <div class="pointer-events-none absolute right-[-30px] top-[-30px] h-44 w-44 rounded-full opacity-40 blur-[70px]" style="background:var(--treesh-gold)"></div>
+      <div class="relative flex items-center gap-4">
+        <div class="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur"><i data-lucide="shapes" style="width:30px;height:30px"></i></div>
+        <div class="min-w-0 flex-1"><p class="font-display text-[11px] uppercase tracking-[0.28em] text-white/80">Beyond games</p><h2 class="mt-0.5 text-2xl font-extrabold sm:text-3xl">Things</h2><p class="mt-1 text-sm text-white/85">Treesh apps and tools that go past the arcade. Tap any one to jump in.</p></div>
+      </div>
+    </div>
     ${thingsSectionHtml()}
   </div>`;
 }
@@ -4296,7 +4368,7 @@ function gameTotHtml(){ const songs=totEligible(state.totGenre); const tw=state.
     ${board.length?`<section data-testid="tot-leaderboard"><h2 class="mb-2 flex items-center gap-2 text-lg font-bold"><i data-lucide="trophy" style="width:18px;height:18px" class="text-[color:var(--treesh-gold)]"></i>Most loved</h2><div class="space-y-1.5">${board.map((x,i)=>`<div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2"><span class="w-5 text-center font-doto text-sm font-bold ${i===0?'text-[color:var(--treesh-gold)]':'text-white/45'}">${i+1}</span><div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg">${img(x.s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(x.s.title)}</p><p class="clamp-1 text-xs text-white/50">${esc(x.s.artist)}</p></div><span class="shrink-0 rounded-full bg-[color:var(--treesh-purple)]/20 px-2.5 py-1 text-xs font-bold text-[color:var(--treesh-purple)]">${x.w} win${x.w!==1?'s':''}</span></div>`).join("")}</div></section>`:`<div class="rounded-2xl border border-dashed border-white/12 bg-white/[0.03] p-6 text-center text-sm text-white/45">No battles yet. Start a round to build your leaderboard.</div>`}
   </div>`;
 }
-function viewGame(){ const tab=state.gameTab||"home"; const open=!!state.gameStatsOpen; const pts=fmtNum((state.stars&&state.stars.points)||0);
+function viewGame(){ let tab=state.gameTab||"games"; if(tab==='home') tab='games'; const open=!!state.gameStatsOpen; const pts=fmtNum((state.stars&&state.stars.points)||0);
   return `<div class="space-y-6">
     <div class="flex items-start justify-between gap-3">
       <div><p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">Games &amp; Things</h1></div>
@@ -4307,8 +4379,8 @@ function viewGame(){ const tab=state.gameTab||"home"; const open=!!state.gameSta
       </button>
     </div>
     ${open?`<div class="tr-fade-in rounded-3xl border border-white/10 bg-white/[0.02] p-4 sm:p-5" data-testid="game-stats-panel">${profileStatsHtml()}</div>`:''}
-    ${gameTabBar()}
-    <div class="min-h-[85vh] tr-fade-in" data-testid="game-panel-${tab}">${tab==='lyrics'?gameLyricsHtml():tab==='tot'?gameTotHtml():gameHomeHtml()}</div>
+    ${(tab==='lyrics'||tab==='tot')?gameSubBackHtml():gameTabBar()}
+    <div class="min-h-[85vh] tr-fade-in" data-testid="game-panel-${tab}">${tab==='lyrics'?gameLyricsHtml():tab==='tot'?gameTotHtml():tab==='things'?gameThingsHtml():gameGamesHtml()}</div>
   </div>`; }
 function gameLyricsHtml(){
   const st=state.gameStats; const songs=gameEligibleSongs();
@@ -7221,7 +7293,7 @@ document.addEventListener("click", e=>{
     case "game-opt": { const k=t.dataset.opt; state.gameOpts[k]=!state.gameOpts[k]; LS.set("treesh_game_opts",state.gameOpts); renderView(); break; }
     case "start-game-current": { const s=curSong(); if(s) startGame(s.id); break; }
     case "game-random": { const songs=gameEligibleSongs(); if(songs.length) startGame(songs[Math.floor(Math.random()*songs.length)].id); break; }
-    case "game-tab": { const nv=t.dataset.val||"home"; const changed=(state.gameTab||"home")!==nv; state.gameTab=nv; renderView(true); if(changed){ requestAnimationFrame(scrollToStickyTabs); } break; }
+    case "game-tab": { const nv=t.dataset.val||"games"; const changed=(state.gameTab||"games")!==nv; state.gameTab=nv; renderView(true); if(changed){ requestAnimationFrame(scrollToStickyTabs); } break; }
     case "game-stats-toggle": { state.gameStatsOpen=!state.gameStatsOpen; renderView(); break; }
     case "game-open": openGameInfo(t.dataset.key); break;
     case "game-play": { const k=t.dataset.key; const m=$("#modal"); if(m) m.innerHTML=""; openGameFrame(k); break; }
