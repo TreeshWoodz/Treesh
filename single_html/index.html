@@ -440,7 +440,14 @@
   html.theme-light{ --app-bg:#fefefe; --app-text:#17171b; }
   #bg-layer{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; transition:background .35s ease, opacity .35s ease; }
   #bg-layer .bg-img{ position:absolute; inset:0; background-size:cover; background-position:center; background-repeat:no-repeat; will-change:opacity, transform; }
-  #bg-text{ position:absolute; inset:0; display:flex; justify-content:center; padding:8vw 6vw; z-index:2; }
+  #bg-text{ position:absolute; inset:0; z-index:2; pointer-events:none; }
+  .bd-preview{ position:relative; width:100%; aspect-ratio:16/10; border-radius:16px; overflow:hidden; container-type:size; background:#0b0b0f; border:1px solid rgba(255,255,255,0.12); touch-action:none; user-select:none; }
+  .bd-prev-img{ position:absolute; inset:0; background-size:cover; background-position:center; }
+  .bd-prev-text{ position:absolute; transform:translate(-50%,-50%); max-width:92%; font-family:var(--treesh-font-display,inherit); font-weight:800; line-height:1.08; letter-spacing:-0.01em; text-shadow:0 2px 18px rgba(0,0,0,0.6); cursor:grab; pointer-events:auto; padding:2px 4px; border-radius:6px; white-space:pre-wrap; }
+  .bd-prev-text:active{ cursor:grabbing; }
+  .bd-prev-text.is-empty{ opacity:.55; outline:1.5px dashed rgba(255,255,255,0.45); }
+  .bd-prev-hint{ position:absolute; left:8px; bottom:8px; right:8px; display:flex; justify-content:center; gap:6px; pointer-events:none; }
+  .bd-prev-hint span{ background:rgba(0,0,0,0.5); color:rgba(255,255,255,0.85); font-size:10px; font-weight:600; padding:3px 8px; border-radius:999px; backdrop-filter:blur(6px); }
   @keyframes bgFadeIn{ from{opacity:0} to{opacity:1} }
   @keyframes bgRotateIn{ from{opacity:0; transform:scale(1.08) rotate(-3deg)} to{opacity:1; transform:none} }
   @keyframes bgFlipIn{ from{opacity:0; transform:perspective(1200px) rotateY(24deg)} to{opacity:1; transform:none} }
@@ -509,6 +516,18 @@
   html.theme-light :is(#voice-ov,#toast,#sleep,.dark-surface) .border-white\/15{ border-color:rgba(255,255,255,0.15) !important; }
   html.theme-light :is(#voice-ov,#toast,#sleep,.dark-surface) .glass-strong{ background:rgba(255,255,255,0.09) !important; border-color:var(--treesh-stroke) !important; }
   html.theme-light :is(#voice-ov,#toast,#sleep,.dark-surface) .text-black{ color:#000 !important; }
+
+  /* ---------- Backdrops layered text / sticker editor ---------- */
+  .bd-ptext{ position:absolute; transform:translate(-50%,-50%); max-width:92%; font-weight:800; line-height:1.1; letter-spacing:-0.01em; white-space:pre-wrap; text-shadow:0 2px 14px rgba(0,0,0,0.6); cursor:move; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .bd-ptext-sel{ outline:1.5px dashed rgba(255,255,255,0.9); outline-offset:5px; border-radius:3px; }
+  .bd-ph-handle{ position:absolute; display:none; height:24px; width:24px; place-items:center; border-radius:9999px; border:2px solid rgba(255,255,255,0.75); background:var(--treesh-purple); color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.45); touch-action:none; z-index:3; }
+  .bd-ptext-sel .bd-ph-handle{ display:grid; }
+  .bd-ph-handle.bd-rh{ bottom:-13px; right:-13px; cursor:nwse-resize; }
+  .bd-ph-handle.bd-rot{ top:-13px; left:50%; transform:translateX(-50%); cursor:grab; }
+
+  /* ---------- Queue drawer: light mode surface ---------- */
+  html.theme-light .queue-panel{ background:rgba(254,254,254,0.96) !important; border-color:rgba(17,17,20,0.1) !important; }
+  html.theme-light .queue-panel .border-white\/10{ border-color:rgba(17,17,20,0.1) !important; }
 
   [data-lucide]{ width:1em; height:1em; }
   /* ---------- performance mode: kill all motion + heavy effects ---------- */
@@ -848,6 +867,11 @@
   html.tr-navcolor aside.nav-glass, html.tr-navcolor #mobile-nav{ background: var(--nav-bg) !important; }
   html.tr-topcolor header .topbar-surface{ background: var(--topbar-bg) !important; }
   html.tr-rowcolor [data-song-row]{ background: var(--row-bg) !important; }
+
+  /* --- custom font (ink) color: tints primary text, keeps immersive dark surfaces --- */
+  html.tr-inkcolor{ --app-text: var(--ink); }
+  html.tr-inkcolor .text-white{ color: var(--ink) !important; }
+  html.tr-inkcolor :is(#voice-ov,#toast,#sleep,.dark-surface,#bg-text) .text-white{ color:#fff !important; }
 
   /* --- Instrum: keep dense studio controls from overflowing at large text --- */
   [data-instrum-root]{ font-size:14px; }
@@ -1393,6 +1417,7 @@ const state = {
   navColor: LS.get("treesh_nav_color", ""),
   topbarColor: LS.get("treesh_topbar_color", ""),
   rowColor: LS.get("treesh_row_color", ""),
+  inkColor: LS.get("treesh_ink_color", ""),
   uiFont: LS.get("treesh_font", "figtree"),
   customFont: LS.get("treesh_custom_font", null),
   notifInNav: LS.get("treesh_notif_nav", false),
@@ -1438,12 +1463,15 @@ function bgSaveSlide(){ try{ localStorage.setItem("treesh_bg_slide", JSON.string
 function bgSaveTextStyle(){ try{ localStorage.setItem("treesh_bg_text_style", JSON.stringify(state.bgTextStyle)); }catch(e){} }
 function bgMetaAt(i){ if(!Array.isArray(state.bgMeta)) state.bgMeta=[]; if(!state.bgMeta[i]) state.bgMeta[i]={filter:'none',text:''}; return state.bgMeta[i]; }
 /* ---------------- Backdrops Studio (custom wallpapers modal) ---------------- */
-function openBackdrops(){ if(!Array.isArray(state.bgMeta)) state.bgMeta=[]; const count=(state.bgImages||[]).filter(Boolean).length; state.bgFocus=Math.min(state.bgFocus||0, Math.max(0,count-1)); refreshBackdrops(); }
-function refreshBackdrops(){ const m=document.getElementById("modal"); if(!m) return; m.innerHTML=modalWrap(bdModalHtml(),"backdrops-modal","xl"); icons(); bdBindInputs(); }
+function openBackdrops(){ if(!Array.isArray(state.bgMeta)) state.bgMeta=[]; const count=(state.bgImages||[]).filter(Boolean).length; state.bgFocus=Math.min(state.bgFocus||0, Math.max(0,count-1)); bgEnsureFonts(); refreshBackdrops(); }
+function refreshBackdrops(){ const m=document.getElementById("modal"); if(!m) return; m.innerHTML=bdModalHtml(); icons(); bdBindInputs(); bdBindPreview(); }
 function bdBindInputs(){
   document.querySelectorAll(".bd-file-input").forEach(inp=>{ inp.addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(f) bdAddImage(f); try{ e.target.value=""; }catch(_){} }); });
   const txt=document.getElementById("bd-text-input");
-  if(txt){ txt.addEventListener("input",()=>{ const i=state.bgFocus||0; if(!(state.bgImages||[])[i]) return; bgMetaAt(i).text=txt.value.slice(0,80); bgSaveMeta(); const badge=document.getElementById("bd-tile-text-"+i); renderBackground(); }); }
+  if(txt){ txt.addEventListener("input",()=>{ const L=bdSelLayer(); if(!L) return; const v=txt.value.slice(0,80); L.text=v; bgSaveMeta();
+    const box=document.getElementById("bd-preview"); const el=box&&box.querySelector('.bd-ptext[data-id="'+L.id+'"] .bd-ptext-inner'); if(el) el.textContent=v.trim()?v:'\u00A0';
+    const ph=document.getElementById("bd-preview-ph"); if(ph){ const any=bdCurTexts().some(x=>(x.text||'').trim()); ph.style.display=any?"none":""; }
+    renderBackground(); }); }
 }
 function bdAddImage(f){
   if(!f) return;
@@ -1467,15 +1495,71 @@ function bdAddImage(f){
 }
 function bdSetTime(v){ v=Math.max(2,Math.min(60,+v||8)); if(!state.bgSlide) state.bgSlide={}; state.bgSlide.time=v; bgSaveSlide(); const l=document.getElementById("bd-time-val"); if(l) l.textContent=v+"s"; if(state.bg==="custom"&&state.bgSlide.on) renderBackground(); }
 function bdSetDim(v){ v=Math.max(0.2,Math.min(0.9,(+v||60)/100)); state.bgDim=v; bgSaveDim(); const l=document.getElementById("bd-dim-val"); if(l) l.textContent=Math.round(v*100)+"%"; renderBackground(); }
-function bdSetTextColor(v){ if(!state.bgTextStyle) state.bgTextStyle={}; state.bgTextStyle.color=v; bgSaveTextStyle(); renderBackground(); }
+function bdSetTextColor(v){ const L=bdSelLayer(); if(!L) return; L.color=v; bgSaveMeta(); bdRenderPreviewText(); renderBackground(); }
+function bdSetTextFont(id){ const L=bdSelLayer(); if(!L) return; L.font=id||''; if(id) bgFontStack(id); bgSaveMeta(); renderBackground(); refreshBackdrops(); }
+/* ---- Backdrops layered text overlays + emoji stickers (drag / pinch / rotate) ---- */
+const BG_EMOJIS=["\u2764\uFE0F","\uD83D\uDD25","\u2728","\u2B50","\uD83D\uDCAB","\uD83D\uDE0E","\uD83E\uDD73","\uD83D\uDE0D","\uD83C\uDFB5","\uD83C\uDFA7","\uD83C\uDF08","\u2600\uFE0F","\uD83C\uDF19","\u26A1","\uD83D\uDC9C","\uD83D\uDC96","\uD83D\uDC51","\uD83E\uDD8B","\uD83C\uDF38","\uD83C\uDF40","\uD83D\uDCAF","\uD83D\uDE4C","\uD83E\uDEE0","\uD83C\uDF89","\uD83D\uDDA4","\uD83D\uDC80","\uD83D\uDE2D","\uD83D\uDE02","\uD83D\uDC4B","\uD83C\uDF7E","\uD83E\uDE77","\uD83C\uDFB6"];
+function bgUID(){ return 'tx'+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); }
+function bgFontStack(id){ if(!id) return "var(--treesh-font-display,'Manrope',sans-serif)"; const f=(typeof FONTS!=='undefined')&&FONTS.find(x=>x.id===id); if(f){ if(f.g) loadGoogleFont(f.g); return f.stack; } return "var(--treesh-font-display,'Manrope',sans-serif)"; }
+function bgNormTexts(idx){ if(!Array.isArray(state.bgMeta)) state.bgMeta=[]; const meta=state.bgMeta[idx]||(state.bgMeta[idx]={filter:'none'});
+  if(!Array.isArray(meta.texts)){ meta.texts=[]; const legacy=(meta.text||'').trim(); if(legacy){ const ts=state.bgTextStyle||{}; let size=ts.size; if(typeof size==='string') size=(size==='sm'?4:(size==='lg'?9:6)); if(!(size>0)) size=6; let x=ts.x, y=ts.y; if(x==null||isNaN(x)) x=50; if(y==null||isNaN(y)) y=(ts.pos==='top'?16:(ts.pos==='center'?50:84)); meta.texts.push({id:bgUID(),kind:'text',text:legacy.slice(0,80),x:x,y:y,size:size,rot:0,color:ts.color||'#ffffff',align:ts.align||'center',font:''}); } }
+  meta.texts.forEach(L=>{ if(!L.id) L.id=bgUID(); if(L.kind!=='emoji') L.kind='text'; L.text=(L.text||'').slice(0,80); if(L.x==null||isNaN(L.x)) L.x=50; if(L.y==null||isNaN(L.y)) L.y=(L.kind==='emoji'?50:84); L.x=Math.max(2,Math.min(98,L.x)); L.y=Math.max(4,Math.min(96,L.y)); if(typeof L.size==='string') L.size=(L.size==='sm'?4:(L.size==='lg'?9:6)); if(!(L.size>0)) L.size=(L.kind==='emoji'?12:6); L.size=Math.max(3,Math.min(30,L.size)); if(L.rot==null||isNaN(L.rot)) L.rot=0; L.rot=Math.round(((L.rot%360)+540)%360-180); if(!L.color) L.color='#ffffff'; if(!L.align) L.align='center'; if(L.font==null) L.font=''; });
+  return meta.texts; }
+function bgEnsureFonts(){ try{ (state.bgImages||[]).forEach((s,i)=>{ if(!s) return; const arr=(state.bgMeta&&state.bgMeta[i]&&state.bgMeta[i].texts)||[]; arr.forEach(L=>{ if(L&&L.font) bgFontStack(L.font); }); }); }catch(_){} }
+function bdFocusIdx(){ const imgs=state.bgImages||[]; const count=imgs.filter(Boolean).length; return Math.min(state.bgFocus||0, Math.max(0,count-1)); }
+function bdCurTexts(){ return bgNormTexts(bdFocusIdx()); }
+function bdSelLayer(){ const arr=bdCurTexts(); if(!arr.length){ state.bgTextSel=null; return null; } let L=arr.find(x=>x.id===state.bgTextSel); if(!L){ L=arr[arr.length-1]; state.bgTextSel=L.id; } return L; }
+function bdApplyLayerPos(x,y){ const L=bdSelLayer(); if(!L) return; L.x=Math.max(2,Math.min(98,Math.round((+x||0)*10)/10)); L.y=Math.max(4,Math.min(96,Math.round((+y||0)*10)/10)); bdRenderPreviewText(); bdSyncTextControls(); }
+function bdApplyLayerSize(s){ const L=bdSelLayer(); if(!L) return; L.size=Math.max(3,Math.min(30,Math.round((+s||6)*10)/10)); bdRenderPreviewText(); bdSyncTextControls(); }
+function bdApplyLayerRot(r){ const L=bdSelLayer(); if(!L) return; r=((r%360)+540)%360-180; L.rot=Math.round(r); bdRenderPreviewText(); bdSyncTextControls(); }
+function bdSetTextX(v){ const L=bdSelLayer(); if(!L) return; bdApplyLayerPos(v,L.y); bgSaveMeta(); }
+function bdSetTextY(v){ const L=bdSelLayer(); if(!L) return; bdApplyLayerPos(L.x,v); bgSaveMeta(); }
+function bdSetTextSizeV(v){ bdApplyLayerSize(v); bgSaveMeta(); }
+function bdSetTextRot(v){ bdApplyLayerRot(+v||0); bgSaveMeta(); }
+function bdSyncTextControls(){ const L=bdSelLayer(); if(!L) return;
+  const sx=document.getElementById("bd-x"); if(sx&&document.activeElement!==sx) sx.value=Math.round(L.x);
+  const sy=document.getElementById("bd-y"); if(sy&&document.activeElement!==sy) sy.value=Math.round(L.y);
+  const ss=document.getElementById("bd-size"); if(ss&&document.activeElement!==ss) ss.value=Math.round(L.size);
+  const sr=document.getElementById("bd-rot"); if(sr&&document.activeElement!==sr) sr.value=Math.round(L.rot);
+  const lv=document.getElementById("bd-size-val"); if(lv) lv.textContent=Math.round(L.size);
+  const lr=document.getElementById("bd-rot-val"); if(lr) lr.textContent=Math.round(L.rot)+"\u00B0";
+}
+function bdRenderPreviewText(){ const box=document.getElementById("bd-preview"); if(!box) return; const arr=bdCurTexts(); const w=box.clientWidth||300, h=box.clientHeight||220; const selId=(bdSelLayer()||{}).id;
+  arr.forEach(L=>{ const el=box.querySelector('.bd-ptext[data-id="'+L.id+'"]'); if(!el) return; el.style.left=L.x+"%"; el.style.top=L.y+"%"; el.style.transform="translate(-50%,-50%) rotate("+L.rot+"deg)"; el.style.fontSize=(L.size/100*Math.min(w,h))+"px"; if(L.kind==='text'){ el.style.color=L.color||"#ffffff"; el.style.textAlign=L.align||"center"; el.style.fontFamily=bgFontStack(L.font); } el.classList.toggle("bd-ptext-sel", L.id===selId); }); }
+function bdBindPreview(){ const box=document.getElementById("bd-preview"); if(!box) return; bdRenderPreviewText(); bdSyncTextControls();
+  const pts=new Map(); let mode=null, sx=0, sy=0, bx=0, by=0, bsize=0, brot=0, pd=0, ps=0, pa=0, pr=0;
+  const rect=()=>box.getBoundingClientRect();
+  function layerCenter(){ const L=bdSelLayer(); const r=rect(); return {x:r.left+(L?L.x:50)/100*r.width, y:r.top+(L?L.y:50)/100*r.height}; }
+  function markSel(){ box.querySelectorAll('.bd-ptext').forEach(el=>el.classList.toggle('bd-ptext-sel', el.getAttribute('data-id')===state.bgTextSel)); }
+  function start(e, layerEl, kind){ try{ box.setPointerCapture(e.pointerId); }catch(_){} pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.preventDefault(); e.stopPropagation();
+    const id=layerEl?layerEl.getAttribute('data-id'):state.bgTextSel; if(id&&state.bgTextSel!==id){ state.bgTextSel=id; markSel(); bdSyncTextControls(); }
+    if(pts.size>=2){ const p=[...pts.values()]; pd=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1; pa=Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x); const L=bdSelLayer(); ps=L?L.size:6; pr=L?L.rot:0; mode='pinch'; return; }
+    const L=bdSelLayer(); if(!L){ mode=null; return; }
+    if(kind==='handle'){ mode='resize'; bsize=L.size; sy=e.clientY; }
+    else if(kind==='rot'){ mode='rotate'; brot=L.rot; }
+    else { mode='move'; bx=L.x; by=L.y; sx=e.clientX; sy=e.clientY; }
+  }
+  function moveEv(e){ if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const r=rect();
+    if(mode==='pinch' && pts.size>=2){ const p=[...pts.values()]; const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1; const a=Math.atan2(p[1].y-p[0].y,p[1].x-p[0].x); bdApplyLayerSize(ps*(d/pd)); bdApplyLayerRot(pr+(a-pa)*180/Math.PI); return; }
+    if(mode==='move'){ bdApplyLayerPos(bx+(e.clientX-sx)/r.width*100, by+(e.clientY-sy)/r.height*100); }
+    else if(mode==='resize'){ bdApplyLayerSize(bsize+(e.clientY-sy)/r.height*100*0.6); }
+    else if(mode==='rotate'){ const c=layerCenter(); bdApplyLayerRot(Math.atan2(e.clientY-c.y, e.clientX-c.x)*180/Math.PI+90); }
+  }
+  function end(e){ pts.delete(e.pointerId); if(mode==='pinch'&&pts.size<2) mode=(pts.size===1?'move':null); if(pts.size===0){ if(mode){ bgSaveMeta(); renderBackground(); refreshBackdrops(); } mode=null; } }
+  box.querySelectorAll('.bd-ptext').forEach(el=>{ el.addEventListener('pointerdown', e=>{ if(e.target.closest('[data-rh]')) return start(e, el, 'handle'); if(e.target.closest('[data-rot]')) return start(e, el, 'rot'); start(e, el, 'move'); }); });
+  box.addEventListener('pointermove', moveEv);
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
+  box.addEventListener('wheel', e=>{ e.preventDefault(); const L=bdSelLayer(); if(!L) return; bdApplyLayerSize(L.size + (e.deltaY<0?0.6:-0.6)); bgSaveMeta(); }, {passive:false});
+}
 function bdModalHtml(){
   const imgs=state.bgImages||[]; const count=imgs.filter(Boolean).length;
   if(!Array.isArray(state.bgMeta)) state.bgMeta=[];
   const focus=Math.min(state.bgFocus||0, Math.max(0,count-1));
   const S=state.bgSlide||{on:false,source:'all',order:'seq',time:8,fx:'fade',sel:[]};
   const dimPct=Math.round((state.bgDim!=null?state.bgDim:0.6)*100);
-  const ts=state.bgTextStyle||{pos:'bottom',size:'md',color:'#ffffff'};
-  const head=`<div class="mb-3 flex items-center gap-2.5">
+  const ts=bgNormText();
+  const head=`<div class="flex items-center gap-2.5 border-b border-white/10 px-4 py-3 sm:px-5">
      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="image" style="width:18px;height:18px"></i></span>
      <div class="min-w-0 flex-1"><p class="font-display text-[9px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Backdrops</p><h3 class="text-lg font-extrabold leading-tight">Your wallpapers</h3></div>
      <span class="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/55" data-testid="bd-count">${count}/9</span>
@@ -1487,31 +1571,65 @@ function bdModalHtml(){
        <button data-act="bd-focus" data-idx="${i}" data-testid="bd-focus-${i}" class="press block aspect-[4/3] w-full"><img src="${src}" alt="Backdrop ${i+1}" draggable="false" class="h-full w-full object-cover" style="${fcss?`filter:${fcss}`:''}"></button>
        ${selMode?`<button data-act="bd-sel-toggle" data-idx="${i}" data-testid="bd-sel-${i}" aria-pressed="${inSel}" aria-label="Include backdrop ${i+1} in slideshow" class="press absolute left-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-md border ${inSel?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)] text-white':'border-white/45 bg-black/50 text-transparent'} backdrop-blur"><i data-lucide="check" style="width:13px;height:13px"></i></button>`:(isActive?`<span class="pointer-events-none absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-[color:var(--treesh-purple)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white"><i data-lucide="check" style="width:10px;height:10px"></i>Active</span>`:'')}
        <button data-act="bd-remove" data-idx="${i}" data-testid="bd-remove-${i}" aria-label="Remove backdrop ${i+1}" class="press absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/55 text-white/85 backdrop-blur hover:bg-black/75 hover:text-rose-300"><i data-lucide="x" style="width:13px;height:13px"></i></button>
-       ${meta.text?`<span id="bd-tile-text-${i}" class="pointer-events-none absolute inset-x-1 bottom-1 clamp-1 rounded bg-black/55 px-1.5 py-0.5 text-center text-[9px] font-semibold text-white backdrop-blur">${esc(meta.text)}</span>`:''}
+       ${(()=>{ const ta=(meta.texts||[]).filter(L=>(L.text||'').trim()); const first=ta.length?ta[0].text:((meta.text||'').trim()); return first?`<span class="pointer-events-none absolute inset-x-1 bottom-1 clamp-1 rounded bg-black/55 px-1.5 py-0.5 text-center text-[9px] font-semibold text-white backdrop-blur">${esc(first)}${ta.length>1?' +'+(ta.length-1):''}</span>`:''; })()}
      </div>`; };
   const addSlot = count<9 ? `<label data-testid="bd-add" class="press grid aspect-[4/3] cursor-pointer place-items-center rounded-xl border border-dashed border-white/20 bg-white/[0.02] text-white/55 transition hover:bg-white/5 hover:text-white/80"><span class="flex flex-col items-center gap-1"><i data-lucide="image-plus" style="width:22px;height:22px"></i><span class="text-[10px] font-semibold">Add</span></span><input type="file" accept="image/*" class="hidden bd-file-input"></label>` : '';
   let grid;
   if(count){ grid=`<div class="grid grid-cols-3 gap-2.5" data-testid="bd-grid">${imgs.map((s,i)=>s?tile(i):'').join('')}${addSlot}</div>`; }
   else { grid=`<div class="grid grid-cols-3 gap-2.5" data-testid="bd-grid">${addSlot}</div><p class="mt-2 text-center text-xs text-white/45">Add up to 9 images. Photos are optimized automatically.</p>`; }
-  // per-image editor
+  // live preview of the focused backdrop (drag layers, pinch/wheel to size, rotate handle)
+  let preview='';
+  if(count){ const meta=state.bgMeta[focus]||{}; const fcss=bgFilterCss(meta.filter||'none'); const texts=bgNormTexts(focus); const selId=(bdSelLayer()||{}).id;
+    const showPh = !texts.some(L=>(L.text||'').trim());
+    const layersHtml=texts.map((L,i)=>`<div class="bd-ptext${L.id===selId?' bd-ptext-sel':''}" data-id="${L.id}" data-testid="bd-ptext-${i}" style="left:${L.x}%;top:${L.y}%;transform:translate(-50%,-50%) rotate(${L.rot||0}deg)${L.kind==='text'?`;text-align:${L.align};color:${L.color};font-family:${bgFontStack(L.font)}`:''}"><span class="bd-ptext-inner">${esc((L.text||'').trim()?L.text:'\u00A0')}</span><span class="bd-ph-handle bd-rot" data-rot aria-label="Rotate"><i data-lucide="rotate-cw" style="width:12px;height:12px"></i></span><span class="bd-ph-handle bd-rh" data-rh aria-label="Resize"><i data-lucide="move" style="width:12px;height:12px"></i></span></div>`).join('');
+    preview=`<div>
+       <div class="mb-1.5 flex items-center justify-between"><p class="text-[11px] font-bold uppercase tracking-wide text-white/40">Preview \u00B7 backdrop ${focus+1}</p><span class="text-[10px] text-white/40">Drag \u00B7 pinch / scroll to size</span></div>
+       <div id="bd-preview" data-testid="bd-preview" class="relative mx-auto aspect-[4/3] w-full max-w-[320px] touch-none select-none overflow-hidden rounded-2xl border border-white/12 bg-black">
+         <img src="${imgs[focus]}" alt="Preview" draggable="false" class="pointer-events-none absolute inset-0 h-full w-full object-cover" style="${fcss?`filter:${fcss}`:''}">
+         ${state.bgOverlay?`<div class="pointer-events-none absolute inset-0" style="background:var(--app-bg);opacity:${Math.max(0.2,Math.min(0.9,state.bgDim!=null?state.bgDim:0.6))}"></div>`:''}
+         <div id="bd-preview-ph" class="pointer-events-none absolute inset-0 grid place-items-center" style="${showPh?'':'display:none'}"><span class="rounded-full bg-black/45 px-3 py-1 text-[11px] font-medium text-white/70 backdrop-blur">Add text or a sticker below</span></div>
+         ${layersHtml}
+       </div>
+     </div>`;
+  }
+  // per-image editor (filter + layered text/sticker controls)
   let editor='';
-  if(count){ const meta=state.bgMeta[focus]||{};
+  if(count){ const meta=state.bgMeta[focus]||{}; const texts=bgNormTexts(focus); const sel=bdSelLayer();
     const filterChips=BG_FILTERS.map(([id,label])=>`<button data-act="bd-filter" data-f="${id}" data-testid="bd-filter-${id}" aria-pressed="${(meta.filter||'none')===id}" class="press shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${(meta.filter||'none')===id?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}">${label}</button>`).join('');
-    const posBtn=(v,l)=>`<button data-act="bd-text-pos" data-v="${v}" data-testid="bd-text-pos-${v}" aria-pressed="${ts.pos===v}" class="press flex-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors ${ts.pos===v?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:text-white'}">${l}</button>`;
-    const sizeBtn=(v,l)=>`<button data-act="bd-text-size" data-v="${v}" data-testid="bd-text-size-${v}" aria-pressed="${ts.size===v}" class="press flex-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors ${ts.size===v?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:text-white'}">${l}</button>`;
+    const layerChips=texts.map((L,i)=>`<button data-act="bd-text-select" data-id="${L.id}" data-testid="bd-layer-chip-${i}" aria-pressed="${sel&&sel.id===L.id}" class="press inline-flex max-w-[150px] shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${sel&&sel.id===L.id?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}"><i data-lucide="${L.kind==='emoji'?'smile':'type'}" style="width:12px;height:12px"></i><span class="clamp-1">${esc((L.text||'').trim()||('Layer '+(i+1)))}</span></button>`).join('');
+    const addTextChip = texts.length<10 ? `<button data-act="bd-text-add" data-testid="bd-text-add" class="press inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-white/25 bg-white/[0.02] px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10"><i data-lucide="plus" style="width:12px;height:12px"></i>Text</button>` : '';
+    const emojiRow=BG_EMOJIS.map(em=>`<button data-act="bd-emoji-add" data-em="${em}" aria-label="Add ${em} sticker" class="press grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 text-lg leading-none hover:bg-white/10">${em}</button>`).join('');
+    const fontChips=(typeof FONTS!=='undefined'?FONTS:[]).map(f=>`<button data-act="bd-text-font" data-font="${f.id}" data-testid="bd-font-${f.id}" aria-pressed="${sel&&sel.font===f.id}" class="press shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${sel&&sel.font===f.id?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}" style="font-family:${f.stack}">${f.name}</button>`).join('');
+    const defFontChip=`<button data-act="bd-text-font" data-font="" data-testid="bd-font-default" aria-pressed="${sel&&!sel.font}" class="press shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${sel&&!sel.font?'border-[color:var(--treesh-purple)] bg-[color:var(--treesh-purple)]/15 text-white':'border-white/12 bg-white/5 text-white/70 hover:bg-white/10'}">Default</button>`;
+    const posBtn=(v,l)=>`<button data-act="bd-text-pos" data-v="${v}" data-testid="bd-text-pos-${v}" class="press flex-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-white/60 transition-colors hover:bg-white/10 hover:text-white">${l}</button>`;
+    const alignBtn=(v,ic)=>`<button data-act="bd-text-align" data-v="${v}" data-testid="bd-text-align-${v}" aria-pressed="${sel&&(sel.align||'center')===v}" class="press flex-1 inline-flex items-center justify-center rounded-lg px-2 py-1.5 transition-colors ${sel&&(sel.align||'center')===v?'bg-[color:var(--treesh-purple)] text-white':'text-white/60 hover:text-white'}"><i data-lucide="${ic}" style="width:14px;height:14px"></i></button>`;
+    let layerEditor='';
+    if(sel){ const isText=sel.kind==='text';
+      layerEditor=`<div class="mb-2 space-y-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5" data-testid="bd-text-controls">
+         ${isText?`<input id="bd-text-input" data-testid="bd-text-input" value="${esc(sel.text||'')}" maxlength="80" placeholder="Type your words\u2026" class="w-full rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-[color:var(--treesh-purple)]">
+         <div class="no-scrollbar -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${defFontChip}${fontChips}</div>`:`<p class="text-[11px] text-white/50">Emoji sticker \u2014 drag it on the preview, pinch or scroll to resize, and use the top handle (or Rotation slider) to spin it.</p>`}
+         <div><div class="mb-0.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-white/40"><span>Size</span><span id="bd-size-val" class="font-doto text-white/70">${Math.round(sel.size)}</span></div><input id="bd-size" type="range" min="3" max="30" step="1" value="${Math.round(sel.size)}" oninput="bdSetTextSizeV(this.value)" data-testid="bd-text-size-slider" class="w-full accent-[color:var(--treesh-purple)]"></div>
+         <div><div class="mb-0.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-white/40"><span>Rotation</span><span id="bd-rot-val" class="font-doto text-white/70">${Math.round(sel.rot)}\u00B0</span></div><input id="bd-rot" type="range" min="-180" max="180" step="1" value="${Math.round(sel.rot)}" oninput="bdSetTextRot(this.value)" data-testid="bd-text-rot" class="w-full accent-[color:var(--treesh-purple)]"></div>
+         <div><p class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">Horizontal position</p><input id="bd-x" type="range" min="2" max="98" step="1" value="${Math.round(sel.x)}" oninput="bdSetTextX(this.value)" data-testid="bd-text-x" class="w-full accent-[color:var(--treesh-purple)]"></div>
+         <div><p class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">Vertical position</p><input id="bd-y" type="range" min="4" max="96" step="1" value="${Math.round(sel.y)}" oninput="bdSetTextY(this.value)" data-testid="bd-text-y" class="w-full accent-[color:var(--treesh-purple)]"></div>
+         <div class="flex flex-wrap items-center gap-2">
+           ${isText?`<div class="flex min-w-[110px] flex-1 gap-1 rounded-lg border border-white/10 bg-white/5 p-1">${alignBtn('left','align-left')}${alignBtn('center','align-center')}${alignBtn('right','align-right')}</div>`:''}
+           <div class="flex min-w-[150px] flex-1 gap-1 rounded-lg border border-white/10 bg-white/5 p-1">${posBtn('top','Top')}${posBtn('center','Middle')}${posBtn('bottom','Bottom')}</div>
+           ${isText?`<label class="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-semibold text-white/70"><span>Color</span><input type="color" value="${sel.color||'#ffffff'}" oninput="bdSetTextColor(this.value)" data-testid="bd-text-color" class="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"></label>`:''}
+         </div>
+         <button data-act="bd-text-delete" data-testid="bd-text-delete" class="press inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-[11px] font-semibold text-rose-200 hover:bg-rose-500/20"><i data-lucide="trash-2" style="width:12px;height:12px"></i>Delete this layer</button>
+       </div>`;
+    }
     editor=`<div class="rounded-2xl border border-white/10 bg-white/[0.03] p-3" data-testid="bd-editor">
        <p class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/50"><i data-lucide="wand-2" class="text-[color:var(--treesh-purple)]" style="width:14px;height:14px"></i>Editing backdrop ${focus+1}</p>
        <p class="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/40">Filter</p>
        <div class="no-scrollbar -mx-0.5 mb-1.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${filterChips}</div>
        <button data-act="bd-apply-filter-all" data-testid="bd-apply-filter-all" class="press mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"><i data-lucide="copy" style="width:12px;height:12px"></i>Apply filter to all</button>
-       <p class="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/40">Text overlay</p>
-       <input id="bd-text-input" data-testid="bd-text-input" value="${esc(meta.text||'')}" maxlength="80" placeholder="Add a word or quote (optional)" class="mb-2 w-full rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-[color:var(--treesh-purple)]">
-       <div class="mb-2 flex flex-wrap items-center gap-2">
-         <div class="flex flex-1 min-w-[160px] gap-1 rounded-xl border border-white/10 bg-white/5 p-1">${posBtn('top','Top')}${posBtn('center','Center')}${posBtn('bottom','Bottom')}</div>
-         <div class="flex flex-1 min-w-[140px] gap-1 rounded-xl border border-white/10 bg-white/5 p-1">${sizeBtn('sm','S')}${sizeBtn('md','M')}${sizeBtn('lg','L')}</div>
-         <label class="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-semibold text-white/70"><span>Color</span><input type="color" value="${ts.color||'#ffffff'}" oninput="bdSetTextColor(this.value)" data-testid="bd-text-color" class="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"></label>
-       </div>
-       <button data-act="bd-apply-text-all" data-testid="bd-apply-text-all" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"><i data-lucide="copy" style="width:12px;height:12px"></i>Apply text to all</button>
+       <p class="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/40">Text &amp; stickers</p>
+       <div class="no-scrollbar -mx-0.5 mb-2 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${layerChips}${addTextChip}</div>
+       <div class="mb-2"><p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-white/35">Tap a sticker to add it</p><div class="no-scrollbar -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-1">${emojiRow}</div></div>
+       ${layerEditor}
+       <button data-act="bd-apply-text-all" data-testid="bd-apply-text-all" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"><i data-lucide="copy" style="width:12px;height:12px"></i>Copy layers to every backdrop</button>
      </div>`;
   }
   // slideshow
@@ -1541,8 +1659,8 @@ function bdModalHtml(){
        </button>
        ${state.bgOverlay?`<div><div class="mb-1 flex items-center justify-between"><p class="text-[11px] font-bold uppercase tracking-wide text-white/40">Darkness</p><span id="bd-dim-val" class="font-doto text-xs text-white/70">${dimPct}%</span></div><input type="range" min="20" max="90" value="${dimPct}" oninput="bdSetDim(this.value)" data-testid="bd-dim" class="w-full accent-[color:var(--treesh-purple)]"></div>`:''}
      </div>`;
-  const body=`<div class="max-h-[68vh] space-y-3.5 overflow-y-auto no-scrollbar pr-1" data-testid="bd-body">${grid}${editor}${slideshow}${dim}</div>`;
-  return head+body;
+  const body=`<div class="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain soft-scroll px-4 py-4 sm:px-5" data-testid="bd-body">${preview}${grid}${editor}${slideshow}${dim}</div>`;
+  return `<div data-act="modal-backdrop" data-testid="backdrops-modal" class="fixed inset-0 z-[210] grid place-items-center bg-black/60 p-2 backdrop-blur-sm backdrop-in sm:p-4"><div data-act="modal-stop" class="glass-strong panel-in relative flex max-h-[calc(100dvh-1rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border-white/15 text-white">${head}${body}</div></div>`;
 }
 
 /* Downscale + recompress an uploaded image so it reliably fits in localStorage.
@@ -1605,6 +1723,7 @@ function applyCustomColors(){ const rs=document.documentElement.style; const cl=
   if(state.navColor){ rs.setProperty("--nav-bg", state.navColor); cl.add("tr-navcolor"); } else cl.remove("tr-navcolor");
   if(state.topbarColor){ rs.setProperty("--topbar-bg", state.topbarColor); cl.add("tr-topcolor"); } else cl.remove("tr-topcolor");
   if(state.rowColor){ rs.setProperty("--row-bg", state.rowColor); cl.add("tr-rowcolor"); } else cl.remove("tr-rowcolor");
+  if(state.inkColor){ rs.setProperty("--ink", state.inkColor); cl.add("tr-inkcolor"); } else cl.remove("tr-inkcolor");
 }
 /* ---------- card label styling ---------- */
 function applyLabelStyle(){ const L=state.label||{}; const rs=document.documentElement.style;
@@ -1711,20 +1830,19 @@ function bgPoolIndices(){
   if(S.source==='sel' && Array.isArray(S.sel) && S.sel.length){ const sel=S.sel.filter(i=>all.indexOf(i)>=0); return sel.length?sel:all; }
   return all;
 }
+function bgNormText(){ const ts=state.bgTextStyle||{}; if(typeof ts.size==="string"){ ts.size = ts.size==="sm"?4:(ts.size==="lg"?9:6); } if(!(ts.size>0)) ts.size=6; ts.size=Math.max(3,Math.min(16,ts.size)); if(ts.x==null||isNaN(ts.x)) ts.x=50; if(ts.y==null||isNaN(ts.y)) ts.y=(ts.pos==="top"?16:(ts.pos==="center"?50:84)); ts.x=Math.max(2,Math.min(98,ts.x)); ts.y=Math.max(4,Math.min(96,ts.y)); if(!ts.color) ts.color="#ffffff"; if(!ts.align) ts.align="center"; state.bgTextStyle=ts; return ts; }
 function bgLayerInnerHtml(idx, fx){
   const src=state.bgImages[idx]; if(!src) return "";
   const meta=(state.bgMeta&&state.bgMeta[idx])||{};
   const filter=bgFilterCss(meta.filter||'none');
   const dim=Math.max(0.2,Math.min(0.9, state.bgDim!=null?state.bgDim:0.6));
-  const text=(meta.text||'').trim();
-  const ts=state.bgTextStyle||{pos:'bottom',size:'md',color:'#ffffff'};
-  const align = ts.pos==='top'?'flex-start':(ts.pos==='center'?'center':'flex-end');
-  const fsize = ts.size==='sm'?'clamp(18px,4vw,30px)':(ts.size==='lg'?'clamp(34px,8vw,74px)':'clamp(24px,6vw,50px)');
+  const layers=bgNormTexts(idx).filter(L=>(L.text||'').trim());
   let html=`<div class="bg-img ${fx?('bg-fx-'+fx):''}" style="background-image:url('${src}');${filter?`filter:${filter};`:''}"></div>`;
   if(state.bgOverlay){ html+=`<div style="position:absolute;inset:0;background:var(--app-bg);opacity:${dim}"></div>`; }
-  if(text){ html+=`<div id="bg-text" style="align-items:${align}"><span style="max-width:90%;text-align:center;font-family:var(--treesh-font-display,inherit);font-weight:800;line-height:1.1;letter-spacing:-0.01em;color:${ts.color};font-size:${fsize};text-shadow:0 2px 20px rgba(0,0,0,0.6)">${esc(text)}</span></div>`; }
+  if(layers.length){ html+=`<div id="bg-text" style="position:absolute;inset:0;pointer-events:none;z-index:2">`+layers.map(L=>{ const base=`position:absolute;left:${L.x}%;top:${L.y}%;transform:translate(-50%,-50%) rotate(${L.rot||0}deg);max-width:92%;white-space:pre-wrap;line-height:1.08;font-size:${L.size}vmin`; if(L.kind==='emoji'){ return `<span style="${base};text-shadow:0 2px 18px rgba(0,0,0,0.45)">${esc(L.text)}</span>`; } return `<span style="${base};text-align:${L.align||'center'};font-family:${bgFontStack(L.font)};font-weight:800;letter-spacing:-0.01em;color:${L.color||'#fff'};text-shadow:0 2px 20px rgba(0,0,0,0.6)">${esc(L.text)}</span>`; }).join('')+`</div>`; }
   return html;
 }
+function bgUpdateTextLive(){ const span=document.querySelector("#bg-text span"); const ts=state.bgTextStyle; if(span&&ts){ span.style.left=ts.x+"%"; span.style.top=ts.y+"%"; span.style.fontSize=ts.size+"vmin"; span.style.color=ts.color; span.style.textAlign=ts.align; } }
 let _bgSlideTimer=null, _bgSlidePos=0;
 function bgStopSlideshow(){ if(_bgSlideTimer){ clearInterval(_bgSlideTimer); _bgSlideTimer=null; } }
 function bgStartSlideshow(){
@@ -1751,6 +1869,7 @@ function renderBackground(){
   if(bg==="solid"||isSpace){ /* body base color shows through */ }
   else if(bg==="accent"){ layer.style.background="radial-gradient(90% 65% at 50% -12%, var(--treesh-purple-soft), transparent 62%)"; layer.innerHTML=`<div style="position:absolute;inset:0;background:var(--treesh-purple);opacity:0.06"></div>`; }
   else if(bg==="custom"){
+    bgEnsureFonts();
     const pool=bgPoolIndices();
     let activeIdx = state.bgImages[state.bgIndex] ? state.bgIndex : (pool.length?pool[0]:-1);
     if(activeIdx>=0 && state.bgImages[activeIdx]){
@@ -2147,10 +2266,10 @@ function songRow(s, i, removable, act, opts){ opts=opts||{}; const clean=!!opts.
       <p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p>
     </div>
     ${(!clean&&s.genre)?`<span class="hidden md:inline rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/45">${esc(s.genre)}</span>`:""}
-    ${mp?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="hidden sm:inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}
+    ${(mp && !opts.manager)?`<span title="Most played" data-testid="most-played-badge-${s.id}" class="hidden sm:inline-flex items-center gap-1 rounded-full border border-[color:var(--treesh-gold)]/40 bg-[color:var(--treesh-gold)]/12 px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--treesh-gold)]"><i data-lucide="flame" style="width:11px;height:11px"></i>${playCount(s.id)}</span>`:""}
     ${(s._user&&opts.manager)?`<button data-act="m-edit-details" data-id="${s.id}" aria-label="Edit details" title="Edit details" data-testid="mm-edit-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"><i data-lucide="pencil" style="width:15px;height:15px"></i></button><button data-act="m-remove-upload" data-id="${s.id}" aria-label="Delete track" title="Delete" data-testid="mm-trash-${s.id}" class="press grid h-8 w-8 place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-rose-300"><i data-lucide="trash-2" style="width:15px;height:15px"></i></button>`:""}
     ${(!s._user||!opts.manager)?`<button data-act="like" data-id="${s.id}" aria-label="Like" data-testid="song-like-${s.id}" class="tr-like${fav?' is-liked':''} press grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="heart" style="width:16px;height:16px"></i></button>`:""}
-    ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:`<button data-act="songmenu" data-id="${s.id}" aria-label="More options" class="press grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:18px;height:18px"></i></button>`}
+    ${removable?`<button data-act="pl-remove-song" data-id="${s.id}" class="grid h-8 w-8 place-items-center rounded-full text-white/60 hover:bg-white/10"><i data-lucide="x" style="width:16px;height:16px"></i></button>`:(opts.manager?'':`<button data-act="songmenu" data-id="${s.id}" aria-label="More options" class="press grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><i data-lucide="more-horizontal" style="width:18px;height:18px"></i></button>`)}
   </div>`; }
 
 function grid(list, act, opts){ return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">${list.map(s=>songCard(s,act,opts)).join("")}</div>`; }
@@ -2699,7 +2818,7 @@ const STORAGE_GROUPS=[
   { id:"library", label:"Library & playlists", icon:"library-big", desc:"Playlists, favorites, dislikes & lyric edits", keys:["treesh_playlists","treesh_favorites","treesh_dislikes","treesh_fav_lyrics","treesh_lyric_edits"] },
   { id:"beats", label:"Beats & presets", icon:"drum", desc:"Instrum projects and your custom presets", keys:["treesh_beats","treesh_user_presets"] },
   { id:"activity", label:"Games & rewards", icon:"trophy", desc:"Game stats, This or That & Starlites", keys:["treesh_game_stats","treesh_game_opts","treesh_tot","treesh_stars","treesh_stats"] },
-  { id:"personalize", label:"Appearance & profile", icon:"palette", desc:"Profile, theme, colors, fonts & background", keys:["treesh_profile","treesh_accent","treesh_theme","treesh_bg","treesh_bg_image","treesh_bg_overlay","treesh_text_size","treesh_anim_bg","treesh_ui_glow","treesh_sleep","treesh_vinyl","treesh_lib_grid","treesh_game_grid","treesh_viz","treesh_nav_color","treesh_topbar_color","treesh_row_color","treesh_font","treesh_custom_font","treesh_label","treesh_notif_nav","treesh_explain_auto","treesh_perf","treesh_perf_opts","treesh_bday_edits"] },
+  { id:"personalize", label:"Appearance & profile", icon:"palette", desc:"Profile, theme, colors, fonts & background", keys:["treesh_profile","treesh_accent","treesh_theme","treesh_bg","treesh_bg_image","treesh_bg_overlay","treesh_text_size","treesh_anim_bg","treesh_ui_glow","treesh_sleep","treesh_vinyl","treesh_lib_grid","treesh_game_grid","treesh_viz","treesh_nav_color","treesh_topbar_color","treesh_row_color","treesh_ink_color","treesh_font","treesh_custom_font","treesh_label","treesh_notif_nav","treesh_explain_auto","treesh_perf","treesh_perf_opts","treesh_bday_edits"] },
   { id:"cache", label:"Cache", icon:"database", desc:"Offline catalog copy & recent searches", keys:[CATALOG_KEY,"treesh_recent_searches"] },
   { id:"security", label:"Security", icon:"shield", desc:"App lock & parent PIN", keys:["treesh_lock","treesh_parent_pin"] },
 ];
@@ -3065,6 +3184,14 @@ function viewSettings(){
         ${colorRow('set-nav-color','reset-nav-color',state.navColor,'panel-left','Navigation bar','Sidebar & mobile nav')}
         ${colorRow('set-topbar-color','reset-topbar-color',state.topbarColor,'panel-top','Top bar','Search & profile bar')}
         ${colorRow('set-row-color','reset-row-color',state.rowColor,'list','Song rows','Track list background')}
+      </div>
+    </div>
+
+    <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+      <div class="mb-1 flex items-center justify-between gap-2"><div class="flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="type" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Font color</h2></div>${state.inkColor?`<button data-act="reset-ink-color" data-testid="reset-ink-color" class="press rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10">Reset</button>`:''}</div>
+      <p class="mb-4 pl-11 text-sm text-white/50">Tint the main text across the app. Pick a shade that stays readable with your theme.</p>
+      <div class="space-y-2.5">
+        ${colorRow('set-ink-color','reset-ink-color',state.inkColor,'baseline','Text color','Headings &amp; primary text')}
       </div>
     </div>
 
@@ -6728,6 +6855,7 @@ document.addEventListener("input", e=>{
   if(act==="set-nav-color"){ state.navColor=el.value; LS.set("treesh_nav_color",el.value); applyCustomColors(); return; }
   if(act==="set-topbar-color"){ state.topbarColor=el.value; LS.set("treesh_topbar_color",el.value); applyCustomColors(); return; }
   if(act==="set-row-color"){ state.rowColor=el.value; LS.set("treesh_row_color",el.value); applyCustomColors(); return; }
+  if(act==="set-ink-color"){ state.inkColor=el.value; LS.set("treesh_ink_color",el.value); applyCustomColors(); return; }
   if(act==="set-label-text"){ state.label.text=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   if(act==="set-label-bg"){ state.label.bg=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
   if(act==="set-label-border-color"){ state.label.borderColor=el.value; LS.set("treesh_label",state.label); applyLabelStyle(); return; }
@@ -7086,13 +7214,18 @@ document.addEventListener("click", e=>{
     case "lib-load-more": { const k=t.dataset.key||""; const size=state.libPageSize||0; if(!state._pageShown) state._pageShown={}; state._pageShown[k]=(state._pageShown[k]||size)+size; renderView(); break; }
     case "toggle-bg-overlay": { state.bgOverlay=!state.bgOverlay; LS.set("treesh_bg_overlay",state.bgOverlay); renderBackground(); if(document.querySelector('[data-testid="backdrops-modal"]')){ refreshBackdrops(); } else { renderView(); } break; }
     case "open-backdrops": openBackdrops(); break;
-    case "bd-focus": { const i=parseInt(t.dataset.idx,10)||0; if(state.bgImages[i]){ state.bgFocus=i; if(!(state.bgSlide&&state.bgSlide.on)){ state.bgIndex=i; state.bg="custom"; LS.set("treesh_bg","custom"); bgSaveImages(); } renderBackground(); refreshBackdrops(); } break; }
+    case "bd-focus": { const i=parseInt(t.dataset.idx,10)||0; if(state.bgImages[i]){ state.bgFocus=i; state.bgTextSel=null; if(!(state.bgSlide&&state.bgSlide.on)){ state.bgIndex=i; state.bg="custom"; LS.set("treesh_bg","custom"); bgSaveImages(); } renderBackground(); refreshBackdrops(); } break; }
     case "bd-remove": { const i=parseInt(t.dataset.idx,10); if(state.bgImages[i]!=null){ state.bgImages.splice(i,1); if(Array.isArray(state.bgMeta)) state.bgMeta.splice(i,1); if(state.bgSlide&&Array.isArray(state.bgSlide.sel)){ state.bgSlide.sel=state.bgSlide.sel.filter(x=>x!==i).map(x=>x>i?x-1:x); bgSaveSlide(); } if(state.bgIndex>=state.bgImages.length) state.bgIndex=Math.max(0,state.bgImages.length-1); if(state.bgFocus>=state.bgImages.length) state.bgFocus=Math.max(0,state.bgImages.length-1); bgSaveImages(); renderBackground(); renderView(); refreshBackdrops(); toast(state.bgImages.length?"Backdrop removed":"All backdrops removed"); } break; }
     case "bd-filter": { const i=state.bgFocus||0; if(state.bgImages[i]){ bgMetaAt(i).filter=t.dataset.f||'none'; bgSaveMeta(); renderBackground(); refreshBackdrops(); } break; }
     case "bd-apply-filter-all": { const i=state.bgFocus||0; const f=(bgMetaAt(i).filter)||'none'; (state.bgImages||[]).forEach((s,idx)=>{ if(s) bgMetaAt(idx).filter=f; }); bgSaveMeta(); renderBackground(); refreshBackdrops(); toast("Filter applied to all"); break; }
-    case "bd-apply-text-all": { const i=state.bgFocus||0; const tx=(bgMetaAt(i).text)||''; (state.bgImages||[]).forEach((s,idx)=>{ if(s) bgMetaAt(idx).text=tx; }); bgSaveMeta(); renderBackground(); refreshBackdrops(); toast(tx?"Text applied to all":"Text cleared on all"); break; }
-    case "bd-text-pos": { if(!state.bgTextStyle) state.bgTextStyle={}; state.bgTextStyle.pos=t.dataset.v||'bottom'; bgSaveTextStyle(); renderBackground(); refreshBackdrops(); break; }
-    case "bd-text-size": { if(!state.bgTextStyle) state.bgTextStyle={}; state.bgTextStyle.size=t.dataset.v||'md'; bgSaveTextStyle(); renderBackground(); refreshBackdrops(); break; }
+    case "bd-apply-text-all": { const idx=bdFocusIdx(); const src=bgNormTexts(idx); (state.bgImages||[]).forEach((s,i)=>{ if(!s||i===idx) return; bgMetaAt(i).texts=src.map(L=>Object.assign({},L,{id:bgUID()})); }); bgSaveMeta(); renderBackground(); refreshBackdrops(); toast(src.length?"Layers copied to all backdrops":"Layers cleared on all"); break; }
+    case "bd-text-pos": { const L=bdSelLayer(); if(L){ const v=t.dataset.v||'bottom'; L.y=(v==='top'?16:(v==='center'?50:84)); bgSaveMeta(); renderBackground(); refreshBackdrops(); } break; }
+    case "bd-text-align": { const L=bdSelLayer(); if(L){ L.align=t.dataset.v||'center'; bgSaveMeta(); renderBackground(); refreshBackdrops(); } break; }
+    case "bd-text-font": { bdSetTextFont(t.dataset.font||''); break; }
+    case "bd-text-select": { state.bgTextSel=t.dataset.id; refreshBackdrops(); break; }
+    case "bd-text-add": { const idx=bdFocusIdx(); const arr=bgNormTexts(idx); if(arr.length>=10){ toast("Limit reached","Up to 10 layers per backdrop"); break; } const L={id:bgUID(),kind:'text',text:'Text',x:50,y:50,size:6,rot:0,color:'#ffffff',align:'center',font:''}; arr.push(L); state.bgTextSel=L.id; bgSaveMeta(); renderBackground(); refreshBackdrops(); break; }
+    case "bd-emoji-add": { const idx=bdFocusIdx(); const arr=bgNormTexts(idx); if(arr.length>=10){ toast("Limit reached","Up to 10 layers per backdrop"); break; } const em=t.dataset.em||"\u2728"; const L={id:bgUID(),kind:'emoji',text:em,x:50,y:50,size:12,rot:0,color:'#ffffff',align:'center',font:''}; arr.push(L); state.bgTextSel=L.id; bgSaveMeta(); renderBackground(); refreshBackdrops(); break; }
+    case "bd-text-delete": { const idx=bdFocusIdx(); const arr=bgNormTexts(idx); const i=arr.findIndex(L=>L.id===state.bgTextSel); if(i>=0){ arr.splice(i,1); state.bgTextSel = arr.length? arr[Math.max(0,i-1)].id : null; bgSaveMeta(); renderBackground(); refreshBackdrops(); } break; }
     case "bd-slide-toggle": { if(!state.bgSlide) state.bgSlide={}; state.bgSlide.on=!state.bgSlide.on; bgSaveSlide(); if(state.bg==="custom") renderBackground(); refreshBackdrops(); break; }
     case "bd-slide-source": { if(!state.bgSlide) state.bgSlide={}; state.bgSlide.source=t.dataset.v||'all'; if(state.bgSlide.source==='sel'&&!Array.isArray(state.bgSlide.sel)) state.bgSlide.sel=[]; bgSaveSlide(); if(state.bg==="custom"&&state.bgSlide.on) renderBackground(); refreshBackdrops(); break; }
     case "bd-slide-order": { if(!state.bgSlide) state.bgSlide={}; state.bgSlide.order=t.dataset.v||'seq'; bgSaveSlide(); refreshBackdrops(); break; }
@@ -7109,6 +7242,7 @@ document.addEventListener("click", e=>{
     case "reset-nav-color": { state.navColor=""; LS.set("treesh_nav_color",""); applyCustomColors(); renderView(); break; }
     case "reset-topbar-color": { state.topbarColor=""; LS.set("treesh_topbar_color",""); applyCustomColors(); renderView(); break; }
     case "reset-row-color": { state.rowColor=""; LS.set("treesh_row_color",""); applyCustomColors(); renderView(); break; }
+    case "reset-ink-color": { state.inkColor=""; LS.set("treesh_ink_color",""); applyCustomColors(); renderView(); toast("Font color reset"); break; }
     case "reset-all-colors": { state.navColor=state.topbarColor=state.rowColor=""; LS.set("treesh_nav_color",""); LS.set("treesh_topbar_color",""); LS.set("treesh_row_color",""); applyCustomColors(); renderView(); toast("Surface colors reset"); break; }
     case "toggle-label-border": { state.label.border=!state.label.border; LS.set("treesh_label",state.label); applyLabelStyle(); renderView(); break; }
     case "toggle-label-shadow": { state.label.shadow=!state.label.shadow; LS.set("treesh_label",state.label); applyLabelStyle(); renderView(); break; }
