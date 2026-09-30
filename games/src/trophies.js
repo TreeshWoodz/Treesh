@@ -1,6 +1,6 @@
 /* =====================================================================
    TROPHIES + STARLITE REWARDS
-   - 48 trophies across every mode (bronze/silver/gold/platinum)
+   - 55 trophies across every mode (bronze/silver/gold/platinum)
    - each unlock pays Starlites into the shared Treesh wallet (once)
    - end-of-match reward breakdown on the results screen
    ===================================================================== */

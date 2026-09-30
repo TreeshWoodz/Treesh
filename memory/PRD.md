@@ -21,6 +21,12 @@ Polish every mode, the character models and the UI. Turn Zen into a Sims-like mo
 - Fix: non-URL `treesh_profile.avatar` values (for example an emoji) no longer show a broken image. They fall back to the nickname initial, and failing image URLs are hidden
 - Fix: Flea House name tags no longer overlap when fleas cluster. The selected flea's label wins
 
+## Done (v1.2: Garden, Seasonal, Live Sync)
+- **Backyard Garden**: a yard with 5 beds and 6 seeds. Fleas water and harvest on their own. Garden tab with Water all, Harvest all and Picnic. Crops grow while you're away. Garden Starlites are capped at 160 ✦ per day
+- **Seasonal Furniture**: new `src/seasonal.js` with 6 date-rotating packs and 25 new items with art. The Buy shop opens on Seasonal, showing days left and a locked "Coming up" preview. A new-pack dot appears on the Buy tab. Debug date: `frea_debug_date` or `?freadate=`
+- **Live Balance Sync**: FREA! sends a `treesh:stars` postMessage with trophy info. The parent `/app/parent/index.html` is updated (+32 lines): it re-syncs from storage (fixing the stale overwrite), adds a header Starlite chip with a +N float, and shows a trophy toast when the game is minimized. Test copy at `/treesh-test/index.html`
+- 7 new trophies (55 total). What's New slides added
+- Verified via screenshots only. The full testing-agent pass was skipped at the user's request
+
 ## Backlog
-- Parent snippet for live Starlite sync (the user said not yet)
 - More Flea House content: outdoor yard, more room types, and seasonal items
