@@ -153,7 +153,7 @@ export default function Drills() {
           </button>
         ))}
       </div>
-      <div className="mb-5 flex gap-2 overflow-x-auto no-scrollbar" data-testid="drills-level-tabs">
+      <div className="mb-5 flex flex-wrap gap-2" data-testid="drills-level-tabs">
         {[{ id: "all", label: "All levels" }, ...LEVELS].map((l) => (
           <button key={l.id} className="hp-chip !h-8 shrink-0" data-active={level === l.id} onClick={() => setLevel(l.id)} data-testid={`drills-level-${l.id}`}>
             {l.label}

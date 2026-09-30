@@ -31,7 +31,7 @@ export default function Games() {
         <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8B90A6]" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search games" data-testid="games-search-input" className="h-12 w-full rounded-full border border-[#25273a] bg-[#0f1015] pl-11 pr-4 text-[15px] placeholder:text-[#6f7489] focus:border-[#FF3EA5] focus:outline-none" />
       </div>
-      <div className="mb-5 flex gap-2 overflow-x-auto no-scrollbar">
+      <div className="mb-5 flex flex-wrap gap-2">
         {FILTERS.map(([k, l]) => <button key={k} className="hp-chip shrink-0" data-active={f === k} onClick={() => setF(k)} data-testid={`games-filter-${k}`}>{l}</button>)}
       </div>
       {list.length === 0 ? <Empty icon={Trophy} title="No games match" text="Try another filter." /> : (

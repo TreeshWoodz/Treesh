@@ -61,7 +61,7 @@ export default function Plan() {
     <div data-testid="plan-page">
       <PageHeader eyebrow="Plan your work" title="Plan" sub="Generate a session built from the drill library, map out your week, or run quick intervals. The timer goes fullscreen and follows you around the app." testid="plan-title" />
 
-      <div className="mb-5 flex gap-2 overflow-x-auto no-scrollbar" data-testid="plan-tabs">
+      <div className="mb-5 flex flex-wrap gap-2" data-testid="plan-tabs">
         {TABS.map(([id, label, I]) => (
           <button key={id} className="hp-chip shrink-0" data-active={tab === id} onClick={() => setTab(id)} data-testid={`plan-tab-${id}`}>
             <I size={14} /> {label}
@@ -107,9 +107,9 @@ export default function Plan() {
                 </div>
                 <div>
                   <div className="mb-2 text-sm font-bold">Intensity</div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2" data-testid="plan-intensity">
                     {Object.entries(INTENSITY).map(([k, v]) => (
-                      <button key={k} className="hp-chip !h-8" data-active={cfg.intensity === k} onClick={() => set("intensity", k)} data-testid={`plan-intensity-${k}`}>{v.label} · {v.rest}s rest</button>
+                      <button key={k} className="hp-chip !h-8 whitespace-nowrap" data-active={cfg.intensity === k} onClick={() => set("intensity", k)} data-testid={`plan-intensity-${k}`}>{v.label} · {v.rest}s rest</button>
                     ))}
                   </div>
                 </div>

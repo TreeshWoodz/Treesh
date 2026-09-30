@@ -20,11 +20,24 @@ function Fly({ center, selected, courts }) {
   return null;
 }
 
+// Keep Leaflet in sync with its container (rotation, sidebar/layout changes) so tiles never spill out.
+function AutoResize() {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => map.invalidateSize({ pan: false }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [map]);
+  return null;
+}
+
 export default function CourtMap({ center, courts = [], selectedId, onSelect, height = 320 }) {
   const selected = courts.find((c) => c.id === selectedId);
   const start = center ? [center.lat, center.lon] : [40.7812, -73.9665];
   return (
-    <div className="isolate overflow-hidden rounded-[18px] border border-[#222433]" style={{ height }} data-testid="courts-map">
+    <div className="isolate w-full min-w-0 max-w-full overflow-hidden rounded-[18px] border border-[#222433]" style={{ height }} data-testid="courts-map">
       <MapContainer center={start} zoom={13} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }} attributionControl>
         <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' maxZoom={19} className="hoop-tiles" />
         {center && <CircleMarker center={[center.lat, center.lon]} radius={7} pathOptions={{ color: "#F5F6F8", weight: 3, fillColor: "#0A0A0D", fillOpacity: 1 }} />}
@@ -34,6 +47,7 @@ export default function CourtMap({ center, courts = [], selectedId, onSelect, he
           </CircleMarker>
         ))}
         <Fly center={center} selected={selected} courts={courts} />
+        <AutoResize />
       </MapContainer>
     </div>
   );

@@ -214,7 +214,7 @@ export default function Courts() {
             </Btn>
           </div>
         </form>
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="hp-eyebrow mr-1 shrink-0">Radius</span>
           {RADII.map((r) => (
             <button key={r.m} className="hp-chip !h-8 shrink-0" data-active={radius === r.m} onClick={() => changeRadius(r.m)} data-testid={`courts-radius-${r.m}`}>
@@ -258,7 +258,7 @@ export default function Courts() {
                 {!loading && !error && <div className="text-sm font-bold text-[#F5F6F8]" data-testid="courts-count">{shown.length} court{shown.length === 1 ? "" : "s"} found</div>}
               </div>
             </div>
-            <div className="mb-3 flex gap-2 overflow-x-auto no-scrollbar">
+            <div className="mb-3 flex flex-wrap gap-2">
               {FILTERS.map(([k, label]) => (
                 <button key={k} className="hp-chip !h-8 shrink-0" data-active={filter === k} onClick={() => setFilter(k)} data-testid={`courts-filter-${k}`}>
                   {label}
