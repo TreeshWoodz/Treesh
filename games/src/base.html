@@ -836,7 +836,7 @@ canvas#c{display:block;position:fixed;inset:0;z-index:1}
   #zen-dock.collapsed{transform:translateY(calc(100% + 30px));}
   #edit-bar{left:50%;transform:translateX(-50%);bottom:20px;}
 }
-canvas#c{image-rendering:pixelated;image-rendering:crisp-edges}
+canvas#c{image-rendering:auto}
 
 /* =====================================================================
    MERGED PROFILE MODAL — Stats + Customize tabs
@@ -1536,7 +1536,7 @@ canvas#c{image-rendering:pixelated;image-rendering:crisp-edges}
 /* ---------- Canvas / globals ---------- */
 var C=document.getElementById('c'),ctx=C.getContext('2d');
 var W,H,WORLD_W,WORLD_H;
-function rsz(){W=C.width=innerWidth;H=C.height=innerHeight;}
+var VZ=1,VZ_UI=1;function viewZoom(){var w=innerWidth,h=innerHeight;if(w<1024||h<560)return 1;return Math.max(1,Math.min(1.6,Math.min(w/1280,h/720)));}function rsz(){var dpr=Math.min(2,window.devicePixelRatio||1);try{if(perfMode)dpr=1;}catch(e){}VZ_UI=viewZoom();W=Math.round(innerWidth/VZ_UI);H=Math.round(innerHeight/VZ_UI);C.width=Math.round(innerWidth*dpr);C.height=Math.round(innerHeight*dpr);C.style.width=innerWidth+'px';C.style.height=innerHeight+'px';VZ=VZ_UI*dpr;ctx.setTransform(VZ,0,0,VZ,0,0);}
 rsz();
 
 var GRAV=0.4, MAX_DRAG=120, SLING_POWER=1.25, PLAYER_MAX=48, AI_MAX=34, AI_LEAP_CAP=20, WALL_STICK_MS=10000;
@@ -5288,7 +5288,7 @@ function predictLanding(vx,vy){
   return {x:x,y:y};
 }
 function hnsBlockInput(){if(gameMode!=='hns')return false;if(hnsPhase==='hide')return hnsSeeker===player;if(hnsPhase==='seek')return hnsSeeker!==player;return true;}
-function pointerDown(x,y){
+function pointerDown(x,y){x/=VZ_UI;y/=VZ_UI;
   if(editMode){editDown(x,y);return;}
   if(STATE!=='play'||isPaused||!player||playerDead)return;
   if(hnsBlockInput())return;
@@ -5297,7 +5297,7 @@ function pointerDown(x,y){
   aim.trail=[{x:x,y:y}];
   touchRipple={x:x,y:y,t:0};
 }
-function pointerMove(x,y){if(editMode){editMoveTo(x,y);return;}if(!aim.on)return;aim.x=x;aim.y=y;if(Math.hypot(x-aim.sx,y-aim.sy)>14)aim.dragging=true;
+function pointerMove(x,y){x/=VZ_UI;y/=VZ_UI;if(editMode){editMoveTo(x,y);return;}if(!aim.on)return;aim.x=x;aim.y=y;if(Math.hypot(x-aim.sx,y-aim.sy)>14)aim.dragging=true;
   if(gameMode==='hoops'&&HOOPS_CFG.ball){(aim.trail||(aim.trail=[])).push({x:x,y:y});if(aim.trail.length>24)aim.trail.shift();}
 
                           if(gameMode==='zen'&&player&&player.carry&&(player.carryMode==='push'||player.carryMode==='roll')){
@@ -5470,6 +5470,7 @@ function loop(ts){
       }
     }
   }
+  ctx.setTransform(VZ,0,0,VZ,0,0);
   ctx.clearRect(0,0,W,H);
   if(STATE==='title'){
     pal=LC[1];drawBG();updateAmbient(dt);drawAmbient();return;

@@ -124,31 +124,43 @@ var Modes=(function(){
     endSub:function(won){return won?'Star collector supreme!':'Out-starred this time';}};
 
   /* ======================= RED LIGHT, GREEN LIGHT ======================= */
-  var RL={layout:'horiz',still:true,maxAi:10,
-    bounds:function(bw,bh){return [Math.min(7600,Math.max(bw*4.2,2400)),Math.max(bh,520)];},
-    build:function(){var x=260;while(x<WORLD_W-360){var w=90+Math.random()*90,y=WORLD_H-150-Math.random()*Math.min(170,WORLD_H-320);var p=new Platform({kind:'rect',x:x,y:y,w:w,h:18});p._kind='rect';platforms.push(p);x+=w+120+Math.random()*160;}return true;},
-    setup:function(){S={left:ROUND,ph:'green',pt:3000,fin:WORLD_W-170,grace:0};setT('Time',ROUND);fleas.forEach(function(f){f.rlProg=0;});},
-    go:function(){RL.set('green');},
-    set:function(ph){S.ph=ph;if(ph==='green'){S.pt=2000+Math.random()*2600;flash('GREEN LIGHT — GO!','#39ff7a');}
-      else if(ph==='yellow'){S.pt=850;}
-      else{S.pt=1900+Math.random()*1700;S.grace=520;fleas.forEach(function(f){f._snap=null;f._risk=Math.random()<0.2;});flash('RED LIGHT — FREEZE!','#ff3b5c');}},
+  var RL={layout:'horiz',still:true,maxAi:10,START:240,
+    /* a LONG straight course: ~9-16k world units so a round is a real race */
+    bounds:function(bw,bh){return [Math.round(Math.min(16000,Math.max(9000,bw*8))),Math.max(bh,520)];},
+    build:function(){var x=520;while(x<WORLD_W-420){var w=90+Math.random()*110,y=WORLD_H-150-Math.random()*Math.min(170,WORLD_H-320);var p=new Platform({kind:'rect',x:x,y:y,w:w,h:18});p._kind='rect';platforms.push(p);x+=w+160+Math.random()*220;}return true;},
+    lineUp:function(){/* everyone starts together behind the start line */var n=fleas.length,gap=Math.min(44,(RL.START-30)/Math.max(1,n));
+      var order=fleas.slice().sort(function(a,b){return a.isP?-1:(b.isP?1:0);});
+      order.forEach(function(f,i){f.x=RL.START-6-f.w-i*gap;f.y=WORLD_H-60-f.h-2;f.vx=0;f.vy=0;f.stuck=true;f.platform=null;f.onG=true;f.angle=0;f.frozen=0;f._snap=null;f.rlProg=0;f.face=1;});
+      try{camera.x=0;}catch(e){}},
+    setup:function(){S={left:Math.round(ROUND*2),ph:'green',pt:3000,fin:WORLD_W-220,grace:0,cd:0};setT('Time',S.left);RL.lineUp();},
+    go:function(){RL.lineUp();RL.set('green');},
+    set:function(ph){S.ph=ph;if(ph==='green'){S.pt=2600+Math.random()*2600;flash('GREEN LIGHT — GO!','#39ff7a');}
+      else if(ph==='yellow'){S.pt=1100;flash('YELLOW — GET READY TO STOP','#ffd23d');}
+      else{S.pt=1800+Math.random()*1600;S.grace=650;fleas.forEach(function(f){f._snap=null;f._risk=Math.random()<0.18;});flash('RED LIGHT — FREEZE!','#ff3b5c');}},
     tick:function(dt){S.pt-=dt;if(S.pt<=0)RL.set(S.ph==='green'?'yellow':(S.ph==='yellow'?'red':'green'));
-      if(S.ph==='red'){if(S.grace>0){S.grace-=dt;if(S.grace<=0)fleas.forEach(function(f){f._snap={x:f.x,y:f.y};});}
-        else for(var i=0;i<fleas.length;i++){var f=fleas[i],sn=f._snap;if(!sn||(f.frozen&&Date.now()<f.frozen))continue;
-          if(Math.hypot(f.x-sn.x,f.y-sn.y)>9||!f.stuck)RL.caught(f);}}
-      for(var k=0;k<fleas.length;k++){var q=fleas[k];q.rlProg=Math.max(0,Math.min(100,(q.cx-60)/(S.fin-60)*100));if(q.cx>=S.fin){endGame(q);return;}}},
-    caught:function(f){var nx=Math.max(40,f.x-560);burst(f.cx,f.cy,'#ff3b5c',16);f.x=nx;f.y=WORLD_H-60-f.h-2;f.vx=0;f.vy=0;f.stuck=true;f.platform=null;f.angle=0;f.frozen=Date.now()+900;
+      if(S.ph==='red'){if(S.grace>0)S.grace-=dt;
+        else for(var i=0;i<fleas.length;i++){var f=fleas[i];if(f.frozen&&Date.now()<f.frozen)continue;
+          /* airborne fleas are allowed to land first — the snapshot is taken on touchdown */
+          if(!f._snap){if(f.stuck)f._snap={x:f.x,y:f.y};continue;}
+          if(Math.hypot(f.x-f._snap.x,f.y-f._snap.y)>10||!f.stuck)RL.caught(f);}}
+      for(var k=0;k<fleas.length;k++){var q=fleas[k];q.rlProg=Math.max(0,Math.min(100,(q.cx-RL.START)/(S.fin-RL.START)*100));if(q.cx>=S.fin){endGame(q);return;}}},
+    caught:function(f){var back=Math.min(900,Math.max(500,WORLD_W*.06)),nx=Math.max(20,f.x-back);burst(f.cx,f.cy,'#ff3b5c',16);f.x=nx;f.y=WORLD_H-60-f.h-2;f.vx=0;f.vy=0;f.stuck=true;f.platform=null;f.angle=0;f.frozen=Date.now()+900;
       f._snap={x:f.x,y:f.y};if(f.isP){camera.shake=12;flash('CAUGHT MOVING! BACK YOU GO','#ff3b5c');}else maybeSay(f,'Nooo!',1000);},
     second:function(){if(clock())endGame(top('rlProg'));},
-    ai:function(f){return stepTarget(f,Math.min(WORLD_W-40,f.cx+420),WORLD_H-100);},
-    aiHold:function(f){if(S.ph==='green'){if(f._hes&&Date.now()<f._hes)return true;if(Math.random()<0.02)f._hes=Date.now()+400+Math.random()*800;return false;}if(S.ph==='red'&&f._risk&&Math.random()<0.02)return false;return true;},
+    ai:function(f){return stepTarget(f,Math.min(WORLD_W-40,f.cx+260+Math.random()*120),WORLD_H-100);},
+    aiHold:function(f){if(S.ph==='green'){if(f._hes&&Date.now()<f._hes)return true;if(Math.random()<0.03)f._hes=Date.now()+500+Math.random()*900;return false;}if(S.ph==='red'&&f._risk&&Math.random()<0.015)return false;return true;},
     drawBack:function(cx,cy){var fx=S.fin-cx,t=now()/1000;if(fx>-60&&fx<W+60){ctx.save();for(var y=0;y<WORLD_H;y+=20){var yy=y-cy;if(yy<-20||yy>H)continue;ctx.fillStyle=((y/20)%2)?'#fff':'#15152a';ctx.fillRect(fx,yy,10,20);ctx.fillStyle=((y/20)%2)?'#15152a':'#fff';ctx.fillRect(fx+10,yy,10,20);}
         ctx.fillStyle='rgba(57,255,122,.12)';ctx.fillRect(fx+20,0,W,H);ctx.font="900 28px 'Baloo 2',sans-serif";ctx.fillStyle='#39ff7a';ctx.textAlign='left';ctx.fillText('FINISH',fx+30,WORLD_H-110-cy+Math.sin(t*3)*4);ctx.restore();}
-      var sx=120-cx;if(sx>-10&&sx<W+10){ctx.save();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.setLineDash([10,8]);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,H);ctx.stroke();ctx.restore();}},
+      var sx=RL.START-cx;if(sx>-10&&sx<W+10){ctx.save();ctx.strokeStyle='rgba(255,255,255,.45)';ctx.setLineDash([10,8]);ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,H);ctx.stroke();ctx.font="900 18px 'Baloo 2',sans-serif";ctx.fillStyle='rgba(255,255,255,.7)';ctx.textAlign='left';ctx.fillText('START',sx+8,WORLD_H-150-cy);ctx.restore();}
+      /* distance markers every 1000 units */ctx.save();ctx.font="800 13px 'Baloo 2',sans-serif";ctx.textAlign='center';for(var m=1000;m<S.fin;m+=1000){var mx=m-cx;if(mx<-40||mx>W+40)continue;var pct=Math.round((m-RL.START)/(S.fin-RL.START)*100);ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(mx-1,WORLD_H-60-cy-46,2,46);ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillText(pct+'%',mx,WORLD_H-60-cy-52);}ctx.restore();},
     drawFront:function(){var ph=S.ph,cols={green:'#39ff7a',yellow:'#ffd23d',red:'#ff3b5c'},c=cols[ph]||'#39ff7a';ctx.save();
       /* edge glow */var eg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.45,W/2,H/2,Math.max(W,H)*.75);eg.addColorStop(0,rgbaOf(c,0));eg.addColorStop(1,rgbaOf(c,ph==='red'?.38:.16));ctx.fillStyle=eg;ctx.fillRect(0,0,W,H);
       /* traffic light pod (top-right, under the timer) */var pw=46,ph2=132,x=W-pw-14,y=78;ctx.fillStyle='rgba(8,10,26,.78)';ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(x,y,pw,ph2,23);ctx.fill();ctx.stroke();
       ['red','yellow','green'].forEach(function(k,i){var lx=x+pw/2,ly=y+26+i*40,on=k===ph;ctx.beginPath();ctx.arc(lx,ly,14,0,7);ctx.fillStyle=on?cols[k]:'rgba(255,255,255,.08)';ctx.shadowColor=cols[k];ctx.shadowBlur=on&&!perfMode?22:0;ctx.fill();});
+      ctx.shadowBlur=0;
+      /* race track: everyone's progress at a glance */var tw=Math.min(560,W*.46),tx=W/2-tw/2,ty=H-34;ctx.fillStyle='rgba(8,10,26,.72)';ctx.strokeStyle='rgba(255,255,255,.16)';ctx.beginPath();ctx.roundRect(tx-16,ty-14,tw+32,28,14);ctx.fill();ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(tx,ty-1.5,tw,3);ctx.fillStyle='#39ff7a';ctx.fillRect(tx+tw-3,ty-8,3,16);
+      fleas.slice().sort(function(a,b){return a.isP?1:(b.isP?-1:0);}).forEach(function(f){var px=tx+tw*(f.rlProg||0)/100;ctx.beginPath();ctx.arc(px,ty,f.isP?7:5,0,7);ctx.fillStyle=f.col;ctx.fill();if(f.isP){ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();}});
       ctx.restore();},
     score:function(c,U){rankList(U,'rlProg',function(v){return Math.floor(v)+'%';},S.ph==='red'?'RED — don\u2019t move!':(S.ph==='yellow'?'Yellow — stop soon!':'Green — go go go!'));},
     endSub:function(won){return won?'First across the finish!':'Someone crossed first';}};
