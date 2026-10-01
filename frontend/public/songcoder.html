@@ -12,6 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&family=Special+Gothic+Expanded+One&family=Doto:wght@400..900&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <style>
 :root{
   --bg0:#0a0a0b; --bg1:#121214; --bg2:#1a1a1f;
@@ -26,6 +27,7 @@
   --sans:'Manrope',system-ui,sans-serif;
   --doto:'Doto','Manrope',monospace;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
 *{-webkit-tap-highlight-color:transparent}
@@ -336,6 +338,75 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
 @keyframes toastIn{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes toastOut{to{opacity:0;transform:translateY(-10px)}}
 
+/* release countdown */
+.badge.soon{background:linear-gradient(90deg,#ff8a3d,#ff3d7f);color:#fff}
+.pv-count{display:flex;align-items:center;gap:8px;margin:14px 0 0;padding:9px 12px;border-radius:12px;background:rgba(255,138,61,.1);border:1px solid rgba(255,138,61,.3);color:#ffb37d;font-size:12px;font-weight:700}
+.pv-count b{margin-left:auto;font-family:var(--doto);font-weight:900;font-size:15px;color:#fff}
+.pv-count svg{width:15px;height:15px}
+.song .cd{display:block;margin-top:8px;font-family:var(--doto);font-weight:800;font-size:12px;color:#ffb37d}
+input[type=datetime-local].input{min-height:50px}
+
+/* reorder */
+.ro-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:14px 18px;border-radius:18px;background:var(--purple-faint);border:1px solid rgba(147,40,255,.35);font-size:13.5px;color:var(--muted)}
+.ro-head svg{color:var(--purple-2)}
+.cat-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ro-row{display:flex;align-items:center;gap:12px;padding:8px 10px 8px 6px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid var(--stroke-faint);transition:border-color .2s,background-color .2s}
+.ro-row.moved{border-color:rgba(147,40,255,.45);background:var(--purple-faint)}
+.ro-row .handle{display:grid;place-items:center;width:36px;height:44px;border-radius:10px;color:var(--dim);cursor:grab;touch-action:none;flex:none}
+.ro-row .handle:hover{color:#fff;background:rgba(255,255,255,.06)}
+.ro-row .handle:active{cursor:grabbing}
+.ro-row .pos{width:30px;flex:none;font-family:var(--doto);font-weight:800;font-size:14px;color:var(--purple-2);text-align:center}
+.ro-row img{width:44px;height:44px;flex:none;border-radius:10px;object-fit:cover;background:var(--bg2)}
+.ro-row .t{flex:1;min-width:0}
+.ro-row .t b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ro-row .t small{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ro-row .mv{display:flex;gap:4px;flex:none}
+.ro-row .mv .icon-btn{width:34px;height:34px}
+.ro-ghost{opacity:.4;border-style:dashed;border-color:var(--purple)}
+.ro-chosen{box-shadow:var(--glow);background:var(--bg2)}
+.reorder-bar{position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:26;margin:0 auto;width:fit-content;max-width:calc(100% - 24px);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 18px;border-radius:999px;background:rgba(18,18,20,.94);border:1px solid var(--stroke);box-shadow:0 20px 60px rgba(0,0,0,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);animation:rise .4s var(--ease) both}
+.reorder-bar .cnt{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+.reorder-bar .cnt b{font-family:var(--doto);font-weight:900;color:#fff;font-size:15px}
+.reorder-bar .seg{width:104px}
+.reorder-bar .seg button .t{display:none}
+.reorder-bar .btn{padding:11px 18px}
+
+/* artists */
+.art-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:22px}
+.artist-card{position:relative;overflow:hidden;border-radius:26px;border:1px solid var(--stroke-faint);background:var(--bg1);padding:28px 18px 20px;text-align:center;animation:rise .5s var(--ease) both;transition:transform .3s var(--ease),border-color .3s,box-shadow .3s}
+.artist-card:hover{transform:translateY(-4px);border-color:var(--stroke);box-shadow:0 24px 50px rgba(0,0,0,.5)}
+.artist-card .bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.32;filter:saturate(1.2)}
+.artist-card .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(18,18,20,.15),var(--bg1) 80%)}
+.artist-card>*:not(.bg){position:relative}
+.ph{border-radius:50%;padding:4px;border:2px solid var(--purple);box-shadow:var(--glow);background-color:var(--bg2);background-size:cover;background-position:center;background-clip:content-box}
+.artist-card .ph{width:104px;height:104px;margin:0 auto 14px}
+.artist-card h3{margin:0;font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artist-card .role{margin:4px 0 0;font-family:var(--display);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.artist-card .meta{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin-top:12px}
+.artist-card .meta span{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(255,255,255,.07);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artist-card .meta svg{width:12px;height:12px}
+.artist-card .meta .id{font-family:var(--doto);font-weight:800;color:var(--purple-2)}
+.artist-card .songs{margin:10px 0 0;font-size:12px;color:var(--dim)}
+.rid-pill{margin-left:auto;padding:4px 10px;border-radius:999px;font-family:var(--doto);font-weight:800;font-size:13px;color:var(--purple-2);background:var(--purple-faint)}
+.rid-pill+.icon-btn{margin-left:0 !important}
+.a-hero{position:relative;height:150px;margin:-22px -22px 62px;background:linear-gradient(135deg,#21142f,#0d0d10);background-size:cover;background-position:center}
+.a-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 25%,rgba(18,18,20,.97))}
+.a-hero .ph{position:absolute;left:22px;bottom:-46px;z-index:1;width:100px;height:100px}
+.a-hero .nm{position:absolute;left:136px;right:22px;bottom:-42px;z-index:1;min-width:0}
+.a-hero .nm b{display:block;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a-hero .nm small{display:block;font-family:var(--display);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-drops{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.drop.mini{min-height:120px;padding:14px;gap:6px;background-size:cover;background-position:center}
+.drop.mini .ico{width:40px;height:40px;border-radius:12px}
+.drop.mini .ico svg{width:20px;height:20px}
+.drop.mini b{font-size:13px}
+.drop.mini.has-file .ico,.drop.mini.has-file b{opacity:0}
+.mini-status{position:absolute;left:8px;right:8px;bottom:8px}
+.mini-status .status-line{padding:5px 8px;border-radius:9px;background:rgba(0,0,0,.65);font-size:11px}
+.drawer-foot.col{flex-direction:column}
+.drawer .set-sec .field,.drawer .grid2{margin-bottom:14px}
+.drawer .grid2 .field{margin-bottom:0}
+
 /* responsive */
 @media (max-width:1060px){
   .compose-grid{grid-template-columns:1fr}
@@ -394,9 +465,25 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
   .modal{padding:22px;border-radius:24px}
   .modal .m-acts .btn{flex:1}
   .drawer-body{padding:18px}
+  .a-hero{margin:-18px -18px 62px}
+  .art-grid{grid-template-columns:repeat(2,1fr);gap:12px}
+  .artist-card{padding:20px 10px 14px;border-radius:20px}
+  .artist-card .ph{width:78px;height:78px}
+  .artist-card h3{font-size:15px}
+  .ro-row{gap:8px}
+  .ro-row img{width:38px;height:38px}
+  .ro-row .pos{width:22px;font-size:12px}
+  .ro-row .mv .icon-btn{width:32px;height:32px}
+  .ro-head{font-size:12.5px}
 }
 @media (max-width:480px){
   .brand small{display:none}
+  .tab{padding:9px 6px;font-size:12px;gap:5px}
+  .tab svg{display:none}
+  .ro-row .mv .icon-btn[data-mv=top]{display:none}
+  .reorder-bar{padding-left:14px;gap:6px}
+  .reorder-bar .btn{padding:10px 14px}
+  .mini-drops{grid-template-columns:1fr}
   .seg button .t{display:none}
   .seg button{padding:10px}
   .dock-inner{grid-template-columns:104px 1fr}
@@ -423,6 +510,7 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
     <span class="tab-ind" id="tab-ind"></span>
     <button class="tab active" data-view="compose" data-testid="tab-compose"><i data-lucide="disc-3"></i><span id="tab-compose-label">Compose</span></button>
     <button class="tab" data-view="catalog" data-testid="tab-catalog"><i data-lucide="library-big"></i>Catalog <span class="count" id="cat-count" data-testid="catalog-count">··</span></button>
+    <button class="tab" data-view="artists" data-testid="tab-artists"><i data-lucide="users-round"></i>Artists <span class="count" id="art-count" data-testid="artists-count">··</span></button>
   </nav>
   <div class="top-right">
     <button class="conn" id="conn" data-state="offline" data-testid="connection-pill"><span class="dot"></span><span class="conn-text" id="conn-text">Connecting…</span></button>
@@ -530,6 +618,11 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
               <label for="f-album">Album / project</label>
               <input class="input" id="f-album" placeholder="LOVE: the ExPerience" data-testid="input-album">
             </div>
+            <div class="field span2" data-f="release">
+              <label for="f-release">Drops on <span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--dim)">(upcoming songs only)</span> <button type="button" class="lbl-action" id="release-clear" data-testid="release-clear-btn">Clear</button></label>
+              <input type="datetime-local" class="input" id="f-release" data-testid="input-release">
+              <p class="hint" id="release-hint" data-testid="release-hint">Set a drop time and the song gets a “Dropping soon” badge, with playback locked until then.</p>
+            </div>
           </div>
         </div>
 
@@ -603,6 +696,7 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
               <div class="badges" id="pv-badges" data-testid="preview-badges"></div>
               <h2 id="pv-title" data-testid="preview-title">Untitled</h2>
               <h3 id="pv-artist" data-testid="preview-artist">Artist</h3>
+              <p class="pv-count" id="pv-count" hidden data-testid="preview-countdown"><i data-lucide="timer"></i><span id="pv-when">Drops</span><b id="pv-left"></b></p>
             </div>
           </div>
           <dl class="pv-meta">
@@ -625,7 +719,7 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
 
         <div class="dock" data-testid="publish-dock">
           <div class="dock-inner">
-            <div class="seg" id="mode-seg" data-mode="pr" data-testid="publish-mode-toggle">
+            <div class="seg mode-seg" id="mode-seg" data-mode="pr" data-testid="publish-mode-toggle">
               <span class="ind"></span>
               <button type="button" data-mode="pr" class="on" data-testid="mode-pr-btn"><i data-lucide="git-pull-request"></i><span class="t">Review</span></button>
               <button type="button" data-mode="live" data-testid="mode-live-btn"><i data-lucide="zap"></i><span class="t">Go live</span></button>
@@ -663,8 +757,30 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
       <select class="select" id="cat-genre" data-testid="catalog-genre-filter"><option value="">All genres</option></select>
       <select class="select" id="cat-sort" data-testid="catalog-sort"><option value="order">Catalog order</option><option value="az">Title A–Z</option><option value="artist">Artist</option></select>
       <button class="icon-btn" id="cat-refresh" title="Refresh from source" data-testid="catalog-refresh-btn"><i data-lucide="refresh-cw"></i></button>
+      <button class="btn btn-sm" id="cat-reorder" data-testid="catalog-reorder-btn"><i data-lucide="arrow-down-up"></i>Reorder</button>
     </div>
+    <div class="ro-head" id="ro-head" hidden data-testid="reorder-help"><i data-lucide="grip-vertical"></i><span>Drag the handle (or use the arrows) to set the order. The top of this list is the top of Treesh.</span></div>
     <div class="cat-grid" id="cat-grid" data-testid="catalog-grid"></div>
+    <ol class="cat-list" id="cat-list" hidden data-testid="reorder-list"></ol>
+    <div class="reorder-bar" id="reorder-bar" hidden data-testid="reorder-bar">
+      <span class="cnt"><b id="ro-moved" data-testid="reorder-moved-count">0</b> moved</span>
+      <div class="seg mode-seg" data-mode="pr" data-testid="reorder-mode-toggle"><span class="ind"></span><button type="button" data-mode="pr" class="on" title="Review (pull request)" data-testid="reorder-mode-pr-btn"><i data-lucide="git-pull-request"></i><span class="t">Review</span></button><button type="button" data-mode="live" title="Go live" data-testid="reorder-mode-live-btn"><i data-lucide="zap"></i><span class="t">Go live</span></button></div>
+      <button class="icon-btn" id="ro-cancel" title="Cancel" data-testid="reorder-cancel-btn"><i data-lucide="x"></i></button>
+      <button class="btn btn-primary" id="ro-save" data-testid="reorder-save-btn"><i data-lucide="check"></i><span id="ro-save-label">Open PR</span></button>
+    </div>
+  </section>
+
+  <!-- ARTISTS -->
+  <section class="view" id="view-artists" hidden data-testid="artists-view">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">content/icons.html</div>
+        <h1>The Roster</h1>
+        <p>Every artist with a profile on Treesh. Add someone new and they’re ready to tag on songs.</p>
+      </div>
+      <button class="btn btn-primary" id="new-artist" data-testid="new-artist-btn"><i data-lucide="user-plus"></i>New artist</button>
+    </div>
+    <div class="art-grid" id="art-grid" data-testid="artists-grid"></div>
   </section>
 </main>
 
@@ -713,6 +829,39 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
     <div class="drawer-foot">
       <button class="btn" data-close data-testid="settings-cancel-btn">Cancel</button>
       <button class="btn btn-primary" id="s-save" data-testid="settings-save-btn"><i data-lucide="check"></i>Save</button>
+    </div>
+  </aside>
+</template>
+
+<template id="tpl-artist">
+  <div class="scrim" data-close></div>
+  <aside class="drawer" data-testid="artist-drawer">
+    <div class="drawer-head"><i data-lucide="user-plus"></i><h2>New artist</h2><span class="rid-pill" id="a-id" title="Next available ID" data-testid="artist-next-id"></span><button class="icon-btn" data-close data-testid="close-artist-drawer-btn"><i data-lucide="x"></i></button></div>
+    <div class="drawer-body soft-scroll">
+      <div class="a-hero" id="a-hero" data-testid="artist-preview"><div class="ph" id="a-ph"></div><div class="nm"><b id="a-pv-name" data-testid="artist-preview-name">New artist</b><small id="a-pv-sub">Music Artist</small></div></div>
+      <div class="mini-drops">
+        <div class="field" data-af="photo"><span class="lbl">Profile photo <span class="req">*</span></span>
+          <div class="drop mini" id="a-drop-photo" tabindex="0" data-testid="artist-photo-dropzone"><div class="ico"><i data-lucide="user-round"></i></div><b>Drop photo</b><div class="mini-status"></div></div>
+          <input type="file" id="a-file-photo" accept="image/*" hidden data-testid="artist-photo-file-input"></div>
+        <div class="field" data-af="bg"><span class="lbl">Background</span>
+          <div class="drop mini" id="a-drop-bg" tabindex="0" data-testid="artist-bg-dropzone"><div class="ico"><i data-lucide="image"></i></div><b>Drop banner</b><div class="mini-status"></div></div>
+          <input type="file" id="a-file-bg" accept="image/*" hidden data-testid="artist-bg-file-input"></div>
+      </div>
+      <div class="field" data-af="name" style="margin-bottom:14px"><label for="a-name">Artist name <span class="req">*</span></label><input class="input" id="a-name" placeholder="Stage name" data-testid="artist-name-input"><p class="err" data-testid="artist-error-name"></p></div>
+      <div class="grid2">
+        <div class="field"><label for="a-role">Role</label><input class="input" id="a-role" list="role-list" placeholder="Music Artist" data-testid="artist-role-input"><datalist id="role-list"><option value="Music Artist"><option value="Rapper"><option value="Singer"><option value="Producer"><option value="Songwriter"><option value="DJ"></datalist></div>
+        <div class="field"><label for="a-location">Location</label><input class="input" id="a-location" placeholder="Atlanta, GA" data-testid="artist-location-input"></div>
+      </div>
+      <div class="field" data-af="photo" style="margin-bottom:14px"><label for="a-photo">Photo link <span class="req">*</span></label><input class="input" id="a-photo" placeholder="https://ik.imagekit.io/treesh/…" data-testid="artist-photo-input"><p class="err" data-testid="artist-error-photo"></p></div>
+      <div class="field" data-af="bg" style="margin-bottom:14px"><label for="a-bg">Background link <span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--dim)">(defaults to photo)</span></label><input class="input" id="a-bg" placeholder="https://…" data-testid="artist-bg-input"><p class="err" data-testid="artist-error-bg"></p></div>
+      <div class="field" style="margin-bottom:14px"><label for="a-bgpos">Background position</label><input class="input" id="a-bgpos" value="center center" data-testid="artist-bgpos-input">
+        <div class="suggest"><button type="button" class="sug" data-bgpos="center center">center</button><button type="button" class="sug" data-bgpos="center top">top</button><button type="button" class="sug" data-bgpos="center -50px">up 50px</button><button type="button" class="sug" data-bgpos="center -100px">up 100px</button><button type="button" class="sug" data-bgpos="center bottom">bottom</button></div></div>
+      <div class="field" style="margin-bottom:14px"><label for="a-bio">Bio <span class="lbl-action" id="a-bio-count" style="cursor:default">0 chars</span></label><textarea class="textarea" id="a-bio" placeholder="Where they’re from, their sound, what they’re about…" data-testid="artist-bio-input"></textarea></div>
+      <div class="field"><label for="a-cashapp">Cash App</label><div class="with-btn"><input class="input" id="a-cashapp" placeholder="$cashtag" data-testid="artist-cashapp-input"></div></div>
+    </div>
+    <div class="drawer-foot col">
+      <div class="seg mode-seg" data-mode="pr" data-testid="artist-mode-toggle"><span class="ind"></span><button type="button" data-mode="pr" class="on" data-testid="artist-mode-pr-btn"><i data-lucide="git-pull-request"></i><span class="t">Review</span></button><button type="button" data-mode="live" data-testid="artist-mode-live-btn"><i data-lucide="zap"></i><span class="t">Go live</span></button></div>
+      <button class="btn btn-primary btn-big" id="a-save" data-testid="artist-save-btn"><i data-lucide="user-plus"></i><span id="a-save-label">Add to roster</span></button>
     </div>
   </aside>
 </template>
