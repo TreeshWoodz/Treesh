@@ -77,4 +77,5 @@ export type GameSettings = {
   warmupHidden: boolean;
   keyBindings: string[];
   editorTutorialSeen: boolean;
+  tutorialDone: boolean;
 };

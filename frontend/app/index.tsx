@@ -17,9 +17,11 @@ import { colors, fonts, neonGlow, textGlow } from "@/src/game/theme";
 import { useStarlites } from "@/src/game/starlites";
 import { useTreeshIdentity } from "@/src/game/identity";
 import { Song } from "@/src/game/types";
+import { useStartTutorial } from "@/src/game/tutorial";
 
 export default function HomeScreen() {
-  const { songs, treeshSongs, charts, selectSong, setDifficulty, scores, ready, mineSongs } = useAppState();
+  const { songs, treeshSongs, charts, selectSong, setDifficulty, scores, ready, mineSongs, settings } = useAppState();
+  const startTutorial = useStartTutorial();
   const { stars } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
   const { width } = useWindowDimensions();
@@ -96,6 +98,14 @@ export default function HomeScreen() {
           <Image source={require("../assets/images/vocotap-logo-v2.png")} resizeMode="contain" style={styles.logoImg} />
           <Text style={styles.tagline}>TAP · HOLD · RIDE THE WAVE</Text>
         </Animated.View>
+
+        {ready && !settings.tutorialDone && <Animated.View style={fade}>
+          <Pressable testID="home-tutorial-card" onPress={startTutorial} style={({ pressed }) => [styles.tut, pressed && styles.pressed]}>
+            <View style={styles.tutIcon}><Ionicons name="school" size={24} color="#001018" /></View>
+            <View style={{ flex: 1 }}><Text style={styles.tutTag}>NEW HERE? START HERE</Text><Text style={styles.tutTitle}>Play the tutorial</Text><Text style={styles.tutSub}>Learn taps, holds, flicks & waves · +200 Starlites</Text></View>
+            <Ionicons name="play" size={22} color={colors.lime} />
+          </Pressable>
+        </Animated.View>}
 
         {/* Quick Play — swipeable carousel of device + Treesh tracks */}
         {slides.length > 0 && <Animated.View style={fade}>
@@ -237,6 +247,9 @@ const styles = StyleSheet.create({
   snapRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 6 }, snapCol: { flex: 1, alignItems: "center", gap: 7 },
   snapFoot: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: "rgba(0,229,255,0.04)", borderTopWidth: 1, borderTopColor: colors.border }, snapFootLabel: { color: colors.muted, fontSize: 8, letterSpacing: 1.4, fontFamily: fonts.arcade }, snapFootText: { color: colors.text, fontSize: 14, fontFamily: fonts.bold, marginTop: 3 },
   snapCta: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, height: 32, borderRadius: 8, backgroundColor: colors.cyan }, snapCtaText: { color: "#001018", fontSize: 10, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
+  tut: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16, backgroundColor: "rgba(204,255,0,0.08)", borderWidth: 1.5, borderColor: colors.lime, ...neonGlow(colors.lime, 14, 0.35) },
+  tutIcon: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
+  tutTag: { color: colors.lime, fontSize: 9, fontFamily: fonts.arcadeBlack, letterSpacing: 1.5 }, tutTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy, marginTop: 2 }, tutSub: { color: colors.muted, fontSize: 12, fontFamily: fonts.body, marginTop: 2 },
   pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
   daily: { minHeight: 84, flexDirection: "row", alignItems: "center", gap: 13, padding: 12, borderRadius: 16, overflow: "hidden", backgroundColor: "rgba(14,11,38,0.8)", borderWidth: 1.5, borderColor: "rgba(255,214,0,0.55)", ...neonGlow(colors.gold, 14, 0.3) },
   dailyCover: { width: 58, height: 58, borderRadius: 10, overflow: "hidden", backgroundColor: colors.bg, borderWidth: 1, borderColor: "rgba(255,214,0,0.5)" },

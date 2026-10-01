@@ -12,6 +12,7 @@ import { NeonButton } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
 import { laneColors, colors, fonts, rgba, alpha, neonGlow, textGlow } from "@/src/game/theme";
+import { TUTORIAL_STEPS } from "@/src/game/chartEngine";
 import { addXp, claimCrowns, levelUpReward, skinById, useProgress, xpForRun } from "@/src/game/progression";
 import { HighwayScene } from "@/src/components/HighwayScene";
 import { Note, ScoreResult, SwipeDir } from "@/src/game/types";
@@ -50,11 +51,16 @@ type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: numbe
 // the two projected endpoints — rounded ends overlap at every joint so it reads as one smooth line
 // (no dotted look), and it falls through the real lane positions with correct depth. No animated
 // SVG (fragile on native). x is a 0..1 fraction across the highway; fr = x - 0.5 matches the grid.
+function mixHex(a: string, b: string, f: number) {
+  const p = (h: string) => { const n = parseInt(h.replace("#", "").slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const x = p(a), y = p(b); const c = x.map((v, i) => Math.round(v + (y[i] - v) * f));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
 function sampleBeads(note: Note): { t: number; x: number }[] {
   const dur = note.duration || 0.5;
   const pts = note.path && note.path.length > 1 ? note.path : [{ t: note.time, x: (note.lane + 0.5) / 4 }, { t: note.time + dur, x: (note.lane + 0.5) / 4 }];
   const start = pts[0].t, end = pts[pts.length - 1].t; const span = Math.max(0.05, end - start);
-  const n = Math.max(8, Math.min(64, Math.round(span / 0.03)));
+  const n = Math.max(10, Math.min(48, Math.round(span / 0.035)));
   const xAt = (tt: number) => {
     if (tt <= pts[0].t) return pts[0].x;
     if (tt >= pts[pts.length - 1].t) return pts[pts.length - 1].x;
@@ -67,12 +73,12 @@ function sampleBeads(note: Note): { t: number; x: number }[] {
 }
 
 // One connected segment of the ribbon between two path samples (a→b). Rounded ends fill the joints.
-const WavySegment = React.memo(function WavySegment({ a, b, clock, lookahead, geo, color, thick, glow }: { a: { t: number; x: number }; b: { t: number; x: number }; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; color: string; thick: number; glow?: boolean }) {
+const WavySegment = React.memo(function WavySegment({ a, b, clock, lookahead, geo, color, thick }: { a: { t: number; x: number }; b: { t: number; x: number }; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; color: string; thick: number }) {
   const aStyle = useAnimatedStyle(() => {
     const pa = (clock.value - (a.t - lookahead)) / lookahead;
     const pb = (clock.value - (b.t - lookahead)) / lookahead;
-    const cpa = pa < 0 ? 0 : pa > 1.1 ? 1.1 : pa;
-    const cpb = pb < 0 ? 0 : pb > 1.1 ? 1.1 : pb;
+    const cpa = pa < 0 ? 0 : pa > 1 ? 1 : pa;
+    const cpb = pb < 0 ? 0 : pb > 1 ? 1 : pb;
     const perspA = P_NEAR + (1 - P_NEAR) * cpa;
     const perspB = P_NEAR + (1 - P_NEAR) * cpb;
     const ax = geo.cx + (a.x - 0.5) * geo.hw * perspA, ay = geo.topY + geo.span * cpa;
@@ -80,14 +86,14 @@ const WavySegment = React.memo(function WavySegment({ a, b, clock, lookahead, ge
     const dx = bx - ax, dy = by - ay;
     const len = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx);
-    const h = Math.max(3, thick * ((perspA + perspB) / 2)) * (glow ? 1.9 : 1);
+    const h = Math.max(2, thick * ((perspA + perspB) / 2));
     const w = len + h; // overlap joints so the line is gapless
     const midx = (ax + bx) / 2, midy = (ay + by) / 2;
     let o = 1;
     if (pa < 0.04) o = pa / 0.04;
-    if (pa > 1.0) o = 1 - (pa - 1.0) / 0.14;
+    if (pb >= 1) o = 0; // fully past the hit line → consumed
     if (o < 0) o = 0; if (o > 1) o = 1;
-    return { width: w, height: h, borderRadius: h / 2, opacity: (glow ? 0.32 : 1) * o, transform: [{ translateX: midx - w / 2 }, { translateY: midy - h / 2 }, { rotateZ: `${angle}rad` }] };
+    return { width: w, height: h, borderRadius: h / 2, opacity: o, transform: [{ translateX: midx - w / 2 }, { translateY: midy - h / 2 }, { rotateZ: `${angle}rad` }] };
   });
   return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: 0, backgroundColor: color }, aStyle]} />;
 });
@@ -101,7 +107,7 @@ const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, col
     const y = geo.topY + geo.span * cp;
     let o = 1;
     if (prog < 0.04) o = prog / 0.04;
-    if (prog > 1.0) o = 1 - (prog - 1.0) / 0.12;
+    if (prog > 1.0) o = 1 - (prog - 1.0) / 0.06;
     if (o < 0) o = 0; if (o > 1) o = 1;
     return { opacity: o, transform: [{ translateX: x }, { translateY: y }, { scale: persp }] };
   });
@@ -112,10 +118,13 @@ const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, col
 const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
   const color = laneColors[note.lane];
   const beads = useMemo(() => sampleBeads(note), [note]);
-  const thick = geo.laneW * 0.34;
+  const thick = geo.laneW * 0.36;
+  const edge = useMemo(() => mixHex(color, "#06051A", 0.45), [color]);
+  // Three opaque layers (dark rim → lane colour → white-hot core) so joints never stack into lumps.
   return <>
-    {beads.slice(0, -1).map((b, i) => <WavySegment key={`g${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={color} thick={thick} glow />)}
+    {beads.slice(0, -1).map((b, i) => <WavySegment key={`g${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={edge} thick={thick * 1.55} />)}
     {beads.slice(0, -1).map((b, i) => <WavySegment key={`c${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={color} thick={thick} />)}
+    {beads.slice(0, -1).map((b, i) => <WavySegment key={`h${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color="#FFFFFF" thick={thick * 0.28} />)}
     <WavyBead bead={beads[0]} clock={clock} lookahead={lookahead} geo={geo} color={color} />
   </>;
 });
@@ -135,8 +144,8 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   const isWavy = note.type === "wavy";
   const isHold = note.type === "hold" || note.type === "wavy";
   const isSwipe = note.type === "swipe" && !!note.dir;
-  const baseW = geo.laneW * 0.66;
-  const baseH = isSwipe ? 26 : 20;
+  const baseW = geo.laneW * (isSwipe ? 0.7 : 0.8);
+  const baseH = isSwipe ? geo.laneW * 0.62 : 28;
   const tailW = baseW * 0.4;
   const tailLen = isHold ? Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span)) : 0;
   const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI; // lean the tail toward the vanishing point
@@ -161,10 +170,10 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
       {isHold && !isWavy && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
-      <View style={{ position: "absolute", left: -6, top: -6, width: baseW + 12, height: baseH + 12, borderRadius: (baseH + 12) / 2, backgroundColor: alpha(color, special ? 0.5 : 0.28) }} />
-      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: isSwipe ? 8 : baseH / 2, borderColor: special || isSwipe ? "#FFFFFF" : "rgba(255,255,255,0.7)", borderWidth: isSwipe ? 2.5 : 1.5 }, capStyle]}>
+      <View style={{ position: "absolute", left: -6, top: -6, width: baseW + 12, height: baseH + 12, borderRadius: isSwipe ? 18 : 14, backgroundColor: alpha(color, special ? 0.5 : 0.28) }} />
+      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: isSwipe ? 14 : 10, borderColor: special || isSwipe ? "#FFFFFF" : "rgba(255,255,255,0.7)", borderWidth: isSwipe ? 2.5 : 1.5 }, capStyle]}>
         <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
-        {isSwipe ? <Ionicons name={ARROW[note.dir as SwipeDir]} size={20} color="#FFFFFF" style={{ textShadowColor: "#000", textShadowRadius: 4 }} />
+        {isSwipe ? <Ionicons name={ARROW[note.dir as SwipeDir]} size={Math.round(baseH * 0.78)} color="#FFFFFF" style={{ textShadowColor: "#000", textShadowRadius: 6 }} />
           : <View style={{ position: "absolute", left: baseW * 0.28, right: baseW * 0.28, top: baseH / 2 - 2, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.95)" }} />}
       </Reanimated.View>
     </Reanimated.View>
@@ -287,10 +296,12 @@ const Backdrop = React.memo(function Backdrop({ coverArt, grayscale, theme, w, h
 export default function GameScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { selectedSong, selectedDifficulty, charts, settings, saveResult, testChart, setTestChart, scores, songs } = useAppState();
+  const { selectedSong, selectedDifficulty, charts, settings, saveResult, testChart, setTestChart, scores, songs, updateSettings } = useAppState();
   const { gameComplete, award, stars } = useStarlites();
   const { nickname, avatar } = useTreeshIdentity();
-  const practice = useLocalSearchParams<{ practice?: string }>().practice === "1" && !testChart;
+  const params = useLocalSearchParams<{ practice?: string; tutorial?: string }>();
+  const practice = params.practice === "1" && !testChart;
+  const tutorial = params.tutorial === "1";
   const practiceRef = useRef(practice); useEffect(() => { practiceRef.current = practice; }, [practice]);
   const chart = testChart || (selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined);
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 500 });
@@ -426,6 +437,7 @@ export default function GameScreen() {
 
   const finish = useCallback(async () => {
     if (!chart || !selectedSong || finishing.current) return; finishing.current = true; player.pause(); cancelAnimation(clock);
+    if (tutorial) { const first = !settings.tutorialDone; updateSettings({ tutorialDone: true }); setTestChart(null); if (first) await award(200, "Tutorial complete!"); router.replace("/"); return; }
     if (testChart) { router.back(); return; } // testing a custom chart returns to the editor, no score saved
     if (practiceRef.current) { router.back(); return; } // practice runs aren't scored
     const total = chart.notes.length; const c = counts.current; const remaining = chart.notes.filter(n => !resolved.current.has(n.id)).length; if (remaining) c.MISS += remaining;
@@ -447,7 +459,7 @@ export default function GameScreen() {
     result.crownBonus = cr.bonus; result.crownNew = cr.crown;
     result.starlitesEarned = earned + bonus + lvReward + cr.bonus;
     await saveResult(result); setTestChart(null); router.replace("/results");
-  }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, award, player, clock, setTestChart]);
+  }, [chart, selectedSong, selectedDifficulty, saveResult, gameComplete, award, player, clock, setTestChart, tutorial, settings.tutorialDone, updateSettings]);
 
   // Countdown → start audio + clock. Waits until the audio is actually loaded so playback never
   // starts silent/out of sync; a 2.5s fallback guarantees the game still begins if loading stalls.
@@ -713,6 +725,11 @@ export default function GameScreen() {
       <View style={styles.hpRow}><Ionicons name="heart" size={13} color={hpColor} /><View style={styles.hpTrack}><View testID="hud-health" style={[styles.hpFill, { width: `${rock}%`, backgroundColor: hpColor, shadowColor: hpColor }]} /></View></View>
     </View>
 
+    {tutorial && (() => { const tt = progress * duration; const st = TUTORIAL_STEPS.find(x => tt >= x.from && tt < x.to) || TUTORIAL_STEPS[0]; return <View testID="tutorial-banner" pointerEvents="none" style={[styles.tutBanner, { top: insets.top + 104 }]}>
+      <Text selectable={false} style={styles.tutStep}>TUTORIAL · {st.title}</Text>
+      <Text selectable={false} style={styles.tutCopy}>{st.copy}</Text>
+    </View>; })()}
+
     {/* Practice controls — speed + A/B loop (practice mode only) */}
     {practice && <View testID="practice-bar" style={[styles.practice, { top: insets.top + 104 }]} pointerEvents="box-none">
       <View style={styles.practiceRow}>
@@ -741,7 +758,7 @@ export default function GameScreen() {
 
     {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text selectable={false} style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text selectable={false} key={countdown} style={styles.count}>{countdown}</Text><Text selectable={false} style={styles.readySong}>{selectedSong.title}</Text></View>}
 
-    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.cyan} /></View><Text selectable={false} style={styles.pauseTitle}>Paused</Text><Text selectable={false} style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={testChart ? "Back to editor" : practice ? "Exit practice" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (testChart) { setTestChart(null); router.back(); } else if (practice) { router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
+    <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.cyan} /></View><Text selectable={false} style={styles.pauseTitle}>Paused</Text><Text selectable={false} style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={tutorial ? "Skip tutorial" : testChart ? "Back to editor" : practice ? "Exit practice" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (tutorial) { updateSettings({ tutorialDone: true }); setTestChart(null); router.replace("/"); } else if (testChart) { setTestChart(null); router.back(); } else if (practice) { router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
   </View>;
 }
 
@@ -764,6 +781,8 @@ const styles = StyleSheet.create({
   perfectTraceText: { color: "#FFD600", fontSize: 24, textShadowColor: "#FF8A00", textShadowRadius: 20 }, traceBonus: { color: "#FFFFFF", fontSize: 13, fontFamily: fonts.arcade, letterSpacing: 2 }, tracePopText: { color: "#EAF6FF", fontSize: 22, fontFamily: fonts.arcadeBlack, textShadowColor: "rgba(47,224,214,0.9)", textShadowRadius: 16 },
   milestone: { position: "absolute", width: 300, alignItems: "center", gap: 8 }, milestoneCombo: { color: colors.gold, fontSize: 36, fontFamily: fonts.arcadeBlack, textShadowColor: "rgba(245,200,66,0.85)", textShadowRadius: 20, letterSpacing: 1 }, milestoneBonus: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 30, borderRadius: 15, backgroundColor: "rgba(245,200,66,0.16)", borderWidth: 1, borderColor: "rgba(245,200,66,0.5)" }, milestoneBonusText: { color: colors.gold, fontSize: 13, fontFamily: fonts.heavy },
   achToast: { position: "absolute", left: 24, right: 24, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 18, backgroundColor: "rgba(16,14,22,0.97)", borderWidth: 1.5, zIndex: 60, shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 16 }, achToastIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" }, achToastLabel: { color: colors.muted, fontSize: 9, letterSpacing: 1.6, fontFamily: fonts.heavy }, achToastTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.display, marginTop: 2 },
+  tutBanner: { position: "absolute", left: 24, right: 24, alignItems: "center", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "rgba(6,5,26,0.82)", borderWidth: 1.5, borderColor: "#CCFF00", zIndex: 30 },
+  tutStep: { color: "#CCFF00", fontSize: 12, fontFamily: fonts.arcadeBlack, letterSpacing: 2 }, tutCopy: { color: "#FFFFFF", fontSize: 14, fontFamily: fonts.bold, textAlign: "center", marginTop: 3 },
   practice: { position: "absolute", left: 12, right: 12, gap: 8, zIndex: 20 }, practiceRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" },
   practiceTag: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: "rgba(13,230,210,0.14)", borderWidth: 1, borderColor: "rgba(13,230,210,0.4)" }, practiceTagText: { color: colors.cyan, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
   spdChip: { minWidth: 46, height: 30, paddingHorizontal: 10, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" }, spdChipOn: { backgroundColor: colors.cyan, borderColor: colors.cyan }, spdChipText: { color: colors.text, fontSize: 13, fontFamily: fonts.heavy }, spdChipTextOn: { color: colors.bg },

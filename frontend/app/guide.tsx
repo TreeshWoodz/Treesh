@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GlassCard, NeonButton, ScreenHeader } from "@/src/components/ui";
+import { useStartTutorial } from "@/src/game/tutorial";
 import { colors, laneColors, fonts } from "@/src/game/theme";
 
 const steps = [
@@ -16,7 +17,7 @@ const noteTypes: { key: string; label: string; icon: keyof typeof Ionicons.glyph
   { key: "tap", label: "Tap", icon: "ellipse", color: laneColors[0], copy: "A single quick tap on its lane the instant it reaches the glowing receptor. Tighter timing = higher judgment (Perfect / Great / Good)." },
   { key: "hold", label: "Long note", icon: "remove", color: laneColors[1], copy: "Press the head and keep your finger down for the whole glowing tail. Letting go early no longer breaks your combo — it just stops scoring." },
   { key: "wavy", label: "Wavy", icon: "water", color: laneColors[2], copy: "Tap the white head, then DRAG your finger sideways to follow the glowing ribbon as it curves across lanes — its shape traces the exact path it was charted on. A bright spark rides the hit line to show which lane to be in; keep it lit until the wave finishes for a Nice trace bonus." },
-  { key: "swipe", label: "Swipe", icon: "arrow-up", color: laneColors[3], copy: "An arrow note (up, left or right). Tap it on the hit line, then quickly FLICK your finger the way the arrow points for a FLICK bonus. Wrong way, no flick or letting go counts as a miss. Shows up on Normal, Hard and Expert. On a keyboard, just hit the lane key." },
+  { key: "swipe", label: "Swipe", icon: "arrow-up", color: laneColors[3], copy: "An arrow note (up, left or right). These big square arrow notes ask for a FLICK: tap it on the hit line, then quickly flick your finger the way the arrow points (up, left or right) for a +300 FLICK bonus. Wrong way, no flick or letting go counts as a miss. Shows up on Normal, Hard and Expert. On a keyboard, just hit the lane key." },
 ];
 
 const modes: { icon: keyof typeof Ionicons.glyphMap; title: string; copy: string; color: string }[] = [
@@ -47,10 +48,12 @@ export default function GuideScreen() {
   const [step, setStep] = useState(0);
   const [openNote, setOpenNote] = useState("tap");
   const [openFaq, setOpenFaq] = useState(0);
+  const startTutorial = useStartTutorial();
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="How to Play" />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}><Text style={styles.eyebrow}>60 SECOND TOUR</Text><Text style={styles.heading}>From audio to encore</Text><View style={styles.dots}>{steps.map((_, i) => <View key={i} style={[styles.dot, i === step && styles.dotActive]} />)}</View></View>
 
+      <NeonButton testID="guide-play-tutorial-button" label="Play the tutorial level" icon="school" onPress={startTutorial} />
       <GlassCard testID="tutorial-step-card" style={styles.tutorial}>
         <View style={[styles.iconRing, { borderColor: laneColors[step % 4] }]}><Ionicons name={steps[step].icon} size={36} color={laneColors[step % 4]} /></View>
         <Text style={styles.stepNumber}>STEP {step + 1} OF 3</Text>
