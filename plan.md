@@ -6,6 +6,7 @@
 - Phase K DONE: Image Studio rename + text/emoji layer suite baked into export.
 - Verified: /app/test_reports/iteration_11.json (100% frontend).
 - Still blocked: Vocotap/Nects stats (need save files).
+- Crossfade (auto/manual, 6s default, iOS gap-free fallback) DONE + Karaoke fullscreen stage (glow styles, auto-hide controls) DONE — verified iteration_12.json.
 
 ## ▶ SESSION LOG (latest continuation — Games/Things + Storage emergency + Install/Transfer)
 This continuation focused on **Games & Things organization**, **game stats/Starlites surfacing**, an **urgent storage failure** caused by browser LocalStorage quota, and finishing the **Install/Add-to-Home-Screen + Data Transfer (no servers)** task.

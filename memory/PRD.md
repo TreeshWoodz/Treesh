@@ -16,12 +16,13 @@ Treesh web app: massive single-file architecture (`/app/single_html/index.html`)
   - Settings Search: "Settings" tab in global search (44 entries), inline toggles, go-to jumps with highlight flash, quick settings block on Songs tab.
   - Image Studio (renamed from Cover Art Studio): Adjust + "Text & stickers" tabs; text/emoji layers (drag, pinch, rotate, resize, fonts, color, align, position, max 10) baked into exported JPEG.
   - Tested: iteration_11.json — 100% frontend pass.
+  - Crossfade: ghost-element overlap with equal-power fades (default 6s, 0–12s, "Song endings" or "Endings + skips"), Settings → Appearance → Sound card, 3 Settings Search entries; iOS gets an early gap-free advance (Safari ignores volume). State in LS `treesh_xf`.
+  - Karaoke fullscreen stage: real Fullscreen API, pulsing glow (Accent default / Cover / Rainbow, LS `treesh_kar_glow`), big word-by-word glowing current line, dimmed next/prev lines, auto-hiding controls (3s), progress seek, count-in + performer tags kept.
+  - Tested: iteration_12.json — 100% frontend pass.
 
 ## Backlog
 - P1 (blocked): Vocotap & Nects Starlites/stats — need the user's game files / storage keys.
-- P2: Karaoke Mode fullscreen revamp
 - P2: Lyric Card Studio revamp (preview always visible)
-- P2: Crossfade & smooth transitions (manual/auto, 6s default)
 - P2: Find Lyrics search improvements (lrclib formatting)
 - P2: Instrum DAW recording/session/export polish
 
