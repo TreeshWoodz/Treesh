@@ -67,8 +67,8 @@ async def state():
     return {"branches": list(STATE["branches"].keys()), "pulls": STATE["pulls"], "commits": STATE["commits"]}
 
 
-@api.get("/mockgh/raw/{branch}/{path:path}")
-async def raw(branch: str, path: str):
+@api.get("/mockgh/raw/{path:path}")
+async def raw(path: str, branch: str = "main"):
     from fastapi.responses import PlainTextResponse
     return PlainTextResponse(branch_files(branch).get(path, ""))
 
