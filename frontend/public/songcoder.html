@@ -1965,18 +1965,20 @@ async function processItem(it){
 }
 function itemHtml(it, i){
   const [st, msg] = qStatus(it), cov = isUrl(it.cover) ? it.cover : it.localCover;
-  const dup = it.title && state.catalog.songs.find(s => normKey(s.title) === normKey(it.title) && normKey(s.artist) === normKey(it.artist));
+  const dup = isQDup(it);
   const inp = (k, ph, extra = '') => `<input class="input sm" id="q-${it.id}-${k}" data-qid="${it.id}" data-qf="${k}" value="${esc(it[k])}" placeholder="${ph}" ${extra} data-testid="queue-input-${k}">`;
   return `<li class="q-item ${st}" data-qid="${it.id}" data-testid="queue-item">
     <div class="q-top"><div class="q-cv" style="${cov ? `background-image:url(&quot;${esc(cov)}&quot;)` : ''}">${cov ? '' : icon('music-4')}</div>
-      <div class="q-meta"><b title="${esc(it.name)}">${String(i + 1).padStart(2, '0')} · ${esc(it.name)}</b><span class="q-st ${st}" data-testid="queue-item-status">${st === 'busy' ? EQ : icon(st === 'ready' ? 'check-circle-2' : 'alert-circle')}<span>${esc(msg)}</span></span>${dup ? `<span class="q-st needs" data-testid="queue-item-duplicate">${icon('copy')}Already in the catalog</span>` : ''}${it.err ? `<span class="q-st bad">${esc(it.err)}</span>` : ''}${it.featured.length ? `<span class="q-st">Featuring ${esc(joinNames(it.featured))}</span>` : ''}</div>
+      <div class="q-meta"><b title="${esc(it.name)}">${String(i + 1).padStart(2, '0')} · ${esc(it.name)}</b><span class="q-st ${st}" data-testid="queue-item-status">${st === 'busy' ? EQ : icon(st === 'ready' ? 'check-circle-2' : 'alert-circle')}<span>${esc(msg)}</span></span><span class="q-st needs q-dup" ${dup ? '' : 'hidden'} data-testid="queue-item-duplicate">${icon('copy')}Already in the catalog</span>${it.err ? `<span class="q-st bad">${esc(it.err)}</span>` : ''}${it.featured.length ? `<span class="q-st">Featuring ${esc(joinNames(it.featured))}</span>` : ''}</div>
       <div class="q-acts"><button type="button" class="icon-btn" data-qact="play" title="Preview" data-testid="queue-play-btn">${icon(state.playing === 'q' + it.id && !player.paused ? 'pause' : 'play')}</button><button type="button" class="icon-btn" data-qact="compose" title="Edit in Compose" data-testid="queue-compose-btn">${icon('pencil')}</button><button type="button" class="icon-btn danger" data-qact="remove" title="Remove" data-testid="queue-remove-btn">${icon('x')}</button></div></div>
     <div class="progress" ${it.busy && it.progress ? '' : 'hidden'}><i style="width:${Math.round(it.progress * 100)}%"></i></div>
     <div class="q-fields">${inp('title', 'Title')}${inp('artist', 'Main artist', 'list="roster-list"')}${inp('genre', 'Genre', 'list="genre-list"')}${inp('mp3', 'https://… audio link')}${inp('cover', 'https://… cover link')}</div>
   </li>`;
 }
+const isQDup = it => !!it.title && state.catalog.songs.some(s => normKey(s.title) === normKey(it.title) && normKey(s.artist) === normKey(it.artist));
 function updateItem(it){
   const li = $(`.q-item[data-qid="${it.id}"]`); if (!li) return;
+  $('.q-dup', li).hidden = !isQDup(it);
   const [st, msg] = qStatus(it), s = $('.q-st', li), pg = $('.progress', li);
   li.className = `q-item ${st}`; s.className = `q-st ${st}`;
   s.innerHTML = (st === 'busy' ? EQ : icon(st === 'ready' ? 'check-circle-2' : 'alert-circle')) + `<span>${esc(msg)}</span>`;

@@ -1,0 +1,93 @@
+{
+  "summary": "Frontend-only testing of two new Song Coder features: Artist Copy Code button and Bulk Song Import. All review-request scenarios passed end-to-end against the mock GitHub API, including live upload, review (PR) mode, and the mobile 390x844 layout. One minor UX issue found with the duplicate chip not updating live while typing.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BulkImport queue", "issue": "Duplicate-match chip (queue-item-duplicate) is only re-rendered on full renderQueue (apply-all, remove, send-to-compose, initial processItem). Typing a matching title+artist into queue-input-title / queue-input-artist updates it[field] and calls updateItem(), which does NOT re-check / re-render the dup chip. The chip only appears after an unrelated re-render. Low priority UX nit.", "selector": "[data-testid=\"queue-item-duplicate\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/tests/songcoder_bulk_artistcode.py"],
+  "action_items": [
+    "(Optional/low priority) In updateItem(), re-evaluate the duplicate flag against state.catalog.songs and show/hide the queue-item-duplicate chip without a full renderQueue, so the dup warning shows live while the user types title/artist."
+  ],
+  "critical_code_review_comments": [
+    "songcoder.html is now ~2308 lines in a single file — maintainability is getting painful (bulk, lyrics, artists, publish all living together). Future split into modules is worth planning.",
+    "list.addEventListener('input') -> updateItem() only updates the status chip + bulk foot; it does not refresh the duplicate chip. Consider calling renderQueue() (preserving focus/selection which the code already supports) when title/artist change, or incrementally toggling the dup span."
+  ],
+  "updated_files": ["/app/tests/songcoder_bulk_artistcode.py"],
+  "success_rate": {"backend": "n/a", "frontend": "100% (all review scenarios pass; 1 minor UX nit)"},
+  "test_credentials": "Mock GitHub token: 'testtoken' (any non-empty string). API base: https://music-catalog-sync.preview.emergentagent.com/api/mockgh",
+  "seed_data_creation": "POST /api/mockgh/reset at start of each scenario. Three MP3 fixtures already present at /app/tests/assets/track{1,2,3}.mp3 with ID3 tags (track1 Night Drive/SAVIONCE feat Palo/rap/artwork; track2 Sunrise Flow/Black Barbie/R&B; track3 Third One/Unknown Kid/artwork). Bulk upload adds those 3 to the top of main songs.html.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Settings should be seeded via localStorage key treesh_songcoder_cfg_v2 before reload, otherwise the Settings drawer must be opened manually. Note that <ul class=\"song\" data-track=\"...\" ...> wraps each song (not <article>) when searching for a track block in raw songs.html. On the mock API the bulk-live upload creates a single commit; branch for Review mode is songcoder/bulk-<N>-<ts>. The audio-file-input element has the HTML attribute 'multiple' present but Playwright get_attribute(..., 'multiple') returns empty string ('') — that's expected for boolean HTML attributes. Catalog contains 'Shake It Some Mo' by Chelly Banqz (NOT Black Barbie); use 'Bankrupt (Freestyle)' + 'Black Barbie' for a real duplicate match.",
+  "verification_results": {
+    "artist_code": {
+      "edit_artist_11_pill": "#11",
+      "generated_code_has_data_artist_id_11": true,
+      "generated_code_preserves_data_cashapp": true,
+      "live_update_on_name_change": true,
+      "copy_toast": "Artist code copied.",
+      "copy_does_not_toggle_panel": true,
+      "new_artist_drawer_live_code": "<article class=\"artist\" data-artist-id=\"18\" data-name=\"TEST Artist Zed\" ..."
+    },
+    "bulk_via_audio_file_input": {
+      "multiple_attribute_present": true,
+      "queue_items_after_3_file_select": 3,
+      "titles_prefilled": ["Night Drive", "Sunrise Flow", "Third One"],
+      "artists_prefilled": ["SAVIONCE", "Black Barbie", "Unknown Kid"],
+      "featuring_chip_track1": "Featuring Palo",
+      "genres_prefilled": ["rap", "R&B", ""],
+      "thumbnails_from_artwork": {"track1": true, "track2": false, "track3": true},
+      "bulk_cloud_hint_visible": true,
+      "single_file_does_not_open_bulk_drawer": true,
+      "single_file_fills_compose_title": "Night Drive"
+    },
+    "bulk_via_open_button": {
+      "open_bulk_import_btn_opens_drawer": true,
+      "bulk_dropzone_visible": true,
+      "bulk_file_input_adds_3_items": 3
+    },
+    "apply_and_persistence": {
+      "apply_to_all_genre_rap": ["rap", "rap", "rap"],
+      "mp3_persisted_after_sequential_edits_across_3_items": true,
+      "cover_persisted_after_sequential_edits_across_3_items": true,
+      "regression_prior_bug_lost_typing_after_cover_change": "no longer reproducible",
+      "queue_summary": "3 ready · 0 need attention",
+      "upload_button_label": "Upload 3 songs",
+      "upload_button_disabled_with_0_ready": true
+    },
+    "duplicate_chip": {
+      "appears_on_title_artist_match_after_rerender": true,
+      "live_update_while_typing_without_rerender": false,
+      "comment": "Only renders via renderQueue(); typing alone calls updateItem() which skips the chip."
+    },
+    "queue_actions": {
+      "queue_remove_btn_removes_item": true,
+      "queue_compose_btn_moves_to_compose_and_closes_drawer": true,
+      "bulk_queue_count_pill_reflects_queue_size": "' · 3' then ' · 2' after send-to-compose"
+    },
+    "upload_live_mode": {
+      "success_modal": "Live on Treesh",
+      "songs_added_at_top_of_main_in_queue_order": ["Night Drive", "Sunrise Flow", "Third One"],
+      "night_drive_data_artist_id": "3,14",
+      "night_drive_data_featuring": "Palo",
+      "queue_cleared_after_upload": true,
+      "catalog_count_delta": "+3"
+    },
+    "upload_review_mode": {
+      "pr_opened_modal": "Pull request opened #1 · Add 2 songs: Night Drive, Sunrise Flow",
+      "branch_pattern": "songcoder/bulk-2-<ts>",
+      "main_branch_untouched": true
+    },
+    "mobile_390x844": {
+      "bulk_drawer_full_width": "width=390 == viewport 390",
+      "no_horizontal_overflow_on_queue_item": "sw 351 == cw 351",
+      "no_body_horizontal_overflow": "body.scrollWidth 390 == clientWidth 390",
+      "artist_edit_drawer_width": "390 == viewport",
+      "artist_code_panel_width": "353 (fits), code pre 351 == 351"
+    }
+  }
+}

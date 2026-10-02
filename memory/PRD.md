@@ -37,6 +37,11 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Settings: Lyrics file path
 - Tested iteration_4 (100%); lyrics copy-code self-tested
 
+## Iteration 4 (2026-06)
+- Artist form: collapsible Artist code panel + Copy code (new & edit)
+- Bulk import: multi-file drop on Compose audio zone or Bulk import drawer; per-file ID3 read (title, artist+feat, album, genre, year, artwork), Cloudinary auto-upload when configured, Apply-to-all shared fields, per-item edit/preview/remove/send-to-Compose, duplicate warning, one commit/PR for all ready songs
+- Tested iteration_5 (100%); live dup-chip nit fixed
+
 ## Backlog
 - P1: Lyrics editor for content/lyrics
 - P2: Main-app patch to honor data-release (badge + playback lock)
