@@ -89,3 +89,4 @@
 
 ## Refactor (this session)
 - game.tsx split 839 -> 554 lines. Gameplay render pieces moved verbatim to /app/frontend/src/game/components/: geometry.ts (Geo, P_NEAR, laneFrac), WavyNote.tsx (wavy ribbon + wavyLaneAt), FallingNote.tsx (tap/hold/swipe notes + ActiveHoldBar), Highway.tsx (Grid, Receptors, LaneBursts, BeatLines, StrikePulse), Backdrop.tsx (cover backdrop + CoverDisc). Game logic unchanged (diff-verified). Fixed SharedValue type imports. Verified: tutorial gameplay renders, hits score, pause/resume works (iteration_15 + screenshot).
+- SONG INTRO CARD: SongIntroCard.tsx replaces the countdown overlay — cover art (or gradient fallback) with spinning halo, title, artist, colour-coded difficulty chip, BPM/notes/duration chips, mode tag, avatar + GET READY + 3-2-1 countdown. Tutorial banner/practice bar hidden until countdown ends.

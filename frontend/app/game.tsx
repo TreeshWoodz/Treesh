@@ -8,7 +8,6 @@ import { Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, useWind
 import Reanimated, { Easing as RE, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
-import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
 import { laneColors, colors, fonts, rgba, neonGlow, textGlow } from "@/src/game/theme";
 import { TUTORIAL_STEPS } from "@/src/game/chartEngine";
@@ -23,6 +22,7 @@ import { WavyLayer, wavyLaneAt } from "@/src/game/components/WavyNote";
 import { ActiveHoldBar, NotesLayer } from "@/src/game/components/FallingNote";
 import { BeatLines, Grid, LaneBursts, Receptors, StrikePulse } from "@/src/game/components/Highway";
 import { Backdrop } from "@/src/game/components/Backdrop";
+import { SongIntroCard } from "@/src/game/components/SongIntroCard";
 
 type Judgment = "PERFECT" | "GREAT" | "GOOD" | "MISS";
 const weights = { PERFECT: 1, GREAT: 0.75, GOOD: 0.45, MISS: 0 };
@@ -477,13 +477,13 @@ export default function GameScreen() {
       <View style={styles.hpRow}><Ionicons name="heart" size={13} color={hpColor} /><View style={styles.hpTrack}><View testID="hud-health" style={[styles.hpFill, { width: `${rock}%`, backgroundColor: hpColor, shadowColor: hpColor }]} /></View></View>
     </View>
 
-    {tutorial && (() => { const tt = progress * duration; const st = TUTORIAL_STEPS.find(x => tt >= x.from && tt < x.to) || TUTORIAL_STEPS[0]; return <View testID="tutorial-banner" pointerEvents="none" style={[styles.tutBanner, { top: insets.top + 104 }]}>
+    {tutorial && countdown <= 0 && (() => { const tt = progress * duration; const st = TUTORIAL_STEPS.find(x => tt >= x.from && tt < x.to) || TUTORIAL_STEPS[0]; return <View testID="tutorial-banner" pointerEvents="none" style={[styles.tutBanner, { top: insets.top + 104 }]}>
       <Text selectable={false} style={styles.tutStep}>TUTORIAL · {st.title}</Text>
       <Text selectable={false} style={styles.tutCopy}>{st.copy}</Text>
     </View>; })()}
 
     {/* Practice controls — speed + A/B loop (practice mode only) */}
-    {practice && <View testID="practice-bar" style={[styles.practice, { top: insets.top + 104 }]} pointerEvents="box-none">
+    {practice && countdown <= 0 && <View testID="practice-bar" style={[styles.practice, { top: insets.top + 104 }]} pointerEvents="box-none">
       <View style={styles.practiceRow}>
         <View style={styles.practiceTag}><Ionicons name="school" size={12} color={colors.cyan} /><Text selectable={false} style={styles.practiceTagText}>PRACTICE</Text></View>
         {SPEEDS.map(s => <Pressable key={s} testID={`practice-speed-${s}`} onPress={() => applyRate(s)} style={[styles.spdChip, rate === s && styles.spdChipOn]}><Text selectable={false} style={[styles.spdChipText, rate === s && styles.spdChipTextOn]}>{s}×</Text></Pressable>)}
@@ -508,7 +508,7 @@ export default function GameScreen() {
       {settings.showLanePads && laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: l * padW + 3, width: padW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }} />)}
     </View>
 
-    {countdown > 0 && <View style={styles.countdown}><Avatar avatar={avatar} nickname={nickname} size={62} style={{ marginBottom: 14 }} /><Text selectable={false} style={styles.ready}>GET READY, {nickname.toUpperCase()}</Text><Text selectable={false} key={countdown} style={styles.count}>{countdown}</Text><Text selectable={false} style={styles.readySong}>{selectedSong.title}</Text></View>}
+    {countdown > 0 && <SongIntroCard song={selectedSong} difficulty={selectedDifficulty} bpm={chart.bpm} notes={chart.notes.length} duration={duration} countdown={countdown} nickname={nickname} avatar={avatar} mode={tutorial ? "tutorial" : practice ? "practice" : testChart ? "test" : undefined} />}
 
     <Modal visible={paused} transparent animationType="fade"><View style={styles.modal}><View style={styles.pauseCard}><View style={styles.pauseIcon}><Ionicons name="pause" size={28} color={colors.cyan} /></View><Text selectable={false} style={styles.pauseTitle}>Paused</Text><Text selectable={false} style={styles.pauseCopy}>The stage is holding your place.</Text><NeonButton testID="resume-game-button" label="Resume" icon="play" onPress={togglePause} /><NeonButton testID="restart-game-button" label="Restart" icon="refresh" variant="secondary" onPress={restart} /><NeonButton testID="exit-game-button" label={tutorial ? "Skip tutorial" : testChart ? "Back to editor" : practice ? "Exit practice" : "Exit song"} icon="close" variant="danger" onPress={() => { player.pause(); cancelAnimation(clock); if (tutorial) { updateSettings({ tutorialDone: true }); setTestChart(null); router.replace("/"); } else if (testChart) { setTestChart(null); router.back(); } else if (practice) { router.back(); } else { router.replace("/library"); } }} /></View></View></Modal>
   </View>;
@@ -548,7 +548,6 @@ const styles = StyleSheet.create({
   vocoReady: { borderColor: "#FFD600", backgroundColor: "rgba(255,214,0,0.12)", ...neonGlow("#FFD600", 14, 0.6) },
   vocoLabel: { color: "rgba(255,200,120,0.9)", fontSize: 10, letterSpacing: 2, fontFamily: fonts.arcadeBlack, width: 50 }, vocoTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, vocoFill: { height: 8, borderRadius: 4 }, vocoMult: { color: "rgba(245,245,247,0.9)", fontSize: 14, fontFamily: fonts.arcadeBlack, width: 30, textAlign: "right" },
   pads: { position: "absolute", left: 0, right: 0, flexDirection: "row" }, pad: { flex: 1, margin: 3, borderRadius: 18 },
-  countdown: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" }, ready: { color: colors.cyan, fontSize: 12, letterSpacing: 4, fontFamily: fonts.arcade, ...textGlow(colors.cyan, 10) }, count: { color: colors.text, fontSize: 120, lineHeight: 140, fontFamily: fonts.arcadeBlack, ...textGlow(colors.pink, 30) }, readySong: { color: colors.muted, fontSize: 14, marginTop: 4, fontFamily: fonts.body },
   modal: { flex: 1, backgroundColor: "rgba(0,0,0,0.82)", alignItems: "center", justifyContent: "center", padding: 24 }, pauseCard: { width: "100%", maxWidth: 360, padding: 24, borderRadius: 20, gap: 12, backgroundColor: "#0E0B26", borderWidth: 1.5, borderColor: "rgba(0,229,255,0.45)", ...neonGlow(colors.cyan, 20, 0.35) }, pauseIcon: { alignSelf: "center", width: 60, height: 60, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: rgba(0.12), borderWidth: 1.5, borderColor: rgba(0.5) }, pauseTitle: { color: colors.text, textAlign: "center", fontSize: 26, fontFamily: fonts.arcadeBlack, letterSpacing: 3 }, pauseCopy: { color: colors.muted, textAlign: "center", marginBottom: 8, fontSize: 14, fontFamily: fonts.body },
   missing: { flex: 1, justifyContent: "center", padding: 28, gap: 16, backgroundColor: colors.bg }, missingTitle: { color: colors.text, fontSize: 30, fontFamily: fonts.display, textAlign: "center" }, missingCopy: { color: colors.muted, fontSize: 15, textAlign: "center", lineHeight: 22, marginBottom: 8, fontFamily: fonts.body },
 });

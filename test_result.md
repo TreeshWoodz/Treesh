@@ -147,3 +147,6 @@ agent_communication:
 
     -agent: "main"
     -message: "REFACTOR ONLY (no behaviour/visual change intended). game.tsx (839 -> 554 lines) split: src/game/components/geometry.ts (Geo, P_NEAR, laneFrac), WavyNote.tsx (WavySegment/WavyBead/WavyNote/WavyLayer/wavyLaneAt), FallingNote.tsx (FallingNote/NotesLayer/ActiveHoldBar), Highway.tsx (Grid/Receptors/LaneBursts/BeatLines/StrikePulse), Backdrop.tsx (CoverDisc/Backdrop). Code moved verbatim; only imports/exports + SharedValue type import changed. Please run a FRONTEND regression of gameplay: quick play, tutorial, highway/notes/wavy render, taps/keyboard hits, swipe, pause/resume/restart/exit, themes backdrop + cover disc, results."
+
+    -agent: "main"
+    -message: "NEW: Song Intro Card. src/game/components/SongIntroCard.tsx replaces the old countdown overlay in game.tsx (shown while countdown > 0). testIDs: song-intro-card, song-intro-cover (only when song has cover art; else gradient music-note fallback), song-intro-title, song-intro-difficulty (EASY/NORMAL/HARD/EXPERT/CUSTOM, colour-coded), song-intro-countdown (3,2,1). Also shows artist, BPM / note count / duration chips, mode tag (TUTORIAL/PRACTICE/TEST CHART), avatar + GET READY nickname. tutorial-banner and practice-bar now hidden until countdown ends. Card auto-dismisses when gameplay starts."
