@@ -17,6 +17,7 @@ api = APIRouter(prefix="/api")
 SEED = {
     "content/songs.html": (ROOT_DIR / "mock_data/songs.html").read_text(encoding="utf-8"),
     "content/icons.html": (ROOT_DIR / "mock_data/icons.html").read_text(encoding="utf-8"),
+    "content/lyrics.html": (ROOT_DIR / "mock_data/lyrics.html").read_text(encoding="utf-8"),
 }
 STATE = {}
 
