@@ -1,4 +1,4 @@
-# Treesh Song Coder — PRD
+# Treesh M.A.D. (Manage & Direct) — PRD (formerly Song Coder)
 
 ## Original problem
 Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way better and polished. Keep it ONE file (saved to GitHub). Ability to update Treesh's music catalog (https://treesh.app/content/songs → repo file content/songs.html) automatically after pressing an upload button. Follow-up: make it fit on mobile screens.
@@ -47,6 +47,13 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Projects tab: groups catalog by data-album; editor (title, artist, cover=first track default, date=earliest default, slug, description, tracklist reorder/remove), live iframe preview, publishes standalone playable page to projects/<slug>.html (treesh.app/projects/<slug>) via Review/Go live; Copy code; Published status check
 - commitFile supports creating new files; Settings: Project pages folder
 - Tested iteration_6 (pass); mobile project editor overflow fixed
+
+## Iteration 6 (2026-06)
+- Renamed to "Treesh M.A.D." (Manage & Direct) — title, brand, all UI/PR text (file still Tools/songcoder.html; branch prefix songcoder/ kept)
+- Models tab ("The Board") -> content/models.html (served /content/models), icons-style <article class="model"> blocks
+  - Attributes: identity (division, board, age, pronouns, location, agency, availability, travel), measurements in cm+in (height/bust/waist/hips/inseam + height-ft), sizes (shoe, dress, suit, shirt, pants, bra), look (hair color/length/texture, eyes, skin tone, ethnicity, tattoos, piercings), work (experience, categories, skills, languages, credits), links (instagram, tiktok, portfolio, video, email), bio, headshot, photos (pipe list), digitals (pipe list)
+  - Form: ft/in <-> cm toggle, category chips, validation, photo uploader (Cloudinary), link add, batch link import (URLs/HTML), tile kind toggle/headshot/reorder/remove, code panel + copy; add/edit/delete via Review/Go live; file auto-created
+- Tested iteration_7 (100%)
 
 ## Backlog
 - P1: Lyrics editor for content/lyrics

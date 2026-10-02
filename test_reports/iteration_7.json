@@ -1,0 +1,105 @@
+{
+  "summary": "Frontend-only testing of the new Treesh M.A.D. (Manage & Direct) rename + Models feature in /songcoder.html. All review-request scenarios pass end-to-end against the mock GitHub API: title/brand rename, no 'Song Coder' leftovers, Models tab with file-missing notice + empty state, drawer sections, measurement unit toggle (ft/in <-> cm) with correct conversions, preview stats, validation (name, height, no-photo toast, duplicate-name block), photo link-add + batch import (text/HTML, no re-import duplicates), code panel + copy toast, Go-live save producing a correct <article class='model' ...> in content/models.html on the mock, in-place EDIT (waist change persisted, same id), DELETE via confirm modal, Settings models-path default, and mobile 390x844 layout with no page overflow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/tests/songcoder_models.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "songcoder.html is now ~2910 lines in a single file; models logic (sections, parse/build, drawer, photos, save/edit/delete) is tightly coupled with the rest. Future split into ES modules is worth planning.",
+    "data-digitals and data-categories attributes are correctly omitted when empty via the generic add(k,v) helper. If downstream consumers rely on their presence, consider always emitting them (even as empty strings).",
+    "model-card child h3 uses data-testid='model-card-name' which prefix-matches 'model-card-'; selector [data-testid^=\"model-card-\"] matches both cards and inner name nodes. Not a bug but worth tightening in future tests."
+  ],
+  "updated_files": ["/app/tests/songcoder_models.py"],
+  "success_rate": {"backend": "n/a", "frontend": "100% (all review scenarios pass)"},
+  "test_credentials": "Mock GitHub token 'testtoken' (any non-empty string). API base https://music-catalog-sync.preview.emergentagent.com/api/mockgh",
+  "seed_data_creation": "POST /api/mockgh/reset before test. localStorage treesh_songcoder_cfg_v2 seeded with modelsPath content/models.html and mode:'live'. Two models created during test (TEST Avery Nova #1, TEST Bea Luna #2); #2 deleted at end; #1 remains on main.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Mock returns 404 for content/models.html until the first model save (create path). Use fetch() inside the browser (page.evaluate) to hit the mock API; direct urllib from the test runner returns 403 due to preview auth. Playwright selector [data-testid^='model-card-'] matches BOTH the card and the inner h3 (model-card-name); prefer a more specific selector like article[data-testid^='model-card-']. Preview card thumbnail background uses the headshot photo (first by default). Measurements conversions: 5'10\" -> 177.8cm, 34in -> 86.4cm, 24in -> 61cm (rounded to 1 decimal in code), 35in -> 88.9cm.",
+  "verification_results": {
+    "rename": {
+      "document_title": "Treesh M.A.D. · Manage & Direct",
+      "brand_shows_treesh_mad_and_manage_direct": true,
+      "no_song_coder_text_in_body": true,
+      "no_song_coder_text_in_settings_drawer": true,
+      "settings_models_path_default": "content/models.html"
+    },
+    "models_tab_initial": {
+      "models_count_pill": "··",
+      "models_file_missing_notice_visible": true,
+      "models_empty_state_visible": true
+    },
+    "model_drawer": {
+      "drawer_opens": true,
+      "model_next_id": "#1",
+      "has_unit_in_btn": true,
+      "has_unit_cm_btn": true,
+      "has_categories_chips": true,
+      "has_name_input": true,
+      "has_height_input": true,
+      "has_bio_input": true
+    },
+    "validation": {
+      "missing_name_error": "Every model needs a name.",
+      "missing_height_error": "Height is the first thing scouts look for.",
+      "no_photo_toast": "Add at least one photo with a hosted link.",
+      "duplicate_name_error": "TEST Avery Nova is already on the board."
+    },
+    "measurements": {
+      "ftin_height_hint": "177.8 cm",
+      "cm_values_after_toggle": {"h": "177.8", "b": "86.4", "w": "61", "hi": "88.9"},
+      "ftin_restored_height": "5'10\"",
+      "ftin_restored_bust": "34",
+      "preview_stats": "5'10\" · 34-24-35 · Atlanta, GA"
+    },
+    "photos": {
+      "tile_after_link_add": 1,
+      "import_toast": "Imported 2 photos.",
+      "tile_after_import": 3,
+      "tile_after_reimport_no_dupes": 3
+    },
+    "code_panel": {
+      "code_has_article_model": true,
+      "code_has_data_model_id_1": true,
+      "copy_toast": "Model code copied."
+    },
+    "save_live": {
+      "success_modal": "Model added \"TEST Avery Nova (#1)\" was added to the board on main.",
+      "raw_has_data_model_id_1": true,
+      "raw_has_name": true,
+      "raw_has_height_cm_in_ft": true,
+      "raw_has_bust_waist_hips_cm_and_in": true,
+      "raw_has_board_location_photos_headshot": true,
+      "raw_has_model_thumbnail_class": true,
+      "raw_has_model_label_class": true,
+      "raw_photos_hidden_block_present": true,
+      "notice_hidden_after_save": true,
+      "card_1_visible": true,
+      "card_1_text_includes": "AVAILABLE · TEST Avery Nova · Main · Atlanta, GA · HEIGHT 5'10\" · B-W-H 34-24-35 · PHOTOS 3"
+    },
+    "second_model_and_order": {
+      "second_model_next_id": "#2",
+      "first_card_after_second_save": "model-card-2 (inserted at top)"
+    },
+    "edit_model_1": {
+      "name_prefilled": "TEST Avery Nova",
+      "height_prefilled": "5'10\"",
+      "waist_prefilled": "24",
+      "tiles_prefilled": 3,
+      "after_waist_change_to_25_data_waist_in_in_repo": "25",
+      "id_1_block_count_after_edit": 1
+    },
+    "delete_model_2": {
+      "delete_confirm_modal_visible": true,
+      "card_2_removed_from_grid": true
+    },
+    "mobile_390x844": {
+      "html_scrollWidth_equals_clientWidth_390": true,
+      "no_horizontal_page_overflow": true
+    }
+  }
+}
