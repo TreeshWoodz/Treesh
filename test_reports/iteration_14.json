@@ -1,0 +1,70 @@
+{
+  "summary": "Frontend-only regression test of Treesh single-file SPA covering tagline, nav, song-row play-count move, scroll regression, glass popups, Magic Markup wand drag+persist+reset, Quick Settings widget migration, default homepage (mkSetHome), and onboarding/What's-New overflow. 13 of 15 required checks PASS. Two functional bugs found: (1) song options menu is missing the 'Song info'/'Info' entry that is supposed to host the play count moved out of song cards, and (2) choosing 'Add to playlist' from a scrolled Library resets window.scrollY to 0 (confirmed scroll regression). One spec-level miss: the data-testid='mk-fab-reset' button is not present in the MK sheet even when a non-default fabPos is saved. Everything else (tagline, nav, no play-count on song cards, glass style, drag+persist of wand, click-toggle without drag, Quick Settings widget rendering with full controls, no legacy quick-settings strip in Settings/Library, 'Quick Settings widget' entry in global search Settings tab, mkSetHome -> Studios opens Studios on reload, onboarding no-overflow at 390x844 and 1920x800, no console errors other than expected Tailwind CDN warning) works as intended.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Song options menu (song-menu-*)",
+        "issue": "No 'Song info' / 'Info' / metadata entry present. Dumped children of the open song-menu panel contain only: sheet-grab, song-menu-head, song-menu-close, song-menu-m-play-next, song-menu-m-add-queue, song-menu-like, song-menu-m-share, song-menu-m-add-pl, song-menu-dislike, song-menu-ls-open (Add lyrics). Because play counts were removed from song cards/rows and 'moved into the song info/metadata modal', there is now NO way to view a song's play count from the UI.",
+        "selector": "[data-testid^=\"song-menu-m-\"] / expected [data-testid=\"song-menu-m-info\"] or similar",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Song options menu -> 'Add to playlist'",
+        "issue": "Scroll regression. Scrolled Library to window.scrollY=1500, opened a song's menu, clicked Add to playlist (song-menu-m-add-pl). After the Add-to-playlist glass sheet opened, window.scrollY became 0 (delta -1500). Expected per spec: 'page must NOT jump back to the top'. For comparison, clicking song-menu-m-play-next from the same scrolled state kept scrollY at 1500 (OK), so the regression is specific to actions that chain-open another sheet/modal.",
+        "selector": "[data-testid=\"song-menu-m-add-pl\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Magic Markup sheet (edit mode)",
+        "issue": "data-testid='mk-fab-reset' ('Put the wand back in the corner') is NOT rendered anywhere in the MK edit UI even after a non-default fabPos has been saved (verified treesh_mk.fabPos={x:0.2049,y:0.3427}). Only toolbar buttons found in edit mode: mk-toolbar-page, mk-add-button, mk-pages-button, mk-done-button. The Pages & homepage sheet (mk-pages-button) also does not contain the reset. User has no in-app way to put the wand back in the corner once dragged.",
+        "selector": "expected [data-testid=\"mk-fab-reset\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_pass": {
+    "tagline": "'Welcome to the Woodz' present on home at 390x844 and 1920x800; old 'Music to Live For' absent.",
+    "navigation": "nav-mobile-library / -artists / -studios / -game / -settings all route without JS console errors (only Tailwind CDN warning).",
+    "song_cards_no_play_count": "Sampled 5 song cards (song-card-*). None contain flame-icon play-count text next to the card.",
+    "glass_popups": "song options menu (pm-panel glass-strong, bottom=836 within vh=844), add-to-playlist sheet, mk Pages & homepage sheet, mk Add-to-Library sheet, mk Quick Settings block config sheet all render as frosted glass panels, animate in, close via mk-sheet-close/song-menu-close, and stay within the 390x844 viewport.",
+    "mk_wand_drag_persist": "Dragged FAB from (322,701) to (74,274); aria-pressed stayed 'false' after drag release (did NOT toggle edit). localStorage.treesh_mk.fabPos = {x:0.2049,y:0.3427}. Reload -> FAB restored to (74,274).",
+    "mk_wand_click_toggle": "Simple click (no drag) toggles aria-pressed to 'true' and shows the MK toolbar with wand/check icon.",
+    "mk_widget_quick": "In MK edit mode, Add -> Quick Settings adds data-testid='mk-widget-quick' containing: quick-mode-dark, quick-mode-light, quick-perf-toggle, quick-open-eq, quick-accent-{9328ff,3b82f6,22d3ee,34d399,f59e0b,ff2d78}, quick-accent-custom, quick-eq-{off,bass,pop,vocal,acoustic}, quick-sleep-{0,15,30,60}.",
+    "no_legacy_quick_settings": "data-testid='quick-settings' not present on Settings tab or Library tab outside Magic Markup (0 nodes).",
+    "global_search_quick_settings_entry": "Global search -> Settings tab -> 'Quick Settings widget' entry exists with data-testid='search-setting-go-quick' and copy 'Add mode, accent, EQ, sleep and glass controls to any page'.",
+    "mkSetHome_default_homepage": "mk-pages-button -> 'Open the app on' -> Studios sets localStorage.treesh_mk.home='studios'. After reload, nav-mobile-studios has aria-current='page' and body shows 'Studios / Your pocket creative suite...'.",
+    "onboarding_no_overflow": "With localStorage.clear() the fresh onboarding renders 'Welcome to the Woodz.' tagline; document.scrollWidth==clientWidth at 390x844 and 1920x800; old 'Music to Live For' absent."
+  },
+  "overflow_measurements": {
+    "song_menu_390x844": {"x": 8, "y": 426.75, "w": 374, "h": 409.25, "bottom": 836, "vh": 844, "inViewport": true},
+    "docScrollW_eq_clientW_at_390": true,
+    "docScrollW_eq_clientW_at_1920": true
+  },
+  "not_fully_tested": {
+    "lyric_card_at_375x667": "Could not reliably open the Lyric Card modal via the global-search Settings tab in this run (clicking 'Settings' in-overlay matched the bottom-nav Settings button and closed the overlay). Previous iteration (iteration_13) and the restyle patches (/app/memory/patch_p6a.py, patch_p6b.py) already verified Lyric Card glass styling and 375x667 fit. Suggest E1 add data-testid='search-tab-settings' etc. on the segmented tabs inside the search overlay to disambiguate.",
+    "now_playing_full_screen_player": "Audio playback is unreliable in headless; did not expand full-screen player. Glass sheets around the player were visible in song-menu area which share the same pm-panel glass-strong class."
+  },
+  "test_report_links": ["/app/test_reports/iteration_14.json"],
+  "action_items": [
+    "FIX: Add 'Song info' / 'Info' / metadata entry to the song options menu (expected [data-testid='song-menu-m-info'] or similar). Without it the play-count-moved-into-metadata feature is unreachable from the UI.",
+    "FIX: Scroll regression when the song-menu action opens a secondary sheet (confirmed on [data-testid='song-menu-m-add-pl']: scrollY 1500 -> 0). Likely culprit: when the add-to-playlist sheet mounts it is calling window.scrollTo(0,0) or re-rendering the Library page. Compare with [data-testid='song-menu-m-play-next'] which keeps scroll at 1500.",
+    "FIX: Render the [data-testid='mk-fab-reset'] 'Put the wand back in the corner' button inside the MK edit sheet whenever treesh_mk.fabPos is set. It is referenced in the spec and in the code around line ~9747 (mkRenderSheet) but does not render in practice.",
+    "NICE-TO-HAVE: Add data-testid='search-tab-songs|artists|lyrics|settings' on the segmented tabs inside the search overlay so tests can target them without matching the bottom-nav buttons by text.",
+    "NICE-TO-HAVE: On the fresh (no-seed) load, the onboarding takes ~2s to appear; iteration tests sometimes race it. A lightweight DOMContentLoaded signal (e.g. body[data-onboarding-ready]) would make this deterministic."
+  ],
+  "critical_code_review_comments": [
+    "Tailwind CDN production warning in console - expected per single-file app design; low priority.",
+    "index.html is >10k lines (single-file by project constraint); the mk-fab-reset and song-menu-m-info omissions are easy to miss in such a large file - consider extracting MK sheet rendering and song-menu-item config to clearly-named sections with comments at least.",
+    "Secondary sheets opened from the song menu should preserve window.scrollY. If a scroll lock pattern (overflow:hidden on body) is being used, make sure to restore scrollY from a saved value when the chained sheet opens AND when it closes."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "87% (13/15 checks pass; 2 functional bugs + 1 spec miss)"},
+  "test_credentials": "N/A - no auth",
+  "seed_data_creation": "Used add_init_script to seed localStorage.treesh_whatsnew_off=true and treesh_profile={nickname:'Tester',birthday:'2000-01-01'} before each page load. For onboarding re-test, used localStorage.clear() in init.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Key testids discovered: open-search-overlay-button, search-overlay-input, nav-mobile-{library,artists,studios,game,settings}, song-card-menu-button-*, song-menu-m-{play-next,add-queue,share,add-pl}, song-menu-{like,dislike,ls-open,close,head}, magic-markup-fab, mk-{toolbar-page,add-button,pages-button,done-button,sheet-close,fab-reset(expected-but-missing),widget-quick,add-widget-quick,page-toggle-*}, quick-{mode-dark,mode-light,perf-toggle,open-eq,accent-*,eq-*,sleep-*}, search-setting-go-quick. Reproduce scroll regression: open https URL, seed init script, click nav-mobile-library, window.scrollTo(0,1500), click song-card-menu-button-black-barbie-bankrupt-freestyle, click song-menu-m-add-pl, read window.scrollY - will be 0 instead of 1500. Reproduce missing info menu entry: open same menu and querySelectorAll('[data-testid^=\"song-menu-m-\"]') - returns only 4 items (play-next, add-queue, share, add-pl)."
+}
