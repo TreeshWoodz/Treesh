@@ -1,0 +1,89 @@
+{
+  "summary": "Frontend-only testing of three new Song Coder features: Edit/Delete Artists, Pin-to-top, and Lyrics Editor (Write + Sync modes). All scenarios in the review request passed end-to-end against the mock GitHub API at /api/mockgh. Also verified mobile layout at 390x844 and that regression (compose + reorder) still works.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/tests/songcoder_new_features.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "songcoder.html has grown to 2098 lines; still single-file by design but is becoming hard to navigate. Consider splitting into modules (artists.js, lyrics.js, github.js, ui.js) in a future iteration.",
+    "The lyrics editor replaces blocks in place by matching data-track; if two different songs ever share a title the match is non-unique. Not reproducible in current seed, but worth tightening (match on title + artist-id).",
+    "Lyrics Write-mode textarea does not preserve times when user removes a line between modes — expected behavior per spec (times kept only on unchanged lines) but worth noting in docs."
+  ],
+  "updated_files": ["/app/tests/songcoder_new_features.py"],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "Mock GitHub token: any non-empty string ('bad' => 401). API base: https://music-catalog-sync.preview.emergentagent.com/api/mockgh",
+  "seed_data_creation": "POST /api/mockgh/reset at the start of each scenario group. For editing, changed artist #11 (Chelly Banqz) location to 'TEST City, GA'. For lyrics, added TEST explain + manual timestamps to Shake It Some Mo and new lyrics (incl. [Chorus]) to Bankrupt (Freestyle).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Settings must be entered via UI and saved with [data-testid=settings-save-btn] (localStorage key is 'treesh_songcoder_cfg_v2'); clicking only 'Test connection' does not persist cfg. Settings Save button is near the bottom of a right-side drawer – at viewport 1920x1080 the drawer save button is partially out of viewport, so use page.evaluate(... .click()) rather than Playwright click. Lyrics mode-toggle testids are 'lyrics-write-tab' and 'lyrics-sync-tab' (not 'lyrics-mode-write-btn'). Audio playback does not work headless; use direct DOM input of times via page.evaluate() setting .value + firing 'input','change' events (ElementHandle gets detached on re-render after each edit, so re-query). To parse lyric blocks from raw lyrics.html use a regex that reaches the OUTER </div> (metadata is a nested div inside the lyric div).",
+  "verification_results": {
+    "setup": {"POST /api/mockgh/reset": "ok", "settings-lyrics-path-input default": "content/lyrics.html"},
+    "edit_artist": {
+      "drawer_title": "Edit artist",
+      "id_pill": "#11",
+      "prefilled_name": "Chelly Banqz",
+      "duplicate_rename_blocked": "Palo is already on the roster.",
+      "same_name_allowed": true,
+      "live_success_modal": "Artist updated",
+      "icons_main_article_11_updated_in_place": true,
+      "data_cashapp_preserved": true,
+      "roster_count_unchanged": "13",
+      "other_articles_unchanged": true
+    },
+    "delete_artist": {
+      "confirm_modal_testid": "artist-delete-confirm-modal",
+      "confirm_modal_mentions_linked_songs": "9 songs still link to #11",
+      "live_success_modal": "Artist removed",
+      "roster_count_after": "12",
+      "id_11_removed_from_main_icons": true
+    },
+    "pin": {
+      "first_card_pin_toast": "Already at the top of Treesh.",
+      "live_pin_modal": "Pinned to the top",
+      "live_first_song_after_pin": "Shake It Some Mo",
+      "pr_mode_pin_title": "Pin to top: NEVER (Rock Version)",
+      "pr_mode_main_untouched": true,
+      "pr_mode_first_song_unchanged": true,
+      "ul_song_total_preserved": 58
+    },
+    "lyrics": {
+      "song_items_total": 56,
+      "status_chip_counts": {"Synced": 37, "Plain": 1, "None": 18},
+      "search_filter_works": true,
+      "shake_sync_mode_default": true,
+      "shake_first_timestamp": "00:09.16",
+      "shake_sync_stat": "60/60",
+      "write_mode_textarea_has_all_lines": "60 lines",
+      "times_preserved_after_write_sync_toggle": true,
+      "stamp_without_play_toast": "Play the track first, then stamp along.",
+      "invalid_time_toast": "Use a time like 01:23.45",
+      "manual_time_entry_updates_stat": true,
+      "live_save_modal": "Lyrics are live",
+      "shake_block_in_main_raw_has_data_minutes_00:05.50": true,
+      "shake_block_has_data_explain": true,
+      "shake_block_replaced_in_place_single_occurrence": true,
+      "bankrupt_write_mode_default_for_none_status": true,
+      "bankrupt_bracket_header_no_time_input": true,
+      "bankrupt_block_has_p_chorus": true,
+      "bankrupt_block_has_data_minutes_00:03.25": true,
+      "bankrupt_untimed_lines_data_seconds_empty": true,
+      "metadata_div_present": true,
+      "discard_modal_on_unsaved_switch": true,
+      "pr_mode_lyrics_pr_title": "Update lyrics: Shake It Some Mo \u2014 Chelly Banqz"
+    },
+    "mobile_390x844": {
+      "tabs_fit": "scrollWidth 360 == clientWidth 360 (4 tabs)",
+      "lyrics_list_then_editor_with_back_btn": true,
+      "lyrics_view_overflow": "scroll 362 == client 362",
+      "catalog_view_overflow": "scroll 362 == client 362",
+      "compose_view_overflow": "scroll 362 == client 362",
+      "artist_edit_delete_visible_without_hover": "editOpacity=1 display=grid, delOpacity=1 display=grid"
+    },
+    "regression": {
+      "catalog_count": 56,
+      "artists_count": 13,
+      "lyrics_tab_lists_all_songs": true,
+      "mode_seg_in_lyrics_dock_syncs_with_global_mode": true
+    }
+  }
+}

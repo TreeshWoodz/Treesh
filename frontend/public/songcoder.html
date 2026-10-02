@@ -455,6 +455,9 @@ input[type=datetime-local].input{min-height:50px}
 .lt-in{width:100%;padding:7px 6px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--stroke-faint);font-family:var(--doto);font-weight:800;font-size:13px;text-align:center;outline:none;color:var(--text)}
 .lt-in:focus{border-color:var(--purple)}
 .lt-in.set{color:var(--ok)}
+.lyr-code-panel{margin-top:16px}
+.lyr-code-panel .panel-head{gap:10px}
+.lyr-code-panel .panel-head .chev{margin-left:0}
 .lyr-foot{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
 .lyr-foot .seg{width:220px}
 .lyr-foot .btn-primary{flex:1}
@@ -1125,7 +1128,7 @@ function buildBlock(f, original){
                     </span></ul>`;
 }
 function highlight(code){
-  return esc(code).replace(/([a-z][\w-]*)=&quot;([\s\S]*?)&quot;/g, '<span class="c-k">$1</span>=<span class="c-v">&quot;$2&quot;</span>').replace(/&lt;(\/?)(ul|span|section|img|song-info-tag|h2|h3)/g, '&lt;$1<span class="c-t">$2</span>');
+  return esc(code).replace(/([a-z][\w-]*)=&quot;([\s\S]*?)&quot;/g, '<span class="c-k">$1</span>=<span class="c-v">&quot;$2&quot;</span>').replace(/&lt;(\/?)(ul|span|section|img|song-info-tag|h2|h3|div|p|article)\b/g, '&lt;$1<span class="c-t">$2</span>');
 }
 function applyOp(text, op){
   if (op.kind === 'reorder'){
@@ -1759,19 +1762,23 @@ function renderLyrEditor(){
   <div class="lyr-player"><button class="lp" data-lact="play" title="Play / pause" data-testid="lyrics-play-btn">${icon(mine && !player.paused ? 'pause' : 'play')}</button><span class="tc" id="lyr-time" data-testid="lyrics-current-time">${fmtTc(mine ? player.currentTime : 0)}</span><input type="range" class="seek" id="lyr-seek" min="0" max="1000" value="0" aria-label="Seek" data-testid="lyrics-seek"><span class="tc" id="lyr-dur">${fmtTime(mine ? player.duration : 0)}</span><button class="icon-btn" data-lact="rew" title="Back 3 seconds" data-testid="lyrics-rewind-btn">${icon('rotate-ccw')}</button></div>
   <div class="lyr-tools">${seg('lyr-seg', 'data-lmode', ['write', 'pencil-line', 'Write', L.mode === 'write', 'lyrics-write-tab'], ['sync', 'timer', 'Sync', L.mode === 'sync', 'lyrics-sync-tab'], 'lyrics-mode-toggle')}<p class="hint">${L.mode === 'write' ? 'One line per row. Put sections in brackets, like [Chorus].' : 'Play the track and hit Stamp (or Space) as each line starts. Tap a line to jump to it.'}</p></div>
   <div id="lyr-body"></div>
+  <div class="panel lyr-code-panel ${L.codeOpen ? 'open' : ''}" id="lyr-code-panel" data-testid="lyrics-code-panel"><div class="panel-head" data-lact="codetoggle" data-testid="lyrics-code-toggle">${icon('code-xml')}<b>Lyrics code</b><button type="button" class="btn btn-sm" data-lact="copy" style="margin-left:auto" data-testid="lyrics-copy-code-btn">${icon('copy')}Copy code</button><i class="chev" data-lucide="chevron-down"></i></div><pre class="code soft-scroll" id="lyr-code" data-testid="lyrics-generated-code"></pre></div>
   <div class="lyr-foot">${seg('mode-seg', 'data-mode', ['pr', 'git-pull-request', 'Review', cfg.mode === 'pr', 'lyrics-mode-pr-btn'], ['live', 'zap', 'Go live', cfg.mode === 'live', 'lyrics-mode-live-btn'], 'lyrics-publish-mode-toggle')}<button class="btn btn-primary" data-lact="save" id="lyr-save" data-testid="lyrics-save-btn">${icon('save')}<span id="lyr-save-label">${cfg.mode === 'live' ? 'Publish lyrics' : 'Open PR'}</span></button></div>`;
   renderLyrBody(); icons();
 }
 function renderLyrBody(){
   const L = state.lyr, b = $('#lyr-body');
-  if (L.mode === 'write'){ b.innerHTML = `<textarea class="textarea lyr-text" id="lyr-text" placeholder="[Verse 1]&#10;First line…" data-testid="lyrics-textarea">${esc(L.lines.map(l => l.text).join('\n'))}</textarea>`; return; }
+  if (L.mode === 'write'){ b.innerHTML = `<textarea class="textarea lyr-text" id="lyr-text" placeholder="[Verse 1]&#10;First line…" data-testid="lyrics-textarea">${esc(L.lines.map(l => l.text).join('\n'))}</textarea>`; return refreshLyrCode(); }
   if (!L.lines.length){ b.innerHTML = `<div class="empty" data-testid="lyrics-no-lines">${icon('pencil-line')}<b>No lines yet</b><span>Write the lyrics first, then come back to sync.</span></div>`; return icons(); }
   const cur = L.lines[L.cur];
   b.innerHTML = `<div class="stamp-bar"><button class="btn btn-primary" data-lact="stamp" data-testid="lyrics-stamp-btn">${icon('stamp')}<span>Stamp ${L.cur + 1}${cur ? ' · ' + esc(cur.text) : ''}</span></button><button class="icon-btn" data-lact="undo" title="Undo last stamp" data-testid="lyrics-undo-btn" ${L.undo.length ? '' : 'disabled'}>${icon('undo-2')}</button><button class="icon-btn" data-lact="clearall" title="Clear all times" data-testid="lyrics-clear-all-btn">${icon('eraser')}</button></div>
   <ol class="lr-list soft-scroll" id="lr-list">${L.lines.map((l, i) => { const h = isHdr(l.text); return `<li class="lr ${h ? 'hdr' : ''} ${i === L.cur ? 'cur' : ''}" data-n="${i}" data-testid="lyrics-line">${h ? '<span></span>' : `<input class="lt-in ${l.t != null ? 'set' : ''}" value="${fmtTc(l.t)}" placeholder="--:--.--" data-n="${i}" aria-label="Time for line ${i + 1}" data-testid="lyrics-line-time">`}<span class="tx" data-lact="pick" data-testid="lyrics-line-text">${esc(l.text)}</span><button class="icon-btn ${l.explain ? 'on' : ''}" data-lact="explain" title="Explain this line" data-testid="lyrics-explain-btn">${icon('message-square-quote')}</button>${h ? '' : `<button class="icon-btn" data-lact="clear" title="Clear time" data-testid="lyrics-clear-time-btn">${icon('x')}</button>`}${L.open.has(i) ? `<input class="input ex" data-ex="${i}" value="${esc(l.explain)}" placeholder="What does this line mean?" data-testid="lyrics-explain-input">` : ''}</li>`; }).join('')}</ol>`;
   icons();
+  refreshLyrCode();
   const row = $(`.lr[data-n="${L.cur}"]`), list = $('#lr-list'); if (row && list) list.scrollTop = Math.max(0, row.offsetTop - list.offsetTop - list.clientHeight / 2);
 }
+function lyrCode(){ const L = state.lyr; if (L.mode === 'write') syncFromText(); return buildLyricBlock(L.song, L.lines, L.orig); }
+function refreshLyrCode(){ const L = state.lyr, pre = $('#lyr-code'); if (L && pre && L.codeOpen) pre.innerHTML = highlight(lyrCode()); }
 function syncFromText(){
   const L = state.lyr, ta = $('#lyr-text'); if (!ta) return;
   const old = L.lines, used = new Set();
@@ -1803,6 +1810,8 @@ async function lyrAction(btn){
   if (a === 'explain'){ L.open.has(n) ? L.open.delete(n) : L.open.add(n); }
   if (a === 'clear'){ L.lines[n].t = null; L.dirty = true; }
   if (a === 'save') return saveLyrics();
+  if (a === 'copy') return copyText(lyrCode(), 'Lyrics code copied.');
+  if (a === 'codetoggle'){ L.codeOpen = !L.codeOpen; $('#lyr-code-panel').classList.toggle('open', L.codeOpen); return refreshLyrCode(); }
   renderLyrBody(); $('#lyr-stat').textContent = lyrCounts();
   if (a === 'explain' && L.open.has(n)) { const x = $(`[data-ex="${n}"]`); if (x) x.focus(); }
 }
@@ -1822,6 +1831,7 @@ async function saveLyrics(){
   } catch (e){ failModal(e); }
   finally { state.busy = false; const b2 = $('#lyr-save'); if (b2) b2.disabled = false; setMode(cfg.mode); }
 }
+const refreshLyrCodeSoon = debounce(refreshLyrCode, 250);
 function wireLyrics(){
   $('#lyr-search').addEventListener('input', renderLyrics);
   $('#lyr-list').addEventListener('click', e => { const b = e.target.closest('.lyr-item'); if (b) openLyrics(state.catalog.songs[+b.dataset.i]); });
@@ -1833,8 +1843,8 @@ function wireLyrics(){
   });
   main.addEventListener('input', e => {
     const L = state.lyr; if (!L) return;
-    if (e.target.id === 'lyr-text') L.dirty = true;
-    if (e.target.dataset.ex != null){ L.lines[+e.target.dataset.ex].explain = e.target.value.trim(); L.dirty = true; }
+    if (e.target.id === 'lyr-text'){ L.dirty = true; refreshLyrCodeSoon(); }
+    if (e.target.dataset.ex != null){ L.lines[+e.target.dataset.ex].explain = e.target.value.trim(); L.dirty = true; refreshLyrCodeSoon(); }
     if (e.target.id === 'lyr-seek' && state.playing === 'lyr' && player.duration) player.currentTime = (+e.target.value / 1000) * player.duration;
   });
   main.addEventListener('change', e => {
@@ -1931,12 +1941,12 @@ async function publish(){
   } catch (e){ failModal(e); }
   finally { state.busy = false; btn.disabled = false; label.textContent = state.editing ? 'Save changes' : orig; const sv = btn.querySelector('svg, i'); if (sv) sv.outerHTML = icon('upload-cloud'); icons(); }
 }
-async function copyCode(){
-  const code = buildBlock(readForm(), state.editing);
+async function copyText(code, msg){
   try { await navigator.clipboard.writeText(code); }
   catch { const t = document.createElement('textarea'); t.value = code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
-  toast('Catalog code copied.', 'ok');
+  toast(msg, 'ok');
 }
+const copyCode = () => copyText(buildBlock(readForm(), state.editing), 'Catalog code copied.');
 
 /* ---------- mode + views ---------- */
 function setMode(m){

@@ -1,2 +1,1 @@
-"""Playwright script content - will be injected into mcp_browser_automation."""
-# placeholder - this file documents the test strategy and is not directly executed.
+# Placeholder - actual tests executed via browser automation tool, see iteration_4.json

@@ -30,7 +30,13 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Mode toggle synced across publish dock, reorder bar, artist drawer
 - Tested iteration_3 (100%)
 
+## Iteration 3 (2026-06)
+- Artists: edit (prefilled drawer, in-place replace, unknown attrs preserved) & delete (warns about linked songs)
+- Pin to top: one-tap pin on catalog cards (Review/Go live)
+- Lyrics Studio tab (content/lyrics.html, served at /content/lyrics): song list w/ Synced/Plain/None status, Write mode (textarea, [Section] headers), Sync mode (tap/Space to stamp, undo, manual mm:ss.xx edit, per-line explanations, live karaoke highlight), save via Review/Go live, collapsible Lyrics code + Copy code
+- Settings: Lyrics file path
+- Tested iteration_4 (100%); lyrics copy-code self-tested
+
 ## Backlog
 - P1: Lyrics editor for content/lyrics
-- P1: Edit/delete existing artists
 - P2: Main-app patch to honor data-release (badge + playback lock)
