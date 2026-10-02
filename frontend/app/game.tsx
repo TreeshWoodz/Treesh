@@ -4,33 +4,33 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import Reanimated, { Easing as RE, cancelAnimation, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient as SvgLinear, Line, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
+import { Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Reanimated, { Easing as RE, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
 import { Avatar } from "@/src/components/Avatar";
 import { useAppState } from "@/src/game/AppState";
-import { laneColors, colors, fonts, rgba, alpha, neonGlow, textGlow } from "@/src/game/theme";
+import { laneColors, colors, fonts, rgba, neonGlow, textGlow } from "@/src/game/theme";
 import { TUTORIAL_STEPS } from "@/src/game/chartEngine";
 import { addXp, claimCrowns, levelUpReward, skinById, useProgress, xpForRun } from "@/src/game/progression";
-import { HighwayScene } from "@/src/components/HighwayScene";
 import { Note, ScoreResult, SwipeDir } from "@/src/game/types";
 import { useStarlites } from "@/src/game/starlites";
 import { computeAchievements, TIER_COLOR } from "@/src/game/achievements";
 import { useTreeshIdentity } from "@/src/game/identity";
 import { ensureHitAudio } from "@/src/game/synth";
+import { Geo, P_NEAR, laneFrac } from "@/src/game/components/geometry";
+import { WavyLayer, wavyLaneAt } from "@/src/game/components/WavyNote";
+import { ActiveHoldBar, NotesLayer } from "@/src/game/components/FallingNote";
+import { BeatLines, Grid, LaneBursts, Receptors, StrikePulse } from "@/src/game/components/Highway";
+import { Backdrop } from "@/src/game/components/Backdrop";
 
 type Judgment = "PERFECT" | "GREAT" | "GOOD" | "MISS";
 const weights = { PERFECT: 1, GREAT: 0.75, GOOD: 0.45, MISS: 0 };
-const P_NEAR = 0.12; // lane width at the vanishing point as a fraction of the bottom width
-const laneFrac = (lane: number) => (lane + 0.5) / 4 - 0.5;
 const judgeColor = (g: Judgment, plus?: boolean) => (g === "PERFECT" ? (plus ? "#CCFF00" : "#00E5FF") : g === "GREAT" ? "#FF2D7A" : g === "GOOD" ? "#B537FF" : "#FF0044");
 const comboColor = (c: number) => (c >= 200 ? "#FF2D7A" : c >= 100 ? "#FFD600" : c >= 50 ? "#CCFF00" : c >= 25 ? "#00E5FF" : "#FFFFFF");
 // Stars from accuracy (half-star tiers) + the Starlite reward for a run.
 export function starsFor(acc: number) { return acc >= 100 ? 5 : acc >= 96 ? 4.5 : acc >= 86 ? 4 : acc >= 80 ? 3.5 : acc >= 70 ? 3 : acc >= 66 ? 2.5 : acc >= 50 ? 2 : 1; }
 export function starlitesFor(stars: number) { return stars >= 5 ? 300 : stars >= 4 ? 150 : stars >= 2.5 ? 100 : 50; }
-const ARROW: Record<SwipeDir, keyof typeof Ionicons.glyphMap> = { up: "arrow-up", left: "arrow-back", right: "arrow-forward" };
 const ARROW_CH: Record<SwipeDir, string> = { up: "↑", left: "←", right: "→" };
 const MILESTONES = [50, 100, 200];
 const MBONUS = [25, 50, 100];
@@ -43,255 +43,6 @@ const LIVE_ACH: { id: string; title: string; icon: keyof typeof Ionicons.glyphMa
   { id: "combo500", title: "Combo Legend", icon: "rocket", tier: "gold", test: c => c >= 500 },
   { id: "highroller", title: "High Roller", icon: "cash", tier: "gold", test: (c, s) => s >= 1000000 },
 ];
-
-type Geo = { cx: number; hw: number; topY: number; bottomY: number; laneW: number; span: number };
-
-// Wavy note = a CONTINUOUS ribbon drawn as a chain of connected line segments. We sample points
-// along the drawn path, then between each pair render a rounded bar sized/rotated/positioned from
-// the two projected endpoints — rounded ends overlap at every joint so it reads as one smooth line
-// (no dotted look), and it falls through the real lane positions with correct depth. No animated
-// SVG (fragile on native). x is a 0..1 fraction across the highway; fr = x - 0.5 matches the grid.
-function mixHex(a: string, b: string, f: number) {
-  const p = (h: string) => { const n = parseInt(h.replace("#", "").slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-  const x = p(a), y = p(b); const c = x.map((v, i) => Math.round(v + (y[i] - v) * f));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
-}
-function sampleBeads(note: Note): { t: number; x: number }[] {
-  const dur = note.duration || 0.5;
-  const pts = note.path && note.path.length > 1 ? note.path : [{ t: note.time, x: (note.lane + 0.5) / 4 }, { t: note.time + dur, x: (note.lane + 0.5) / 4 }];
-  const start = pts[0].t, end = pts[pts.length - 1].t; const span = Math.max(0.05, end - start);
-  const n = Math.max(10, Math.min(48, Math.round(span / 0.035)));
-  const xAt = (tt: number) => {
-    if (tt <= pts[0].t) return pts[0].x;
-    if (tt >= pts[pts.length - 1].t) return pts[pts.length - 1].x;
-    for (let k = 0; k < pts.length - 1; k++) { if (tt >= pts[k].t && tt <= pts[k + 1].t) { const f = (tt - pts[k].t) / Math.max(1e-4, pts[k + 1].t - pts[k].t); return pts[k].x + (pts[k + 1].x - pts[k].x) * f; } }
-    return pts[pts.length - 1].x;
-  };
-  const beads: { t: number; x: number }[] = [];
-  for (let i = 0; i <= n; i++) { const tt = start + (span * i) / n; beads.push({ t: tt, x: Math.max(0.04, Math.min(0.96, xAt(tt))) }); }
-  return beads;
-}
-
-// One connected segment of the ribbon between two path samples (a→b). Rounded ends fill the joints.
-const WavySegment = React.memo(function WavySegment({ a, b, clock, lookahead, geo, color, thick }: { a: { t: number; x: number }; b: { t: number; x: number }; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; color: string; thick: number }) {
-  const aStyle = useAnimatedStyle(() => {
-    const pa = (clock.value - (a.t - lookahead)) / lookahead;
-    const pb = (clock.value - (b.t - lookahead)) / lookahead;
-    const cpa = pa < 0 ? 0 : pa > 1 ? 1 : pa;
-    const cpb = pb < 0 ? 0 : pb > 1 ? 1 : pb;
-    const perspA = P_NEAR + (1 - P_NEAR) * cpa;
-    const perspB = P_NEAR + (1 - P_NEAR) * cpb;
-    const ax = geo.cx + (a.x - 0.5) * geo.hw * perspA, ay = geo.topY + geo.span * cpa;
-    const bx = geo.cx + (b.x - 0.5) * geo.hw * perspB, by = geo.topY + geo.span * cpb;
-    const dx = bx - ax, dy = by - ay;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(dy, dx);
-    const h = Math.max(2, thick * ((perspA + perspB) / 2));
-    const w = len + h; // overlap joints so the line is gapless
-    const midx = (ax + bx) / 2, midy = (ay + by) / 2;
-    let o = 1;
-    if (pa < 0.04) o = pa / 0.04;
-    if (pb >= 1) o = 0; // fully past the hit line → consumed
-    if (o < 0) o = 0; if (o > 1) o = 1;
-    return { width: w, height: h, borderRadius: h / 2, opacity: o, transform: [{ translateX: midx - w / 2 }, { translateY: midy - h / 2 }, { rotateZ: `${angle}rad` }] };
-  });
-  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: 0, backgroundColor: color }, aStyle]} />;
-});
-const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, color }: { bead: { t: number; x: number }; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; color: string }) {
-  const size = geo.laneW * 0.6;
-  const aStyle = useAnimatedStyle(() => {
-    const prog = (clock.value - (bead.t - lookahead)) / lookahead;
-    const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
-    const persp = P_NEAR + (1 - P_NEAR) * cp;
-    const x = geo.cx + (bead.x - 0.5) * geo.hw * persp;
-    const y = geo.topY + geo.span * cp;
-    let o = 1;
-    if (prog < 0.04) o = prog / 0.04;
-    if (prog > 1.0) o = 1 - (prog - 1.0) / 0.06;
-    if (o < 0) o = 0; if (o > 1) o = 1;
-    return { opacity: o, transform: [{ translateX: x }, { translateY: y }, { scale: persp }] };
-  });
-  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -size / 2, top: -size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 2.5, borderColor: "#FFFFFF", shadowColor: color, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 }, aStyle]}>
-    <View style={{ position: "absolute", top: size * 0.16, left: size * 0.24, right: size * 0.24, height: size * 0.34, borderRadius: size / 2, backgroundColor: "rgba(255,255,255,0.5)" }} />
-  </Reanimated.View>;
-});
-const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
-  const color = laneColors[note.lane];
-  const beads = useMemo(() => sampleBeads(note), [note]);
-  const thick = geo.laneW * 0.36;
-  const edge = useMemo(() => mixHex(color, "#06051A", 0.45), [color]);
-  // Three opaque layers (dark rim → lane colour → white-hot core) so joints never stack into lumps.
-  return <>
-    {beads.slice(0, -1).map((b, i) => <WavySegment key={`g${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={edge} thick={thick * 1.55} />)}
-    {beads.slice(0, -1).map((b, i) => <WavySegment key={`c${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={color} thick={thick} />)}
-    {beads.slice(0, -1).map((b, i) => <WavySegment key={`h${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color="#FFFFFF" thick={thick * 0.28} />)}
-    <WavyBead bead={beads[0]} clock={clock} lookahead={lookahead} geo={geo} color={color} />
-  </>;
-});
-const WavyLayer = React.memo(function WavyLayer({ notes, clock, lookahead, geo }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
-  return <>{notes.filter(n => n.type === "wavy").map(n => <WavyNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} />)}</>;
-});
-// Which lane a wavy note occupies at time t — the player must follow it across lanes.
-function wavyLaneAt(note: Note, t: number) {
-  if (note.path && note.path.length) { let best = note.path[0], bd = Math.abs(note.path[0].t - t); for (const p of note.path) { const d = Math.abs(p.t - t); if (d < bd) { bd = d; best = p; } } return Math.max(0, Math.min(3, Math.floor(best.x * 4))); }
-  return note.lane;
-}
-
-// ---- Falling note (pure UI-thread motion, memoized so score/combo re-renders never touch it) ----
-const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo, special, rainbow }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: Reanimated.SharedValue<number> }) {
-  const f = laneFrac(note.lane);
-  const color = laneColors[note.lane];
-  const isWavy = note.type === "wavy";
-  const isHold = note.type === "hold" || note.type === "wavy";
-  const isSwipe = note.type === "swipe" && !!note.dir;
-  const baseW = geo.laneW * (isSwipe ? 0.7 : 0.8);
-  const baseH = isSwipe ? geo.laneW * 0.62 : 28;
-  const tailW = baseW * 0.4;
-  const tailLen = isHold ? Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span)) : 0;
-  const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI; // lean the tail toward the vanishing point
-  const aStyle = useAnimatedStyle(() => {
-    const prog = (clock.value - (note.time - lookahead)) / lookahead; // 0 at spawn(top) → 1 at receptor
-    const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
-    const persp = P_NEAR + (1 - P_NEAR) * cp;
-    const x = geo.cx + f * geo.hw * persp;
-    const y = geo.topY + geo.span * cp;
-    let opacity = 1;
-    if (prog < 0.05) opacity = prog / 0.05;
-    if (prog > 1.0) opacity = 1 - (prog - 1.0) / 0.12;
-    if (opacity < 0) opacity = 0; if (opacity > 1) opacity = 1;
-    return { opacity, transform: [{ translateX: x }, { translateY: y }, { scale: persp }] };
-  });
-  // Special (charged) notes cycle colours smoothly so they read as "power" notes rather than a single lane colour.
-  const capStyle = useAnimatedStyle(() => {
-    if (!special) return { backgroundColor: color };
-    const p = (rainbow.value + note.lane * 0.22) % 1;
-    return { backgroundColor: interpolateColor(p, [0, 0.25, 0.5, 0.75, 1], ["#FF4D8D", "#2FE0D6", "#F5C842", "#8E7CFF", "#FF4D8D"]) };
-  });
-  return (
-    <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
-      {isHold && !isWavy && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
-      <View style={{ position: "absolute", left: -6, top: -6, width: baseW + 12, height: baseH + 12, borderRadius: isSwipe ? 18 : 14, backgroundColor: alpha(color, special ? 0.5 : 0.28) }} />
-      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: isSwipe ? 14 : 10, borderColor: special || isSwipe ? "#FFFFFF" : "rgba(255,255,255,0.7)", borderWidth: isSwipe ? 2.5 : 1.5 }, capStyle]}>
-        <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
-        {isSwipe ? <Ionicons name={ARROW[note.dir as SwipeDir]} size={Math.round(baseH * 0.78)} color="#FFFFFF" style={{ textShadowColor: "#000", textShadowRadius: 6 }} />
-          : <View style={{ position: "absolute", left: baseW * 0.28, right: baseW * 0.28, top: baseH / 2 - 2, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.95)" }} />}
-      </Reanimated.View>
-    </Reanimated.View>
-  );
-});
-
-const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo, special, rainbow }: { notes: Note[]; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: Reanimated.SharedValue<number> }) {
-  // Wavy notes are drawn entirely by WavyLayer (bead ribbon) — skip them here so they aren't double-drawn.
-  return <>{notes.filter(n => n.type !== "wavy").map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} special={special} rainbow={rainbow} />)}</>;
-});
-
-// Bright bar shown while a hold is actively sustained — drains from the receptor, leaning along the lane's perspective.
-function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo }) {
-  const f = laneFrac(note.lane);
-  const color = laneColors[note.lane];
-  const isWavy = note.type === "wavy";
-  const w = geo.laneW * 0.34;
-  const x = geo.cx + f * geo.hw;
-  const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI;
-  const endT = note.time + (note.duration || 0.4);
-  const aStyle = useAnimatedStyle(() => {
-    const cpTe = (clock.value - (endT - lookahead)) / lookahead;
-    const cte = cpTe < 0 ? 0 : cpTe > 1 ? 1 : cpTe;
-    const yTe = geo.topY + geo.span * cte;
-    return { height: Math.max(0, geo.bottomY - yTe), transform: [{ translateY: yTe }, { rotateZ: `${tilt}deg` }] };
-  });
-  // Wavy notes render their own continuous trace as they fall — a separate draining bar distorts it,
-  // so we skip the bar entirely and let the falling wave + the lit receptor lane guide the trace.
-  if (isWavy) return null;
-  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: x - w / 2, top: 0, width: w, borderRadius: w / 2, backgroundColor: color, transformOrigin: "50% 100%" }, aStyle]}><View style={{ position: "absolute", top: 2, left: w * 0.3, right: w * 0.3, bottom: 2, borderRadius: w / 2, backgroundColor: "rgba(255,255,255,0.35)" }} /></Reanimated.View>;
-}
-
-// ---- Static perspective grid (SVG, rendered once) ----
-const Grid = React.memo(function Grid({ geo, w, h, tint, fever }: { geo: Geo; w: number; h: number; tint: string; fever: boolean }) {
-  const topX = (fr: number) => geo.cx + fr * geo.hw * P_NEAR;
-  const botX = (fr: number) => geo.cx + fr * geo.hw;
-  const edges = [-0.5, -0.25, 0, 0.25, 0.5];
-  const poly = `${topX(-0.5)},${geo.topY} ${topX(0.5)},${geo.topY} ${botX(0.5)},${geo.bottomY} ${botX(-0.5)},${geo.bottomY}`;
-  return (
-    <Svg width={w} height={h} style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Defs>
-        <RadialGradient id="glow" cx="50%" cy={`${(geo.topY / h) * 100}%`} r="55%">
-          <Stop offset="0" stopColor={fever ? "#FFD600" : tint} stopOpacity={fever ? 0.5 : 0.34} />
-          <Stop offset="1" stopColor={fever ? "#FFD600" : tint} stopOpacity={0} />
-        </RadialGradient>
-        <SvgLinear id="lane" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#0A0830" stopOpacity={0.35} />
-          <Stop offset="1" stopColor={fever ? "#3A1A40" : "#140F48"} stopOpacity={0.78} />
-        </SvgLinear>
-      </Defs>
-      <Rect x={0} y={0} width={w} height={h} fill="url(#glow)" />
-      <Polygon points={poly} fill="url(#lane)" />
-      {edges.map((e, i) => { const outer = i === 0 || i === 4; const c = fever ? "#FFD600" : tint; return outer ? <React.Fragment key={i}><Line x1={topX(e)} y1={geo.topY} x2={botX(e)} y2={geo.bottomY + 40} stroke={c} strokeOpacity={0.25} strokeWidth={9} /><Line x1={topX(e)} y1={geo.topY} x2={botX(e)} y2={geo.bottomY + 40} stroke={c} strokeWidth={2.2} /></React.Fragment> : <Line key={i} x1={topX(e)} y1={geo.topY} x2={botX(e)} y2={geo.bottomY + 40} stroke="rgba(160,200,255,0.16)" strokeWidth={1} />; })}
-      <Line x1={geo.cx - geo.hw / 2 - 6} y1={geo.bottomY} x2={geo.cx + geo.hw / 2 + 6} y2={geo.bottomY} stroke={fever ? "#FFD600" : tint} strokeOpacity={0.35} strokeWidth={14} />
-      <Line x1={geo.cx - geo.hw / 2 - 6} y1={geo.bottomY} x2={geo.cx + geo.hw / 2 + 6} y2={geo.bottomY} stroke="#FFFFFF" strokeOpacity={0.85} strokeWidth={2} />
-      {[0.4, 0.68, 0.88].map((p, i) => { const y = geo.topY + geo.span * p; const persp = P_NEAR + (1 - P_NEAR) * p; return <Line key={`d${i}`} x1={geo.cx - geo.hw * 0.5 * persp} y1={y} x2={geo.cx + geo.hw * 0.5 * persp} y2={y} stroke="rgba(255,255,255,0.03)" strokeWidth={1} />; })}
-    </Svg>
-  );
-});
-
-const Receptors = React.memo(function Receptors({ geo, flash }: { geo: Geo; flash: Animated.Value[] }) {
-  const capW = geo.laneW * 0.82;
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {laneColors.map((c, l) => {
-        const x = geo.cx + laneFrac(l) * geo.hw;
-        return (
-          <Animated.View key={l} style={[styles.receptor, { width: capW, left: x - capW / 2, top: geo.bottomY - 16, borderColor: c, shadowColor: c, transform: [{ scale: flash[l].interpolate({ inputRange: [0, 1], outputRange: [1, 1.16] }) }] }]}>
-            <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 16, backgroundColor: c, opacity: flash[l].interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.95] }) }]} />
-            <View style={{ width: capW * 0.34, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.85)" }} />
-          </Animated.View>
-        );
-      })}
-    </View>
-  );
-});
-
-// Hit explosion per lane: expanding ring + light pillar + sparks, all native-driver Animated.
-const LaneBursts = React.memo(function LaneBursts({ geo, burst, sparks }: { geo: Geo; burst: Animated.Value[]; sparks: boolean }) {
-  const S = sparks ? 7 : 0;
-  return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-    {burst.map((b, l) => {
-      const c = laneColors[l]; const x = geo.cx + laneFrac(l) * geo.hw; const y = geo.bottomY; const R = geo.laneW * 0.5;
-      const fade = b.interpolate({ inputRange: [0, 0.08, 1], outputRange: [0, 1, 0] });
-      return <React.Fragment key={l}>
-        <Animated.View style={{ position: "absolute", left: x - R * 0.55, top: y - R * 3.2, width: R * 1.1, height: R * 3.2, borderRadius: R * 0.55, backgroundColor: c, opacity: b.interpolate({ inputRange: [0, 0.06, 1], outputRange: [0, 0.42, 0] }), transform: [{ translateY: R * 1.6 }, { scaleY: b.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }, { translateY: -R * 1.6 }] }} />
-        <Animated.View style={{ position: "absolute", left: x - R, top: y - R, width: R * 2, height: R * 2, borderRadius: R, borderWidth: 3, borderColor: c, opacity: fade, transform: [{ scaleY: 0.5 }, { scale: b.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1.7] }) }] }} />
-        {Array.from({ length: S }).map((_, i) => { const ang = -Math.PI / 2 + (i - (S - 1) / 2) * 0.36; const d = R * (1.8 + (i % 3) * 0.5); return <Animated.View key={i} style={{ position: "absolute", left: x - 3, top: y - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: i % 2 ? "#FFFFFF" : c, opacity: fade, transform: [{ translateX: b.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(ang) * d] }) }, { translateY: b.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(ang) * d] }) }, { scale: b.interpolate({ inputRange: [0, 1], outputRange: [1.5, 0.2] }) }] }} />; })}
-      </React.Fragment>;
-    })}
-  </View>;
-});
-
-// Beat lines rushing down the highway on every beat (brighter on the bar) — pure UI-thread, fixed pool.
-function BeatLine({ k, beat, clock, lookahead, geo, fever }: { k: number; beat: number; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; fever: Reanimated.SharedValue<number> }) {
-  const st = useAnimatedStyle(() => {
-    const c = clock.value; const idx = Math.ceil(c / beat) + k; const prog = (c - (idx * beat - lookahead)) / lookahead;
-    const on = prog >= 0 && prog <= 1; const p = on ? prog : 0;
-    const persp = P_NEAR + (1 - P_NEAR) * p; const w = geo.hw * persp;
-    const bar = idx % 4 === 0;
-    return { opacity: on ? ((bar ? 0.5 : 0.16) + fever.value * 0.3) * Math.min(1, p * 5) : 0, width: w, transform: [{ translateX: geo.cx - w / 2 }, { translateY: geo.topY + geo.span * p }] };
-  });
-  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: -1, height: 2, backgroundColor: "#8FE9FF" }, st]} />;
-}
-const BeatLines = React.memo(function BeatLines({ beat, clock, lookahead, geo, fever }: { beat: number; clock: Reanimated.SharedValue<number>; lookahead: number; geo: Geo; fever: Reanimated.SharedValue<number> }) {
-  const n = Math.min(24, Math.ceil(lookahead / beat) + 1);
-  return <>{Array.from({ length: n }, (_, k) => <BeatLine key={k} k={k} beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={fever} />)}</>;
-});
-
-const Backdrop = React.memo(function Backdrop({ coverArt, grayscale, theme, w, h, horizon }: { coverArt?: string | number; grayscale: boolean; theme: string; w: number; h: number; horizon: number }) {
-  const scene = theme !== "classic";
-  return (
-    <View testID={`gameplay-theme-${theme}`} style={[StyleSheet.absoluteFill, { backgroundColor: "#06051A" }]}>
-      {scene ? <HighwayScene theme={theme} w={w} h={h} horizon={horizon} /> : coverArt ? <Image testID="gameplay-cover-backdrop" source={typeof coverArt === "number" ? coverArt : { uri: coverArt }} style={[styles.cover, { opacity: grayscale ? 0.14 : 0.32 }]} resizeMode="cover" /> : null}
-      <LinearGradient colors={scene ? ["rgba(6,5,26,0.15)", "rgba(6,5,26,0.35)", "rgba(6,5,26,0.85)"] : ["rgba(6,5,26,0.45)", "rgba(6,5,26,0.8)", "#06051A"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
-    </View>
-  );
-});
 
 export default function GameScreen() {
   const { width, height } = useWindowDimensions();
@@ -385,6 +136,7 @@ export default function GameScreen() {
     return { cx: width / 2, hw, topY, bottomY, laneW: hw / 4, span: bottomY - topY };
   }, [width, height, insets.top, PAD_BOTTOM]);
 
+  const discGeo = useMemo(() => ({ cx: geo.cx, cy: geo.topY + geo.span * 0.1, r: Math.min(64, geo.hw * 0.15) }), [geo]);
   const lookahead = 2.4 / settings.noteSpeed;
   const duration = chart?.duration || 30;
   const sorted = useMemo(() => (chart ? [...chart.notes].sort((a, b) => a.time - b.time) : []), [chart]);
@@ -655,10 +407,10 @@ export default function GameScreen() {
   const jColor = judgment ? judgeColor(judgment.grade, judgment.plus) : "#fff";
 
   return <View style={styles.root} testID="gameplay-screen">
-    <Backdrop coverArt={selectedSong.coverArt} grayscale={settings.grayscaleCovers} theme={prog.theme} w={width} h={height} horizon={geo.topY + geo.span * 0.32} />
+    <Backdrop coverArt={selectedSong.coverArt} accent={selectedSong.accent || skin.glow} grayscale={settings.grayscaleCovers} theme={prog.theme} w={width} h={height} horizon={geo.topY + geo.span * 0.32} disc={discGeo} />
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateX: shake }, { translateY: shake.interpolate({ inputRange: [-10, 10], outputRange: [4, -4] }) }] }]}>
     <Grid geo={geo} w={width} h={height} tint={skin.glow} fever={pulseActive} />
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}><BeatLines beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={feverSV} /></View>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}><BeatLines beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={feverSV} />{fx && <StrikePulse beat={beat} clock={clock} geo={geo} color={pulseActive ? "#FFD600" : skin.glow} />}</View>
     {pulseActive && <LinearGradient pointerEvents="none" colors={["rgba(255,214,0,0.16)", "rgba(255,45,122,0.14)", "rgba(181,55,255,0.18)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
 
     {/* Highway note layer (native-thread animated, memoized) */}
@@ -764,10 +516,6 @@ export default function GameScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#06051A", overflow: "hidden" },
-  cover: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%", opacity: 0.5, transform: [{ scale: 1.2 }] },
-  note: { alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)" },
-  noteGloss: { position: "absolute", top: 1.5, left: 4, right: 4, height: "42%", backgroundColor: "rgba(255,255,255,0.35)" },
-  receptor: { position: "absolute", height: 32, borderRadius: 16, borderWidth: 2.5, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(6,5,26,0.6)", shadowOpacity: 0.9, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
   comboWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   combo: { fontSize: 54, lineHeight: 62, fontFamily: fonts.arcadeBlack, textShadowRadius: 22, textShadowOffset: { width: 0, height: 0 } }, comboLabel: { color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 6, fontFamily: fonts.arcade, marginTop: -2 },
   multChip: { marginTop: 6, paddingHorizontal: 10, height: 22, borderRadius: 6, borderWidth: 1.5, justifyContent: "center", backgroundColor: "rgba(6,5,26,0.6)" }, multText: { fontSize: 12, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },

@@ -28,6 +28,13 @@ export default function HomeScreen() {
   const [starsOpen, setStarsOpen] = useState(false);
   const entrance = useRef(new Animated.Value(0)).current;
   const bg = useRef(new Animated.Value(0)).current;
+  const breathe = useRef(new Animated.Value(0)).current;
+  const shine = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const a = Animated.loop(Animated.sequence([Animated.timing(breathe, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }), Animated.timing(breathe, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true })]));
+    const b = Animated.loop(Animated.sequence([Animated.timing(shine, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }), Animated.delay(1800), Animated.timing(shine, { toValue: 0, duration: 0, useNativeDriver: true })]));
+    a.start(); b.start(); return () => { a.stop(); b.stop(); };
+  }, [breathe, shine]);
   useEffect(() => { Animated.spring(entrance, { toValue: 1, friction: 9, tension: 50, useNativeDriver: true }).start(); }, [entrance]);
   useEffect(() => { Animated.loop(Animated.sequence([Animated.timing(bg, { toValue: 1, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }), Animated.timing(bg, { toValue: 0, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true })])).start(); }, [bg]);
 
@@ -149,10 +156,11 @@ export default function HomeScreen() {
         </Animated.View>}
 
         {/* Primary action */}
-        <Animated.View style={fade}>
+        <Animated.View style={[fade, { transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }]}>
           <Pressable testID="browse-library-button" onPress={() => router.push("/library")} style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
             <LinearGradient pointerEvents="none" colors={[colors.cyan, "#6A5CFF", colors.pink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />
             <LinearGradient pointerEvents="none" colors={["rgba(255,255,255,0.35)", "rgba(255,255,255,0.05)", "transparent"]} locations={[0, 0.5, 1]} style={styles.glossPrimary} />
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 16, overflow: "hidden" }]}><Animated.View style={[styles.shine, { transform: [{ translateX: shine.interpolate({ inputRange: [0, 1], outputRange: [-120, CARD_W + 60] }) }, { rotate: "20deg" }] }]} /></View>
             <View style={styles.primaryIcon}><Ionicons name="play" size={26} color={colors.text} /></View>
             <View style={{ flex: 1 }}><Text style={styles.primaryTitle}>PLAY</Text><Text style={styles.primaryCopy}>Pick any song · auto-charted to the beat</Text></View>
             <Ionicons name="chevron-forward" size={22} color={colors.text} />
@@ -247,6 +255,7 @@ const styles = StyleSheet.create({
   snapRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 6 }, snapCol: { flex: 1, alignItems: "center", gap: 7 },
   snapFoot: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: "rgba(0,229,255,0.04)", borderTopWidth: 1, borderTopColor: colors.border }, snapFootLabel: { color: colors.muted, fontSize: 8, letterSpacing: 1.4, fontFamily: fonts.arcade }, snapFootText: { color: colors.text, fontSize: 14, fontFamily: fonts.bold, marginTop: 3 },
   snapCta: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, height: 32, borderRadius: 8, backgroundColor: colors.cyan }, snapCtaText: { color: "#001018", fontSize: 10, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
+  shine: { position: "absolute", top: -30, width: 46, height: 160, backgroundColor: "rgba(255,255,255,0.35)" },
   tut: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16, backgroundColor: "rgba(204,255,0,0.08)", borderWidth: 1.5, borderColor: colors.lime, ...neonGlow(colors.lime, 14, 0.35) },
   tutIcon: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
   tutTag: { color: colors.lime, fontSize: 9, fontFamily: fonts.arcadeBlack, letterSpacing: 1.5 }, tutTitle: { color: colors.text, fontSize: 17, fontFamily: fonts.heavy, marginTop: 2 }, tutSub: { color: colors.muted, fontSize: 12, fontFamily: fonts.body, marginTop: 2 },

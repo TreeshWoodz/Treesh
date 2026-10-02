@@ -73,3 +73,16 @@
 - progression.ts: XP/levels (xpForRun, level-up Starlite reward 100+20*lv), grades S+/S/A/B/C/D, per-song crowns (bronze/gold FC/diamond AP), 7 note skins bought with Starlites (store vocotap_progress: xp/owned/skin; setLaneSkin mutates laneColors).
 - Results redesign (grade reveal, count-up score, medals, 6 judgment tiles, XP bar + LEVEL UP, Starlites). New /shop screen. Home redesign (level badge, currency row, shop/ranks, PLAY CTA, 2x2 mode grid, crowns stat). Library rows + analysis difficulty cards show best grade/crown. Profile shows level card + grades. Settings/Guide/Leaderboards/Loading restyled. Guide copy updated (PERFECT+, levels/crowns, Skin Shop).
 - Tested: iteration_12 (7/7 pass).
+
+## Update 14 (Jun 2026)
+- Swipe/flick notes (up/left/right; touch flick >=22px within 550ms, keyboard = auto flick), auto-added on Normal+ (addSwipes), share-code supports dir.
+- Perfect Trace (>=90% follow): PERFECT TRACE! +1200, spark ring, all-lane bursts.
+- Crown Challenges: one-time +150 gold (FC) / +400 diamond (AP) per song+difficulty (vocotap_crown_claims); analysis crown-goals panel; results medal.
+- Highway themes (classic/city/space/sunset) via HighwayScene SVG, sold in Shop.
+- Wavy ribbon: 3 opaque layers (rim/colour/white core), consumed at hit line.
+- Auto-chart: beatGrid tempo+phase estimation; onsets snapped to beat grid (Easy beats / Normal 8ths / Hard+ 16ths).
+- Bigger notes; swipe notes are big rounded squares with large arrows.
+- Tutorial level (tutorialChart + captions, home card + guide button, +200 first time, settings.tutorialDone).
+- FIX: Treesh My Music IDB opened without fixed version (VersionError hid tracks) + schema-tolerant fields. FIX: audio picker accepts any file, validated by MIME/extension.
+- Cover art: blurred backdrop + spinning glowing cover disc in gameplay. Strike-line beat pulse. Home PLAY breathe + shine.
+- Tested: iteration_13, 13b, 14 all pass. Note: taps during the 2.5s boot loading screen are absorbed by the overlay (expected).

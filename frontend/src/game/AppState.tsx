@@ -27,21 +27,33 @@ async function readTreeshMine(): Promise<Song[]> {
     const done = (list: Song[]) => { if (!settled) { settled = true; resolve(list); } };
     setTimeout(() => done([]), 4000);
     try {
-      const req = idb.open("treesh_media", 1);
+      // Open at whatever version the parent app is on (opening at a fixed lower version throws VersionError
+      // once Treesh upgrades its schema — that silently hid every My Music track).
+      const req = idb.open("treesh_media");
       req.onupgradeneeded = () => { try { const db = req.result; if (!db.objectStoreNames.contains("tracks")) db.createObjectStore("tracks", { keyPath: "id" }); } catch {} };
       req.onerror = () => done([]);
       req.onsuccess = () => {
         const db = req.result;
-        if (!db.objectStoreNames.contains("tracks")) { db.close(); return done([]); }
+        const names: string[] = Array.from(db.objectStoreNames || []);
+        const store = names.includes("tracks") ? "tracks" : names.find(n => /track|song|media|music/i.test(n)) || names[0];
+        if (!store) { db.close(); return done([]); }
         try {
-          const all = db.transaction("tracks", "readonly").objectStore("tracks").getAll();
+          const all = db.transaction(store, "readonly").objectStore(store).getAll();
           all.onsuccess = () => {
             const recs = (all.result || []) as any[];
             const songs = recs.map((rec) => {
-              const m = rec.meta || {};
+              const m = rec.meta || rec;
               let uri = ""; let coverArt: string | undefined;
-              try { if (rec.audioBlob) uri = URL.createObjectURL(rec.audioBlob); } catch {}
-              try { if (rec.coverBlob) coverArt = URL.createObjectURL(rec.coverBlob); } catch {}
+              // Tolerate schema drift: blob / ArrayBuffer / data-URL under several possible field names.
+              const toUrl = (v: any, type?: string): string | undefined => {
+                if (!v) return undefined;
+                if (typeof v === "string") return v;
+                if (v instanceof Blob) return URL.createObjectURL(v);
+                if (v instanceof ArrayBuffer || ArrayBuffer.isView(v)) return URL.createObjectURL(new Blob([v as ArrayBuffer], type ? { type } : undefined));
+                return undefined;
+              };
+              try { uri = toUrl(rec.audioBlob ?? rec.audio ?? rec.blob ?? rec.file ?? rec.data, rec.audioType || rec.type || rec.mimeType) || ""; } catch {}
+              try { coverArt = toUrl(rec.coverBlob ?? rec.cover ?? rec.coverArt ?? rec.artwork ?? m.cover, rec.coverType); } catch {}
               return { id: `treesh-mine-${rec.id}`, title: m.title || "Untitled", artist: m.artist || "You", source: "device", uri, fileName: `${m.title || "track"}.audio`, duration: rec.duration || 0, accent: "#CCFF00", coverArt, genre: m.genre || "My Music" } as Song;
             }).filter((s) => !!s.uri).sort((a, b) => a.title.localeCompare(b.title));
             db.close(); done(songs);
@@ -120,14 +132,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const importSong = useCallback(async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: ["audio/*", "public.audio", "application/ogg", "application/octet-stream"], multiple: false, copyToCacheDirectory: true });
+      // Accept ANY file in the picker (strict MIME filters hid m4a/flac/opus/etc. on some devices), then validate.
+      const result = await DocumentPicker.getDocumentAsync({ type: "*/*", multiple: false, copyToCacheDirectory: true });
       if (result.canceled || !result.assets?.[0]) return null;
       const asset = result.assets[0];
+      const ext = asset.name.includes(".") ? asset.name.slice(asset.name.lastIndexOf(".") + 1).toLowerCase() : "";
+      const AUDIO_EXT = ["mp3", "m4a", "aac", "wav", "wave", "flac", "ogg", "oga", "opus", "aif", "aiff", "caf", "wma", "webm", "mp4", "m4b", "amr", "3gp", "alac", "mka", "weba"];
+      if (!(asset.mimeType || "").startsWith("audio/") && !AUDIO_EXT.includes(ext)) throw new Error("That file isn't an audio track. Pick an MP3, M4A, WAV, FLAC, OGG or similar.");
       let uri = asset.uri;
       if (Platform.OS !== "web") {
-        const directory = new Directory(Paths.document, "vocotap-audio"); directory.create({ idempotent: true, intermediates: true });
-        const extension = asset.name.includes(".") ? asset.name.slice(asset.name.lastIndexOf(".")).replace(/[^.a-zA-Z0-9]/g, "") : ".audio";
-        const destination = new File(directory, `${Date.now()}${extension}`); new File(asset.uri).copy(destination); uri = destination.uri;
+        try {
+          const directory = new Directory(Paths.document, "vocotap-audio"); directory.create({ idempotent: true, intermediates: true });
+          const destination = new File(directory, `${Date.now()}.${ext || "audio"}`); new File(asset.uri).copy(destination); uri = destination.uri;
+        } catch { uri = asset.uri; } // keep the picker's cached copy if persisting fails
       }
       // Probe the real duration so charts + the end-of-game screen trigger at the true song length.
       let realDuration = 0;
