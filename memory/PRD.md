@@ -86,3 +86,6 @@
 - FIX: Treesh My Music IDB opened without fixed version (VersionError hid tracks) + schema-tolerant fields. FIX: audio picker accepts any file, validated by MIME/extension.
 - Cover art: blurred backdrop + spinning glowing cover disc in gameplay. Strike-line beat pulse. Home PLAY breathe + shine.
 - Tested: iteration_13, 13b, 14 all pass. Note: taps during the 2.5s boot loading screen are absorbed by the overlay (expected).
+
+## Refactor (this session)
+- game.tsx split 839 -> 554 lines. Gameplay render pieces moved verbatim to /app/frontend/src/game/components/: geometry.ts (Geo, P_NEAR, laneFrac), WavyNote.tsx (wavy ribbon + wavyLaneAt), FallingNote.tsx (tap/hold/swipe notes + ActiveHoldBar), Highway.tsx (Grid, Receptors, LaneBursts, BeatLines, StrikePulse), Backdrop.tsx (cover backdrop + CoverDisc). Game logic unchanged (diff-verified). Fixed SharedValue type imports. Verified: tutorial gameplay renders, hits score, pause/resume works (iteration_15 + screenshot).
