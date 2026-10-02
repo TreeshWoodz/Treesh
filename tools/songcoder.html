@@ -340,8 +340,8 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
 
 /* release countdown */
 .badge.soon{background:linear-gradient(90deg,#ff8a3d,#ff3d7f);color:#fff}
-.pv-count{display:flex;align-items:center;gap:8px;margin:14px 0 0;padding:9px 12px;border-radius:12px;background:rgba(255,138,61,.1);border:1px solid rgba(255,138,61,.3);color:#ffb37d;font-size:12px;font-weight:700}
-.pv-count b{margin-left:auto;font-family:var(--doto);font-weight:900;font-size:15px;color:#fff}
+.pv-count{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:14px 0 0;padding:9px 12px;border-radius:12px;background:rgba(255,138,61,.1);border:1px solid rgba(255,138,61,.3);color:#ffb37d;font-size:12px;font-weight:700}
+.pv-count b{margin-left:auto;font-family:var(--doto);font-weight:900;font-size:15px;color:#fff;white-space:nowrap}
 .pv-count svg{width:15px;height:15px}
 .song .cd{display:block;margin-top:8px;font-family:var(--doto);font-weight:800;font-size:12px;color:#ffb37d}
 input[type=datetime-local].input{min-height:50px}
@@ -894,6 +894,12 @@ const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = se
 const fmtTime = s => !s || !isFinite(s) ? '--:--' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 function fmtDate(iso){ const [y, m, d] = iso.split('-').map(Number); return y && m && d ? `${MONTHS[m - 1]} ${d}, ${y}` : ''; }
+function localToIso(v){ if (!v) return ''; const d = new Date(v); if (isNaN(d)) return ''; const off = -d.getTimezoneOffset(), a = Math.abs(off); return `${v.length === 16 ? v + ':00' : v}${off >= 0 ? '+' : '-'}${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`; }
+function isoToLocal(iso){ const d = new Date(iso); if (!iso || isNaN(d)) return ''; const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+const isUpcoming = iso => !!iso && new Date(iso) > Date.now();
+const fmtWhen = iso => new Date(iso).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+function countdown(iso){ const ms = new Date(iso) - Date.now(); if (!(ms > 0)) return ''; const p = n => String(n).padStart(2, '0'); const d = Math.floor(ms / 864e5); return `${d ? d + 'd ' : ''}${p(Math.floor(ms / 36e5) % 24)}h ${p(Math.floor(ms / 6e4) % 60)}m ${p(Math.floor(ms / 1e3) % 60)}s`; }
+const escText = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function toIso(text){ if (!/\d{4}/.test(text)) return ''; const d = new Date(text); if (isNaN(d)) return ''; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function splitNames(s){ return String(s || '').split(/\s*(?:,|&|\+)\s*/).map(x => x.trim()).filter(Boolean); }
 function joinNames(a){ return a.length < 2 ? (a[0] || '') : a.length === 2 ? `${a[0]} & ${a[1]}` : `${a.slice(0, -1).join(', ')} & ${a[a.length - 1]}`; }
@@ -992,19 +998,20 @@ function parseBlock(b, i){
   for (const a of el.attributes) attrs[a.name.toLowerCase()] = a.value;
   const g = k => (attrs['data-' + k] || '').trim();
   const img = el.querySelector('img');
-  return { ...b, index: i, attrs, title: g('track'), artist: g('artist'), ids: g('artist-id'), featuring: g('featuring'), genre: g('genre'), mood: g('mood'), date: g('creation-date'), writtenBy: g('written-by'), producer: g('producer'), mixer: g('mixer'), videographer: g('videographer'), cover: g('coverart') || (img && img.getAttribute('src')) || '', mp3: g('mp3'), video: g('video'), bio: attrs['data-bio'] || '', album: g('album'), label: g('label'), explicit: 'data-explicit' in attrs, exclusive: 'data-exclusive' in attrs, treeshchoice: 'data-treeshchoice' in attrs, h3: ((el.querySelector('h3') || {}).textContent || '').trim() };
+  return { ...b, index: i, attrs, title: g('track'), artist: g('artist'), ids: g('artist-id'), featuring: g('featuring'), genre: g('genre'), mood: g('mood'), date: g('creation-date'), writtenBy: g('written-by'), producer: g('producer'), mixer: g('mixer'), videographer: g('videographer'), cover: g('coverart') || (img && img.getAttribute('src')) || '', mp3: g('mp3'), video: g('video'), bio: attrs['data-bio'] || '', album: g('album'), label: g('label'), release: g('release'), explicit: 'data-explicit' in attrs, exclusive: 'data-exclusive' in attrs, treeshchoice: 'data-treeshchoice' in attrs, h3: ((el.querySelector('h3') || {}).textContent || '').trim() };
 }
 const parseCatalog = text => findSongBlocks(text).map(parseBlock);
 function parseRoster(text){
   const doc = new DOMParser().parseFromString(text, 'text/html');
   return [...doc.querySelectorAll('article.artist')].map(el => {
-    const img = el.querySelector('img.artist__image') || el.querySelector('img');
-    return { id: (el.getAttribute('data-artist-id') || '').trim(), name: (el.getAttribute('data-name') || '').trim(), image: (img && img.getAttribute('src')) || el.getAttribute('data-bg') || '' };
+    const img = el.querySelector('img.artist__image') || el.querySelector('img'), roleEl = el.querySelector('.artist__label .capital');
+    const g = k => (el.getAttribute(k) || '').trim();
+    return { id: g('data-artist-id'), name: g('data-name'), image: (img && img.getAttribute('src')) || g('data-bg'), bg: g('data-bg'), bgPos: g('data-bg-pos') || 'center center', location: g('data-location'), bio: g('data-bio'), cashapp: g('data-cashapp'), role: roleEl ? roleEl.textContent.trim() : 'Music Artist' };
   }).filter(a => a.id && a.name).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /* ---------- code generation ---------- */
-const KNOWN = new Set(['class','data-track','data-artist-id','data-artist','data-featuring','data-genre','data-mood','data-creation-date','data-written-by','data-producer','data-mixer','data-videographer','data-coverart','data-mp3','data-video','data-bio','data-album','data-label','data-explicit','data-exclusive','data-treeshchoice']);
+const KNOWN = new Set(['class','data-track','data-artist-id','data-artist','data-featuring','data-genre','data-mood','data-creation-date','data-written-by','data-producer','data-mixer','data-videographer','data-coverart','data-mp3','data-video','data-bio','data-album','data-label','data-explicit','data-exclusive','data-treeshchoice','data-release']);
 function buildBlock(f, original){
   const parts = [], add = (k, v) => parts.push(`${k}="${esc(v)}"`);
   add('class', original ? (original.attrs.class || 'song') : 'song');
@@ -1015,6 +1022,7 @@ function buildBlock(f, original){
   add('data-coverart', f.cover); add('data-mp3', f.mp3); add('data-video', f.video); add('data-bio', f.bio);
   if (f.album) add('data-album', f.album);
   if (f.label) add('data-label', f.label);
+  if (f.release) add('data-release', f.release);
   if (original) Object.entries(original.attrs).forEach(([k, v]) => { if (!KNOWN.has(k)) add(k, v); });
   ['explicit','exclusive','treeshchoice'].forEach(k => { if (f[k]) parts.push(`data-${k}=""`); });
   const line = [f.artist, ...f.featured].filter(Boolean).join(' x ');
@@ -1033,6 +1041,16 @@ function highlight(code){
   return esc(code).replace(/([a-z][\w-]*)=&quot;([\s\S]*?)&quot;/g, '<span class="c-k">$1</span>=<span class="c-v">&quot;$2&quot;</span>').replace(/&lt;(\/?)(ul|span|section|img|song-info-tag|h2|h3)/g, '&lt;$1<span class="c-t">$2</span>');
 }
 function applyOp(text, op){
+  if (op.kind === 'reorder'){
+    const blocks = findSongBlocks(text), pool = new Map();
+    const changed = new Error('The catalog changed on GitHub since you started reordering. Refresh and try again.');
+    if (blocks.length !== op.order.length) throw changed;
+    blocks.forEach(b => pool.set(b.raw, (pool.get(b.raw) || 0) + 1));
+    op.order.forEach(r => { const n = pool.get(r); if (!n) throw changed; pool.set(r, n - 1); });
+    let out = '', last = 0;
+    blocks.forEach((b, i) => { out += text.slice(last, b.start) + op.order[i]; last = b.end; });
+    return out + text.slice(last);
+  }
   if (op.kind === 'add'){
     const blocks = findSongBlocks(text);
     const pos = blocks.length ? text.lastIndexOf('\n', blocks[0].start - 1) + 1 : 0;
@@ -1055,7 +1073,7 @@ function autoIds(){
 }
 function computeIds(){ const ids = autoIds(); state.manualIds.forEach(id => { if (!ids.includes(id)) ids.push(id); }); return ids; }
 function readForm(){
-  return { title: val('f-title'), artist: val('f-artist'), featured: [...state.featured], ids: computeIds(), genre: val('f-genre'), mood: val('f-mood'), date: val('f-date'), album: val('f-album'), writtenBy: val('f-written'), producer: val('f-producer'), mixer: val('f-mixer'), videographer: val('f-videographer'), cover: val('f-cover'), mp3: val('f-mp3'), video: ytId(val('f-video')), bio: $('#f-bio').value.replace(/\r\n/g, '\n').trim(), label: $('#f-label').value, ...state.flags };
+  return { title: val('f-title'), artist: val('f-artist'), featured: [...state.featured], ids: computeIds(), genre: val('f-genre'), mood: val('f-mood'), date: val('f-date'), album: val('f-album'), writtenBy: val('f-written'), producer: val('f-producer'), mixer: val('f-mixer'), videographer: val('f-videographer'), cover: val('f-cover'), mp3: val('f-mp3'), video: ytId(val('f-video')), bio: $('#f-bio').value.replace(/\r\n/g, '\n').trim(), label: $('#f-label').value, release: localToIso(val('f-release')), ...state.flags };
 }
 function validate(f){
   const e = {};
@@ -1075,7 +1093,7 @@ function showErrors(e){
     const p = $('.err', fl); if (p) p.textContent = e[k] || '';
   });
 }
-const FIELD_IDS = ['f-title','f-artist','f-genre','f-mood','f-date','f-album','f-written','f-producer','f-mixer','f-videographer','f-cover','f-mp3','f-video','f-bio','f-label'];
+const FIELD_IDS = ['f-title','f-artist','f-genre','f-mood','f-date','f-album','f-written','f-producer','f-mixer','f-videographer','f-cover','f-mp3','f-video','f-bio','f-label','f-release'];
 function fillForm(d){
   FIELD_IDS.forEach(id => { $('#' + id).value = d[id] || ''; });
   state.featured = [...(d.featured || [])]; state.manualIds = [...(d.manualIds || [])];
@@ -1143,6 +1161,12 @@ function renderPreview(){
   $('#pv-ids').textContent = f.ids.length ? f.ids.map(i => '#' + i).join(' ') : '—';
   $('#pv-dur').textContent = fmtTime(state.duration);
   const b = [];
+  const soon = isUpcoming(f.release);
+  if (soon) b.push(`<span class="badge soon" data-testid="badge-dropping-soon">${icon('timer')}Dropping soon</span>`);
+  $('#pv-count').hidden = !soon;
+  if (soon){ $('#pv-when').textContent = `Drops ${fmtWhen(f.release)}`; $('#pv-left').textContent = countdown(f.release); }
+  $('#release-hint').textContent = !f.release ? 'Set a drop time and the song gets a “Dropping soon” badge, with playback locked until then.' : soon ? `Locked until ${fmtWhen(f.release)} (your local time). Saved as ${f.release}.` : 'That time has passed, so no badge will show.';
+  $('#release-hint').classList.toggle('warn', !!f.release && !soon);
   if (f.explicit) b.push('<span class="badge e" data-testid="badge-explicit">E</span>');
   if (f.exclusive) b.push(`<span class="badge x" data-testid="badge-exclusive">${icon('gem')}Exclusive</span>`);
   if (f.treeshchoice) b.push(`<span class="badge" data-testid="badge-treeshchoice">${icon('sparkles')}Treesh Choice</span>`);
@@ -1284,12 +1308,17 @@ async function loadText(kind){
   return { text: await fetchSite(SITE[kind], test), source:'site' };
 }
 async function loadRoster(){
-  try { state.roster = parseRoster((await loadText('icons')).text); }
-  catch { state.roster = []; }
+  let list = [];
+  try { list = parseRoster((await loadText('icons')).text); } catch {}
+  setRoster(list);
+}
+function setRoster(list){
+  state.roster = list;
   $('#roster-list').innerHTML = state.roster.map(a => `<option value="${esc(a.name)}">`).join('');
-  renderRoster(); renderPreview();
+  renderRoster(); renderPreview(); renderArtists();
 }
 async function loadCatalog(){
+  state.reorder = null;
   if (state.view === 'catalog') renderCatalogSkeleton();
   try {
     const { text, source } = await loadText('songs');
@@ -1297,7 +1326,7 @@ async function loadCatalog(){
   } catch (e){
     state.catalog = { text:'', songs:[], source:'', error: e.message === 'unreachable' ? 'Couldn’t reach the live catalog from here. Connect GitHub in Settings.' : e.message };
   }
-  updateConn(); renderCatalog(); renderSuggest(); renderPreview();
+  updateConn(); renderCatalog(); renderSuggest(); renderPreview(); renderArtists();
   if (hasToken() && state.catalog.source === 'github') loadPRs();
 }
 async function loadPRs(){
@@ -1321,7 +1350,9 @@ function renderPRs(){
   icons();
 }
 function renderCatalog(){
-  const c = state.catalog, canEdit = c.source === 'github';
+  const c = state.catalog, canEdit = c.source === 'github', ro = !!state.reorder;
+  $('#cat-grid').hidden = ro; $('#cat-list').hidden = !ro; $('#reorder-bar').hidden = !ro; $('#ro-head').hidden = !ro; $('.cat-tools').hidden = ro;
+  if (ro) return renderReorder();
   $('#ro-notice').hidden = canEdit || (!c.source && !c.error);
   $('#ro-text').textContent = c.error || 'Read-only view from treesh.app. Connect GitHub in Settings to edit or delete songs.';
   const artists = [...new Set(c.songs.map(s => s.artist).filter(Boolean).map(a => a))].sort((a, b) => a.localeCompare(b));
@@ -1346,7 +1377,7 @@ function renderCatalog(){
           <button class="icon-btn danger" data-act="delete" title="Delete" data-testid="catalog-delete-btn">${icon('trash-2')}</button></div></div></div>
       <div class="pbar"><i></i></div>
       <div class="inf"><h3 title="${esc(s.title)}" data-testid="catalog-song-title">${esc(s.title)}</h3><p>${esc(s.h3 || s.artist)}</p>
-        <div class="row">${s.genre ? `<span class="g">${esc(s.genre)}</span>` : ''}${s.explicit ? '<span class="badge e">E</span>' : ''}${s.exclusive ? '<span class="badge x">EXCL</span>' : ''}${s.treeshchoice ? `<span class="badge">${icon('sparkles')}</span>` : ''}</div></div>
+        <div class="row">${s.genre ? `<span class="g">${esc(s.genre)}</span>` : ''}${isUpcoming(s.release) ? `<span class="badge soon" data-testid="catalog-soon-badge">${icon('timer')}Soon</span>` : ''}${s.explicit ? '<span class="badge e">E</span>' : ''}${s.exclusive ? '<span class="badge x">EXCL</span>' : ''}${s.treeshchoice ? `<span class="badge">${icon('sparkles')}</span>` : ''}</div>${isUpcoming(s.release) ? `<span class="cd" data-countdown="${esc(s.release)}" data-testid="catalog-countdown">Drops in ${countdown(s.release)}</span>` : ''}</div>
     </article>`;
   }).join('');
   setPlayIcons();
@@ -1361,7 +1392,7 @@ function startEdit(s){
   stopAudio(); clearMedia();
   const featured = splitNames(s.featuring);
   state.editing = s;
-  fillForm({ 'f-title': s.title, 'f-artist': s.artist, 'f-genre': s.genre, 'f-mood': s.mood, 'f-date': s.date, 'f-album': s.album, 'f-written': s.writtenBy, 'f-producer': s.producer, 'f-mixer': s.mixer, 'f-videographer': s.videographer, 'f-cover': s.cover, 'f-mp3': s.mp3, 'f-video': s.video, 'f-bio': s.bio, 'f-label': s.label, featured, explicit: s.explicit, exclusive: s.exclusive, treeshchoice: s.treeshchoice });
+  fillForm({ 'f-title': s.title, 'f-artist': s.artist, 'f-genre': s.genre, 'f-mood': s.mood, 'f-date': s.date, 'f-album': s.album, 'f-written': s.writtenBy, 'f-producer': s.producer, 'f-mixer': s.mixer, 'f-videographer': s.videographer, 'f-cover': s.cover, 'f-mp3': s.mp3, 'f-video': s.video, 'f-bio': s.bio, 'f-label': s.label, 'f-release': isoToLocal(s.release), featured, explicit: s.explicit, exclusive: s.exclusive, treeshchoice: s.treeshchoice });
   const auto = autoIds();
   state.manualIds = s.ids.split(',').map(x => x.trim()).filter(x => x && !auto.includes(x));
   if (!['', 'fave', 'exclusive'].includes(s.label)){ const o = document.createElement('option'); o.value = o.textContent = s.label; $('#f-label').appendChild(o); $('#f-label').value = s.label; }
@@ -1387,43 +1418,194 @@ async function deleteSong(s){
   catch (e){ failModal(e); }
 }
 
+/* ---------- reorder ---------- */
+let sortable = null;
+function startReorder(){
+  if (!requireGitHub() || !state.catalog.songs.length) return;
+  stopAudio();
+  state.reorder = { order: state.catalog.songs.map(s => s.index) };
+  renderCatalog();
+}
+function cancelReorder(){ state.reorder = null; renderCatalog(); }
+const movedCount = () => state.reorder.order.filter((idx, pos) => idx !== pos).length;
+function renderReorder(){
+  const list = $('#cat-list');
+  list.innerHTML = state.reorder.order.map((idx, pos) => {
+    const s = state.catalog.songs[idx];
+    return `<li class="ro-row ${idx !== pos ? 'moved' : ''}" data-i="${idx}" data-testid="reorder-row"><button type="button" class="handle" title="Drag to move" aria-label="Drag ${esc(s.title)}" data-testid="reorder-handle">${icon('grip-vertical')}</button><span class="pos">${String(pos + 1).padStart(2, '0')}</span><img ${s.cover ? `src="${esc(s.cover)}"` : ''} alt="" loading="lazy"><div class="t"><b data-testid="reorder-row-title">${esc(s.title)}</b><small>${esc(s.h3 || s.artist)}</small></div><div class="mv"><button type="button" class="icon-btn" data-mv="top" title="Move to top" data-testid="reorder-top-btn">${icon('arrow-up-to-line')}</button><button type="button" class="icon-btn" data-mv="up" title="Move up" data-testid="reorder-up-btn">${icon('chevron-up')}</button><button type="button" class="icon-btn" data-mv="down" title="Move down" data-testid="reorder-down-btn">${icon('chevron-down')}</button></div></li>`;
+  }).join('');
+  const n = movedCount();
+  $('#ro-moved').textContent = n; $('#ro-save').disabled = !n || state.busy;
+  icons();
+  if (window.Sortable && !sortable) sortable = window.Sortable.create(list, { handle:'.handle', animation:180, ghostClass:'ro-ghost', chosenClass:'ro-chosen', onEnd: () => { if (!state.reorder) return; state.reorder.order = $$('.ro-row', list).map(r => +r.dataset.i); renderReorder(); } });
+}
+function moveRow(btn){
+  const row = btn.closest('.ro-row'), o = state.reorder.order, from = o.indexOf(+row.dataset.i);
+  const to = btn.dataset.mv === 'top' ? 0 : btn.dataset.mv === 'up' ? from - 1 : from + 1;
+  if (to < 0 || to >= o.length || to === from) return;
+  o.splice(to, 0, o.splice(from, 1)[0]);
+  renderReorder();
+  const moved = $(`.ro-row[data-i="${row.dataset.i}"]`); if (moved) moved.scrollIntoView({ block:'nearest', behavior:'smooth' });
+}
+async function saveReorder(){
+  const moved = movedCount(); if (!moved || state.busy) return;
+  const songs = state.reorder.order.map(i => state.catalog.songs[i]);
+  const btn = $('#ro-save'), lbl = $('#ro-save-label');
+  state.busy = true; btn.disabled = true;
+  try {
+    const r = await commitChange({ kind:'reorder', order: songs.map(s => s.raw), titles: songs.map(s => `${s.title} — ${s.h3 || s.artist}`), moved }, null, s => { lbl.textContent = s; });
+    state.reorder = null; renderCatalog(); done(r, 'reorder', '');
+    if (r.mode === 'live') setTimeout(loadCatalog, 800);
+  } catch (e){ failModal(e); }
+  finally { state.busy = false; btn.disabled = false; setMode(cfg.mode); }
+}
+
+/* ---------- artists ---------- */
+const nextArtistId = roster => String(roster.reduce((m, a) => Math.max(m, parseInt(a.id, 10) || 0), 0) + 1);
+function buildArtistBlock(a){
+  const at = ['class="artist"', `data-artist-id="${esc(a.id)}"`, `data-name="${esc(a.name)}"`, 'data-artist-sort="[data-artist-id]"', `data-bg="${esc(a.bg || a.photo)}"`];
+  if (a.location) at.push(`data-location="${esc(a.location)}"`);
+  at.push(`data-bio="${esc(a.bio)}"`, `data-bg-pos="${esc(a.bgPos || 'center center')}"`);
+  if (a.cashapp) at.push(`data-cashapp="${esc(a.cashapp)}"`);
+  return `<article ${at.join(' ')}>
+                      <div class="artist__thumbnail">
+                        <img class="artist__blur" src="${esc(a.photo)}" alt="Artist" />
+                        <img class="artist__image" src="${esc(a.photo)}" alt="Artist" />
+                        <div class="artist__ring"></div>
+                        <div class="artist__ring artist__ring--outer"></div>
+                      </div>
+                      <div class="artist__label">
+                        <p>${escText(a.name)}</p>
+                        <p class="capital">${escText(a.role || 'Music Artist')}</p>
+                      </div>
+                    </article>`;
+}
+function insertArtist(text, block){
+  const m = text.match(/<article\b[^>]*class\s*=\s*["'][^"']*\bartist\b/i);
+  const pos = m ? text.lastIndexOf('\n', m.index - 1) + 1 : 0;
+  return text.slice(0, pos) + block + '\n\n' + text.slice(pos);
+}
+function renderArtists(){
+  $('#art-count').textContent = state.roster.length || '··';
+  const counts = {};
+  state.catalog.songs.forEach(s => s.ids.split(',').map(x => x.trim()).filter(Boolean).forEach(id => { counts[id] = (counts[id] || 0) + 1; }));
+  const bgUrl = u => `background-image:url(&quot;${esc(u)}&quot;)`;
+  $('#art-grid').innerHTML = state.roster.length ? state.roster.map((a, i) => `<article class="artist-card" style="animation-delay:${Math.min(i, 12) * 30}ms" data-testid="artist-card-${esc(a.id)}"><div class="bg" style="${bgUrl(a.bg || a.image)};background-position:${esc(a.bgPos)}"></div><div class="ph" style="${bgUrl(a.image)}"></div><h3 data-testid="artist-card-name">${esc(a.name)}</h3><p class="role">${esc(a.role)}</p><div class="meta"><span class="id">#${esc(a.id)}</span>${a.location ? `<span>${icon('map-pin')}${esc(a.location)}</span>` : ''}${a.cashapp ? `<span>${icon('dollar-sign')}${esc(a.cashapp)}</span>` : ''}</div><p class="songs">${counts[a.id] || 0} song${counts[a.id] === 1 ? '' : 's'}</p></article>`).join('')
+    : `<div class="empty" data-testid="artists-empty">${icon('users-round')}<b>Roster not loaded</b><span>Connect GitHub in Settings, or open this tool on treesh.app.</span><button class="btn btn-sm" data-open-settings data-testid="artists-empty-settings-btn">Open settings</button></div>`;
+  icons();
+}
+function wireMiniDrop(kind, local, onChange){
+  const d = $('#a-drop-' + kind), inp = $('#a-file-' + kind), url = $('#a-' + kind), st = $('.mini-status', d);
+  const setStatus = (cls, ic, msg) => { st.innerHTML = statusHtml(cls, ic, msg, `artist-${kind}-status`); icons(); };
+  const handle = async file => {
+    if (!file || !/^image\//.test(file.type)) return toast('That doesn’t look like an image.', 'bad');
+    if (local[kind]) URL.revokeObjectURL(local[kind]);
+    local[kind] = URL.createObjectURL(file);
+    d.style.backgroundImage = `url("${local[kind]}")`; d.classList.add('has-file'); onChange();
+    if (!cloudReady()) return setStatus('warn', 'info', 'Preview only. Paste a link below.');
+    setStatus('', 'eq', 'Uploading… 0%');
+    try { url.value = await cloudUpload(file, 'image', p => setStatus('', 'eq', `Uploading… ${Math.round(p * 100)}%`)); setStatus('ok', 'check-circle-2', 'Uploaded & linked'); onChange(); }
+    catch (e){ setStatus('bad', 'alert-circle', e.message); }
+  };
+  d.addEventListener('click', () => inp.click());
+  d.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inp.click(); } });
+  inp.addEventListener('change', () => { handle(inp.files[0]); inp.value = ''; });
+  ['dragenter','dragover'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e => handle(e.dataTransfer.files[0]));
+}
+function openArtistDrawer(){
+  if (!requireGitHub()) return;
+  const root = $('#drawer-root');
+  root.innerHTML = ''; root.appendChild($('#tpl-artist').content.cloneNode(true));
+  const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  $$('[data-close]', root).forEach(b => b.addEventListener('click', close));
+  $('#a-id').textContent = '#' + nextArtistId(state.roster);
+  const local = { photo:'', bg:'' };
+  const read = () => ({ name: val('a-name'), role: val('a-role') || 'Music Artist', location: val('a-location'), photo: val('a-photo'), bg: val('a-bg'), bgPos: val('a-bgpos') || 'center center', bio: $('#a-bio').value.replace(/\r\n/g, '\n').trim(), cashapp: val('a-cashapp').replace(/^\$/, '') });
+  const preview = () => {
+    const a = read(), ph = isUrl(a.photo) ? a.photo : local.photo, bg = isUrl(a.bg) ? a.bg : (local.bg || ph);
+    $('#a-hero').style.backgroundImage = bg ? `url("${bg}")` : ''; $('#a-hero').style.backgroundPosition = a.bgPos;
+    $('#a-ph').style.backgroundImage = ph ? `url("${ph}")` : '';
+    $('#a-pv-name').textContent = a.name || 'New artist';
+    $('#a-pv-sub').textContent = [a.role, a.location].filter(Boolean).join(' · ');
+    $('#a-bio-count').textContent = `${a.bio.length} chars`;
+    $$('[data-bgpos]', root).forEach(b => b.classList.toggle('on', b.dataset.bgpos === a.bgPos));
+  };
+  wireMiniDrop('photo', local, preview); wireMiniDrop('bg', local, preview);
+  $('.drawer-body', root).addEventListener('input', e => { const fl = e.target.closest('.field'); if (fl) fl.classList.remove('invalid'); preview(); });
+  $$('[data-bgpos]', root).forEach(b => b.addEventListener('click', () => { $('#a-bgpos').value = b.dataset.bgpos; preview(); }));
+  $('#a-save').addEventListener('click', async () => {
+    if (state.busy) return;
+    const a = read(), e = {};
+    if (!a.name) e.name = 'Every artist needs a name.'; else if (rosterByName(a.name)) e.name = `${a.name} is already on the roster.`;
+    if (!a.photo) e.photo = local.photo ? 'Paste a hosted link for this photo, or set up Cloudinary.' : 'Add a profile photo link, or drop an image.'; else if (!isUrl(a.photo)) e.photo = 'Needs to be a public https:// link.';
+    if (a.bg && !isUrl(a.bg)) e.bg = 'Needs to be a public https:// link.';
+    $$('.field[data-af]', root).forEach(fl => { fl.classList.toggle('invalid', !!e[fl.dataset.af]); const p = $('.err', fl); if (p) p.textContent = e[fl.dataset.af] || ''; });
+    if (Object.keys(e).length) return toast('Fix the highlighted fields.', 'bad');
+    const btn = $('#a-save'), lbl = $('#a-save-label');
+    state.busy = true; btn.disabled = true;
+    let newId = '';
+    try {
+      const r = await commitFile({ path: cfg.iconsPath, message: `Add artist: ${a.name}`, branchKey: `artist-${slug(a.name).slice(0, 40)}`,
+        body: `Adds a new artist to \`${cfg.iconsPath}\`.\n\n| Field | Value |\n|---|---|\n${[['Name', a.name], ['Role', a.role], ['Location', a.location], ['Cash App', a.cashapp && '$' + a.cashapp], ['Photo', a.photo], ['Background', a.bg]].filter(r => r[1]).map(([k, v]) => `| ${k} | ${String(v).replace(/\|/g, '\\|')} |`).join('\n')}\n\n<img src="${a.photo}" width="140">\n\n${a.bio}\n\n_Submitted with Song Coder_`,
+        apply: t => { newId = nextArtistId(parseRoster(t)); return insertArtist(t, buildArtistBlock({ ...a, id: newId })); } }, s => { lbl.textContent = s; });
+      close(); done(r, 'artist', `${a.name} (#${newId})`);
+    } catch (err){ failModal(err); }
+    finally { state.busy = false; if (document.body.contains(btn)){ btn.disabled = false; setMode(cfg.mode); } }
+  });
+  setMode(cfg.mode); preview(); icons();
+  setTimeout(() => $('#a-name').focus(), 300);
+}
+
 /* ---------- publish ---------- */
 function prBody(op, f){
+  if (op.kind === 'reorder') return `Reorders songs in \`${cfg.songsPath}\` (${op.moved} moved).\n\nNew top of the catalog:\n${op.titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\n_Submitted with Song Coder_`;
   const rows = f ? [['Track', f.title], ['Artist', [f.artist, ...f.featured].join(' x ')], ['Genre', f.genre], ['Mood', f.mood], ['Released', f.date], ['Written by', f.writtenBy], ['Produced by', f.producer], ['Mixed by', f.mixer], ['Audio', f.mp3], ['Cover', f.cover], ['Video', f.video && `https://youtu.be/${f.video}`], ['Badges', ['explicit','exclusive','treeshchoice'].filter(k => f[k]).join(', ')]].filter(r => r[1]) : [['Track', op.title], ['Artist', op.artist]];
   const verb = { add:'Adds a new song to', edit:'Updates a song in', delete:'Removes a song from' }[op.kind];
   return `${verb} \`${cfg.songsPath}\`.\n\n| Field | Value |\n|---|---|\n${rows.map(([k, v]) => `| ${k} | ${String(v).replace(/\|/g, '\\|').replace(/\n/g, ' ')} |`).join('\n')}\n${f && f.cover ? `\n<img src="${f.cover}" width="160">\n` : ''}\n_Submitted with Song Coder_`;
 }
-async function commitChange(op, f, step = () => {}){
+function commitChange(op, f, step){
   const verb = { add:'Add', edit:'Update', delete:'Remove' }[op.kind];
-  const msg = `${verb} song: ${op.title} — ${op.artist}`;
+  const message = op.kind === 'reorder' ? `Reorder catalog: ${op.moved} song${op.moved === 1 ? '' : 's'} moved` : `${verb} song: ${op.title} — ${op.artist}`;
+  return commitFile({ path: cfg.songsPath, apply: t => applyOp(t, op), message, body: prBody(op, f), branchKey: op.kind === 'reorder' ? 'reorder' : `${op.kind}-${slug(op.title).slice(0, 40)}` }, step);
+}
+function afterLive(path, next){
+  if (path === cfg.songsPath){ state.catalog = { text: next, songs: parseCatalog(next), source:'github', error:'' }; updateConn(); renderCatalog(); renderArtists(); }
+  if (path === cfg.iconsPath) setRoster(parseRoster(next));
+}
+async function commitFile({ path, apply, message, body, branchKey }, step = () => {}){
   for (let attempt = 0; attempt < 2; attempt++){
-    step('Reading the latest catalog…');
-    const { text, sha } = await gh.getFile(cfg.songsPath, cfg.branch);
-    const next = applyOp(text, op);
+    step('Reading the latest file…');
+    const { text, sha } = await gh.getFile(path, cfg.branch);
+    const next = apply(text);
     try {
       if (cfg.mode === 'live'){
         step('Publishing to ' + cfg.branch + '…');
-        await gh.putFile(cfg.songsPath, next, sha, msg, cfg.branch);
-        state.catalog = { text: next, songs: parseCatalog(next), source:'github', error:'' };
-        updateConn(); renderCatalog();
+        await gh.putFile(path, next, sha, message, cfg.branch);
+        afterLive(path, next);
         return { mode:'live' };
       }
       step('Creating a review branch…');
-      const branch = `songcoder/${op.kind}-${slug(op.title).slice(0, 40)}-${Date.now().toString(36)}`;
+      const branch = `songcoder/${branchKey}-${Date.now().toString(36)}`;
       await gh.createBranch(branch, await gh.headSha(cfg.branch));
       step('Committing the change…');
-      await gh.putFile(cfg.songsPath, next, sha, msg, branch);
+      await gh.putFile(path, next, sha, message, branch);
       step('Opening pull request…');
-      const pr = await gh.openPR({ title: msg, head: branch, base: cfg.branch, body: prBody(op, f) });
+      const pr = await gh.openPR({ title: message, head: branch, base: cfg.branch, body });
       state.prs = [pr, ...state.prs]; renderPRs();
       return { mode:'pr', pr };
     } catch (e){ if (e.status === 409 && attempt === 0) continue; throw e; }
   }
 }
 function done(r, kind, title){
-  const verb = { add:'added', edit:'updated', delete:'removed' }[kind];
-  if (r.mode === 'pr') modal({ title:'Pull request opened', ico:'git-pull-request', tone:'success', testid:'publish-success-modal', body:`<p><b>#${r.pr.number}</b> · ${esc(r.pr.title)}</p><p>Merge it on GitHub and “${esc(title)}” gets ${verb} on Treesh.</p>`, actions:[{ label:'Close', testid:'success-close-btn' }, { label:'Review on GitHub', kind:'btn-primary', icon:'arrow-up-right', href:r.pr.html_url, testid:'success-open-pr-link' }] });
-  else modal({ title: kind === 'delete' ? 'Removed from Treesh' : 'Live on Treesh', ico:'zap', tone:'success', testid:'publish-success-modal', body:`<p>“${esc(title)}” was ${verb} on <b>${esc(cfg.branch)}</b>.</p><p>Netlify usually redeploys within a minute.</p>`, actions:[{ label:'Close', testid:'success-close-btn' }, { label:'View catalog', kind:'btn-primary', icon:'library-big', testid:'success-view-catalog-btn', onClick: c => { c(); switchView('catalog'); } }] });
+  const verb = { add:'added', edit:'updated', delete:'removed', reorder:'reordered', artist:'added to the roster' }[kind];
+  const what = kind === 'reorder' ? 'The new song order' : `“${esc(title)}”`;
+  const view = kind === 'artist' ? 'artists' : 'catalog';
+  if (r.mode === 'pr') modal({ title:'Pull request opened', ico:'git-pull-request', tone:'success', testid:'publish-success-modal', body:`<p><b>#${r.pr.number}</b> · ${esc(r.pr.title)}</p><p>${kind === 'reorder' ? 'Merge it on GitHub and the new order goes live on Treesh.' : `Merge it on GitHub and ${what} gets ${verb} on Treesh.`}</p>`, actions:[{ label:'Close', testid:'success-close-btn' }, { label:'Review on GitHub', kind:'btn-primary', icon:'arrow-up-right', href:r.pr.html_url, testid:'success-open-pr-link' }] });
+  else modal({ title: { delete:'Removed from Treesh', artist:'Artist added', reorder:'New order is live' }[kind] || 'Live on Treesh', ico:'zap', tone:'success', testid:'publish-success-modal', body:`<p>${kind === 'reorder' ? 'The catalog order was' : what + ' was'} ${kind === 'reorder' ? 'updated' : verb} on <b>${esc(cfg.branch)}</b>.</p><p>Netlify usually redeploys within a minute.</p>`, actions:[{ label:'Close', testid:'success-close-btn' }, { label: view === 'artists' ? 'View roster' : 'View catalog', kind:'btn-primary', icon: view === 'artists' ? 'users-round' : 'library-big', testid:'success-view-catalog-btn', onClick: c => { c(); switchView(view); } }] });
 }
 function failModal(e){
   modal({ title:'That didn’t go through', ico:'alert-triangle', tone:'danger', testid:'publish-error-modal', body:`<p data-testid="publish-error-message">${esc(e.message)}</p>`, actions:[{ label:'Close', testid:'error-close-btn' }, ...(e.status === 401 || e.status === 403 || e.status === 404 ? [{ label:'Open settings', kind:'btn-primary', icon:'settings-2', testid:'error-open-settings-btn', onClick: c => { c(); openSettings(); } }] : [])] });
@@ -1459,17 +1641,21 @@ async function copyCode(){
 /* ---------- mode + views ---------- */
 function setMode(m){
   cfg.mode = m; saveCfg();
-  $('#mode-seg').dataset.mode = m;
-  $$('#mode-seg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  $$('.mode-seg').forEach(s => { s.dataset.mode = m; $$('button', s).forEach(b => b.classList.toggle('on', b.dataset.mode === m)); });
   $('#mode-note').textContent = m === 'pr' ? 'Opens a pull request so you can approve it first.' : `Commits straight to ${cfg.branch}. Live after Netlify redeploys.`;
+  if (!state.busy){
+    $('#ro-save-label').textContent = m === 'live' ? 'Publish order' : 'Open PR';
+    const al = $('#a-save-label'); if (al) al.textContent = m === 'live' ? 'Add to roster now' : 'Open PR for artist';
+  }
 }
 function moveInd(){ const a = $('.tab.active'), ind = $('#tab-ind'); if (!a) return; ind.style.left = a.offsetLeft + 'px'; ind.style.width = a.offsetWidth + 'px'; }
 function switchView(v){
   state.view = v;
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === v));
-  $('#view-compose').hidden = v !== 'compose'; $('#view-catalog').hidden = v !== 'catalog';
+  $('#view-compose').hidden = v !== 'compose'; $('#view-catalog').hidden = v !== 'catalog'; $('#view-artists').hidden = v !== 'artists';
   moveInd(); window.scrollTo(0, 0);
   if (v === 'catalog') renderCatalog();
+  if (v === 'artists') renderArtists();
 }
 
 /* ---------- settings ---------- */
@@ -1552,7 +1738,20 @@ function wire(){
   $('[data-reset]').addEventListener('click', () => $('#reset-form').click());
   $('#reset-form').addEventListener('click', async () => { if (state.editing) return exitEdit(); if (await confirmModal({ title:'Start over?', ico:'rotate-ccw', body:'<p>This clears every field in the form.</p>', ok:'Clear form', testid:'reset-confirm-modal' })) resetForm(); });
   $('#publish').addEventListener('click', publish);
-  $$('#mode-seg button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  document.addEventListener('click', e => { const b = e.target.closest('.mode-seg button'); if (b) setMode(b.dataset.mode); });
+  $('#release-clear').addEventListener('click', () => { $('#f-release').value = ''; refreshAll(); });
+  $('#f-release').addEventListener('change', e => { if (e.target.value && !val('f-date')){ $('#f-date').value = fmtDate(e.target.value.slice(0, 10)); refreshAll(); } });
+  $('#cat-reorder').addEventListener('click', startReorder);
+  $('#ro-cancel').addEventListener('click', cancelReorder);
+  $('#ro-save').addEventListener('click', saveReorder);
+  $('#cat-list').addEventListener('click', e => { const b = e.target.closest('[data-mv]'); if (b) moveRow(b); });
+  $('#new-artist').addEventListener('click', openArtistDrawer);
+  $('#art-grid').addEventListener('click', e => { if (e.target.closest('[data-open-settings]')) openSettings(); });
+  setInterval(() => {
+    const rel = localToIso(val('f-release')), left = rel && countdown(rel);
+    if (!left !== $('#pv-count').hidden) renderPreview(); else if (left) $('#pv-left').textContent = left;
+    $$('[data-countdown]').forEach(el => { const l = countdown(el.dataset.countdown); el.textContent = l ? `Drops in ${l}` : 'Out now'; });
+  }, 1000);
   $('#cancel-edit').addEventListener('click', exitEdit);
   $$('.tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
   $('#open-settings').addEventListener('click', openSettings);
