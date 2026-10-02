@@ -29,7 +29,9 @@ export function hitTest(notes: Note[], t: number, lane: number, tol: number): No
     const end = n.time + (long ? n.duration || 0 : 0);
     const l = n.type === "wavy" ? wavyLaneAt(n, clamp(t, n.time, end)) : n.lane;
     if (l !== lane) continue;
-    const d = t < n.time ? n.time - t : t > end ? t - end : 0;
+    // Heads win over the body of a long note passing through the same spot.
+    const head = Math.abs(t - n.time);
+    const d = long ? Math.min(head, (t < n.time ? n.time - t : t > end ? t - end : 0) + tol * 0.6) : head;
     if (d <= tol && d < bd) { bd = d; best = n; }
   }
   return best;
