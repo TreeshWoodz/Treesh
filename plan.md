@@ -15,17 +15,17 @@
   - **Backyard Garden** (plant → water → grow → harvest) that pays Starlites with a daily cap.
   - **Seasonal Furniture** packs that rotate through the year.
 - Ensure **live balance sync** when embedded in the Treesh arcade iframe: parent counters update instantly when trophies/rewards are earned.
-- **NEW (current focus): Party Mode + more fun modes + unified HUD**
-  - Add multiple new arcade modes and a “Party Mode” rotation system (Zen excluded).
-  - Provide an intuitive UI for selecting Party Mode’s playlist and round settings.
-  - Make mode UI consistent and easy to read across desktop + mobile.
+- **NEW (current focus): Make every mode deeper + HUD overhaul**
+  - Add **mode-depth mechanics** (power-ups + per-mode twists) so each mode feels richer and replayable.
+  - Upgrade the **gameplay HUD/UI** across the board: clearer goals, better standings, better alerts, better results.
+- **NEXT (user-approved after HUD/mode depth): Backyard Garden weather**
+  - Rain auto-waters garden beds.
+  - Snow visuals (and optional light gameplay effects if desired later).
 
 ## 2) Implementation Steps
 
 ### Phase 1 — Core POC (isolation first)
 **Status:** ✅ Completed and superseded by full modular implementation.
-
-**Original risks addressed:** cross-app Starlites consistency + Zen “Sims” loop.
 
 Completed outcomes:
 - Treesh bridge with ledger + reconcile implemented (module: `src/treesh.js`).
@@ -42,13 +42,13 @@ Completed outcomes:
 
 #### 2) Character model overhaul (match reference image)
 **Status:** ✅ Implemented (pending ongoing iteration)
-- Updated the flea renderer to the new “reference look” (glossy eyes, blush, wings, antennae, etc.).
+- Updated flea renderer to new “reference look” (glossy eyes, blush, wings, antennae, etc.).
 - Named cast integrated via `src/style.js`.
 
 #### 3) Treesh profile in-game
 **Status:** ✅ Done (+ hardening fix)
 - Lobby uses `treesh_profile.nickname` and avatar.
-- **Fix:** avatars are treated as images only if they look like URLs/data-URIs/paths; emoji avatars fall back to an initial.
+- **Fix:** avatars treated as images only if they look like URLs/data-URIs/paths; emoji avatars fall back to an initial.
 - **Fix:** `img.onerror` fallback prevents broken image UI.
 
 #### 4) Starlites system (parent-compatible)
@@ -65,20 +65,11 @@ Completed outcomes:
 **Status:** ✅ Done (verified) + minor polish
 - Zen chooser offers **Flea House** or **Sandbox**.
 - Flea House implemented: rooms, furniture buy/place/rotate, needs/autonomy, painting, upstairs unlock, save slots.
-- **Fix:** reduced Flea House name-tag overlap via a `hideName` flag (base flea draw + house label declutter logic).
+- **Fix:** reduced Flea House name-tag overlap via `hideName` flag (base flea draw + house label declutter logic).
 
-#### 7) Polish all game modes (finish/complete)
-**Status:** ✅ Verified load stability
-- Automated/manual smoke checks confirm: `race`, `survival`, `tag`, `hoops`, `classic`, `zen`, `hns` all load and run with **0 runtime errors** in testing.
-
-#### 8) UI/UX polish pass
+#### 7) UI/UX polish pass
 **Status:** ✅ Implemented
 - Profile card + Trophy Room UI, lobby polish, rewards breakdown, updated typography/styles.
-
-#### 9) Testing (agent)
-**Status:** ✅ Done
-- Screenshot-tool / Playwright smoke coverage across all modes.
-- Verified: trophy → starlites award, reconcile behavior, Flea House entry.
 
 ### Phase 3 — Expansion + hardening
 **Status:** ✅ Implemented (Phase 4 changes folded in)
@@ -88,222 +79,157 @@ Completed outcomes:
 - Yard area added left of the house (`x = -660..-14`) with back door, fence, tree, sign and lamp.
 - 5 raised beds; 6 seeds:
   - strawberry, carrot, grapes, sunflower, watermelon, **moon pumpkin**.
-  - Each has price, grow time (game minutes) and Starlite reward.
 - Crops only grow while watered; water drains at `0.35/min`.
 - Offline growth supported (up to `720` minutes) using `savedAt`.
 - Fleas water/harvest autonomously (and can be directed), with a dedicated `act k:'garden'` and faster walk speed to beds.
-- Garden drawer UI: bed cards + **Water all**, **Harvest all**, **Picnic** (consumes pantry snacks and boosts needs).
-- Garden Starlites are capped at **160 ✦ per day**.
+- Garden drawer UI: bed cards + **Water all**, **Harvest all**, **Picnic**.
+- Garden Starlites capped at **160 ✦ per day**.
 - Yard accepts floor/surface furniture but prevents placement on bed bounds.
 
 2) **Seasonal Furniture (rotating packs)**
 **Status:** ✅ Implemented + verified via screenshots
 - New module `src/seasonal.js` injected before `trophies.js` via `build.py`.
-- 6 packs by date:
-  - Winter (Dec 1–Feb 28), Valentine (Feb 1–16), Spring (Mar–May), Summer (Jun–Aug), Autumn (Sep–Nov), Spooky (Oct 10–Nov 2).
-- 25 new furniture pieces (art implemented via `Furni.add()` + shared helpers `Furni.h`).
-- Buy shop defaults to **Seasonal** category with:
-  - Pack headers with “days left”.
-  - Locked “Coming up” pack preview.
-  - Out-of-season purchase guard.
+- Packs rotate by date with “days left” and locked preview.
 - Debug date override supported via `localStorage.frea_debug_date` or `?freadate=YYYY-MM-DD`.
-- “New pack” dot indicator on Buy tab.
 
 3) **Live Balance Sync (Treesh parent arcade)**
 **Status:** ✅ Implemented + verified with a local parent test page
-- FREA! now posts `postMessage` events on every wallet change:
-  - `{type:'treesh:stars', v:2, entry:{id,t,a,r}, meta:{kind,icon}}`.
-  - Trophy awards send `kind:'trophy'`.
-- Parent app (`/app/parent/index.html`) updated (CRLF preserved; original saved as `index.original.html`):
-  - Storage + message listeners.
-  - `syncStarsFromStorage()` to keep `state.stars` in sync (prevents stale overwrite).
-  - `gf-stars` chip in game-frame header and animated `+N` float.
-  - Optional parent toast for trophy awards while the game is minimized.
-- Test harness served at `/treesh-test/index.html` with FREA URL pointed at `/games/frea.html`.
-- Verified: parent chip increments instantly on trophy unlock, parent memory matches storage, and parent awards don’t clobber game awards.
+- FREA posts `postMessage` events on wallet change.
+- Parent app updated with message listeners + storage sync.
+- Verified: parent chip increments instantly on trophy unlock.
 
 4) **Trophies + “What’s New” update**
 **Status:** ✅ Implemented + verified
 - Added 7 new trophies for Garden + Seasonal progression (**55 trophies total**).
 - Added “Backyard Garden” and “Seasonal Furniture” to the home “What’s New” carousel.
 
-### Phase 4 — Party Mode + New Modes + Unified HUD (current)
-**Status:** ⏳ Not started (next)
+### Phase 4 — Party Mode + New Modes + Unified HUD
+**Status:** ✅ Implemented + ✅ partially re-validated this session
 
-#### 1) Add new arcade game modes (P0)
-**Status:** ⏳ Not started
-- Add **5 new modes**:
-  1. **King of the Hill** (`koth`) — hold the glowing zone to score.
-  2. **Floor is Lava** (`lava`) — platforms sink; last flea standing wins.
-  3. **Star Rush** (`stars`) — collect falling stars; avoid spiky stars.
-  4. **Red Light Green Light** (`redlight`) — move only on green.
-  5. **Freeze Tag** (`freeze`) — frozen fleas can be rescued; last unfrozen wins.
-- Implemented as a new module: `src/modes.js`.
-  - Define an `EXTRA_MODES` registry with hooks:
-    - `init/start`, `tick`, `draw`, `scoreboard/updScore`, `aiTarget` adjustments
-    - optional overrides for `chooseLayout`, `worldBounds`, `buildLevel`
-    - end-state subtitle mapping used by `endGame()`.
-- Required base refactor: add a lightweight “mode plugin” dispatch layer in `src/base.html` so new modes can integrate without rewriting the monolith.
+#### 1) Add new arcade game modes (koth/lava/stars/redlight/freeze)
+**Status:** ✅ Implemented
+- Implemented in `src/modes.js` using `EXTRA_MODES` plugin hooks and `MODE_INTRO` integration.
 
-#### 2) Party Mode (P0)
-**Status:** ⏳ Not started
-- Add a new “**Party Mode**” tile in the mode grid.
-  - Zen is **excluded** from Party Mode.
-- Party Setup UI (pre-game) allowing players to:
-  - Check/uncheck which modes participate in the rotation.
-  - Choose total rounds (e.g., 5 / 8 / 12).
-  - Choose ordering: **Shuffle** or **In-Order**.
-  - Persist selection in LocalStorage.
-- Party runtime behavior:
-  - Each round uses the next selected mode.
-  - **Consistent AI roster across rounds** (same generated opponents; keep names/colors/specs stable).
-  - Party scoring: **1st = 3pts, 2nd = 2pts, 3rd = 1pt**; others 0.
-  - Add a **“Next up” interstitial** inside the end-view flow between rounds.
-  - End of party shows a final podium/standings summary.
-- Party overrides for rotation stability (“optimized for playlist”):
-  - `classic`: force **60s**.
-  - `hns`: shorter hide/seek timers.
-  - `hoops`: force solo rules (`teamSize=0`, `ball=0`, time **45s**).
-- Implementation as new module: `src/party.js` (+ styling in `src/party.css`).
+#### 2) Party Mode
+**Status:** ✅ Implemented
+- Implemented in `src/party.js` + `src/party.css` with playlist setup and rotation logic.
 
-#### 3) Unified HUD + clearer instructions (P1)
-**Status:** ⏳ Not started
-- Unify all modes’ HUD and round messaging:
-  - New top-center mode banner: icon, name, **one-line goal**, and **party round indicator** when applicable.
-  - Consistent score chips layout across all modes.
-  - A “How to play” card at start of each round, integrated into the existing mode intro UI:
-    - 3 short steps (tap/drag basics + mode goal).
-  - Cleaner results screen layout while retaining Starlites + trophy banner behavior.
-- Implementation modules:
-  - `src/hud.js` + `src/hud.css`.
-  - Minimal wiring changes in `src/base.html` for rendering/updating HUD elements.
-- Keep existing design language:
-  - Fonts: **Baloo 2 / Orbitron**.
-  - Current neon color variables and glassy UI conventions.
+#### 3) Unified HUD + clearer instructions
+**Status:** ✅ Implemented
+- Implemented in `src/hud.js` + `src/hud.css`.
 
-#### 4) Mobile overlap fix in Zen Sandbox UI (P2)
-**Status:** ⏳ Not started
-- Fix minor UI overlap on very narrow screens reported by the test report.
-- Update media queries / layout rules in `src/zenplus.css` (and/or `src/polish.css` if needed).
+#### 4) Zen Mode Sandbox modularization + interactivity upgrades (newest requirements)
+**Status:** ✅ Implemented (testing coverage pending re-run)
+- New modules added: `src/actions.js`, `src/zenart.js`, `src/zenplay.js` + `src/zenplay.css`.
+- Zen sandbox interactivity implemented: pick up/carry/throw/stack/push/sit + item-specific actions.
+- Persistent wear-on-head behavior for player hat (via `window.__fleaHeadHook` integration).
+- Flea emotes/actions updated (dance/spin/wave/etc.).
+- Desktop UI polish for Zen prompts and layout.
 
-#### 5) Build + wiring (required)
+#### 5) RLGL playability fix
+**Status:** ✅ Implemented + ✅ verified via gameplay screenshot runs
+- **Map length extended** via `RL.bounds()` to 9k–16k world units.
+- **All fleas start together** at the start line (`RL.lineUp()`), preventing immediate failures.
+
+#### 6) Fix testing-agent “Play button not stable” blocker
+**Status:** ✅ Implemented
+- Playwright reported the `#play-btn` as “not stable” due to infinite transform animation.
+- Fix: changed the **PLAY button breathe animation** from `transform: translateY(...)` to a `filter: brightness(...)` pulse so automated clicking is stable.
+- File updated: `src/base.html` (`@keyframes playBreathe`).
+
+> Note: the previous testing_agent report is now outdated because the blocker has been fixed. A fresh testing_agent run is required.
+
+---
+
+### Phase 5 — Mode Depth + HUD Overhaul (NEW current)
 **Status:** ⏳ Not started
-- Add new files:
-  - `src/modes.js`, `src/party.js`, `src/hud.js`, `src/hud.css`, `src/party.css`.
+
+**Goal:** expand each mode’s depth (mechanics + variety) and deliver a stronger, more legible HUD across all gameplay.
+
+#### 1) Mode Depth System (Power-ups + per-mode twists) (P0)
+**Status:** ⏳ Not started
+- Create new module: `src/modeplus.js`
+  - Shared **pickup/power-up** framework:
+    - Spawn rules per mode; placement safety checks (not inside walls; accessible).
+    - Rendering (glow + icon), collision pickup, duration timers, stacking/refresh rules.
+    - Effects system (speed, shield, magnet, cure, ice, etc.).
+  - Per-mode depth additions (initial scope):
+    - **Capture (classic):** overcharge window; steal-bump knockback; optional “orb ping” indicator.
+    - **Race:** boost pads; checkpoints; split-time “ghost” pips.
+    - **Burning Orb (survival):** fuse accelerates each pass; shield pickup prevents 1 explosion.
+    - **Infectious (tag):** cure pickup; “last stand sprint” for final safe flea.
+    - **Hide & Seek (hns):** seeker radar pulse ability (e.g., `Q`); hider taunt to earn points at risk (e.g., reduces seek timer / provokes).
+    - **Hoops:** streak multiplier; “ON FIRE” state after 3 makes in a row.
+    - **King of the Hill:** zone shrinks over time; contested warning; “golden hill” final 15s.
+    - **Floor is Lava:** lava geysers; height meter + survival ticks.
+    - **Star Rush:** star showers; combo scoring; magnet power-up.
+    - **Red Light, Green Light:** warning before red; boost pads; optional “fake-out” light.
+    - **Freeze Tag:** ice burst ability for IT; rescue counter + short immunity for rescued.
+
+**Integration points:**
+- Hook into the main loop via existing `XM().tick/drawFront/drawBack/score` pathways.
+- Keep effects data on flea objects (e.g., `f.pu = {speedUntil,...}`) to avoid deep engine changes.
+
+#### 2) HUD Overhaul v2 (P0)
+**Status:** ⏳ Not started
+- Create new modules:
+  - `src/hud2.js`
+  - `src/hud2.css`
+- HUD v2 features:
+  - **Portrait standings panel** (faces + bars + “YOU” highlight) replacing/augmenting scoreboard.
+  - **Goal meter** (top-center) that reflects each mode’s primary objective:
+    - Capture: ring/capture progress
+    - KOTH: hill %
+    - Stars: star points
+    - Red Light: course %
+    - Lava: height/safe band
+    - etc.
+  - **Timer ring** around the timer chip with final-10 pulse + “FINAL 10!” banner.
+  - **Alerts system** (FINAL 10, FINAL TWO, LAST STAND, CONTESTED, ON FIRE).
+  - **Event feed** (lightweight log) + wrap/merge existing `flash()` messages.
+  - **Active power-up chips** + ability button mapping.
+  - **Results upgrade:** podium + mode stats + fun awards (MVP / Most Hops / Clutch / Most Rescues, etc.).
+
+**Compatibility:**
+- Keep `src/hud.js` as the baseline; layer `hud2.js` after it and override/enhance behavior.
+
+#### 3) Build + wiring (required) (P0)
+**Status:** ⏳ Not started
 - Update `/app/games/build.py`:
-  - Include `hud.css` and `party.css` in the CSS list.
-  - Include `modes.js`, `party.js`, `hud.js` in the JS list (and ensure correct ordering relative to `trophies.js` hooks).
+  - CSS: add `hud2.css`
+  - JS: add `modeplus.js` and `hud2.js`
+  - **Ordering requirements:**
+    - `modeplus.js` must load **after** `modes.js`.
+    - `hud2.js` must load **after** `hud.js`.
 
-#### 6) Testing + validation (P0)
+#### 4) Testing + validation (P0)
+**Status:** ⏳ Not started (must be done after Phase 5 changes)
+- Run frontend `testing_agent` and screenshot runs:
+  - Re-verify **RLGL** (long map + shared start) still passes.
+  - Verify **Zen sandbox interactivity** remains stable after any HUD/power-up wiring changes.
+  - Verify new power-ups spawn, animate, apply effects, expire, and never softlock rounds.
+  - Verify HUD2 readability at desktop resolutions (1920×1080, 1366×768) and mobile widths.
+
+### Phase 6 — Backyard Garden Weather (NEXT after Phase 5)
 **Status:** ⏳ Not started
-- Run the frontend testing agent (Playwright + screenshot tool):
-  - Verify all 5 new modes start, play, and end without runtime errors.
-  - Verify Party Mode:
-    - Setup UI persists selections.
-    - Rotates modes every round.
-    - Interstitial “Next up” appears.
-    - Party standings scoring correct; final podium shown.
-    - Party overrides (timers / hoops solo rules) applied.
-  - Verify unified HUD:
-    - Banner and goal text correct for every mode.
-    - Intro “How to play” card appears and is readable.
-  - Verify Zen Sandbox narrow-mobile overlap is fixed.
-
-### Phase 5 — Studio + Environments + Zen Sandbox+ + Bug Sweep
-**Status:** ✅ Completed (for prior scope) / 🔄 ongoing verification
-
-#### 1) Standalone Character Studio modal (P0)
-**Status:** ✅ Implemented + wired
-- New standalone, visual character customizer:
-  - `src/studio.js` + `src/studio.css`.
-  - Tile-based selection with live flea preview, roster switching, undo, randomize.
-  - Opened from lobby **Customize** button.
-- Legacy “Customize” tab removed from profile modal UI (kept hidden as a compatibility/data source layer for selects + OPT lists).
-
-#### 2) Detailed, cohesive customization art for **ALL** parts (P0)
-**Status:** ✅ Implemented + iterating
-- New unified rendering pass for all customization options in `src/parts.js`:
-  - Redrawn hats, glasses, wings, capes, accessories, mouths, eyes, antenna variants, brows in a cohesive “glossy jelly-toy” style.
-  - Alignment normalized to the Style-2.0 face.
-  - RNG seeding to prevent flicker for hair + glitter/pattern details.
-- Added new options:
-  - Hats: `tiara`, `bunny`, `cat`, `headphones`, `propeller`, `beret`
-  - Glasses: `nerd`, `goggles`
-  - Wings: `bat`, `crystal`
-  - Capes: `star`, `custom` (accent color)
-  - Accessories: `bowtie`, `flowerlei`
-  - Mouths: `cat`, `teeth`
-  - Eyes: `sparkle`, `cat`
-- Bug fixes:
-  - Removed stray mouth ring from Style 2.0 (`src/style.js`).
-
-#### 3) Environments redesign + new environments (P1)
-**Status:** ✅ Implemented (needs ongoing playtest and tune)
-- New parallax scene engine (`src/arenas.js`): cached, layered, neon-cozy art direction.
-- **Arcade rule (A): one themed arena per mode**
-  - `classic` → Crystal Kingdom
-  - `race` → Sunset Speedway
-  - `survival` → Ember Peaks
-  - `tag` → Slime Swamp
-  - `hns` → Moonlit Grove
-  - `hoops` → Rooftop Court
-  - `tutorial/title` → Neon Meadow
-- **Zen rule (B): multiple pickable worlds**
-  - Rebuilt all prior Zen worlds on the new engine (now selectable via env chip).
-  - Added 6 new worlds:
-    - Sakura Garden, Cloud Kingdom, Northern Lights, Glow Shroom Forest, Autumn Park, Neon Lagoon
-- Improvements:
-  - Themed ground band replaces the pale floor slab.
-  - Floor platform set to `wall=true` only when it’s the normal ground platform so it stops visually clashing.
-  - Fix: sun stripes now clip correctly (no punching holes in sky).
-- Debug helper:
-  - `FreaArenas.start(mode, env)` to jump into a mode/environment for testing.
-
-#### 4) Zen Sandbox UI + features upgrade (P1)
-**Status:** ✅ Implemented (needs mobile validation)
-- `src/zenplus.js` + `src/zenplus.css`:
-  - Dock restyle (glass, larger tiles).
-  - New **Worlds** tab with painted thumbnails.
-  - New **Magic** tab:
-    - Weather overlays (rain/snow/petals/confetti/fireflies)
-    - Time of day overlay (day/sunset/night)
-    - Gravity presets (moon/normal/heavy)
-    - Party mode (lights + auto group emotes)
-    - Group emotes (dance/wave/flip)
-    - Flea rain (spawn extra fleas overhead)
-    - Photo mode (download canvas PNG; hides HUD temporarily)
-  - Fix: dock position no longer overlaps emote FAB on desktop.
-  - Themed prop spawning for new worlds (maps to existing prop sets).
-
-#### 5) Comprehensive bug sweep in Zen Sandbox + all modes (P1)
-**Status:** ✅ Completed (prior sweep) / will be re-run after Party update
-- Frontend testing agent previously reported ~98% coverage with no critical bugs.
-- After Phase 4 lands, repeat the sweep because new files/refactors touch core flow.
-
-#### 6) Documentation updates (P2)
-**Status:** ⏳ Not started (next)
-- Update `games/README.md` with new Phase 4 modules:
-  - `modes.js`, `party.js`, `hud.js` and new CSS files.
-  - Party Mode rules, scoring, and persisted LocalStorage keys.
-- Update `/app/memory/PRD.md` with Phase 4 feature summary.
-
-**Current build ordering**
-- CSS: `polish.css`, `studio.css`, `zenplus.css` (+ add `hud.css`, `party.css`)
-- JS: `treesh.js`, `style.js`, `parts.js`, `furni.js`, `seasonal.js`, `trophies.js`, `house.js`, `polish.js`, `arenas.js`, `zenplus.js`, `studio.js` (+ add `modes.js`, `party.js`, `hud.js` with correct ordering)
+- Implement **rain auto-watering** behavior:
+  - Rain overlay (visual) and periodic bed watering increment while raining.
+  - Ensure daily payout cap remains respected.
+- Implement **snow visuals**:
+  - Snow overlay + scene tint; optional non-gameplay-only for v1.
+- Hook into existing Zen “Magic” overlays if appropriate, but ensure Flea House yard can have weather independent of sandbox toggles.
 
 ## 3) Next Actions
-1) **Phase 4 implementation (blocking):**
-   - Implement `src/modes.js` (5 new modes) and base integration hooks.
-   - Implement `src/party.js` + Party setup UI + end-view interstitials + final podium.
-   - Implement `src/hud.js` + unified HUD + how-to-play card updates.
-   - Fix mobile overlap in `src/zenplus.css`.
+1) **Phase 5 implementation (blocking):**
+   - Implement `src/modeplus.js` (power-ups + per-mode depth mechanics).
+   - Implement `src/hud2.js` + `src/hud2.css` (HUD v2).
 2) **Build + integration (blocking):**
-   - Update `build.py` CSS/JS arrays and rebuild (`python3 /app/games/build.py`).
-3) **Testing (blocking):**
-   - Run frontend testing agent + screenshot tool across all modes + Party Mode + mobile widths.
-   - Fix regressions and retest.
-4) **Docs (handoff readiness):**
-   - Update README/PRD to reflect Party Mode, new modes, and unified HUD.
+   - Update `build.py` to include new modules; rebuild (`python3 /app/games/build.py`).
+3) **Testing mandate (blocking):**
+   - Run the frontend `testing_agent` focusing on RLGL + Zen sandbox + new mode depth + HUD.
+   - Fix regressions and rerun `testing_agent` until clean.
+4) **Phase 6:**
+   - Implement Backyard Garden weather (rain auto-water + snow visuals).
 
 ## 4) Success Criteria
 - `treesh.app/games/frea` loads as a single file and plays smoothly on desktop + mobile.
@@ -313,27 +239,22 @@ Completed outcomes:
   - Write into `treesh_stars` with correct log entries.
   - Survive parent overwrites via reconciliation (no duplicate awards).
   - When embedded, parent UI updates **immediately** (message + storage sync) and parent memory never overwrites game awards.
-- Every mode feels “finished”: clear goals, readable HUD, satisfying end screen + rewards.
-- Environments:
-  - Arcade: one cohesive, upgraded arena per mode.
-  - Zen: multiple pickable worlds, including newly added ones.
-- Character customization:
-  - Standalone Character Studio is discoverable and pleasant.
-  - Every customization option is cohesive, high-quality, and visually aligned.
-  - New options persist correctly in `frea_v4`.
-- Zen “Flea House” supports: build/buy, place/rotate/snap/stack, needs + autonomy, save/load.
-- Zen Sandbox+ supports:
-  - Build dock usability, worlds selection via thumbnails, magic toggles, photo mode.
-  - No UI overlap with emote controls (desktop + mobile).
-- Backyard Garden supports: plant/water/grow/harvest/picnic, autonomy + direct commands, offline growth, daily payout cap.
-- Seasonal shop supports: rotating packs, locked coming-soon previews, out-of-season guard, debug date override.
-- Achievements unlock reliably, show in UI, and grant stars once (now **55** trophies).
-- **Party Mode:**
-  - Setup UI allows choosing included modes, rounds, and shuffle/in-order.
-  - Zen is excluded; per-mode rotation overrides apply.
-  - Modes rotate every round; interstitial “Next up” appears.
-  - Party standings scoring correct; final podium shown.
-  - Stable AI roster across all rounds.
-- **New modes:**
-  - `koth`, `lava`, `stars`, `redlight`, `freeze` are playable, understandable, and integrate with HUD + end screen + trophies/starlites pipeline.
-- Documentation exists so future edits use `src/*` + build step (no direct edits to `frea.html`).
+- Every mode feels “finished” and **deep**:
+  - Clear goals, readable HUD, satisfying end screen + rewards.
+  - Added per-mode mechanics (power-ups + twists) create replayable variety.
+- **Red Light, Green Light:**
+  - Map is “way longer” (multi-screen race).
+  - All fleas start together at the start line.
+  - No immediate failures; mode is playable and fun.
+- Zen Sandbox:
+  - Items render correctly and support: pick up/carry/throw/stack/push/sit + item-specific actions.
+  - Wear-on-head is persistent for the player.
+  - Flea action animations are visibly animated (dance/spin/wave/etc.).
+- HUD v2:
+  - Portrait standings, goal meter, timer ring, alerts, and results podium work across all modes.
+  - UI is responsive and unclipped at 1920×1080 and 1366×768.
+- Backyard Garden Weather:
+  - Rain waters beds automatically and looks beautiful.
+  - Snow visuals render cleanly and do not break performance.
+- Documentation/workflow remains correct:
+  - Never edit `frea.html` directly; always edit `src/*` and rebuild.
