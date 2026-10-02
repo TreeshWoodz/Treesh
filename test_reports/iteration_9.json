@@ -1,0 +1,28 @@
+{
+  "summary": "Frontend-only CSS nav layout validation on /songcoder.html at 8 viewport widths. Mobile (<=760), mid (761-1280), and tab switching + indicator alignment all pass. However, at >=1281px the tabs are NOT equally sized (fails spec).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": ".tabs/.tab (>=1281px breakpoint)", "issue": "Tabs are not equal width at 1440px and 1920px. Measured getBoundingClientRect().width = [127, 140, 134, 102, 119, 136] (Compose/Catalog/Artists/Lyrics/Projects/Models). They use natural content widths because no flex:1 1 0 rule exists in the (min-width:1281px) media query. The .tabs container does not fill the row, so tabs appear bunched/clustered.", "selector": "[data-testid=view-tabs] .tab", "priority": "HIGH"},
+      {"component": ".tab at 768px", "issue": "Minor width inequality: [118.38, 120, 118.39, 118.39, 118.39, 118.39]. Catalog is ~1.62px wider than siblings because the inline '56' count badge nudges min-content past the flex:1 basis. Exceeds the 1px tolerance in the spec.", "selector": "[data-testid=tab-catalog]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Add equal-width rule inside the @media (min-width:1281px) block (or make it unconditional on .tab): e.g. `.tabs{width:100%} .tab{flex:1 1 0;min-width:0;justify-content:center}` so all 6 tabs are equally sized at wide viewports.",
+    "Optional: at 761-1280px, hide .count (or make it absolute-positioned) so Catalog's count badge doesn't push its flex basis past peers; or add `min-width:0` and `overflow:hidden` on .tab to let flex:1 fully equalize."
+  ],
+  "critical_code_review_comments": [
+    "CSS at line 60 defines .tab with padding/natural width; only the two narrower-viewport media queries apply flex:1 1 0. The widest-viewport block at (min-width:1281px) lacks any equal-width rule, which is exactly what the user bug report describes.",
+    "moveInd() correctly repositions the purple indicator on resize and click (verified at all 8 viewports and after clicking each of the 6 tabs — alignment within 1px every time)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "80%"},
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Re-run the Playwright viewport sweep (360/390/768/900/1100/1280/1440/1920) and assert max-min tab width <= 1px at every size. Also assert document.documentElement.scrollWidth == innerWidth and [data-testid=view-tabs] scrollWidth == clientWidth. Verify indicator alignment after switching to each of the 6 tabs. Mobile <=760 and 761-1280 already pass; focus on >=1281 after fix.",
+  "rca of the issue": "The @media (min-width:1281px) block in /app/frontend/public/songcoder.html does not include a `.tab{flex:1 1 0}` or equivalent rule, so .tab elements fall back to their intrinsic content widths. The .tabs flex container therefore shrinks to content width (margin:0 auto centers it) and tab widths diverge based on label length and whether a count badge is present. Fix: add equal-width + full-width tabs rule in the >=1281px media query."
+}
