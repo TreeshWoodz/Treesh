@@ -3,7 +3,7 @@ import { View } from "react-native";
 import Reanimated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { laneColors } from "@/src/game/theme";
 import { Note } from "@/src/game/types";
-import { Geo, P_NEAR } from "./geometry";
+import { Geo } from "./geometry";
 
 // Wavy note = a CONTINUOUS ribbon drawn as a chain of connected line segments. We sample points
 // along the drawn path, then between each pair render a rounded bar sized/rotated/positioned from
@@ -38,8 +38,8 @@ const WavySegment = React.memo(function WavySegment({ a, b, clock, lookahead, ge
     const pb = (clock.value - (b.t - lookahead)) / lookahead;
     const cpa = pa < 0 ? 0 : pa > 1 ? 1 : pa;
     const cpb = pb < 0 ? 0 : pb > 1 ? 1 : pb;
-    const perspA = P_NEAR + (1 - P_NEAR) * cpa;
-    const perspB = P_NEAR + (1 - P_NEAR) * cpb;
+    const perspA = geo.pn + (1 - geo.pn) * cpa;
+    const perspB = geo.pn + (1 - geo.pn) * cpb;
     const ax = geo.cx + (a.x - 0.5) * geo.hw * perspA, ay = geo.topY + geo.span * cpa;
     const bx = geo.cx + (b.x - 0.5) * geo.hw * perspB, by = geo.topY + geo.span * cpb;
     const dx = bx - ax, dy = by - ay;
@@ -56,12 +56,12 @@ const WavySegment = React.memo(function WavySegment({ a, b, clock, lookahead, ge
   });
   return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: 0, backgroundColor: color }, aStyle]} />;
 });
-const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, color }: { bead: { t: number; x: number }; clock: SharedValue<number>; lookahead: number; geo: Geo; color: string }) {
+const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, color, selected }: { bead: { t: number; x: number }; clock: SharedValue<number>; lookahead: number; geo: Geo; color: string; selected?: boolean }) {
   const size = geo.laneW * 0.6;
   const aStyle = useAnimatedStyle(() => {
     const prog = (clock.value - (bead.t - lookahead)) / lookahead;
     const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
-    const persp = P_NEAR + (1 - P_NEAR) * cp;
+    const persp = geo.pn + (1 - geo.pn) * cp;
     const x = geo.cx + (bead.x - 0.5) * geo.hw * persp;
     const y = geo.topY + geo.span * cp;
     let o = 1;
@@ -70,11 +70,11 @@ const WavyBead = React.memo(function WavyBead({ bead, clock, lookahead, geo, col
     if (o < 0) o = 0; if (o > 1) o = 1;
     return { opacity: o, transform: [{ translateX: x }, { translateY: y }, { scale: persp }] };
   });
-  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -size / 2, top: -size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: 2.5, borderColor: "#FFFFFF", shadowColor: color, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 }, aStyle]}>
+  return <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -size / 2, top: -size / 2, width: size, height: size, borderRadius: size / 2, backgroundColor: color, borderWidth: selected ? 4 : 2.5, borderColor: selected ? "#FFD600" : "#FFFFFF", shadowColor: color, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 }, aStyle]}>
     <View style={{ position: "absolute", top: size * 0.16, left: size * 0.24, right: size * 0.24, height: size * 0.34, borderRadius: size / 2, backgroundColor: "rgba(255,255,255,0.5)" }} />
   </Reanimated.View>;
 });
-const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo }: { note: Note; clock: SharedValue<number>; lookahead: number; geo: Geo }) {
+const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo, selected }: { note: Note; clock: SharedValue<number>; lookahead: number; geo: Geo; selected?: boolean }) {
   const color = laneColors[note.lane];
   const beads = useMemo(() => sampleBeads(note), [note]);
   const thick = geo.laneW * 0.36;
@@ -84,11 +84,11 @@ const WavyNote = React.memo(function WavyNote({ note, clock, lookahead, geo }: {
     {beads.slice(0, -1).map((b, i) => <WavySegment key={`g${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={edge} thick={thick * 1.55} />)}
     {beads.slice(0, -1).map((b, i) => <WavySegment key={`c${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color={color} thick={thick} />)}
     {beads.slice(0, -1).map((b, i) => <WavySegment key={`h${i}`} a={b} b={beads[i + 1]} clock={clock} lookahead={lookahead} geo={geo} color="#FFFFFF" thick={thick * 0.28} />)}
-    <WavyBead bead={beads[0]} clock={clock} lookahead={lookahead} geo={geo} color={color} />
+    <WavyBead bead={beads[0]} clock={clock} lookahead={lookahead} geo={geo} color={color} selected={selected} />
   </>;
 });
-export const WavyLayer = React.memo(function WavyLayer({ notes, clock, lookahead, geo }: { notes: Note[]; clock: SharedValue<number>; lookahead: number; geo: Geo }) {
-  return <>{notes.filter(n => n.type === "wavy").map(n => <WavyNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} />)}</>;
+export const WavyLayer = React.memo(function WavyLayer({ notes, clock, lookahead, geo, selectedIds }: { notes: Note[]; clock: SharedValue<number>; lookahead: number; geo: Geo; selectedIds?: Set<string> }) {
+  return <>{notes.filter(n => n.type === "wavy").map(n => <WavyNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} selected={!!selectedIds?.has(n.id)} />)}</>;
 });
 // Which lane a wavy note occupies at time t — the player must follow it across lanes.
 export function wavyLaneAt(note: Note, t: number) {

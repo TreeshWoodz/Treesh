@@ -3,10 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
 import { Avatar } from "@/src/components/Avatar";
-import { alpha, colors, fonts, neonGlow, textGlow } from "@/src/game/theme";
+import { alpha, colors, difficultyColors, fonts, neonGlow, textGlow } from "@/src/game/theme";
 import { Difficulty, Song } from "@/src/game/types";
 
-const DIFF_COLOR: Record<Difficulty, string> = { Easy: colors.lime, Normal: colors.cyan, Hard: colors.pink, Expert: colors.purple, Custom: colors.gold };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 type Props = {
@@ -19,7 +18,7 @@ export function SongIntroCard({ song, difficulty, bpm, notes, duration, countdow
   const enter = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(0)).current;
   const spin = useRef(new Animated.Value(0)).current;
-  const dc = DIFF_COLOR[difficulty] || colors.cyan;
+  const dc = difficultyColors[difficulty] || colors.cyan;
   const accent = song.accent || colors.cyan;
   useEffect(() => {
     Animated.spring(enter, { toValue: 1, friction: 7, tension: 70, useNativeDriver: true }).start();

@@ -4,26 +4,26 @@ import { StyleSheet, View } from "react-native";
 import Reanimated, { interpolateColor, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { laneColors, alpha } from "@/src/game/theme";
 import { Note, SwipeDir } from "@/src/game/types";
-import { Geo, P_NEAR, laneFrac } from "./geometry";
+import { Geo, laneFrac } from "./geometry";
 
 const ARROW: Record<SwipeDir, keyof typeof Ionicons.glyphMap> = { up: "arrow-up", left: "arrow-back", right: "arrow-forward" };
 
 // ---- Falling note (pure UI-thread motion, memoized so score/combo re-renders never touch it) ----
-const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo, special, rainbow }: { note: Note; clock: SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: SharedValue<number> }) {
+const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, geo, special, rainbow, selected }: { note: Note; clock: SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: SharedValue<number>; selected?: boolean }) {
   const f = laneFrac(note.lane);
   const color = laneColors[note.lane];
   const isWavy = note.type === "wavy";
   const isHold = note.type === "hold" || note.type === "wavy";
   const isSwipe = note.type === "swipe" && !!note.dir;
-  const baseW = geo.laneW * (isSwipe ? 0.7 : 0.8);
-  const baseH = isSwipe ? geo.laneW * 0.62 : 28;
-  const tailW = baseW * 0.4;
+  const baseW = geo.laneW * (isSwipe ? 0.62 : 0.8);
+  const baseH = isSwipe ? geo.laneW * 0.58 : 24;
+  const tailW = baseW * 0.34;
   const tailLen = isHold ? Math.max(24, Math.min(geo.span, ((note.duration || 0.4) / lookahead) * geo.span)) : 0;
-  const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI; // lean the tail toward the vanishing point
+  const tilt = (Math.atan2(-f * geo.hw * (1 - geo.pn), geo.span) * 180) / Math.PI; // lean the tail toward the vanishing point
   const aStyle = useAnimatedStyle(() => {
     const prog = (clock.value - (note.time - lookahead)) / lookahead; // 0 at spawn(top) → 1 at receptor
     const cp = prog < 0 ? 0 : prog > 1.1 ? 1.1 : prog;
-    const persp = P_NEAR + (1 - P_NEAR) * cp;
+    const persp = geo.pn + (1 - geo.pn) * cp;
     const x = geo.cx + f * geo.hw * persp;
     const y = geo.topY + geo.span * cp;
     let opacity = 1;
@@ -40,20 +40,22 @@ const FallingNote = React.memo(function FallingNote({ note, clock, lookahead, ge
   });
   return (
     <Reanimated.View pointerEvents="none" style={[{ position: "absolute", left: -baseW / 2, top: -baseH / 2, width: baseW, height: baseH }, aStyle]}>
-      {isHold && !isWavy && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: `${color}55`, borderWidth: 1, borderColor: `${color}AA`, transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
-      <View style={{ position: "absolute", left: -6, top: -6, width: baseW + 12, height: baseH + 12, borderRadius: isSwipe ? 18 : 14, backgroundColor: alpha(color, special ? 0.5 : 0.28) }} />
-      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: isSwipe ? 14 : 10, borderColor: special || isSwipe ? "#FFFFFF" : "rgba(255,255,255,0.7)", borderWidth: isSwipe ? 2.5 : 1.5 }, capStyle]}>
-        <View style={[styles.noteGloss, { borderRadius: baseH / 2, backgroundColor: special ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.35)" }]} />
-        {isSwipe ? <Ionicons name={ARROW[note.dir as SwipeDir]} size={Math.round(baseH * 0.78)} color="#FFFFFF" style={{ textShadowColor: "#000", textShadowRadius: 6 }} />
-          : <View style={{ position: "absolute", left: baseW * 0.28, right: baseW * 0.28, top: baseH / 2 - 2, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.95)" }} />}
+      {isHold && !isWavy && <View style={{ position: "absolute", left: baseW / 2 - tailW / 2, bottom: baseH / 2, width: tailW, height: tailLen, borderRadius: tailW / 2, backgroundColor: alpha(color, 0.28), borderWidth: 1, borderColor: alpha(color, 0.7), transformOrigin: "50% 100%", transform: [{ rotateZ: `${tilt}deg` }] }} />}
+      {selected && <View style={{ position: "absolute", left: -7, top: -7, width: baseW + 14, height: baseH + 14, borderRadius: isSwipe ? 18 : 12, borderWidth: 2, borderColor: "#FFFFFF" }} />}
+      <View style={{ position: "absolute", left: -3, top: -3, width: baseW + 6, height: baseH + 6, borderRadius: isSwipe ? 15 : 10, backgroundColor: alpha(color, special ? 0.42 : 0.18) }} />
+      <Reanimated.View style={[styles.note, { width: baseW, height: baseH, borderRadius: isSwipe ? 12 : 7, borderColor: special || isSwipe ? "#FFFFFF" : "rgba(255,255,255,0.6)", borderWidth: isSwipe ? 2 : 1 }, capStyle]}>
+        <View style={[styles.noteGloss, { borderTopLeftRadius: isSwipe ? 10 : 6, borderTopRightRadius: isSwipe ? 10 : 6, backgroundColor: special ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.26)" }]} />
+        <View style={styles.noteShade} />
+        {isSwipe ? <Ionicons name={ARROW[note.dir as SwipeDir]} size={Math.round(baseH * 0.7)} color="#FFFFFF" style={styles.arrow} />
+          : <View style={{ position: "absolute", left: baseW * 0.3, right: baseW * 0.3, top: baseH / 2 - 1.5, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.92)" }} />}
       </Reanimated.View>
     </Reanimated.View>
   );
 });
 
-export const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo, special, rainbow }: { notes: Note[]; clock: SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: SharedValue<number> }) {
+export const NotesLayer = React.memo(function NotesLayer({ notes, clock, lookahead, geo, special, rainbow, selectedIds }: { notes: Note[]; clock: SharedValue<number>; lookahead: number; geo: Geo; special?: boolean; rainbow: SharedValue<number>; selectedIds?: Set<string> }) {
   // Wavy notes are drawn entirely by WavyLayer (bead ribbon) — skip them here so they aren't double-drawn.
-  return <>{notes.filter(n => n.type !== "wavy").map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} special={special} rainbow={rainbow} />)}</>;
+  return <>{notes.filter(n => n.type !== "wavy").map(n => <FallingNote key={n.id} note={n} clock={clock} lookahead={lookahead} geo={geo} special={special} rainbow={rainbow} selected={!!selectedIds?.has(n.id)} />)}</>;
 });
 
 // Bright bar shown while a hold is actively sustained — drains from the receptor, leaning along the lane's perspective.
@@ -63,7 +65,7 @@ export function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clo
   const isWavy = note.type === "wavy";
   const w = geo.laneW * 0.34;
   const x = geo.cx + f * geo.hw;
-  const tilt = (Math.atan2(-f * geo.hw * (1 - P_NEAR), geo.span) * 180) / Math.PI;
+  const tilt = (Math.atan2(-f * geo.hw * (1 - geo.pn), geo.span) * 180) / Math.PI;
   const endT = note.time + (note.duration || 0.4);
   const aStyle = useAnimatedStyle(() => {
     const cpTe = (clock.value - (endT - lookahead)) / lookahead;
@@ -78,6 +80,8 @@ export function ActiveHoldBar({ note, clock, lookahead, geo }: { note: Note; clo
 }
 
 const styles = StyleSheet.create({
-  note: { alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)" },
-  noteGloss: { position: "absolute", top: 1.5, left: 4, right: 4, height: "42%", backgroundColor: "rgba(255,255,255,0.35)" },
+  note: { alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  noteGloss: { position: "absolute", top: 0, left: 0, right: 0, height: "42%" },
+  noteShade: { position: "absolute", bottom: 0, left: 0, right: 0, height: "30%", backgroundColor: "rgba(0,0,0,0.16)" },
+  arrow: { textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 4 },
 });

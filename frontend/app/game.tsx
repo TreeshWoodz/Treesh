@@ -4,12 +4,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Reanimated, { Easing as RE, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
-import { laneColors, colors, fonts, rgba, neonGlow, textGlow } from "@/src/game/theme";
+import { laneColors, colors, fonts, rgba, alpha, difficultyColors, neonGlow, textGlow } from "@/src/game/theme";
 import { TUTORIAL_STEPS } from "@/src/game/chartEngine";
 import { addXp, claimCrowns, levelUpReward, skinById, useProgress, xpForRun } from "@/src/game/progression";
 import { Note, ScoreResult, SwipeDir } from "@/src/game/types";
@@ -133,10 +133,9 @@ export default function GameScreen() {
     const hw = Math.min(width - 20, 470);
     const bottomY = height - PAD_BOTTOM - PAD_H / 2;
     const topY = insets.top + 128;
-    return { cx: width / 2, hw, topY, bottomY, laneW: hw / 4, span: bottomY - topY };
+    return { cx: width / 2, hw, topY, bottomY, laneW: hw / 4, span: bottomY - topY, pn: P_NEAR };
   }, [width, height, insets.top, PAD_BOTTOM]);
 
-  const discGeo = useMemo(() => ({ cx: geo.cx, cy: geo.topY + geo.span * 0.1, r: Math.min(64, geo.hw * 0.15) }), [geo]);
   const lookahead = 2.4 / settings.noteSpeed;
   const duration = chart?.duration || 30;
   const sorted = useMemo(() => (chart ? [...chart.notes].sort((a, b) => a.time - b.time) : []), [chart]);
@@ -405,13 +404,16 @@ export default function GameScreen() {
   const hpColor = rock < 30 ? "#FF0044" : rock < 60 ? "#FFD600" : "#CCFF00";
   const cc = comboColor(combo);
   const jColor = judgment ? judgeColor(judgment.grade, judgment.plus) : "#fff";
+  const songAccent = selectedSong.accent || skin.glow;
+  const diffColor = difficultyColors[selectedDifficulty] || colors.cyan;
+  const coverSrc = selectedSong.coverArt && !settings.grayscaleCovers ? (typeof selectedSong.coverArt === "number" ? selectedSong.coverArt : { uri: selectedSong.coverArt }) : null;
 
   return <View style={styles.root} testID="gameplay-screen">
-    <Backdrop coverArt={selectedSong.coverArt} accent={selectedSong.accent || skin.glow} grayscale={settings.grayscaleCovers} theme={prog.theme} w={width} h={height} horizon={geo.topY + geo.span * 0.32} disc={discGeo} />
+    <Backdrop coverArt={selectedSong.coverArt} accent={songAccent} grayscale={settings.grayscaleCovers} theme={prog.theme} w={width} h={height} horizon={geo.topY + geo.span * 0.32} />
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateX: shake }, { translateY: shake.interpolate({ inputRange: [-10, 10], outputRange: [4, -4] }) }] }]}>
     <Grid geo={geo} w={width} h={height} tint={skin.glow} fever={pulseActive} />
     <View pointerEvents="none" style={StyleSheet.absoluteFill}><BeatLines beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={feverSV} />{fx && <StrikePulse beat={beat} clock={clock} geo={geo} color={pulseActive ? "#FFD600" : skin.glow} />}</View>
-    {pulseActive && <LinearGradient pointerEvents="none" colors={["rgba(255,214,0,0.16)", "rgba(255,45,122,0.14)", "rgba(181,55,255,0.18)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
+    {pulseActive && <LinearGradient pointerEvents="none" colors={["rgba(255,214,0,0.08)", "rgba(255,45,122,0.06)", "rgba(181,55,255,0.09)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
 
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -459,22 +461,30 @@ export default function GameScreen() {
       <Ionicons name="trophy" size={18} color={TIER_COLOR[achToast.tier]} />
     </Animated.View>}
 
-    {/* Top HUD */}
+    {/* Top HUD — glass panel with album thumbnail */}
     <View style={[styles.hud, { top: insets.top + 6 }]} pointerEvents="box-none">
-      <View style={styles.progTrack}><LinearGradient colors={[skin.glow, colors.pink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.progFill, { width: `${progress * 100}%` }]} /></View>
-      <View style={styles.hudRow}>
-        <View style={{ flex: 1 }}>
-          <Text selectable={false} style={styles.scoreLabel}>SCORE</Text>
-          <Text selectable={false} testID="hud-score" style={[styles.score, { textShadowColor: skin.glow }]}>{score.toLocaleString()}</Text>
-          <Text selectable={false} style={styles.songMeta} numberOfLines={1}>{selectedSong.title} · {selectedDifficulty.toUpperCase()}</Text>
+      <View testID="gameplay-hud" style={styles.hudGlass}>
+        <View style={styles.progTrack}><LinearGradient colors={[skin.glow, colors.pink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.progFill, { width: `${progress * 100}%` }]} /></View>
+        <View style={styles.hudRow}>
+          <View testID="gameplay-cover-thumb" style={[styles.thumb, { borderColor: alpha(songAccent, 0.55) }]}>
+            {coverSrc ? <Image source={coverSrc} style={styles.thumbImg} resizeMode="cover" /> : <LinearGradient colors={[songAccent, colors.purple]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.thumbImg, styles.thumbFallback]}><Ionicons name="musical-notes" size={18} color={colors.text} /></LinearGradient>}
+          </View>
+          <View style={styles.hudInfo}>
+            <Text selectable={false} style={styles.hudTitle} numberOfLines={1}>{selectedSong.title}</Text>
+            <View style={styles.hudMeta}>
+              <Text selectable={false} style={[styles.hudDiff, { color: diffColor }]}>{selectedDifficulty.toUpperCase()}</Text>
+              <View style={styles.liveStars}>{[0, 1, 2, 3, 4].map(n => { const full = liveStars >= n + 1; const half = !full && liveStars >= n + 0.5; return <Ionicons key={n} name={full ? "star" : half ? "star-half" : "star-outline"} size={10} color={full || half ? colors.gold : "rgba(255,255,255,0.25)"} />; })}</View>
+              <Text selectable={false} style={styles.accText}>{accuracy.toFixed(1)}%</Text>
+            </View>
+          </View>
+          <View style={styles.hudScore}>
+            <Text selectable={false} style={styles.scoreLabel}>SCORE</Text>
+            <Text selectable={false} testID="hud-score" style={styles.score}>{score.toLocaleString()}</Text>
+          </View>
+          <Pressable testID="pause-game-button" onPress={togglePause} hitSlop={6} style={styles.pause}><Ionicons name="pause" size={16} color={colors.text} /></Pressable>
         </View>
-        <View style={styles.hudRight}>
-          <View style={styles.liveStars}>{[0, 1, 2, 3, 4].map(n => { const full = liveStars >= n + 1; const half = !full && liveStars >= n + 0.5; return <Ionicons key={n} name={full ? "star" : half ? "star-half" : "star-outline"} size={13} color={full || half ? colors.gold : "rgba(255,255,255,0.28)"} />; })}</View>
-          <Text selectable={false} style={styles.accText}>{accuracy.toFixed(1)}%</Text>
-        </View>
-        <Pressable testID="pause-game-button" onPress={togglePause} style={styles.pause}><Ionicons name="pause" size={18} color={colors.cyan} /></Pressable>
+        <View style={styles.hpTrack}><View testID="hud-health" style={[styles.hpFill, { width: `${rock}%`, backgroundColor: hpColor }]} /></View>
       </View>
-      <View style={styles.hpRow}><Ionicons name="heart" size={13} color={hpColor} /><View style={styles.hpTrack}><View testID="hud-health" style={[styles.hpFill, { width: `${rock}%`, backgroundColor: hpColor, shadowColor: hpColor }]} /></View></View>
     </View>
 
     {tutorial && countdown <= 0 && (() => { const tt = progress * duration; const st = TUTORIAL_STEPS.find(x => tt >= x.from && tt < x.to) || TUTORIAL_STEPS[0]; return <View testID="tutorial-banner" pointerEvents="none" style={[styles.tutBanner, { top: insets.top + 104 }]}>
@@ -516,11 +526,27 @@ export default function GameScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#06051A", overflow: "hidden" },
+  hud: { position: "absolute", left: 12, right: 12 },
+  hudGlass: { borderRadius: 16, overflow: "hidden", backgroundColor: "rgba(12,10,36,0.74)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  progTrack: { height: 3, backgroundColor: "rgba(255,255,255,0.06)" }, progFill: { height: 3 },
+  hudRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 10, paddingVertical: 9 },
+  thumb: { width: 42, height: 42, borderRadius: 10, overflow: "hidden", borderWidth: 1, backgroundColor: colors.bg1 }, thumbImg: { width: "100%", height: "100%" }, thumbFallback: { alignItems: "center", justifyContent: "center" },
+  hudInfo: { flex: 1, minWidth: 0 }, hudTitle: { color: colors.text, fontSize: 14, fontFamily: fonts.heavy },
+  hudMeta: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 3 }, hudDiff: { fontSize: 9, letterSpacing: 1.6, fontFamily: fonts.arcadeBlack },
+  liveStars: { flexDirection: "row", alignItems: "center", gap: 1 }, accText: { color: colors.muted, fontSize: 11, fontFamily: fonts.bold },
+  hudScore: { alignItems: "flex-end" }, scoreLabel: { color: colors.muted, fontSize: 8, letterSpacing: 2.4, fontFamily: fonts.arcade },
+  score: { color: colors.text, fontSize: 20, lineHeight: 25, fontFamily: fonts.arcadeBlack, fontVariant: ["tabular-nums"] },
+  pause: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
+  hpTrack: { height: 3, backgroundColor: "rgba(255,255,255,0.06)" }, hpFill: { height: 3 },
+  combo: { fontSize: 48, lineHeight: 56, fontFamily: fonts.arcadeBlack, textShadowRadius: 12, textShadowOffset: { width: 0, height: 0 } },
+  comboLabel: { color: "rgba(255,255,255,0.6)", fontSize: 10, letterSpacing: 5, fontFamily: fonts.arcade, marginTop: -2 },
+  multChip: { marginTop: 6, paddingHorizontal: 9, height: 20, borderRadius: 10, borderWidth: 1, justifyContent: "center", backgroundColor: "rgba(6,5,26,0.6)" }, multText: { fontSize: 11, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
+  judgment: { textAlign: "center", fontSize: 22, fontFamily: fonts.arcadeBlack, letterSpacing: 2, textShadowRadius: 10, textShadowOffset: { width: 0, height: 0 } },
+  voco: { position: "absolute", left: 18, right: 18, height: 36, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, backgroundColor: "rgba(12,10,36,0.74)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  vocoReady: { borderColor: "rgba(255,214,0,0.6)", backgroundColor: "rgba(255,214,0,0.08)", ...neonGlow(colors.gold, 10, 0.35) },
+  vocoLabel: { color: "rgba(255,200,120,0.85)", fontSize: 9, letterSpacing: 2, fontFamily: fonts.arcadeBlack, width: 46 }, vocoTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" }, vocoFill: { height: 6, borderRadius: 3 }, vocoMult: { color: "rgba(245,245,247,0.9)", fontSize: 12, fontFamily: fonts.arcadeBlack, width: 28, textAlign: "right" },
   comboWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-  combo: { fontSize: 54, lineHeight: 62, fontFamily: fonts.arcadeBlack, textShadowRadius: 22, textShadowOffset: { width: 0, height: 0 } }, comboLabel: { color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 6, fontFamily: fonts.arcade, marginTop: -2 },
-  multChip: { marginTop: 6, paddingHorizontal: 10, height: 22, borderRadius: 6, borderWidth: 1.5, justifyContent: "center", backgroundColor: "rgba(6,5,26,0.6)" }, multText: { fontSize: 12, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
   judgeWrap: { position: "absolute", width: 200, alignItems: "center" },
-  judgment: { textAlign: "center", fontSize: 24, fontFamily: fonts.arcadeBlack, letterSpacing: 1.5, textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 } },
   judgeTiming: { fontSize: 10, fontFamily: fonts.arcade, letterSpacing: 3, marginTop: 1 },
   feverPop: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   feverText: { color: "#FFD600", fontSize: 40, fontFamily: fonts.arcadeBlack, letterSpacing: 2, ...textGlow("#FF8A00", 26) }, feverSub: { color: "#FFFFFF", fontSize: 12, fontFamily: fonts.arcade, letterSpacing: 4, marginTop: 2, ...textGlow("#FF2D7A", 12) },
@@ -535,18 +561,6 @@ const styles = StyleSheet.create({
   practiceTag: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: "rgba(13,230,210,0.14)", borderWidth: 1, borderColor: "rgba(13,230,210,0.4)" }, practiceTagText: { color: colors.cyan, fontSize: 10, fontFamily: fonts.heavy, letterSpacing: 1 },
   spdChip: { minWidth: 46, height: 30, paddingHorizontal: 10, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" }, spdChipOn: { backgroundColor: colors.cyan, borderColor: colors.cyan }, spdChipText: { color: colors.text, fontSize: 13, fontFamily: fonts.heavy }, spdChipTextOn: { color: colors.bg },
   loopBtn: { flexDirection: "row", alignItems: "center", gap: 4, minWidth: 62, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)", justifyContent: "center" }, loopClear: { borderColor: "rgba(255,92,122,0.5)" }, loopBtnText: { color: colors.text, fontSize: 12, fontFamily: fonts.heavy },
-  hud: { position: "absolute", left: 16, right: 16 }, hudRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 },
-  scoreLabel: { color: colors.muted, fontSize: 9, letterSpacing: 3, fontFamily: fonts.arcade },
-  score: { color: colors.text, fontSize: 28, lineHeight: 34, fontFamily: fonts.arcadeBlack, textShadowRadius: 14, textShadowOffset: { width: 0, height: 0 } }, songMeta: { color: "rgba(214,214,255,0.6)", fontSize: 11, fontFamily: fonts.bold, marginTop: 1, letterSpacing: 0.5 },
-  hudRight: { alignItems: "flex-end", gap: 4 },
-  pause: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,229,255,0.08)", borderWidth: 1, borderColor: "rgba(0,229,255,0.45)" },
-  accText: { color: colors.text, fontSize: 13, fontFamily: fonts.arcade, textAlign: "right" },
-  liveStars: { flexDirection: "row", alignItems: "center", gap: 1 },
-  hpRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }, hpTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, hpFill: { height: 6, borderRadius: 3, shadowOpacity: 1, shadowRadius: 6 },
-  progTrack: { height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" }, progFill: { height: 3, borderRadius: 2 },
-  voco: { position: "absolute", left: 18, right: 18, height: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, backgroundColor: "rgba(6,5,26,0.7)", borderWidth: 1, borderColor: "rgba(255,138,0,0.35)" },
-  vocoReady: { borderColor: "#FFD600", backgroundColor: "rgba(255,214,0,0.12)", ...neonGlow("#FFD600", 14, 0.6) },
-  vocoLabel: { color: "rgba(255,200,120,0.9)", fontSize: 10, letterSpacing: 2, fontFamily: fonts.arcadeBlack, width: 50 }, vocoTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.1)", overflow: "hidden" }, vocoFill: { height: 8, borderRadius: 4 }, vocoMult: { color: "rgba(245,245,247,0.9)", fontSize: 14, fontFamily: fonts.arcadeBlack, width: 30, textAlign: "right" },
   pads: { position: "absolute", left: 0, right: 0, flexDirection: "row" }, pad: { flex: 1, margin: 3, borderRadius: 18 },
   modal: { flex: 1, backgroundColor: "rgba(0,0,0,0.82)", alignItems: "center", justifyContent: "center", padding: 24 }, pauseCard: { width: "100%", maxWidth: 360, padding: 24, borderRadius: 20, gap: 12, backgroundColor: "#0E0B26", borderWidth: 1.5, borderColor: "rgba(0,229,255,0.45)", ...neonGlow(colors.cyan, 20, 0.35) }, pauseIcon: { alignSelf: "center", width: 60, height: 60, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: rgba(0.12), borderWidth: 1.5, borderColor: rgba(0.5) }, pauseTitle: { color: colors.text, textAlign: "center", fontSize: 26, fontFamily: fonts.arcadeBlack, letterSpacing: 3 }, pauseCopy: { color: colors.muted, textAlign: "center", marginBottom: 8, fontSize: 14, fontFamily: fonts.body },
   missing: { flex: 1, justifyContent: "center", padding: 28, gap: 16, backgroundColor: colors.bg }, missingTitle: { color: colors.text, fontSize: 30, fontFamily: fonts.display, textAlign: "center" }, missingCopy: { color: colors.muted, fontSize: 15, textAlign: "center", lineHeight: 22, marginBottom: 8, fontFamily: fonts.body },

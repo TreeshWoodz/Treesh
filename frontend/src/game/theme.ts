@@ -33,6 +33,9 @@ export const colors = {
   border: "rgba(120,120,255,0.22)",
 } as const;
 
+// Difficulty badge colours.
+export const difficultyColors: Record<string, string> = { Easy: colors.lime, Normal: colors.cyan, Hard: colors.pink, Expert: colors.purple, Custom: colors.gold };
+
 // Lane colours (mutable so equipped note skins can recolour the highway in place).
 export const laneColors = ["#FF2D7A", "#00E5FF", "#CCFF00", "#B537FF"];
 export function setLaneSkin(c: string[]) { for (let i = 0; i < 4; i++) laneColors[i] = c[i]; }
