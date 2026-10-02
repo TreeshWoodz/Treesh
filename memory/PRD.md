@@ -42,6 +42,12 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Bulk import: multi-file drop on Compose audio zone or Bulk import drawer; per-file ID3 read (title, artist+feat, album, genre, year, artwork), Cloudinary auto-upload when configured, Apply-to-all shared fields, per-item edit/preview/remove/send-to-Compose, duplicate warning, one commit/PR for all ready songs
 - Tested iteration_5 (100%); live dup-chip nit fixed
 
+## Iteration 5 (2026-06)
+- Bulk credits: shared Written/Produced/Mixed by in Apply-to-all + per-item credit inputs; carried to upload & Compose
+- Projects tab: groups catalog by data-album; editor (title, artist, cover=first track default, date=earliest default, slug, description, tracklist reorder/remove), live iframe preview, publishes standalone playable page to projects/<slug>.html (treesh.app/projects/<slug>) via Review/Go live; Copy code; Published status check
+- commitFile supports creating new files; Settings: Project pages folder
+- Tested iteration_6 (pass); mobile project editor overflow fixed
+
 ## Backlog
 - P1: Lyrics editor for content/lyrics
 - P2: Main-app patch to honor data-release (badge + playback lock)
