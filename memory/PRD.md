@@ -20,6 +20,16 @@ Treesh web app: massive single-file architecture (`/app/single_html/index.html`)
   - Karaoke fullscreen stage: real Fullscreen API, pulsing glow (Accent default / Cover / Rainbow, LS `treesh_kar_glow`), big word-by-word glowing current line, dimmed next/prev lines, auto-hiding controls (3s), progress seek, count-in + performer tags kept.
   - Tested: iteration_12.json — 100% frontend pass.
 
+  - Link preview card: og:* + twitter:summary_large_image meta tags in <head> using https://ik.imagekit.io/treesh/Treesh%20Card?updatedAt=1790948609792 (1536x1024 JPEG). Verified via curl.
+  - Onboarding revamp (patch_p5c.py / p5_ob.js / p5_ob.css) applied — testing_agent verification still PENDING.
+
+## Pending (Phase 5)
+- A) testing_agent run on welcome/onboarding overflow fix
+- B) Magic Markup: better UI, stickers locked to parent sections, time/date/weather widgets, premade static + music-reactive stickers
+- C) Profile picture/banner → Image Studio crop + compression
+- D) "Edit track" editor revamp (Lyric Card style)
+- P2: Configurable default homepage
+
 ## Backlog
 - P1 (blocked): Vocotap & Nects Starlites/stats — need the user's game files / storage keys.
 - P2: Lyric Card Studio revamp (preview always visible)
