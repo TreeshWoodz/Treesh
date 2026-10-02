@@ -291,3 +291,13 @@ User choices: Showcase = 3 pinned favourites + Rarest/Recent auto rows + full sc
 - rewards.js: only one confirm overlay at a time; closing overlay gets pointer-events:none immediately; Escape closes it; Cancel is auto-focused; open() ignores unknown tab names
 - rewards.css: confirm card/buttons layered above backdrop, 44px touch targets
 - Verified with normal (non-forced) clicks at 390x844 and 1920x800
+
+## Phase: Copycat Mode + Per-Mode Settings (Status: In Progress)
+User decisions:
+- Copy targets: moves (hop, big leap, left/right, crouch) + every action emote
+- Win formats are ALL settings: (a) Rounds: last flea with hearts wins the round, new random leader each round, best of 3; (b) Single leader, last copier standing; (c) Timed survival (e.g. 90s), survivors score, leader scores if it knocks out 2+
+- If the player is picked as leader, they perform moves/emotes and CPU copiers try to keep up
+- Copy window: Easy 3s / Normal 2s / Hard 1s; separate Hearts toggle (3 or 1)
+- Leader sits high on a perch and never leaves it
+- Generate a 3D Pixar-style tile with gpt-image-1 (art/gen_tiles.py)
+- EXTRA: every game mode must have a settings button and its own settings tab
