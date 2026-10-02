@@ -55,6 +55,13 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
   - Form: ft/in <-> cm toggle, category chips, validation, photo uploader (Cloudinary), link add, batch link import (URLs/HTML), tile kind toggle/headshot/reorder/remove, code panel + copy; add/edit/delete via Review/Go live; file auto-created
 - Tested iteration_7 (100%)
 
+## Iteration 7 (2026-06)
+- Models saved as <div class="model" data-model-id data-name data-model-sort="[data-model-id]" data-bg data-bg-pos ...> (balanced-div parser; legacy article still readable)
+- Scout filters: height min/max, board, city, availability, category + count + clear
+- Comp cards: 5.5x8.5in front/back printable page (Print/Save PDF), Copy code/link, publish share page to models/<slug>.html (treesh.app/models/<slug>); Settings: Comp card folder
+- Nav fix: 6 tabs equal width at all sizes (mobile icon+label, 761-1280 full-width 2nd row, >=1281 equal grid)
+- Tested iteration_8 (100%), iteration_10 (nav)
+
 ## Backlog
 - P1: Lyrics editor for content/lyrics
 - P2: Main-app patch to honor data-release (badge + playback lock)
