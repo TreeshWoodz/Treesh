@@ -23,7 +23,14 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Settings drawer: token, owner/repo/branch/paths, Cloudinary, API base, test connection
 - Fully responsive (mobile/tablet/desktop) — tested iteration_1 & iteration_2 (100%)
 
+## Iteration 2 (2026-06)
+- Release countdown: 'Drops on' datetime -> data-release="ISO+offset" on the song; preview + catalog show Dropping soon badge & live countdown (main app must read data-release and lock playback; user handles main app)
+- Artists tab: roster grid (photo, role, id, location, cashapp, song counts) + New artist drawer (photo/background drop or URL, bg position, location, bio, Cash App, role) -> inserts <article class="artist"> at top of content/icons.html with next id
+- Catalog reorder mode: drag (SortableJS) + top/up/down buttons; saves via Review/Go live; preserves comments/gaps
+- Mode toggle synced across publish dock, reorder bar, artist drawer
+- Tested iteration_3 (100%)
+
 ## Backlog
 - P1: Lyrics editor for content/lyrics
-- P1: Drag to reorder catalog
-- P2: Artist profile (icons.html) editor
+- P1: Edit/delete existing artists
+- P2: Main-app patch to honor data-release (badge + playback lock)
