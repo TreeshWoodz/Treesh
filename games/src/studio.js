@@ -35,9 +35,9 @@ var Studio=(function(){
   /* ---------- state changes ---------- */
   function commit(){saveFreas();try{repopulate();applyToUI();}catch(e){}try{updateLobbyProfile();}catch(e){}try{if(window.FreaProfile)window.FreaProfile.refresh();}catch(e){}}
   function snapshot(){undo.push(JSON.stringify(cur()));if(undo.length>30)undo.shift();el('st-undo').disabled=false;}
-  function setVal(key,val){var c=cur();if(c[key]===val)return;snapshot();c[key]=val;commit();renderSection();renderRoster();bounce();}
+  function setVal(key,val){var c=cur();if(c[key]===val)return;if(window.FreaShop&&FreaShop.locked(key,val)){FreaShop.offer(key,val,function(){setVal(key,val);});return;}snapshot();c[key]=val;commit();renderSection();renderRoster();bounce();}
   function bounce(){var s=el('st-stage-wrap');if(!s)return;s.classList.remove('pop');void s.offsetWidth;s.classList.add('pop');try{if(typeof sfx==='function')sfx('pick');}catch(e){}}
-  function randomize(){snapshot();var c=cur();SECTIONS.forEach(function(S){S[3].forEach(function(fd){if(fd[2]==='col'){var p=fd[5];c[fd[0]]=p[(Math.random()*p.length)|0];}else{var o=opts(fd[3]);if(o.length)c[fd[0]]=o[(Math.random()*o.length)|0][0];}});});
+  function randomize(){snapshot();var c=cur();SECTIONS.forEach(function(S){S[3].forEach(function(fd){if(fd[2]==='col'){var p=fd[5];c[fd[0]]=p[(Math.random()*p.length)|0];}else{var o=opts(fd[3]).filter(function(x){return !(window.FreaShop&&FreaShop.locked(fd[0],x[0]));});if(o.length)c[fd[0]]=o[(Math.random()*o.length)|0][0];}});});
     /* keep it cute: fewer "everything on" combos */ if(Math.random()<.5)c.cape='none';if(Math.random()<.5)c.glasses='none';if(Math.random()<.4)c.hat='none';
     commit();render();bounce();}
   /* ---------- UI ---------- */
@@ -64,7 +64,7 @@ var Studio=(function(){
     S[3].forEach(function(fd){var key=fd[0];h+='<div class="st-field"><div class="st-fh"><b>'+fd[1]+'</b><small>'+esc(fd[2]==='col'?c[key]:(opts(fd[3]).filter(function(o){return o[0]===c[key];})[0]||['',''])[1])+'</small></div>';
       if(fd[2]==='col'){h+='<div class="st-swatches">'+fd[5].map(function(col){return '<button class="st-sw'+(String(c[key]).toLowerCase()===col?' on':'')+'" style="--c:'+col+'" data-k="'+key+'" data-v="'+col+'" aria-label="'+fd[1]+' '+col+'" data-testid="studio-swatch-'+key+'-'+col.slice(1)+'"></button>';}).join('')+
         '<label class="st-sw custom" title="Custom color" data-testid="studio-custom-'+key+'"><input type="color" data-k="'+key+'" value="'+(c[key]||'#ffffff')+'"><span>＋</span></label></div>';}
-      else{h+='<div class="st-tiles">'+opts(fd[3]).map(function(o){return '<button class="st-tile'+(c[key]===o[0]?' on':'')+'" data-k="'+key+'" data-v="'+esc(o[0])+'" data-z="'+fd[4]+'" data-testid="studio-opt-'+key+'-'+esc(o[0])+'"><canvas width="96" height="96"></canvas><span>'+esc(o[1])+'</span></button>';}).join('')+'</div>';}
+      else{h+='<div class="st-tiles">'+opts(fd[3]).map(function(o){var lk=window.FreaShop&&FreaShop.locked(key,o[0]);return '<button class="st-tile'+(c[key]===o[0]?' on':'')+(lk?' locked':'')+'" data-k="'+key+'" data-v="'+esc(o[0])+'" data-z="'+fd[4]+'" data-testid="studio-opt-'+key+'-'+esc(o[0])+'"><canvas width="96" height="96"></canvas><span>'+esc(o[1])+'</span>'+(lk?'<em class="st-lock">🔒 ✦'+FreaShop.price(key,o[0])+'</em>':'')+'</button>';}).join('')+'</div>';}
       h+='</div>';});
     pane.innerHTML=h;
     /* draw tile previews progressively (keeps the modal snappy) */

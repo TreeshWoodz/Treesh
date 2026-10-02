@@ -228,15 +228,16 @@ var House=(function(){
   function frame(ts){
     if(!open)return;raf=requestAnimationFrame(frame);var dt=Math.min(.05,(ts-(lastT||ts))/1000);lastT=ts;var t=ts/1000;
     var gm=speed*dt*1.0;/* game minutes per frame: 1 real sec = 1 game min at 1x */
-    if(speed>0){S.min+=gm;if(S.min>=24*60){S.min-=24*60;S.day=(S.day||1)+1;}residents.forEach(function(r){simStep(r,dt,gm);});Garden.tick(gm);hourTick();}
-    var W2=cv.width,H2=cv.height,dpr=cv._dpr||1;c.setTransform(1,0,0,1,0,0);drawBG(W2,H2);
+    if(speed>0){S.min+=gm;if(S.min>=24*60){S.min-=24*60;S.day=(S.day||1)+1;}residents.forEach(function(r){simStep(r,dt,gm);});Garden.tick(gm);Weather.tick(gm);hourTick();}
+    var W2=cv.width,H2=cv.height,dpr=cv._dpr||1;c.setTransform(1,0,0,1,0,0);drawBG(W2,H2);wxBG(W2,H2,t);
     var V=view();c.setTransform(cam.z*dpr,0,0,cam.z*dpr,(V.cx-cam.x*cam.z)*dpr,(V.cy-cam.y*cam.z)*dpr);
     c.fillStyle='#1f7a4a';c.fillRect(-3000,10,HW+6000,3000);c.fillStyle='#39ff7a';c.fillRect(-2000,10,HW+4000,4);
-    drawHouse(t);drawYard(t);
+    drawHouse(t);drawYard(t);wxWorld(t);
     var order=S.items.slice().sort(function(a,b){var la=cat(a).place==='wall'?0:cat(a).place==='rug'?1:a.par?3:2,lb=cat(b).place==='wall'?0:cat(b).place==='rug'?1:b.par?3:2;return la-lb;});
     order.forEach(function(it){if(it.floor===1&&!S.upstairs)return;if(drag&&drag.it===it)return;drawItem(it,t);});
     residents.slice().sort(function(a,b){return (sel===a)-(sel===b);}).forEach(function(r){drawRes(r);});
     lightGlow();
+    c.save();c.setTransform(1,0,0,1,0,0);wxFront(W2,H2,t);c.restore();
     if(drag&&drag.it){drawItem(drag.it,t,.85,!valid(drag.it));}
     if(ghost&&ghost.it){drawItem(ghost.it,t,.7,!valid(ghost.it)||!Treesh.canAfford(cat(ghost.it).price));}
     if(sel)paintFleaPanel();
@@ -313,6 +314,49 @@ var House=(function(){
     var hv=el('hg-harv');if(hv)hv.onclick=function(){sendGardener('harvest',i);m.classList.remove('show');};
     var wb=el('hg-water');if(wb)wb.onclick=function(){sendGardener('water',i);m.classList.remove('show');};
     el('hg-dig').onclick=function(){if(!confirm('Dig up the '+sd.name+'? Seeds are not refunded.'))return;p.seed=null;p.g=0;p.busy=null;dirty=1;m.classList.remove('show');tip('Bed '+(i+1)+' cleared');};}
+
+  /* ---------------- ☁️ WEATHER (sunny · cloudy · rain · snow) ----------------
+     Rain waters every planted bed by itself. Snow blankets the yard (and slows water loss).
+     Auto weather rotates through the day (snow only in winter months); tap the weather chip to force one. */
+  var WXN={clear:'Sunny',cloudy:'Cloudy',rain:'Rain',snow:'Snow'};
+  var WXI={clear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="#ffd23d"/><g stroke="#ffd23d" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g></svg>',
+    cloudy:'<svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 18z" fill="#c9d2ee"/></svg>',
+    rain:'<svg viewBox="0 0 24 24"><path d="M7 14h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 14z" fill="#9fb0dc"/><g stroke="#5fd0ff" stroke-width="2" stroke-linecap="round"><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"/></g></svg>',
+    snow:'<svg viewBox="0 0 24 24"><path d="M7 13h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.5A3.3 3.3 0 0 0 7 13z" fill="#e4ecff"/><g fill="#fff"><circle cx="8" cy="17" r="1.5"/><circle cx="12" cy="20" r="1.5"/><circle cx="16" cy="17" r="1.5"/></g></svg>'};
+  var WXFX={mix:{cloudy:0,rain:0,snow:0},drops:[],flakes:[],splash:[]};
+  function wxSt(){if(!S.wx)S.wx={k:'clear',left:120,pick:'auto',acc:0,wet:0};return S.wx;}
+  function wxWinter(){try{var m=FreaSeasons.now().getMonth();return m===11||m===0||m===1;}catch(e){return false;}}
+  function wxNext(){var w=wxSt(),r=Math.random(),k;
+    if(wxWinter())k=r<0.4?'snow':r<0.55?'rain':r<0.75?'cloudy':'clear';else k=r<0.36?'rain':r<0.58?'cloudy':'clear';
+    if(k===w.k&&k!=='clear')k='clear';wxSet(k,{rain:[70,160],snow:[90,200],cloudy:[60,140],clear:[150,330]}[k]);}
+  function wxSet(k,rng){var w=wxSt(),was=w.k;w.k=k;w.left=rng?rng[0]+Math.random()*(rng[1]-rng[0]):9e9;dirty=1;wxChip();try{if(open&&mode==='garden')renderGarden(true);}catch(e){}
+    if(open&&was!==k){if(k==='rain')tip('It started raining. The garden waters itself!');else if(k==='snow')tip('Snow day! The yard is turning white');else if(was==='rain'||was==='snow')tip(k==='clear'?'The sun is back out':'The sky is clearing up');}}
+  var Weather={tick:function(gm){var w=wxSt();if(w.pick&&w.pick!=='auto'){if(w.k!==w.pick)wxSet(w.pick);}else{w.left-=gm;if(w.left<=0)wxNext();}
+      w.acc=w.k==='snow'?Math.min(1,(w.acc||0)+gm/80):Math.max(0,(w.acc||0)-gm/45);w.wet=w.k==='rain'?Math.min(1,(w.wet||0)+gm/25):Math.max(0,(w.wet||0)-gm/110);
+      Garden.st().plots.forEach(function(p){if(!p.seed||Garden.ripe(p))return;if(w.k==='rain'){var b=p.w;p.w=Math.min(100,p.w+1.8*gm);if(b<100&&p.w>=100)p.fxT=performance.now();}else if(w.k==='snow')p.w=Math.min(100,p.w+WATER_DRAIN*gm*0.6);});},
+    cycle:function(){var w=wxSt(),o=['auto','rain','snow','clear','cloudy'],i=(o.indexOf(w.pick||'auto')+1)%o.length;w.pick=o[i];if(w.pick==='auto'){wxNext();tip('Weather: Auto (changes through the day)');}else{wxSet(w.pick);tip('Weather: '+WXN[w.pick]+' · tap again to change');}wxChip();dirty=1;},
+    state:function(){return wxSt();}};
+  function wxChip(){var b=el('hs-wx');if(!b||!S)return;var w=wxSt();b.innerHTML='<i>'+WXI[w.k]+'</i><span><b>'+WXN[w.k]+'</b><em>'+(w.pick&&w.pick!=='auto'?'Locked':'Auto')+'</em></span>';b.dataset.wx=w.k;b.setAttribute('aria-label','Weather: '+WXN[w.k]+'. Tap to change');}
+  function wxBG(W2,H2,t){var w=wxSt(),M=WXFX.mix;['cloudy','rain','snow'].forEach(function(k){var tg=(w.k===k?1:0);M[k]+=(tg-M[k])*0.03;});var dim=Math.max(M.rain*0.5,M.cloudy*0.22,M.snow*0.18);
+    if(dim>0.01){c.fillStyle='rgba(28,36,66,'+dim+')';c.fillRect(0,0,W2,H2);}if(M.snow>0.01){c.fillStyle='rgba(220,232,255,'+(M.snow*0.16)+')';c.fillRect(0,0,W2,H2);}
+    var cl=Math.max(M.rain,M.cloudy,M.snow);if(cl<0.02)return;var col=M.rain>M.snow?[78,86,120]:(M.snow>0.3?[214,224,244]:[150,160,196]);
+    for(var i=0;i<7;i++){var x=((i*W2/5.2+t*(8+i*2)*(cv._dpr||1))%(W2+500))-250,y=H2*(0.06+((i*37)%5)*0.045),sc=(0.8+((i*13)%4)*0.18)*(cv._dpr||1);c.fillStyle='rgba('+col.join(',')+','+(cl*(0.72-((i%3)*0.12)))+')';
+      c.beginPath();c.ellipse(x,y,110*sc,30*sc,0,0,7);c.ellipse(x-60*sc,y+8*sc,62*sc,24*sc,0,0,7);c.ellipse(x+64*sc,y+6*sc,70*sc,26*sc,0,0,7);c.ellipse(x+10*sc,y-22*sc,58*sc,32*sc,0,0,7);c.fill();}}
+  function wxWorld(t){var w=wxSt(),gy=-SLAB;
+    if(w.wet>0.02){c.save();c.globalAlpha=w.wet*0.55;c.fillStyle='#7fb6ff';[-610,-520,-430,-330,-240,-150,-70].forEach(function(x,i){c.beginPath();c.ellipse(x,gy+4,20+(i%3)*8,3.5,0,0,7);c.fill();});c.restore();
+      if(w.k==='rain'&&Math.random()<0.7)WXFX.splash.push({x:YARD.x0-60+Math.random()*(YARD.x1-YARD.x0+60),y:gy+2,t:0});}
+    WXFX.splash=WXFX.splash.filter(function(s){s.t+=0.06;if(s.t>1)return false;c.strokeStyle='rgba(200,225,255,'+(1-s.t)*0.8+')';c.lineWidth=1.4;c.beginPath();c.arc(s.x,s.y,2+s.t*7,Math.PI*1.1,Math.PI*1.9);c.stroke();return true;});
+    if(w.acc>0.02){var a=w.acc;c.save();c.fillStyle='rgba(246,250,255,'+(0.55+a*0.45)+')';
+      c.beginPath();c.moveTo(YARD.x0-80,gy+2);for(var x=YARD.x0-80;x<=YARD.x1+14;x+=22)c.lineTo(x,gy-2-a*6-Math.sin(x*0.07)*2*a);c.lineTo(YARD.x1+14,gy+2);c.closePath();c.fill();
+      c.fillRect(-3000,10,HW+6000,3+a*4);c.fillRect(YARD.x0+26,gy-50-a*2,YARD.x1-YARD.x0-56,2+a*3);
+      [[-30,-170,46],[20,-190,52],[-4,-215,44],[36,-150,36],[-44,-140,34]].forEach(function(b){c.beginPath();c.ellipse(YARD.x0+b[0],gy+b[1]-b[2]*0.62,b[2]*0.72,b[2]*0.32*a+2,0,Math.PI,0);c.fill();});
+      PLOT_X.forEach(function(px){c.beginPath();c.ellipse(px,gy-PLOT_H-1,PLOT_W*0.5,3+a*3,0,Math.PI,0);c.fill();});c.restore();}}
+  function wxFront(W2,H2,t){var w=wxSt(),M=WXFX.mix,d=cv._dpr||1;
+    var nr=Math.round(M.rain*(140)),ns=Math.round(M.snow*120);
+    while(WXFX.drops.length<nr)WXFX.drops.push({x:Math.random()*W2,y:Math.random()*H2,v:(14+Math.random()*8)*d,l:(12+Math.random()*12)*d});if(WXFX.drops.length>nr)WXFX.drops.length=nr;
+    while(WXFX.flakes.length<ns)WXFX.flakes.push({x:Math.random()*W2,y:Math.random()*H2,r:(1.2+Math.random()*2.6)*d,v:(0.6+Math.random()*1.2)*d,ph:Math.random()*6});if(WXFX.flakes.length>ns)WXFX.flakes.length=ns;
+    if(nr){c.strokeStyle='rgba(185,215,255,.55)';c.lineWidth=1.3*d;c.beginPath();WXFX.drops.forEach(function(p){p.y+=p.v;p.x-=p.v*0.18;if(p.y>H2){p.y=-p.l;p.x=Math.random()*(W2+80);}c.moveTo(p.x,p.y);c.lineTo(p.x+p.l*0.18,p.y-p.l);});c.stroke();}
+    if(ns){c.fillStyle='rgba(255,255,255,.9)';WXFX.flakes.forEach(function(f){f.y+=f.v;f.x+=Math.sin(t*1.2+f.ph)*0.5*d;if(f.y>H2+4){f.y=-4;f.x=Math.random()*W2;}c.beginPath();c.arc(f.x,f.y,f.r,0,7);c.fill();});}}
   function drawYard(t){var gy=-SLAB,night=isNight();
     /* lawn the fleas walk on */
     c.fillStyle='#2c9a58';c.fillRect(YARD.x0-80,gy,(YARD.x1+14)-(YARD.x0-80),SLAB+12);c.fillStyle='#5df09a';c.fillRect(YARD.x0-80,gy,(YARD.x1+14)-(YARD.x0-80),3);
@@ -360,7 +404,7 @@ var House=(function(){
   function renderGarden(force){var h=el('hs-garden');if(!h||mode!=='garden')return;var G=Garden.st(),d=Garden.today();
     var sig=G.plots.map(function(p){return (p.seed||'-')+Math.round(Garden.pct(p)*20)+'/'+Math.round(p.w/10)+(Garden.busy(p)?'b':'');}).join('|')+JSON.stringify(G.pantry)+d.v+Treesh.points();if(!force&&sig===gSig)return;gSig=sig;
     var snacks=Object.keys(G.pantry).filter(function(k){return G.pantry[k]>0;}),nSn=snacks.reduce(function(a,k){return a+G.pantry[k];},0);
-    h.innerHTML='<div class="hg-head"><b>🌱 Backyard Garden</b><span data-testid="garden-today">Today ✦ '+d.v+' / '+GARDEN_CAP+'</span></div><div class="hb-row">'+G.plots.map(function(p,i){var sd=p.seed&&SEED[p.seed],ripe=Garden.ripe(p);
+    h.innerHTML='<div class="hg-head"><b>🌱 Backyard Garden</b>'+(wxSt().k==='rain'?'<em class="hg-wx" data-testid="garden-rain-badge">Raining · beds water themselves</em>':wxSt().k==='snow'?'<em class="hg-wx snow">Snowing · beds stay moist</em>':'')+'<span data-testid="garden-today">Today ✦ '+d.v+' / '+GARDEN_CAP+'</span></div><div class="hb-row">'+G.plots.map(function(p,i){var sd=p.seed&&SEED[p.seed],ripe=Garden.ripe(p);
       return '<button class="hb-card hg-card'+(ripe?' ripe':'')+(sd&&p.w<=0&&!ripe?' dry':'')+'" data-plot="'+i+'" data-testid="garden-bed-'+i+'"><span class="hg-emo">'+(sd?sd.emo:'🟫')+'</span><b>'+(sd?sd.name:'Empty bed')+'</b><small>'+(sd?(ripe?'Ripe! ✦ '+sd.reward:Math.round(Garden.pct(p)*100)+'% · 💧 '+Math.round(p.w)+'%'):'Tap to plant')+'</small></button>';}).join('')+
       '<div class="hg-acts"><button id="hg-waterall" data-testid="garden-water-all">💧 Water all</button><button id="hg-harvall" data-testid="garden-harvest-all">🧺 Harvest all</button><button id="hg-picnic" data-testid="garden-picnic" '+(nSn?'':'disabled')+'>🧺 Picnic'+(nSn?' <span>'+snacks.map(function(k){return SEED[k].emo+'×'+G.pantry[k];}).join(' ')+'</span>':'')+'</button></div></div>';
     [].forEach.call(h.querySelectorAll('[data-plot]'),function(b){b.onclick=function(){var i=+b.dataset.plot;cam.x=PLOT_X[i];clampCam();plotModal(i);};});
@@ -401,8 +445,8 @@ var House=(function(){
   function onUp(e){delete pointers[e.pointerId];
     if(ghost&&ghost.it&&ghost.down){ghost.down=false;var it=ghost.it,ct=cat(it);if(!valid(it)){tip('Can\'t place there — try another spot',1);return;}
       if(ct.season&&!Seasons.isActive(ct.season)){ghost=null;renderBuy();tip('That pack is out of season. It comes back next year!',1);return;}
-      if(!Treesh.spend(ct.price,'Bought '+ct.name)){tip('Need '+(ct.price-Treesh.points())+' more ✦ — win matches to earn Starlites!',1);return;}
-      var n=JSON.parse(JSON.stringify(it));n.id=nid();S.items.push(n);Trophies.count('h_placed');Trophies.count('h_bought');if(ct.season){Trophies.count('h_seasonal');S.packs=S.packs||{};S.packs[ct.season]=1;Trophies.best('h_packs',Object.keys(S.packs).length);}chime(660);dirty=1;checkRooms();tip(ct.name+' placed! −'+ct.price+' ✦');
+      var fromStash=!ct.season&&window.FreaShop&&FreaShop.stashTake(ct.type||ghost.type);if(!fromStash&&!Treesh.spend(ct.price,'Bought '+ct.name)){tip('Need '+(ct.price-Treesh.points())+' more ✦ — win matches to earn Starlites!',1);return;}
+      var n=JSON.parse(JSON.stringify(it));n.id=nid();S.items.push(n);Trophies.count('h_placed');Trophies.count('h_bought');if(ct.season){Trophies.count('h_seasonal');S.packs=S.packs||{};S.packs[ct.season]=1;Trophies.best('h_packs',Object.keys(S.packs).length);}chime(660);dirty=1;checkRooms();tip(ct.name+' placed! '+(fromStash?'(from storage)':'−'+ct.price+' ✦'));
       if(!e.shiftKey){/* keep ghost for multi-place; */}renderBuy();return;}
     if(drag&&drag.it){var d=drag;drag=null;if(d.moved){if(!valid(d.it)){Object.assign(d.it,d.orig);if(!d.orig.par)delete d.it.par;d.kids.forEach(function(k){k[0].x=k[1];k[0].floor=k[2];});tip('Invalid spot — moved back',1);}else{Trophies.count('h_placed');dirty=1;checkRooms();chime(520);}}return;}
     if(Object.keys(pointers).length<2)drag=null;}
@@ -425,7 +469,7 @@ var House=(function(){
   function build(){
     root=document.createElement('div');root.id='house';root.setAttribute('data-testid','flea-house');
     root.innerHTML='<canvas id="house-cv" data-testid="house-canvas"></canvas>'+
-      '<div class="hs-top"><button class="hs-ib" id="hs-back" data-testid="house-back" aria-label="Back to lobby">‹</button><div class="hs-title"><b>Flea House</b><span id="hs-clock">Day 1 · 8:00 AM</span></div>'+
+      '<div class="hs-top"><button class="hs-ib" id="hs-back" data-testid="house-back" aria-label="Back to lobby">‹</button><div class="hs-title"><b>Flea House</b><span id="hs-clock">Day 1 · 8:00 AM</span></div><button class="hs-wx" id="hs-wx" data-testid="house-weather-chip"></button>'+
       '<div class="hs-speed" role="group" aria-label="Game speed"><button data-sp="0" data-testid="house-speed-0">⏸</button><button data-sp="1" class="on" data-testid="house-speed-1">▶</button><button data-sp="3" data-testid="house-speed-3">⏩</button></div>'+
       '<div class="hs-stars" data-testid="house-stars">✦ <b data-star-count>0</b></div><button class="hs-ib" id="hs-savebtn" data-testid="house-save-menu" aria-label="Save and load">💾</button></div>'+
       '<div class="hs-res" id="hs-res" data-testid="house-residents"></div>'+
@@ -439,7 +483,7 @@ var House=(function(){
     document.body.appendChild(root);cv=el('house-cv');c=cv.getContext('2d');
     cv.addEventListener('pointerdown',onDown);cv.addEventListener('pointermove',onMove);window.addEventListener('pointerup',function(e){if(open)onUp(e);});cv.addEventListener('pointercancel',function(e){delete pointers[e.pointerId];drag=null;});cv.addEventListener('wheel',onWheel,{passive:false});
     window.addEventListener('resize',function(){if(open)fit();});
-    el('hs-back').onclick=close;el('hs-savebtn').onclick=saveMenu;
+    el('hs-back').onclick=close;el('hs-savebtn').onclick=saveMenu;el('hs-wx').onclick=function(){Weather.cycle();};
     [].forEach.call(root.querySelectorAll('[data-sp]'),function(b){b.onclick=function(){speed=+b.dataset.sp;[].forEach.call(root.querySelectorAll('[data-sp]'),function(x){x.classList.toggle('on',x===b);});};});
     [].forEach.call(root.querySelectorAll('.hs-tabs [data-mode]'),function(b){b.onclick=function(){setMode(b.dataset.mode);};});
     window.addEventListener('keydown',function(e){if(!open)return;if(e.key==='Escape'){if(ghost){ghost=null;renderBuy();}else if(selItem)selectItem(null);else if(sel)selectRes(null);}if((e.key==='r'||e.key==='R')&&selItem){selItem.flip=!selItem.flip;dirty=1;}if(e.key==='Delete'&&selItem)sellItem(selItem);});
@@ -474,7 +518,7 @@ var House=(function(){
     [].forEach.call(b.querySelectorAll('[data-col]'),function(x){x.onclick=function(){it.col=x.dataset.col;dirty=1;chime(700);};});}
   function sellItem(it){var ct=cat(it);S.items.filter(function(k){return k.par===it.id;}).forEach(function(k){delete k.par;if(!valid(k)){S.items.splice(S.items.indexOf(k),1);Treesh.award(Math.floor(cat(k).price/2),'Sold '+cat(k).name,{silent:true});}});
     residents.forEach(function(r){if(r.act&&r.act.it===it)stop(r);});S.items.splice(S.items.indexOf(it),1);var back=Math.floor(ct.price/2);if(back)Treesh.award(back,'Sold '+ct.name,{silent:true});selectItem(null);dirty=1;tip('Sold '+ct.name+' +'+back+' ✦');}
-  function buyCard(t,locked,note){var ct=CAT[t],can=Treesh.canAfford(ct.price);return '<button class="hb-card'+(ghost&&ghost.type===t?' on':'')+(locked?' locked':(can?'':' poor'))+'" '+(locked?'disabled aria-disabled="true"':'data-type="'+t+'"')+' data-testid="house-buy-'+t+'"><span class="hb-th" data-th="'+t+'"></span><b>'+ct.name+'</b><small>'+(locked?note:'✦ '+ct.price+(ct.use?' · '+ct.use.emo:''))+'</small></button>';}
+  function buyCard(t,locked,note){var ct=CAT[t],stN=(window.FreaShop&&!ct.season)?(FreaShop.stash()[t]||0):0,can=stN>0||Treesh.canAfford(ct.price);if(stN&&!locked)note='📦 ×'+stN+' · Free';return '<button class="hb-card'+(ghost&&ghost.type===t?' on':'')+(locked?' locked':(can?'':' poor'))+'" '+(locked?'disabled aria-disabled="true"':'data-type="'+t+'"')+' data-testid="house-buy-'+t+'"><span class="hb-th" data-th="'+t+'"></span><b>'+ct.name+'</b><small>'+(locked||stN?note:'✦ '+ct.price+(ct.use?' · '+ct.use.emo:''))+'</small></button>';}
   function renderBuy(){var h=el('hs-buy');if(buyCat==='season'&&S){S.seenPacks=S.seenPacks||{};Seasons.active().forEach(function(pk){S.seenPacks[pk.id+Seasons.now().getFullYear()]=1;});}var html='<div class="hb-cats">'+CATS.map(function(k){return '<button data-cat="'+k[0]+'" class="'+(buyCat===k[0]?'on':'')+(k[0]==='season'&&seasonIsNew()?' new':'')+'" data-testid="house-cat-'+k[0]+'">'+k[2]+' '+k[1]+'</button>';}).join('')+'</div><div class="hb-row">';
     if(buyCat==='season'){var act=Seasons.active(),up=Seasons.upcoming()[0];
       act.forEach(function(pk){var dl=Seasons.daysLeft(pk);html+='<div class="hb-pack" data-testid="season-pack-'+pk.id+'"><i>'+pk.emo+'</i><b>'+pk.name+'</b><small>'+(dl<=1?'Last day!':dl+' days left')+'</small></div>';pk.items.forEach(function(r){html+=buyCard(r[0],false);});});
@@ -511,7 +555,7 @@ var House=(function(){
     [].forEach.call(m.querySelectorAll('[data-ld]'),function(b){b.onclick=function(){var d=Treesh.get('frea_house_slot_'+b.dataset.ld,null);if(!d)return;var up=S.upstairs;S=JSON.parse(JSON.stringify(d.data));S.upstairs=S.upstairs||up;buildResidents();renderRes();save();m.classList.remove('show');tip('Loaded slot '+b.dataset.ld);};});
     el('hm-reset').onclick=function(){if(!confirm('Reset your Flea House to the starter home? (Upstairs stays unlocked)'))return;var up=S.upstairs,g=S.guests;S=blank();S.upstairs=up;S.guests=g;buildResidents();renderRes();save();m.classList.remove('show');};}
   function openHouse(){
-    if(!root)build();S=load();Garden.st();if(S.savedAt){var away=Math.min(720,Math.max(0,(Date.now()-S.savedAt)/1000));if(away>5)Garden.tick(away);}buildResidents();open=true;root.classList.add('show');isPaused=true;
+    if(!root)build();S=load();Garden.st();wxSt();setTimeout(wxChip,0);if(S.savedAt){var away=Math.min(720,Math.max(0,(Date.now()-S.savedAt)/1000));if(away>5)Garden.tick(away);}buildResidents();open=true;root.classList.add('show');isPaused=true;
     try{document.getElementById('overlay').classList.add('gone');}catch(e){}
     fit();setMode('live');renderRes();seasonNudge();
     if(!Treesh.get('frea_garden_seen',0)){var gt=root.querySelector('[data-testid="house-tab-garden"]');if(gt)gt.classList.add('new');if(Treesh.get('frea_house_seen',0))setTimeout(function(){if(open)tip('🌱 New: a Backyard Garden! Open the Garden tab to plant seeds');},3200);}Treesh.paint();lastT=0;lastHour=-1;raf=requestAnimationFrame(frame);bump('matchesPlayed');bumpMode('matchesByMode','zen');
@@ -528,6 +572,6 @@ var House=(function(){
     el('zc-house').onclick=function(){d.classList.remove('show');openHouse();};
     el('zc-sand').onclick=function(){d.classList.remove('show');window.__zenSandbox=true;try{_sg();}finally{window.__zenSandbox=false;}};
     el('zc-back').onclick=function(){d.classList.remove('show');try{toLobby();}catch(e){}};}
-  return {w2s:function(x,y){var v=view();return {x:v.left+v.cx+(x-cam.x)*cam.z,y:v.top+v.cy+(y-cam.y)*cam.z};},open:openHouse,close:close,state:function(){return S;},residents:function(){return residents;},cat:CAT,isOpen:function(){return open;},_setSpeed:function(s){speed=s;}};
+  return {w2s:function(x,y){var v=view();return {x:v.left+v.cx+(x-cam.x)*cam.z,y:v.top+v.cy+(y-cam.y)*cam.z};},open:openHouse,close:close,state:function(){return S;},residents:function(){return residents;},cat:CAT,isOpen:function(){return open;},_setSpeed:function(s){speed=s;},weather:Weather,setMode:function(m){setMode(m);}};
 })();
 window.FreaHouse=House;

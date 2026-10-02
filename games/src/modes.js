@@ -158,7 +158,7 @@ var Modes=(function(){
       /* traffic light pod (top-right, under the timer) */var pw=46,ph2=132,x=W-pw-14,y=78;ctx.fillStyle='rgba(8,10,26,.78)';ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(x,y,pw,ph2,23);ctx.fill();ctx.stroke();
       ['red','yellow','green'].forEach(function(k,i){var lx=x+pw/2,ly=y+26+i*40,on=k===ph;ctx.beginPath();ctx.arc(lx,ly,14,0,7);ctx.fillStyle=on?cols[k]:'rgba(255,255,255,.08)';ctx.shadowColor=cols[k];ctx.shadowBlur=on&&!perfMode?22:0;ctx.fill();});
       ctx.shadowBlur=0;
-      /* race track: everyone's progress at a glance */var tw=Math.min(560,W*.46),tx=W/2-tw/2,ty=H-34;ctx.fillStyle='rgba(8,10,26,.72)';ctx.strokeStyle='rgba(255,255,255,.16)';ctx.beginPath();ctx.roundRect(tx-16,ty-14,tw+32,28,14);ctx.fill();ctx.stroke();
+      /* race track: everyone's progress at a glance */var tw=Math.min(560,W*.46),tx=W/2-tw/2,ty=Math.max(H-70,Math.min(H-24,(WORLD_H-60-camera.y+H)/2));ctx.fillStyle='rgba(8,10,26,.72)';ctx.strokeStyle='rgba(255,255,255,.16)';ctx.beginPath();ctx.roundRect(tx-16,ty-14,tw+32,28,14);ctx.fill();ctx.stroke();
       ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(tx,ty-1.5,tw,3);ctx.fillStyle='#39ff7a';ctx.fillRect(tx+tw-3,ty-8,3,16);
       fleas.slice().sort(function(a,b){return a.isP?1:(b.isP?-1:0);}).forEach(function(f){var px=tx+tw*(f.rlProg||0)/100;ctx.beginPath();ctx.arc(px,ty,f.isP?7:5,0,7);ctx.fillStyle=f.col;ctx.fill();if(f.isP){ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.stroke();}});
       ctx.restore();},
