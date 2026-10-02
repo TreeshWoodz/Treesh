@@ -462,6 +462,32 @@ input[type=datetime-local].input{min-height:50px}
 .lyr-foot .seg{width:220px}
 .lyr-foot .btn-primary{flex:1}
 
+/* bulk import */
+.drawer.wide{width:min(820px,100%)}
+.q-drop{min-height:130px;margin-bottom:14px}
+#q-cloud-hint{margin:0 0 14px}
+.q-shared{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;padding:14px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid var(--stroke-faint)}
+.q-shared .q-fields{grid-template-columns:repeat(4,minmax(0,1fr))}
+.q-shared .btn{align-self:flex-start}
+.input.sm{padding:9px 11px;border-radius:11px;font-size:13px}
+.q-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.q-item{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:rgba(255,255,255,.035);border:1px solid var(--stroke-faint);animation:rise .4s var(--ease) both;transition:border-color .3s}
+.q-item.ready{border-color:rgba(61,220,151,.4)}
+.q-top{display:flex;gap:12px;align-items:center;min-width:0}
+.q-cv{width:56px;height:56px;flex:none;display:grid;place-items:center;border-radius:12px;background:var(--bg2) center/cover no-repeat;color:var(--dim)}
+.q-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.q-meta b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-st{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:12px;font-weight:600;color:var(--muted)}
+.q-st>span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-st svg{width:14px;height:14px}
+.q-st.ready{color:var(--ok)}.q-st.needs{color:var(--warn)}.q-st.bad{color:var(--err)}.q-st.busy{color:var(--purple-2)}
+.q-acts{display:flex;gap:6px;flex:none}
+.q-acts .icon-btn{width:34px;height:34px}
+.q-fields{display:grid;gap:8px}
+.q-item .q-fields{grid-template-columns:repeat(6,minmax(0,1fr))}
+.q-item .q-fields input{grid-column:span 2}
+.q-item .q-fields input:nth-child(n+4){grid-column:span 3}
+
 /* responsive */
 @media (max-width:1060px){
   .lyr-grid{grid-template-columns:1fr}
@@ -536,6 +562,11 @@ input[type=datetime-local].input{min-height:50px}
   .ro-row .mv .icon-btn{width:32px;height:32px}
   .ro-head{font-size:12.5px}
   .artist-card .a-acts{opacity:1}
+  .q-item .q-fields input,.q-item .q-fields input:nth-child(n+4){grid-column:1/-1}
+  .q-shared .q-fields{grid-template-columns:1fr 1fr}
+  .q-top{flex-wrap:wrap}
+  .q-meta{flex-basis:calc(100% - 70px)}
+  .q-acts{margin-left:auto}
   .lyr-main{padding:14px;border-radius:20px}
   .lyr-head b{font-size:16px}
   .lr{grid-template-columns:82px minmax(0,1fr) auto;padding:6px 4px}
@@ -598,6 +629,7 @@ input[type=datetime-local].input{min-height:50px}
         <h1 id="compose-title">Drop a song into the Woodz.</h1>
         <p id="compose-sub">Fill in the track, preview it live, then upload. It lands in the Treesh catalog as a pull request or goes straight live.</p>
       </div>
+      <button class="btn" id="open-bulk" data-testid="open-bulk-import-btn"><i data-lucide="files"></i>Bulk import<span id="open-bulk-count" data-testid="bulk-queue-count"></span></button>
     </div>
 
     <div class="edit-banner" id="edit-banner" hidden data-testid="edit-banner">
@@ -616,9 +648,9 @@ input[type=datetime-local].input{min-height:50px}
               <div class="drop" id="drop-audio" tabindex="0" data-testid="audio-dropzone">
                 <div class="ico"><i data-lucide="audio-lines"></i></div>
                 <b>Drop the track</b>
-                <span class="sub">MP3, WAV, M4A · reads title, artist &amp; artwork</span>
+                <span class="sub">MP3, WAV, M4A · reads title, artist &amp; artwork · drop several to bulk import</span>
               </div>
-              <input type="file" id="file-audio" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg" hidden data-testid="audio-file-input">
+              <input type="file" id="file-audio" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg" multiple hidden data-testid="audio-file-input">
             </div>
             <div class="field" data-f="cover">
               <div class="drop drop-cover" id="drop-cover" tabindex="0" data-testid="cover-dropzone">
@@ -948,10 +980,30 @@ input[type=datetime-local].input{min-height:50px}
         <div class="suggest"><button type="button" class="sug" data-bgpos="center center">center</button><button type="button" class="sug" data-bgpos="center top">top</button><button type="button" class="sug" data-bgpos="center -50px">up 50px</button><button type="button" class="sug" data-bgpos="center -100px">up 100px</button><button type="button" class="sug" data-bgpos="center bottom">bottom</button></div></div>
       <div class="field" style="margin-bottom:14px"><label for="a-bio">Bio <span class="lbl-action" id="a-bio-count" style="cursor:default">0 chars</span></label><textarea class="textarea" id="a-bio" placeholder="Where they’re from, their sound, what they’re about…" data-testid="artist-bio-input"></textarea></div>
       <div class="field"><label for="a-cashapp">Cash App</label><div class="with-btn"><input class="input" id="a-cashapp" placeholder="$cashtag" data-testid="artist-cashapp-input"></div></div>
+      <div class="panel lyr-code-panel" id="a-code-panel" data-testid="artist-code-panel"><div class="panel-head" id="a-code-toggle" data-testid="artist-code-toggle"><i data-lucide="code-xml"></i><b>Artist code</b><button type="button" class="btn btn-sm" id="a-copy" style="margin-left:auto" data-testid="artist-copy-code-btn"><i data-lucide="copy"></i>Copy code</button><i class="chev" data-lucide="chevron-down"></i></div><pre class="code soft-scroll" id="a-code" data-testid="artist-generated-code"></pre></div>
     </div>
     <div class="drawer-foot col">
       <div class="seg mode-seg" data-mode="pr" data-testid="artist-mode-toggle"><span class="ind"></span><button type="button" data-mode="pr" class="on" data-testid="artist-mode-pr-btn"><i data-lucide="git-pull-request"></i><span class="t">Review</span></button><button type="button" data-mode="live" data-testid="artist-mode-live-btn"><i data-lucide="zap"></i><span class="t">Go live</span></button></div>
       <button class="btn btn-primary btn-big" id="a-save" data-testid="artist-save-btn"><i data-lucide="user-plus"></i><span id="a-save-label">Add to roster</span></button>
+    </div>
+  </aside>
+</template>
+
+<template id="tpl-bulk">
+  <div class="scrim" data-close></div>
+  <aside class="drawer wide" data-testid="bulk-drawer">
+    <div class="drawer-head"><i data-lucide="files"></i><h2>Bulk import</h2><span class="rid-pill" id="q-count" title="Songs in queue" data-testid="queue-count">0</span><button class="icon-btn" data-close data-testid="close-bulk-btn"><i data-lucide="x"></i></button></div>
+    <div class="drawer-body soft-scroll">
+      <div class="drop q-drop" id="q-drop" tabindex="0" data-testid="bulk-dropzone"><div class="ico"><i data-lucide="audio-lines"></i></div><b>Drop several tracks</b><span class="sub">Title, artist, album, genre &amp; artwork are read from each file</span></div>
+      <input type="file" id="q-file" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg" multiple hidden data-testid="bulk-file-input">
+      <p class="hint warn" id="q-cloud-hint" data-testid="bulk-cloud-hint">Cloudinary isn’t set up, so paste a hosted audio and cover link for each song (or add an upload preset in Settings).</p>
+      <div class="q-shared"><span class="lbl">Apply to all</span><div class="q-fields"><input class="input sm" id="q-s-artist" list="roster-list" placeholder="Main artist" data-testid="bulk-shared-artist"><input class="input sm" id="q-s-genre" list="genre-list" placeholder="Genre" data-testid="bulk-shared-genre"><input class="input sm" id="q-s-album" placeholder="Album / project" data-testid="bulk-shared-album"><input class="input sm" id="q-s-date" placeholder="Release date" data-testid="bulk-shared-date"></div><button type="button" class="btn btn-sm" id="q-apply" data-testid="bulk-apply-all-btn"><i data-lucide="copy-check"></i>Apply to all</button></div>
+      <ol class="q-list" id="q-list" data-testid="queue-list"></ol>
+    </div>
+    <div class="drawer-foot col">
+      <p class="hint" id="q-summary" style="text-align:center" data-testid="queue-summary"></p>
+      <div class="seg mode-seg" data-mode="pr" data-testid="bulk-mode-toggle"><span class="ind"></span><button type="button" data-mode="pr" class="on" data-testid="bulk-mode-pr-btn"><i data-lucide="git-pull-request"></i><span class="t">Review</span></button><button type="button" data-mode="live" data-testid="bulk-mode-live-btn"><i data-lucide="zap"></i><span class="t">Go live</span></button></div>
+      <button class="btn btn-primary btn-big" id="q-upload" disabled data-testid="bulk-upload-btn"><i data-lucide="upload-cloud"></i><span id="q-upload-label">Upload songs</span></button>
     </div>
   </aside>
 </template>
@@ -1357,10 +1409,11 @@ function wireDrop(kind, handler){
   DROP_DEFAULT[kind] = d.innerHTML;
   d.addEventListener('click', e => { const c = e.target.closest('[data-clear]'); if (c){ e.stopPropagation(); if (kind === 'audio'){ state.localAudio && URL.revokeObjectURL(state.localAudio); state.localAudio = ''; state.duration = 0; stopAudio(); } else { state.localCover && URL.revokeObjectURL(state.localCover); state.localCover = ''; } resetDrop(kind); refreshAll(); return; } inp.click(); });
   d.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inp.click(); } });
-  inp.addEventListener('change', () => { handler(inp.files[0]); inp.value = ''; });
+  const pick = files => kind === 'audio' && files.length > 1 ? queueFiles(files) : handler(files[0]);
+  inp.addEventListener('change', () => { pick(inp.files); inp.value = ''; });
   ['dragenter','dragover'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.add('over'); }));
   ['dragleave','drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.remove('over'); }));
-  d.addEventListener('drop', e => handler(e.dataTransfer.files[0]));
+  d.addEventListener('drop', e => pick(e.dataTransfer.files));
 }
 
 /* ---------- audio player ---------- */
@@ -1368,6 +1421,7 @@ const player = new Audio(); player.preload = 'none';
 function setPlayIcons(){
   const on = !player.paused;
   $('#pv-play').innerHTML = icon(on && state.playing === 'preview' ? 'pause' : 'play');
+  $$('.q-item').forEach(li => { const b = $('[data-qact=play]', li); if (b) b.innerHTML = icon(on && state.playing === 'q' + li.dataset.qid ? 'pause' : 'play'); });
   const lp = $('.lyr-player .lp'); if (lp) lp.innerHTML = icon(on && state.playing === 'lyr' ? 'pause' : 'play');
   $$('.song').forEach(el => { const me = on && state.playing === el.dataset.key; el.classList.toggle('playing', me); const b = $('.play', el); if (b) b.innerHTML = icon(me ? 'pause' : 'play'); });
   icons();
@@ -1653,7 +1707,13 @@ function openArtistDrawer(ed){
     $('#a-pv-sub').textContent = [a.role, a.location].filter(Boolean).join(' · ');
     $('#a-bio-count').textContent = `${a.bio.length} chars`;
     $$('[data-bgpos]', root).forEach(b => b.classList.toggle('on', b.dataset.bgpos === a.bgPos));
+    if ($('#a-code-panel').classList.contains('open')) $('#a-code').innerHTML = highlight(artistCode());
   };
+  const artistCode = () => buildArtistBlock({ ...read(), id: ed ? ed.id : nextArtistId(state.roster) }, ed ? rawAttrs(state.rosterRaw[ed.id]) : null);
+  $('#a-code-toggle').addEventListener('click', e => {
+    if (e.target.closest('#a-copy')) return copyText(artistCode(), 'Artist code copied.');
+    $('#a-code-panel').classList.toggle('open'); preview();
+  });
   wireMiniDrop('photo', local, preview); wireMiniDrop('bg', local, preview);
   $('.drawer-body', root).addEventListener('input', e => { const fl = e.target.closest('.field'); if (fl) fl.classList.remove('invalid'); preview(); });
   $$('[data-bgpos]', root).forEach(b => b.addEventListener('click', () => { $('#a-bgpos').value = b.dataset.bgpos; preview(); }));
@@ -1868,6 +1928,144 @@ function wireLyrics(){
   });
 }
 
+/* ---------- bulk import ---------- */
+state.queue = [];
+let qSeq = 0;
+const EQ = '<span class="eq"><span></span><span></span><span></span><span></span></span>';
+function splitTagArtist(str){ const fix = n => { const r = rosterByName(n); return r ? r.name : n; }; const names = splitNames(String(str || '').replace(/\s+(?:feat\.?|ft\.?|featuring|x)\s+/gi, ',')).map(fix); return { artist: names[0] || '', featured: names.slice(1) }; }
+function qErrors(it){ const e = []; if (!it.title) e.push('title'); if (!it.artist) e.push('artist'); if (!it.genre) e.push('genre'); if (!isUrl(it.mp3)) e.push('audio link'); if (!isUrl(it.cover)) e.push('cover link'); return e; }
+function qStatus(it){ if (it.busy) return ['busy', it.busy]; const e = qErrors(it); return e.length ? ['needs', 'Needs ' + e.join(', ')] : ['ready', 'Ready to upload']; }
+async function queueFiles(files){
+  const list = [...files].filter(f => /^audio\//.test(f.type) || /\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(f.name));
+  if (!list.length) return toast('No audio files in that drop.', 'bad');
+  const items = list.map(file => ({ id: ++qSeq, file, name: file.name, localAudio: URL.createObjectURL(file), localCover: '', title:'', artist:'', featured:[], genre:'', album:'', date:'', mp3:'', cover:'', busy:'Reading tags…', progress:0, err:'' }));
+  state.queue.push(...items); openBulk();
+  toast(`${items.length} track${items.length > 1 ? 's' : ''} added to the queue.`, 'ok');
+  for (const it of items) await processItem(it);
+}
+async function processItem(it){
+  const tags = await readTags(it.file);
+  const base = it.name.replace(/\.[^.]+$/, '').replace(/_+/g, ' ').trim(), dash = base.split(/\s+-\s+/);
+  it.title = tags.title || (dash.length > 1 ? dash.slice(1).join(' - ') : base);
+  Object.assign(it, splitTagArtist(tags.artist || (dash.length > 1 ? dash[0] : '')));
+  it.album = tags.album || ''; it.genre = tags.genre ? String(tags.genre).replace(/^\(\d+\)/, '').trim() : '';
+  it.date = tags.year && /^\d{4}$/.test(String(tags.year).trim()) ? String(tags.year).trim() : fmtDate(new Date().toISOString().slice(0, 10));
+  let coverFile = null;
+  if (tags.picture){ const type = tags.picture.format || 'image/jpeg'; coverFile = new File([new Uint8Array(tags.picture.data)], `${slug(it.title)}-cover.${type.split('/')[1] || 'jpg'}`, { type }); it.localCover = URL.createObjectURL(coverFile); }
+  it.busy = '';
+  if (!state.queue.includes(it)) return;
+  renderQueue();
+  if (!cloudReady()) return;
+  try {
+    it.busy = 'Uploading audio…'; updateItem(it);
+    it.mp3 = await cloudUpload(it.file, 'audio', p => { it.progress = p; updateItem(it); });
+    if (coverFile){ it.busy = 'Uploading cover…'; it.progress = 0; updateItem(it); it.cover = await cloudUpload(coverFile, 'image', p => { it.progress = p; updateItem(it); }); }
+  } catch (e){ it.err = e.message + ' Paste links instead.'; }
+  it.busy = ''; it.progress = 0; renderQueue();
+}
+function itemHtml(it, i){
+  const [st, msg] = qStatus(it), cov = isUrl(it.cover) ? it.cover : it.localCover;
+  const dup = it.title && state.catalog.songs.find(s => normKey(s.title) === normKey(it.title) && normKey(s.artist) === normKey(it.artist));
+  const inp = (k, ph, extra = '') => `<input class="input sm" id="q-${it.id}-${k}" data-qid="${it.id}" data-qf="${k}" value="${esc(it[k])}" placeholder="${ph}" ${extra} data-testid="queue-input-${k}">`;
+  return `<li class="q-item ${st}" data-qid="${it.id}" data-testid="queue-item">
+    <div class="q-top"><div class="q-cv" style="${cov ? `background-image:url(&quot;${esc(cov)}&quot;)` : ''}">${cov ? '' : icon('music-4')}</div>
+      <div class="q-meta"><b title="${esc(it.name)}">${String(i + 1).padStart(2, '0')} · ${esc(it.name)}</b><span class="q-st ${st}" data-testid="queue-item-status">${st === 'busy' ? EQ : icon(st === 'ready' ? 'check-circle-2' : 'alert-circle')}<span>${esc(msg)}</span></span>${dup ? `<span class="q-st needs" data-testid="queue-item-duplicate">${icon('copy')}Already in the catalog</span>` : ''}${it.err ? `<span class="q-st bad">${esc(it.err)}</span>` : ''}${it.featured.length ? `<span class="q-st">Featuring ${esc(joinNames(it.featured))}</span>` : ''}</div>
+      <div class="q-acts"><button type="button" class="icon-btn" data-qact="play" title="Preview" data-testid="queue-play-btn">${icon(state.playing === 'q' + it.id && !player.paused ? 'pause' : 'play')}</button><button type="button" class="icon-btn" data-qact="compose" title="Edit in Compose" data-testid="queue-compose-btn">${icon('pencil')}</button><button type="button" class="icon-btn danger" data-qact="remove" title="Remove" data-testid="queue-remove-btn">${icon('x')}</button></div></div>
+    <div class="progress" ${it.busy && it.progress ? '' : 'hidden'}><i style="width:${Math.round(it.progress * 100)}%"></i></div>
+    <div class="q-fields">${inp('title', 'Title')}${inp('artist', 'Main artist', 'list="roster-list"')}${inp('genre', 'Genre', 'list="genre-list"')}${inp('mp3', 'https://… audio link')}${inp('cover', 'https://… cover link')}</div>
+  </li>`;
+}
+function updateItem(it){
+  const li = $(`.q-item[data-qid="${it.id}"]`); if (!li) return;
+  const [st, msg] = qStatus(it), s = $('.q-st', li), pg = $('.progress', li);
+  li.className = `q-item ${st}`; s.className = `q-st ${st}`;
+  s.innerHTML = (st === 'busy' ? EQ : icon(st === 'ready' ? 'check-circle-2' : 'alert-circle')) + `<span>${esc(msg)}</span>`;
+  pg.hidden = !(it.busy && it.progress); $('i', pg).style.width = `${Math.round(it.progress * 100)}%`;
+  icons(); updateBulkFoot();
+}
+function renderQueue(){
+  $('#open-bulk-count').textContent = state.queue.length ? ` · ${state.queue.length}` : '';
+  const list = $('#q-list'); if (!list) return;
+  const a = document.activeElement, fid = a && /^q-\d/.test(a.id) ? a.id : '', sel = fid ? [a.selectionStart, a.selectionEnd] : null;
+  list.innerHTML = state.queue.length ? state.queue.map(itemHtml).join('') : `<div class="empty" data-testid="queue-empty">${icon('list-music')}<b>Queue is empty</b><span>Drop several tracks above to get started.</span></div>`;
+  if (fid){ const el = $('#' + fid); if (el){ el.focus(); try { el.setSelectionRange(...sel); } catch {} } }
+  icons(); updateBulkFoot();
+}
+function updateBulkFoot(){
+  const b = $('#q-upload'); if (!b) return;
+  const n = state.queue.length, r = state.queue.filter(it => qStatus(it)[0] === 'ready').length;
+  $('#q-count').textContent = n;
+  $('#q-summary').textContent = n ? `${r} ready · ${n - r} need attention` : 'Nothing queued yet';
+  b.disabled = !r || state.busy;
+  if (!state.busy) $('#q-upload-label').textContent = r ? `Upload ${r} song${r > 1 ? 's' : ''}` : 'Upload songs';
+}
+function removeItem(it, keepUrls){ if (!keepUrls) [it.localAudio, it.localCover].forEach(u => u && URL.revokeObjectURL(u)); state.queue = state.queue.filter(x => x !== it); if (state.playing === 'q' + it.id) stopAudio(); }
+function sendToCompose(it, close){
+  if (state.editing){ state.editing = null; setEditUI(); }
+  stopAudio(); clearMedia();
+  fillForm({ 'f-title': it.title, 'f-artist': it.artist, 'f-genre': it.genre, 'f-album': it.album, 'f-date': it.date, 'f-mp3': it.mp3, 'f-cover': it.cover, featured: it.featured });
+  state.localAudio = it.localAudio; state.localCover = it.localCover;
+  removeItem(it, true); close(); showErrors({}); refreshAll(); switchView('compose');
+  toast(`“${it.title || it.name}” moved to Compose.`, 'ok');
+}
+function openBulk(){
+  if ($('#q-list')) return renderQueue();
+  const root = $('#drawer-root');
+  root.innerHTML = ''; root.appendChild($('#tpl-bulk').content.cloneNode(true));
+  const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); renderQueue(); };
+  const onKey = e => { if (e.key === 'Escape' && !$('.modal-wrap')) close(); };
+  document.addEventListener('keydown', onKey);
+  $$('[data-close]', root).forEach(b => b.addEventListener('click', close));
+  $('#q-cloud-hint').hidden = cloudReady();
+  const d = $('#q-drop'), inp = $('#q-file');
+  d.addEventListener('click', () => inp.click());
+  d.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inp.click(); } });
+  inp.addEventListener('change', () => { queueFiles(inp.files); inp.value = ''; });
+  ['dragenter','dragover'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => d.addEventListener(ev, e => { e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e => queueFiles(e.dataTransfer.files));
+  $('#q-apply').addEventListener('click', () => {
+    const sh = { artist: val('q-s-artist'), genre: val('q-s-genre'), album: val('q-s-album'), date: val('q-s-date') };
+    if (!Object.values(sh).some(Boolean)) return toast('Fill in a shared field first.', 'info');
+    if (!state.queue.length) return toast('Queue is empty.', 'info');
+    state.queue.forEach(it => { Object.entries(sh).forEach(([k, v]) => { if (v) it[k] = v; }); if (sh.artist) it.featured = it.featured.filter(n => normKey(n) !== normKey(sh.artist)); });
+    renderQueue(); toast('Applied to every song in the queue.', 'ok');
+  });
+  const list = $('#q-list');
+  list.addEventListener('input', e => { const f = e.target.dataset.qf; if (!f) return; const it = state.queue.find(x => x.id === +e.target.dataset.qid); if (!it) return; it[f] = e.target.value.trim(); updateItem(it); });
+  list.addEventListener('change', e => {
+    if (e.target.dataset.qf !== 'cover') return;
+    const it = state.queue.find(x => x.id === +e.target.dataset.qid), cv = it && $(`.q-item[data-qid="${it.id}"] .q-cv`); if (!cv) return;
+    const u = isUrl(it.cover) ? it.cover : it.localCover;
+    cv.style.backgroundImage = u ? `url("${u.replace(/"/g, '%22')}")` : ''; cv.innerHTML = u ? '' : icon('music-4'); icons();
+  });
+  list.addEventListener('click', e => {
+    const b = e.target.closest('[data-qact]'); if (!b) return;
+    const it = state.queue.find(x => x.id === +b.closest('.q-item').dataset.qid); if (!it) return;
+    if (b.dataset.qact === 'play') playSrc(isUrl(it.mp3) ? it.mp3 : it.localAudio, 'q' + it.id);
+    if (b.dataset.qact === 'compose') sendToCompose(it, close);
+    if (b.dataset.qact === 'remove'){ removeItem(it); renderQueue(); }
+  });
+  $('#q-upload').addEventListener('click', bulkUpload);
+  setMode(cfg.mode); renderQueue();
+}
+async function bulkUpload(){
+  const ready = state.queue.filter(it => qStatus(it)[0] === 'ready');
+  if (!ready.length || state.busy || !requireGitHub()) return;
+  const btn = $('#q-upload'), lbl = $('#q-upload-label');
+  state.busy = true; btn.disabled = true;
+  const songs = ready.map(it => { const ids = []; [it.artist, ...it.featured].forEach(n => { const r = rosterByName(n); if (r && !ids.includes(r.id)) ids.push(r.id); }); return { title: it.title, artist: it.artist, featured: it.featured, ids, genre: it.genre, mood:'', date: it.date, album: it.album, writtenBy:'', producer:'', mixer:'', videographer:'', cover: it.cover, mp3: it.mp3, video:'', bio:'', label:'', release:'', explicit:false, exclusive:false, treeshchoice:false }; });
+  const block = songs.map(f => buildBlock(f, null)).join('\n\n'), n = songs.length, cell = v => String(v).replace(/\|/g, '\\|');
+  try {
+    const r = await commitFile({ path: cfg.songsPath, message: `Add ${n} song${n > 1 ? 's' : ''}: ${songs.map(s => s.title).join(', ')}`.slice(0, 140), branchKey: `bulk-${n}`,
+      body: `Adds ${n} songs to \`${cfg.songsPath}\`.\n\n| # | Track | Artist | Genre |\n|---|---|---|---|\n${songs.map((s, i) => `| ${i + 1} | ${cell(s.title)} | ${cell([s.artist, ...s.featured].join(' x '))} | ${cell(s.genre)} |`).join('\n')}\n\n_Submitted with Song Coder_`,
+      apply: t => applyOp(t, { kind:'add', block }) }, s => { lbl.textContent = s; });
+    ready.forEach(it => removeItem(it)); renderQueue(); done(r, 'bulk', `${n} song${n > 1 ? 's' : ''}`);
+    if (r.mode === 'live') setTimeout(loadCatalog, 800);
+  } catch (e){ failModal(e); }
+  finally { state.busy = false; updateBulkFoot(); }
+}
+
 /* ---------- publish ---------- */
 function prBody(op, f){
   if (op.kind === 'reorder') return `Reorders songs in \`${cfg.songsPath}\` (${op.moved} moved).\n\nNew top of the catalog:\n${op.titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\n_Submitted with Song Coder_`;
@@ -1910,7 +2108,7 @@ async function commitFile({ path, apply, message, body, branchKey }, step = () =
   }
 }
 function done(r, kind, title){
-  const verb = { add:'added', edit:'updated', delete:'removed', reorder:'reordered', artist:'added to the roster', 'artist-edit':'updated', 'artist-delete':'removed from the roster', pin:'pinned to the top', lyrics:'saved' }[kind];
+  const verb = { add:'added', edit:'updated', delete:'removed', reorder:'reordered', artist:'added to the roster', 'artist-edit':'updated', 'artist-delete':'removed from the roster', pin:'pinned to the top', lyrics:'saved', bulk:'added' }[kind];
   const what = kind === 'reorder' ? 'The new song order' : `“${esc(title)}”`;
   const view = /^artist/.test(kind) ? 'artists' : kind === 'lyrics' ? 'lyrics' : 'catalog';
   const viewLbl = { artists:['View roster','users-round'], lyrics:['Back to lyrics','mic-vocal'], catalog:['View catalog','library-big'] }[view];
@@ -2058,7 +2256,8 @@ function wire(){
   $('#ro-cancel').addEventListener('click', cancelReorder);
   $('#ro-save').addEventListener('click', saveReorder);
   $('#cat-list').addEventListener('click', e => { const b = e.target.closest('[data-mv]'); if (b) moveRow(b); });
-  $('#new-artist').addEventListener('click', openArtistDrawer);
+  $('#new-artist').addEventListener('click', () => openArtistDrawer());
+  $('#open-bulk').addEventListener('click', openBulk);
   $('#art-grid').addEventListener('click', e => {
     if (e.target.closest('[data-open-settings]')) return openSettings();
     const b = e.target.closest('[data-aact]'); if (!b) return;
