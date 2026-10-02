@@ -278,3 +278,16 @@ Completed outcomes:
 ### Test Evidence
 - `test_reports/iteration_3.json`: Mode depth + HUD v2 + results screen v3 (✅ 100%).
 - `test_reports/iteration_4.json`: Thick-floor HUD + Weather (✅ 100%).
+
+---
+## Phase 5 — Rewards economy, Showcase, Zen editor, new key art (Status: In Progress → testing)
+User choices: Showcase = 3 pinned favourites + Rarest/Recent auto rows + full scrollable grid. Starlites earned via wins, trophies, daily streak (+ new daily quests). Spend on cosmetics, arenas & themes, furniture. Art: polished 3D Pixar-like, OpenAI gpt-image-1 (Emergent key).
+- `src/rewards.js/.css`: Starlite Shop (lobby "Shop" button + Starlites pill) with Cosmetics (locks premium Studio items, grandfathered), Arenas (match backdrop override), Themes (UI accent + lobby scene), Furniture bundles (→ `frea_house_stash_v1`, placed free in Flea House), Earn (3 daily quests, streak track). Trophy showcase in Treesh profile card + Trophy Room pins + lobby chip medals; publishes `treesh_trophies` for parent.
+- `/app/parent/index.html`: profile header trophy strip + new "Trophies" tab (showcase, Rarest/Recent, full grid). Copied to `frontend/public/treesh-test/index.html` with local game URL.
+- `src/zenedit.js/.css`: Worlds dropdown removed (Worlds tab only). Select-first editor: tap select, drag move, handles resize/stretch, chip (Copy/Type/Front/Delete), Undo, Snap grid, keyboard shortcuts.
+- `art/gen_tiles.py` → `src/tiles.js/.css`: 13 new mode images + Party banner; base.html FREA_TILES replaced; Party card taller with photo.
+
+## Bug Fix: Shop confirm Cancel overlay interception (Status: COMPLETED)
+- rewards.js: only one confirm overlay at a time; closing overlay gets pointer-events:none immediately; Escape closes it; Cancel is auto-focused; open() ignores unknown tab names
+- rewards.css: confirm card/buttons layered above backdrop, 44px touch targets
+- Verified with normal (non-forced) clicks at 390x844 and 1920x800

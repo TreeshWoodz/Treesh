@@ -112,11 +112,14 @@ var FreaHud2=(function(){
     ROSTER.forEach(function(f){if(fleas.indexOf(f)<0&&OUT.indexOf(f)<0)OUT.push(f);});}
 
   /* ---------------- thick floor: bottom HUD sits centered inside the ground band ---------------- */
+  /* real bottom safe-area (iOS home-screen web app / notch phones): HUD floats above it, so the ground must too */
+  var _sbP=null,_sbV=0,_sbT=0;function safeBot(){var n=Date.now();if(n-_sbT<1000)return _sbV;_sbT=n;try{if(!_sbP){_sbP=document.createElement('div');_sbP.style.cssText='position:fixed;left:0;bottom:0;width:1px;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none';document.body.appendChild(_sbP);}_sbV=_sbP.offsetHeight||0;
+      var sa=(navigator.standalone===true)||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);if(sa&&_sbV<20&&/iPhone|iPad|iPod/.test(navigator.userAgent))_sbV=Math.max(_sbV,20);document.documentElement.classList.toggle('frea-standalone',!!sa);}catch(e){}return _sbV;}
   function floorFit(){var on=(STATE==='play'||STATE==='countdown'||STATE==='gameover')&&gameMode!=='tutorial';if(!on){FLOOR_PAD=0;return;}
-    var ih=innerHeight,top=ih,bot=0;['emote-fab','zen-fab','hud-ability','mode-banner','hud-meter'].forEach(function(id){var e=el(id);if(!e)return;var cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'||+cs.opacity<0.2)return;
-      var r=e.getBoundingClientRect();if(r.height<4||r.bottom<ih-40||r.top<ih*0.55)return;top=Math.min(top,r.top);bot=Math.max(bot,r.bottom);});
-    if(gameMode==='redlight'){top=Math.min(top,ih-62*VZ_UI);bot=Math.max(bot,ih-10*VZ_UI);}
-    if(top>=ih){FLOOR_PAD=0;return;}var gap=Math.max(8,ih-bot),F=(ih-top)+gap+6;var pad=Math.max(0,Math.round(F/VZ_UI-60));if(Math.abs(pad-FLOOR_PAD)>1)FLOOR_PAD=pad;}
+    var ih=innerHeight,top=ih,bot=0,sb=safeBot();['emote-fab','zen-fab','hud-ability','mode-banner','hud-meter'].forEach(function(id){var e=el(id);if(!e)return;var cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'||+cs.opacity<0.2)return;
+      var r=e.getBoundingClientRect();if(r.height<4||r.bottom<ih-40-sb-24||r.top<ih*0.5)return;top=Math.min(top,r.top);bot=Math.max(bot,r.bottom);});
+    if(gameMode==='redlight'){top=Math.min(top,ih-sb-62*VZ_UI);bot=Math.max(bot,ih-sb-10*VZ_UI);}
+    if(top>=ih){FLOOR_PAD=0;return;}var gap=Math.max(8,ih-bot-sb),F=(ih-top)+gap+6;var pad=Math.max(0,Math.round(F/VZ_UI-60));if(Math.abs(pad-FLOOR_PAD)>1)FLOOR_PAD=pad;}
   var _dfx2=drawFX;drawFX=function(){var r=_dfx2.apply(this,arguments);try{if(FLOOR_PAD>0&&STATE!=='title'){var f=platforms&&platforms[0],y=WORLD_H-camera.y;if(y<H&&!(f&&f._arenaMat)){var g=ctx.createLinearGradient(0,y,0,H);g.addColorStop(0,'rgba(12,12,34,.96)');g.addColorStop(1,'rgba(6,6,18,1)');ctx.fillStyle=g;ctx.fillRect(0,y,W,H-y+2);}}}catch(e){}return r;};
   setInterval(function(){try{var L=live();if(L!==wasLive){wasLive=L;document.body.classList.toggle('hud2-live',L);if(!L){feedBox.innerHTML='';chips.innerHTML='';chipKey='';}}
     renderMeter();renderChips();renderAbility();renderTimer();survivalAlerts();floorFit();}catch(e){}},150);

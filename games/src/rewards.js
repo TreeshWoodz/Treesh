@@ -48,11 +48,13 @@ var FreaShop=(function(){
   /* Studio calls this when a locked tile is tapped */
   function offer(field,val,onOk){var c=COSMAP[field+':'+val];if(!c)return onOk&&onOk();
     confirmBox('<div class="sh-cf-ico">🔒</div><b>'+esc(c[2])+'</b><p>Unlock this look for every flea you create.</p>','Unlock · ✦ '+c[3],function(){buy('cos:'+field+':'+val,c[3],c[2],onOk);});}
-  function confirmBox(html,label,ok){var m=document.createElement('div');m.className='sh-confirm';m.setAttribute('data-testid','shop-confirm');
+  function confirmBox(html,label,ok){document.querySelectorAll('.sh-confirm').forEach(function(o){o.remove();});var m=document.createElement('div');m.className='sh-confirm';m.setAttribute('data-testid','shop-confirm');
     var can=true;m.innerHTML='<div class="sh-cf-card">'+html+'<div class="sh-cf-bal">Balance · ✦ '+Treesh.fmt(Treesh.points())+'</div><div class="sh-cf-row"><button class="sh-btn ghost" data-x data-testid="shop-confirm-cancel">Not now</button><button class="sh-btn gold" data-ok data-testid="shop-confirm-buy">'+label+'</button></div></div>';
     document.body.appendChild(m);requestAnimationFrame(function(){m.classList.add('show');});
-    function close(){m.classList.remove('show');setTimeout(function(){m.remove();},200);}
-    m.addEventListener('click',function(e){if(e.target===m||e.target.closest('[data-x]'))close();else if(e.target.closest('[data-ok]')){close();ok();}});}
+    var done=false;function close(){if(done)return;done=true;m.classList.remove('show');m.classList.add('closing');setTimeout(function(){m.remove();},200);}
+    m.addEventListener('click',function(e){if(done)return;if(e.target===m||e.target.closest('[data-x]'))close();else if(e.target.closest('[data-ok]')){close();ok();}});
+    m.addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();close();}});
+    setTimeout(function(){try{m.querySelector('[data-x]').focus();}catch(e){}},30);}
   /* ---------------- equip: arenas + themes ---------------- */
   function applyTheme(){var t=THEMES.filter(function(x){return x[0]===eq.theme;})[0]||THEMES[0];var r=document.documentElement.style;
     function rgb(h){var n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255].join(',');}
@@ -178,9 +180,9 @@ var FreaShop=(function(){
     var oh=b.querySelector('[data-open-house]');if(oh)oh.onclick=function(){close();try{setMode('zen');}catch(e){}toast('Open Zen → Flea House','Then tap Buy to place your storage items','🏠');};
   }
   function previewFlea(cv,rec){var q=cv.getContext('2d'),W2=cv.width,H2=cv.height;q.clearRect(0,0,W2,H2);var f=new Flea(0,0,true,'',specOf(rec));f.stuck=true;f.face=1;f.angle=0;f.hideName=true;
-    var Z=W2/(rec&&cosF&&/hat|glasses|eyes/.test(cosF)?36:62),oy=/hat|glasses|eyes/.test(cosF)?H2*.74:H2*.58;var s=ctx;ctx=q;q.save();q.translate(W2/2,oy);q.scale(Z,Z);try{f.draw(f.cx,f.cy);}catch(e){}q.restore();ctx=s;}
+    var head=/hat|glasses|eyes/.test(cosF),Z=W2/(head?44:62),oy=head?H2*.86:H2*.58;var s=ctx;ctx=q;q.save();q.translate(W2/2,oy);q.scale(Z,Z);try{f.draw(f.cx,f.cy);}catch(e){}q.restore();ctx=s;}
   function wearNow(k,v){try{var c=saved.find(function(f){return f.id===activeId;})||saved[0];c[k]=v;saveFreas();try{repopulate();applyToUI();updateLobbyProfile();}catch(e){}toast('Equipped on '+c.name,'',"✨");}catch(e){}}
-  function open(t){if(!root)build();if(t)tab=t;root.classList.add('show');document.body.classList.add('shop-open');render();setTimeout(function(){try{root.querySelector('.sh-x').focus();}catch(e){}},40);}
+  function open(t){if(!root)build();if(t&&['cosmetics','arenas','themes','furniture','earn'].indexOf(t)>=0)tab=t;root.classList.add('show');document.body.classList.add('shop-open');render();setTimeout(function(){try{root.querySelector('.sh-x').focus();}catch(e){}},40);}
   function close(){if(!root)return;root.classList.remove('show');document.body.classList.remove('shop-open');}
   function badge(){var b=document.getElementById('ltop-coins');if(!b)return;var n=questsReady();b.classList.toggle('has-quest',n>0);b.setAttribute('data-quests',n);}
   /* lobby entry points: Starlites pill → shop */

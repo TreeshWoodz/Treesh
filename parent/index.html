@@ -3545,7 +3545,7 @@ function renderShellHeaderAvatar(){ /* handled on full shell render */ }
    PROFILE MODULE  (Favorites + Playlists, grows from avatar)
    ============================================================ */
 function refreshLists(){ renderSidebarLibrary(); if(state.profileOpen) renderProfileBody(); else renderView(); }
-function openProfile(tab){ if(tab) state.profileTab=tab; if(!["favorites","lyrics","disliked","playlists","stats"].includes(state.profileTab)) state.profileTab="favorites"; state.profileOpen=true; renderProfile(); syncScrollLock(); }
+function openProfile(tab){ if(tab) state.profileTab=tab; if(!["favorites","lyrics","disliked","playlists","stats","trophies"].includes(state.profileTab)) state.profileTab="favorites"; state.profileOpen=true; renderProfile(); syncScrollLock(); }
 function closeProfile(instant){ state.profileOpen=false; syncScrollLock(); const c=$("#profile"); const panel=c.querySelector("#profile-panel"); const back=c.querySelector('[data-testid="profile-module-backdrop"]'); if(instant||!panel){ c.innerHTML=""; return; } panel.classList.remove("profile-in"); panel.classList.add("profile-out"); if(back){ back.classList.remove("backdrop-in"); back.classList.add("backdrop-out"); } setTimeout(()=>{ if(!state.profileOpen) c.innerHTML=""; }, 300); }
 function renderProfile(){
   const c=$("#profile"); const wasOpen=!!c.querySelector("#profile-panel");
@@ -3554,9 +3554,39 @@ function renderProfile(){
   icons();
 }
 function renderProfileBody(){ const b=$("#profile-body"); if(!b) return; b.innerHTML = profileBodyHtml(); icons(); }
-function profileBodyHtml(){ const t=state.profileTab; return t==="playlists"?profilePlaylistsHtml():t==="disliked"?profileDislikedHtml():t==="stats"?profileStatsHtml():t==="lyrics"?profileLyricsHtml():profileFavoritesHtml(); }
+function profileBodyHtml(){ const t=state.profileTab; return t==="trophies"?profileTrophiesHtml():t==="playlists"?profilePlaylistsHtml():t==="disliked"?profileDislikedHtml():t==="stats"?profileStatsHtml():t==="lyrics"?profileLyricsHtml():profileFavoritesHtml(); }
 function profileTabBtn(id,label,ic){ const tab=state.profileTab; return `<button data-act="profile-tab" data-tab="${id}" data-testid="profile-module-tab-${id}" class="shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold transition ${tab===id?'bg-white/15 text-white glow-purple':'text-white/60 hover:text-white'}"><span class="inline-flex items-center justify-center gap-1.5"><i data-lucide="${ic}" style="width:15px;height:15px"></i>${label}</span></button>`; }
-function profileTabsInner(){ return `${profileTabBtn('favorites','Favorites','heart')}${profileTabBtn('lyrics','Lyrics','quote')}${profileTabBtn('disliked','Disliked','heart-crack')}${profileTabBtn('playlists','Playlists','list-music')}${profileTabBtn('stats','Stats','bar-chart-3')}`; }
+function profileTabsInner(){ return `${profileTabBtn('favorites','Favorites','heart')}${profileTabBtn('lyrics','Lyrics','quote')}${profileTabBtn('disliked','Disliked','heart-crack')}${profileTabBtn('playlists','Playlists','list-music')}${profileTabBtn('trophies','Trophies','trophy')}${profileTabBtn('stats','Stats','bar-chart-3')}`; }
+
+/* ---- FREA! Trophy Showcase (published by the game into localStorage 'treesh_trophies') ---- */
+const TROPHY_RANK={platinum:4,gold:3,silver:2,bronze:1};
+function trophyData(){ const d=LS.get("treesh_trophies",null); return (d&&Array.isArray(d.list))?d:null; }
+function trophyFeatured(d){ const got=d.list.filter(t=>t.at); const pins=(d.pins||[]).map(id=>got.find(t=>t.id===id)).filter(Boolean); const rest=got.filter(t=>!pins.includes(t)).sort((a,b)=>(TROPHY_RANK[b.tier]-TROPHY_RANK[a.tier])||(b.at-a.at)); return pins.map(t=>({t,pin:true})).concat(rest.map(t=>({t,pin:false}))).slice(0,3); }
+function trophyMedal(t,size){ const s=size||40; return `<span class="grid shrink-0 place-items-center rounded-full" style="width:${s}px;height:${s}px;font-size:${Math.round(s*.45)}px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.9),${esc(t.color)} 55%,rgba(0,0,0,.45));box-shadow:0 0 0 2px rgba(255,255,255,.12),0 0 14px ${esc(t.color)}55" title="${esc(t.name)}">${esc(t.ico)}</span>`; }
+function profileTrophyStripHtml(){ const d=trophyData(); if(!d) return ''; const f=trophyFeatured(d);
+  return `<button data-act="profile-tab" data-tab="trophies" data-testid="profile-trophy-showcase-strip" aria-label="View trophy showcase" class="mt-2 flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 text-left hover:bg-white/[0.07]">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/15 text-[color:var(--treesh-gold)]"><i data-lucide="trophy" style="width:18px;height:18px"></i></span>
+    <div class="min-w-0 flex-1"><p class="text-[11px] font-semibold uppercase tracking-wide text-white/55">FREA! Trophies</p><p class="text-sm font-bold">${d.got} / ${d.total}</p></div>
+    <span class="flex -space-x-1.5">${f.map(x=>trophyMedal(x.t,30)).join('')}</span>
+    <i data-lucide="chevron-right" style="width:16px;height:16px" class="shrink-0 text-white/35"></i></button>`; }
+function profileTrophiesHtml(){ const d=trophyData();
+  if(!d) return `<div class="grid place-items-center gap-3 py-12 text-center" data-testid="profile-trophies-empty"><span class="grid h-14 w-14 place-items-center rounded-2xl bg-white/5 text-white/60"><i data-lucide="trophy" style="width:26px;height:26px"></i></span><p class="font-semibold">No trophies yet</p><p class="max-w-[260px] text-sm text-white/55">Play FREA! in the Arcade to start earning trophies. They'll show up here.</p></div>`;
+  const f=trophyFeatured(d), sort=state.trophySort||'rarest', got=d.list.filter(t=>t.at);
+  const row=got.slice().sort(sort==='recent'?((a,b)=>b.at-a.at):((a,b)=>(TROPHY_RANK[b.tier]-TROPHY_RANK[a.tier])||(b.at-a.at))).slice(0,10);
+  const slots=[0,1,2].map(i=>{const x=f[i]; return x?`<div class="flex flex-col items-center gap-1.5 rounded-2xl border border-[color:var(--treesh-gold)]/25 bg-[color:var(--treesh-gold)]/[0.06] p-3 text-center" data-testid="profile-showcase-slot-${i}">${trophyMedal(x.t,52)}<p class="clamp-1 text-xs font-bold">${esc(x.t.name)}</p><p class="text-[10px] capitalize text-white/50">${esc(x.t.tier)}${x.pin?' \u00B7 pinned':''}</p></div>`:`<div class="flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-white/12 p-3 text-center text-white/40" data-testid="profile-showcase-slot-${i}"><span class="grid h-[52px] w-[52px] place-items-center rounded-full bg-white/5">?</span><p class="text-xs">Empty slot</p></div>`;}).join('');
+  const sortBtn=(id,l)=>`<button data-act="trophy-sort" data-sort="${id}" data-testid="profile-trophy-sort-${id}" class="rounded-full px-3 py-1.5 text-xs font-semibold ${sort===id?'bg-white/15 text-white':'text-white/55 hover:text-white'}">${l}</button>`;
+  const grid=d.list.map(t=>`<div class="flex items-center gap-2.5 rounded-2xl border p-2.5 ${t.at?'border-white/12 bg-white/[0.05]':'border-white/[0.06] bg-white/[0.02] opacity-60'}" data-testid="profile-trophy-${esc(t.id)}">${t.at?trophyMedal(t,36):`<span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/5 text-sm grayscale">${esc(t.ico)}</span>`}<div class="min-w-0 flex-1"><p class="clamp-1 text-sm font-semibold">${esc(t.name)}</p><p class="clamp-1 text-[11px] text-white/50">${esc(t.desc)}</p>${t.at?'':`<div class="mt-1 h-1 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-[color:var(--treesh-gold)]" style="width:${Math.round((t.cur||0)/Math.max(1,t.goal||1)*100)}%"></div></div>`}</div></div>`).join('');
+  return `<div data-testid="profile-trophies">
+    <div class="mb-2 flex items-baseline justify-between"><p class="text-sm font-bold">Showcase</p><p class="text-xs text-white/50">${d.got} / ${d.total} unlocked</p></div>
+    <div class="grid grid-cols-3 gap-2">${slots}</div>
+    <div class="mt-4 flex items-center gap-1 rounded-full border border-white/10 bg-black/30 p-1 w-fit">${sortBtn('rarest','Rarest')}${sortBtn('recent','Recent')}</div>
+    <div class="mt-3 flex flex-wrap gap-2" data-testid="profile-trophy-row">${row.length?row.map(t=>trophyMedal(t,36)).join(''):'<p class="text-xs text-white/50">No trophies unlocked yet.</p>'}</div>
+    <p class="mb-2 mt-5 text-sm font-bold">All trophies</p>
+    <div class="grid gap-2 sm:grid-cols-2" data-testid="profile-trophy-grid">${grid}</div>
+    <p class="mt-3 text-[11px] text-white/45">Pin your favourite 3 in FREA! \u2192 Trophy Room.</p></div>`; }
+function refreshTrophyUI(){ if(!state.profileOpen) return; const p=document.getElementById('profile-panel'); if(p){ p.innerHTML=profileInnerHtml(); icons(); } }
+window.addEventListener("storage", e=>{ if(e.key==="treesh_trophies") refreshTrophyUI(); });
+window.addEventListener("message", e=>{ const m=e.data; if(!m||typeof m!=="object"||m.type!=="treesh:trophies") return; const fr=document.getElementById("gf-frame"); if(!fr||e.source!==fr.contentWindow) return; refreshTrophyUI(); });
 function profileStarBannerHtml(){ const collapsed=state.profileTab==='stats'; return `<button data-act="profile-tab" data-tab="stats" id="profile-star-banner" data-testid="profile-starlites" aria-label="View stats" class="pf-star-wrap mt-3 flex w-full items-center gap-3 rounded-2xl border border-[color:var(--treesh-gold)]/25 bg-[color:var(--treesh-gold)]/[0.08] p-3 text-left hover:bg-[color:var(--treesh-gold)]/[0.13] ${collapsed?'pf-star-collapsed':''}">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-gold)]/20 text-[color:var(--treesh-gold)]"><i data-lucide="sparkles" style="width:20px;height:20px"></i></span>
       <div class="min-w-0 flex-1"><p class="text-[11px] font-semibold uppercase tracking-wide text-white/55">Starlites</p><p class="font-doto text-2xl font-bold leading-none text-white" data-star-count>${fmtNum((state.stars&&state.stars.points)||0)}</p></div>
@@ -3573,6 +3603,7 @@ function profileInnerHtml(){
       <button data-act="profile-close" aria-label="Close" data-testid="profile-module-close-button" class="press grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/75 hover:bg-white/10"><i data-lucide="x" style="width:18px;height:18px"></i></button>
     </div>
     ${profileStarBannerHtml()}
+    ${profileTrophyStripHtml()}
     <div id="profile-tabs" class="mt-4 flex gap-1 overflow-x-auto no-scrollbar rounded-full border border-white/10 bg-black/30 p-1" data-testid="profile-module-tabs">${profileTabsInner()}</div>
   </div>
   <div id="profile-body" class="min-h-0 flex-1 overflow-y-auto soft-scroll p-4 pf-content-in">${profileBodyHtml()}</div>`;
@@ -7101,6 +7132,7 @@ document.addEventListener("click", e=>{
     case "atp-add": { const pl=plById(t.dataset.pl); if(pl&&!pl.songIds.includes(state._addSong)){ pl.songIds.push(state._addSong); savePl(); toast("Added to playlist",pl.name); } openAddToPlaylist(state._addSong); break; }
     case "open-profile": openProfile(t.dataset.tab); break;
     case "profile-close": closeProfile(); break;
+    case "trophy-sort": state.trophySort=t.dataset.sort||"rarest"; renderProfileBody(); break;
     case "profile-tab": if(state.profileTab!==t.dataset.tab){ state.profileTab=t.dataset.tab; const tw=$("#profile-tabs"); if(tw) tw.innerHTML=profileTabsInner(); const ban=$("#profile-star-banner"); if(ban) ban.classList.toggle("pf-star-collapsed", state.profileTab==='stats'); renderProfileBody(); const b=$("#profile-body"); if(b){ b.classList.remove("tr-fade-in"); void b.offsetWidth; b.classList.add("tr-fade-in"); } icons(); } break;
     case "profile-edit": onboard={step:0,nick:(state.profile&&state.profile.nickname)||"",bday:(state.profile&&state.profile.birthday)||"",avatar:(state.profile&&state.profile.avatar)||""}; renderOnboarding(); break;
     case "ob-next": onboard.step++; renderOnboarding(); break;
