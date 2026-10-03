@@ -1,3 +1,4 @@
+import { useLayout } from "@/src/hooks/useLayout";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
@@ -13,6 +14,7 @@ import { CROWN_COLOR, GRADE_COLOR, masteryFor } from "@/src/game/progression";
 import { Song } from "@/src/game/types";
 
 export default function LibraryScreen() {
+  const { desktop } = useLayout();
   const { songs, treeshSongs, charts, scores, selectSong, setDifficulty, importSong, renameSong, deleteSong, deleteChart, exportChart, importChart, importChartFromCode, mineSongs, refreshLibrary, refreshing } = useAppState();
   const forEditor = useLocalSearchParams<{ pick?: string }>().pick === "editor";
   const [tab, setTab] = useState<"treesh" | "device" | "customs">("treesh");
@@ -45,7 +47,7 @@ export default function LibraryScreen() {
   const onCardPress = (song: Song) => { if (tab === "customs" && selectMode) togglePick(song.id); else choose(song); };
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><ScreenHeader title="Song Library" />
-    <View style={styles.chrome}>
+    <View style={[styles.chrome, desktop && styles.chromeWide]}>
       <View style={styles.searchRow}>
         <View style={styles.search}><Ionicons name="search" size={18} color={colors.cyan} /><TextInput testID="library-search-input" value={query} onChangeText={setQuery} placeholder="Search songs or artists" placeholderTextColor="#6D6F78" style={styles.input} /></View>
         <Pressable testID="library-refresh-button" onPress={() => refreshLibrary()} disabled={refreshing} hitSlop={6} style={styles.refreshBtn}>{refreshing ? <ActivityIndicator size="small" color={colors.cyan} /> : <Ionicons name="refresh" size={19} color={colors.cyan} />}</Pressable>
@@ -56,12 +58,12 @@ export default function LibraryScreen() {
         <Pressable testID="customs-library-chip" onPress={() => setTab("customs")} style={[styles.chip, tab === "customs" && styles.chipActive]}><Text style={[styles.chipText, tab === "customs" && styles.chipTextActive]}>Customs</Text></Pressable>
       </ScrollView>
     </View>
-    <ScrollView style={styles.list} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.sectionRow}>
+    <ScrollView style={styles.list} contentContainerStyle={[styles.content, desktop && styles.grid]} showsVerticalScrollIndicator={false}>
+      <View style={[styles.sectionRow, { width: "100%" }]}>
         <View><Text style={styles.eyebrow}>{tab === "treesh" ? "FULL CATALOG" : tab === "customs" ? "YOUR CHARTS" : "PRIVATE LIBRARY"}</Text><Text style={styles.heading}>{tab === "treesh" ? "Treesh Music" : tab === "customs" ? "Custom charts" : "Your imports"}</Text></View>
         {tab === "customs" && customSongs.length > 0 ? <Pressable testID="customs-select-toggle" onPress={() => { setSelectMode(m => !m); setPicked(new Set()); }} style={styles.selectBtn}><Text style={styles.selectBtnText}>{selectMode ? "Cancel" : "Select"}</Text></Pressable> : <Text style={styles.count}>{visible.length} songs</Text>}
       </View>
-      {visible.map((song) => { const picking = tab === "customs" && selectMode; const isPicked = picked.has(song.id); return <Pressable key={song.id} testID={`song-card-${song.id}`} onPress={() => onCardPress(song)} style={({ pressed }) => [styles.card, pressed && styles.pressed, isPicked && styles.cardPicked]}>
+      {visible.map((song) => { const picking = tab === "customs" && selectMode; const isPicked = picked.has(song.id); return <Pressable key={song.id} testID={`song-card-${song.id}`} onPress={() => onCardPress(song)} style={({ pressed }) => [styles.card, desktop && styles.gridCard, pressed && styles.pressed, isPicked && styles.cardPicked]}>
         {picking && <View style={[styles.check, isPicked && styles.checkOn]}>{isPicked && <Ionicons name="checkmark" size={16} color={colors.bg} />}</View>}
         <View style={[styles.cover, { borderColor: `${song.accent}55` }]}>
           <SongCover coverArt={song.coverArt} accent={song.accent} seed={song.id} label={song.title} iconSize={22} style={styles.coverImg} testID={`song-cover-${song.id}`} />
@@ -71,8 +73,8 @@ export default function LibraryScreen() {
         {!picking && (() => { const m = masteryFor(scores, song.id); return m.grade ? <View testID={`song-mastery-${song.id}`} style={styles.mastery}><Text style={[styles.masteryGrade, { color: GRADE_COLOR[m.grade] }]}>{m.grade}</Text><Ionicons name="ribbon" size={13} color={CROWN_COLOR[m.crown]} /></View> : null; })()}
         {!picking && <View style={styles.play}><Ionicons name="play" size={19} color="#001018" /></View>}
       </Pressable>; })}
-      {!visible.length && <View style={styles.empty}><Ionicons name={tab === "customs" ? "construct-outline" : "musical-notes-outline"} size={42} color={colors.cyan} /><Text style={styles.emptyTitle}>{tab === "treesh" ? "Loading catalog…" : tab === "customs" ? "No custom charts yet" : "No songs yet"}</Text><Text style={styles.emptyCopy}>{tab === "treesh" ? "Fetching the full Treesh library." : tab === "customs" ? "Build one in the Editor, or import a chart file below." : "Import an audio file to build your first chart."}</Text></View>}
-      <View style={{ height: 110 }} />
+      {!visible.length && <View style={[styles.empty, { width: "100%" }]}><Ionicons name={tab === "customs" ? "construct-outline" : "musical-notes-outline"} size={42} color={colors.cyan} /><Text style={styles.emptyTitle}>{tab === "treesh" ? "Loading catalog…" : tab === "customs" ? "No custom charts yet" : "No songs yet"}</Text><Text style={styles.emptyCopy}>{tab === "treesh" ? "Fetching the full Treesh library." : tab === "customs" ? "Build one in the Editor, or import a chart file below." : "Import an audio file to build your first chart."}</Text></View>}
+      <View style={{ height: 110, width: "100%" }} />
     </ScrollView>
 
     <View style={styles.importBar}>
@@ -106,6 +108,8 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
+  chromeWide: { backgroundColor: "transparent", borderBottomWidth: 0 },
+  grid: { flexDirection: "row", flexWrap: "wrap", columnGap: 12 }, gridCard: { width: "49.2%" },
   safe: { flex: 1, backgroundColor: "transparent" }, chrome: { height: 114, backgroundColor: "rgba(6,5,26,0.7)", borderBottomWidth: 1, borderBottomColor: colors.border }, searchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginTop: 6 }, search: { flex: 1, height: 46, borderRadius: 12, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: colors.panel, borderWidth: 1, borderColor: "rgba(0,229,255,0.35)" }, refreshBtn: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border }, input: { flex: 1, color: colors.text, fontSize: 15, fontFamily: fonts.body },
   chipRow: { height: 56 }, chips: { gap: 8, paddingHorizontal: 16, alignItems: "center" }, chip: { flexShrink: 0, height: 36, justifyContent: "center", paddingHorizontal: 15, borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.panel }, chipActive: { backgroundColor: "rgba(0,229,255,0.14)", borderColor: colors.cyan, ...neonGlow(colors.cyan, 10, 0.45) }, chipText: { color: colors.muted, fontSize: 10, fontFamily: fonts.arcade, letterSpacing: 1 }, chipTextActive: { color: colors.cyan },
   list: { flex: 1 }, content: { padding: 16, gap: 12 }, sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 5 }, eyebrow: { color: colors.cyan, fontSize: 9, letterSpacing: 2, fontFamily: fonts.arcade }, heading: { color: colors.text, fontSize: 20, fontFamily: fonts.arcadeBlack, marginTop: 4, letterSpacing: 0.5, ...textGlow(colors.pink, 12) }, count: { color: colors.muted, fontSize: 12, fontFamily: fonts.body },

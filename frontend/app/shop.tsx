@@ -1,3 +1,4 @@
+import { useLayout } from "@/src/hooks/useLayout";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
@@ -37,6 +38,7 @@ function ThemePreview({ theme, w = 120, h = 84 }: { theme: HighwayTheme; w?: num
 
 export default function ShopScreen() {
   const prog = useProgress();
+  const { desktop } = useLayout();
   const { stars, award } = useStarlites();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -74,9 +76,9 @@ export default function ShopScreen() {
       </View>
       {msg && <Pressable testID="shop-message" onPress={() => setMsg(null)} style={styles.msg}><Ionicons name="information-circle" size={16} color={colors.cyan} /><Text style={styles.msgText}>{msg}</Text></Pressable>}
       <Text style={styles.section}>NOTE SKINS · {prog.owned.length}/{SKINS.length} OWNED</Text>
-      {SKINS.map(skin => {
+      <View style={desktop ? styles.grid : styles.list}>{SKINS.map(skin => {
         const owned = prog.owned.includes(skin.id); const on = prog.skin === skin.id; const afford = stars.points >= skin.price; const asking = confirm === skin.id;
-        return <Pressable key={skin.id} testID={`skin-card-${skin.id}`} onPress={() => onPress(skin)} style={({ pressed }) => [styles.card, { borderColor: on ? skin.glow : alpha(skin.glow, 0.28) }, on && neonGlow(skin.glow, 14, 0.4), pressed && { transform: [{ scale: 0.985 }] }]}>
+        return <Pressable key={skin.id} testID={`skin-card-${skin.id}`} onPress={() => onPress(skin)} style={({ pressed }) => [styles.card, desktop && styles.gridCard, { borderColor: on ? skin.glow : alpha(skin.glow, 0.28) }, on && neonGlow(skin.glow, 14, 0.4), pressed && { transform: [{ scale: 0.985 }] }]}>
           <SkinPreview skin={skin} />
           <View style={{ flex: 1, gap: 5 }}>
             <View style={[styles.tag, { borderColor: alpha(skin.glow, 0.6) }]}><Text style={[styles.tagText, { color: skin.glow }]}>{skin.tag}</Text></View>
@@ -89,11 +91,11 @@ export default function ShopScreen() {
               : <><Ionicons name={afford ? "sparkles" : "lock-closed"} size={12} color={asking ? "#001018" : colors.gold} /><Text style={[styles.actionText, { color: asking ? "#001018" : colors.gold }]}>{asking ? "CONFIRM" : skin.price.toLocaleString()}</Text></>}
           </View>
         </Pressable>;
-      })}
+      })}</View>
       <Text style={styles.section}>HIGHWAY THEMES · {prog.themes.length}/{THEMES.length} OWNED</Text>
-      {THEMES.map(t => {
+      <View style={desktop ? styles.grid : styles.list}>{THEMES.map(t => {
         const owned = prog.themes.includes(t.id); const on = prog.theme === t.id; const afford = stars.points >= t.price; const asking = confirm === `t-${t.id}`;
-        return <Pressable key={t.id} testID={`theme-card-${t.id}`} onPress={() => onTheme(t)} style={({ pressed }) => [styles.card, { borderColor: on ? t.glow : alpha(t.glow, 0.28) }, on && neonGlow(t.glow, 14, 0.4), pressed && { transform: [{ scale: 0.985 }] }]}>
+        return <Pressable key={t.id} testID={`theme-card-${t.id}`} onPress={() => onTheme(t)} style={({ pressed }) => [styles.card, desktop && styles.gridCard, { borderColor: on ? t.glow : alpha(t.glow, 0.28) }, on && neonGlow(t.glow, 14, 0.4), pressed && { transform: [{ scale: 0.985 }] }]}>
           <ThemePreview theme={t} />
           <View style={{ flex: 1, gap: 5 }}>
             <View style={[styles.tag, { borderColor: alpha(t.glow, 0.6) }]}><Text style={[styles.tagText, { color: t.glow }]}>{t.tag}</Text></View>
@@ -105,7 +107,7 @@ export default function ShopScreen() {
               : <><Ionicons name={afford ? "sparkles" : "lock-closed"} size={12} color={asking ? "#001018" : colors.gold} /><Text style={[styles.actionText, { color: asking ? "#001018" : colors.gold }]}>{asking ? "CONFIRM" : t.price.toLocaleString()}</Text></>}
           </View>
         </Pressable>;
-      })}
+      })}</View>
       <Text style={styles.hint}>Earn Starlites by clearing songs, hitting combo milestones, daily challenges and levelling up.</Text>
     </ScrollView>
   </SafeAreaView>;
@@ -120,6 +122,7 @@ const styles = StyleSheet.create({
   balance: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }, balanceText: { color: colors.gold, fontFamily: fonts.arcade, fontSize: 13 },
   msg: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 12, backgroundColor: "rgba(0,229,255,0.08)", borderWidth: 1, borderColor: "rgba(0,229,255,0.35)" }, msgText: { color: colors.text, fontFamily: fonts.bold, fontSize: 13, flex: 1 },
   section: { color: colors.cyan, fontSize: 11, fontFamily: fonts.arcade, letterSpacing: 2, marginTop: 6, ...textGlow(colors.cyan, 8) },
+  list: { gap: 10 }, grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 }, gridCard: { width: "48.9%" },
   card: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 14, borderWidth: 1.5, backgroundColor: "rgba(14,11,38,0.8)" },
   tag: { alignSelf: "flex-start", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4, borderWidth: 1 }, tagText: { fontSize: 8, fontFamily: fonts.arcadeBlack, letterSpacing: 1.2 },
   name: { color: colors.text, fontSize: 15, fontFamily: fonts.arcadeBlack, letterSpacing: 0.5 },

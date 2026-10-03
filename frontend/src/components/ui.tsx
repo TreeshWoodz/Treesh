@@ -48,7 +48,8 @@ export function NeonBackground() {
 
 export function ScreenHeader({ title, back = true, right }: { title: string; back?: boolean; right?: React.ReactNode }) {
   const { stars } = useStarlites();
-  return <View style={styles.header} testID="screen-header">
+  const { width } = useWindowDimensions();
+  return <View style={[styles.header, width >= 960 && styles.headerWide]} testID="screen-header">
     <View style={styles.headerLeft}>{back && <Pressable testID="header-back-button" onPress={() => router.back()} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}><Ionicons name="chevron-back" size={22} color={colors.cyan} /></Pressable>}</View>
     <Text style={styles.headerTitle} numberOfLines={1}>{title.toUpperCase()}</Text>
     <View style={styles.headerRight}>{right || <View style={styles.stars}><Ionicons name="sparkles" size={14} color={colors.gold} /><Text style={styles.starText} testID="starlites-balance">{stars.points.toLocaleString()}</Text></View>}</View>
@@ -102,6 +103,7 @@ export function NeonButton({ label, onPress, icon = "play", variant = "primary",
 
 const styles = StyleSheet.create({
   header: { height: 60, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(6,5,26,0.82)" },
+  headerWide: { backgroundColor: "transparent" },
   headerLine: { position: "absolute", left: 0, right: 0, bottom: 0, height: 1.5, opacity: 0.8 },
   headerLeft: { minWidth: 44, flexShrink: 0, flexDirection: "row", alignItems: "center" }, headerRight: { flexShrink: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
   headerTitle: { color: colors.text, fontSize: 16, fontFamily: fonts.arcadeBlack, letterSpacing: 2, flex: 1, textAlign: "center", marginHorizontal: 8, ...textGlow(colors.cyan, 10) },

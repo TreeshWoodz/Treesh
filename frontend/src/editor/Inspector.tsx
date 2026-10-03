@@ -8,14 +8,14 @@ import { fmtTime } from "./editorMath";
 
 const LABEL: Record<string, string> = { tap: "TAP", hold: "HOLD", wavy: "WAVY", swipe: "FLICK", slide: "SLIDE", chord: "CHORD", special: "SPECIAL" };
 
-type Props = { notes: Note[]; onNudge: (dir: 1 | -1) => void; onLane: (d: 1 | -1) => void; onDir: (d: SwipeDir) => void; onDelete: () => void; onClose: () => void };
+type Props = { notes: Note[]; clipCount: number; onNudge: (dir: 1 | -1) => void; onLane: (d: 1 | -1) => void; onDir: (d: SwipeDir) => void; onDelete: () => void; onClose: () => void; onCopy: () => void; onPaste: () => void; onDuplicate: () => void };
 
 function IBtn({ testID, icon, label, onPress, color = colors.text }: { testID: string; icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; color?: string }) {
   return <Pressable testID={testID} onPress={onPress} style={styles.btn}><Ionicons name={icon} size={16} color={color} /><Text selectable={false} style={[styles.btnText, { color }]}>{label}</Text></Pressable>;
 }
 
 // Floating panel for the selected note(s): move in time / lane, set flick direction, delete.
-export function Inspector({ notes, onNudge, onLane, onDir, onDelete, onClose }: Props) {
+export function Inspector({ notes, clipCount, onNudge, onLane, onDir, onDelete, onClose, onCopy, onPaste, onDuplicate }: Props) {
   const n = notes.length === 1 ? notes[0] : undefined;
   const flickable = !!n && (n.type === "swipe" || n.type === "tap");
   return (
@@ -32,6 +32,11 @@ export function Inspector({ notes, onNudge, onLane, onDir, onDelete, onClose }: 
         <IBtn testID="editor-lane-left" icon="chevron-back" label="Lane" onPress={() => onLane(-1)} />
         <IBtn testID="editor-lane-right" icon="chevron-forward" label="Lane" onPress={() => onLane(1)} />
         <IBtn testID="editor-inspector-delete" icon="trash" label="Delete" color={colors.pink} onPress={onDelete} />
+      </View>
+      <View style={styles.row}>
+        <IBtn testID="editor-inspector-copy" icon="copy" label={`Copy ${notes.length}`} color={colors.cyan} onPress={onCopy} />
+        <IBtn testID="editor-inspector-duplicate" icon="duplicate" label="Duplicate" color={colors.cyan} onPress={onDuplicate} />
+        <IBtn testID="editor-inspector-paste" icon="clipboard" label={clipCount ? `Paste ${clipCount}` : "Paste"} color={clipCount ? colors.gold : colors.muted} onPress={onPaste} />
       </View>
       {flickable && (
         <View style={styles.dirRow}>

@@ -36,7 +36,7 @@ const TAP_MAX = 0.18; // press longer than this (live) → hold note
 const MOVE_EPS = 16;  // sideways travel beyond this (live) → wavy note
 const FLICK_MAX = 0.28, FLICK_MIN = 26; // a quick stroke this long → flick note
 type Capture = { sx: number; sy: number; lx: number; ly: number; t0: number; wall: number; lane: number; moved: boolean; points: { t: number; x: number }[] };
-type StepDrag = { t0: number; lane: number; sx: number; sy: number; points: { t: number; x: number }[] };
+type StepDrag = { t0: number; tRaw: number; lane: number; sx: number; sy: number; points: { t: number; x: number }[]; moved?: boolean };
 
 export default function EditorScreen() {
   const { selectedSong, setDifficulty, charts, saveChart, setTestChart, exportChart, settings, updateSettings } = useAppState();
@@ -61,6 +61,8 @@ export default function EditorScreen() {
   const [draft, setDraft] = useState<Note | null>(null);
   const [board, setBoard] = useState({ w: 0, h: 0 });
   const [shareCode, setShareCode] = useState<string | null>(null);
+  const [clip, setClip] = useState<Note[]>([]); // copied notes, times relative to the first one
+  const [band, setBand] = useState<{ y0: number; y1: number } | null>(null);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 1900); return () => clearTimeout(t); }, [toast]);
   useEffect(() => { if (selectedSong && !settings.editorTutorialSeen) { setTStep(0); setTutorial(true); } }, [selectedSong, settings.editorTutorialSeen]);
   const endTutorial = () => { setTutorial(false); if (!settings.editorTutorialSeen) updateSettings({ editorTutorialSeen: true }); };
@@ -80,7 +82,7 @@ export default function EditorScreen() {
   const lookahead = ZOOMS[zoomIdx];
   const step = snapStep(bpm, snap);
   const beatLen = 60 / bpm;
-  const geo: Geo = useMemo(() => { const hw = Math.max(200, Math.min(board.w - 24, 440)); const topY = 12; const bottomY = Math.max(topY + 100, board.h - 44); return { cx: board.w / 2, hw, topY, bottomY, laneW: hw / 4, span: bottomY - topY, pn: 0.42 }; }, [board]);
+  const geo: Geo = useMemo(() => { const hw = Math.max(200, Math.min(board.w - 24, board.w >= 900 ? 620 : 440)); const topY = 12; const bottomY = Math.max(topY + 100, board.h - 44); return { cx: board.w / 2, hw, topY, bottomY, laneW: hw / 4, span: bottomY - topY, pn: 0.42 }; }, [board]);
 
   useEffect(() => { recordingRef.current = recording; if (!recording) captures.current.clear(); }, [recording]);
   const setTime = (t: number) => { nowRef.current = t; setNow(t); };
@@ -125,13 +127,13 @@ export default function EditorScreen() {
     }
     const tc = touchesOf(e)[0]; if (!tc) return;
     const b = boardPoint(geo, curTime(), lookahead, tc.locationX, tc.locationY);
-    if (tool === "select" || tool === "erase") {
+    if (tool === "erase") {
       const hit = hitTest(notes, b.t, b.lane, Math.max(0.1, lookahead * 0.06));
-      if (tool === "erase") { if (hit) { commit(prev => prev.filter(n => n.id !== hit.id)); setSelected(prev => { const s = new Set(prev); s.delete(hit.id); return s; }); flashLane(hit.lane); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } return; }
-      if (!hit) { setSelected(new Set()); return; }
-      setSelected(prev => { const s = new Set(prev); if (s.has(hit.id)) s.delete(hit.id); else s.add(hit.id); return s; }); Haptics.selectionAsync(); return;
+      if (hit) { commit(prev => prev.filter(n => n.id !== hit.id)); setSelected(prev => { const s = new Set(prev); s.delete(hit.id); return s; }); flashLane(hit.lane); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }
+      return;
     }
-    stepDrag.current = { t0: snapTime(b.t, step), lane: b.lane, sx: tc.locationX, sy: tc.locationY, points: [{ t: b.t, x: b.x }] };
+    stepDrag.current = { t0: snapTime(b.t, step), tRaw: b.t, lane: b.lane, sx: tc.locationX, sy: tc.locationY, points: [{ t: b.t, x: b.x }] };
+    if (tool === "select") return; // resolved on release: tap = toggle note, drag = select a time range
     if (tool === "hold") setDraft({ id: "draft", lane: b.lane, time: snapTime(b.t, step), type: "hold", duration: step || 0.25 });
     flash[b.lane].setValue(1);
   };
@@ -142,6 +144,7 @@ export default function EditorScreen() {
     }
     const s = stepDrag.current; const tc = touchesOf(e)[0]; if (!s || !tc) return;
     const b = boardPoint(geo, curTime(), lookahead, tc.locationX, tc.locationY);
+    if (tool === "select") { if (Math.abs(tc.locationY - s.sy) > 12) { s.moved = true; s.points[1] = { t: b.t, x: b.x }; setBand({ y0: s.sy, y1: tc.locationY }); } return; }
     if (tool === "hold") { const end = Math.max(s.t0 + (step || 0.1), snapTime(b.t, step)); setDraft({ id: "draft", lane: s.lane, time: s.t0, type: "hold", duration: end - s.t0 }); }
     if (tool === "wavy") { const last = s.points[s.points.length - 1]; if (b.t > last.t + 0.02) { s.points.push({ t: b.t, x: b.x }); setDraft({ id: "draft", lane: s.lane, time: s.points[0].t, type: "wavy", duration: b.t - s.points[0].t, path: [...s.points] }); } }
   };
@@ -150,8 +153,18 @@ export default function EditorScreen() {
       for (const tc of touchesOf(e)) { const c = captures.current.get(tc.identifier); if (!c) continue; captures.current.delete(tc.identifier); Animated.timing(flash[c.lane], { toValue: 0, duration: 200, useNativeDriver: true }).start(); if (recordingRef.current) commitLive(c); }
       return;
     }
-    const s = stepDrag.current; stepDrag.current = null; setDraft(null); if (!s) return;
+    const s = stepDrag.current; stepDrag.current = null; setDraft(null); setBand(null); if (!s) return;
     Animated.timing(flash[s.lane], { toValue: 0, duration: 200, useNativeDriver: true }).start();
+    if (tool === "select") {
+      if (s.moved && s.points[1]) {
+        const lo = Math.min(s.tRaw, s.points[1].t), hi = Math.max(s.tRaw, s.points[1].t);
+        const ids = notes.filter(n => n.time >= lo && n.time <= hi).map(n => n.id);
+        setSelected(new Set(ids)); setToast(ids.length ? `Selected ${ids.length} note${ids.length === 1 ? "" : "s"}` : "No notes in that range"); Haptics.selectionAsync(); return;
+      }
+      const hit = hitTest(notes, s.tRaw, s.lane, Math.max(0.1, lookahead * 0.06));
+      if (!hit) { setSelected(new Set()); return; }
+      setSelected(prev => { const n = new Set(prev); if (n.has(hit.id)) n.delete(hit.id); else n.add(hit.id); return n; }); Haptics.selectionAsync(); return;
+    }
     if (tool === "tap") place({ lane: s.lane, time: s.t0, type: "tap" });
     else if (tool === "flick") place({ lane: s.lane, time: s.t0, type: "swipe", dir: flickDir });
     else if (tool === "hold") place({ lane: s.lane, time: s.t0, type: "hold", duration: draft?.type === "hold" && draft.duration ? draft.duration : Math.max(step * 2, 0.5) });
@@ -170,6 +183,25 @@ export default function EditorScreen() {
   const dirSel = (d: SwipeDir) => { setFlickDir(d); commit(prev => prev.map(n => (selected.has(n.id) && (n.type === "swipe" || n.type === "tap") ? { ...n, type: "swipe", dir: d } : n))); };
   const eraseSelected = () => { if (!selected.size) return; commit(prev => prev.filter(n => !selected.has(n.id))); setSelected(new Set()); };
   const eraseAll = () => { if (!notes.length) return; commit(() => []); setSelected(new Set()); };
+  // ---- Copy / paste: patterns keep their relative timing; pasted notes stay selected for nudging ----
+  const toClip = (src: Note[]) => { const t0 = Math.min(...src.map(n => n.time)); return src.map(n => ({ ...n, time: n.time - t0, path: n.path?.map(p => ({ ...p, t: p.t - t0 })) })); };
+  const pasteNotes = (src: Note[], at: number) => {
+    if (!src.length) { setToast("Copy some notes first"); return; }
+    const stamp = Date.now();
+    const added = src.map((n, i) => ({ ...n, id: `paste-${stamp}-${i}-${Math.floor(Math.random() * 9999)}`, time: at + n.time, path: n.path?.map(p => ({ ...p, t: p.t + at })) })).filter(n => n.time <= duration);
+    if (!added.length) { setToast("No room left in the song"); return; }
+    commit(prev => [...prev, ...added]); setSelected(new Set(added.map(n => n.id)));
+    setToast(`Pasted ${added.length} note${added.length === 1 ? "" : "s"}`); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+  const copySel = () => { if (!selNotes.length) return; setClip(toClip(selNotes)); setToast(`Copied ${selNotes.length} note${selNotes.length === 1 ? "" : "s"}`); Haptics.selectionAsync(); };
+  const pasteHere = () => pasteNotes(clip, Math.max(0, snapTime(nowRef.current, step)));
+  // Duplicate repeats the selection right after itself (one grid step after its last note).
+  const duplicateSel = () => {
+    if (!selNotes.length) return;
+    const t0 = Math.min(...selNotes.map(n => n.time)); const last = Math.max(...selNotes.map(n => n.time + (n.duration || 0)));
+    const g = step || beatLen; const c = toClip(selNotes); setClip(c);
+    pasteNotes(c, snapTime(t0, step) + Math.max(g, snapTime(last - t0, g) + g));
+  };
   const doUndo = () => { if (!undo.current.length) return; setNotes(prev => { redo.current.push(prev); return undo.current.pop()!; }); setSaved(false); };
   const doRedo = () => { if (!redo.current.length) return; setNotes(prev => { undo.current.push(prev); return redo.current.pop()!; }); setSaved(false); };
 
@@ -254,7 +286,9 @@ export default function EditorScreen() {
       </View>
       {tool === "flick" && <View style={styles.flickRow} pointerEvents="box-none"><FlickDirRow flickDir={flickDir} onFlickDir={setFlickDir} /></View>}
       <View pointerEvents="none" style={styles.modeBadge}><View style={[styles.modeDot, { backgroundColor: liveRec ? colors.pink : playing ? colors.cyan : toolMeta.color }]} /><Text selectable={false} testID="editor-mode-label" style={styles.modeText}>{liveRec ? "LIVE RECORDING" : playing ? "PLAYING · TAP TO PLACE" : `STEP MODE · ${toolMeta.label.toUpperCase()}`}</Text></View>
-      {selNotes.length > 0 && <Inspector notes={selNotes} onNudge={nudgeSel} onLane={laneSel} onDir={dirSel} onDelete={eraseSelected} onClose={() => setSelected(new Set())} />}
+      {band && <View pointerEvents="none" style={[styles.band, { top: Math.min(band.y0, band.y1), height: Math.abs(band.y1 - band.y0) }]} />}
+      {selNotes.length > 0 && <Inspector notes={selNotes} clipCount={clip.length} onNudge={nudgeSel} onLane={laneSel} onDir={dirSel} onDelete={eraseSelected} onClose={() => setSelected(new Set())} onCopy={copySel} onPaste={pasteHere} onDuplicate={duplicateSel} />}
+      {selNotes.length === 0 && clip.length > 0 && <Pressable testID="editor-paste-button" onPress={pasteHere} style={styles.pasteChip}><Ionicons name="clipboard" size={15} color={colors.bg} /><Text selectable={false} style={styles.pasteText}>Paste {clip.length}</Text></Pressable>}
     </View>
 
     <View style={styles.timeRow}>
@@ -293,12 +327,15 @@ const styles = StyleSheet.create({
   thumb: { width: 38, height: 38, borderRadius: 9, overflow: "hidden", borderWidth: 1 }, thumbImg: { width: "100%", height: "100%" },
   song: { color: colors.text, fontSize: 15, fontFamily: fonts.heavy }, meta: { color: colors.cyan, fontSize: 9, letterSpacing: 1.2, marginTop: 2, fontFamily: fonts.arcade },
   change: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5, ...GLASS }, changeText: { color: colors.text, fontSize: 12, fontFamily: fonts.bold },
-  boardWrap: { flex: 1, marginTop: 8, overflow: "hidden", backgroundColor: "rgba(6,5,26,0.55)" },
+  boardWrap: { flex: 1, marginTop: 8, marginHorizontal: 12, borderRadius: 20, overflow: "hidden", backgroundColor: "rgba(6,5,26,0.55)", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
   boardTop: { position: "absolute", top: 8, left: 8, right: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   chipGroup: { flexDirection: "row", alignItems: "center", gap: 4, padding: 3, borderRadius: 14, ...GLASS },
   chipBtn: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)" },
   chipText: { color: colors.text, fontSize: 11, fontFamily: fonts.arcade, minWidth: 34, textAlign: "center" }, chipLabel: { color: colors.muted, fontSize: 8, letterSpacing: 1.6, fontFamily: fonts.arcadeBlack, marginHorizontal: 4 },
   snapChip: { minWidth: 34, height: 30, paddingHorizontal: 6, borderRadius: 10, alignItems: "center", justifyContent: "center" }, snapOn: { backgroundColor: colors.cyan }, snapText: { color: colors.text, fontSize: 10, fontFamily: fonts.heavy },
+  band: { position: "absolute", left: 0, right: 0, backgroundColor: "rgba(0,229,255,0.1)", borderTopWidth: 1, borderBottomWidth: 1, borderColor: "rgba(0,229,255,0.6)" },
+  pasteChip: { position: "absolute", right: 10, bottom: 42, flexDirection: "row", alignItems: "center", gap: 6, height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: colors.gold },
+  pasteText: { color: colors.bg, fontSize: 12, fontFamily: fonts.heavy },
   flickRow: { position: "absolute", top: 52, left: 0, right: 0, alignItems: "center" },
   modeBadge: { position: "absolute", bottom: 10, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, height: 24, borderRadius: 12, backgroundColor: "rgba(6,5,26,0.7)" },
   modeDot: { width: 7, height: 7, borderRadius: 4 }, modeText: { color: colors.text, fontSize: 9, letterSpacing: 1.6, fontFamily: fonts.arcadeBlack },

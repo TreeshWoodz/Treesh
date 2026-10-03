@@ -1,3 +1,4 @@
+import { DESKTOP_MIN } from "@/src/hooks/useLayout";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -48,7 +49,9 @@ export default function HomeScreen() {
     return merged.slice(0, 12);
   }, [songs, treeshSongs, mineSongs]);
 
-  const CARD_W = width - 40;
+  const desktop = width >= DESKTOP_MIN;
+  const SIDE_W = 400;
+  const CARD_W = desktop ? Math.min(width, 1240) - 36 - 24 - SIDE_W : width - 40;
   const STEP = CARD_W + 12;
   const scrollRef = useRef<ScrollView>(null);
   const [slide, setSlide] = useState(0);
@@ -106,6 +109,8 @@ export default function HomeScreen() {
           <Text style={styles.tagline}>TAP · HOLD · RIDE THE WAVE</Text>
         </Animated.View>
 
+        <View style={desktop ? styles.cols : styles.stack}>
+        <View style={desktop ? styles.colMain : styles.stack}>
         {ready && !settings.tutorialDone && <Animated.View style={fade}>
           <Pressable testID="home-tutorial-card" onPress={startTutorial} style={({ pressed }) => [styles.tut, pressed && styles.pressed]}>
             <View style={styles.tutIcon}><Ionicons name="school" size={24} color="#001018" /></View>
@@ -167,6 +172,8 @@ export default function HomeScreen() {
           </Pressable>
         </Animated.View>
 
+        </View>
+        <View style={desktop ? [styles.colSide, { width: SIDE_W }] : styles.stack}>
         {/* Daily Challenge */}
         {daily && <Animated.View style={fade}>
           <Pressable testID="daily-challenge-card" onPress={() => quickPlay(daily.song)} style={({ pressed }) => [styles.daily, pressed && styles.pressed]}>
@@ -218,6 +225,8 @@ export default function HomeScreen() {
             </View>
           </Pressable>
         </Animated.View>
+        </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
     <StarlitesModal visible={starsOpen} onClose={() => setStarsOpen(false)} />
@@ -227,6 +236,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "transparent" }, safe: { flex: 1 }, content: { paddingHorizontal: 18, paddingBottom: 32, gap: 16 },
+  stack: { gap: 16 }, cols: { flexDirection: "row", alignItems: "flex-start", gap: 24 }, colMain: { flex: 1, minWidth: 0, gap: 16 }, colSide: { gap: 16 },
   topbar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 6 },
   greet: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }, greetName: { color: colors.text, fontSize: 15, fontFamily: fonts.heavy, maxWidth: 140 },
   byline: { color: colors.lime, fontSize: 9, letterSpacing: 2, fontFamily: fonts.arcade, marginTop: 2 },

@@ -130,12 +130,16 @@ export default function GameScreen() {
   const PAD_BOTTOM = insets.bottom + 66;
   const PAD_H = 148;
   const geo: Geo = useMemo(() => {
-    const hw = Math.min(width - 20, 470);
+    const hw = Math.min(width - 20, width >= 960 ? Math.min(640, height * 0.72) : 470);
     const bottomY = height - PAD_BOTTOM - PAD_H / 2;
     const topY = insets.top + 128;
     return { cx: width / 2, hw, topY, bottomY, laneW: hw / 4, span: bottomY - topY, pn: P_NEAR };
   }, [width, height, insets.top, PAD_BOTTOM]);
 
+  const desktop = width >= 960;
+  // Side insets that keep HUD-adjacent panels a comfortable width on wide screens.
+  const panelInset = desktop ? { left: Math.max(18, (width - 620) / 2), right: Math.max(18, (width - 620) / 2) } : null;
+  const laneAtX = (x: number) => Math.max(0, Math.min(3, Math.floor((x - (geo.cx - geo.hw / 2)) / geo.laneW)));
   const lookahead = 2.4 / settings.noteSpeed;
   const duration = chart?.duration || 30;
   const sorted = useMemo(() => (chart ? [...chart.notes].sort((a, b) => a.time - b.time) : []), [chart]);
@@ -369,11 +373,11 @@ export default function GameScreen() {
     applyHit(target, grade, plus, early, lane);
   }, [chart, countdown, paused, jsTime, sorted, flashLane, applyHit, failSwipe]);
 
-  const onPadsTouchStart = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); touchLane.current[String(tt.identifier)] = lane; pressed.add(lane); hitLane(lane, { id: String(tt.identifier), x: tt.pageX, y: tt.pageY }); } };
+  const onPadsTouchStart = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const lane = laneAtX(tt.locationX ?? tt.pageX); touchLane.current[String(tt.identifier)] = lane; pressed.add(lane); hitLane(lane, { id: String(tt.identifier), x: tt.pageX, y: tt.pageY }); } };
   // Dragging a finger across lanes retargets the held lane in real time — this is how WAVY notes get TRACED (not just held).
   const onPadsTouchMove = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier);
     const ps = pendingSwipe.current;
-    if (ps && ps.id === key) { const dx = tt.pageX - ps.x, dy = tt.pageY - ps.y; if (dx * dx + dy * dy >= 22 * 22) { const dir: SwipeDir | null = -dy > Math.abs(dx) ? "up" : Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "left" : "right") : null; pendingSwipe.current = null; if (dir === ps.note.dir) applyHit(ps.note, ps.grade, ps.plus, ps.early, ps.lane, dir); else { pendingSwipe.current = ps; failSwipe(); } continue; } } const prev = touchLane.current[key]; if (prev === undefined) continue; const lane = Math.max(0, Math.min(3, Math.floor((tt.locationX ?? tt.pageX) / (width / 4)))); if (lane !== prev) { pressed.delete(prev); pressed.add(lane); touchLane.current[key] = lane; flashLane(lane); } } };
+    if (ps && ps.id === key) { const dx = tt.pageX - ps.x, dy = tt.pageY - ps.y; if (dx * dx + dy * dy >= 22 * 22) { const dir: SwipeDir | null = -dy > Math.abs(dx) ? "up" : Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "left" : "right") : null; pendingSwipe.current = null; if (dir === ps.note.dir) applyHit(ps.note, ps.grade, ps.plus, ps.early, ps.lane, dir); else { pendingSwipe.current = ps; failSwipe(); } continue; } } const prev = touchLane.current[key]; if (prev === undefined) continue; const lane = laneAtX(tt.locationX ?? tt.pageX); if (lane !== prev) { pressed.delete(prev); pressed.add(lane); touchLane.current[key] = lane; flashLane(lane); } } };
   const onPadsTouchEnd = (e: any) => { for (const tt of e.nativeEvent.changedTouches) { const key = String(tt.identifier); if (pendingSwipe.current?.id === key) failSwipe(); const lane = touchLane.current[key]; if (lane !== undefined) { pressed.delete(lane); delete touchLane.current[key]; } } };
 
   // Desktop keyboard controls: D/F/J/K (or arrow keys) drive the 4 lanes.
@@ -395,7 +399,6 @@ export default function GameScreen() {
   const visibleWavy = useMemo(() => { const set = new Set(wavyIds); return wavyNotes.filter(n => set.has(n.id)); }, [wavyNotes, wavyIds]);
   if (!chart || !selectedSong?.uri) return <View style={styles.missing}><Text selectable={false} style={styles.missingTitle}>Chart not ready</Text><Text selectable={false} style={styles.missingCopy}>Build a chart for this track, then jump back in.</Text><NeonButton testID="game-back-to-library-button" label="Build a chart" icon="analytics" onPress={() => router.replace("/library")} /></View>;
 
-  const padW = width / 4;
   const pulseReady = pulse >= 100;
   const charged = pulseReady || pulseActive;
   const liveStars = starsFor(accuracy);
@@ -487,13 +490,13 @@ export default function GameScreen() {
       </View>
     </View>
 
-    {tutorial && countdown <= 0 && (() => { const tt = progress * duration; const st = TUTORIAL_STEPS.find(x => tt >= x.from && tt < x.to) || TUTORIAL_STEPS[0]; return <View testID="tutorial-banner" pointerEvents="none" style={[styles.tutBanner, { top: insets.top + 104 }]}>
+    {tutorial && countdown <= 0 && (() => { const tt = progress * duration; const st = TUTORIAL_STEPS.find(x => tt >= x.from && tt < x.to) || TUTORIAL_STEPS[0]; return <View testID="tutorial-banner" pointerEvents="none" style={[styles.tutBanner, { top: insets.top + 104 }, panelInset]}>
       <Text selectable={false} style={styles.tutStep}>TUTORIAL · {st.title}</Text>
       <Text selectable={false} style={styles.tutCopy}>{st.copy}</Text>
     </View>; })()}
 
     {/* Practice controls — speed + A/B loop (practice mode only) */}
-    {practice && countdown <= 0 && <View testID="practice-bar" style={[styles.practice, { top: insets.top + 104 }]} pointerEvents="box-none">
+    {practice && countdown <= 0 && <View testID="practice-bar" style={[styles.practice, { top: insets.top + 104 }, panelInset]} pointerEvents="box-none">
       <View style={styles.practiceRow}>
         <View style={styles.practiceTag}><Ionicons name="school" size={12} color={colors.cyan} /><Text selectable={false} style={styles.practiceTagText}>PRACTICE</Text></View>
         {SPEEDS.map(s => <Pressable key={s} testID={`practice-speed-${s}`} onPress={() => applyRate(s)} style={[styles.spdChip, rate === s && styles.spdChipOn]}><Text selectable={false} style={[styles.spdChipText, rate === s && styles.spdChipTextOn]}>{s}×</Text></Pressable>)}
@@ -506,16 +509,17 @@ export default function GameScreen() {
     </View>}
 
     {/* VOCO / Vocopulse meter — auto-fires when full */}
-    <View testID="vocopulse-meter" style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, (pulseReady || pulseActive) && styles.vocoReady]}>
+    <View testID="vocopulse-meter" style={[styles.voco, { bottom: PAD_BOTTOM - 54 }, panelInset, (pulseReady || pulseActive) && styles.vocoReady]}>
       <Ionicons name="flame" size={20} color={pulseActive ? "#FFD600" : pulseReady ? "#FF8A00" : "rgba(255,138,0,0.8)"} />
       <Text selectable={false} style={[styles.vocoLabel, pulseActive && { color: "#FFD600" }]}>{pulseActive ? "FEVER" : "PULSE"}</Text>
       <View style={styles.vocoTrack}><Animated.View style={[styles.vocoFill, { width: pulseAnim.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }) }]}><LinearGradient colors={pulseActive ? ["#FFD600", "#FF2D7A"] : ["#FF2D7A", "#B537FF", "#00E5FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} /></Animated.View></View>
       <Text selectable={false} style={[styles.vocoMult, (pulseReady || pulseActive) && { color: "#FFB020" }]}>{pulseActive ? "2×" : "1×"}</Text>
     </View>
 
+    {desktop && Platform.OS === "web" && <View pointerEvents="none" style={StyleSheet.absoluteFill}>{(settings.keyBindings?.length === 4 ? settings.keyBindings : ["a", "s", "d", "f"]).map((k, l) => <View key={l} testID={`lane-key-hint-${l + 1}`} style={[styles.keyHint, { left: geo.cx - geo.hw / 2 + l * geo.laneW + geo.laneW / 2 - 15, top: geo.bottomY + 20, borderColor: alpha(laneColors[l], 0.6) }]}><Text selectable={false} style={[styles.keyHintText, { color: laneColors[l] }]}>{(k || "").toUpperCase()}</Text></View>)}</View>}
     {/* Tap pads — single multi-touch surface (supports simultaneous lanes + rapid taps) */}
     <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true} onTouchStart={onPadsTouchStart} onTouchMove={onPadsTouchMove} onTouchEnd={onPadsTouchEnd} onTouchCancel={onPadsTouchEnd}>
-      {settings.showLanePads && laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: l * padW + 3, width: padW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }} />)}
+      {settings.showLanePads && laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: geo.cx - geo.hw / 2 + l * geo.laneW + 3, width: geo.laneW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }} />)}
     </View>
 
     {countdown > 0 && <SongIntroCard song={selectedSong} difficulty={selectedDifficulty} bpm={chart.bpm} notes={chart.notes.length} duration={duration} countdown={countdown} nickname={nickname} avatar={avatar} mode={tutorial ? "tutorial" : practice ? "practice" : testChart ? "test" : undefined} />}
@@ -526,8 +530,8 @@ export default function GameScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#06051A", overflow: "hidden" },
-  hud: { position: "absolute", left: 12, right: 12 },
-  hudGlass: { borderRadius: 16, overflow: "hidden", backgroundColor: "rgba(12,10,36,0.74)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  hud: { position: "absolute", left: 12, right: 12, alignItems: "center" },
+  hudGlass: { width: "100%", maxWidth: 780, borderRadius: 16, overflow: "hidden", backgroundColor: "rgba(12,10,36,0.74)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   progTrack: { height: 3, backgroundColor: "rgba(255,255,255,0.06)" }, progFill: { height: 3 },
   hudRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 10, paddingVertical: 9 },
   thumb: { width: 42, height: 42, borderRadius: 10, overflow: "hidden", borderWidth: 1, backgroundColor: colors.bg1 }, thumbImg: { width: "100%", height: "100%" }, thumbFallback: { alignItems: "center", justifyContent: "center" },
@@ -539,6 +543,7 @@ const styles = StyleSheet.create({
   pause: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
   hpTrack: { height: 3, backgroundColor: "rgba(255,255,255,0.06)" }, hpFill: { height: 3 },
   combo: { fontSize: 48, lineHeight: 56, fontFamily: fonts.arcadeBlack, textShadowRadius: 12, textShadowOffset: { width: 0, height: 0 } },
+  keyHint: { position: "absolute", width: 30, height: 26, borderRadius: 7, borderWidth: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(12,10,36,0.7)" }, keyHintText: { fontSize: 12, fontFamily: fonts.arcadeBlack },
   comboLabel: { color: "rgba(255,255,255,0.6)", fontSize: 10, letterSpacing: 5, fontFamily: fonts.arcade, marginTop: -2 },
   multChip: { marginTop: 6, paddingHorizontal: 9, height: 20, borderRadius: 10, borderWidth: 1, justifyContent: "center", backgroundColor: "rgba(6,5,26,0.6)" }, multText: { fontSize: 11, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },
   judgment: { textAlign: "center", fontSize: 22, fontFamily: fonts.arcadeBlack, letterSpacing: 2, textShadowRadius: 10, textShadowOffset: { width: 0, height: 0 } },

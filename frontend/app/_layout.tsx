@@ -1,4 +1,4 @@
-import { Stack, router } from "expo-router";
+import { Stack, router, usePathname } from "expo-router";
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
@@ -86,6 +86,8 @@ function AppStack() {
   const { toast, dismissToast } = useStarlites();
   const { ready, importChartFromCode } = useAppState();
   const [booting, setBooting] = useState(true);
+  const path = usePathname();
+  const maxW = path === "/game" ? undefined : path === "/" ? 1240 : path === "/editor" ? 1180 : 980;
 
   // Deep-link chart import: opening a shared vocotap:// link (or any URL carrying a VOCO1- code)
   // imports the chart and drops the player into the Customs library.
@@ -104,7 +106,7 @@ function AppStack() {
 
   return <View style={styles.root}>
     <NeonBackground />
-    <Stack screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
+    <View style={[styles.frame, maxW ? { maxWidth: maxW } : null]}><Stack screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: "transparent" } }} /></View>
     {toast && <Pressable testID="starlites-toast" onPress={dismissToast} style={styles.toast}>
       <Text style={styles.toastAmount}>+{toast.amount} Starlites</Text><Text style={styles.toastReason}>{toast.reason}</Text>
     </Pressable>}
@@ -114,6 +116,7 @@ function AppStack() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  frame: { flex: 1, width: "100%", alignSelf: "center" },
   toast: { position: "absolute", top: 58, alignSelf: "center", width: "86%", maxWidth: 420, paddingVertical: 13, paddingHorizontal: 18, borderRadius: 14, backgroundColor: "rgba(14,11,38,0.97)", borderWidth: 1.5, borderColor: colors.gold, ...neonGlow(colors.gold, 14, 0.5) },
   toastAmount: { color: colors.gold, fontFamily: fonts.arcadeBlack, fontSize: 15, textAlign: "center", letterSpacing: 1 }, toastReason: { color: colors.text, fontSize: 12, marginTop: 2, textAlign: "center" },
 });
