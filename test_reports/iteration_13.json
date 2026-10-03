@@ -1,0 +1,44 @@
+{
+  "summary": "Frontend-only testing of the Draft Shelf feature on /songcoder.html. Exercised badge/counter liveness, drawer open/close (Escape), sorted draft rows with correct titles/types/times, Resume + Clear per row, 'Load as new' for a missing song-edit draft (Ghost Song) including the Replace-draft modal, Clear single (arm then clear) with toast, Clear all with confirm modal, empty state, badge disabled state, and mobile 390px layout. All testids present in template render correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Mock backend (/app/backend/server.py SEED) does not seed content/models.html, so state.models stays empty on a fresh load. This means the 'Model not found' flag on a seeded treesh_mad_model_draft:999 is suppressed (code checks state.models.length > 0). Not a bug in the drafts feature, but prevents end-to-end testing of the missing-model 'Load as new' path through the mock. Consider adding a minimal content/models.html to SEED so this flow is testable without first creating a model in the UI."
+  ],
+  "critical_code_review_comments": [
+    "listDrafts in songcoder.html (lines ~3044-3056): correctly guards 'missing' flag only after catalog/models have loaded (prevents false positives before fetch). Logic is sound.",
+    "resumeDraft handles both missing-with-existing-new-draft (prompts replace modal) and non-missing with/without ref branches cleanly. Toast fallback for 'Load the catalog/model board first' is user friendly.",
+    "clearDraft special-cases active song-edit (exitEdit) and song-new while not editing (resetForm) to keep form state in sync — good.",
+    "state.shelfPaint hook in loadCatalog/setModels keeps the open shelf in sync with newly loaded data — verified count updates live.",
+    "Single-file constraint respected; drafts code is isolated under the '/* draft shelf */' comment and reuses existing icon/toast/confirmModal helpers (no duplication)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "~95% (model-missing path blocked by mock seed, not by code)"},
+  "test_credentials": "GitHub token: any dummy string (e.g. 'github_pat_DUMMY') + apiBase pointed at {REACT_APP_BACKEND_URL}/api/mockgh works with the mock.",
+  "seed_data_creation": "During tests seeded localStorage keys: treesh_songcoder_cfg_v2 (cfg with apiBase=/api/mockgh), treesh_songcoder_draft_v2, treesh_mad_edit_draft:ghostsongnobody, treesh_mad_model_draft:999, treesh_mad_model_draft:new. localStorage cleared between runs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The /songcoder.html page requires cfg.apiBase to be set to the mock backend ({REACT_APP_BACKEND_URL}/api/mockgh) before the catalog loads; the Settings UI's 'Save' button does not persist unless Owner/Repo fields are filled (defaults are TreeshWoodz/Treesh). Easiest path in Playwright: preseed treesh_songcoder_cfg_v2 in localStorage then reload. `state` is script-scoped (not on window) so can't be read via page.evaluate — rely on DOM selectors ([data-testid=conn-pill], [data-testid=drafts-count], [data-testid=draft-row], etc.). The mock does NOT seed content/models.html; to exercise the model-missing path, either add it to backend SEED or create a model via the UI first. Previously-missing /app/test_reports/iteration_12.json was not found; this iteration file is iteration_13.json.",
+  "test_results_detail": {
+    "badge_hidden_when_zero": "PASS",
+    "badge_live_updates_on_type": "PASS (showed '1' after typing title)",
+    "drawer_opens_with_rows_sorted_newest_first": "PASS",
+    "row_fields_present_title_type_time_resume_clear_thumb": "PASS",
+    "empty_state_rendered": "PASS",
+    "drawer_count_badge": "PASS",
+    "escape_closes_drawer": "PASS",
+    "missing_song_flag_and_load_as_new_label": "PASS (Ghost Song -> 'Song not found' / 'Load as new')",
+    "replace_draft_modal_on_load_as_new_with_existing_new_draft": "PASS",
+    "load_as_new_populates_compose_not_in_edit_mode_and_removes_ghost_key": "PASS (title='Ghost Song', artist='Nobody', eyebrow='New release', ghost key removed)",
+    "clear_single_arm_then_clear_with_toast": "PASS (toast 'Draft cleared.')",
+    "clear_all_modal_confirm_empty_state_badge_hidden_button_disabled": "PASS",
+    "mobile_390_full_width_drawer": "PASS (drawer width=390px, left≈0)",
+    "resume_new_song_draft_returns_to_compose": "PASS (switchView('compose'))",
+    "model_missing_load_as_new": "BLOCKED (mock backend has no models.html; feature code path reviewed and correct)"
+  }
+}
