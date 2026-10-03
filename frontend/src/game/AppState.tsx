@@ -11,7 +11,7 @@ import { ensureWarmupAudio } from "./synth";
 import { Chart, Difficulty, GameSettings, ScoreResult, Song } from "./types";
 
 const KEYS = { songs: "vocotap_songs", charts: "vocotap_charts", scores: "vocotap_scores", settings: "vocotap_settings" };
-const defaultSettings: GameSettings = { noteSpeed: 1, audioOffset: 0, hitSfx: true, haptics: true, noFail: true, performanceMode: false, reducedParticles: false, grayscaleCovers: false, showLanePads: false, warmupHidden: false, keyBindings: ["a", "s", "d", "f"], editorTutorialSeen: false, tutorialDone: false };
+const defaultSettings: GameSettings = { noteSpeed: 1, audioOffset: 0, hitSfx: true, haptics: true, noFail: true, performanceMode: false, reducedParticles: false, autoPerformance: true, perfLite: false, grayscaleCovers: false, showLanePads: false, warmupHidden: false, keyBindings: ["a", "s", "d", "f"], editorTutorialSeen: false, tutorialDone: false };
 const warmup: Song = { id: "neon-warmup", title: "Voco Warmup", artist: "Treesh Game", source: "built-in", duration: 26, bpm: 143, accent: "#0DE6D2" };
 
 // Read the parent Treesh app's user-uploaded tracks ("My Music"). They live in the SAME-ORIGIN

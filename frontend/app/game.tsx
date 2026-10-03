@@ -107,7 +107,13 @@ export default function GameScreen() {
   const rainbow = useSharedValue(0);
   const traceGlow = useSharedValue(0);
   const traceX = useSharedValue(0);
-  useEffect(() => { rainbow.value = withRepeat(withTiming(1, { duration: 2600, easing: RE.linear }), -1, false); }, [rainbow]);
+  // Lite visuals: forced by Performance mode, or chosen automatically when the frame rate drops.
+  const [autoLite, setAutoLite] = useState(false);
+  const [perfToast, setPerfToast] = useState(false);
+  const lite = settings.performanceMode || (settings.autoPerformance && settings.perfLite) || autoLite;
+  // The rainbow cycle only runs while notes are charged — otherwise every note's style would recompute each frame.
+  const chargedFx = (pulse >= 100 || pulseActive) && !lite;
+  useEffect(() => { if (chargedFx) rainbow.value = withRepeat(withTiming(1, { duration: 2600, easing: RE.linear }), -1, false); else cancelAnimation(rainbow); }, [chargedFx, rainbow]);
   const pulseActiveRef = useRef(false);
   const fuelRef = useRef(0);        // Vocopulse fuel 0..100 while active
   const missStreakRef = useRef(0);  // consecutive misses (accelerates the drain)
@@ -152,7 +158,7 @@ export default function GameScreen() {
     const persp = P_NEAR + (1 - P_NEAR) * 0.62;
     setJudgment({ grade, plus, early, flick, x: geo.cx + laneFrac(lane) * geo.hw * persp, y: geo.topY + geo.span * 0.62, key: Date.now() });
   }, [geo]);
-  const fx = !settings.reducedParticles && !settings.performanceMode;
+  const fx = !settings.reducedParticles && !lite;
   const fireBurst = useCallback((lane: number) => { laneBurst[lane].setValue(0); Animated.timing(laneBurst[lane], { toValue: 1, duration: 420, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(); }, [laneBurst]);
   const doShake = useCallback((amp: number) => { if (!fx) return; shake.stopAnimation(); Animated.sequence([amp, -amp * 0.8, amp * 0.55, -amp * 0.3, 0].map(v => Animated.timing(shake, { toValue: v, duration: 45, useNativeDriver: true }))).start(); }, [shake, fx]);
   // A swipe that was grabbed but not flicked correctly (wrong way / released / too slow) counts as a miss.
@@ -237,6 +243,24 @@ export default function GameScreen() {
   // Capture which achievements were ALREADY unlocked when the run started, so mid-run pops only fire for NEW ones.
   useEffect(() => { const list = computeAchievements({ scores, charts, songs, points: stars.points, streak: stars.streak, games: stars.games }); unlockedAtStart.current = new Set(list.filter(a => a.unlocked).map(a => a.id)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!achToast) return; achAnim.setValue(0); Animated.sequence([Animated.spring(achAnim, { toValue: 1, friction: 6, tension: 110, useNativeDriver: true }), Animated.delay(2200), Animated.timing(achAnim, { toValue: 0, duration: 300, useNativeDriver: true })]).start(); }, [achToast, achAnim]);
+
+  // Auto performance: sample the frame rate during play; two slow 2s windows in a row → lite visuals (remembered).
+  useEffect(() => {
+    if (countdown > 0 || paused || lite || !settings.autoPerformance) return;
+    let frames = 0, slow = 0, raf = 0, start = Date.now(), alive = true;
+    const loop = () => {
+      if (!alive) return; frames++;
+      const el = Date.now() - start;
+      if (el >= 2000) {
+        slow = (frames * 1000) / el < 48 ? slow + 1 : 0; frames = 0; start = Date.now();
+        if (slow >= 2) { setAutoLite(true); setPerfToast(true); updateSettings({ perfLite: true }); return; }
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => { alive = false; cancelAnimationFrame(raf); };
+  }, [countdown, paused, lite, settings.autoPerformance, updateSettings]);
+  useEffect(() => { if (!perfToast) return; const t = setTimeout(() => setPerfToast(false), 2800); return () => clearTimeout(t); }, [perfToast]);
 
   // Game loop @150ms — pointer-based scan (O(visible)), miss detection, throttled HUD sync.
   useEffect(() => {
@@ -415,12 +439,12 @@ export default function GameScreen() {
     <Backdrop coverArt={selectedSong.coverArt} accent={songAccent} grayscale={settings.grayscaleCovers} theme={prog.theme} w={width} h={height} horizon={geo.topY + geo.span * 0.32} />
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateX: shake }, { translateY: shake.interpolate({ inputRange: [-10, 10], outputRange: [4, -4] }) }] }]}>
     <Grid geo={geo} w={width} h={height} tint={skin.glow} fever={pulseActive} />
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}><BeatLines beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={feverSV} />{fx && <StrikePulse beat={beat} clock={clock} geo={geo} color={pulseActive ? "#FFD600" : skin.glow} />}</View>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>{!lite && <BeatLines beat={beat} clock={clock} lookahead={lookahead} geo={geo} fever={feverSV} />}{fx && <StrikePulse beat={beat} clock={clock} geo={geo} color={pulseActive ? "#FFD600" : skin.glow} />}</View>
     {pulseActive && <LinearGradient pointerEvents="none" colors={["rgba(255,214,0,0.08)", "rgba(255,45,122,0.06)", "rgba(181,55,255,0.09)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
 
     {/* Highway note layer (native-thread animated, memoized) */}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <WavyLayer notes={visibleWavy} clock={clock} lookahead={lookahead} geo={geo} />
+      <WavyLayer notes={visibleWavy} clock={clock} lookahead={lookahead} geo={geo} lite={lite} />
       <NotesLayer notes={visibleNotes} clock={clock} lookahead={lookahead} geo={geo} special={charged} rainbow={rainbow} />
       {activeHold && <ActiveHoldBar note={activeHold} clock={clock} lookahead={lookahead} geo={geo} />}
     </View>
@@ -517,6 +541,7 @@ export default function GameScreen() {
     </View>
 
     {desktop && Platform.OS === "web" && <View pointerEvents="none" style={StyleSheet.absoluteFill}>{(settings.keyBindings?.length === 4 ? settings.keyBindings : ["a", "s", "d", "f"]).map((k, l) => <View key={l} testID={`lane-key-hint-${l + 1}`} style={[styles.keyHint, { left: geo.cx - geo.hw / 2 + l * geo.laneW + geo.laneW / 2 - 15, top: geo.bottomY + 20, borderColor: alpha(laneColors[l], 0.6) }]}><Text selectable={false} style={[styles.keyHintText, { color: laneColors[l] }]}>{(k || "").toUpperCase()}</Text></View>)}</View>}
+    {perfToast && <View testID="perf-mode-toast" pointerEvents="none" style={[styles.perfToast, { top: insets.top + 100 }]}><Ionicons name="speedometer" size={14} color={colors.lime} /><Text selectable={false} style={styles.perfToastText}>Performance mode on · smoother play</Text></View>}
     {/* Tap pads — single multi-touch surface (supports simultaneous lanes + rapid taps) */}
     <View style={[styles.pads, { height: PAD_H, bottom: PAD_BOTTOM }]} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true} onTouchStart={onPadsTouchStart} onTouchMove={onPadsTouchMove} onTouchEnd={onPadsTouchEnd} onTouchCancel={onPadsTouchEnd}>
       {settings.showLanePads && laneColors.map((c, l) => <Animated.View key={l} testID={`lane-${l + 1}-hit-pad`} pointerEvents="none" style={{ position: "absolute", left: geo.cx - geo.hw / 2 + l * geo.laneW + 3, width: geo.laneW - 6, top: 4, bottom: 4, borderRadius: 16, backgroundColor: c, opacity: laneFlash[l].interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }} />)}
@@ -543,6 +568,7 @@ const styles = StyleSheet.create({
   pause: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
   hpTrack: { height: 3, backgroundColor: "rgba(255,255,255,0.06)" }, hpFill: { height: 3 },
   combo: { fontSize: 48, lineHeight: 56, fontFamily: fonts.arcadeBlack, textShadowRadius: 12, textShadowOffset: { width: 0, height: 0 } },
+  perfToast: { position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, height: 32, borderRadius: 16, backgroundColor: "rgba(12,10,36,0.92)", borderWidth: 1, borderColor: "rgba(204,255,0,0.5)", zIndex: 40 }, perfToastText: { color: colors.text, fontSize: 12, fontFamily: fonts.heavy },
   keyHint: { position: "absolute", width: 30, height: 26, borderRadius: 7, borderWidth: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(12,10,36,0.7)" }, keyHintText: { fontSize: 12, fontFamily: fonts.arcadeBlack },
   comboLabel: { color: "rgba(255,255,255,0.6)", fontSize: 10, letterSpacing: 5, fontFamily: fonts.arcade, marginTop: -2 },
   multChip: { marginTop: 6, paddingHorizontal: 9, height: 20, borderRadius: 10, borderWidth: 1, justifyContent: "center", backgroundColor: "rgba(6,5,26,0.6)" }, multText: { fontSize: 11, fontFamily: fonts.arcadeBlack, letterSpacing: 1 },

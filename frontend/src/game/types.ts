@@ -72,6 +72,8 @@ export type GameSettings = {
   noFail: boolean;
   performanceMode: boolean;
   reducedParticles: boolean;
+  autoPerformance: boolean; // watch frame rate and switch to lite visuals on slow devices
+  perfLite: boolean;        // set once a slow device was detected (remembered across runs)
   grayscaleCovers: boolean;
   showLanePads: boolean;
   warmupHidden: boolean;
