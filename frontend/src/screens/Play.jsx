@@ -343,19 +343,19 @@ export default function Play() {
     </div>
   );
   const scoreEl = (big) => (
-    <div className={`cz-chip flex min-w-0 flex-1 flex-col ${big ? "rounded-[20px] px-5 py-3" : "px-3 py-1"}`} data-testid="game-hud-score">
+    <div className={`cz-chip flex min-w-0 flex-1 flex-col ${big ? "rounded-[20px] px-4 py-2.5" : "px-3 py-1"}`} data-testid="game-hud-score">
       <span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-white/45">Score</span>
-      <motion.span key={g.score} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className={`font-num origin-left leading-tight ${big ? "text-3xl" : "text-lg"}`}>{fmt(g.score)}</motion.span>
+      <motion.span key={g.score} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className={`font-num origin-left leading-tight ${big ? "text-2xl" : "text-lg"}`}>{fmt(g.score)}</motion.span>
     </div>
   );
   const comboEl = (big) => (
-    <div className={`cz-chip flex flex-col ${big ? "flex-1 rounded-[20px] px-5 py-3" : "items-center px-3 py-1"}`} data-testid="game-hud-combo" style={g.streak >= 5 ? { boxShadow: "0 0 0 1px rgb(var(--accent-rgb) / .6), 0 0 18px rgb(var(--accent-rgb) / .35)" } : undefined}>
+    <div className={`cz-chip flex flex-col ${big ? "flex-1 rounded-[20px] px-4 py-2.5" : "items-center px-3 py-1"}`} data-testid="game-hud-combo" style={g.streak >= 5 ? { boxShadow: "0 0 0 1px rgb(var(--accent-rgb) / .6), 0 0 18px rgb(var(--accent-rgb) / .35)" } : undefined}>
       <span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-white/45">Chain</span>
-      <span className={`font-num leading-tight ${big ? "text-3xl" : "text-lg"}`}>{g.streak}<span className={`cz-text-accent ${big ? "text-base" : "text-xs"}`}>×{combo}</span></span>
+      <span className={`font-num leading-tight ${big ? "text-2xl" : "text-lg"}`}>{g.streak}<span className={`cz-text-accent ${big ? "text-base" : "text-xs"}`}>×{combo}</span></span>
     </div>
   );
   const starsEl = (big) => (
-    <div className={`cz-chip flex items-center gap-1 ${big ? "flex-1 gap-2 rounded-[20px] px-5 py-3" : "px-2.5 py-2"}`} data-testid="game-hud-pending-starlites" style={{ borderColor: "rgba(255,211,107,.3)" }}>
+    <div className={`cz-chip flex items-center gap-1 ${big ? "flex-1 gap-2 rounded-[20px] px-4 py-2.5" : "px-2.5 py-2"}`} data-testid="game-hud-pending-starlites" style={{ borderColor: "rgba(255,211,107,.3)" }}>
       <StarGlyph size={big ? 22 : 15} />
       {big ? <span className="flex flex-col"><span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-white/45">Starlites this run</span><span className="font-num cz-gold-text text-2xl leading-tight">{pendingStars}</span></span>
         : <span className="font-num cz-gold-text text-base leading-none">{pendingStars}</span>}
@@ -440,8 +440,8 @@ export default function Play() {
     const locked = ((p.id === "hint" || p.id === "lifeline") && !diff.hintsOk) || (p.id === "freeze" && mode.timer === "none");
     return (
       <button key={p.id} type="button" onClick={() => activatePower(p.id)} data-testid={`game-powerup-${p.id}-button`} aria-label={`${p.name} (${n})`} title={`${p.desc}${wide ? ` · shortcut ${i + 1}` : ""}`}
-        className={`cz-press cz-focus relative flex items-center gap-1 ${wide ? "w-full gap-3 rounded-2xl border border-white/[.08] bg-white/[.04] px-3 py-2.5 text-left hover:bg-white/[.08]" : "cz-chip h-11 flex-1 justify-center"} ${locked ? "opacity-30" : n ? "" : "opacity-50"}`}>
-        <span className={wide ? "grid h-8 w-8 place-items-center rounded-xl" : ""} style={wide ? { background: `${p.color}1f` } : undefined}><Icon name={p.icon} size={17} style={{ color: p.color }} /></span>
+        className={`cz-press cz-focus relative flex items-center gap-1 ${wide ? "w-full gap-3 rounded-xl border border-white/[.08] bg-white/[.04] px-2.5 py-1.5 text-left hover:bg-white/[.08]" : "cz-chip h-11 flex-1 justify-center"} ${locked ? "opacity-30" : n ? "" : "opacity-50"}`}>
+        <span className={wide ? "grid h-7 w-7 place-items-center rounded-lg" : ""} style={wide ? { background: `${p.color}1f` } : undefined}><Icon name={p.icon} size={17} style={{ color: p.color }} /></span>
         {wide ? <span className="min-w-0 flex-1 truncate text-sm font-bold">{p.name}</span> : null}
         <span className="font-num text-xs">{n}</span>
         {wide ? <kbd className="ml-1 grid h-6 w-6 place-items-center rounded-md border border-white/15 bg-black/30 text-[10px] font-bold text-white/55">{i + 1}</kbd> : null}
@@ -499,19 +499,18 @@ export default function Play() {
     return (
       <div className="relative z-10 mx-auto grid h-[100dvh] w-full max-w-[1500px] grid-cols-[290px_minmax(0,1fr)_290px] gap-6 px-8 py-6 xl:grid-cols-[320px_minmax(0,1fr)_320px] xl:gap-10" data-testid="play-screen">
         <Bursts ref={burstRef} enabled={S.particles && !S.reducedMotion} />
-        <aside className="flex min-h-0 flex-col gap-3" data-testid="play-left-panel">
+        <aside className="cz-scroll flex min-h-0 flex-col gap-3 overflow-y-auto" data-testid="play-left-panel">
           <div className="flex items-center gap-3">{pauseBtn}<div className="text-[11px] font-bold text-white/55">{modeLabel}</div></div>
-          <div className="cz-card flex flex-col items-center gap-2 p-5">
-            {timerRing(150)}
+          <div className="cz-card flex shrink-0 flex-col items-center gap-2 p-4">
+            {timerRing(118)}
             <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/45">{mode.timer === "turn" ? "Seconds for this word" : mode.timer === "global" ? "Seconds left" : "No clock. Take your time"}</p>
             {mode.lives > 0 || g.shield || g.booster ? <div className="mt-1">{badges}</div> : null}
           </div>
-          <div className="flex gap-3">{scoreEl(true)}</div>
-          <div className="flex gap-3">{comboEl(true)}</div>
-          <div className="flex gap-3">{starsEl(true)}</div>
-          <div className="cz-card mt-auto p-3" data-testid="game-powerups">
+          <div className="flex shrink-0 gap-3">{scoreEl(true)}{comboEl(true)}</div>
+          <div className="flex shrink-0 gap-3">{starsEl(true)}</div>
+          <div className="cz-card mt-auto shrink-0 p-3" data-testid="game-powerups">
             <p className="mb-2 px-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-white/45">Power-ups</p>
-            <div className="space-y-1.5">{POWER_LIST.map((p, i) => powerBtn(p, i, true))}</div>
+            <div className="space-y-1">{POWER_LIST.map((p, i) => powerBtn(p, i, true))}</div>
             {endBtn ? <div className="mt-2">{endBtn}</div> : null}
           </div>
         </aside>
@@ -536,7 +535,7 @@ export default function Play() {
             </div>
             <div className="cz-scroll min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1" data-testid="game-chain-trail" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
               {g.chain.length === 0 ? <p className="text-sm text-white/35">Every word you link lands here. Keep it growing.</p> : null}
-              {g.chain.length ? <div className="px-1 text-xs font-bold text-white/40">{cap(g.chain[0].p)}</div> : null}
+              {g.chain.length ? <div className="px-1 text-[11px] font-bold uppercase tracking-wider text-white/40">Started with {cap(g.chain[0].p)}</div> : null}
               {g.chain.map((c, i) => (
                 <motion.div key={i + c.a} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${c.gold ? "border-[#ffd36b]/40 bg-[#ffd36b]/10" : "border-white/[.07] bg-white/[.04]"}`}>
                   <Link2 size={13} className={c.gold ? "text-[#ffd36b]" : "cz-text-accent"} />

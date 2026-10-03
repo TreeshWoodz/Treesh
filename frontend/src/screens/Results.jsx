@@ -37,12 +37,14 @@ export default function Results() {
   };
 
   return (
-    <Page nav={false} testid="results-screen">
-      <div className="pt-[max(22px,env(safe-area-inset-top))] text-center">
+    <Page nav={false} testid="results-screen" width={1040}>
+      <div className="pt-[max(22px,env(safe-area-inset-top))] text-center lg:pt-10">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-white/50">{mode.name}{mode.difficulty ? ` · ${diff.name}` : ""}</p>
-        <motion.h1 initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }} className="font-display mt-1 text-4xl">{headline}</motion.h1>
+        <motion.h1 initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }} className="font-display mt-1 text-4xl lg:text-6xl">{headline}</motion.h1>
       </div>
 
+      <div className="lg:mt-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+      <div>
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="relative mt-5 overflow-hidden rounded-[28px] border border-white/10 p-6 text-center"
         style={{ background: "radial-gradient(100% 90% at 50% 0%, rgb(var(--accent-rgb) / .35), transparent 60%), #0d0f16" }}>
         {r.newBest ? (
@@ -81,6 +83,8 @@ export default function Results() {
         </p>
       </motion.div>
 
+      </div>
+      <div className="lg:-mt-6">
       {r.trophies && r.trophies.length ? (
         <>
           <SectionTitle>Trophies unlocked</SectionTitle>
@@ -116,7 +120,10 @@ export default function Results() {
         </>
       ) : null}
 
-      <div className="sticky bottom-0 mt-5 grid grid-cols-4 gap-2 pb-[max(14px,env(safe-area-inset-bottom))] pt-3" style={{ background: "linear-gradient(0deg, rgba(7,8,11,1) 60%, rgba(7,8,11,0))" }}>
+      </div>
+      </div>
+
+      <div className="sticky bottom-0 mt-5 grid grid-cols-4 gap-2 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 lg:mx-auto lg:max-w-[640px] lg:pb-8" style={{ background: "linear-gradient(0deg, rgba(7,8,11,1) 60%, rgba(7,8,11,0))" }}>
         <button type="button" onClick={() => go("play", { mode: r.mode, difficulty: r.difficulty, k: Date.now() })} data-testid="results-play-again-button" className="cz-press cz-focus cz-btn-primary col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl font-extrabold"><RotateCcw size={18} />Play again</button>
         <button type="button" onClick={() => go("modes", { select: r.mode })} data-testid="results-modes-button" aria-label="Modes" className="cz-press cz-focus cz-btn-ghost grid h-14 place-items-center rounded-2xl"><LayoutGrid size={19} /></button>
         <div className="grid grid-cols-2 gap-2">

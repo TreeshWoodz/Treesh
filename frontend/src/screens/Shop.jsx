@@ -56,7 +56,7 @@ export default function Shop() {
         <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="mt-4">
           {tab === "powerups" ? (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
                 {POWERUPS.map((p) => (
                   <div key={p.id} className="cz-card flex flex-col p-4" data-testid={`shop-item-card-${p.id}`}>
                     <div className="flex items-center justify-between">
@@ -71,7 +71,7 @@ export default function Shop() {
                 ))}
               </div>
               <p className="mb-2.5 mt-6 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/50">Crates</p>
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
                 {BUNDLES.map((b) => (
                   <div key={b.id} className="cz-card flex items-center gap-3 p-4" style={{ borderColor: "rgba(255,211,107,.22)" }} data-testid={`shop-item-card-${b.id}`}>
                     <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#ffd36b]/15 text-[#ffd36b]"><Package size={22} /></span>
@@ -82,13 +82,13 @@ export default function Shop() {
               </div>
             </>
           ) : (
-            <div className={`grid gap-3 ${tab === "title" ? "grid-cols-2" : "grid-cols-2"}`}>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
               {group.items.map((it) => {
                 const owned = save.owned.includes(it.id);
                 const on = save.equipped[group.key] === it.id;
                 return (
                   <div key={it.id} className="cz-card flex flex-col overflow-hidden" style={on ? { borderColor: "rgb(var(--accent-rgb) / .7)", boxShadow: "0 0 0 1px rgb(var(--accent-rgb) / .4), 0 10px 30px rgba(0,0,0,.45)" } : undefined} data-testid={`shop-item-card-${it.id}`}>
-                    <button type="button" onClick={() => preview(it, group.key)} className="relative grid h-24 place-items-center overflow-hidden border-b border-white/10 bg-black/30 px-3" aria-label={`Preview ${it.name}`} data-testid={`shop-preview-${it.id}`}>
+                    <button type="button" onClick={() => preview(it, group.key)} className="relative grid h-24 place-items-center lg:h-32 overflow-hidden border-b border-white/10 bg-black/30 px-3" aria-label={`Preview ${it.name}`} data-testid={`shop-preview-${it.id}`}>
                       {group.key === "keyboard" ? <div className="w-full"><Keyboard preview skin={it.id} /></div> : null}
                       {group.key === "arena" ? <div className="absolute inset-0"><Arena id={it.id} mini /></div> : null}
                       {group.key === "sound" ? <span className="flex items-center gap-2 text-sm font-bold text-white/70"><Volume2 size={18} className="cz-text-accent" />Tap to hear</span> : null}

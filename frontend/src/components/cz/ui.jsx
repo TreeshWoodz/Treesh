@@ -228,7 +228,7 @@ export const Page = ({ children, nav = true, testid, width = 1140 }) => (
 );
 
 export const SectionTitle = ({ children, right }) => (
-  <div className="mb-2.5 mt-6 flex items-center justify-between">
+  <div className="mb-2.5 mt-6 flex items-center justify-between lg:mt-8">
     <h2 className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/50">{children}</h2>
     {right}
   </div>

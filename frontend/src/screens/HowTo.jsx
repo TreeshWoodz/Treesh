@@ -35,7 +35,7 @@ export default function HowTo() {
   return (
     <Page nav={!first} testid="howto-screen">
       {first ? <div className="pb-2 pt-[max(20px,env(safe-area-inset-top))]"><Wordmark /><p className="mt-4 font-display text-3xl leading-tight">Welcome to the new Chainz.</p></div> : <Header title="How to play" sub="Chainz in 60 seconds" testid="howto" />}
-      <div className="mt-3 space-y-3">
+      <div className="mt-3 space-y-3 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0">
         <Step n="1" title="Link a word" i={0}>
           You get a prompt. Type any word that’s connected to it.
           <div className="mt-3 flex flex-wrap items-center gap-2"><Chip>Fire</Chip><Link2 size={16} className="text-white/40" /><Chip hot>Truck</Chip></div>
@@ -50,6 +50,8 @@ export default function HowTo() {
         </Step>
       </div>
 
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+      <div>
       <SectionTitle>Earning Starlites</SectionTitle>
       <div className="cz-card p-4 text-sm" style={{ borderColor: "rgba(255,211,107,.22)" }} data-testid="howto-starlites">
         {[["Each link", `+${R.perLink}`], ["Every 5-link combo", `+${R.comboBonus}`], [`Answer under ${R.speedThreshold}s`, `+${R.speedBonus}`], ["Golden word", `+${R.goldWord}`], ["Run with 5+ links", `+${R.completion}`], ["New personal best", `+${R.personalBest}`], ["First run of the day", `+${R.firstRunOfDay}`], ["Daily Chain (grows with streak)", `+${R.dailyBase}–${R.dailyBase + R.dailyStreakCap}`], ["Trophies", `+${R.tierReward.bronze}–${R.tierReward.platinum}`]].map(([k, v]) => (
@@ -58,6 +60,8 @@ export default function HowTo() {
         <p className="mt-2 text-[11px] text-white/45">In-run Starlites are multiplied by difficulty (up to ×2 on Insane) and mode, then banked into your Treesh wallet when the run ends.</p>
       </div>
 
+      </div>
+      <div>
       <SectionTitle>Modes</SectionTitle>
       <div className="grid grid-cols-2 gap-2.5">
         {MODES.map((m) => (
@@ -65,14 +69,16 @@ export default function HowTo() {
         ))}
       </div>
 
+      </div>
+      </div>
       <SectionTitle>Power-ups</SectionTitle>
-      <div className="cz-card divide-y divide-white/[.06]">
+      <div className="cz-card divide-y divide-white/[.06] lg:grid lg:grid-cols-3 lg:divide-y-0">
         {POWERUPS.map((p) => (
           <div key={p.id} className="flex items-center gap-3 px-4 py-3"><Icon name={p.icon} size={18} style={{ color: p.color }} /><div><p className="text-sm font-extrabold">{p.name}</p><p className="text-[11px] text-white/50">{p.desc}</p></div></div>
         ))}
       </div>
 
-      <button type="button" onClick={done} data-testid="howto-done-button" className="cz-press cz-focus cz-btn-primary mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-extrabold">
+      <button type="button" onClick={done} data-testid="howto-done-button" className="cz-press cz-focus cz-btn-primary mt-6 flex h-14 w-full items-center lg:mx-auto lg:max-w-sm justify-center gap-2 rounded-2xl text-base font-extrabold">
         {first ? <>Claim 100 Starlites &amp; play <ArrowRight size={18} /></> : <><Play size={18} className="fill-current" />Got it</>}
       </button>
     </Page>

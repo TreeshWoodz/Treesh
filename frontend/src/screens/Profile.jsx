@@ -35,7 +35,7 @@ export default function Profile() {
   return (
     <Page testid="profile-screen">
       <Header title="Profile" sub={profile ? "Synced with your Treesh profile" : "Playing as guest on this device"} right={<StarPill value={points} testid="profile-starlites-balance" />} testid="profile" />
-      <div className="relative overflow-hidden rounded-[28px] border border-white/10 p-5" style={{ background: "radial-gradient(120% 100% at 50% 0%, rgb(var(--accent-rgb) / .32), transparent 60%), #0d0f16" }}>
+      <div className="relative overflow-hidden rounded-[28px] border border-white/10 p-5 lg:p-8" style={{ background: "radial-gradient(120% 100% at 50% 0%, rgb(var(--accent-rgb) / .32), transparent 60%), #0d0f16" }}>
         <div className="flex items-center gap-4">
           <Avatar profile={profile} name={name} size={76} />
           <div className="min-w-0 flex-1">
@@ -61,6 +61,8 @@ export default function Profile() {
         <div className="mt-1.5"><Progress value={lv.pct} /></div>
       </div>
 
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+      <div>
       <SectionTitle>Lifetime stats</SectionTitle>
       <div className="grid grid-cols-2 gap-2.5" data-testid="profile-stats">
         {stats.map(([k, v]) => (
@@ -68,6 +70,8 @@ export default function Profile() {
         ))}
       </div>
 
+      </div>
+      <div>
       <SectionTitle>Personal bests</SectionTitle>
       <div className="cz-card divide-y divide-white/[.06]" data-testid="profile-mode-bests">
         {MODES.map((m) => {
@@ -93,6 +97,8 @@ export default function Profile() {
             <p className="mt-1 flex items-center gap-1 truncate text-xs text-white/50"><Link2 size={11} />{r.links} links · +{r.stars} Starlites · {(r.chain || []).slice(0, 5).map((c) => cap(c.a)).join(" → ")}</p>
           </div>
         )) : <p className="cz-card p-4 text-sm text-white/50">No runs yet. Your history is saved on this device.</p>}
+      </div>
+      </div>
       </div>
     </Page>
   );

@@ -45,7 +45,7 @@ export const PlayerCard = () => {
 };
 
 export default function Home() {
-  const { save, go, claimDailyGift, toast, bankState, retryBank } = useGame();
+  const { save, go, claimDailyGift, toast, bankState, retryBank, profile } = useGame();
   const last = MODE_BY_ID[save.lastMode] || MODE_BY_ID.classic;
   const diff = DIFFICULTIES[last.fixedDifficulty || save.lastDifficulty] || DIFFICULTIES.normal;
   const today = dayKey();
@@ -64,25 +64,30 @@ export default function Home() {
 
   return (
     <Page testid="home-screen">
-      <div className="flex items-center justify-between pb-4 pt-[max(16px,env(safe-area-inset-top))]">
-        <Wordmark />
+      <div className="flex items-center justify-between pb-4 pt-[max(16px,env(safe-area-inset-top))] lg:pb-6 lg:pt-8">
+        <div className="lg:hidden"><Wordmark /></div>
+        <div className="hidden lg:block">
+          <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-white/45">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</p>
+          <h1 className="font-display mt-1 text-4xl" data-testid="home-desktop-greeting">Welcome back, {(profile && profile.nickname) || save.guestName || "Player"}</h1>
+        </div>
         <div className="flex items-center gap-2">
           <span className="cz-chip grid h-9 w-9 place-items-center" title={online ? "Online word check on" : "Offline: built-in word bank"} data-testid="home-online-status">{online ? <Wifi size={15} className="text-white/60" /> : <WifiOff size={15} className="text-[var(--warn)]" />}</span>
           <IconBtn label="How to play" testid="home-howto-button" onClick={() => go("howto")}><CircleHelp size={19} /></IconBtn>
         </div>
       </div>
 
-      <PlayerCard />
+      <div className="lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:grid-rows-[auto_1fr_auto_auto] lg:gap-x-6 lg:gap-y-4">
+      <div className="lg:col-start-2 lg:row-start-1"><PlayerCard /></div>
 
       {/* hero */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="relative mt-4 overflow-hidden rounded-[28px] border border-white/10 p-5"
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="relative mt-4 overflow-hidden rounded-[28px] border border-white/10 p-5 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:flex lg:flex-col lg:justify-end lg:p-9"
         style={{ background: "radial-gradient(120% 100% at 0% 0%, rgb(var(--accent-rgb) / .38), transparent 55%), radial-gradient(90% 90% at 100% 100%, rgba(255,211,107,.12), transparent 60%), #0d0f16" }}>
         <div className="pointer-events-none absolute -right-6 -top-6 opacity-[.13]">
           <svg width="170" height="170" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round"><path d="M9.5 14.5l5-5" /><path d="M11 6.5l1.6-1.6a4 4 0 015.6 5.6L16.6 12" /><path d="M13 17.5l-1.6 1.6a4 4 0 01-5.6-5.6L7.4 12" /></svg>
         </div>
         <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-white/60">Ready when you are</p>
-        <h2 className="font-display mt-1 text-[2.1rem] leading-[1.02]">Link words.<br />Build the chain.</h2>
-        <p className="mt-2 max-w-[18rem] text-sm text-white/65">Every word you link becomes the next prompt. How long can you keep it alive?</p>
+        <h2 className="font-display mt-1 text-[2.1rem] leading-[1.02] lg:text-[3.4rem]">Link words.<br />Build the chain.</h2>
+        <p className="mt-2 max-w-[18rem] text-sm text-white/65 lg:max-w-[30rem] lg:text-base">Every word you link becomes the next prompt. How long can you keep it alive?</p>
         <button type="button" onClick={() => go("play", { mode: last.id, difficulty: diff.id, k: Date.now() })} disabled={bankState !== "ready"} data-testid="home-play-button"
           className="cz-press cz-focus cz-btn-primary cz-shimmer mt-5 flex h-16 w-full items-center justify-center gap-3 rounded-[20px] text-lg font-extrabold tracking-wide disabled:opacity-50">
           <Play size={22} className="fill-current" />
@@ -96,7 +101,7 @@ export default function Home() {
       </motion.div>
 
       {/* daily row */}
-      <div className="mt-3 grid grid-cols-5 gap-3">
+      <div className="mt-3 grid grid-cols-5 gap-3 lg:col-start-2 lg:row-start-2 lg:mt-0">
         <button type="button" onClick={() => go("modes", { select: "daily" })} data-testid="home-daily-card" className="cz-card cz-press cz-focus col-span-3 p-4 text-left">
           <div className="flex items-center gap-2"><CalendarDays size={16} className="cz-text-accent" /><span className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/55">Daily Chain</span></div>
           <p className="mt-2 text-lg font-extrabold leading-tight">{dailyDone ? "Done for today" : "Today’s chain is live"}</p>
@@ -112,8 +117,9 @@ export default function Home() {
         </button>
       </div>
 
+      <div className="lg:col-span-2 lg:row-start-3">
       <SectionTitle right={<button type="button" onClick={() => go("modes")} className="text-xs font-bold cz-text-accent" data-testid="home-all-modes-link">All modes</button>}>Game modes</SectionTitle>
-      <div className="grid grid-cols-2 gap-3" data-testid="home-mode-grid">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="home-mode-grid">
         {MODES.map((m, i) => {
           const best = save.bests[m.id];
           return (
@@ -130,8 +136,10 @@ export default function Home() {
         })}
       </div>
 
+      </div>
+      <div className="lg:col-span-2 lg:row-start-4">
       <SectionTitle right={<button type="button" onClick={() => go("trophies")} className="text-xs font-bold cz-text-accent" data-testid="home-trophies-link">{unlocked}/{TROPHIES.length}</button>}>Next trophies</SectionTitle>
-      <div className="space-y-2.5">
+      <div className="space-y-2.5 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
         {next.map(({ t, p }) => (
           <button key={t.id} type="button" onClick={() => go("trophies")} className="cz-card cz-press flex w-full items-center gap-3 p-3 text-left" data-testid={`home-next-trophy-${t.id}`}>
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[.06]"><Icon name={t.icon} size={18} className="text-white/70" /></span>
@@ -143,6 +151,8 @@ export default function Home() {
           </button>
         ))}
         {!next.length ? <div className="cz-card flex items-center gap-2 p-4 text-sm font-bold"><Trophy size={16} className="text-[#ffd36b]" />Every trophy unlocked. Legend.</div> : null}
+      </div>
+      </div>
       </div>
     </Page>
   );

@@ -23,7 +23,8 @@ export default function Trophies() {
   return (
     <Page testid="trophies-screen">
       <Header title="Trophies" sub={`${unlocked.length} of ${TROPHIES.length} unlocked · ${fmt(earned)} Starlites earned`} testid="trophies" />
-      <div className="cz-card p-4">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-end lg:gap-6">
+      <div className="cz-card p-4 lg:p-6">
         <div className="flex items-end justify-between">
           <div><p className="font-num text-4xl leading-none" data-testid="trophies-count">{unlocked.length}<span className="text-lg text-white/40">/{TROPHIES.length}</span></p><p className="mt-1 text-xs text-white/50">Collection progress</p></div>
           <div className="flex gap-2">
@@ -35,7 +36,7 @@ export default function Trophies() {
         <div className="mt-3"><Progress value={(unlocked.length / TROPHIES.length) * 100} color="linear-gradient(90deg, var(--accent), #ffd36b)" /></div>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-1 rounded-2xl bg-white/[.05] p-1" data-testid="trophies-tabs">
+      <div className="mt-4 grid grid-cols-3 gap-1 rounded-2xl bg-white/[.05] p-1 lg:mt-0" data-testid="trophies-tabs">
         {[["all", "All"], ["todo", "In progress"], ["done", "Unlocked"]].map(([id, l]) => (
           <button key={id} type="button" onClick={() => setTab(id)} data-testid={`trophies-tab-${id}`} className="cz-press relative rounded-xl py-2 text-xs font-extrabold">
             {tab === id ? <motion.span layoutId="trtab" className="absolute inset-0 rounded-xl" style={{ background: "rgb(var(--accent-rgb) / .25)" }} /> : null}
@@ -43,8 +44,9 @@ export default function Trophies() {
           </button>
         ))}
       </div>
+      </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2.5" data-testid="trophies-grid">
+      <div className="mt-4 grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5 lg:gap-3 xl:grid-cols-6" data-testid="trophies-grid">
         {list.map(({ t, v, done }, i) => {
           const c = TIER_COLORS[t.tier];
           return (

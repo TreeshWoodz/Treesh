@@ -25,12 +25,13 @@ export default function Modes() {
   return (
     <Page testid="modes-screen">
       <Header title="Choose a mode" sub="Eight ways to chain" right={<StarPill value={points} testid="modes-starlites-balance" onClick={() => go("shop")} />} testid="modes" />
-      <div className="grid grid-cols-2 gap-2.5" data-testid="mode-select-grid">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start lg:gap-6">
+      <div className="grid grid-cols-2 gap-2.5 lg:gap-3" data-testid="mode-select-grid">
         {MODES.map((x) => {
           const on = x.id === sel;
           return (
             <button key={x.id} type="button" onClick={() => setSel(x.id)} data-testid={`mode-option-${x.id}`} aria-pressed={on}
-              className="cz-press cz-focus relative flex items-center gap-2.5 rounded-2xl border p-3 text-left"
+              className="cz-press cz-focus relative flex items-center gap-2.5 rounded-2xl border p-3 text-left lg:p-4"
               style={{ background: on ? "rgb(var(--accent-rgb) / .16)" : "rgba(255,255,255,.04)", borderColor: on ? "rgb(var(--accent-rgb) / .6)" : "rgba(255,255,255,.08)" }}>
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: on ? "var(--accent)" : "rgba(255,255,255,.07)", color: on ? "var(--accent-ink)" : "#fff" }}><Icon name={x.icon} size={17} /></span>
               <span className="min-w-0"><span className="block truncate text-sm font-extrabold">{x.name}</span><span className="block truncate text-[10px] font-bold uppercase tracking-wider text-white/45">{x.tag}</span></span>
@@ -40,7 +41,7 @@ export default function Modes() {
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={m.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.22 }} className="cz-card mt-4 overflow-hidden p-5" data-testid="mode-detail">
+        <motion.div key={m.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.22 }} className="cz-card mt-4 overflow-hidden p-5 lg:sticky lg:top-28 lg:mt-0 lg:p-7" data-testid="mode-detail">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-2xl">{m.name}</h2>
@@ -86,6 +87,7 @@ export default function Modes() {
           </button>
         </motion.div>
       </AnimatePresence>
+      </div>
     </Page>
   );
 }

@@ -37,6 +37,8 @@ export default function Settings() {
     <Page testid="settings-screen">
       <Header title="Settings" sub="Make Chainz yours" testid="settings" />
 
+      <div className="lg:columns-2 lg:gap-6 lg:[&>section:first-child>div:first-child]:mt-0">
+      <section className="break-inside-avoid lg:pb-1">
       <SectionTitle>Controls</SectionTitle>
       <div className="cz-card divide-y divide-white/[.06]">
         <Row icon={KbIcon} title="Use system keyboard" desc="Type with your device’s own keyboard instead of the Chainz keyboard" testid="settings-row-system-keyboard">{tog("systemKeyboard", "settings-system-keyboard-toggle")}</Row>
@@ -44,6 +46,8 @@ export default function Settings() {
         <Row icon={Globe} title="Online word check" desc="Accept more real related words via Datamuse. Built-in bank is used offline">{tog("onlineWords", "settings-online-toggle")}</Row>
       </div>
 
+      </section>
+      <section className="break-inside-avoid lg:pb-1">
       <SectionTitle>Audio</SectionTitle>
       <div className="cz-card divide-y divide-white/[.06]">
         <Row icon={Volume2} title="Sound effects">{tog("sfx", "settings-sfx-toggle")}</Row>
@@ -54,6 +58,8 @@ export default function Settings() {
         </div>
       </div>
 
+      </section>
+      <section className="break-inside-avoid lg:pb-1">
       <SectionTitle>Visuals</SectionTitle>
       <div className="cz-card divide-y divide-white/[.06]">
         <Row icon={Sparkles} title="Particle effects">{tog("particles", "settings-particles-toggle")}</Row>
@@ -64,6 +70,8 @@ export default function Settings() {
         <Row icon={Timer} title="Countdown"><Seg value={s.countdown} onChange={(v) => updateSettings({ countdown: v })} options={[["numeric", "3-2-1"], ["text", "Words"], ["skip", "Skip"]]} testid="settings-countdown-style" /></Row>
       </div>
 
+      </section>
+      <section className="break-inside-avoid lg:pb-1">
       <SectionTitle>Theme colour</SectionTitle>
       <div className="cz-card p-4" data-testid="settings-accent">
         <Seg value={s.accentSource} onChange={(v) => updateSettings({ accentSource: v })} options={[["treesh", "Treesh accent"], ["custom", "Custom"]]} testid="settings-accent-source-select" />
@@ -89,6 +97,8 @@ export default function Settings() {
         ) : null}
       </div>
 
+      </section>
+      <section className="break-inside-avoid lg:pb-1">
       <SectionTitle>Data</SectionTitle>
       <div className="cz-card p-4">
         <p className="text-xs leading-relaxed text-white/50">Chainz saves progress on this device (localStorage + IndexedDB). Starlites live in your Treesh wallet{isEmbedded ? " and sync live with Treesh" : ""}. Resetting Chainz never touches your Treesh library, profile or Starlites.</p>
@@ -107,6 +117,8 @@ export default function Settings() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      </div>
+      </section>
       </div>
       <p className="mt-6 text-center text-[11px] text-white/35">Chainz v2.0 · Treesh Games · Word data by Datamuse</p>
     </Page>
