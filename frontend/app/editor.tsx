@@ -181,6 +181,13 @@ export default function EditorScreen() {
   const nudgeSel = (d: 1 | -1) => commit(prev => prev.map(n => (selected.has(n.id) ? { ...n, time: Math.max(0, n.time + d * nudge), path: n.path?.map(p => ({ ...p, t: p.t + d * nudge })) } : n)));
   const laneSel = (d: 1 | -1) => commit(prev => prev.map(n => (selected.has(n.id) ? { ...n, lane: clamp(n.lane + d, 0, 3), path: n.path?.map(p => ({ ...p, x: clamp(p.x + d * 0.25, 0.04, 0.96) })) } : n)));
   const dirSel = (d: SwipeDir) => { setFlickDir(d); commit(prev => prev.map(n => (selected.has(n.id) && (n.type === "swipe" || n.type === "tap") ? { ...n, type: "swipe", dir: d } : n))); };
+  // Mirror flips the selection left↔right in place: lanes 1↔4 / 2↔3, wave paths mirrored, flick left↔right.
+  const mirrorSel = () => {
+    if (!selected.size) return;
+    const flip: Record<SwipeDir, SwipeDir> = { left: "right", right: "left", up: "up" };
+    commit(prev => prev.map(n => (selected.has(n.id) ? { ...n, lane: 3 - n.lane, path: n.path?.map(p => ({ ...p, x: clamp(1 - p.x, 0.04, 0.96) })), dir: n.dir ? flip[n.dir] : n.dir } : n)));
+    setToast(`Mirrored ${selected.size} note${selected.size === 1 ? "" : "s"}`); Haptics.selectionAsync();
+  };
   const eraseSelected = () => { if (!selected.size) return; commit(prev => prev.filter(n => !selected.has(n.id))); setSelected(new Set()); };
   const eraseAll = () => { if (!notes.length) return; commit(() => []); setSelected(new Set()); };
   // ---- Copy / paste: patterns keep their relative timing; pasted notes stay selected for nudging ----
@@ -287,7 +294,7 @@ export default function EditorScreen() {
       {tool === "flick" && <View style={styles.flickRow} pointerEvents="box-none"><FlickDirRow flickDir={flickDir} onFlickDir={setFlickDir} /></View>}
       <View pointerEvents="none" style={styles.modeBadge}><View style={[styles.modeDot, { backgroundColor: liveRec ? colors.pink : playing ? colors.cyan : toolMeta.color }]} /><Text selectable={false} testID="editor-mode-label" style={styles.modeText}>{liveRec ? "LIVE RECORDING" : playing ? "PLAYING · TAP TO PLACE" : `STEP MODE · ${toolMeta.label.toUpperCase()}`}</Text></View>
       {band && <View pointerEvents="none" style={[styles.band, { top: Math.min(band.y0, band.y1), height: Math.abs(band.y1 - band.y0) }]} />}
-      {selNotes.length > 0 && <Inspector notes={selNotes} clipCount={clip.length} onNudge={nudgeSel} onLane={laneSel} onDir={dirSel} onDelete={eraseSelected} onClose={() => setSelected(new Set())} onCopy={copySel} onPaste={pasteHere} onDuplicate={duplicateSel} />}
+      {selNotes.length > 0 && <Inspector notes={selNotes} clipCount={clip.length} onNudge={nudgeSel} onLane={laneSel} onDir={dirSel} onDelete={eraseSelected} onClose={() => setSelected(new Set())} onCopy={copySel} onPaste={pasteHere} onDuplicate={duplicateSel} onMirror={mirrorSel} />}
       {selNotes.length === 0 && clip.length > 0 && <Pressable testID="editor-paste-button" onPress={pasteHere} style={styles.pasteChip}><Ionicons name="clipboard" size={15} color={colors.bg} /><Text selectable={false} style={styles.pasteText}>Paste {clip.length}</Text></Pressable>}
     </View>
 
