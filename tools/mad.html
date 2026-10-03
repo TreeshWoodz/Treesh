@@ -698,6 +698,30 @@ input[type=datetime-local].input{min-height:50px}
   .lyr-foot.proj-foot [data-pact=copy]{flex:none;width:44px;height:44px;padding:0;font-size:0;gap:0}
   .lyr-foot.proj-foot .btn-primary{flex:1 1 auto;min-width:0;padding:12px 14px;font-size:13px}
 }
+/* draft shelf */
+.drafts-btn{position:relative}
+.drafts-btn.has{border-color:rgba(255,181,71,.45);color:var(--warn)}
+.drafts-btn .d-count{position:absolute;top:-5px;right:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:999px;display:grid;place-items:center;font-family:var(--doto);font-size:11px;font-weight:800;line-height:1;background:var(--warn);color:#1d1100;box-shadow:0 0 0 2px #0a0a0b;animation:pop .3s var(--ease)}
+.dr-note{display:flex;align-items:center;gap:8px;margin:0 0 18px;font-size:12.5px;color:var(--dim)}
+.dr-note svg{width:14px;height:14px;flex:none}
+.dr-list{display:flex;flex-direction:column;gap:10px}
+.dr-row{display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px;border-radius:18px;border:1px solid var(--stroke-faint);background:rgba(255,255,255,.03);animation:rise .4s var(--ease) both;transition:border-color .2s,background-color .2s}
+.dr-row:hover{border-color:var(--stroke);background:rgba(255,255,255,.05)}
+.dr-row.missing{border-style:dashed;border-color:rgba(255,92,122,.4)}
+.dr-th{width:52px;height:52px;border-radius:14px;overflow:hidden;display:grid;place-items:center;background:var(--purple-faint);color:var(--purple-2)}
+.dr-th img{width:100%;height:100%;object-fit:cover}
+.dr-tx{min-width:0;display:flex;flex-direction:column;gap:5px}
+.dr-tx b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-tx small{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;font-size:11.5px;color:var(--dim)}
+.dr-type{display:inline-flex;align-items:center;gap:4px;font-weight:700;color:var(--ok)}
+.dr-type.song-edit,.dr-type.model-edit{color:var(--warn)}
+.dr-type svg,.dr-miss svg{width:12px;height:12px}
+.dr-miss{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--err)}
+.dr-acts{display:flex;align-items:center;gap:6px}
+.dr-acts .btn svg{width:14px;height:14px}
+.dr-acts .icon-btn{width:36px;height:36px}
+.dr-acts .icon-btn.arm{background:var(--err);border-color:transparent;color:#fff}
+@media (max-width:480px){.dr-row{grid-template-columns:44px minmax(0,1fr)}.dr-th{width:44px;height:44px}.dr-acts{grid-column:1/-1;justify-content:flex-end}}
 @media (max-width:370px){.brand{gap:9px}.brand img{width:32px;height:32px}.brand b{font-size:13px;letter-spacing:.12em}.top-right{gap:6px}.icon-btn#open-settings{width:36px;height:36px}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
 </style>
@@ -721,6 +745,7 @@ input[type=datetime-local].input{min-height:50px}
   </nav>
   <div class="top-right">
     <button class="conn" id="conn" data-state="offline" data-testid="connection-pill"><span class="dot"></span><span class="conn-text" id="conn-text">Connecting…</span></button>
+    <button class="icon-btn drafts-btn" id="open-drafts" title="Drafts" aria-label="Drafts" data-testid="open-drafts-btn"><i data-lucide="notebook-pen"></i><span class="d-count" id="drafts-count" hidden data-testid="drafts-count">0</span></button>
     <button class="icon-btn" id="open-settings" title="Settings" data-testid="open-settings-btn"><i data-lucide="settings-2"></i></button>
   </div>
 </header>
@@ -1046,6 +1071,20 @@ input[type=datetime-local].input{min-height:50px}
 <div id="drawer-root"></div>
 <div id="modal-root"></div>
 <div class="toasts" id="toasts" data-testid="toast-container"></div>
+
+<template id="tpl-drafts">
+  <div class="scrim" data-close></div>
+  <aside class="drawer" data-testid="drafts-drawer">
+    <div class="drawer-head"><i data-lucide="notebook-pen"></i><h2>Drafts</h2><span class="rid-pill" id="dr-count" title="Saved drafts" data-testid="drafts-drawer-count">0</span><button class="icon-btn" data-close data-testid="close-drafts-btn"><i data-lucide="x"></i></button></div>
+    <div class="drawer-body soft-scroll">
+      <p class="dr-note"><i data-lucide="hard-drive"></i>Unfinished songs and models, saved automatically in this browser.</p>
+      <div class="dr-list" id="dr-list" data-testid="drafts-list"></div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn btn-danger" id="dr-clear-all" data-testid="drafts-clear-all-btn"><i data-lucide="trash-2"></i>Clear all</button>
+    </div>
+  </aside>
+</template>
 
 <template id="tpl-settings">
   <div class="scrim" data-close></div>
@@ -1433,6 +1472,7 @@ function paintDraft(){
   const e = state.editing, d = safeJSON(localStorage.getItem(e ? editKey(e) : DRAFT_KEY)), el = $('#draft-status');
   el.hidden = !d.savedAt; el.classList.toggle('edit', !!e);
   if (d.savedAt) $('#draft-text').textContent = `${e ? 'Unsaved edits kept' : 'Draft saved'} · ${when(d.savedAt)}`;
+  paintDraftCount();
 }
 const saveDraft = debounce(writeDraft, 400);
 function clearMedia(){
@@ -1661,7 +1701,7 @@ async function loadCatalog(){
   } catch (e){
     state.catalog = { text:'', songs:[], source:'', error: e.message === 'unreachable' ? 'Couldn’t reach the live catalog from here. Connect GitHub in Settings.' : e.message };
   }
-  updateConn(); renderCatalog(); renderSuggest(); renderPreview(); renderArtists();
+  updateConn(); renderCatalog(); renderSuggest(); renderPreview(); renderArtists(); if (state.shelfPaint) state.shelfPaint();
   if (hasToken() && state.catalog.source === 'github') loadPRs();
 }
 async function loadPRs(){
@@ -1741,7 +1781,7 @@ function startEdit(s){
 function exitEdit(keep = true){
   if (!state.editing) return;
   if (keep) writeDraft(); else localStorage.removeItem(editKey(state.editing));
-  state.editing = null; state.editBase = null; setEditUI(); const d = safeJSON(localStorage.getItem(DRAFT_KEY)); fillForm(d); clearMedia(); showErrors({}); refreshAll(); paintDraft();
+  state.editing = null; state.editBase = null; setEditUI(); const d = safeJSON(localStorage.getItem(DRAFT_KEY)); fillForm(d); clearMedia(); showErrors({}); refreshAll(); paintDraft(); renderCatalog();
 }
 async function cancelEdit(){
   if (JSON.stringify(snapshot()) !== state.editBase && !(await confirmModal({ title:'Discard your edits?', ico:'undo-2', tone:'danger', testid:'discard-edits-modal', body:'<p>Your unsaved changes to this song will be cleared. The catalog version stays as it is.</p>', ok:'Discard edits', okKind:'btn-danger', okIcon:'trash-2' }))) return;
@@ -2603,6 +2643,7 @@ function setModels(text){
   state.models.forEach(m => { state.modelsRaw[m.id] = m.raw; });
   $('#mod-count').textContent = state.models.length || '··';
   if (state.view === 'models') renderModels();
+  if (state.shelfPaint) state.shelfPaint();
 }
 function renderModels(){
   const q = normKey($('#mod-search').value);
@@ -2647,7 +2688,7 @@ function openModelDrawer(ed){
   const dKey = MODEL_DRAFT + (ed ? ed.id : 'new');
   const snapM = () => ({ f: Object.fromEntries(MODEL_KEYS.map(k => [k, ($(`[data-mk="${k}"]`, root) || {}).value || ''])), cats: [...chosen], meas: Object.fromEntries(Object.entries(M.meas).filter(([, v]) => v != null)), photos: M.photos.filter(p => isUrl(p.url)).map(({ url, kind }) => ({ url, kind })), headshot: M.headshot });
   const baseM = JSON.stringify(snapM());
-  const paintM = () => { const d = safeJSON(localStorage.getItem(dKey)); $('#m-draft').hidden = !d.savedAt; if (d.savedAt) $('#m-draft-text').textContent = `Draft autosaved · ${when(d.savedAt)}`; };
+  const paintM = () => { const d = safeJSON(localStorage.getItem(dKey)); $('#m-draft').hidden = !d.savedAt; if (d.savedAt) $('#m-draft-text').textContent = `Draft autosaved · ${when(d.savedAt)}`; paintDraftCount(); };
   const writeM = () => { if (closed) return; const s = snapM(); storeDraft(dKey, s, JSON.stringify(s) === baseM); paintM(); };
   const saveM = debounce(writeM, 400);
   const dr = safeJSON(localStorage.getItem(dKey));
@@ -2748,7 +2789,7 @@ async function deleteModel(m){
   try { const r = await commitFile({ path: cfg.modelsPath, message: `Remove model: ${m.name}`, branchKey: `model-delete-${slug(m.name).slice(0, 40)}`, body: `Removes model #${m.id} (${m.name}) from \`${cfg.modelsPath}\`.\n\n_Submitted with Treesh M.A.D._`, apply: t => replaceRaw(t, raw, null) }); done(r, 'model-delete', m.name); }
   catch (e){ failModal(e); }
 }
-function paintModelBtn(){ const r = hasDraft(MODEL_DRAFT + 'new'); $('#new-model').innerHTML = `${icon(r ? 'pencil-line' : 'user-plus')}${r ? 'Resume draft' : 'New model'}`; icons(); }
+function paintModelBtn(){ const r = hasDraft(MODEL_DRAFT + 'new'); $('#new-model').innerHTML = `${icon(r ? 'pencil-line' : 'user-plus')}${r ? 'Resume draft' : 'New model'}`; icons(); paintDraftCount(); }
 function wireModels(){
   $('#new-model').addEventListener('click', () => openModelDrawer());
   $('#mod-search').addEventListener('input', renderModels);
@@ -2998,6 +3039,91 @@ function switchView(v){
 }
 
 /* ---------- settings ---------- */
+/* ---------- draft shelf ---------- */
+const DTYPES = { 'song-new':['New song','disc-3'], 'song-edit':['Song edit','pencil-line'], 'model-new':['New model','user-plus'], 'model-edit':['Model edit','camera'] };
+function listDrafts(){
+  const out = [];
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i), d = safeJSON(localStorage.getItem(k));
+    if (!d.savedAt) continue;
+    if (k === DRAFT_KEY) out.push({ k, d, type:'song-new', title:d['f-title'], sub:d['f-artist'], img:d['f-cover'] });
+    else if (k.startsWith(EDIT_DRAFT)){ const s = state.catalog.songs.find(x => editKey(x) === k); out.push({ k, d, type:'song-edit', ref:s, missing:!s && state.catalog.songs.length > 0, title:d['f-title'], sub:d['f-artist'], img:d['f-cover'] }); }
+    else if (k.startsWith(MODEL_DRAFT)){
+      const id = k.slice(MODEL_DRAFT.length), isNew = id === 'new', m = !isNew && state.models.find(x => x.id === id), f = d.f || {};
+      out.push({ k, d, type:isNew ? 'model-new' : 'model-edit', ref:m, missing:!isNew && !m && state.models.length > 0, title:f.name, sub:f.location || f.division, img:d.headshot || ((d.photos || [])[0] || {}).url });
+    }
+  }
+  return out.sort((a, b) => b.d.savedAt - a.d.savedAt);
+}
+function paintDraftCount(){
+  const n = listDrafts().length, c = $('#drafts-count');
+  c.hidden = !n; c.textContent = n; $('#open-drafts').classList.toggle('has', n > 0);
+}
+const draftRow = x => {
+  const [lbl, ic] = DTYPES[x.type], song = x.type.startsWith('song');
+  return `<div class="dr-row ${x.missing ? 'missing' : ''}" data-k="${esc(x.k)}" data-testid="draft-row">
+    <div class="dr-th">${isUrl(x.img) ? `<img src="${esc(x.img)}" alt="" loading="lazy">` : icon(ic)}</div>
+    <div class="dr-tx"><b data-testid="draft-row-title">${esc(x.title || (song ? 'Untitled song' : 'Unnamed model'))}</b>
+      <small><span class="dr-type ${x.type}" data-testid="draft-row-type">${icon(ic)}${lbl}</span>${x.sub ? `<span>${esc(x.sub)}</span>` : ''}<span data-testid="draft-row-time">${when(x.d.savedAt)}</span></small>
+      ${x.missing ? `<span class="dr-miss" data-testid="draft-missing-flag">${icon('circle-alert')}${song ? 'Song' : 'Model'} not found</span>` : ''}</div>
+    <div class="dr-acts"><button class="btn btn-sm" data-act="resume" data-testid="draft-resume-btn">${icon(x.missing ? 'file-plus-2' : 'play')}${x.missing ? 'Load as new' : 'Resume'}</button><button class="icon-btn" data-act="clear" title="Clear draft" data-testid="draft-clear-btn">${icon('trash-2')}</button></div>
+  </div>`;
+};
+function clearDraft(x){
+  if (x.type === 'song-edit' && state.editing && editKey(state.editing) === x.k) return exitEdit(false);
+  if (x.type === 'song-new' && !state.editing) return resetForm();
+  localStorage.removeItem(x.k);
+}
+async function resumeDraft(x, close){
+  if (x.type === 'song-new'){ close(); if (state.editing) exitEdit(); return switchView('compose'); }
+  if (x.type === 'model-new'){ close(); return openModelDrawer(); }
+  if (x.ref){ close(); return x.type === 'song-edit' ? startEdit(x.ref) : openModelDrawer(x.ref); }
+  const song = x.type === 'song-edit';
+  if (!x.missing) return toast(`Load the ${song ? 'catalog' : 'model board'} first: connect GitHub in Settings.`, 'info');
+  const newK = song ? DRAFT_KEY : MODEL_DRAFT + 'new';
+  if (hasDraft(newK) && !(await confirmModal({ title:'Replace your new draft?', ico:'replace', testid:'replace-draft-modal', body:`<p>You already have an unsaved new ${song ? 'song' : 'model'} draft. Loading this one will replace it.</p>`, ok:'Replace draft', okKind:'btn-danger' }))) return;
+  close();
+  const { savedAt, ...d } = x.d;
+  if (song){
+    if (state.editing) exitEdit();
+    fillForm(d); clearMedia(); showErrors({}); refreshAll(); localStorage.removeItem(x.k); writeDraft(); renderCatalog(); switchView('compose');
+    return toast('Loaded as a new song. Review it, then upload.', 'ok');
+  }
+  localStorage.setItem(newK, JSON.stringify({ ...d, savedAt: Date.now() })); localStorage.removeItem(x.k); paintModelBtn(); renderModels(); openModelDrawer();
+}
+function openDrafts(){
+  const root = $('#drawer-root');
+  root.innerHTML = ''; root.appendChild($('#tpl-drafts').content.cloneNode(true));
+  const close = () => { state.shelfPaint = null; root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape' && !$('.modal-wrap')) close(); };
+  document.addEventListener('keydown', onKey);
+  $$('[data-close]', root).forEach(b => b.addEventListener('click', close));
+  const refresh = () => { paintDraft(); paintModelBtn(); renderCatalog(); renderModels(); };
+  const paint = () => {
+    const list = listDrafts();
+    $('#dr-count').textContent = list.length; $('#dr-clear-all').disabled = !list.length;
+    $('#dr-list').innerHTML = list.length ? list.map(draftRow).join('') : `<div class="empty" data-testid="drafts-empty">${icon('notebook-pen')}<b>No drafts right now</b><span>Anything you start in Compose or on the model board is kept here automatically.</span></div>`;
+    icons();
+  };
+  state.shelfPaint = () => { if ($('#dr-list')) paint(); };
+  $('#dr-list').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const x = listDrafts().find(y => y.k === b.closest('.dr-row').dataset.k); if (!x) return paint();
+    if (b.dataset.act === 'resume') return resumeDraft(x, close);
+    if (!b.classList.contains('arm')){
+      b.classList.add('arm'); b.title = 'Click again to clear'; b.innerHTML = icon('check'); icons();
+      return setTimeout(() => { if (b.isConnected){ b.classList.remove('arm'); b.title = 'Clear draft'; b.innerHTML = icon('trash-2'); icons(); } }, 3000);
+    }
+    clearDraft(x); refresh(); paint(); toast('Draft cleared.', 'info');
+  });
+  $('#dr-clear-all').addEventListener('click', async () => {
+    const list = listDrafts();
+    if (!list.length || !(await confirmModal({ title:`Clear all ${list.length} draft${list.length === 1 ? '' : 's'}?`, ico:'trash-2', tone:'danger', testid:'clear-all-drafts-modal', body:'<p>Every unsaved song and model draft in this browser will be removed. This can’t be undone.</p>', ok:'Clear all', okKind:'btn-danger', okIcon:'trash-2' }))) return;
+    list.forEach(clearDraft); refresh(); paint(); toast('All drafts cleared.', 'info');
+  });
+  paint();
+}
+
 function openSettings(){
   const root = $('#drawer-root');
   root.innerHTML = ''; root.appendChild($('#tpl-settings').content.cloneNode(true));
@@ -3101,6 +3227,8 @@ function wire(){
   $('#cancel-edit').addEventListener('click', cancelEdit);
   $$('.tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
   $('#open-settings').addEventListener('click', openSettings);
+  $('#open-drafts').addEventListener('click', openDrafts);
+  window.addEventListener('storage', paintDraftCount);
   $('#conn').addEventListener('click', openSettings);
   $('#ro-connect').addEventListener('click', openSettings);
   $('#new-song').addEventListener('click', () => { if (state.editing) exitEdit(); switchView('compose'); });
