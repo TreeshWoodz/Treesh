@@ -29,6 +29,9 @@ PROMPTS = {
   'redlight': "A giant traffic light glowing red and green over a race track, cute fleas frozen mid-step in funny poses, one flea sneaking forward.",
   'freeze': "A cute flea encased in a clear ice cube while a friendly flea touches it to set it free, snowy icy night, frost sparkles.",
   'copycat': "A cute flea wearing a tiny conductor sash standing high on a glowing spotlit pedestal striking a funny dance pose, while a crowd of cute fleas on the floor below watch it closely and copy the exact same pose, little heart icons floating above them, theatre stage lights, playful mirror-match vibe.",
+  'musical': "Cute fleas scrambling to jump onto a few glowing spotlit floating platforms as giant neon music notes float away and a jukebox fades out, disco stage lights, playful frantic energy.",
+  'sumo': "Two chubby cute fleas wearing tiny sumo belts bumping bellies on a glowing floating circular ring arena high in a dark sky, one flea flying off the edge, dramatic rim light, impact sparkles.",
+  'treasure': "Cute fleas with tiny shovels digging glowing sparkling spots on floating rock platforms, gold coins bursting out, one sneaky flea stealing a coin bag, treasure cave with crystals.",
   'party': "A wide festive party scene: many cute colorful fleas celebrating together with confetti, disco ball, balloons, a glowing orb, a tiny basketball, a star and an ice cube floating around, magenta and cyan party lights, wide panoramic composition with empty darker space on the left third.",
 }
 SIZES = {'party': '1536x1024'}

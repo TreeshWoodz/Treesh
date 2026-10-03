@@ -54,7 +54,7 @@ var FreaHud2=(function(){
   var _fl=flash;flash=function(txt,col){var r=_fl.apply(this,arguments);try{if(STATE==='play'||STATE==='countdown')feed(txt,col);}catch(e){}return r;};
 
   /* ---------------- standings decoration ---------------- */
-  function status(f){if(OUT.indexOf(f)>=0||(fleas.indexOf(f)<0&&ROSTER.indexOf(f)>=0))return 'out';if(gameMode==='tag'&&f.infected)return 'inf';if(gameMode==='freeze'){if(f.iced)return 'ice';if(f.it)return 'it';}if(gameMode==='survival'&&f.hasOrb)return 'hot';if(gameMode==='hns'&&f.found)return 'out';return '';}
+  function status(f){try{var _x=XM();if(_x&&_x.status){var _s=_x.status(f);if(_s)return _s;}}catch(e){}if(OUT.indexOf(f)>=0||(fleas.indexOf(f)<0&&ROSTER.indexOf(f)>=0))return 'out';if(gameMode==='tag'&&f.infected)return 'inf';if(gameMode==='freeze'){if(f.iced)return 'ice';if(f.it)return 'it';}if(gameMode==='survival'&&f.hasOrb)return 'hot';if(gameMode==='hns'&&f.found)return 'out';return '';}
   function decorate(){var box=scoresEl;if(!box||gameMode==='zen'||gameMode==='tutorial')return;box.classList.add('v2');
     var sl=box.querySelectorAll('.score-line');if(sl.length){var h='<div class="sb-title">Points</div><div class="sb-grid">';[].forEach.call(sl,function(r){var n=r.querySelector('.sl-name'),pt=r.querySelector('.sl-pts'),rk=r.querySelector('.sl-rank');h+='<div class="srow'+(r.classList.contains('me')?' me':'')+'"><span class="pos">'+(rk?rk.textContent:'')+'</span><span class="dot"></span><span class="nm">'+esc(n?n.textContent:'')+'</span><span class="pts">'+(pt?pt.textContent:'0')+'</span></div>';});box.innerHTML=h+'</div>';}
     var rows=box.querySelectorAll('.srow'),mx=0,vals=[];
@@ -85,7 +85,7 @@ var FreaHud2=(function(){
     if(m==='redlight')return {l:S.ph==='red'?'RED: FREEZE!':(S.ph==='yellow'?'YELLOW: get ready':'GREEN: GO GO GO'),v:(p.rlProg||0)/100,t:Math.floor(p.rlProg||0)+'%',s:'Caught '+(p._caught||0)+'× · green pads boost you',ld:ld('rlProg',100),col:S.ph==='red'?'#ff3b5c':(S.ph==='yellow'?'#ffd23d':'#39ff7a'),warn:S.ph==='red'};
     if(m==='freeze'){var rn=fleas.filter(function(f){return !f.it;}),ic=rn.filter(function(f){return f.iced;}).length;if(p.it)return {l:'Freeze them all',v:ic/Math.max(1,rn.length),t:ic+'/'+rn.length,s:'Ice pickups freeze everyone nearby',col:'#8fe8ff'};
       return {l:p.iced?'Frozen! Wait for help':'Stay free · rescue friends',v:(rn.length-ic)/Math.max(1,rn.length),t:(rn.length-ic)+' free',s:'Your rescues '+(p.rescues||0),col:p.iced?'#8fe8ff':'#c6ff3d',warn:p.iced};}
-    return null;}
+    try{var _xm=XM();if(_xm&&_xm.meter)return _xm.meter(p);}catch(e){}return null;}
   function renderMeter(){var d=live()?meterData():null;if(!d){meter.classList.remove('show');return;}meter.classList.add('show');meter.style.setProperty('--mc',d.col);meter.classList.toggle('warn',!!d.warn);
     meter.querySelector('.hm-lbl').textContent=d.l;meter.querySelector('.hm-val').textContent=d.t;meter.querySelector('.hm-sub').textContent=d.s||'';
     meter.querySelector('.hm-fill').style.transform='scaleX('+Math.max(0,Math.min(1,d.v||0))+')';var lb=meter.querySelector('.hm-lead');
@@ -116,7 +116,7 @@ var FreaHud2=(function(){
   var _sbP=null,_sbV=0,_sbT=0;function safeBot(){var n=Date.now();if(n-_sbT<1000)return _sbV;_sbT=n;try{if(!_sbP){_sbP=document.createElement('div');_sbP.style.cssText='position:fixed;left:0;bottom:0;width:1px;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none';document.body.appendChild(_sbP);}_sbV=_sbP.offsetHeight||0;
       var sa=(navigator.standalone===true)||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);if(sa&&_sbV<20&&/iPhone|iPad|iPod/.test(navigator.userAgent))_sbV=Math.max(_sbV,20);document.documentElement.classList.toggle('frea-standalone',!!sa);}catch(e){}return _sbV;}
   function floorFit(){var on=(STATE==='play'||STATE==='countdown'||STATE==='gameover')&&gameMode!=='tutorial';if(!on){FLOOR_PAD=0;return;}
-    var ih=innerHeight,top=ih,bot=0,sb=safeBot();['emote-fab','zen-fab','hud-ability','mode-banner','hud-meter'].forEach(function(id){var e=el(id);if(!e)return;var cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'||+cs.opacity<0.2)return;
+    var ih=innerHeight,top=ih,bot=0,sb=safeBot();['emote-fab','zen-fab','hud-ability','mode-banner','hud-meter','cc-pad','xm-pad'].forEach(function(id){var e=el(id);if(!e)return;var cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'||+cs.opacity<0.2)return;
       var r=e.getBoundingClientRect();if(r.height<4||r.bottom<ih-40-sb-24||r.top<ih*0.5)return;top=Math.min(top,r.top);bot=Math.max(bot,r.bottom);});
     if(gameMode==='redlight'){top=Math.min(top,ih-sb-62*VZ_UI);bot=Math.max(bot,ih-sb-10*VZ_UI);}
     if(top>=ih){FLOOR_PAD=0;return;}var gap=Math.max(8,ih-bot-sb),F=(ih-top)+gap+6;var pad=Math.max(0,Math.round(F/VZ_UI-60));if(Math.abs(pad-FLOOR_PAD)>1)FLOOR_PAD=pad;}
@@ -138,11 +138,11 @@ var FreaHud2=(function(){
     if(ch)kick.appendChild(ch);hero.appendChild(kick);if(et)hero.appendChild(et);if(es)hero.appendChild(es);
     if(ws){var ped=document.createElement('div');ped.className='ev3-pedestal';var cv=el('win-canvas');if(cv){ws.insertBefore(ped,cv);ped.appendChild(cv);}hero.appendChild(ws);}
     side.appendChild(pod);if(sr)side.appendChild(sr);if(act)side.appendChild(act);else{var a=el('again-btn'),m=el('menu-btn');if(a)side.appendChild(a);if(m)side.appendChild(m);}})();
-  function val(f){var m=gameMode;if(m==='classic')return (f.matchPoints||0)*1000+(f.capture||0);if(m==='hoops')return f.matchPoints||0;if(m==='koth')return f.hill||0;if(m==='stars')return f.starPts||0;if(m==='redlight')return f.rlProg||0;
+  function val(f){var m=gameMode;if(XM()&&XM().rankVal)return XM().rankVal(f);if(m==='classic')return (f.matchPoints||0)*1000+(f.capture||0);if(m==='hoops')return f.matchPoints||0;if(m==='koth')return f.hill||0;if(m==='stars')return f.starPts||0;if(m==='redlight')return f.rlProg||0;
     if(m==='race')return -(f.cy||0);if(m==='freeze')return (f.iced?0:1000)+(f.rescues||0)*10;if(m==='tag')return f.infected?0:1;if(m==='survival'||m==='lava'){var oi=OUT.indexOf(f);return oi<0?1000-(f.y||0)/1000:oi;}return 0;}
   function bar(f,rk){var m=gameMode,v,mx;if(m==='classic'||m==='hoops'){v=f.matchPoints||0;mx=rk[0].matchPoints||0;}else if(m==='koth'){v=f.hill||0;mx=100;}else if(m==='stars'){v=f.starPts||0;mx=rk[0].starPts||0;}else if(m==='redlight'){v=f.rlProg||0;mx=100;}
     else{var i=rk.indexOf(f);return 1-i/Math.max(1,rk.length);}return mx>0?Math.max(0.04,v/mx):0.04;}
-  function statTxt(f){var m=gameMode;if(m==='classic'||m==='hoops')return (f.matchPoints||0)+' pts';if(m==='koth')return Math.floor(f.hill||0)+'% hill';if(m==='stars')return (f.starPts||0)+' stars';if(m==='redlight')return Math.floor(f.rlProg||0)+'% course';
+  function statTxt(f){var m=gameMode;if(XM()&&XM().statTxt)return XM().statTxt(f);if(m==='classic'||m==='hoops')return (f.matchPoints||0)+' pts';if(m==='koth')return Math.floor(f.hill||0)+'% hill';if(m==='stars')return (f.starPts||0)+' stars';if(m==='redlight')return Math.floor(f.rlProg||0)+'% course';
     if(m==='freeze')return f.it?'Was IT':((f.rescues||0)+' rescues');if(m==='tag')return f.infected?'Infected':'Stayed safe';if(m==='survival'||m==='lava')return OUT.indexOf(f)>=0?'Knocked out':'Survived';if(m==='race')return f.hasOrb?'Reached the orb':'Climbing';return '';}
   function awards(rk){var A=[];function best(fn,min){var b=null,bv=-1;rk.forEach(function(f){var v=fn(f)||0;if(v>bv){bv=v;b=f;}});return bv>=(min||1)?{f:b,v:bv}:null;}
     function add(t,ic,col,o,txt){if(!o||A.length>=3)return;A.push({t:t,ic:ic,col:col,f:o.f,txt:txt.replace('#',o.v)});}

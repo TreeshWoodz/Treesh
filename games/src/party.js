@@ -2,7 +2,7 @@
    Pick a playlist of modes (Zen excluded). Every round rotates to the next mode.
    Stable rival roster, party points (1st 3 · 2nd 2 · 3rd 1), next-up card, final podium. */
 var Party=(function(){
-  var ALL=['classic','race','survival','tag','hns','hoops','koth','lava','stars','redlight','freeze'];
+  var ALL=['classic','race','survival','tag','hns','hoops','koth','lava','stars','redlight','freeze','copycat','musical','sumo','treasure'];
   var KEY='frea_party_v1',SELK='frea_party_sel';
   function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||'null');if(o&&Array.isArray(o.modes))return o;}catch(e){}return {modes:ALL.slice(),rounds:5,order:'shuffle',rivals:5};}
   var CFG=load();CFG.modes=CFG.modes.filter(function(m){return ALL.indexOf(m)>=0;});if(!CFG.modes.length)CFG.modes=ALL.slice();

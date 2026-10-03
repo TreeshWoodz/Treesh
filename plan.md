@@ -301,3 +301,10 @@ User decisions:
 - Leader sits high on a perch and never leaves it
 - Generate a 3D Pixar-style tile with gpt-image-1 (art/gen_tiles.py)
 - EXTRA: every game mode must have a settings button and its own settings tab
+
+## Expanded scope (user, latest)
+- New modes: Musical Platforms, Sumo Ring, Treasure Dig (each with tile art + settings tab + gear)
+- Hoops expansion: dunks/alley-oops/bank-shot bonuses, 3-pt line, shot clock, overtime, moving/multiple hoops, power-up balls (fire/giant)
+- CPU: real multi-hop platform route planning (graph over platforms); CPU difficulty Easy/Normal/Pro setting (default)
+- Modals/menus: keep neon-arcade identity, make more intuitive + polished
+Build order: Copycat -> per-mode settings -> new modes -> CPU nav -> Hoops -> modal polish -> test
