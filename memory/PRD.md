@@ -62,6 +62,11 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Nav fix: 6 tabs equal width at all sizes (mobile icon+label, 761-1280 full-width 2nd row, >=1281 equal grid)
 - Tested iteration_8 (100%), iteration_10 (nav)
 
+## Iteration 8 (2026-06)
+- Mobile nav (<=760px): inactive tabs icon-only, active tab expands with label; title/aria-label on tabs; 320px brand row compacted
+- Draft autosave (localStorage): new song (treesh_songcoder_draft_v2, "Draft saved" pill, restore toast), per-song edit drafts (treesh_mad_edit_draft:<title|artist>, catalog "Draft" badge, Cancel edit confirms discard, cleared on save), model drafts (treesh_mad_model_draft:new|<id>, autosave status + Discard in drawer foot, "Resume draft" button, card "Draft" badge, cleared on save)
+- Tested iteration_12 (nav/song drafts) + self-test (model drafts)
+
 ## Backlog
 - P1: Lyrics editor for content/lyrics
 - P2: Main-app patch to honor data-release (badge + playback lock)
