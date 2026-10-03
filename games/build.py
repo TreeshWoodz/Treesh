@@ -6,8 +6,8 @@ import os, re
 D = os.path.dirname(os.path.abspath(__file__))
 S = os.path.join(D, 'src')
 html = open(os.path.join(S, 'base.html'), encoding='utf-8').read()
-CSS = ['polish.css', 'studio.css', 'zenplus.css', 'hud.css', 'party.css', 'zenplay.css', 'hud2.css', 'desktop.css', 'zenedit.css', 'rewards.css', 'tiles.css', 'copycat.css', 'modals.css']
-JS = ['treesh.js', 'style.js', 'parts.js', 'furni.js', 'seasonal.js', 'trophies.js', 'house.js', 'polish.js', 'arenas.js', 'zenplus.js', 'actions.js', 'zenart.js', 'zenplay.js', 'studio.js', 'modes.js', 'modeplus.js', 'modesettings.js', 'copycat.js', 'newmodes.js', 'hoopsplus.js', 'hud.js', 'hud2.js', 'party.js', 'zenedit.js', 'rewards.js', 'tiles.js', 'smartai.js', 'navai.js']
+CSS = ['polish.css', 'studio.css', 'zenplus.css', 'hud.css', 'party.css', 'zenplay.css', 'hud2.css', 'desktop.css', 'zenedit.css', 'rewards.css', 'tiles.css', 'copycat.css', 'modals.css', 'perf.css']
+JS = ['treesh.js', 'style.js', 'parts.js', 'furni.js', 'seasonal.js', 'trophies.js', 'house.js', 'polish.js', 'arenas.js', 'zenplus.js', 'actions.js', 'zenart.js', 'zenplay.js', 'studio.js', 'modes.js', 'modeplus.js', 'modesettings.js', 'copycat.js', 'newmodes.js', 'hoopsplus.js', 'hud.js', 'hud2.js', 'party.js', 'zenedit.js', 'rewards.js', 'tiles.js', 'smartai.js', 'navai.js', 'perf.js']
 css = '\n'.join(open(os.path.join(S, f), encoding='utf-8').read() for f in CSS if os.path.exists(os.path.join(S, f)))
 js = '\n'.join('/* ---- %s ---- */\n' % f + open(os.path.join(S, f), encoding='utf-8').read() for f in JS if os.path.exists(os.path.join(S, f)))
 i = html.rfind('</head>'); html = html[:i] + '<style id="frea-polish">\n' + css + '\n</style>\n' + html[i:]
