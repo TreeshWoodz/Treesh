@@ -111,54 +111,20 @@ var FreaNewModes=(function(){
     meter:function(p){var r=SU.span();return {l:'Stay on the ring',v:Math.max(0,p._lives)/S.lives,t:p._lives+' ♥',s:alive().length+' left · ring shrinks every '+Math.round(S.shrinkMs/1000)+'s',col:'#ffb547',warn:p._lives<=1&&S.lives>1};},
     endSub:function(won){return won?'Yokozuna! Last flea on the ring':'Bumped out of the ring';}};
 
-  /* ======================= TREASURE DIG ======================= */
-  var TD={layout:'horiz',maxAi:10,
-    bounds:function(bw,bh){return [bw*1.8,Math.max(bh*1.15,560)];},
-    setup:function(){S={left:round(),spots:[],n:party()?4:(G('treasure','spots')||4),steal:party()?'on':(G('treasure','steal')||'on'),respawn:0};fleas.forEach(function(f){f.coins=0;f._dug=0;f._stole=0;f._thief=Math.random()<0.3;});for(var i=0;i<S.n;i++)TD.add();setT('Time',S.left);},
-    go:function(){alert('DIG FOR TREASURE!','#ffd23d','Stand still on a sparkle to dig. Bump rivals to steal!');},
-    add:function(){var ps=plats().filter(function(p){return p.bw>=50&&p.bw<WORLD_W*0.5;});ps.push(platforms[0]);var p=ps[Math.random()*ps.length|0],tp;
-      if(p===platforms[0])tp={x:60+Math.random()*(WORLD_W-120),y:WORLD_H-60};else{tp=p.topPoint();tp={x:tp.x+(Math.random()-.5)*Math.max(0,p.bw-40),y:tp.y};}
-      if(S.spots.some(function(s){return Math.hypot(s.x-tp.x,s.y-tp.y)<120;})&&Math.random()<0.8)return TD.add();
-      var chest=Math.random()<0.14;S.spots.push({x:tp.x,y:tp.y-6,p:0,chest:chest,need:chest?2400:1400,digger:null,ph:Math.random()*6});},
-    tick:function(dt){var now=T();
-      for(var i=S.spots.length-1;i>=0;i--){var s=S.spots[i],dg=null,bd=30;fleas.forEach(function(f){if(f.hidden||!f.stuck)return;var d=Math.hypot(f.cx-s.x,(f.y+f.h)-s.y-6);if(d<bd){bd=d;dg=f;}});
-        if(dg!==s.digger){s.digger=dg;s.p=Math.max(0,s.p-0.25);}if(dg){s.p+=dt/s.need;dg.walkT=now+80;if(Math.random()<0.2)parts.push({x:s.x+(Math.random()-.5)*16,y:s.y,vx:(Math.random()-.5)*3,vy:-2-Math.random()*2,l:.7,r:2,c:'#b08a5a'});}else s.p=Math.max(0,s.p-dt/3000);
-        if(s.p>=1){var v=s.chest?12+(Math.random()*7|0):2+(Math.random()*5|0);dg.coins+=v;dg._dug++;burst(s.x,s.y-10,'#ffd23d',s.chest?30:14);S.spots.splice(i,1);S.respawn++;
-          if(dg.isP)flash((s.chest?'TREASURE CHEST! +':'+')+v+' COINS','#ffd23d');else if(s.chest)feed(dg.name+' dug up a chest (+'+v+')','#ffd23d');try{updScore();}catch(e){}}}
-      if(S.spots.length<S.n&&Math.random()<dt/900)TD.add();
-      if(S.steal==='on')bumps(6.2,function(h,v,sp){if(!v.coins)return;var n=Math.min(v.coins,2+Math.floor(v.coins*0.12));v.coins-=n;h.coins+=n;h._stole+=n;v.launch(Math.sign(v.cx-h.cx||1)*6,-6);burst(v.cx,v.cy,'#ffd23d',10);
-        if(h.isP)flash('STOLE '+n+' COINS!','#ffd23d');else if(v.isP){flash(h.name.toUpperCase()+' STOLE '+n+'!','#ff3b5c');camera.shake=8;}try{updScore();}catch(e){}});},
-    second:function(){S.left--;setT('Time',Math.max(0,S.left));if(S.left<=10){var tb=el('tbox');if(tb)tb.classList.add('danger');}if(S.left<=0){var a=fleas.slice().sort(function(x,y){return y.coins-x.coins;});endGame(a[0]||null);}},
-    ai:function(f){var on=S.spots.filter(function(s){return Math.hypot(f.cx-s.x,(f.y+f.h)-s.y-6)<26;})[0];if(on&&f.stuck)return hold(f);
-      if(S.steal==='on'&&(f._thief||skillMul()>1)){var rich=nearestOther(f,function(o){return !o.hidden&&o.coins>=Math.max(6,f.coins+3);});if(rich.flea&&rich.dist<460)return {x:rich.flea.cx,y:rich.flea.cy,chase:true};}
-      var best=null,bc=1e9;S.spots.forEach(function(s){var d=Math.hypot(s.x-f.cx,s.y-f.cy)*(s.chest?0.6:1);if(s.digger&&s.digger!==f)d+=320;if(d<bc){bc=d;best=s;}});
-      return best?stepTarget(f,best.x,best.y-14):wanderTarget(f);},
-    aiHold:function(f){return f.stuck&&S.spots.some(function(s){return Math.hypot(f.cx-s.x,(f.y+f.h)-s.y-6)<26;});},
-    drawBack:function(cx,cy){var t=T()/1000;S.spots.forEach(function(s){var x=s.x-cx,y=s.y-cy;if(x<-40||x>W+40||y<-40||y>H+40)return;ctx.save();var c=s.chest?'#ff9a3d':'#ffd23d';
-      ctx.fillStyle=rgbaOf(c,.22+0.1*Math.sin(t*5+s.ph));ctx.beginPath();ctx.ellipse(x,y+4,22,7,0,0,7);ctx.fill();ctx.shadowColor=c;ctx.shadowBlur=perfMode?0:16;
-      for(var k=0;k<4;k++){var a=t*2+k*1.57+s.ph;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x+Math.cos(a)*14,y-6+Math.sin(a*1.3)*6,1.8+Math.sin(t*8+k),0,7);ctx.fill();}
-      ctx.shadowBlur=0;ctx.font=(s.chest?'20':'15')+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(s.chest?'🎁':'✨',x,y-18+Math.sin(t*3+s.ph)*2);
-      if(s.p>0){ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.4)';ctx.beginPath();ctx.arc(x,y-18,14,0,7);ctx.stroke();ctx.strokeStyle=c;ctx.beginPath();ctx.arc(x,y-18,14,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,s.p));ctx.stroke();}ctx.restore();});},
-    drawFront:function(cx,cy){ctx.save();ctx.font="800 11px 'Chakra Petch',sans-serif";ctx.textAlign='center';fleas.forEach(function(f){if(f.hidden||!f.coins)return;var x=f.cx-cx,y=f.y-cy-(f.ant==='none'?26:36)*f.sf-10;if(x<-30||x>W+30||y<-30||y>H+30)return;ctx.fillStyle='#ffd23d';ctx.fillText('🪙 '+f.coins,x,y);});
-      var me=player,s=me&&S.spots.reduce(function(b,q){var d=Math.hypot(q.x-me.cx,q.y-me.cy);return !b||d<b.d?{s:q,d:d}:b;},null);if(s&&s.s&&s.d>200){var sx=s.s.x-cx,sy=s.s.y-cy;if(sx<20||sx>W-20||sy<70||sy>H-20){var a=Math.atan2(sy-H/2,sx-W/2),ex=Math.max(46,Math.min(W-46,W/2+Math.cos(a)*W)),ey=Math.max(106,Math.min(H-46,H/2+Math.sin(a)*H));ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle='#ffd23d';ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-7,-10);ctx.lineTo(-7,10);ctx.closePath();ctx.fill();}}
-      ctx.restore();},
-    score:function(c,U){U.title('Treasure Coins');var a=fleas.slice().sort(function(x,y){return y.coins-x.coins;}),hi=a.length?a[0].coins:0;U.list(a.map(function(f){return {n:f.name,c:f.col,me:f.isP,lead:f.coins===hi&&hi>0,pts:f.coins};}),{pos:true});},
-    rankVal:function(f){return f.coins||0;},statTxt:function(f){return (f.coins||0)+' coins · '+(f._stole||0)+' stolen';},
-    meter:function(p){var a=fleas.slice().sort(function(x,y){return y.coins-x.coins;}),top=a[0],mx=Math.max(20,top?top.coins:0);var on=S.spots.some(function(s){return s.digger===p;});return {l:on?'Digging…':'Your coins',v:p.coins/mx,t:p.coins+' coins',s:(top&&top!==p?top.name+' leads with '+top.coins:'You are in the lead!')+(S.steal==='on'?' · bump to steal':''),ld:top&&top!==p?{v:top.coins/mx,col:top.col}:null,col:'#ffd23d'};},
-    endSub:function(won){return won?'Richest flea in the cave!':'Out-dug this time';}};
+  /* Treasure Dig lives in dig.js (real diggable dirt) */
 
   /* ---------------- register ---------------- */
-  EXTRA_MODES.musical=MP;EXTRA_MODES.sumo=SU;EXTRA_MODES.treasure=TD;
+  EXTRA_MODES.musical=MP;EXTRA_MODES.sumo=SU;
   var INFO={
     musical:{ico:'🎵',name:'Musical Platforms',short:'Musical',desc:'Music stops? Grab a glowing platform!',sub:'When the music stops, jump onto a glowing platform. There is always one too few. Last flea standing wins!',col:['#2a0e2a','#ff5ea8'],scene:'crystal',mc:'#ff5ea8',m:['#2a0e3a','#ff5ea8']},
     sumo:{ico:'🥋',name:'Sumo Ring',short:'Sumo',desc:'Bump rivals off a shrinking ring',sub:'Fling yourself into rivals to knock them off the floating ring. The ring shrinks over time. Last flea on it wins!',col:['#2a1408','#ffb547'],scene:'ember',mc:'#ffb547',m:['#2a160a','#ffb547']},
-    treasure:{ico:'💰',name:'Treasure Dig',short:'Treasure',desc:'Dig sparkles for coins, steal from rivals',sub:'Stand still on sparkles to dig up coins (chests are worth more!). Bump into rivals to steal coins. Richest flea wins!',col:['#2a2008','#ffd23d'],scene:'grove',mc:'#ffd23d',m:['#1a1a0a','#ffd23d']}};
+    treasure:{ico:'💰',name:'Treasure Dig',short:'Treasure',desc:'Tunnel through dirt for buried treasure',sub:'Tap the dirt to tunnel through it, or fling hard to drill a crater. Coins sit near the top, gems deeper, crowns deepest. Bump rivals to steal coins. Richest flea wins!',col:['#2a2008','#ffd23d'],scene:'grove',mc:'#ffd23d',m:['#1a1a0a','#ffd23d']}};
   Object.keys(INFO).forEach(function(k){var d=INFO[k];try{FreaModes.info[k]=d;}catch(e){}MODE_INTRO[k]={ico:d.ico,name:d.name,sub:d.sub,col:d.col};try{MODE_LABEL[k]=d.name;}catch(e){}try{if(window.FreaArenas)FreaArenas.modeScene[k]=d.scene;}catch(e){}});
   var TIME=[[45,'45s'],[60,'60s'],[90,'90s'],[120,'2 min']];
   try{
     FreaModeSettings.register('musical',[{k:'grab',l:'Grab Time',sub:'Seconds to reach a glowing platform',opts:[[3,'3s'],[5,'5s'],[7,'7s']],def:5},{k:'music',l:'Music Length',opts:[[0.6,'Short'],[1,'Normal'],[1.5,'Long']],def:1}]);
     FreaModeSettings.register('sumo',[{k:'time',l:'Round Length',opts:TIME,def:90},{k:'lives',l:'Lives',opts:[[1,'1 ♥'],[2,'2 ♥'],[3,'3 ♥']],def:1},{k:'shrink',l:'Ring Shrinks Every',opts:[[8,'8s'],[14,'14s'],[22,'22s']],def:14}]);
-    FreaModeSettings.register('treasure',[{k:'time',l:'Round Length',opts:TIME,def:60},{k:'spots',l:'Dig Spots',opts:[[2,'Few'],[4,'Normal'],[7,'Lots']],def:4},{k:'steal',l:'Bump to Steal',opts:[['on','On'],['off','Off']],def:'on'}]);
+    FreaModeSettings.register('treasure',[{k:'time',l:'Round Length',opts:TIME,def:60},{k:'spots',l:'Buried Treasure',sub:'How much treasure is hidden in the dirt',opts:[[2,'Few'],[4,'Normal'],[7,'Lots']],def:4},{k:'steal',l:'Bump to Steal',opts:[['on','On'],['off','Off']],def:'on'}]);
   }catch(e){console.warn('newmodes settings',e);}
   return {state:function(){return S;}};
 })();

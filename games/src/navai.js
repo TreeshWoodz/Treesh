@@ -5,7 +5,7 @@
    decision speed, aim error and route look-ahead. */
 (function(){
   var G={t:0,n:-1,nodes:[]};
-  var SKIP={hoops:1,hns:1,zen:1,tutorial:1,copycat:1};
+  var SKIP={hoops:1,hns:1,zen:1,tutorial:1,copycat:1,treasure:1};
   function skill(){try{return FreaModeSettings.skill();}catch(e){return 'normal';}}
   function graph(){var now=Date.now();if(now-G.t<450&&G.n===platforms.length)return G.nodes;var N=[];
     for(var x=50;x<WORLD_W-50;x+=200)N.push({x:x,y:WORLD_H-60-14,p:platforms[0],fl:1});
