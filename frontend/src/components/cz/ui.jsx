@@ -1,9 +1,22 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { House, Trophy, ShoppingBag, User, Settings, ChevronLeft, X } from "lucide-react";
+import { House, Trophy, ShoppingBag, User, Settings, ChevronLeft, X, LayoutGrid, CircleHelp, Play as PlayIcon } from "lucide-react";
 import { useGame } from "@/game/GameContext";
 import { Icon } from "./Icon";
-import { TIER_COLORS } from "@/game/data";
+import { TIER_COLORS, levelFromXp, COSMETIC_BY_ID } from "@/game/data";
+
+const DESK_Q = "(min-width: 1024px)";
+export function useIsDesktop() {
+  const [d, setD] = useState(() => typeof window !== "undefined" && window.matchMedia && window.matchMedia(DESK_Q).matches);
+  useEffect(() => {
+    const m = window.matchMedia(DESK_Q);
+    const f = () => setD(m.matches);
+    f();
+    if (m.addEventListener) m.addEventListener("change", f); else m.addListener(f);
+    return () => { if (m.removeEventListener) m.removeEventListener("change", f); else m.removeListener(f); };
+  }, []);
+  return d;
+}
 
 export const fmt = (n) => (n || 0).toLocaleString("en-US");
 export const fmtK = (n) => { n = n || 0; return n >= 10000 ? (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + "k" : fmt(n); };
@@ -69,15 +82,15 @@ export const Avatar = ({ profile, name, size = 48, ring = true }) => {
 export const Header = ({ title, sub, back = "home", right, testid }) => {
   const { go } = useGame();
   return (
-    <div className="sticky top-0 z-20 -mx-4 mb-4 flex items-center gap-3 px-4 pb-3 pt-[max(14px,env(safe-area-inset-top))]" style={{ background: "linear-gradient(180deg, rgba(7,8,11,.96) 60%, rgba(7,8,11,0))" }}>
+    <div className="sticky top-0 z-20 -mx-4 mb-4 flex items-center gap-3 px-4 pb-3 pt-[max(14px,env(safe-area-inset-top))] lg:-mx-10 lg:mb-6 lg:px-10 lg:pb-5" style={{ background: "linear-gradient(180deg, rgba(7,8,11,.96) 60%, rgba(7,8,11,0))" }}>
       {back ? (
-        <button type="button" onClick={() => go(back)} data-testid={testid ? testid + "-back" : "header-back"} aria-label="Back" className="cz-press cz-focus cz-btn-ghost grid h-10 w-10 place-items-center rounded-full">
+        <button type="button" onClick={() => go(back)} data-testid={testid ? testid + "-back" : "header-back"} aria-label="Back" className={`cz-press cz-focus cz-btn-ghost grid h-10 w-10 place-items-center rounded-full ${back === "home" ? "lg:hidden" : ""}`}>
           <ChevronLeft size={20} />
         </button>
       ) : null}
       <div className="min-w-0 flex-1">
-        <h1 className="font-display truncate text-xl leading-tight">{title}</h1>
-        {sub ? <p className="truncate text-xs text-white/55">{sub}</p> : null}
+        <h1 className="font-display truncate text-xl leading-tight lg:text-3xl">{title}</h1>
+        {sub ? <p className="truncate text-xs text-white/55 lg:text-sm">{sub}</p> : null}
       </div>
       {right}
     </div>
@@ -94,7 +107,7 @@ const NAV = [
 export const BottomNav = () => {
   const { screen, go } = useGame();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[520px] px-4 pb-[max(12px,env(safe-area-inset-bottom))]" data-testid="bottom-nav">
+    <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[520px] px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden" data-testid="bottom-nav">
       <div className="flex items-center justify-between rounded-[26px] border border-white/10 bg-[#0d0f16]/95 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,.6)] backdrop-blur-md">
         {NAV.map(({ id, label, Icon: I }) => {
           const on = screen === id;
@@ -112,10 +125,60 @@ export const BottomNav = () => {
   );
 };
 
+const SIDE = [
+  { id: "home", label: "Home", Icon: House },
+  { id: "modes", label: "Modes", Icon: LayoutGrid },
+  { id: "trophies", label: "Trophies", Icon: Trophy },
+  { id: "shop", label: "Gift Shop", Icon: ShoppingBag },
+  { id: "profile", label: "Profile", Icon: User },
+  { id: "settings", label: "Settings", Icon: Settings },
+  { id: "howto", label: "How to play", Icon: CircleHelp },
+];
+export const SideNav = () => {
+  const { screen, go, points, profile, save, bankState } = useGame();
+  const name = (profile && profile.nickname) || save.guestName || "Guest Player";
+  const lv = levelFromXp(save.xp);
+  const title = COSMETIC_BY_ID[save.equipped.title];
+  return (
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] flex-col border-r border-white/[.07] bg-[#090b10]/95 px-4 py-6 lg:flex" data-testid="side-nav">
+      <button type="button" onClick={() => go("home")} className="cz-focus rounded-xl px-2" data-testid="side-nav-logo"><Wordmark size={38} /></button>
+      <p className="mt-2 px-2 text-[10px] font-extrabold uppercase tracking-[0.25em] text-white/35">Treesh Games</p>
+      <button type="button" disabled={bankState !== "ready"} onClick={() => go("play", { mode: save.lastMode || "classic", difficulty: save.lastDifficulty || "normal", k: Date.now() })} data-testid="side-nav-play"
+        className="cz-press cz-focus cz-btn-primary cz-shimmer mt-7 flex h-14 items-center justify-center gap-2 rounded-2xl text-base font-extrabold tracking-wide disabled:opacity-50">
+        <PlayIcon size={18} className="fill-current" />PLAY
+      </button>
+      <nav className="mt-6 space-y-1">
+        {SIDE.map(({ id, label, Icon: I }) => {
+          const on = screen === id;
+          return (
+            <button key={id} type="button" onClick={() => go(id)} data-testid={`side-nav-${id}`} aria-current={on ? "page" : undefined}
+              className="cz-press cz-focus relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold">
+              {on ? <motion.span layoutId="sidepill" className="absolute inset-0 rounded-xl" style={{ background: "rgb(var(--accent-rgb) / .16)", boxShadow: "inset 0 0 0 1px rgb(var(--accent-rgb) / .35)" }} transition={{ type: "spring", stiffness: 500, damping: 40 }} /> : null}
+              <I size={18} className={`relative ${on ? "cz-text-accent" : "text-white/50"}`} />
+              <span className={`relative ${on ? "text-white" : "text-white/65"}`}>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <div className="mt-auto">
+        <button type="button" onClick={() => go("profile")} className="cz-card cz-press cz-focus flex w-full items-center gap-3 p-3 text-left" data-testid="side-nav-player">
+          <Avatar profile={profile} name={name} size={42} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-extrabold">{name}</p>
+            <p className="truncate text-[11px] text-white/45">LV {lv.level} · {title ? title.name : "Rookie"}</p>
+            <div className="mt-1.5"><Progress value={lv.pct} h={4} /></div>
+          </div>
+        </button>
+        <div className="mt-2 flex justify-center"><StarPill value={points} testid="side-nav-starlites" onClick={() => go("shop")} /></div>
+      </div>
+    </aside>
+  );
+};
+
 export const Toasts = () => {
   const { toasts, dismissToast } = useGame();
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-[100] mx-auto flex w-full max-w-[520px] flex-col items-center gap-2 px-4 pt-[max(12px,env(safe-area-inset-top))]">
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[100] mx-auto flex w-full max-w-[520px] flex-col items-center gap-2 px-4 pt-[max(12px,env(safe-area-inset-top))] lg:left-auto lg:right-6 lg:mx-0 lg:w-[400px] lg:px-0 lg:pt-6">
       <AnimatePresence>
         {toasts.map((t) => {
           const c = t.kind === "trophy" ? TIER_COLORS[t.tier] || "#ffd36b" : t.kind === "star" ? "#ffd36b" : t.kind === "error" ? "#ff4d6d" : "var(--accent)";
@@ -157,10 +220,10 @@ export const Wordmark = ({ size = 34 }) => (
   </div>
 );
 
-export const Page = ({ children, nav = true, testid }) => (
+export const Page = ({ children, nav = true, testid, width = 1140 }) => (
   <motion.main data-testid={testid} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
-    className={`relative z-10 mx-auto w-full max-w-[520px] px-4 ${nav ? "pb-32" : "pb-8"}`}>
-    {children}
+    className={`relative z-10 w-full ${nav ? "pb-32 lg:pb-14 lg:pl-[260px]" : "pb-8"}`}>
+    <div className="cz-page mx-auto w-full max-w-[520px] px-4 lg:px-10" style={{ "--page-w": `${width}px` }}>{children}</div>
   </motion.main>
 );
 

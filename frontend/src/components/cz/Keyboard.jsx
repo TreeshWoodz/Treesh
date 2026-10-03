@@ -1,10 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Delete, CornerDownLeft, Eraser } from "lucide-react";
 
 const ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 
-export const Keyboard = ({ skin = "kb_glass", onKey, onBackspace, onEnter, onClear, disabled, busy, preview = false, highlight }) => {
+export const Keyboard = ({ skin = "kb_glass", onKey, onBackspace, onEnter, onClear, disabled, busy, preview = false, highlight, flash }) => {
   const [down, setDown] = useState(null);
+  const fid = flash ? flash.id : 0;
+  useEffect(() => {
+    if (!flash) return undefined;
+    setDown(flash.k);
+    const t = setTimeout(() => setDown((d) => (d === flash.k ? null : d)), 120);
+    return () => clearTimeout(t);
+  }, [fid]); // eslint-disable-line react-hooks/exhaustive-deps
   const cls = `kb kb-${skin.replace("kb_", "")}`;
   const press = (fn, id) => (e) => {
     e.preventDefault();

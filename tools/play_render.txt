@@ -1,0 +1,249 @@
+  /* ---------- render ---------- */
+  const frozen = now() < g.frozenUntil;
+  const showTurn = mode.timer === "turn";
+  const tLeft = showTurn ? g.turnLeft : g.globalLeft;
+  const tMax = showTurn ? g.turnMax : mode.globalTime || 60;
+  const pct = mode.timer === "none" ? 1 : Math.max(0, Math.min(1, tLeft / tMax));
+  const danger = mode.timer !== "none" && (showTurn ? pct < 0.25 : tLeft < 10);
+  const tColor = frozen ? "#7dd3fc" : danger ? "var(--bad)" : pct < 0.5 && showTurn ? "var(--warn)" : "var(--accent)";
+  const combo = Math.min(5, 1 + Math.floor(g.streak / 5));
+  const pendingStars = Math.round((g.pending.links * R.perLink + g.pending.combos * R.comboBonus + g.pending.speed * R.speedBonus + g.pending.gold * R.goldWord) * diff.star * mode.starMult * (g.booster ? 2 : 1));
+  const P = g.prompt || "";
+  const fontSize = isDesk ? Math.min(132, Math.max(48, 980 / Math.max(5, P.length))) : Math.min(78, Math.max(30, 470 / Math.max(5, P.length)));
+  const promptLabel = V === "letter" ? `Starts with “${P.slice(-1).toUpperCase()}”` : V === "compound" ? "Glue a word to" : "Link a word to";
+  const RING = 2 * Math.PI * 26;
+  const fbColor = { good: "var(--good)", combo: "var(--accent)", gold: "#ffd36b", bad: "var(--bad)", warn: "var(--warn)", shield: "#93c5fd", freeze: "#7dd3fc", info: "rgba(255,255,255,.8)" };
+  const best = save.bests[mode.id];
+  const showDiff = mode.difficulty || mode.id === "daily";
+  const POWER_LIST = POWERUPS.filter((p) => !p.preRun);
+
+  /* ---- shared pieces ---- */
+  const pauseBtn = <button type="button" onClick={pause} data-testid="game-pause-button" aria-label="Pause" className="cz-press cz-focus cz-chip grid h-11 w-11 shrink-0 place-items-center"><Pause size={18} /></button>;
+  const timerRing = (size) => (
+    <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }} data-testid="game-hud-timer">
+      {S.timerStyle === "ring" || mode.timer === "none" || isDesk ? (
+        <svg width={size} height={size} viewBox="0 0 64 64" className={`absolute inset-0 -rotate-90 ${danger ? "cz-danger-pulse" : ""}`}>
+          <circle cx="32" cy="32" r="26" stroke="rgba(255,255,255,.1)" strokeWidth={isDesk ? 4.5 : 6} fill="rgba(8,9,14,.8)" />
+          <circle cx="32" cy="32" r="26" stroke={tColor} strokeWidth={isDesk ? 4.5 : 6} fill="none" strokeLinecap="round" strokeDasharray={RING} strokeDashoffset={RING * (1 - pct)} style={{ transition: "stroke-dashoffset .12s linear, stroke .3s" }} />
+        </svg>
+      ) : <div className="cz-chip absolute inset-1" />}
+      <span className="font-num relative" style={{ color: frozen ? "#7dd3fc" : danger ? "var(--bad)" : "#fff", fontSize: size * 0.3 }}>
+        {mode.timer === "none" ? <Inf size={size * 0.36} /> : frozen ? <Snowflake size={size * 0.32} /> : Math.ceil(tLeft)}
+      </span>
+    </div>
+  );
+  const scoreEl = (big) => (
+    <div className={`cz-chip flex min-w-0 flex-1 flex-col ${big ? "rounded-[20px] px-5 py-3" : "px-3 py-1"}`} data-testid="game-hud-score">
+      <span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-white/45">Score</span>
+      <motion.span key={g.score} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className={`font-num origin-left leading-tight ${big ? "text-3xl" : "text-lg"}`}>{fmt(g.score)}</motion.span>
+    </div>
+  );
+  const comboEl = (big) => (
+    <div className={`cz-chip flex flex-col ${big ? "flex-1 rounded-[20px] px-5 py-3" : "items-center px-3 py-1"}`} data-testid="game-hud-combo" style={g.streak >= 5 ? { boxShadow: "0 0 0 1px rgb(var(--accent-rgb) / .6), 0 0 18px rgb(var(--accent-rgb) / .35)" } : undefined}>
+      <span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-white/45">Chain</span>
+      <span className={`font-num leading-tight ${big ? "text-3xl" : "text-lg"}`}>{g.streak}<span className={`cz-text-accent ${big ? "text-base" : "text-xs"}`}>×{combo}</span></span>
+    </div>
+  );
+  const starsEl = (big) => (
+    <div className={`cz-chip flex items-center gap-1 ${big ? "flex-1 gap-2 rounded-[20px] px-5 py-3" : "px-2.5 py-2"}`} data-testid="game-hud-pending-starlites" style={{ borderColor: "rgba(255,211,107,.3)" }}>
+      <StarGlyph size={big ? 22 : 15} />
+      {big ? <span className="flex flex-col"><span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-white/45">Starlites this run</span><span className="font-num cz-gold-text text-2xl leading-tight">{pendingStars}</span></span>
+        : <span className="font-num cz-gold-text text-base leading-none">{pendingStars}</span>}
+    </div>
+  );
+  const modeLabel = <span className="flex items-center gap-1.5 uppercase tracking-[0.16em]"><Icon name={mode.icon} size={13} className="cz-text-accent" />{mode.name}{showDiff ? <span style={{ color: diff.color }}>· {diff.name}</span> : null}</span>;
+  const badges = (
+    <span className="flex items-center gap-2">
+      {g.booster ? <span className="rounded-full bg-[#ffd36b]/15 px-2 py-0.5 text-[10px] text-[#ffd36b]">2× STARLITES</span> : null}
+      {g.shield ? <span className="flex items-center gap-1 rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] text-sky-300" data-testid="game-shield-active"><ShieldCheck size={12} />SHIELD</span> : null}
+      {mode.lives > 0 ? (
+        <span className="flex gap-0.5" data-testid="game-hearts">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <motion.span key={i} animate={{ scale: i < g.hearts ? 1 : 0.8, opacity: i < g.hearts ? 1 : 0.25 }}><Heart size={isDesk ? 20 : 16} className={i < g.hearts ? "fill-[var(--bad)] text-[var(--bad)]" : "text-white/40"} /></motion.span>
+          ))}
+        </span>
+      ) : null}
+    </span>
+  );
+  const chip = (c, i) => <span key={i + c.a} className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${c.gold ? "border-[#ffd36b]/50 bg-[#ffd36b]/10 text-[#ffd36b]" : "border-white/10 bg-white/[.06] text-white/80"}`}>{cap(c.a)}</span>;
+  const promptBlock = (
+    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center text-center">
+      <p className={`mb-2 font-extrabold uppercase tracking-[0.28em] text-white/50 ${isDesk ? "text-sm" : "text-[11px]"}`}>{g.gold ? <span className="text-[#ffd36b]">Golden word · 2× points</span> : promptLabel}</p>
+      <AnimatePresence mode="popLayout">
+        <motion.div key={P + g.links} ref={promptRef} data-testid="game-current-word"
+          initial={S.reducedMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.9, filter: "blur(6px)" }}
+          animate={{ opacity: g.phase === "paused" ? 0.08 : 1, y: 0, scale: 1, filter: g.phase === "paused" ? "blur(12px)" : "blur(0px)" }}
+          exit={S.reducedMotion ? { opacity: 0 } : { opacity: 0, y: -30, scale: 1.08 }}
+          transition={{ type: "spring", stiffness: 320, damping: 26 }}
+          className={`font-display max-w-full break-words px-2 leading-[1.02] ${g.gold ? "cz-gold-text cz-gold-prompt" : ""}`} style={{ fontSize, textShadow: g.gold ? undefined : isDesk ? "0 0 60px rgb(var(--accent-rgb) / .35)" : undefined }}>
+          {V === "letter" && P ? (<>{cap(P).slice(0, -1)}<span className="cz-text-accent underline decoration-4 underline-offset-8">{P.slice(-1).toUpperCase()}</span></>) : cap(P)}
+        </motion.div>
+      </AnimatePresence>
+      {g.gold ? <div className="mt-2 flex items-center gap-1 text-xs font-bold text-[#ffd36b]"><StarGlyph size={14} /> +{R.goldWord} Starlites if you link it</div> : null}
+      <div className="mt-3 flex h-8 items-center justify-center" aria-live="polite">
+        <AnimatePresence mode="wait">
+          {g.feedback ? (
+            <motion.p key={g.fid} data-testid="game-feedback" initial={{ opacity: 0, y: 8, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8 }}
+              className={`font-extrabold tracking-wide ${isDesk ? "text-lg" : "text-sm"}`} style={{ color: fbColor[g.feedback.kind] || "#fff" }}>{g.feedback.text}</motion.p>
+          ) : null}
+        </AnimatePresence>
+      </div>
+      {g.hint ? <p className="font-num mt-1 text-lg tracking-[0.3em] text-[#ffd36b]" data-testid="game-hint">{g.hint}</p> : null}
+      {g.choices ? (
+        <div className="mt-2 flex flex-wrap justify-center gap-2" data-testid="game-lifeline-choices">
+          {g.choices.map((c) => (
+            <button key={c} type="button" onClick={() => { G.current.choices = null; submit(c); }} data-testid={`lifeline-choice-${c}`} className="cz-press cz-focus cz-btn-ghost rounded-full px-4 py-2 text-sm font-extrabold">{cap(c)}</button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+  const inputBlock = (
+    <motion.div key={g.shakeId} className={`${g.shakeId && S.shake && !S.reducedMotion ? "cz-shake" : ""}`}>
+      {S.systemKeyboard ? (
+        <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="flex items-center gap-2">
+          <input ref={inputRef} autoFocus value={g.input} data-testid="game-input" disabled={g.phase !== "play"}
+            onChange={(e) => { G.current.input = e.target.value.toLowerCase().replace(/[^a-z]/g, "").slice(0, 20); force(); }}
+            autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} enterKeyHint="go" inputMode="text"
+            placeholder="Type a linked word" className={`${isDesk ? "h-16 text-2xl" : "h-14 text-xl"} min-w-0 flex-1 rounded-2xl border border-white/12 bg-[#0e1118] px-4 font-bold uppercase tracking-wider text-white placeholder:normal-case placeholder:tracking-normal placeholder:text-white/35 focus:border-[var(--accent)] focus:outline-none`} />
+          <button type="submit" data-testid="game-submit-button" className={`cz-press cz-btn-primary ${isDesk ? "h-16 px-7" : "h-14 px-5"} rounded-2xl font-extrabold tracking-[0.15em]`} disabled={g.checking}>
+            {g.checking ? <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : "LINK"}
+          </button>
+        </form>
+      ) : (
+        <div data-testid="game-input" className={`flex items-center justify-center rounded-2xl border bg-[#0e1118] px-4 font-extrabold uppercase tracking-[0.12em] ${isDesk ? "h-16 text-3xl" : "h-14 text-2xl"}`} style={{ borderColor: g.input ? "rgb(var(--accent-rgb) / .55)" : "rgba(255,255,255,.12)" }}>
+          {g.input ? <span className="truncate">{g.input}</span> : <span className="text-base font-bold normal-case tracking-normal text-white/35">{isDesk ? "Just start typing. Press Enter to link" : "Type a linked word"}</span>}
+          {g.phase === "play" ? <span className="cz-caret" /> : null}
+        </div>
+      )}
+    </motion.div>
+  );
+  const keyboardEl = !S.systemKeyboard ? (
+    <Keyboard skin={save.equipped.keyboard} onKey={typeKey} onBackspace={backspace} onClear={clear} onEnter={() => submit()} disabled={g.phase !== "play"} busy={g.checking}
+      highlight={V === "letter" && !g.input ? P.slice(-1) : null} flash={g.flash} />
+  ) : null;
+  const endBtn = mode.id === "zen" ? (
+    <button type="button" onClick={() => endRun("ended")} data-testid="game-end-button" className={`cz-press cz-btn-ghost flex items-center justify-center gap-1 rounded-full px-3 text-xs font-extrabold ${isDesk ? "h-11 w-full rounded-2xl text-sm" : "h-11"}`}><Flag size={14} />End run</button>
+  ) : null;
+  const powerBtn = (p, i, wide) => {
+    const n = save.inventory[p.id] || 0;
+    const locked = ((p.id === "hint" || p.id === "lifeline") && !diff.hintsOk) || (p.id === "freeze" && mode.timer === "none");
+    return (
+      <button key={p.id} type="button" onClick={() => activatePower(p.id)} data-testid={`game-powerup-${p.id}-button`} aria-label={`${p.name} (${n})`} title={`${p.desc}${wide ? ` · shortcut ${i + 1}` : ""}`}
+        className={`cz-press cz-focus relative flex items-center gap-1 ${wide ? "w-full gap-3 rounded-2xl border border-white/[.08] bg-white/[.04] px-3 py-2.5 text-left hover:bg-white/[.08]" : "cz-chip h-11 flex-1 justify-center"} ${locked ? "opacity-30" : n ? "" : "opacity-50"}`}>
+        <span className={wide ? "grid h-8 w-8 place-items-center rounded-xl" : ""} style={wide ? { background: `${p.color}1f` } : undefined}><Icon name={p.icon} size={17} style={{ color: p.color }} /></span>
+        {wide ? <span className="min-w-0 flex-1 truncate text-sm font-bold">{p.name}</span> : null}
+        <span className="font-num text-xs">{n}</span>
+        {wide ? <kbd className="ml-1 grid h-6 w-6 place-items-center rounded-md border border-white/15 bg-black/30 text-[10px] font-bold text-white/55">{i + 1}</kbd> : null}
+      </button>
+    );
+  };
+
+  const overlays = (
+    <>
+{OVERLAYS}
+    </>
+  );
+
+  if (isDesk) {
+    return (
+      <div className="relative z-10 mx-auto grid h-[100dvh] w-full max-w-[1500px] grid-cols-[290px_minmax(0,1fr)_290px] gap-6 px-8 py-6 xl:grid-cols-[320px_minmax(0,1fr)_320px] xl:gap-10" data-testid="play-screen">
+        <Bursts ref={burstRef} enabled={S.particles && !S.reducedMotion} />
+        <aside className="flex min-h-0 flex-col gap-3" data-testid="play-left-panel">
+          <div className="flex items-center gap-3">{pauseBtn}<div className="text-[11px] font-bold text-white/55">{modeLabel}</div></div>
+          <div className="cz-card flex flex-col items-center gap-2 p-5">
+            {timerRing(150)}
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/45">{mode.timer === "turn" ? "Seconds for this word" : mode.timer === "global" ? "Seconds left" : "No clock. Take your time"}</p>
+            {mode.lives > 0 || g.shield || g.booster ? <div className="mt-1">{badges}</div> : null}
+          </div>
+          <div className="flex gap-3">{scoreEl(true)}</div>
+          <div className="flex gap-3">{comboEl(true)}</div>
+          <div className="flex gap-3">{starsEl(true)}</div>
+          <div className="cz-card mt-auto p-3" data-testid="game-powerups">
+            <p className="mb-2 px-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-white/45">Power-ups</p>
+            <div className="space-y-1.5">{POWER_LIST.map((p, i) => powerBtn(p, i, true))}</div>
+            {endBtn ? <div className="mt-2">{endBtn}</div> : null}
+          </div>
+        </aside>
+
+        <section className="flex min-h-0 flex-col">
+          {S.timerStyle === "bar" && mode.timer !== "none" ? (
+            <div className="h-2 w-full overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${pct * 100}%`, background: tColor, transition: "width .12s linear" }} /></div>
+          ) : null}
+          {promptBlock}
+          <div className="mx-auto w-full max-w-[760px] space-y-3 pb-1">
+            {inputBlock}
+            {keyboardEl}
+            <p className="text-center text-[11px] font-semibold text-white/35">Type on your keyboard · Enter to link · Backspace to fix · Esc to pause · 1–5 power-ups</p>
+          </div>
+        </section>
+
+        <aside className="flex min-h-0 flex-col gap-3" data-testid="play-right-panel">
+          <div className="cz-card flex min-h-0 flex-1 flex-col p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/50">Your chain</p>
+              <span className="font-num text-sm text-white/70">{g.links}</span>
+            </div>
+            <div className="cz-scroll min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1" data-testid="game-chain-trail" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+              {g.chain.length === 0 ? <p className="text-sm text-white/35">Every word you link lands here. Keep it growing.</p> : null}
+              {g.chain.length ? <div className="px-1 text-xs font-bold text-white/40">{cap(g.chain[0].p)}</div> : null}
+              {g.chain.map((c, i) => (
+                <motion.div key={i + c.a} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${c.gold ? "border-[#ffd36b]/40 bg-[#ffd36b]/10" : "border-white/[.07] bg-white/[.04]"}`}>
+                  <Link2 size={13} className={c.gold ? "text-[#ffd36b]" : "cz-text-accent"} />
+                  <span className={`min-w-0 flex-1 truncate text-sm font-extrabold ${c.gold ? "text-[#ffd36b]" : ""}`}>{cap(c.a)}</span>
+                  {c.full ? <span className="truncate text-[10px] text-white/40">{cap(c.full)}</span> : null}
+                  <span className="font-num text-[10px] text-white/35">#{i + 1}</span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+          <div className="cz-card p-4" data-testid="play-best-card">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-white/45">Your best · {mode.name}</p>
+            <div className="mt-2 flex items-end justify-between">
+              <span className="font-num text-2xl">{fmt(best ? best.score : 0)}</span>
+              <span className="text-xs text-white/50">{best ? `${best.links} links · chain ${best.chain}` : "Set your first record"}</span>
+            </div>
+            {best && best.score ? <div className="mt-2"><div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${Math.min(100, (g.score / best.score) * 100)}%`, background: g.score > best.score ? "#ffd36b" : "var(--accent)" }} /></div></div> : null}
+          </div>
+        </aside>
+        {overlays}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative z-10 mx-auto flex h-[100dvh] w-full max-w-[520px] flex-col px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-[max(10px,env(safe-area-inset-top))]" data-testid="play-screen">
+      <Bursts ref={burstRef} enabled={S.particles && !S.reducedMotion} />
+      <div className="flex items-center gap-2">
+        {pauseBtn}
+        {scoreEl(false)}
+        {timerRing(64)}
+        {comboEl(false)}
+        {starsEl(false)}
+      </div>
+      {S.timerStyle === "bar" && mode.timer !== "none" ? (
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${pct * 100}%`, background: tColor, transition: "width .12s linear" }} /></div>
+      ) : null}
+      <div className="mt-2 flex items-center justify-between px-1 text-[11px] font-bold text-white/55">{modeLabel}{badges}</div>
+      {S.showTrail ? (
+        <div className="cz-scroll mt-2 flex h-9 items-center gap-1.5 overflow-x-auto px-1" data-testid="game-chain-trail" ref={(el) => { if (el) el.scrollLeft = el.scrollWidth; }}>
+          {g.chain.length === 0 ? <span className="text-xs text-white/35">Your chain will grow here</span> : null}
+          {g.chain.slice(-14).map((c, i) => (
+            <React.Fragment key={i + c.a}>
+              {i > 0 ? <Link2 size={12} className="shrink-0 text-white/30" /> : null}
+              {chip(c, i)}
+            </React.Fragment>
+          ))}
+        </div>
+      ) : null}
+      {promptBlock}
+      {inputBlock}
+      <div className="mt-2 flex items-center gap-1.5" data-testid="game-powerups">
+        {POWER_LIST.map((p, i) => powerBtn(p, i, false))}
+        {endBtn}
+      </div>
+      {keyboardEl ? <div className="mt-2">{keyboardEl}</div> : null}
+      {overlays}
+    </div>
+  );
+}

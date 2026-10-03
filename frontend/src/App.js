@@ -3,7 +3,8 @@ import { AnimatePresence } from "framer-motion";
 import "@/App.css";
 import { GameProvider, useGame } from "@/game/GameContext";
 import { Arena } from "@/components/cz/Arena";
-import { BottomNav, Toasts } from "@/components/cz/ui";
+import { BottomNav, SideNav, Toasts } from "@/components/cz/ui";
+import { LS } from "@/game/storage";
 import Home from "@/screens/Home";
 import Modes from "@/screens/Modes";
 import Play from "@/screens/Play";
@@ -27,6 +28,7 @@ function Shell() {
         <Screen key={screen + (params.k || "")} />
       </AnimatePresence>
       {NAV_SCREENS.has(screen) ? <BottomNav /> : null}
+      {NAV_SCREENS.has(screen) || (screen === "howto" && LS.get("chainz_seen_howto", false)) ? <SideNav /> : null}
       <Toasts />
     </div>
   );
