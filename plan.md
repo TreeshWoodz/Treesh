@@ -308,3 +308,10 @@ User decisions:
 - CPU: real multi-hop platform route planning (graph over platforms); CPU difficulty Easy/Normal/Pro setting (default)
 - Modals/menus: keep neon-arcade identity, make more intuitive + polished
 Build order: Copycat -> per-mode settings -> new modes -> CPU nav -> Hoops -> modal polish -> test
+
+## Phase: Performance + Dig + Chairs (Status: COMPLETED)
+- Performance Mode: Auto (default) / Lite / High (perf.js, perf.css). Fixed 60Hz simulation; Lite renders at 30 FPS with no shadows, blur or sparks, DPR 1 and capped particles
+- Treasure Dig: real grid dirt with tunnels, boulders, and buried coins/gems/crowns (dig.js)
+- Musical Chairs: Seats option with real chairs, fleas marching a loop, and one chair removed per round (chairs.js)
+- Copycat player-leader: early taps are queued
+- Testing agent iteration_6: 100% pass

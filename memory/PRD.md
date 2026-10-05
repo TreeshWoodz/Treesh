@@ -35,3 +35,14 @@ Polish every mode, the character models and the UI. Turn Zen into a Sims-like mo
 - Party Mode: pick which modes rotate (Zen excluded), rounds, order, rivals; points 3/2/1 per round; final podium + Starlites bonus.
 - New modes: King of the Hill, Floor is Lava, Star Rush, Red Light Green Light, Freeze Tag.
 - Unified HUD: mode banner w/ goal + party round, How-to-play intro card, cleaner results chips.
+
+## Phase 5 (Copycat, new modes, performance)
+- Copycat, Musical Platforms, Sumo Ring, Hoops+, NavAI, glassy modals (earlier in phase)
+- **Performance Mode** (`src/perf.js`, `src/perf.css`): Auto (default) / Lite / High in Settings → Display.
+  - Lite: DPR 1, canvas shadowBlur hard-disabled at the context level, particle cap 70, no sparks, CSS backdrop-filter off, render 30 FPS
+  - The simulation is now fixed at 60 steps/s on every screen, so 120/144Hz monitors no longer speed up the game. In-between steps draw to a 1x1 dummy canvas
+  - Auto: Lite on phones and on devices with ≤4 cores or ≤4GB RAM. Otherwise High, with a watchdog that drops to Lite if the average frame time is over 22ms. Key `frea_perf_lvl`
+- **Treasure Dig rework** (`src/dig.js`): real grid dirt (topsoil / soil / 2-hit clay / boulders). Tunnels persist. Coins sit shallow, gems mid, crowns deep. Tap dirt to tunnel there. Fling hard to drill a crater. CPUs dig toward treasure, thieves bump to steal
+- **Musical Chairs option** (`src/chairs.js`): Seats = Platforms | Chairs. Real chairs in a row with a ring rug. Fleas march a loop while the music plays (the back lane is drawn behind the chairs), then race to sit. One chair is removed each round
+- Copycat: when the player leads, taps during "Get ready" are queued and fire when the gap ends
+- Test hooks: `__frea.setMode(m); __frea.start()`, `FreaDig.tapWorld(x,y)`, `FreaPerf.set('lite')`, `FreaChairs.chairs()`
