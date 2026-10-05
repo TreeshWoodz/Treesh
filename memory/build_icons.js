@@ -1,0 +1,13 @@
+const L=require('/app/memory/lucide_src.js'); const fs=require('fs');
+const icons=L.icons;
+const toP=s=>{ let out='',up=false; for(const ch of s){ if(ch==='-'||ch==='_'||ch<=' '){ up=out.length>0; continue;} out+= out.length===0?ch.toLowerCase(): (up?ch.toUpperCase():ch); up=false;} return out.charAt(0).toUpperCase()+out.slice(1); };
+const files=['/app/single_html/index.html',...['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js'].map(f=>'/app/memory/'+f)].filter(f=>fs.existsSync(f));
+const src=files.map(f=>fs.readFileSync(f,'utf8')).join('\n');
+const lit=new Set(); let m;
+const reA=/data-lucide="([a-z0-9-]+)"/g; while((m=reA.exec(src))) lit.add(m[1]);
+const reQ=/(['"`])([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\1/g; while((m=reQ.exec(src))) lit.add(m[2]);
+const used=[...lit].filter(n=>icons[toP(n)]).sort();
+const inner=n=>icons[toP(n)].map(([t,a])=>'<'+t+Object.keys(a).map(k=>' '+k+'="'+a[k]+'"').join('')+'/>').join('');
+const map={}; used.forEach(n=>map[n]=inner(n));
+fs.writeFileSync('/app/memory/p9_icons_data.json',JSON.stringify(map));
+console.log('icons',used.length,'bytes',JSON.stringify(map).length);
