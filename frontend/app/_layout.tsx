@@ -44,6 +44,8 @@ function useNoWebSelection() {
       }
       img { -webkit-user-drag: none !important; user-drag: none !important; pointer-events: none !important; }
       input, textarea, [contenteditable="true"] { -webkit-user-select: text !important; user-select: text !important; }
+      /* Play surfaces: no browser gestures (double-tap zoom, pan, long-press loupe). */
+      [data-testid="gameplay-screen"], [data-testid="gameplay-screen"] *, [data-testid="editor-board"], [data-testid="editor-board"] * { touch-action: none !important; }
     `;
     document.head.appendChild(style);
     const allowText = (t: any) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
@@ -53,7 +55,24 @@ function useNoWebSelection() {
     document.addEventListener("selectstart", onSelect, true);
     document.addEventListener("dragstart", onDrag, true);
     document.addEventListener("contextmenu", onContext, true);
+    // iOS Safari pops its magnifier loupe on long presses (e.g. holding long notes) unless the touch's default
+    // action is cancelled. Do that on the play surfaces only; buttons keep their native behaviour.
+    const PLAY = '[data-testid="gameplay-screen"], [data-testid="editor-board"]';
+    const onTouch = (e: any) => { const t = e.target; if (!t?.closest?.(PLAY) || t.closest('[role="button"], a, input, textarea')) return; if (e.cancelable) e.preventDefault(); };
+    const onGesture = (e: any) => e.preventDefault();
+    const touchOpts = { passive: false, capture: true } as const;
+    document.addEventListener("touchstart", onTouch, touchOpts);
+    document.addEventListener("touchmove", onTouch, touchOpts);
+    document.addEventListener("gesturestart", onGesture, touchOpts);
+    // Lock pinch / double-tap zoom so a fast tap stream never zooms the page mid-song.
+    const vp = document.querySelector('meta[name="viewport"]');
+    const vpOld = vp?.getAttribute("content");
+    vp?.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
     return () => {
+      document.removeEventListener("touchstart", onTouch, touchOpts);
+      document.removeEventListener("touchmove", onTouch, touchOpts);
+      document.removeEventListener("gesturestart", onGesture, touchOpts);
+      if (vp && vpOld) vp.setAttribute("content", vpOld);
       document.removeEventListener("selectstart", onSelect, true);
       document.removeEventListener("dragstart", onDrag, true);
       document.removeEventListener("contextmenu", onContext, true);
