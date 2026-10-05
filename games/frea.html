@@ -1722,6 +1722,16 @@ body.hud2-live #hud-alert{top:40%}
 @media (min-width:900px) and (max-height:760px){#modes .mode-chip.mode-card:not(.party-card){aspect-ratio:2.3/1}.whatsnew{padding:10px 14px}}
 @media (min-width:900px) and (max-width:1439px){#modes .mode-card .mc-title{white-space:normal;line-height:1.1;font-size:14px}#modes .mode-card .mc-desc{display:none}}
 
+/* ===== DESKTOP: What's New + Party Mode side by side (lobbyrow.js moves #whatsnew into the grid) ===== */
+@media (min-width:900px){
+  #title-view #modes > .whatsnew{grid-column:1 / span 2;grid-row:1;width:auto;min-width:0;margin:0;display:flex;flex-direction:column;justify-content:center;min-height:104px}
+  #title-view #modes > .mode-chip.mode-card.party-card{grid-column:3 / -1;grid-row:1}
+  #title-view #modes > .whatsnew .wn-head{position:relative;z-index:1}
+  #title-view #modes > .whatsnew .home-clock{position:static;margin:0 0 0 auto;font-size:11px;white-space:nowrap}
+  #title-view #modes > .whatsnew .wn-track{flex:0 0 auto}
+}
+@media (min-width:900px) and (max-height:900px){#title-view #modes > .whatsnew{min-height:88px;padding:10px 16px}}
+
 /* ---- Zen sandbox: worlds live in the Worlds tab only (no duplicate dropdown) ---- */
 #zen-env,#zen-env-menu{display:none !important}
 
@@ -10067,7 +10077,7 @@ window.FreaArenas=Arenas;
   function pick(a){return a[Math.random()*a.length|0];}
   function zen(){return gameMode==='zen';}
   function emit(src,a){var r=R[a];if(!r||STATE!=='play')return;var now=T();if(src._emitT&&now<src._emitT)return;src._emitT=now+1100;
-    var rad=zen()?430:300,pr=src.isP?0.9:(zen()?0.45:0.25),n=0;
+    var rad=zen()?430:(src.isP?560:300),pr=src.isP?0.9:(zen()?0.45:0.25),n=0;
     fleas.forEach(function(f){if(f===src||f.isP||f.hidden||f._out||f._ccOut)return;var d=Math.hypot(f.cx-src.cx,f.cy-src.cy);if(d>rad||Math.random()>pr)return;if(n>=5)return;n++;
       f._rq={at:now+220+Math.random()*520+n*90,src:src,a:a,d:d};});}
   function react(f,q){var r=R[q.a],now=T(),src=q.src;if(!r)return;
@@ -10082,7 +10092,7 @@ window.FreaArenas=Arenas;
   Flea.prototype.update=function(dt){_up.call(this,dt);var a=this.action||'';
     if(a!==this._lastAct){if(a&&!this._reactAct)emit(this,a);if(!a)this._reactAct=false;else if(this._lastAct&&this._reactAct&&a!==this._lastAct)this._reactAct=false;this._lastAct=a;}
     var q=this._rq;if(q&&T()>=q.at){this._rq=null;if(!this.hidden&&STATE==='play')react(this,q);}};
-  window.FreaReact={map:R,emit:emit,list:NEW};
+  window.FreaReact={map:R,emit:emit,list:NEW,state:function(){return {action:player?player.action:null,reacting:fleas.filter(function(f){return !f.isP&&(f.reactEmoteT>0||f._rq);}).length};}};
 })();
 
 /* ---- zenart.js ---- */
@@ -12796,6 +12806,27 @@ window.FREA_ART={"classic": "data:image/webp;base64,UklGRhRgAABXRUJQVlA4IAhgAADQ
   window.FreaNavAI={route:route,graph:graph};
 })();
 
+/* ---- lobbyrow.js ---- */
+/* ===================== FREA! PLUS — DESKTOP LOBBY HERO ROW =====================
+   On desktop (>=900px) the "What's New" carousel sits side-by-side with the Party Mode banner
+   (both live in the first row of the mode grid) and the clock tucks into the What's New header,
+   so there's no empty gap next to the carousel. On mobile everything goes back to the stacked layout. */
+(function(){
+  var mq=window.matchMedia('(min-width:900px)');
+  var wn=document.getElementById('whatsnew'),clock=document.getElementById('home-clock'),modes=document.getElementById('modes');
+  if(!wn||!modes)return;
+  var home=wn.parentNode,head=wn.querySelector('.wn-head');
+  function apply(){var desk=mq.matches;
+    if(desk){if(wn.parentNode!==modes)modes.insertBefore(wn,modes.firstChild);
+      if(clock&&head&&clock.parentNode!==head)head.appendChild(clock);}
+    else{if(wn.parentNode!==home)home.insertBefore(wn,modes);
+      if(clock&&clock.parentNode!==home)home.insertBefore(clock,wn);}
+    document.body.classList.toggle('lobby-hero-row',desk);}
+  apply();
+  try{mq.addEventListener('change',apply);}catch(e){try{mq.addListener(apply);}catch(x){}}
+  window.FreaLobbyRow={apply:apply};
+})();
+
 /* ---- platskin.js ---- */
 /* ===================== FREA! PLUS — THEMED PLATFORMS + BASIC GRAPHICS =====================
    Platforms now match the arena they live in (grassy soil in the meadow/forest, crystal shards in the
@@ -12925,7 +12956,7 @@ var FreaSkin=(function(){
     ctx.fillStyle=sky[0];ctx.fillRect(0,0,W,H);if(STATE==='title')return;
     var fy=WORLD_H-60-(camera.y||0);if(fy<H){ctx.fillStyle=(sc&&sc.floor)||'#1c1834';ctx.fillRect(0,fy,W,H-fy);ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(0,fy,W,2);}};
   /* ---------- settings UI (Display group) ---------- */
-  function row(id,label,sub,opts,cur,cb){return '<div class="setting-row xm-row skin-row" id="'+id+'"><div class="section-label"><span>'+label+'</span><small class="xm-sub">'+sub+'</small></div><div class="layout-row" style="flex-wrap:wrap">'+
+  function row(id,label,sub,opts,cur,cb){return '<div class="setting-row xm-row skin-row" id="'+id+'" data-testid="'+id+'"><div class="section-label"><span>'+label+'</span><small class="xm-sub">'+sub+'</small></div><div class="layout-row" style="flex-wrap:wrap">'+
       opts.map(function(p){var on=p[0]===cur;return '<button class="lbtn'+(on?' active':'')+'" data-'+cb+'="'+p[0]+'" data-testid="'+cb+'-'+p[0]+'" aria-pressed="'+on+'">'+p[1]+'</button>';}).join('')+'</div></div>';}
   function render(){var g=document.querySelector('#sg-display .sgroup-b');if(!g)return;var box=el('skin-settings');
     if(!box){box=document.createElement('div');box.id='skin-settings';box.setAttribute('data-testid','graphics-settings');g.appendChild(box);

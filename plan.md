@@ -315,3 +315,6 @@ Build order: Copycat -> per-mode settings -> new modes -> CPU nav -> Hoops -> mo
 - Musical Chairs: Seats option with real chairs, fleas marching a loop, and one chair removed per round (chairs.js)
 - Copycat player-leader: early taps are queued
 - Testing agent iteration_6: 100% pass
+
+## Phase: Emotes, Themed Platforms, Basic Graphics, Desktop Lobby Row (Status: COMPLETED)
+- actions2.js (16 new actions + reactions), platskin.js (themed platforms + Basic platforms/background settings), lobbyrow.js (What's New + Party side-by-side on desktop). Tested: iteration_7.

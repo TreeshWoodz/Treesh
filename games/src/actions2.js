@@ -35,7 +35,7 @@
   function pick(a){return a[Math.random()*a.length|0];}
   function zen(){return gameMode==='zen';}
   function emit(src,a){var r=R[a];if(!r||STATE!=='play')return;var now=T();if(src._emitT&&now<src._emitT)return;src._emitT=now+1100;
-    var rad=zen()?430:300,pr=src.isP?0.9:(zen()?0.45:0.25),n=0;
+    var rad=zen()?430:(src.isP?560:300),pr=src.isP?0.9:(zen()?0.45:0.25),n=0;
     fleas.forEach(function(f){if(f===src||f.isP||f.hidden||f._out||f._ccOut)return;var d=Math.hypot(f.cx-src.cx,f.cy-src.cy);if(d>rad||Math.random()>pr)return;if(n>=5)return;n++;
       f._rq={at:now+220+Math.random()*520+n*90,src:src,a:a,d:d};});}
   function react(f,q){var r=R[q.a],now=T(),src=q.src;if(!r)return;
@@ -50,5 +50,5 @@
   Flea.prototype.update=function(dt){_up.call(this,dt);var a=this.action||'';
     if(a!==this._lastAct){if(a&&!this._reactAct)emit(this,a);if(!a)this._reactAct=false;else if(this._lastAct&&this._reactAct&&a!==this._lastAct)this._reactAct=false;this._lastAct=a;}
     var q=this._rq;if(q&&T()>=q.at){this._rq=null;if(!this.hidden&&STATE==='play')react(this,q);}};
-  window.FreaReact={map:R,emit:emit,list:NEW};
+  window.FreaReact={map:R,emit:emit,list:NEW,state:function(){return {action:player?player.action:null,reacting:fleas.filter(function(f){return !f.isP&&(f.reactEmoteT>0||f._rq);}).length};}};
 })();

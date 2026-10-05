@@ -126,7 +126,7 @@ var FreaSkin=(function(){
     ctx.fillStyle=sky[0];ctx.fillRect(0,0,W,H);if(STATE==='title')return;
     var fy=WORLD_H-60-(camera.y||0);if(fy<H){ctx.fillStyle=(sc&&sc.floor)||'#1c1834';ctx.fillRect(0,fy,W,H-fy);ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(0,fy,W,2);}};
   /* ---------- settings UI (Display group) ---------- */
-  function row(id,label,sub,opts,cur,cb){return '<div class="setting-row xm-row skin-row" id="'+id+'"><div class="section-label"><span>'+label+'</span><small class="xm-sub">'+sub+'</small></div><div class="layout-row" style="flex-wrap:wrap">'+
+  function row(id,label,sub,opts,cur,cb){return '<div class="setting-row xm-row skin-row" id="'+id+'" data-testid="'+id+'"><div class="section-label"><span>'+label+'</span><small class="xm-sub">'+sub+'</small></div><div class="layout-row" style="flex-wrap:wrap">'+
       opts.map(function(p){var on=p[0]===cur;return '<button class="lbtn'+(on?' active':'')+'" data-'+cb+'="'+p[0]+'" data-testid="'+cb+'-'+p[0]+'" aria-pressed="'+on+'">'+p[1]+'</button>';}).join('')+'</div></div>';}
   function render(){var g=document.querySelector('#sg-display .sgroup-b');if(!g)return;var box=el('skin-settings');
     if(!box){box=document.createElement('div');box.id='skin-settings';box.setAttribute('data-testid','graphics-settings');g.appendChild(box);

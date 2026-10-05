@@ -46,3 +46,9 @@ Polish every mode, the character models and the UI. Turn Zen into a Sims-like mo
 - **Musical Chairs option** (`src/chairs.js`): Seats = Platforms | Chairs. Real chairs in a row with a ring rug. Fleas march a loop while the music plays (the back lane is drawn behind the chairs), then race to sit. One chair is removed each round
 - Copycat: when the player leads, taps during "Get ready" are queued and fire when the gap ends
 - Test hooks: `__frea.setMode(m); __frea.start()`, `FreaDig.tapWorld(x,y)`, `FreaPerf.set('lite')`, `FreaChairs.chairs()`
+
+## Update — Lobby hero row + graphics verification
+- Desktop (>=900px): What's New carousel now sits side-by-side with the Party Mode banner in the first row of the mode grid; clock moves into the What's New header (src/lobbyrow.js + desktop.css). Mobile layout unchanged (stacked).
+- Verified Settings → Display & Accessibility → Platforms (Themed/Basic) and Background (Scenic/Basic) toggles; persisted in localStorage (frea_plat_style / frea_bg_style).
+- Verified 16 new action emotes + CPU flea reactions (actions2.js); player-triggered reaction radius widened in competitive modes. Debug: window.FreaReact.state().
+- Help FAQ mentions Basic Platforms/Background. Test report: /app/test_reports/iteration_7.json (95%, remaining items were test-harness false positives, verified manually).
