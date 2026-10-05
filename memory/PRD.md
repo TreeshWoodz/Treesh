@@ -67,6 +67,13 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Draft autosave (localStorage): new song (treesh_songcoder_draft_v2, "Draft saved" pill, restore toast), per-song edit drafts (treesh_mad_edit_draft:<title|artist>, catalog "Draft" badge, Cancel edit confirms discard, cleared on save), model drafts (treesh_mad_model_draft:new|<id>, autosave status + Discard in drawer foot, "Resume draft" button, card "Draft" badge, cleared on save)
 - Tested iteration_12 (nav/song drafts) + self-test (model drafts)
 
+## Iteration 9 (2026-06)
+- Draft Shelf: top-bar Drafts button + count badge -> side panel listing all song/model drafts (thumb, title, type, time, Resume, 2-step Clear, Clear all); missing song/model -> "not found" + Load as new
+- SECURITY: no GitHub token in the browser. New Netlify Function /app/netlify/functions/github.mjs (path /api/github/*): passcode login (MAD_PASSCODE, timing-safe, 5 tries -> 15 min lock per instance), HMAC-signed HttpOnly Secure SameSite=Strict 30-day cookie, sign out, origin check, repo locked (MAD_REPO default TreeshWoodz/Treesh), allowlisted GitHub calls only
+- Frontend: Settings = Secure sign-in (passcode/sign out) + Repository (branch/paths); legacy saved token auto-removed with toast; all GitHub calls via /api/github/repo
+- Mock backend mirrors the function (/api/github/session + /api/github/repo/*), seeds content/models.html; passcode in backend/.env MAD_PASSCODE
+- Tested iteration_13 (shelf), iteration_14 (secure sign-in, 17 backend + all frontend flows)
+
 ## Backlog
 - P1: Lyrics editor for content/lyrics
 - P2: Main-app patch to honor data-release (badge + playback lock)

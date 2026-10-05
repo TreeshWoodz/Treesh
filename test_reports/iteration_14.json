@@ -1,0 +1,31 @@
+{
+  "summary": "End-to-end testing of the new secure M.A.D. architecture (/api/github session cookie + proxy) on songcoder.html. Backend: 17 pytest cases on /app/backend/tests/test_mad_session.py all pass (session, lockout, auth-gated routes, contents GET/PUT, PR flow, blocked/unknown routes). Frontend: verified Settings drawer has only the new fields (no token/owner/repo/apiBase), passcode wrong/correct flows, HttpOnly cookie (document.cookie clean), no 'token' field in treesh_songcoder_cfg_v2, legacy-token migration + info toast, Test connection checks all green (56 songs / 13 artists), 2 seeded models (Nia Woods, Jalen Pierce) load, PR write flow (edit song -> publish-success-modal #1 open with real branch+commit in mock state), sign out -> read-only pill + connect-github-modal on edit attempt, 'Model not found' + 'Load as new' row rendered from seeded treesh_mad_model_draft:999.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_mad_session.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py sets session cookie with path=/api/github, httponly=True, secure=True, samesite=strict — matches the Netlify spec. Preview proxy rewrites SameSite=None (noted in request); cookie still flagged HttpOnly so document.cookie stays empty as required.",
+    "require_session() CSRF guard compares origin host to request host for non-GET — reasonable but note it uses raw Host header; behind preview ingress both are the same host so test passes.",
+    "FAILS map in server.py is in-process memory, acceptable for the mock. Real Netlify would need a durable store.",
+    "songcoder.html boot() calls checkSession().then(reloadAll) and openSettings paintAuth path cleanly hides sign-in box and shows signout button when signedIn. Legacy migration (removing cfg.token) runs before first save and emits info toast exactly once — verified.",
+    "publish() uses authReq via gh.req and surfaces 401/403 with 'Open settings' modal action — good UX for session expiry.",
+    "Signed-out catalog falls back to fetching https://treesh.app/content/models which hits a CORS error in preview (visible as console warning). Not a functional bug (pill correctly shows 'Read-only · treesh.app') but a noisy console in preview; consider gracefully suppressing when origin!=treesh.app."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_mad_session.py (new, replaces old /app/backend/tests/test_mockgh.py which targeted removed /api/mockgh/repos/* routes)"
+  ],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% of required flows"},
+  "test_credentials": "Mock M.A.D. passcode: TreeshMAD-test-2026 (from backend/.env MAD_PASSCODE). Reset lockouts via POST {API}/api/mockgh/reset.",
+  "seed_data_creation": "Playwright preseeded localStorage treesh_songcoder_cfg_v2 with legacy {token:'github_pat_OLD', branch:'main'} to verify migration; also treesh_mad_model_draft:999 for the 'Model not found' row. All cleared between runs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New architecture: /api/github/session POST(passcode)/GET/DELETE sets HttpOnly cookie 'mad_session' on path=/api/github. Protected routes: /api/github/repo, /repo/contents/{path}, /repo/git/ref/heads/{branch}, /repo/git/refs, /repo/pulls. Repo is server-locked to TreeshWoodz/Treesh. Settings UI exposes only passcode + branch/paths; no token/owner/repo/apiBase inputs. localStorage key treesh_songcoder_cfg_v2 must never contain a 'token' field (migration strips it). document.cookie must stay empty (HttpOnly). Mock SEED now includes content/models.html (Nia Woods, Jalen Pierce). test_mad_session.py is the up-to-date backend regression; old test_mockgh.py was removed."
+}
