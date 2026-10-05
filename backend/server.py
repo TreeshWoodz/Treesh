@@ -24,6 +24,7 @@ COOKIE = "mad_session"
 MAX_AGE = 60 * 60 * 24 * 30
 SESSION_SECRET = secrets.token_hex(32)
 FAILS = {}
+ACTIVITY = []
 SEED = {
     "content/songs.html": (ROOT_DIR / "mock_data/songs.html").read_text(encoding="utf-8"),
     "content/icons.html": (ROOT_DIR / "mock_data/icons.html").read_text(encoding="utf-8"),
@@ -68,9 +69,46 @@ def sign(data):
 
 
 def new_session():
-    exp = int(time.time() * 1000) + MAX_AGE * 1000
-    data = base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).decode().rstrip("=")
-    return f"{data}.{sign(data)}", exp
+    exp, sid = int(time.time() * 1000) + MAX_AGE * 1000, secrets.token_urlsafe(9)
+    data = base64.urlsafe_b64encode(json.dumps({"exp": exp, "sid": sid}).encode()).decode().rstrip("=")
+    return f"{data}.{sign(data)}", exp, sid
+
+
+def mask_ip(ip):
+    if not ip or ip == "unknown":
+        return "Unknown"
+    if "." in ip:
+        return ".".join(ip.split(".")[:2]) + ".•••.•••"
+    return ":".join([x for x in ip.split(":") if x][:2]) + ":••••"
+
+
+def device(ua):
+    os_name = next((n for k, n in [("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"), ("Mac OS X", "Mac"), ("Windows", "Windows"), ("CrOS", "Chromebook"), ("Linux", "Linux")] if k in ua), "Unknown device")
+    if re.search(r"EdgiOS|Edg/", ua):
+        br = "Edge"
+    elif "SamsungBrowser" in ua:
+        br = "Samsung Internet"
+    elif re.search(r"CriOS|Chrome/", ua):
+        br = "Chrome"
+    elif re.search(r"FxiOS|Firefox/", ua):
+        br = "Firefox"
+    elif "Safari/" in ua:
+        br = "Safari"
+    elif re.search(r"curl|python|node|axios|wget", ua, re.I):
+        br = "Script / bot"
+    else:
+        br = "Unknown browser"
+    return f"{os_name} · {br}"
+
+
+def log_event(request, ip, result, sid=None):
+    entry = {"t": int(time.time() * 1000), "result": result, "city": request.headers.get("x-mock-city", ""),
+             "country": request.headers.get("x-mock-country", ""), "device": device(request.headers.get("user-agent", "")),
+             "ip": mask_ip(ip)}
+    if sid:
+        entry["sid"] = sid
+    ACTIVITY.insert(0, entry)
+    del ACTIVITY[100:]
 
 
 def read_session(request):
@@ -113,7 +151,21 @@ async def root():
 async def reset():
     reset_state()
     FAILS.clear()
+    ACTIVITY.clear()
     return {"ok": True}
+
+
+@api.post("/mockgh/pulls/{number}/{action}")
+async def mock_pull_action(number: int, action: str):
+    pr = next((p for p in STATE["pulls"] if p["number"] == number), None)
+    if not pr or action not in ("merge", "close", "reopen"):
+        raise GhError(404, "Not Found")
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    pr["state"] = "open" if action == "reopen" else "closed"
+    pr["closed_at"] = None if action == "reopen" else now
+    pr["merged_at"] = now if action == "merge" else None
+    pr["updated_at"] = now
+    return pr
 
 
 @api.get("/mockgh/state")
@@ -143,6 +195,7 @@ async def session_post(request: Request, response: Response):
     ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
     f = FAILS.get(ip, {"n": 0, "until": 0})
     if f["until"] > time.time():
+        log_event(request, ip, "locked")
         raise GhError(429, f"Too many wrong tries. Wait {int((f['until'] - time.time()) // 60) + 1} min and try again.", "locked")
     try:
         body = await request.json()
@@ -151,14 +204,29 @@ async def session_post(request: Request, response: Response):
     passcode = body.get("passcode") if isinstance(body, dict) else None
     if not isinstance(passcode, str) or not hmac.compare_digest(hashlib.sha256(passcode.encode()).digest(), hashlib.sha256(os.environ["MAD_PASSCODE"].encode()).digest()):
         f["n"] += 1
-        if f["n"] >= 5:
+        locked = f["n"] >= 5
+        if locked:
             f["n"], f["until"] = 0, time.time() + 15 * 60
         FAILS[ip] = f
-        raise GhError(401, "Wrong passcode.", "passcode")
+        log_event(request, ip, "locked" if locked else "wrong")
+        if locked:
+            raise GhError(429, "Too many wrong tries. Sign-in is locked for 15 min.", "locked")
+        left = 5 - f["n"]
+        raise GhError(401, f"Wrong passcode. {left} {'try' if left == 1 else 'tries'} left before a 15 min lock.", "passcode")
     FAILS.pop(ip, None)
-    value, exp = new_session()
+    value, exp, sid = new_session()
+    log_event(request, ip, "signin", sid)
     set_cookie(response, value, MAX_AGE)
     return {"signedIn": True, "expires": exp, "repo": REPO}
+
+
+@api.get("/github/activity")
+async def activity(request: Request):
+    require_session(request)
+    sess = read_session(request)
+    day = time.time() * 1000 - 864e5
+    return {"stored": True, "failed24h": len([e for e in ACTIVITY if e["t"] > day and e["result"] != "signin"]),
+            "entries": [{**{k: v for k, v in e.items() if k != "sid"}, "current": e.get("sid") == sess.get("sid")} for e in ACTIVITY]}
 
 
 @api.get("/github/repo")
@@ -217,18 +285,19 @@ async def create_pull(request: Request):
     require_session(request)
     body = await request.json()
     number = len(STATE["pulls"]) + 1
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     pr = {"number": number, "title": body["title"], "body": body.get("body", ""), "state": "open",
-          "head": {"ref": body["head"]}, "base": {"ref": body["base"]},
+          "head": {"ref": body["head"]}, "base": {"ref": body["base"]}, "user": {"login": "treesh-mad"},
           "html_url": f"https://github.com/{REPO}/pull/{number}",
-          "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+          "created_at": now, "updated_at": now, "closed_at": None, "merged_at": None}
     STATE["pulls"].append(pr)
     return pr
 
 
 @api.get("/github/repo/pulls")
-async def list_pulls(request: Request, state: str = "open"):
+async def list_pulls(request: Request, state: str = "open", per_page: int = 30):
     require_session(request)
-    return [p for p in reversed(STATE["pulls"]) if state == "all" or p["state"] == state]
+    return [p for p in reversed(STATE["pulls"]) if state == "all" or p["state"] == state][:per_page]
 
 
 @api.api_route("/github/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
