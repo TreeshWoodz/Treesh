@@ -18,9 +18,8 @@
 - Ensure **live balance sync** when embedded in the Treesh arcade iframe: parent counters update instantly when trophies/rewards are earned.
 
 **Current focus (next):**
-- Keep iterating: make each mode even richer (more variants, more items/powerups, better readability).
-- **Treesh profile card Trophy showcase** (requested/queued).
-- Continued polish of **Starlites rewards UX**.
+- **Emote Wheel (Radial)** for quick access to favourites + recents, with keyboard shortcuts.
+- **Arena platform previews** in Settings to showcase themed platforms and provide clarity when Basic platforms/background are enabled.
 
 ---
 
@@ -179,7 +178,7 @@ Completed outcomes:
 
 #### 3) Results Screen v3 redesign ("more taste")
 **Status:** ✅ Completed + ✅ tested
-- Replaced “ugly” end screen with a tasteful **hero + standings + awards** layout:
+- Replaced end screen with a tasteful **hero + standings + awards** layout:
   - Left hero panel with big gradient title (Victory / So close), mode chips, winner pedestal
   - Right panel with standings list, awards cards, compact Starlites strip, and clean actions
   - Responsive stacking on mobile
@@ -211,12 +210,10 @@ Completed outcomes:
 
 #### 2) Thick-floor HUD fix (bottom UI no longer blocks fleas)
 **Status:** ✅ Completed
-- Goal: bottom HUD elements (emote button, mobile goal meter, RL track) should sit “inside” a thicker floor band, not on top of fleas.
-- Implementation:
-  - `src/base.html`: introduced global `FLOOR_PAD` and allowed camera to scroll below the original world height.
-  - `src/hud2.js`: `floorFit()` measures bottom UI height and sets `FLOOR_PAD` dynamically.
-  - `src/modes.js`: RL progress track is positioned to appear centered within the new floor band.
-  - `src/hud2.css`: mobile layout tuned (hide mode banner during play; bottom meter placement).
+- Introduced global `FLOOR_PAD` and allowed camera to scroll below the original world height.
+- `src/hud2.js`: `floorFit()` measures bottom UI height and sets `FLOOR_PAD` dynamically.
+- `src/modes.js`: RL progress track positioned centered within the new floor band.
+- `src/hud2.css`: mobile layout tuned.
 
 #### 3) Testing + validation
 **Status:** ✅ Completed
@@ -225,20 +222,84 @@ Completed outcomes:
 ---
 
 ## 3) Next Actions
+
+### Next (P0)
+
+#### 1) Emote Wheel (Radial)
+**Status:** 🟡 In Progress
+**Goal:** Replace “long grid list” as the primary interaction with a fast radial chooser, while keeping the full bar available.
+
+**Implementation**
+- New modules:
+  - `src/emotewheel.js`
+  - `src/emotewheel.css`
+- Behavior:
+  - Click `#emote-fab` opens a **radial wheel** with **8 slots**.
+  - Slot population order: **favourites** (pinned) → **recents** → **defaults**.
+  - Center button **All** opens the full `#emote-bar` (existing UI) for browsing.
+  - Pin/unpin: **hold** (touch/press) or **right click** on a slot (and also from the full bar).
+  - Full bar shows ★ badges for favourited items.
+- Input:
+  - Keyboard: **F** toggles wheel, **1–8** picks slot, **Esc** closes.
+- Persistence:
+  - `localStorage.frea_emote_fav`
+  - `localStorage.frea_emote_recent`
+- Compatibility:
+  - Hidden/disabled during Copycat live play (match existing emote UI gating).
+  - Recents recorded by wrapping existing `sendEmote()` and `doAction()`.
+
+**Testing**
+- Desktop + mobile screenshots:
+  - Wheel open/closed states, long-press pin, keyboard flow.
+- Regression:
+  - Copycat mode does not show wheel.
+  - `#emote-bar` still works and opens from the wheel.
+
+---
+
+#### 2) Platform Previews (Arena platform styles gallery)
+**Status:** 🟡 In Progress
+**Goal:** Make the new themed platform system feel “real” and discoverable by letting players preview each arena’s platform materials directly inside Settings.
+
+**Implementation**
+- New modules:
+  - `src/platpreview.js`
+  - `src/platpreview.css`
+- Location:
+  - Settings → **Arena & Platforms** (`#sg-arena`) gets a new **Platform Styles** gallery.
+- UI:
+  - A large preview canvas showing:
+    - arena sky / sun/moon / silhouettes / floor (from `FreaArenas.scenes`)
+    - sample platforms drawn using the same paint pipeline as in-game themed platforms
+  - “Used in” mode chip (which mode maps to that arena by default via `FreaArenas.modeScene`).
+  - Horizontal thumbnail strip of all arenas.
+- Defaults:
+  - Selected arena defaults to the current mode’s arena (or Zen env when relevant).
+- Notes:
+  - If **Basic platforms** are enabled (from `FreaSkin`), show a note: “Basic platforms enabled — preview shows simplified blocks.”
+- Technical wiring:
+  - `platskin.js` exposes a small public paint API (`FreaSkin.paint(...)`) so previews can reuse `paintSkin()`.
+
+**Testing**
+- Screenshot tests:
+  - Preview appears under Arena & Platforms.
+  - Switching thumbnails updates the preview.
+  - “Basic platforms” note appears when enabled.
+- Regression:
+  - No impact on in-game platform rendering.
+
+---
+
 ### Next (P1)
 1) **Treesh profile card — Trophy showcase**
    - Add a compact trophy summary strip to the Treesh profile card.
-   - Display:
-     - total trophies, recent trophies, and a “View Trophy Room” deep link.
-   - Ensure it reads from the same storage schema and behaves correctly inside the Treesh iframe.
+   - Display total trophies, recent trophies, and “View Trophy Room” link.
 
 2) **Starlites reward UX polish**
-   - Make payouts clearer and more celebratory (without being noisy): better copy, better grouping, and optional per-mode breakdown.
-   - Ensure rewards are never duplicated and ledger reconciliation remains correct.
+   - Make payouts clearer and more celebratory without being noisy.
 
 3) **Mode depth expansion (v2)**
-   - Add more variety per mode: more pad types, more power-up variety, and round modifiers.
-   - Add anti-frustration: pacing, catch-up boosts, and clearer “what just happened” feedback.
+   - More variety per mode; anti-frustration pacing improvements.
 
 4) **Extended QA**
    - Run `testing_agent` after each major feature addition.
@@ -266,20 +327,32 @@ Completed outcomes:
   - Wear-on-head is persistent for the player.
   - Flea action animations are visibly animated.
 - **Results Screen v3:**
-  - Tasteful layout, responsive, shows standings + awards + rewards, with clean actions.
+  - Tasteful layout, responsive, shows standings + awards + rewards.
 - **Thick-floor HUD:**
-  - Bottom HUD UI no longer blocks fleas; UI appears centered inside the floor band.
+  - Bottom HUD UI no longer blocks fleas.
 - **Backyard Garden Weather:**
   - Rain waters beds automatically and looks beautiful.
   - Snow visuals render cleanly and do not harm performance.
-- Documentation/workflow remains correct:
-  - Never edit `frea.html` directly; always edit `src/*` and rebuild.
+
+### New success criteria (Emote Wheel + Platform Previews)
+- **Emote Wheel**
+  - Wheel opens reliably from emote control.
+  - Favourites + recents persist and populate the 8 slots.
+  - Keyboard shortcuts (F, 1–8, Esc) work and do not conflict with gameplay.
+  - Copycat live play hides/disables wheel.
+- **Platform Previews**
+  - Settings show clear previews for all arenas.
+  - Previews match in-game platform theming.
+  - Basic-platforms note is accurate and non-confusing.
 
 ### Test Evidence
 - `test_reports/iteration_3.json`: Mode depth + HUD v2 + results screen v3 (✅ 100%).
 - `test_reports/iteration_4.json`: Thick-floor HUD + Weather (✅ 100%).
+- `test_reports/iteration_6.json`: Performance + Dig + Chairs (✅ 100%).
+- `test_reports/iteration_7.json`: Emotes + Themed platforms + Basic graphics + Desktop lobby row (✅ 95%, manually verified functional).
 
 ---
+
 ## Phase 5 — Rewards economy, Showcase, Zen editor, new key art (Status: In Progress → testing)
 User choices: Showcase = 3 pinned favourites + Rarest/Recent auto rows + full scrollable grid. Starlites earned via wins, trophies, daily streak (+ new daily quests). Spend on cosmetics, arenas & themes, furniture. Art: polished 3D Pixar-like, OpenAI gpt-image-1 (Emergent key).
 - `src/rewards.js/.css`: Starlite Shop (lobby "Shop" button + Starlites pill) with Cosmetics (locks premium Studio items, grandfathered), Arenas (match backdrop override), Themes (UI accent + lobby scene), Furniture bundles (→ `frea_house_stash_v1`, placed free in Flea House), Earn (3 daily quests, streak track). Trophy showcase in Treesh profile card + Trophy Room pins + lobby chip medals; publishes `treesh_trophies` for parent.
@@ -318,3 +391,7 @@ Build order: Copycat -> per-mode settings -> new modes -> CPU nav -> Hoops -> mo
 
 ## Phase: Emotes, Themed Platforms, Basic Graphics, Desktop Lobby Row (Status: COMPLETED)
 - actions2.js (16 new actions + reactions), platskin.js (themed platforms + Basic platforms/background settings), lobbyrow.js (What's New + Party side-by-side on desktop). Tested: iteration_7.
+
+## Phase: Emote Wheel + Platform Previews (Status: IN PROGRESS)
+- Planned modules: `emotewheel.js/.css`, `platpreview.js/.css`.
+- Requires `build.py` wiring + screenshot-based manual verification + follow-up `testing_agent_v3` run after implementation.

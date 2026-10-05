@@ -136,6 +136,6 @@ var FreaSkin=(function(){
     box.innerHTML=row('plat-style-row','Platforms','Themed to match each arena, or plain blocks (faster)',[['themed','Themed'],['basic','Basic']],plat,'plat-style')+
       row('bg-style-row','Background','Full scenery, or a plain blank backdrop (fastest)',[['scenic','Scenic'],['basic','Basic']],bg,'bg-style');}
   setTimeout(render,90);setTimeout(render,900);
-  return {scene:sceneNow,plat:function(){return plat;},bg:function(){return bg;},set:function(k,v){if(k==='plat')plat=v;else bg=v;render();},materials:M};
+  return {paint:function(o,p,id){try{paintSkin(o,p,id);}catch(e){}},basicCol:function(id){var m=mat(id);return m.t==='neon'?m.nc:m.b[0];},scene:sceneNow,plat:function(){return plat;},bg:function(){return bg;},set:function(k,v){if(k==='plat')plat=v;else bg=v;render();},materials:M};
 })();
 window.FreaSkin=FreaSkin;
