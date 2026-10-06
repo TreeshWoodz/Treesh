@@ -85,6 +85,24 @@ rep('<div class="grid h-14 w-14 shrink-0 place-items-center rounded-xl border bo
 rrep(r"<span class=\"grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-md \$\{cover\?'':'bg-\[color:var\(--treesh-purple\)\]/15 text-\[color:var\(--treesh-purple\)\]'\}\">\$\{cover\?img\(cover\.coverArt,'h-full w-full object-cover'\):'[^']*'\}</span>","<span class=\"block h-9 w-9 shrink-0\">${plStackHtml(pl,'pls-xs')}</span>",1,'plside')
 rep('<div class="grid h-24 w-24 shrink-0 place-items-center rounded-2xl border border-white/10 bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:40px;height:40px"></i></div>','<div class="h-28 w-28 shrink-0" data-testid="playlist-detail-cover">${plStackHtml(pl,\'pls-hero\')}</div>',1,'plhero')
 
+# ---- P9g: Treesh accounts (Supabase)
+SBCFG=open(M+'p9g_config.js',encoding='utf-8').read()
+rep('<script src="https://cdn.tailwindcss.com"></script>\n','<script src="https://cdn.tailwindcss.com"></script>\n<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>\n<script>\n'+SBCFG+'</script>\n',1,'sbcdn')
+rep('   ${glThemesHtml(tab)}\n   ${npSettingsHtml(tab)}','   ${sbAccountCardHtml(tab)}\n   ${glThemesHtml(tab)}\n   ${npSettingsHtml(tab)}',1,'sbcard')
+rep('      </div>\n    </footer>\n  </div>`;\n  obMount(shell);','      </div>\n      ${sbObRow()}\n    </footer>\n  </div>`;\n  obMount(shell);',1,'sbob')
+rep('if(n||b) state._pfDraft={nick:n?n.value:null, bio:b?b.value:null, bday:d?d.value:null}; }',"const u=document.getElementById('set-uname'); if(n||b) state._pfDraft={nick:n?n.value:null, bio:b?b.value:null, bday:d?d.value:null, uname:u?u.value:null}; }",1,'sbdraft')
+rep("const bio=dr.bio!=null?dr.bio:(p.bio||'');","const bio=dr.bio!=null?dr.bio:(p.bio||''); const uname=(dr.uname!=null?dr.uname:p.username)||'';",1,'sbuname')
+rep('maxlength="40" class="h-11 w-full rounded-2xl border border-white/15 bg-white/5 px-4 text-sm outline-none focus:border-[color:var(--treesh-purple)]"></div>','maxlength="40" class="h-11 w-full rounded-2xl border border-white/15 bg-white/5 px-4 text-sm outline-none focus:border-[color:var(--treesh-purple)]"></div>${sbUnameField(uname)}',1,'sbufield')
+rep('data-testid="settings-profile-name">${esc(shown)}</h1>','data-testid="settings-profile-name">${esc(shown)}</h1>${p.username?`<p class="pf-uname" data-testid="settings-profile-username">@${esc(p.username)}</p>`:\'\'}',1,'sbushow')
+rep('case "save-profile": { const nick=$("#set-nick").value.trim()||"Treesh Fan";','case "save-profile": { const _un=sbUname(($("#set-uname")||{}).value, state.profile&&state.profile.username); if(_un===false) break; const nick=$("#set-nick").value.trim()||"Treesh Fan";',1,'sbsave1')
+rep('bio:((($("#set-bio")||{}).value)||"").trim().slice(0,160)}); state._pfDraft=null;','bio:((($("#set-bio")||{}).value)||"").trim().slice(0,160),username:_un}); state._pfDraft=null;',1,'sbsave2')
+rep('state.settingsEditProfile=false; toast("Profile saved"); renderShell(); renderView(); renderSidebarLibrary(); if(state.profileOpen) renderProfile(); break; }','state.settingsEditProfile=false; toast("Profile saved",sbUser()?"Syncing to your Treesh account":""); renderShell(); renderView(); renderSidebarLibrary(); if(state.profileOpen) renderProfile(); sbQueuePush(); break; }',1,'sbsave3')
+rep('LS.set("treesh_profile",state.profile); if(onboard.bday){','LS.set("treesh_profile",state.profile); sbQueuePush(); if(onboard.bday){',1,'sbobfin')
+
+rep('if(!state.profile){ onboard={step:0,nick:"",bday:"",avatar:""}; setTimeout(renderOnboarding,400); }','if(!state.profile){ onboard={step:0,nick:"",bday:"",avatar:""}; setTimeout(()=>{ if(!state.profile) renderOnboarding(); },400); }',1,'sbobboot')
+rep('No signup, everything stays on this device.','No signup needed, everything stays on this device.',1,'sbobcopy')
+rep('Everything in Treesh is saved only on this device.','Everything in Treesh is saved on this device. Signed in? Your profile also syncs to your account.',1,'sbstorecopy')
+
 # ---- boot
 rep("  mkRenderChrome(); p7Init(); p8Init(); }\n","  mkRenderChrome(); p7Init(); p8Init(); p9Init(); }\n",1,'init')
 
@@ -93,7 +111,7 @@ if errs:
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js'])
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js'])
 js=js.replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
@@ -110,7 +128,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)
