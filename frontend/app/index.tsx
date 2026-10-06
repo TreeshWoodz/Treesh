@@ -1,4 +1,6 @@
 import { DESKTOP_MIN } from "@/src/hooks/useLayout";
+import { InstallAppModal } from "@/src/components/InstallAppModal";
+import { useInstallApp } from "@/src/pwa/install";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -50,6 +52,8 @@ export default function HomeScreen() {
   }, [songs, treeshSongs, mineSongs]);
 
   const desktop = width >= DESKTOP_MIN;
+  const install = useInstallApp();
+  const [installOpen, setInstallOpen] = useState(false);
   const SIDE_W = 400;
   const CARD_W = desktop ? Math.min(width, 1240) - 36 - 24 - SIDE_W : width - 40;
   const STEP = CARD_W + 12;
@@ -197,6 +201,7 @@ export default function HomeScreen() {
             { key: "shop", testID: "open-shop-tile", icon: "color-palette" as const, label: "SKINS", caption: "Note styles", tint: colors.pink, onPress: () => router.push("/shop") },
             { key: "settings", testID: "open-calibration-button", icon: "options" as const, label: "SETTINGS", caption: "Tune & sync", tint: colors.cyan, onPress: () => router.push("/settings") },
             { key: "guide", testID: "open-guide-button", icon: "compass" as const, label: "GUIDE", caption: "How to play", tint: colors.lime, onPress: () => router.push("/guide") },
+            ...(install.available ? [{ key: "install", testID: "home-install-app", icon: "download" as const, label: "INSTALL APP", caption: "Full-screen, no browser bars", tint: colors.gold, onPress: () => setInstallOpen(true) }] : []),
           ].map(t => (
             <Pressable key={t.key} testID={t.testID} onPress={t.onPress} style={({ pressed }) => [styles.tile, { borderColor: `${t.tint}66` }, pressed && styles.pressed]}>
               <LinearGradient pointerEvents="none" colors={[`${t.tint}30`, "transparent"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -206,6 +211,7 @@ export default function HomeScreen() {
             </Pressable>
           ))}
         </Animated.View>
+        <InstallAppModal visible={installOpen} onClose={() => setInstallOpen(false)} />
 
         {/* Profile snapshot */}
         <Animated.View style={fade}>

@@ -15,6 +15,7 @@ import { AppStateProvider, useAppState } from "@/src/game/AppState";
 import { StarlitesProvider, useStarlites } from "@/src/game/starlites";
 import { colors, fonts, neonGlow } from "@/src/game/theme";
 import { NeonBackground } from "@/src/components/ui";
+import { initPwa } from "@/src/pwa/install";
 
 
 // Disable logbox errors etc so that users can see the app
@@ -33,6 +34,7 @@ SplashScreen.preventAutoHideAsync();
 function useNoWebSelection() {
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
+    initPwa();
     const style = document.createElement("style");
     style.setAttribute("data-vocotap-noselect", "1");
     style.innerHTML = `

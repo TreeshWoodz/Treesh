@@ -240,6 +240,16 @@ export const TUTORIAL_STEPS = [
   { from: 17, to: 22.6, title: "WAVE", copy: "Tap the wave's head, then drag along the ribbon" },
   { from: 22.6, to: 99, title: "MIX IT UP", copy: "Put it all together — keep the combo alive!" },
 ];
+// Keyboard captions for the tutorial (flick/wave sections become taps/holds without a touchscreen).
+export const TUTORIAL_STEPS_KEYBOARD = TUTORIAL_STEPS.map(s => (s.title === "FLICK" ? { ...s, title: "TAP AGAIN", copy: "Arrow notes are plain taps on keyboard — just hit the key" } : s.title === "WAVE" ? { ...s, title: "HOLD AGAIN", copy: "Waves become long notes — hold the key until the tail ends" } : s));
+
+// Mouse/keyboard-only play: flick notes become taps and wavy notes become holds on their starting lane.
+export function keyboardChart(chart: Chart): Chart {
+  if (!chart.notes.some(n => n.type === "wavy" || n.type === "swipe")) return chart;
+  const notes = chart.notes.map(n => (n.type === "wavy" ? { ...n, type: "hold" as const, path: undefined } : n.type === "swipe" ? { ...n, type: "tap" as const, dir: undefined } : n));
+  return { ...chart, notes: clampHolds(notes) };
+}
+
 export function tutorialChart(): Chart {
   const notes: Note[] = []; let id = 0;
   const add = (n: Omit<Note, "id">) => notes.push({ id: `tut-${id++}`, ...n });

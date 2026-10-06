@@ -10,7 +10,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NeonButton } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
 import { laneColors, colors, fonts, rgba, alpha, difficultyColors, neonGlow, textGlow } from "@/src/game/theme";
-import { TUTORIAL_STEPS } from "@/src/game/chartEngine";
+import { keyboardChart, TUTORIAL_STEPS, TUTORIAL_STEPS_KEYBOARD } from "@/src/game/chartEngine";
+import { hasTouchScreen } from "@/src/game/input";
 import { addXp, claimCrowns, levelUpReward, skinById, useProgress, xpForRun } from "@/src/game/progression";
 import { Note, ScoreResult, SwipeDir } from "@/src/game/types";
 import { useStarlites } from "@/src/game/starlites";
@@ -54,7 +55,11 @@ export default function GameScreen() {
   const practice = params.practice === "1" && !testChart;
   const tutorial = params.tutorial === "1";
   const practiceRef = useRef(practice); useEffect(() => { practiceRef.current = practice; }, [practice]);
-  const chart = testChart || (selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined);
+  const rawChart = testChart || (selectedSong ? charts[`${selectedSong.id}-${selectedDifficulty}`] : undefined);
+  // No touchscreen (mouse + keyboard desktop) → flick/wavy notes make no sense; play them as taps/holds.
+  const touch = useMemo(hasTouchScreen, []);
+  const chart = useMemo(() => (rawChart && !touch ? keyboardChart(rawChart) : rawChart), [rawChart, touch]);
+  const tutSteps = touch ? TUTORIAL_STEPS : TUTORIAL_STEPS_KEYBOARD;
   const player = useAudioPlayer(selectedSong?.uri ? { uri: selectedSong.uri } : null, { updateInterval: 500 });
   const hitPlayer = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
@@ -514,7 +519,7 @@ export default function GameScreen() {
       </View>
     </View>
 
-    {tutorial && countdown <= 0 && (() => { const tt = progress * duration; const st = TUTORIAL_STEPS.find(x => tt >= x.from && tt < x.to) || TUTORIAL_STEPS[0]; return <View testID="tutorial-banner" pointerEvents="none" style={[styles.tutBanner, { top: insets.top + 104 }, panelInset]}>
+    {tutorial && countdown <= 0 && (() => { const tt = progress * duration; const st = tutSteps.find(x => tt >= x.from && tt < x.to) || tutSteps[0]; return <View testID="tutorial-banner" pointerEvents="none" style={[styles.tutBanner, { top: insets.top + 104 }, panelInset]}>
       <Text selectable={false} style={styles.tutStep}>TUTORIAL · {st.title}</Text>
       <Text selectable={false} style={styles.tutCopy}>{st.copy}</Text>
     </View>; })()}
