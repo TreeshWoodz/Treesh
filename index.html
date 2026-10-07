@@ -4467,6 +4467,57 @@ function installHintHtml(){
 const TRANSFER_PREFIXES=["treesh","frea_","chainz_","vocotap_","voco_","nects_"];
 function _blobToDataURL(blob){ return new Promise((res)=>{ try{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>res(null); r.readAsDataURL(blob); }catch(e){ res(null); } }); }
 function _dataURLToBlob(u){ try{ const i=u.indexOf(","); const meta=u.slice(0,i), b64=u.slice(i+1); const mime=(meta.match(/data:([^;]+)/)||[])[1]||"application/octet-stream"; const bin=atob(b64); const len=bin.length; const arr=new Uint8Array(len); for(let j=0;j<len;j++) arr[j]=bin.charCodeAt(j); return new Blob([arr],{type:mime}); }catch(e){ return null; } }
+  async function sbExportPayload(){
+  const ls={};
+
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k && TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)){
+      try{ ls[k]=localStorage.getItem(k); }catch(e){}
+    }
+  }
+
+  const media=[];
+
+  try{
+    const recs=await idbGetAll();
+
+    for(const r of (recs||[])){
+      const rec={
+        id:r.id,
+        audioType:r.audioType||"",
+        coverType:r.coverType||"",
+        meta:r.meta||null,
+        duration:r.duration||0,
+        addedAt:r.addedAt||0
+      };
+
+      if(r.audioBlob) rec.audio=await _blobToDataURL(r.audioBlob);
+      if(r.coverBlob) rec.cover=await _blobToDataURL(r.coverBlob);
+
+      media.push(rec);
+    }
+  }catch(e){}
+
+  let assets=[];
+
+  try{
+    assets=(await assetAll()).map(r=>({
+      id:r.id,
+      value:r.value
+    }));
+  }catch(e){}
+
+  return {
+    app:"treesh",
+    type:"treesh-backup",
+    v:2,
+    exportedAt:new Date().toISOString(),
+    localStorage:ls,
+    media,
+    assets
+  };
+}
 async function exportAllData(){
   try{
     toast("Preparing backup","Packing your data\u2026");
