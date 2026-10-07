@@ -82,7 +82,7 @@ export function GameProvider({ children }) {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
     setProfile(next);
     const name = playerName(next).slice(0, 20);
-    if (name.length >= 2) Object.entries(ref.current.best).forEach(([mode, score]) => score > 0 && submitScore({ player_id: ref.current.playerId, username: name, mode, score }).catch(() => {}));
+    if (name !== playerName(base).slice(0, 20) && name.length >= 2) Object.entries(ref.current.best).forEach(([mode, score]) => score > 0 && submitScore({ player_id: ref.current.playerId, username: name, mode, score }).catch(() => {}));
     return next;
   };
 
