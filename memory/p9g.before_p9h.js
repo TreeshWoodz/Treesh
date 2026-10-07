@@ -24,52 +24,243 @@ function sbErrText(e){ const m=(e&&(e.message||e.error_description))||String(e||
   if(/Password should be/i.test(m)) return 'Passwords need at least 6 characters.';
   return m||'Something went wrong. Try again.'; }
 
-/* ---- sync engine: profile row + a settings backup, at most once every 30s. Custom music never leaves this device ---- */
-const SB_GAP=30000;
-const SB_LOCAL=['treesh_sb_meta','treesh_mm_order','treesh_resume','treesh_wx','treesh_perf','treesh_perf_opts','treesh_eq_ios_ack'];
-let _sbTimer=0, _sbLast=0, _sbDirty=false, _sbQuiet=false, _sbBootPending=null;
-function sbSyncKey(k){ return !!k&&TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)&&!SB_LOCAL.includes(k)&&k!==CATALOG_KEY; }
-function sbQuietSet(k,v){ _sbQuiet=true; try{ LS.set(k,v); }finally{ _sbQuiet=false; } }
-(function(){ const _set=LS.set; LS.set=function(k,v){ const r=_set.call(LS,k,v); if(!_sbQuiet&&sbSyncKey(k)) sbDirty(); return r; }; })();
+/* ---- sync engine ---- */
 function sbSet(s,msg){ state.sbSync={s,msg:msg||''}; sbPaint(); }
 function sbRerender(){ try{ renderShell(); renderView(); renderSidebarLibrary(); if(state.profileOpen) renderProfile(); }catch(e){} }
-function sbDirty(){ if(!sb) return; if(!_sbDirty){ _sbDirty=true; sbMeta({pending:true}); } if(sbUser()) sbSchedule(false); }
-function sbSchedule(now){ if(!sb||!sbUser()) return; if(!navigator.onLine){ sbSet('offline',SB_OFFLINE); return; }
-  const wait=now?0:Math.max(2000,_sbLast+SB_GAP-Date.now());
-  if(_sbTimer){ if(!now) return; clearTimeout(_sbTimer); }
-  _sbTimer=setTimeout(()=>{ _sbTimer=0; sbPush(); },wait); }
-function sbQueuePush(now){ if(!sb) return; sbDirty(); if(now) sbSchedule(true); }
-function sbFlush(){ if(!sbUser()||!_sbDirty||_sbBusy||!navigator.onLine) return; clearTimeout(_sbTimer); _sbTimer=0; sbPush(); }
+function sbQueuePush(){ if(!sb) return; sbMeta({pending:true}); if(!sbUser()) return; if(!navigator.onLine){ sbSet('offline',SB_OFFLINE); return; } sbPush(); }
 async function sbAvatarUpload(uid,d){ const b=await (await fetch(d)).blob(); const ext=((b.type||'image/jpeg').split('/')[1]||'jpg').replace('jpeg','jpg'); const path=uid+'/avatar.'+ext;
   const {error}=await sb.storage.from('avatars').upload(path,b,{upsert:true,contentType:b.type||'image/jpeg',cacheControl:'3600'}); if(error) throw error;
   return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl+'?v='+Date.now(); }
-function sbAssetSig(list){ return list.map(r=>r.id+':'+sbSig(typeof r.value==='string'?r.value:JSON.stringify(r.value==null?'':r.value))).join('|'); }
-async function sbPayload(u){ const ls={};
-  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(sbSyncKey(k)){ try{ ls[k]=localStorage.getItem(k); }catch(e){} } }
-  const m=sbMeta(); let assetsPath=m.assetsPath||null;
-  try{ const all=((await assetAll())||[]).filter(r=>r&&r.id); const sig=sbAssetSig(all);
-    if(sig!==m.assetSig){ const path=u.id+'/assets.json';
-      if(all.length){ const data=await new Blob([JSON.stringify(all.map(r=>({id:r.id,value:r.value})))],{type:'application/json'}).arrayBuffer(); const {error}=await sb.storage.from('treesh-data').upload(path,data,{upsert:true,contentType:'application/json'}); if(error) throw error; assetsPath=path; }
-      else assetsPath=null;
-      sbMeta({assetSig:sig,assetsPath}); } }
-  catch(e){ console.warn('Treesh sync: fonts & backgrounds skipped',e); }
-  return {app:'treesh',type:'treesh-backup',v:4,exportedAt:new Date().toISOString(),localStorage:ls,assetsPath}; }
-async function sbPush(){ const u=sbUser(); if(!sb||!u) return;
-  if(_sbBusy){ _sbAgain=true; return; }
-  _sbBusy=true; _sbLast=Date.now(); _sbDirty=false; sbSet('saving'); let avErr=null;
+  async function sbExportPayload(u){
+  const ls={};
+
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+
+    if(k && TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)){
+      try{
+        ls[k]=localStorage.getItem(k);
+      }catch(e){}
+    }
+  }
+
+  const media=[];
+  const recs=await idbGetAll();
+
+  for(const r of (recs||[])){
+
+    const rec={
+      id:r.id,
+      audioType:r.audioType||"",
+      coverType:r.coverType||"",
+      meta:r.meta||null,
+      duration:r.duration||0,
+      addedAt:r.addedAt||0
+    };
+
+    const base=u.id+"/media/"+encodeURIComponent(String(r.id));
+
+    /*
+      Upload audio as ArrayBuffer.
+      This avoids the iPhone/Safari Blob issue.
+    */
+    if(r.audioBlob && r.audioBlob.size>0){
+
+      const audioPath=base+"/audio";
+      const audioData=await r.audioBlob.arrayBuffer();
+
+      const {error}=await sb.storage
+        .from("treesh-data")
+        .upload(audioPath,audioData,{
+          contentType:r.audioType||"application/octet-stream",
+          upsert:true
+        });
+
+      if(error){
+        throw new Error(
+          "Audio upload failed: "+
+          (error.message||"Unknown storage error")
+        );
+      }
+
+      rec.audioPath=audioPath;
+    }
+
+    /*
+      Upload cover as ArrayBuffer.
+    */
+    if(r.coverBlob && r.coverBlob.size>0){
+
+      const coverPath=base+"/cover";
+      const coverData=await r.coverBlob.arrayBuffer();
+
+      const {error}=await sb.storage
+        .from("treesh-data")
+        .upload(coverPath,coverData,{
+          contentType:r.coverType||"image/jpeg",
+          upsert:true
+        });
+
+      if(error){
+        throw new Error(
+          "Cover upload failed: "+
+          (error.message||"Unknown storage error")
+        );
+      }
+
+      rec.coverPath=coverPath;
+    }
+
+    media.push(rec);
+  }
+
+  /*
+    Upload assets separately.
+  */
+  let assets=[];
+
   try{
-    const p=Object.assign({},state.profile||{}); let av=p.avatarUrl||null;
-    if(!p.avatar) av=null;
-    else if(/^data:image\//.test(p.avatar)){ const sig=sbSig(p.avatar); if(sig!==p.avatarSig||!av){ try{ av=await sbAvatarUpload(u.id,p.avatar); p.avatarSig=sig; }catch(e){ avErr=e; av=p.avatarUrl||null; } } }
-    else if(/^https?:/.test(p.avatar)) av=p.avatar;
-    const pr=await sb.from('profiles').upsert({id:u.id,username:p.username||null,display_name:p.nickname||null,avatar_url:av,bio:p.bio||null}); if(pr.error) throw pr.error;
-    const cur=state.profile; if(cur){ Object.assign(cur,{avatarUrl:av,avatarSig:p.avatarSig||'',usernameSynced:p.username||''}); sbQuietSet('treesh_profile',cur); }
-    const payload=await sbPayload(u), at=new Date().toISOString();
-    const {error}=await sb.from('user_data').upsert({user_id:u.id,data:payload,updated_at:at}); if(error) throw error;
-    sbMeta({pending:_sbDirty||!!avErr,at:Date.now(),uid:u.id,cloudAt:Date.parse(at)});
-    if(avErr){ console.warn('Treesh avatar',avErr); sbSet('error','Synced, but your photo didn\u2019t upload: '+sbErrText(avErr)); } else sbSet('synced');
-  }catch(e){ sbFail(e); }
-  finally{ _sbBusy=false; if(_sbAgain||_sbDirty){ _sbAgain=false; if(sbMeta().pending) sbSchedule(false); } } }
+    assets=(await assetAll()).map(r=>({
+      id:r.id,
+      value:r.value
+    }));
+  }catch(e){}
+
+  const assetsPath=u.id+"/assets.json";
+
+  const assetsBlob=new Blob(
+    [JSON.stringify(assets)],
+    {type:"application/json"}
+  );
+
+  const assetsData=await assetsBlob.arrayBuffer();
+
+  const {error:assetsError}=await sb.storage
+    .from("treesh-data")
+    .upload(assetsPath,assetsData,{
+      contentType:"application/json",
+      upsert:true
+    });
+
+  if(assetsError){
+    throw new Error(
+      "Assets upload failed: "+
+      (assetsError.message||"Unknown storage error")
+    );
+  }
+
+  return {
+    app:"treesh",
+    type:"treesh-backup",
+    v:3,
+    exportedAt:new Date().toISOString(),
+    localStorage:ls,
+    media:media,
+    assetsPath:assetsPath
+  };
+}
+async function sbPush(){
+  const u=sbUser();
+  if(!sb||!u) return;
+
+  if(_sbBusy){
+    _sbAgain=true;
+    return;
+  }
+
+  _sbBusy=true;
+  sbSet("saving");
+
+  try{
+
+    /*
+      Keep the existing profile synchronization.
+    */
+    const p=Object.assign({},state.profile||{});
+    let av=p.avatarUrl||null;
+
+    if(!p.avatar){
+      av=null;
+    }else if(/^data:image\//.test(p.avatar)){
+
+      const sig=sbSig(p.avatar);
+
+      if(sig!==p.avatarSig||!av){
+        try{
+          av=await sbAvatarUpload(u.id,p.avatar);
+          p.avatarSig=sig;
+        }catch(e){
+          av=p.avatarUrl||null;
+        }
+      }
+
+    }else if(/^https?:/.test(p.avatar)){
+      av=p.avatar;
+    }
+
+    const profileResult=await sb
+      .from("profiles")
+      .upsert({
+        id:u.id,
+        username:p.username||null,
+        display_name:p.nickname||null,
+        avatar_url:av,
+        bio:p.bio||null
+      });
+
+    if(profileResult.error) throw profileResult.error;
+
+    /*
+      Upload the complete Treesh dataset.
+      Large media goes into Storage, NOT user_data.
+    */
+    const payload=await sbExportPayload(u);
+
+    const {error}=await sb
+      .from("user_data")
+      .upsert({
+        user_id:u.id,
+        data:payload,
+        updated_at:new Date().toISOString()
+      });
+
+    if(error) throw error;
+
+    const cur=state.profile||{};
+
+    Object.assign(cur,{
+      avatarUrl:av,
+      avatarSig:p.avatarSig||"",
+      usernameSynced:p.username||""
+    });
+
+    state.profile=cur;
+
+    try{
+      LS.set("treesh_profile",cur);
+    }catch(e){}
+
+    sbMeta({
+      pending:false,
+      at:Date.now(),
+      uid:u.id
+    });
+
+    sbSet("synced");
+
+  }catch(e){
+    sbFail(e);
+
+  }finally{
+
+    _sbBusy=false;
+
+    if(_sbAgain){
+      _sbAgain=false;
+      setTimeout(sbPush,0);
+    }
+  }
+}
 function sbFail(e){ const code=e&&e.code, msg=((e&&(e.message||''))+' '+((e&&e.details)||'')).trim();
   if(code==='23505'&&/username/i.test(msg)){ const p=state.profile||{}; const tried=p.username; p.username=p.usernameSynced||''; LS.set('treesh_profile',p);
     state._unameErr='@'+tried+' is taken. Try another one.'; state._pfDraft=Object.assign({},state._pfDraft||{},{uname:tried}); state.settingsEditProfile=true;
@@ -77,64 +268,227 @@ function sbFail(e){ const code=e&&e.code, msg=((e&&(e.message||''))+' '+((e&&e.d
   sbMeta({pending:true});
   if(!navigator.onLine||sbIsNet(msg)){ sbSet('offline',SB_OFFLINE); return; }
   console.warn('Treesh sync',e); sbSet('error',sbErrText(e)); }
-async function sbRestore(b){ if(!b||b.type!=='treesh-backup'||!b.localStorage||typeof b.localStorage!=='object') return false; const src=b.localStorage; let changed=false;
-  const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(sbSyncKey(k)&&!(k in src)) rm.push(k); }
-  rm.forEach(k=>{ try{ localStorage.removeItem(k); changed=true; }catch(e){} });
-  Object.keys(src).forEach(k=>{ if(!sbSyncKey(k)) return; const v=src[k]; try{ if(localStorage.getItem(k)===v) return; localStorage.setItem(k,v); changed=true; }catch(e){ if(isQuotaError(e)) notifyStorageFull(); } });
-  if(b.assetsPath){ try{ const {data,error}=await sb.storage.from('treesh-data').download(b.assetsPath); if(error) throw error; const list=JSON.parse(await data.text());
-      if(Array.isArray(list)){ for(const a of list){ if(a&&a.id){ try{ await assetPut(a.id,a.value); changed=true; }catch(e){} } } }
-      const all=((await assetAll())||[]).filter(r=>r&&r.id); sbMeta({assetSig:sbAssetSig(all),assetsPath:b.assetsPath}); }
-    catch(e){ console.warn('Treesh sync: fonts & backgrounds not restored',e); } }
-  return changed; }
-async function sbPull(o){ o=o||{}; const u=sbUser(); if(!sb||!u) return 'none';
-  state._sbPulled=Date.now(); sbSet('saving');
-  try{ const m=sbMeta(), mine=m.uid===u.id; const pend=_sbBootPending!=null?_sbBootPending:(m.pending||_sbDirty); _sbBootPending=null;
-    const [cr,pr]=await Promise.all([sb.from('user_data').select('updated_at').eq('user_id',u.id).maybeSingle(), sb.from('profiles').select('id,username,display_name,avatar_url,bio,created_at').eq('id',u.id).maybeSingle()]);
-    if(pr.error) throw pr.error; if(cr.error) throw cr.error;
-    state._sbHadProfile=!!pr.data;
-    if(pr.data&&!(mine&&pend)) sbApply(pr.data);
-    const cAt=(cr.data&&Date.parse(cr.data.updated_at||''))||0;
-    if(!cr.data||(mine&&pend)){ await sbPush(); return 'pushed'; }
-    if(mine&&m.cloudAt&&cAt<=m.cloudAt+1000){ sbMeta({at:Date.now()}); sbSet('synced'); return 'same'; }
-    if(o.restore===false){ sbSet('synced'); return 'later'; }
-    const full=await sb.from('user_data').select('data,updated_at').eq('user_id',u.id).maybeSingle(); if(full.error) throw full.error;
-    const changed=await sbRestore(full.data&&full.data.data);
-    _sbDirty=false; sbMeta({pending:false,at:Date.now(),uid:u.id,cloudAt:cAt}); sbSet('synced');
-    return changed?'pulled':'same';
-  }catch(e){ sbFail(e); return 'error'; } }
-function sbReload(){ try{ sessionStorage.setItem('treesh_sb_hello','1'); }catch(e){} toast('Synced from your account','Loading your Treesh\u2026'); setTimeout(()=>{ try{ location.reload(); }catch(e){} },700); }
+async function sbPull(){
+  const u=sbUser();
+
+  if(!sb||!u) return "none";
+
+  state._sbPulled=Date.now();
+  sbSet("saving");
+
+  try{
+
+    /*
+      Get the full cloud backup and profile at the same time.
+    */
+    const [cloudResult,profileResult]=await Promise.all([
+      sb
+        .from("user_data")
+        .select("data,updated_at")
+        .eq("user_id",u.id)
+        .maybeSingle(),
+
+      sb
+        .from("profiles")
+        .select("id,username,display_name,avatar_url,bio,created_at")
+        .eq("id",u.id)
+        .maybeSingle()
+    ]);
+
+    if(cloudResult.error) throw cloudResult.error;
+    if(profileResult.error) throw profileResult.error;
+
+    const data=cloudResult.data;
+    const profile=profileResult.data;
+
+    /*
+      Restore the profile if one exists.
+    */
+    if(profile){
+      sbApply(profile);
+    }
+
+    /*
+      No full cloud data yet.
+      Upload the current device's data.
+    */
+    if(!data||!data.data){
+
+      await sbPush();
+
+      return "pushed";
+    }
+
+    const backup=data.data;
+
+    if(
+      backup.type!=="treesh-backup" ||
+      typeof backup.localStorage!=="object"
+    ){
+      throw new Error("Invalid Treesh cloud data");
+    }
+
+    /*
+      Restore LocalStorage.
+    */
+    const rm=[];
+
+    for(let i=0;i<localStorage.length;i++){
+
+      const k=localStorage.key(i);
+
+      if(
+        k &&
+        TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)
+      ){
+        rm.push(k);
+      }
+    }
+
+    rm.forEach(k=>{
+      try{
+        localStorage.removeItem(k);
+      }catch(e){}
+    });
+
+    Object.keys(backup.localStorage||{}).forEach(k=>{
+      try{
+        localStorage.setItem(
+          k,
+          backup.localStorage[k]
+        );
+      }catch(e){
+
+        if(isQuotaError(e)){
+          notifyStorageFull();
+        }
+      }
+    });
+
+    /*
+      Restore media from Supabase Storage.
+    */
+    if(Array.isArray(backup.media)){
+
+      for(const m of backup.media){
+
+        const rec={
+          id:m.id,
+          audioType:m.audioType||"",
+          coverType:m.coverType||"",
+          meta:m.meta||null,
+          duration:m.duration||0,
+          addedAt:m.addedAt||Date.now()
+        };
+
+        /*
+          Download audio.
+        */
+        if(m.audioPath){
+
+          const {data:audio,error}=await sb.storage
+            .from("treesh-data")
+            .download(m.audioPath);
+
+          if(error) throw error;
+
+          rec.audioBlob=audio;
+        }
+
+        /*
+          Download cover.
+        */
+        if(m.coverPath){
+
+          const {data:cover,error}=await sb.storage
+            .from("treesh-data")
+            .download(m.coverPath);
+
+          if(error) throw error;
+
+          rec.coverBlob=cover;
+        }
+
+        try{
+          await idbPut(rec);
+        }catch(e){}
+      }
+    }
+
+    /*
+      Restore assets.
+    */
+    await assetClear();
+
+    if(backup.assetsPath){
+
+      const {data:assetFile,error}=await sb.storage
+        .from("treesh-data")
+        .download(backup.assetsPath);
+
+      if(error) throw error;
+
+      const assetText=await assetFile.text();
+      const assets=JSON.parse(assetText);
+
+      if(Array.isArray(assets)){
+
+        for(const a of assets){
+
+          if(a&&a.id){
+
+            try{
+              await assetPut(a.id,a.value);
+            }catch(e){}
+          }
+        }
+      }
+    }
+
+    sbMeta({
+      pending:false,
+      at:Date.now(),
+      uid:u.id
+    });
+
+    sbSet("synced");
+
+    return "pulled";
+
+  }catch(e){
+
+    sbFail(e);
+    return "error";
+  }
+}
 function sbApply(r){ const before=JSON.stringify(state.profile||null); const p=Object.assign({},state.profile||{});
   p.nickname=r.display_name||p.nickname||'Treesh Fan'; p.username=r.username||''; p.usernameSynced=p.username; p.bio=r.bio||'';
   const c=Date.parse(r.created_at||''); if(c&&(!p.joined||c<p.joined)) p.joined=c;
   if(r.avatar_url){ if(r.avatar_url!==p.avatarUrl){ p.avatarUrl=r.avatar_url; p.avatar=r.avatar_url; p.avatarSig=''; sbCacheAvatar(r.avatar_url); } }
   else if(p.avatarUrl){ p.avatar=''; p.avatarUrl=null; p.avatarSig=''; }
-  state.profile=p; sbQuietSet('treesh_profile',p); if(JSON.stringify(p)!==before) sbRerender(); }
+  state.profile=p; LS.set('treesh_profile',p); if(JSON.stringify(p)!==before) sbRerender(); }
 function sbCacheAvatar(url){ fetch(url).then(r=>{ if(!r.ok) throw 0; return r.blob(); }).then(b=>{ if(b.size>400*1024) throw 0; return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(b); }); })
-  .then(d=>{ const p=state.profile; if(!p||p.avatarUrl!==url) return; p.avatar=d; p.avatarSig=sbSig(d); sbQuietSet('treesh_profile',p); }).catch(()=>{}); }
+  .then(d=>{ const p=state.profile; if(!p||p.avatarUrl!==url) return; p.avatar=d; p.avatarSig=sbSig(d); LS.set('treesh_profile',p); }).catch(()=>{}); }
 
 /* ---- auth events ---- */
 function sbObOpen(){ return !!document.querySelector('#modal [data-ob-root]'); }
 function sbCloseAuth(){ if(document.querySelector('#modal2 .sba-modal')) closeModal2(); }
 async function sbSignedIn(u){ const mine=_sbJustAuthed; _sbJustAuthed=false; if(mine){ sbCloseAuth(); toast('Signed in',u.email||''); }
-  const r=await sbPull({restore:true});
-  if(r==='pulled'){ sbReload(); return; }
-  if(sbObOpen()){ if(state._sbHadProfile&&state.profile){ closeModal(); try{ checkDailyStars(); }catch(e){} sbRerender(); toast('Welcome back',state.profile.nickname||''); setTimeout(()=>{ try{ wnMaybeAuto(state.view); }catch(e){} },600); } else { if(onboard.step===1) onboard.step=2; try{ renderOnboarding(); }catch(e){} } } }
-function sbSignedOut(){ clearTimeout(_sbTimer); _sbTimer=0; _sbDirty=false; state.sbSync={s:'idle',msg:''}; sbMeta({uid:null,pending:false,cloudAt:0,assetSig:'',assetsPath:null}); toast('Signed out','Your profile stays on this device'); sbPaint(); if(state.profileOpen) renderProfile(); }
+  const r=await sbPull();
+  if(sbObOpen()){ if(r==='pulled'&&state.profile){ closeModal(); try{ checkDailyStars(); }catch(e){} sbRerender(); toast('Welcome back',state.profile.nickname||''); setTimeout(()=>{ try{ wnMaybeAuto(state.view); }catch(e){} },600); } else { try{ renderOnboarding(); }catch(e){} } } }
+function sbSignedOut(){ state.sbSync={s:'idle',msg:''}; sbMeta({uid:null,pending:false}); toast('Signed out','Your profile stays on this device'); sbPaint(); if(state.profileOpen) renderProfile(); }
 function sbHandleCallback(cb){ if(cb.error_description||cb.error){ setTimeout(()=>toast('That link didn\u2019t work',cb.error_description||cb.error),900); return; }
   if(!cb.access_token||!cb.refresh_token) return;
   sb.auth.setSession({access_token:cb.access_token,refresh_token:cb.refresh_token}).then(({error})=>{ if(error){ toast('Couldn\u2019t sign you in',sbErrText(error)); return; }
     if(cb.type==='recovery') setTimeout(()=>sbAuthOpen('newpw'),500); else if(cb.type==='signup'||cb.type==='email'||cb.type==='invite') setTimeout(()=>toast('Email confirmed','You\u2019re signed in and syncing'),700); }); }
-function sbInit(){ state.sbSync=state.sbSync||{s:'idle',msg:''}; try{ if(sessionStorage.getItem('treesh_sb_hello')){ sessionStorage.removeItem('treesh_sb_hello'); setTimeout(()=>toast('Welcome back',(state.profile&&state.profile.nickname)?'Your Treesh is synced, '+state.profile.nickname:'Your Treesh is synced'),900); } }catch(e){} if(!sb) return; _sbBootPending=!!sbMeta().pending; _sbDirty=_sbBootPending;
+function sbInit(){ state.sbSync=state.sbSync||{s:'idle',msg:''}; if(!sb) return;
   sb.auth.onAuthStateChange((ev,session)=>{ const u=(session&&session.user)||null, prev=state.sbUser; state.sbUser=u;
     if(ev==='PASSWORD_RECOVERY') setTimeout(()=>sbAuthOpen('newpw'),0);
     if(u&&(!prev||prev.id!==u.id)) setTimeout(()=>sbSignedIn(u),0); else if(!u&&prev) setTimeout(sbSignedOut,0); else setTimeout(sbPaint,0); });
   if(SB_CB) sbHandleCallback(SB_CB);
-  window.addEventListener('online',()=>{ if(sbUser()&&sbMeta().pending) sbSchedule(false); else if(sbUser()) sbSet('idle'); });
+  window.addEventListener('online',()=>{ if(sbUser()&&sbMeta().pending) sbPush(); else if(sbUser()) sbSet('idle'); });
   window.addEventListener('offline',()=>{ if(sbUser()) sbSet('offline',SB_OFFLINE); });
-  window.addEventListener('storage',e=>{ if(e.key&&sbSyncKey(e.key)) sbDirty(); });
-  window.addEventListener('pagehide',sbFlush);
-  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'){ sbFlush(); return; }
-    if(sbUser()&&navigator.onLine&&!_sbBusy&&Date.now()-(state._sbPulled||0)>60000){ if(_sbDirty) sbSchedule(false); else sbPull({restore:audio.paused}).then(r=>{ if(r==='pulled') sbReload(); }); } }); }
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&sbUser()&&navigator.onLine&&Date.now()-(state._sbPulled||0)>60000) sbPull(); }); }
 
 /* ---- Settings: account card ---- */
 function sbPaint(){ const el=document.querySelector('[data-testid="sb-account-card"]'); if(!el) return; const t=document.createElement('div'); t.innerHTML=sbAccountCardHtml('account'); if(t.firstElementChild){ el.replaceWith(t.firstElementChild); icons(); } }
@@ -147,7 +501,7 @@ function sbAccountCardHtml(tab){ if(tab!=='account') return ''; const u=sbUser()
   const btn=(act,val,tid,ic,label,cls)=>`<button type="button" data-act="${act}"${val?` data-val="${val}"`:''} data-testid="${tid}" class="sba-btn press${cls?' '+cls:''}"><i data-lucide="${ic}"></i>${label}</button>`;
   let body;
   if(!sbReady()) body=head('cloud-off','Treesh account',sbConfigured()?'Can\u2019t reach Treesh accounts right now. Your profile is safe on this device. Try again when you\u2019re back online.':'Accounts aren\u2019t switched on yet. Your profile is saved on this device for now.')+`<div class="sba-acts">${btn('sb-auth-open','signin','sb-card-signin','log-in','Sign in','is-primary')}</div>`;
-  else if(!u) body=head('cloud','Back up your profile','Sign in to keep your profile, playlists and settings on any device. Your custom music always stays on this device.')+`<div class="sba-perks">${[['refresh-cw','Syncs across devices'],['wifi-off','Still works offline'],['shield-check','Only you can edit it']].map(([i,l])=>`<span><i data-lucide="${i}"></i>${l}</span>`).join('')}</div><div class="sba-acts">${btn('sb-auth-open','signin','sb-card-signin','log-in','Sign in','is-primary')}${btn('sb-auth-open','signup','sb-card-signup','user-plus','Create account')}</div>`;
+  else if(!u) body=head('cloud','Back up your profile','Sign in to keep your name, @username, photo and bio on any device. As a guest, everything stays on this device.')+`<div class="sba-perks">${[['refresh-cw','Syncs across devices'],['wifi-off','Still works offline'],['shield-check','Only you can edit it']].map(([i,l])=>`<span><i data-lucide="${i}"></i>${l}</span>`).join('')}</div><div class="sba-acts">${btn('sb-auth-open','signin','sb-card-signin','log-in','Sign in','is-primary')}${btn('sb-auth-open','signup','sb-card-signup','user-plus','Create account')}</div>`;
   else body=`<div class="sba-user"><span class="sba-av">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<b>${esc((p.nickname||'T').charAt(0).toUpperCase())}</b>`}</span><div class="min-w-0 flex-1"><p class="sba-name clamp-1" data-testid="sb-card-name">${esc(p.nickname||'Treesh Fan')}</p><p class="sba-mail clamp-1" data-testid="sb-card-email">${p.username?'@'+esc(p.username)+' \u00b7 ':''}${esc(u.email||'')}</p></div>${sbPill()}</div>${st.msg&&st.s!=='saving'?`<p class="sba-note${st.s==='error'?' is-err':''}" data-testid="sb-sync-msg">${esc(st.msg)}</p>`:''}<div class="sba-acts">${btn('sb-sync-now','','sb-sync-now','refresh-cw','Sync now','is-primary')}${btn('sb-auth-open','newpw','sb-change-pw','key-round','Change password')}${btn('sb-signout','','sb-signout','log-out','Sign out','is-danger')}</div>`;
   return `<section data-testid="sb-account-card" class="sba-card"><span class="sba-glow" aria-hidden="true"></span>${body}</section>`; }
 
@@ -163,7 +517,7 @@ function sbAuthHtml(){ const m=_sbMode, off=!sbReady();
   const pw=m!=='reset'?`<label class="sba-f"><span>${m==='newpw'?'New password':'Password'}</span><span class="sba-pw"><input id="sb-pw" type="password" autocomplete="${m==='signin'?'current-password':'new-password'}" placeholder="${m==='signin'?'Your password':'At least 6 characters'}" data-testid="sb-auth-password"><button type="button" data-act="sb-pw-toggle" aria-label="Show password" data-testid="sb-auth-pw-toggle"><i data-lucide="eye"></i></button></span></label>`:'';
   const cta={signin:'Sign in',signup:'Create account',reset:'Send reset link',newpw:'Update password'}[m];
   const foot=m==='signin'?`<button type="button" data-act="sb-auth-mode" data-val="reset" data-testid="sb-auth-forgot" class="sba-link">Forgot password?</button>`:m==='reset'?`<button type="button" data-act="sb-auth-mode" data-val="signin" data-testid="sb-auth-back" class="sba-link">Back to sign in</button>`:'';
-  return `<div class="sba-modal" data-testid="sb-auth" data-mode="${m}">${hero(m==='newpw'||m==='reset'?'key-round':m==='signup'?'sparkles':'user-round')}${banner}${tabs}<form data-sb-form class="sba-form" novalidate>${email}${pw}<p id="sb-msg" class="sba-msg" role="status" aria-live="polite" data-testid="sb-auth-msg"></p><button type="submit" data-testid="sb-auth-submit" class="sba-btn is-primary lg press"${off?' disabled':''}><i data-lucide="loader-circle" class="sba-spin"></i><span>${cta}</span></button></form>${foot?`<div class="sba-foot">${foot}</div>`:''}<p class="sba-fine">Your profile, playlists and settings sync every 30 seconds. Custom music always stays on this device.</p></div>`; }
+  return `<div class="sba-modal" data-testid="sb-auth" data-mode="${m}">${hero(m==='newpw'||m==='reset'?'key-round':m==='signup'?'sparkles':'user-round')}${banner}${tabs}<form data-sb-form class="sba-form" novalidate>${email}${pw}<p id="sb-msg" class="sba-msg" role="status" aria-live="polite" data-testid="sb-auth-msg"></p><button type="submit" data-testid="sb-auth-submit" class="sba-btn is-primary lg press"${off?' disabled':''}><i data-lucide="loader-circle" class="sba-spin"></i><span>${cta}</span></button></form>${foot?`<div class="sba-foot">${foot}</div>`:''}<p class="sba-fine">Only your name, @username, photo and bio sync. Everything else stays on this device.</p></div>`; }
 function sbAuthRender(mode){ if(mode) _sbMode=mode; const em=document.getElementById('sb-email'); if(em) _sbEmail=em.value.trim();
   const open=document.querySelector('#modal2 .sba-modal'); if(open){ const t=document.createElement('div'); t.innerHTML=sbAuthHtml(); open.replaceWith(t.firstElementChild); } else { $("#modal2").innerHTML=modal2Wrap(sbAuthHtml(),'sb-auth-modal'); syncScrollLock(); }
   icons(); if(window.innerWidth>=640){ const f=document.getElementById(_sbMode==='newpw'?'sb-pw':'sb-email'); if(f) setTimeout(()=>{ try{ f.focus(); }catch(e){} },80); } }
@@ -182,13 +536,9 @@ async function sbAuthSubmit(){ const m=_sbMode; const em=((document.getElementBy
     else if(m==='newpw'){ const {error}=await sb.auth.updateUser({password:pw}); if(error) throw error; closeModal2(); toast('Password updated','Use it next time you sign in'); }
   }catch(e){ sbMsg('err',sbErrText(e)); }
   finally{ sbFormBusy(false); } }
-function sbObRow(){ if(sbUser()) return '';
-  if(onboard.step===5) return `<p class="obx-acct" data-testid="onboarding-account-row"><i data-lucide="hard-drive"></i><span>Saved on this device.</span><button type="button" data-act="sb-auth-open" data-val="signup" data-testid="onboarding-create-account" class="obx-acct-btn press">Create an account</button><span class="obx-acct-or">to use it anywhere.</span></p>`;
+function sbObRow(){ if(sbUser()) return ''; if(onboard.step===0&&!state.profile) return `<p class="obx-acct" data-testid="onboarding-account-row"><span>Already on Treesh?</span><button type="button" data-act="sb-auth-open" data-val="signin" data-testid="onboarding-signin" class="obx-acct-btn press">Sign in</button><span class="obx-acct-or">or begin as a guest</span></p>`;
+  if(onboard.step===4) return `<p class="obx-acct" data-testid="onboarding-account-row"><i data-lucide="hard-drive"></i><span>Saved on this device.</span><button type="button" data-act="sb-auth-open" data-val="signup" data-testid="onboarding-create-account" class="obx-acct-btn press">Create an account</button><span class="obx-acct-or">to use it anywhere.</span></p>`;
   return ''; }
-function obAcctHtml(){ const u=sbUser();
-  if(u) return `<div class="obx-acc" data-testid="onboarding-account"><div class="obx-acc-on" data-testid="onboarding-account-signed"><span class="obx-acc-ic is-ok"><i data-lucide="cloud-check"></i></span><span class="min-w-0"><b>You\u2019re signed in</b><small class="clamp-1">${esc(u.email||'')} \u00b7 your profile will sync</small></span></div><p class="obx-acc-fine">Tap Continue to set up your profile.</p></div>`;
-  const opt=(act,val,tid,ic,t,d,cls)=>`<button type="button" data-act="${act}"${val?` data-val="${val}"`:''} data-testid="${tid}" class="obx-acc-opt press${cls?' '+cls:''}"><span class="obx-acc-ic"><i data-lucide="${ic}"></i></span><span class="min-w-0 flex-1 text-left"><b>${t}</b><small>${d}</small></span><i data-lucide="chevron-right" class="obx-acc-go"></i></button>`;
-  return `<div class="obx-acc" data-testid="onboarding-account">${opt('sb-auth-open','signup','onboarding-create-account','user-plus','Create an account','Sync your profile, playlists and settings across devices','is-primary')}${opt('sb-auth-open','signin','onboarding-signin','log-in','I already have one','Sign in and pick up where you left off')}<div class="obx-acc-or"><span>or</span></div>${opt('ob-next','','onboarding-guest','user-round','Be our guest','No signup. Everything stays on this device','is-guest')}${sbReady()?'':`<p class="obx-acc-fine" data-testid="onboarding-account-offline"><i data-lucide="cloud-off"></i>Accounts aren\u2019t switched on yet, so guest mode is the way in for now.</p>`}<p class="obx-acc-fine"><i data-lucide="music-4"></i>Custom music you upload always stays on this device.</p></div>`; }
 function sbUnameField(uname){ const err=state._unameErr||''; return `<div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50" for="set-uname">Username</label><div class="relative"><span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/40">@</span><input id="set-uname" data-testid="settings-username-input" value="${esc(uname)}" maxlength="20" autocapitalize="none" autocomplete="username" spellcheck="false" placeholder="yourname" class="h-11 w-full rounded-2xl border ${err?'border-red-400/60':'border-white/15'} bg-white/5 pl-8 pr-4 text-sm outline-none focus:border-[color:var(--treesh-purple)]"></div><p id="set-uname-hint" data-testid="settings-username-hint" class="sba-uhint${err?' is-err':''}">${esc(err||(sbUser()?'Unique across Treesh. 3\u201320 letters, numbers, _ or .':'3\u201320 letters, numbers, _ or . Claimed when you sign in.'))}</p></div>`; }
 
 document.addEventListener('submit',e=>{ const f=e.target; if(f&&f.matches&&f.matches('form[data-sb-form]')){ e.preventDefault(); sbAuthSubmit(); } });
@@ -198,6 +548,6 @@ document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.tar
     case 'sb-auth-mode': sbAuthRender(t.dataset.val); break;
     case 'sb-auth-close': closeModal2(); break;
     case 'sb-pw-toggle': { const i=document.getElementById('sb-pw'); if(!i) break; const show=i.type==='password'; i.type=show?'text':'password'; t.setAttribute('aria-label',show?'Hide password':'Show password'); t.innerHTML=`<i data-lucide="${show?'eye-off':'eye'}"></i>`; icons(); break; }
-    case 'sb-sync-now': if(!navigator.onLine){ sbSet('offline',SB_OFFLINE); break; } if(_sbBusy){ toast('Already syncing','Hang tight'); break; } if(_sbDirty||sbMeta().pending){ clearTimeout(_sbTimer); _sbTimer=0; sbPush().then(()=>{ if(state.sbSync&&state.sbSync.s==='synced') toast('Synced','Up to date on all your devices'); }); break; } sbPull({restore:true}).then(r=>{ if(r==='pulled') sbReload(); else if(r==='same'||r==='pushed') toast('Synced','Up to date on all your devices'); }); break;
+    case 'sb-sync-now': if(!navigator.onLine){ sbSet('offline',SB_OFFLINE); break; } sbPull().then(r=>{ if(r==='pulled'||r==='pushed') toast('Profile synced','Up to date on all your devices'); }); break;
     case 'sb-signout': if(!sb) break; openConfirm('Sign out?','Your profile stays on this device. Sign back in any time to sync it again.',()=>{ sb.auth.signOut({scope:'local'}); }); break;
   } });
