@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import DuplicateKeyError
 import os
 import logging
 import secrets
@@ -142,7 +143,10 @@ async def cloud_save(body: CloudSaveIn):
     code = secrets.token_hex(3).upper()
     doc = CloudSave(player_id=body.player_id, name=name, name_lower=name.lower(), save_code=code,
                     progress=body.progress, updated_at=now_iso())
-    await db.cloud_saves.insert_one(doc.to_mongo())
+    try:
+        await db.cloud_saves.insert_one(doc.to_mongo())
+    except DuplicateKeyError:
+        raise HTTPException(409, "That player tag is already claimed")
     return {"save_code": code, "name": name, "updated_at": doc.updated_at}
 
 

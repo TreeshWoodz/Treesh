@@ -1,0 +1,30 @@
+{
+  "summary": "First-run full test of Bronze Blitz. Backend pytest suite: 10/10 passed (scores submit, invalid mode -> 400, leaderboard best-per-player sorted desc, daily filtered to today UTC, cloud save new/update/wrong-code 403, name-taken 409, cloud load 404). Frontend sanity: root redirects to /games/bronze-blitz/, welcome modal sets player tag, 500 starlites initial, daily-bonus adds +100 and flips to Claimed, mode-select-classic navigates to /levels, locked level /play/classic/5 redirects to /levels, timed board renders with 64 tiles and HUD, shop deducts Starlites correctly (2000 -> 1850 for hammer 150), themes tab lists theme-buy buttons, trophies & leaderboard tabs load, profile save works, cloud save returns 6-char save_code and cloud load restores balance (1,850) after localStorage.clear in a fresh profile.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Timed Blitz powerup extra_moves +10s", "issue": "During test, hud-timer-display read '0s' both before and after clicking powerup-btn-extra_moves. Possible causes: (a) timer had already elapsed/paused since board cascades delayed start, or (b) extra_moves may not add seconds in timed mode. Needs manual verification; low confidence this is a real bug.", "affected_selectors": ["[data-testid=\"hud-timer-display\"]", "[data-testid=\"powerup-btn-extra_moves\"]"]},
+      {"flow": "Manual swap in timed mode", "issue": "Programmatic click-then-adjacent-click sequence across 56 pairs did not change hud-score-display. Likely a test-automation artifact (swap handler may require pointerdown+pointerup/drag gestures rather than two clicks). Should be re-verified by main agent — if the UI truly supports click-then-click swap, consider adding stronger data-testid cues on the swap handler.", "affected_selectors": ["[data-testid^=\"tile-\"]", "[data-testid=\"hud-score-display\"]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_bronze_blitz.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Manually verify that powerup-btn-extra_moves adds +10s to hud-timer-display in timed mode (automation showed no change).",
+    "Verify tap-tap (click, then click an adjacent tile) actually triggers a swap in the UI; if only pointer/drag gestures are supported, expose a click-swap path or document it so automated tests can cover gameplay."
+  ],
+  "critical_code_review_comments": [
+    "server.py: unique index on cloud_saves.name_lower is created at startup but code already handles duplicate detection with a pre-query -- consider wrapping insert in try/except DuplicateKeyError to avoid race conditions returning 500.",
+    "server.py uses deprecated FastAPI @app.on_event('startup'/'shutdown'); migrate to lifespan context manager (FastAPI 0.100+).",
+    "Score schema accepts score up to 5,000,000 with no server-side cross-check against mode constraints; trivially spoofable (expected for guest architecture, but worth noting).",
+    "CORS allow_origins defaults to '*' with allow_credentials=True which is invalid per spec; browsers will reject credentialed requests. Not an issue today since frontend doesn't send credentials, but should be tightened."
+  ],
+  "updated_files": ["/app/backend/tests/test_bronze_blitz.py", "/app/test_reports/iteration_1.json"],
+  "success_rate": {"backend": "100%", "frontend": "~90% (gameplay swap + extra_moves timer unverified)"},
+  "test_credentials": "None (guest profile in localStorage key bronze-blitz-profile-v1)",
+  "seed_data_creation": "Tests create TEST_-prefixed scores and cloud saves; left in DB (unique random ids/names so no collision).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/test_bronze_blitz.py all pass. For gameplay testing in Playwright, two-click swap did not change score in automation; try page.mouse.down()/move()/up() drag or dispatch pointer events. Use localStorage key 'bronze-blitz-profile-v1' to seed starlites/levelStars for end-state tests."
+}
