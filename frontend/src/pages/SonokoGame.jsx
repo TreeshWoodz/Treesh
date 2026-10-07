@@ -1,0 +1,582 @@
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import { Heart, RotateCcw, Flame, Clock, CalendarDays, Megaphone } from "lucide-react";
+import { GameHeader, IconBtn } from "@/components/game/GameHeader";
+import { PlayingCard, COLOR_HEX } from "@/components/game/PlayingCard";
+import { HandFan } from "@/components/game/HandFan";
+import { ColorPicker } from "@/components/game/ColorPicker";
+import { ResultDialog } from "@/components/game/ResultDialog";
+import { Confetti } from "@/components/game/Confetti";
+import { generateSudoku, makeRng, seedFromString, shuffle } from "@/lib/sudoku";
+import { commitProgress, todayStr, yesterdayStr, fmtTime, useProfile } from "@/lib/progress";
+import { sfx } from "@/lib/sound";
+
+const COLORS = ["red", "blue", "green", "yellow"];
+const HOLES = { easy: 14, normal: 18, hard: 22 };
+const BUST = 12;
+const TINT = {
+  red: "rgba(255,59,48,0.15)",
+  blue: "rgba(0,122,255,0.17)",
+  green: "rgba(52,199,89,0.15)",
+  yellow: "rgba(255,204,0,0.13)",
+};
+
+let uid = 0;
+const needed = (board, sol) => {
+  const c = Array(7).fill(0);
+  board.forEach((v, i) => !v && c[sol[i]]++);
+  return c;
+};
+const multFor = (combo) => Math.min(5, 1 + Math.floor(combo / 2));
+
+function makeCard(rng, board, sol) {
+  const need = needed(board, sol);
+  const total = need.reduce((x, y) => x + y, 0);
+  const color = COLORS[Math.floor(rng() * 4)];
+  const r = rng();
+  if (r < 0.07 || total === 0) return { id: ++uid, kind: "wild", color: "wild" };
+  if (r < 0.12) return { id: ++uid, kind: "reveal", color };
+  let pick = rng() * total;
+  let v = 1;
+  for (; v < 6; v++) {
+    pick -= need[v];
+    if (pick < 0) break;
+  }
+  return { id: ++uid, kind: "num", color, value: v };
+}
+
+const matches = (card, top) =>
+  card.kind === "wild" ||
+  card.color === top.color ||
+  (card.kind === "num" && top.kind === "num" && card.value === top.value) ||
+  (card.kind === "reveal" && top.kind === "reveal");
+
+const Setup = ({ daily, onStart, profile }) => (
+  <div className="w-full max-w-xl mx-auto px-4 py-6 rise">
+    <p className="eyebrow">{daily ? `Daily challenge · ${todayStr()}` : "Hybrid mode"}</p>
+    <h2 className="font-display font-black uppercase italic text-5xl sm:text-6xl tracking-tight mt-1">
+      {daily ? "Today's grid" : "Choose your heat"}
+    </h2>
+    <p className="text-slate-400 mt-3 text-sm sm:text-base">
+      Play a card that matches the top card's <b className="text-white">color or number</b>, then drop it in the cell where that number
+      belongs. Match the cell's tint for double points. Empty your hand after calling <b className="text-[#FFCC00]">SONOKO!</b>
+    </p>
+    {daily ? (
+      <div className="mt-8 glass rounded-3xl p-5 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <CalendarDays className="w-10 h-10 text-[#34C759]" />
+          <div>
+            <p className="font-display text-2xl font-black uppercase">Streak: {profile.stats.dailyStreak} days</p>
+            <p className="text-slate-400 text-sm">Same puzzle & deck for everyone today.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          data-testid="daily-start-button"
+          onClick={() => onStart("normal")}
+          className="h-12 px-6 rounded-2xl bg-[#34C759] text-[#0B0F19] font-black uppercase transition-transform duration-150 hover:scale-105 active:scale-95"
+        >
+          Start
+        </button>
+      </div>
+    ) : (
+      <div className="mt-8 grid gap-3">
+        {[
+          ["easy", "Easy", "14 empty cells · warm-up", "#34C759"],
+          ["normal", "Normal", "18 empty cells · the classic", "#007AFF"],
+          ["hard", "Hard", "22 empty cells · for card sharks", "#FF3B30"],
+        ].map(([id, label, desc, c]) => (
+          <button
+            key={id}
+            type="button"
+            data-testid={`sonoko-difficulty-${id}-button`}
+            onClick={() => onStart(id)}
+            className="group glass rounded-2xl p-4 flex items-center justify-between text-left transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[#1E2640]"
+          >
+            <div className="flex items-center gap-4">
+              <span className="h-12 w-2 rounded-full" style={{ background: c }} />
+              <div>
+                <p className="font-display text-3xl font-black uppercase italic">{label}</p>
+                <p className="text-slate-400 text-sm">{desc}</p>
+              </div>
+            </div>
+            <span className="font-display text-xl font-black uppercase transition-transform duration-200 group-hover:translate-x-1" style={{ color: c }}>
+              Play →
+            </span>
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+const Stat = ({ icon: Icon, label, value, testid, color = "#fff" }) => (
+  <div className="glass rounded-2xl px-3 py-2 flex items-center gap-2 min-w-0">
+    <Icon className="w-4 h-4 shrink-0" style={{ color }} />
+    <div className="min-w-0">
+      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 leading-none">{label}</p>
+      <p data-testid={testid} className="font-mono font-extrabold text-base sm:text-lg leading-tight truncate">{value}</p>
+    </div>
+  </div>
+);
+
+export default function SonokoGame({ daily = false }) {
+  const profile = useProfile();
+  const date = todayStr();
+  const [diff, setDiff] = useState(null);
+  const [g, setG] = useState(null);
+  const rngRef = useRef(Math.random);
+  const [sel, setSel] = useState(null);
+  const [selCell, setSelCell] = useState(null);
+  const [shakeId, setShakeId] = useState(null);
+  const [errCell, setErrCell] = useState(null);
+  const [pendingWild, setPendingWild] = useState(null);
+  const [seconds, setSeconds] = useState(0);
+  const [result, setResult] = useState(null);
+  const [resultOpen, setResultOpen] = useState(false);
+  const [floaters, setFloaters] = useState([]);
+  const [msg, setMsg] = useState("");
+
+  const start = (d) => {
+    const seed = daily ? `sonoko-daily-${date}` : `${Date.now()}-${Math.random()}`;
+    const rng = makeRng(seedFromString(seed));
+    rngRef.current = rng;
+    const { puzzle, solution } = generateSudoku(6, HOLES[d], rng);
+    const cellColors = puzzle.map(() => COLORS[Math.floor(rng() * 4)]);
+    const board = puzzle.slice();
+    const hand = Array.from({ length: 5 }, () => makeCard(rng, board, solution));
+    const top = { id: ++uid, kind: "num", color: COLORS[Math.floor(rng() * 4)], value: 1 + Math.floor(rng() * 6) };
+    setG({
+      solution, board, cellColors, hand, top, given: puzzle.map((v) => v !== 0), placedColor: {},
+      lives: 3, score: 0, combo: 0, maxCombo: 0, called: false, status: "playing",
+      colorMatches: 0, cardsPlayed: 0, calls: 0, mistakes: 0,
+    });
+    setDiff(d);
+    setSel(null);
+    setSelCell(null);
+    setSeconds(0);
+    setResult(null);
+    setResultOpen(false);
+    setMsg("Pick a card that matches the top card");
+  };
+
+  useEffect(() => {
+    if (!g || g.status !== "playing") return;
+    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [g?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const float = (i, text, color = "#FFCC00") => {
+    const id = ++uid;
+    setFloaters((f) => [...f, { id, i, text, color }]);
+    setTimeout(() => setFloaters((f) => f.filter((x) => x.id !== id)), 900);
+  };
+
+  const endGame = (ng, won, reason) => {
+    ng.status = won ? "won" : "lost";
+    const timeBonus = won ? Math.max(0, 3000 - seconds * 5) : 0;
+    const lifeBonus = won ? ng.lives * 500 : 0;
+    const final = ng.score + timeBonus + lifeBonus;
+    setG(ng);
+    setSel(null);
+    setResult({
+      won, final,
+      subtitle: won ? `Solved in ${fmtTime(seconds)}` : reason,
+      rows: [
+        ["Card points", ng.score.toLocaleString()],
+        ["Time bonus", `+${timeBonus}`],
+        ["Heart bonus", `+${lifeBonus}`],
+        ["Best combo", ng.maxCombo],
+        ["Color matches", ng.colorMatches],
+      ],
+    });
+    setTimeout(() => setResultOpen(true), won ? 700 : 400);
+    won ? sfx.win() : sfx.lose();
+    commitProgress((s, p) => {
+      s.modesPlayed[daily ? "daily" : "sonoko"] = 1;
+      s.sonokoPlayed++;
+      s.cardsPlayed += ng.cardsPlayed;
+      s.sonokoCalls += ng.calls;
+      s.colorMatches += ng.colorMatches;
+      s.maxCombo = Math.max(s.maxCombo, ng.maxCombo);
+      if (won) {
+        s.sonokoWins++;
+        s.sonokoBest = Math.max(s.sonokoBest, final);
+        if (ng.mistakes === 0) s.flawless++;
+        if (daily) {
+          s.dailyWins++;
+          if (s.lastDaily !== date) {
+            s.dailyStreak = s.lastDaily === yesterdayStr() ? s.dailyStreak + 1 : 1;
+            s.lastDaily = date;
+            s.bestDailyStreak = Math.max(s.bestDailyStreak, s.dailyStreak);
+          }
+        }
+      }
+      p.xp += Math.round(final / 10) + (won ? 120 : 25);
+    });
+  };
+
+  const afterPlay = (ng) => {
+    const need = needed(ng.board, ng.solution);
+    const burned = ng.hand.filter((c) => c.kind === "num" && need[c.value] === 0);
+    if (burned.length) {
+      ng.hand = ng.hand.filter((c) => !burned.includes(c));
+      ng.score += burned.length * 25;
+      toast(`All ${burned[0].value}s placed — burned ${burned.length} dead card${burned.length > 1 ? "s" : ""} (+${burned.length * 25})`);
+    }
+    if (ng.board.every((v) => v !== 0)) return endGame(ng, true);
+    if (ng.hand.length === 0) {
+      if (ng.called) {
+        const bonus = 500 * multFor(ng.combo);
+        ng.score += bonus;
+        ng.calls++;
+        sfx.call();
+        toast.success(`SONOKO! Hand cleared · +${bonus}`);
+      } else {
+        ng.combo = 0;
+        toast.error("Hand cleared without calling SONOKO! — combo lost");
+      }
+      ng.hand = Array.from({ length: 5 }, () => makeCard(rngRef.current, ng.board, ng.solution));
+    }
+    if (ng.hand.length !== 1) ng.called = false;
+    setG(ng);
+  };
+
+  const mistake = (card, i) => {
+    const ng = { ...g, hand: [...g.hand] };
+    ng.lives -= 1;
+    ng.combo = 0;
+    ng.mistakes++;
+    setErrCell(i);
+    setTimeout(() => setErrCell(null), 500);
+    sfx.error();
+    setSel(null);
+    setSelCell(null);
+    if (ng.lives <= 0) return endGame(ng, false, "Out of hearts");
+    ng.hand.push(makeCard(rngRef.current, ng.board, ng.solution));
+    ng.called = false;
+    toast.error(`A ${card.value} doesn't go there! −1 heart, +1 penalty card`);
+    if (ng.hand.length >= BUST) return endGame(ng, false, `Hand bust — ${BUST} cards`);
+    setG(ng);
+  };
+
+  const place = (card, i, wildColor) => {
+    const value = card.kind === "wild" ? g.solution[i] : card.value;
+    if (value !== g.solution[i]) return mistake(card, i);
+    const ng = { ...g, board: [...g.board], placedColor: { ...g.placedColor } };
+    const mult = multFor(g.combo);
+    const colorMatch = card.kind === "num" && card.color === g.cellColors[i];
+    const pts = (colorMatch ? 200 : 100) * mult;
+    ng.board[i] = value;
+    ng.placedColor[i] = card.kind === "wild" ? wildColor : card.color;
+    ng.hand = g.hand.filter((c) => c.id !== card.id);
+    ng.combo = g.combo + 1;
+    ng.maxCombo = Math.max(g.maxCombo, ng.combo);
+    ng.score += pts;
+    ng.cardsPlayed++;
+    if (colorMatch) ng.colorMatches++;
+    ng.top = card.kind === "wild" ? { ...card, color: wildColor } : card;
+    float(i, `+${pts}${colorMatch ? " ★" : ""}`, colorMatch ? COLOR_HEX[card.color] : "#FFCC00");
+    if (multFor(ng.combo) > mult) {
+      sfx.combo();
+      toast(`Combo x${multFor(ng.combo)}!`);
+    } else sfx.play();
+    setSel(null);
+    setSelCell(null);
+    setMsg(colorMatch ? "Color match! Double points" : "Nice! Keep the chain going");
+    afterPlay(ng);
+  };
+
+  const playReveal = (card) => {
+    const ng = { ...g, board: [...g.board], placedColor: { ...g.placedColor } };
+    const empties = shuffle(ng.board.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0)).slice(0, 2);
+    empties.forEach((i) => {
+      ng.board[i] = ng.solution[i];
+      ng.placedColor[i] = card.color;
+      float(i, "+75", COLOR_HEX[card.color]);
+    });
+    ng.score += empties.length * 75;
+    ng.hand = g.hand.filter((c) => c.id !== card.id);
+    ng.top = card;
+    ng.combo = g.combo + 1;
+    ng.maxCombo = Math.max(g.maxCombo, ng.combo);
+    ng.cardsPlayed++;
+    sfx.combo();
+    setSel(null);
+    setMsg(`Reveal filled ${empties.length} cells`);
+    afterPlay(ng);
+  };
+
+  const tapCard = (card) => {
+    if (g.status !== "playing") return;
+    if (!matches(card, g.top)) {
+      setShakeId(card.id);
+      setTimeout(() => setShakeId(null), 420);
+      sfx.error();
+      setMsg("That card doesn't match the top card's color or number");
+      return;
+    }
+    if (card.kind === "reveal") {
+      if (sel?.id === card.id) return playReveal(card);
+      setSel(card);
+      sfx.select();
+      return setMsg("Tap the Reveal card again to auto-fill 2 cells");
+    }
+    if (selCell !== null) return attempt(card, selCell);
+    if (sel?.id === card.id) {
+      setSel(null);
+      return setMsg("Pick a card that matches the top card");
+    }
+    setSel(card);
+    sfx.select();
+    setMsg(card.kind === "wild" ? "Wild! Tap any empty cell — it fills itself" : `Now tap the cell where this ${card.value} belongs`);
+  };
+
+  const attempt = (card, i) => {
+    if (card.kind === "wild") return setPendingWild({ card, i });
+    place(card, i);
+  };
+
+  const tapCell = (i) => {
+    if (g.status !== "playing" || g.board[i]) return;
+    if (sel && sel.kind !== "reveal") return attempt(sel, i);
+    setSelCell(selCell === i ? null : i);
+    setMsg("Cell selected — now tap a matching card");
+  };
+
+  const draw = () => {
+    if (g.status !== "playing") return;
+    const ng = { ...g, hand: [...g.hand, makeCard(rngRef.current, g.board, g.solution)], combo: 0, called: false };
+    sfx.draw();
+    setSel(null);
+    if (ng.hand.length >= BUST) return endGame(ng, false, `Hand bust — ${BUST} cards`);
+    setMsg(ng.hand.length >= 10 ? `Careful! ${BUST} cards = bust` : "Drew a card · combo reset");
+    setG(ng);
+  };
+
+  const callSonoko = () => {
+    if (g.status !== "playing") return;
+    if (g.hand.length !== 1) return toast("Call SONOKO! when you hold exactly 1 card");
+    if (g.called) return;
+    setG({ ...g, called: true });
+    sfx.call();
+    toast.success("SONOKO! Now play your last card for the bonus");
+  };
+
+  if (!g)
+    return (
+      <div className="min-h-[100dvh] bg-arcade">
+        <GameHeader title={daily ? "Daily" : "Sonoko"} accent={daily ? "#34C759" : "#FFCC00"} />
+        <Setup daily={daily} onStart={start} profile={profile} />
+      </div>
+    );
+
+  const mult = multFor(g.combo);
+  const canCall = g.hand.length === 1 && !g.called && g.status === "playing";
+
+  return (
+    <div className="min-h-[100dvh] bg-arcade flex flex-col" data-testid="sonoko-game">
+      <Confetti active={g.status === "won"} />
+      <GameHeader
+        title={daily ? "Daily" : "Sonoko"}
+        accent={daily ? "#34C759" : "#FFCC00"}
+        right={
+          <IconBtn testid="sonoko-restart-button" label="Restart" onClick={() => start(diff)}>
+            <RotateCcw className="w-4 h-4" />
+          </IconBtn>
+        }
+      />
+      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 grid lg:grid-cols-[minmax(0,1fr)_320px] gap-3 lg:gap-8 items-start">
+        <section className="sonoko-board-wrap space-y-2">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            <Stat icon={Flame} label="Score" value={g.score.toLocaleString()} testid="sonoko-score" color="#FFCC00" />
+            <Stat icon={Flame} label="Combo" value={`x${mult}`} testid="sonoko-combo" color="#FF3B30" />
+            <Stat icon={Clock} label="Time" value={fmtTime(seconds)} testid="sonoko-timer" color="#007AFF" />
+            <div className="glass rounded-2xl px-2 py-2 flex items-center justify-center gap-0.5" data-testid="sonoko-lives">
+              {[0, 1, 2].map((k) => (
+                <Heart
+                  key={k}
+                  className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 ${k < g.lives ? "text-[#FF3B30] fill-[#FF3B30]" : "text-slate-600 scale-75"}`}
+                />
+              ))}
+            </div>
+          </div>
+          <div data-testid="sonoko-board" className="grid grid-cols-6 aspect-square w-full rounded-2xl overflow-hidden border-2 border-white/25 bg-[#0F1424] shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+            {g.board.map((v, i) => {
+              const r = Math.floor(i / 6), c = i % 6;
+              const color = g.cellColors[i];
+              const target = !v && (sel ? sel.kind !== "reveal" : true) && g.status === "playing";
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  data-testid={`sonoko-cell-${r}-${c}`}
+                  onClick={() => tapCell(i)}
+                  style={{ background: TINT[color] }}
+                  className={`relative flex items-center justify-center border-white/[0.07] ${c < 5 ? "border-r" : ""} ${r < 5 ? "border-b" : ""} ${
+                    c === 2 ? "!border-r-2 !border-r-white/30" : ""
+                  } ${r === 1 || r === 3 ? "!border-b-2 !border-b-white/30" : ""} ${errCell === i ? "animate-shake !bg-[#FF3B30]/50" : ""} ${
+                    selCell === i ? "ring-4 ring-inset ring-white" : ""
+                  } ${target && sel ? "hover:bg-white/20" : ""} transition-colors duration-150`}
+                >
+                  {v ? (
+                    <motion.span
+                      initial={g.given[i] ? false : { scale: 0.2, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="font-mono font-extrabold text-2xl sm:text-4xl"
+                      style={{
+                        color: g.given[i] ? "#CBD5E1" : COLOR_HEX[g.placedColor[i]],
+                        textShadow: g.given[i] ? "none" : `0 0 18px ${COLOR_HEX[g.placedColor[i]]}99`,
+                      }}
+                    >
+                      {v}
+                    </motion.span>
+                  ) : (
+                    <span
+                      className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${sel && target ? "animate-pulse scale-150" : "opacity-70"} transition-transform duration-200`}
+                      style={{ background: COLOR_HEX[color] }}
+                    />
+                  )}
+                  <AnimatePresence>
+                    {floaters
+                      .filter((f) => f.i === i)
+                      .map((f) => (
+                        <motion.span
+                          key={f.id}
+                          initial={{ y: 0, opacity: 1 }}
+                          animate={{ y: -34, opacity: 0 }}
+                          transition={{ duration: 0.9 }}
+                          className="absolute z-10 font-mono font-black text-sm sm:text-base pointer-events-none whitespace-nowrap"
+                          style={{ color: f.color, textShadow: "0 2px 6px #000" }}
+                        >
+                          {f.text}
+                        </motion.span>
+                      ))}
+                  </AnimatePresence>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <aside className="w-full space-y-3">
+          <div className="glass rounded-3xl p-3 sm:p-4 flex items-center justify-center gap-4 sm:gap-6">
+            <div className="flex flex-col items-center gap-1">
+              <div className="relative">
+                <PlayingCard faceDown size="md" testid="draw-pile-button" onClick={draw} className="hover:-translate-y-1 transition-transform duration-150" />
+              </div>
+              <span className="eyebrow !text-[10px]">Draw</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <AnimatePresence mode="popLayout">
+                <motion.div key={g.top.id} initial={{ scale: 1.4, rotate: -14, opacity: 0 }} animate={{ scale: 1, rotate: 4, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
+                  <PlayingCard card={g.top} size="lg" testid="discard-pile-top-card" />
+                </motion.div>
+              </AnimatePresence>
+              <span className="eyebrow !text-[10px]">Top card</span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                data-testid="sonoko-call-button"
+                onClick={callSonoko}
+                className={`h-16 w-16 sm:h-20 sm:w-20 rounded-full font-display font-black italic uppercase text-sm sm:text-base leading-none border-4 transition-[transform,background-color] duration-200 active:scale-90 ${
+                  g.called
+                    ? "bg-[#34C759] border-white text-[#0B0F19]"
+                    : canCall
+                    ? "bg-[#FFCC00] border-white text-[#0B0F19] animate-glow scale-110"
+                    : "bg-white/5 border-white/15 text-slate-400"
+                }`}
+              >
+                <Megaphone className="w-5 h-5 mx-auto mb-0.5" />
+                {g.called ? "Called" : "Sonoko!"}
+              </button>
+              <span data-testid="sonoko-hand-count" className={`font-mono text-xs font-bold ${g.hand.length >= 10 ? "text-[#FF3B30]" : "text-slate-400"}`}>
+                Hand {g.hand.length}/{BUST}
+              </span>
+            </div>
+          </div>
+          <div className="hidden lg:block glass rounded-3xl p-4 space-y-3 text-sm">
+            <p className="eyebrow">Run stats</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ["Cards played", g.cardsPlayed],
+                ["Color matches", g.colorMatches],
+                ["Best combo", g.maxCombo],
+                ["Sonoko calls", g.calls],
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-xl bg-[#0B0F19]/70 p-3">
+                  <p className="text-slate-400 text-xs">{k}</p>
+                  <p className="font-mono text-xl font-extrabold">{v}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-slate-400 leading-relaxed">
+              <b className="text-white">Rules:</b> match color or number · place on the right cell · tint match = 2× · wrong cell = −1 heart · {BUST} cards = bust.
+            </p>
+          </div>
+        </aside>
+      </main>
+
+      <div className="sticky bottom-0 w-full z-20 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/95 to-transparent pt-3 pb-[max(env(safe-area-inset-bottom),8px)]">
+        <p data-testid="sonoko-hint" className="text-center text-xs sm:text-sm text-slate-300 px-4 font-medium min-h-[1.25rem]">
+          {g.status === "playing" ? msg : g.status === "won" ? "Grid complete!" : "Game over"}
+        </p>
+        <div className="max-w-3xl mx-auto">
+          <HandFan
+            cards={g.hand}
+            renderCard={(c, i) => (
+              <PlayingCard
+                card={c}
+                size="md"
+                testid={`player-hand-card-${i}`}
+                selected={sel?.id === c.id}
+                dim={g.status === "playing" && !matches(c, g.top)}
+                shake={shakeId === c.id}
+                onClick={() => tapCard(c)}
+                className="lg:hover:-translate-y-3"
+              />
+            )}
+          />
+        </div>
+        {g.status !== "playing" && result && !resultOpen && (
+          <div className="flex justify-center pb-2">
+            <button
+              type="button"
+              data-testid="sonoko-show-results-button"
+              onClick={() => setResultOpen(true)}
+              className="h-11 px-6 rounded-xl bg-[#FFCC00] text-[#0B0F19] font-black uppercase"
+            >
+              View results
+            </button>
+          </div>
+        )}
+      </div>
+
+      <ColorPicker
+        open={!!pendingWild}
+        testPrefix="wild-color"
+        onPick={(color) => {
+          const { card, i } = pendingWild;
+          setPendingWild(null);
+          place(card, i, color);
+        }}
+      />
+      {result && (
+        <ResultDialog
+          open={resultOpen}
+          onClose={() => setResultOpen(false)}
+          won={result.won}
+          title={result.won ? "Sonoko!" : "Busted"}
+          subtitle={result.subtitle}
+          score={result.final}
+          rows={result.rows}
+          mode={daily ? "daily" : "sonoko"}
+          date={date}
+          onPlayAgain={() => start(diff)}
+        />
+      )}
+    </div>
+  );
+}
