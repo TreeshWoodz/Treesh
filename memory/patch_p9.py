@@ -114,6 +114,14 @@ rep("const v=s.dy/Math.max(1,performance.now()-s.t0);\n    if(s.dy>110||(v>.5&&s
     "const _pa=s.pts&&s.pts[0], _pb=s.pts&&s.pts[s.pts.length-1]; const v=Math.max(s.dy/Math.max(1,performance.now()-s.t0),(_pa&&_pb&&_pb[0]>_pa[0])?(_pb[1]-_pa[1])/(_pb[0]-_pa[0]):0);\n    if(s.dy>100||(v>.35&&s.dy>22)){ p.style.transition='transform .18s cubic-bezier(.4,0,1,1)';",1,'flick2')
 
 exec(open('/app/memory/patch_p9j_reps.txt',encoding='utf-8').read())
+# ---- P9l: badges move to the Stats tab (with games + Starlites)
+rrep(r'\n    <div class="mt-6 pf-bdg\$\{pfBdgOpen\(\)\?\' is-open\':\'\'\}" data-testid="profile-badges-section">[^\n]*?</div></div>\n   </div></section>`; \}','\n   </div></section>`; }',1,'pfbdgmove')
+# ---- P9m: Users tab in search
+rep("${searchTabBtn('lyrics','Lyrics')}${searchTabBtn('settings','Settings')}</div>","${searchTabBtn('lyrics','Lyrics')}${searchTabBtn('users','Users')}${searchTabBtn('settings','Settings')}</div>",1,'srchusers')
+rep('function updateSearchTabs(){ ["songs","artists","lyrics","settings"].forEach(','function updateSearchTabs(){ ["songs","artists","lyrics","users","settings"].forEach(',1,'srchusers2')
+# ---- P9l: Support + Feedback in System & About
+rep('     </div>\n     <div class="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">\n       <div class="flex items-center gap-2 text-sm font-semibold"><i data-lucide="copyright"','     </div>\n     ${tsAboutRows()}\n     <div class="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">\n       <div class="flex items-center gap-2 text-sm font-semibold"><i data-lucide="copyright"',1,'tsabout')
+rep('<p class="mb-4 pl-11 text-sm text-white/50">Legal &amp; app information.</p>','<p class="mb-4 pl-11 text-sm text-white/50">Help, legal &amp; app information.</p>',1,'tsaboutsub')
 # ---- boot
 rep("  mkRenderChrome(); p7Init(); p8Init(); }\n","  mkRenderChrome(); p7Init(); p8Init(); p9Init(); }\n",1,'init')
 
@@ -122,7 +130,7 @@ if errs:
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js'])
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js'])
 js=js.replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
@@ -139,7 +147,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)
