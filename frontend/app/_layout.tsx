@@ -108,7 +108,7 @@ function AppStack() {
   const { ready, importChartFromCode } = useAppState();
   const [booting, setBooting] = useState(true);
   const path = usePathname();
-  const maxW = path === "/game" ? undefined : path === "/" ? 1240 : path === "/editor" ? 1180 : 980;
+  const maxW = path === "/game" ? undefined : path === "/" ? 1240 : path === "/editor" ? 1180 : path === "/library" || path === "/shop" ? 980 : 760;
 
   // Deep-link chart import: opening a shared vocotap:// link (or any URL carrying a VOCO1- code)
   // imports the chart and drops the player into the Customs library.

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { colors } from "@/src/game/theme";
 import { useStarlites } from "@/src/game/starlites";
 
@@ -32,9 +32,10 @@ function timeAgo(t: number) {
 
 export function StarlitesModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { stars } = useStarlites();
-  return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    <Pressable style={styles.scrim} onPress={onClose}>
-      <Pressable style={styles.sheet} onPress={() => {}}>
+  const desktop = useWindowDimensions().width >= 960;
+  return <Modal visible={visible} transparent animationType={desktop ? "fade" : "slide"} onRequestClose={onClose}>
+    <Pressable style={[styles.scrim, desktop && styles.scrimDesk]} onPress={onClose}>
+      <Pressable style={[styles.sheet, desktop && styles.sheetDesk]} onPress={() => {}}>
         <View style={styles.handle} />
         <LinearGradient colors={["rgba(147,40,255,0.14)", "transparent"]} style={styles.headerGlow} pointerEvents="none" />
         <View style={styles.header}>
@@ -66,7 +67,8 @@ export function StarlitesModal({ visible, onClose }: { visible: boolean; onClose
 }
 
 const styles = StyleSheet.create({
-  scrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" },
+  scrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" }, scrimDesk: { justifyContent: "center", alignItems: "center", padding: 24 },
+  sheetDesk: { width: "100%", maxWidth: 560, borderRadius: 30, maxHeight: "86%" },
   sheet: { maxHeight: "84%", paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20, backgroundColor: "#0F0F13", borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: "rgba(147,40,255,0.24)", overflow: "hidden" },
   handle: { width: 42, height: 4, borderRadius: 2, backgroundColor: "#3A3A42", alignSelf: "center", marginBottom: 8 },
   headerGlow: { position: "absolute", top: 0, left: 0, right: 0, height: 180 },

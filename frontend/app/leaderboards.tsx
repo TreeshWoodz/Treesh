@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader, SongCover } from "@/src/components/ui";
 import { useAppState } from "@/src/game/AppState";
@@ -31,7 +31,7 @@ export default function LeaderboardsScreen() {
   }, [scores]);
 
   return <View style={styles.root}>
-    <LinearGradient colors={[rgba(0.28), "#0B0912", "#08080A"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
+    {useWindowDimensions().width < 960 && <LinearGradient colors={[rgba(0.28), "#0B0912", "#08080A"]} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />}
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <ScreenHeader title="Leaderboards" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

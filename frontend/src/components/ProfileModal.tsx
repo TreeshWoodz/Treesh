@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeAchievements, TIER_COLOR } from "@/src/game/achievements";
 import { NeonBackground, SongCover } from "@/src/components/ui";
@@ -53,8 +53,9 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
 
   const stat = (label: string, value: string) => <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>;
 
-  return <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-    <View style={styles.root}>
+  const desktop = useWindowDimensions().width >= 960;
+  return <Modal visible={visible} animationType={desktop ? "fade" : "slide"} transparent onRequestClose={onClose}>
+    <View style={desktop ? styles.deskOverlay : styles.root}><View style={desktop ? styles.deskPanel : styles.fill}>
       <NeonBackground />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <View style={styles.head}>
@@ -110,11 +111,14 @@ export function ProfileModal({ visible, onClose }: { visible: boolean; onClose: 
         </ScrollView>
       </SafeAreaView>
     </View>
+    </View>
   </Modal>;
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.bg }, fill: { flex: 1 },
+  deskOverlay: { flex: 1, backgroundColor: "rgba(6,5,26,0.82)", alignItems: "center", justifyContent: "center", padding: 24 },
+  deskPanel: { width: "100%", maxWidth: 580, height: "90%", maxHeight: 880, borderRadius: 24, overflow: "hidden", backgroundColor: colors.bg, borderWidth: 1, borderColor: "rgba(0,229,255,0.3)" },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 12 },
   headTitle: { color: colors.text, fontSize: 15, letterSpacing: 3, fontFamily: fonts.arcadeBlack, ...textGlow(colors.cyan, 10) },
   lvCard: { padding: 14, borderRadius: 16, backgroundColor: "rgba(0,229,255,0.07)", borderWidth: 1, borderColor: "rgba(0,229,255,0.4)", gap: 10 },
