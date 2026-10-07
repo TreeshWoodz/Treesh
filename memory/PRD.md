@@ -52,3 +52,9 @@ Polish every mode, the character models and the UI. Turn Zen into a Sims-like mo
 - Verified Settings → Display & Accessibility → Platforms (Themed/Basic) and Background (Scenic/Basic) toggles; persisted in localStorage (frea_plat_style / frea_bg_style).
 - Verified 16 new action emotes + CPU flea reactions (actions2.js); player-triggered reaction radius widened in competitive modes. Debug: window.FreaReact.state().
 - Help FAQ mentions Basic Platforms/Background. Test report: /app/test_reports/iteration_7.json (95%, remaining items were test-harness false positives, verified manually).
+
+## Session update (fork 2)
+- fx2.js wired into build; window.FreaFx2 exposed
+- Flap Dash hover-until-first-flap; Cozy Home portrait wall décor (rail, fairy lights, shelf); mobile overlap verified fixed
+- Zen CPU fleas now do staged activities with props (TV+popcorn+glow+reactions, read, snack, nap, water plants, sing)
+- Verified: arcade modes, Ball & Hoop Studio (Neon/Beach), H&S Mansion/Haunted/Graveyard (iteration_9.json)

@@ -49,8 +49,9 @@ var FreaHoops3=(function(){
     gold:{name:'Golden',board:'onyx',frame:'#ffd23d',sq:'#ffd23d',rim:'#ffc23d',net:'rgba(255,226,140,',netW:1.8,chain:1,pole:'#ffd23d'},
     retro:{name:'Retro Wood',board:'wood',frame:'#f6e7c8',sq:'#c8321e',rim:'#d8321e',net:'rgba(246,234,210,',netW:2,pole:'#5a3a22'}};
   var RIMC={auto:null,orange:'#ff6a1f',red:'#e8322a',blue:'#2d8aff',pink:'#ff3db5',lime:'#9be22d',white:'#f4f6fb',black:'#2a2a36'};
-  function style(){var k=party()?'pro':(G('hoopstyle')||'pro');return STY[k]||STY.pro;}
-  function rimCol(S){var k=party()?'auto':(G('rimcol')||'auto');return RIMC[k]||S.rim;}
+  function LK(){try{return (window.FreaBalls&&FreaBalls.look())||{};}catch(e){return {};}}
+  function style(){var k=party()?'pro':(LK().style||'pro');return STY[k]||STY.pro;}
+  function rimCol(S){var k=party()?'auto':(LK().rim||'auto');return RIMC[k]||S.rim;}
   function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
   function board(h,x,y,r,S,blur){var bw=r*3.0,bh=r*1.85,bx=x-bw/2,by=y-bh+r*.32;
     /* pole + arm (from the top so it reads as a hanging arena hoop) */
@@ -99,7 +100,6 @@ var FreaHoops3=(function(){
       var at=list.findIndex(function(r){return r&&r.k==='balltype';});var add=[{head:'Hoop Look'},{k:'hoopstyle',l:'Hoop Style',sub:'Backboard, rim and net design',opts:Object.keys(STY).map(function(k){return [k,STY[k].name];}),def:'pro'},
         {k:'rimcol',l:'Rim Colour',opts:[['auto','Style'],['orange','Orange'],['red','Red'],['blue','Blue'],['pink','Pink'],['lime','Lime'],['white','White'],['black','Black']],def:'auto'}];
       if(at<0)list.push.apply(list,add);else list.splice.apply(list,[at+1,0].concat(add));SCH.hoops=list;FreaModeSettings.render();}catch(e){console.warn('hoops3 rows',e);}}
-  setTimeout(rows,0);setTimeout(rows,600);
   return {styles:STY,style:style};
 })();
 window.FreaHoops3=FreaHoops3;

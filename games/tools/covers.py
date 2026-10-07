@@ -1,3 +1,5 @@
+import os
+os.environ['PLAYWRIGHT_BROWSERS_PATH']='/root/pw'
 import asyncio,sys
 from playwright.async_api import async_playwright
 URL='http://localhost:3000/games/frea.html'

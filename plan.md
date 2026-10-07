@@ -403,3 +403,21 @@ Status: In Progress
 - Survival + Lava no longer end immediately on player death (spectate until resolution)
 - TODO: party end-of-match buttons, hoops flicker + proportions + detailed balls + rim customization + HORSE fix,
   invert fling setting, gameplay-screenshot mode covers, Zen House expansion + HUD, dock/Zen modal, regression test
+### Session progress (latest)
+- DONE: Hoops flicker root cause (negative modulo crash in crowd draw when camera shake made cx<0) fixed in hoops2.js
+- DONE: hoops3.js (proportional rim/board, 5 hoop styles, detailed ball), balls.js (Ball & Hoop Studio: 15 ball designs incl. Neon, hoop style + rim colour; moved out of Settings; beach ball redesign)
+- DONE: AI-generated covers (gpt-image-1, poster style) for all modes incl. new ones -> tiles.js FREA_ART
+- DONE: New modes in arcade3.js: Flap Dash (flappy), Crumb Run (transformice-like w/ shaman planks), Flea Cards (UNO-like table game)
+- DONE: Zen: spawn in front of flea, no more floating candle/heart/star/disco, orbs use real capture/burning orb renderer, build panel v2 (zenbuild.js/css), interactions staged (watch TV w/ popcorn, read book, nap, snack, music)
+- DONE: Flea House 2 (house2.js): daily goals, party, pet slime, photo mode, house rating, random events; Zen chooser redesign
+- DONE: Party end screen buttons (next/replay/settings/home), spectator mode, invert fling setting, Cozy Home responsive wall module, ground detail strips
+- NEXT: regression test via testing agent
+
+## Phase N+1 (this session) — Test-report fixes + polish (Status: COMPLETED — iteration_9 95%, FreaFx2 exposure fixed)
+- Reviewed iteration_8: arcade modes are registered fine (EXTRA_MODES is closure-scoped; verified via FreaModes.start('flappy'|'crumb'|'cards'))
+- fx2.js was NOT wired into build.py → added (landing dust, speed streaks, bonk rings)
+- Flap Dash: player hovers until first flap (≤2.6s) so you don't drop before reacting
+- Cozy Home: verified no bookshelf/window overlap on mobile (390/360/844 widths); tall portrait walls now get picture rail + fairy-light garland + floating shelf
+- Neon/Beach balls + rim/hoop in Ball & Hoop Studio verified (not in Settings)
+- Zen life: staging/props generalized to ALL fleas (stageF); CPU fleas now watch TV from couch/front with popcorn + TV glow + reaction emotes, read books at bookshelf, snack at fridge/stove/table, nap on bed with Zzz, water plants, sing at mic
+- H&S Mansion/Haunted/Graveyard verified loading with themed props

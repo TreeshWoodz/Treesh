@@ -372,6 +372,16 @@ var Arenas=(function(){
       /* wallpaper: soft stripes + tiny damask, painted once as a pattern */
       ctx.fillStyle=roomPaper();ctx.save();ctx.translate(-(cx*.3)%64,0);ctx.fillRect(-64,0,W+128,fy);ctx.restore();
       var top=fy-M.height;for(var x=ox;x<W;x+=mw)ctx.drawImage(M,x,top);
+      /* tall (portrait) walls: picture rail + fairy-light garland + floating shelves fill the empty upper wall */
+      if(top>150*k){var ry=Math.max(70*k,top-110*k);ctx.fillStyle='#d8a27a';ctx.fillRect(0,ry,W,7*k);ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(0,ry,W,2);ctx.fillStyle='rgba(80,40,20,.18)';ctx.fillRect(0,ry+7*k,W,3*k);
+        var seg=mw/4,gx0=ox;ctx.strokeStyle='rgba(70,50,40,.55)';ctx.lineWidth=1.4;for(var gx=gx0;gx<W+seg;gx+=seg){ctx.beginPath();ctx.moveTo(gx,ry+8*k);ctx.quadraticCurveTo(gx+seg/2,ry+60*k,gx+seg,ry+8*k);ctx.stroke();
+          for(var b=1;b<6;b++){var u=b/6,bx2=gx+seg*u,by2=ry+8*k+(1-Math.pow(2*u-1,2))*26*k+4*k,on=.55+.45*Math.sin(t*2.4+b*1.7+gx*.01),bc2=['#ffd23d','#ff7ab0','#8af0ff','#c6ff3d','#ffb03d'][(b+Math.round(gx/seg))%5];
+            var lg2=ctx.createRadialGradient(bx2,by2,0,bx2,by2,12*k);lg2.addColorStop(0,rgba(bc2,.55*on));lg2.addColorStop(1,rgba(bc2,0));ctx.fillStyle=lg2;ctx.fillRect(bx2-12*k,by2-12*k,24*k,24*k);ctx.fillStyle=bc2;ctx.beginPath();ctx.ellipse(bx2,by2,3*k,4.2*k,0,0,7);ctx.fill();}}
+        if(ry>260*k)for(var x3=ox;x3<W;x3+=mw){var shx=x3+mw*.36,shy=ry-120*k;ctx.fillStyle='#7a4a30';ctx.beginPath();ctx.roundRect(shx,shy,150*k,8*k,2);ctx.fill();ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(shx+6*k,shy+8*k,138*k,4*k);
+          ctx.fillStyle='#d8785a';ctx.beginPath();ctx.roundRect(shx+14*k,shy-18*k,22*k,18*k,3);ctx.fill();ctx.fillStyle='#4aa85a';for(var lv=0;lv<5;lv++){ctx.beginPath();ctx.ellipse(shx+25*k+(lv-2)*5*k,shy-22*k-Math.abs(lv-2)*-2*k,4*k,9*k,(lv-2)*.35,0,7);ctx.fill();}
+          ctx.strokeStyle='#4aa85a';ctx.lineWidth=2*k;ctx.beginPath();ctx.moveTo(shx+30*k,shy+4*k);ctx.quadraticCurveTo(shx+38*k,shy+30*k,shx+28*k,shy+52*k);ctx.stroke();
+          ['#3a7ad8','#e8b03a','#d8506a'].forEach(function(bcol,bi){ctx.fillStyle=bcol;ctx.fillRect(shx+56*k+bi*10*k,shy-(30-bi*3)*k,8*k,(30-bi*3)*k);});
+          var fl2=.75+.25*Math.sin(t*9+x3);ctx.fillStyle='#fff3e0';ctx.fillRect(shx+108*k,shy-20*k,10*k,20*k);var cg=ctx.createRadialGradient(shx+113*k,shy-26*k,0,shx+113*k,shy-26*k,26*k);cg.addColorStop(0,'rgba(255,200,110,'+(.5*fl2)+')');cg.addColorStop(1,'rgba(255,200,110,0)');ctx.fillStyle=cg;ctx.fillRect(shx+87*k,shy-52*k,52*k,52*k);ctx.fillStyle='#ffb03d';ctx.beginPath();ctx.ellipse(shx+113*k,shy-26*k,2.6*k,5*k*fl2,0,0,7);ctx.fill();}}
       /* live bits: drifting clouds in every window + glowing sconces + pendant lamps */
       for(var x2=ox;x2<W;x2+=mw){var wx=x2+M._win.x,wy=top+M._win.y,ww=M._win.w,wh=M._win.h;ctx.save();ctx.beginPath();ctx.rect(wx,wy,ww,wh);ctx.clip();ctx.fillStyle='rgba(255,255,255,.85)';
           for(var c=0;c<3;c++){var clx=wx+((c*ww*.45+t*9)%(ww+60))-30,cly=wy+wh*(.2+c*.22);ctx.beginPath();ctx.arc(clx,cly,10*k,0,7);ctx.arc(clx+13*k,cly+2,8*k,0,7);ctx.arc(clx-11*k,cly+3,7*k,0,7);ctx.fill();}ctx.restore();
