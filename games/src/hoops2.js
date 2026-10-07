@@ -10,7 +10,7 @@ var FreaHoops2=(function(){
   function T(){return Date.now();}
   function G(k){try{return FreaModeSettings.get('hoops',k);}catch(e){return null;}}
   function party(){try{return !!(window.FreaParty&&FreaParty.status());}catch(e){return false;}}
-  function fmt(){if(party())return 'timed';var f=G('format')||'timed';if(f==='horse'&&HOOPS_CFG.ball)return 'timed';return f;}
+  function fmt(){if(party())return 'timed';return G('format')||'timed';}
   function threeDist(){return Math.max(220,WORLD_W*0.26);}
   function add(f,n){f.matchPoints=(f.matchPoints||0)+n;if(f.team&&HOOPS_CFG.teamSize>0){if(f.team==='home')hoopScore.home+=n;else hoopScore.away+=n;}}
   function feed(t,c){try{FreaHud2.feed(t,c);}catch(e){}}
@@ -149,7 +149,7 @@ var FreaHoops2=(function(){
       var sg=ctx.createLinearGradient(sx,rigY,bx,fy);sg.addColorStop(0,'rgba(255,240,200,'+(a*1.8)+')');sg.addColorStop(1,'rgba(255,240,200,0)');ctx.fillStyle=sg;ctx.beginPath();ctx.moveTo(sx-6,rigY+10);ctx.lineTo(sx+6,rigY+10);ctx.lineTo(bx+90,fy);ctx.lineTo(bx-90,fy);ctx.closePath();ctx.fill();}ctx.restore();}
     /* jumbotron */
     var jw=Math.min(300,W*0.4),jh=86,jx=WORLD_W/2-cx*0.5-(WORLD_W/2)*0.5+W*0.25-jw/2+ (W/2-W*0.25),jy=Math.max(rigY+30,Math.min(150,H*0.19));jx=Math.max(10,Math.min(W-jw-10,W/2-jw/2-(cx-(WORLD_W-W)/2)*0.25));
-    S.jumbo=false;if(jy+jh<fy-170){S.jumbo=true;ctx.fillStyle='#05060f';ctx.beginPath();ctx.roundRect(jx,jy,jw,jh,12);ctx.fill();ctx.strokeStyle='rgba(45,226,255,.45)';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#1c2048';ctx.fillRect(jx+jw/2-2,rigY,4,jy-rigY);
+    var fyS=WORLD_H-60-(camera.by!=null?camera.by:cy),jOn=S._jOn?(jy+jh<fyS-150):(jy+jh<fyS-190);S._jOn=jOn;S.jumbo=false;if(jOn){S.jumbo=true;ctx.fillStyle='#05060f';ctx.beginPath();ctx.roundRect(jx,jy,jw,jh,12);ctx.fill();ctx.strokeStyle='rgba(45,226,255,.45)';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#1c2048';ctx.fillRect(jx+jw/2-2,rigY,4,jy-rigY);
       ctx.textAlign='center';ctx.textBaseline='middle';var F=fmt(),lbl=F==='to21'?'FIRST TO '+(G('win')||21):F==='horse'?'H-O-R-S-E':F==='three'?'3-PT CONTEST':'HOOPS';ctx.font="900 10px 'Orbitron',sans-serif";ctx.fillStyle='rgba(255,210,61,.9)';ctx.fillText(lbl,jx+jw/2,jy+14);
       var line='';if(F==='horse'&&S.horse&&S.horse.call){lbl='H-O-R-S-E · ROUND '+S.horse.round;ctx.font="900 10px 'Orbitron',sans-serif";ctx.fillStyle='#05060f';ctx.fillRect(jx+4,jy+5,jw-8,16);ctx.fillStyle='rgba(255,210,61,.9)';ctx.fillText(lbl,jx+jw/2,jy+14);line='CALLED: '+S.horse.call.l;}else if(HOOPS_CFG.teamSize>0&&!HOOPS_CFG.ball)line='HOME '+hoopScore.home+'  ·  '+hoopScore.away+' AWAY';else{var top=leader();line=(player?'YOU '+(player.matchPoints||0):'')+(top&&top!==player?'   ·   '+top.name.toUpperCase()+' '+(top.matchPoints||0):'');}
       ctx.font="900 "+(line.length>20?13:17)+"px 'Orbitron',sans-serif";ctx.fillStyle=F==='horse'?'#ffd23d':'#ffffff';ctx.fillText(line,jx+jw/2,jy+40);

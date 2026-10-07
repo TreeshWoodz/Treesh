@@ -88,13 +88,16 @@ var Party=(function(){
     var h='<div class="pp-head"><span class="pp-chip" data-testid="party-round-chip">PARTY · ROUND '+(P.idx+1)+' / '+P.rounds+'</span></div>'
       +'<div class="pp-rows" data-testid="party-standings">'+rows.map(function(e){var g=res.gain[e.n];return '<div class="pp-row'+(e.isP?' me':'')+'"><span class="pp-rk">'+(st.indexOf(e)+1)+'</span><i style="background:'+e.col+'"></i><span class="pp-nm">'+esc(e.n)+(e.isP?' (you)':'')+'</span>'+(g?'<em>+'+g+'</em>':'')+'<b>'+e.pts+'</b></div>';}).join('')+'</div>'
       +(nx?'<div class="pp-next" style="--mb:'+nx.col+'" data-testid="party-next-up"><span class="pn-k">NEXT UP</span><span class="pn-ico">'+nx.ico+'</span><span class="pn-t"><b>'+esc(nx.name)+'</b><small>'+esc(nx.goal)+'</small></span></div>':'<div class="pp-next final" data-testid="party-next-up"><span class="pn-k">FINAL ROUND DONE</span><span class="pn-t"><b>Who takes the crown?</b></span></div>')
-      +'<div class="pp-actions"><button class="btn gold" id="pp-next-btn" data-testid="party-next-round-btn">'+(last?'See Final Results':'Next Round')+'</button><button class="btn ghost" id="pp-end-btn" data-testid="party-end-btn">'+(last?'Back to Lobby':'End Party')+'</button></div>';
-    var d=document.createElement('div');d.id='party-panel';d.innerHTML=h;var stage=ev.querySelector('.end-actions')||el('again-btn');ev.insertBefore(d,stage);
+      +'<div class="pp-actions"><button class="btn gold" id="pp-next-btn" data-testid="party-next-round-btn">'+(last?'See Final Results':'Next Round')+'</button>'+(last?'':'<button class="btn ghost" id="pp-end-btn" data-testid="party-end-btn">End Party</button>')+'</div>'+'<div class="pp-sub"><button class="pp-mini" id="pp-replay-btn" data-testid="party-replay-round-btn">↻ Replay round</button><button class="pp-mini" id="pp-settings-btn" data-testid="party-settings-btn">⚙ Settings</button><button class="pp-mini" id="pp-lobby-btn" data-testid="party-lobby-exit-btn">⌂ Home</button></div>';
+    [].forEach.call(ev.querySelectorAll('.ev3-h'),function(hd){if(hd.nextElementSibling&&hd.nextElementSibling.classList.contains('ev3-aw'))hd.classList.add('pp-hide');});var d=document.createElement('div');d.id='party-panel';d.setAttribute('data-testid','party-panel');d.innerHTML=h;var stage=ev.querySelector('.end-actions')||el('again-btn');try{if(stage&&stage.parentNode)stage.parentNode.insertBefore(d,stage);else (ev.querySelector('.ev3-side')||ev).appendChild(d);}catch(x){(ev.querySelector('.ev3-side')||ev).appendChild(d);}
     var nb=el('pp-next-btn'),left=last?0:12;
     function lbl(){nb.textContent=last?'See Final Results':('Next Round ('+left+')');}
     if(!last){lbl();autoIv=setInterval(function(){if(!P||STATE!=='gameover'){clearInterval(autoIv);return;}left--;lbl();if(left<=0){clearInterval(autoIv);next();}},1000);}
     nb.onclick=function(){clearInterval(autoIv);if(last)final();else next();};
-    el('pp-end-btn').onclick=function(){clearInterval(autoIv);if(last){quit();toLobby();}else final();};}
+    var eb=el('pp-end-btn');if(eb)eb.onclick=function(){clearInterval(autoIv);final();};
+    el('pp-lobby-btn').onclick=function(){clearInterval(autoIv);quit();toLobby();};
+    el('pp-replay-btn').onclick=function(){clearInterval(autoIv);var r=P.results.pop();if(r){Object.keys(r.gain).forEach(function(n){var e=P.pts[n];if(!e)return;e.pts-=r.gain[n];if(r.gain[n]===3&&r.winner===n)e.wins--;});}round();};
+    el('pp-settings-btn').onclick=function(){clearInterval(autoIv);left=0;nb.textContent=last?'See Final Results':'Next Round';try{openSettings();}catch(x){}};}
   function next(){if(!P)return;P.idx++;if(P.idx>=P.rounds){final();return;}round();}
 
   /* ---------------- final podium ---------------- */

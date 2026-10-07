@@ -54,6 +54,6 @@ var FreaSpectate=(function(){
   /* in-world marker over the watched flea */
   var _de=drawEmotes;drawEmotes=function(){var r=_de.apply(this,arguments);if(lastOn&&tgt&&!(gameMode==='hns'&&tgt.hidden)){var t=performance.now()/1000,x=tgt.cx-camera.x,y=tgt.y-camera.y-30-Math.sin(t*4)*3;ctx.save();ctx.fillStyle=tgt.col||'#7af0ff';ctx.strokeStyle='rgba(10,8,22,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y+8);ctx.lineTo(x-7,y-3);ctx.lineTo(x+7,y-3);ctx.closePath();ctx.fill();ctx.stroke();
       ctx.globalAlpha=.55+Math.sin(t*5)*.25;ctx.strokeStyle=tgt.col||'#7af0ff';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(tgt.cx-camera.x,tgt.y+tgt.h-camera.y+1,tgt.w*.75,5,0,0,TAU);ctx.stroke();ctx.restore();}return r;};
-  return {target:function(){return cur();},next:function(){step(1);},prev:function(){step(-1);},active:function(){return lastOn;}};
+  return {cam:function(){return {x:camera.x,y:camera.y,W:W,H:H};},target:function(){return cur();},next:function(){step(1);},prev:function(){step(-1);},active:function(){return lastOn;}};
 })();
 window.FreaSpectate=FreaSpectate;

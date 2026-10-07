@@ -395,3 +395,11 @@ Build order: Copycat -> per-mode settings -> new modes -> CPU nav -> Hoops -> mo
 ## Phase: Emote Wheel + Platform Previews (Status: IN PROGRESS)
 - Planned modules: `emotewheel.js/.css`, `platpreview.js/.css`.
 - Requires `build.py` wiring + screenshot-based manual verification + follow-up `testing_agent_v3` run after implementation.
+
+## Phase N (current session) — H&S worlds, Spectator, Hoops fixes, Zen House 2, covers
+Status: In Progress
+- H&S: hnsmaps.js (Mansion/Haunted/Graveyard/Kitchen/Toy/Library), smoke morph, move-as-object (DONE, built)
+- Spectator: spectate.js/.css — camera follows alive flea after KO/found; ‹ › / ←→ / Q E / tap; Results skip
+- Survival + Lava no longer end immediately on player death (spectate until resolution)
+- TODO: party end-of-match buttons, hoops flicker + proportions + detailed balls + rim customization + HORSE fix,
+  invert fling setting, gameplay-screenshot mode covers, Zen House expansion + HUD, dock/Zen modal, regression test
