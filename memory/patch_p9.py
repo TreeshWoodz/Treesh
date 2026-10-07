@@ -113,6 +113,7 @@ rep("const d=Math.max(0,tc.clientY-S.y0); S.dy=d; S.p.style.transform=","const d
 rep("const v=s.dy/Math.max(1,performance.now()-s.t0);\n    if(s.dy>110||(v>.5&&s.dy>40)){ p.style.transition='transform .22s cubic-bezier(.4,0,1,1)';",
     "const _pa=s.pts&&s.pts[0], _pb=s.pts&&s.pts[s.pts.length-1]; const v=Math.max(s.dy/Math.max(1,performance.now()-s.t0),(_pa&&_pb&&_pb[0]>_pa[0])?(_pb[1]-_pa[1])/(_pb[0]-_pa[0]):0);\n    if(s.dy>100||(v>.35&&s.dy>22)){ p.style.transition='transform .18s cubic-bezier(.4,0,1,1)';",1,'flick2')
 
+exec(open('/app/memory/patch_p9j_reps.txt',encoding='utf-8').read())
 # ---- boot
 rep("  mkRenderChrome(); p7Init(); p8Init(); }\n","  mkRenderChrome(); p7Init(); p8Init(); p9Init(); }\n",1,'init')
 
@@ -121,7 +122,7 @@ if errs:
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js'])
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js'])
 js=js.replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
@@ -138,7 +139,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)

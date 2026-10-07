@@ -1,5 +1,5 @@
 /* ---------- P9g: Treesh accounts (Supabase). Optional sign in; the profile syncs, localStorage stays the cache ---------- */
-let _sbBusy=false, _sbAgain=false, _sbJustAuthed=false, _sbMode='signin', _sbEmail='', _sbSentTo='';
+let _sbBusy=false, _sbAgain=false, _sbJustAuthed=false, _sbMode='signin', _sbEmail='', _sbSentTo='', _sbUnameIn='';
 const SB_UNAME=/^[a-z0-9_.]{3,20}$/;
 const SB_HOME='https://treesh.app/', SB_CONFIRM_URL=(/(^|\.)treesh\.app$/.test(location.hostname)?SB_HOME:location.origin+location.pathname.replace(/[^/]*$/,''))+'confirm-signup';
 const SB_OFFLINE='You\u2019re offline. Changes will sync when you\u2019re back.';
@@ -58,6 +58,7 @@ async function sbPayload(u){ const ls={};
 async function sbPush(){ const u=sbUser(); if(!sb||!u) return;
   if(_sbBusy){ _sbAgain=true; return; }
   if(!state.profile){ _sbDirty=true; sbMeta({pending:true}); return; }
+  try{ const pu=localStorage.getItem('sbx_pending_uname'); if(pu){ if(!state.profile.username){ state.profile.username=pu; sbQuietSet('treesh_profile',state.profile); } localStorage.removeItem('sbx_pending_uname'); } }catch(e){}
   _sbBusy=true; _sbLast=Date.now(); _sbDirty=false; sbSet('saving'); let avErr=null;
   try{
     const p=Object.assign({},state.profile||{}); let av=p.avatarUrl||null;
@@ -164,10 +165,11 @@ function sbAuthHtml(){ const m=_sbMode, off=!sbReady();
   const tabs=(m==='signin'||m==='signup')?`<div class="sba-tabs" role="tablist">${[['signin','Sign in'],['signup','Create account']].map(([k,l])=>`<button type="button" role="tab" aria-selected="${m===k}" data-act="sb-auth-mode" data-val="${k}" data-testid="sb-auth-tab-${k}" class="sba-tab${m===k?' on':''}">${l}</button>`).join('')}</div>`:'';
   const email=m!=='newpw'?`<label class="sba-f"><span>Email</span><input id="sb-email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" value="${esc(_sbEmail)}" placeholder="you@example.com" data-testid="sb-auth-email"></label>`:'';
   const pw=m!=='reset'?`<label class="sba-f"><span>${m==='newpw'?'New password':'Password'}</span><span class="sba-pw"><input id="sb-pw" type="password" autocomplete="${m==='signin'?'current-password':'new-password'}" placeholder="${m==='signin'?'Your password':'At least 6 characters'}" data-testid="sb-auth-password"><button type="button" data-act="sb-pw-toggle" aria-label="Show password" data-testid="sb-auth-pw-toggle"><i data-lucide="eye"></i></button></span></label>`:'';
+  const unf=m==='signup'?`<label class="sba-f"><span>Username</span><span class="sba-un"><b>@</b><input id="sb-uname" maxlength="20" autocapitalize="none" autocomplete="username" spellcheck="false" value="${esc(_sbUnameIn||((state.profile&&state.profile.username)||''))}" placeholder="yourname" data-testid="sb-auth-username"><i class="sba-un-st" id="sb-uname-st" aria-hidden="true"></i></span><span id="sb-uname-hint" class="sba-uhint" data-testid="sb-auth-username-hint">3\u201320 letters, numbers, _ or .</span></label>`:'';
   const cta={signin:'Sign in',signup:'Create account',reset:'Send reset link',newpw:'Update password'}[m];
   const foot=m==='signin'?`<button type="button" data-act="sb-auth-mode" data-val="reset" data-testid="sb-auth-forgot" class="sba-link">Forgot password?</button>`:m==='reset'?`<button type="button" data-act="sb-auth-mode" data-val="signin" data-testid="sb-auth-back" class="sba-link">Back to sign in</button>`:'';
-  return `<div class="sba-modal" data-testid="sb-auth" data-mode="${m}">${hero(m==='newpw'||m==='reset'?'key-round':m==='signup'?'sparkles':'user-round')}${banner}${tabs}<form data-sb-form class="sba-form" novalidate>${email}${pw}<p id="sb-msg" class="sba-msg" role="status" aria-live="polite" data-testid="sb-auth-msg"></p><button type="submit" data-testid="sb-auth-submit" class="sba-btn is-primary lg press"${off?' disabled':''}><i data-lucide="loader-circle" class="sba-spin"></i><span>${cta}</span></button></form>${foot?`<div class="sba-foot">${foot}</div>`:''}<p class="sba-fine">Your profile, playlists and settings sync every 30 seconds. Custom music always stays on this device.</p></div>`; }
-function sbAuthRender(mode){ if(mode) _sbMode=mode; const em=document.getElementById('sb-email'); if(em) _sbEmail=em.value.trim();
+  return `<div class="sba-modal" data-testid="sb-auth" data-mode="${m}">${hero(m==='newpw'||m==='reset'?'key-round':m==='signup'?'sparkles':'user-round')}${banner}${tabs}<form data-sb-form class="sba-form" novalidate>${unf}${email}${pw}<p id="sb-msg" class="sba-msg" role="status" aria-live="polite" data-testid="sb-auth-msg"></p><button type="submit" data-testid="sb-auth-submit" class="sba-btn is-primary lg press"${off?' disabled':''}><i data-lucide="loader-circle" class="sba-spin"></i><span>${cta}</span></button></form>${foot?`<div class="sba-foot">${foot}</div>`:''}<p class="sba-fine">Your profile, playlists and settings sync every 30 seconds. Custom music always stays on this device.</p></div>`; }
+function sbAuthRender(mode){ if(mode) _sbMode=mode; const em=document.getElementById('sb-email'); if(em) _sbEmail=em.value.trim(); const un=document.getElementById('sb-uname'); if(un) _sbUnameIn=un.value.trim();
   const open=document.querySelector('#modal2 .sba-modal'); if(open){ const t=document.createElement('div'); t.innerHTML=sbAuthHtml(); open.replaceWith(t.firstElementChild); } else { $("#modal2").innerHTML=modal2Wrap(sbAuthHtml(),'sb-auth-modal'); syncScrollLock(); }
   icons(); if(window.innerWidth>=640){ const f=document.getElementById(_sbMode==='newpw'?'sb-pw':'sb-email'); if(f) setTimeout(()=>{ try{ f.focus(); }catch(e){} },80); } }
 function sbMsg(kind,text){ const el=document.getElementById('sb-msg'); if(!el) return; el.textContent=text||''; el.className='sba-msg'+(kind==='err'?' is-err':kind==='ok'?' is-ok':''); }
@@ -177,10 +179,15 @@ async function sbAuthSubmit(){ const m=_sbMode; const em=((document.getElementBy
   if(m!=='newpw'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return sbMsg('err','Enter a valid email address.');
   if(m!=='reset'&&pw.length<6) return sbMsg('err','Passwords need at least 6 characters.');
   if(!navigator.onLine) return sbMsg('err','You\u2019re offline. Connect to the internet and try again.');
+  let uname='';
+  if(m==='signup'){ uname=String((document.getElementById('sb-uname')||{}).value||'').trim().replace(/^@+/,'').toLowerCase(); _sbUnameIn=uname;
+    if(!uname) return sbMsg('err','Pick a username for your account.'); if(!SB_UNAME.test(uname)) return sbMsg('err','Usernames are 3\u201320 letters, numbers, _ or .');
+    sbFormBusy(true); sbMsg('','Checking @'+uname+'\u2026'); const av=await sbUnameAvail(uname); sbFormBusy(false); unHint('sb-uname',av,uname);
+    if(av==='taken') return sbMsg('err','@'+uname+' is already taken. Try another one.'); }
   sbMsg('',''); sbFormBusy(true);
   try{
     if(m==='signin'){ _sbJustAuthed=true; const {error}=await sb.auth.signInWithPassword({email:em,password:pw}); if(error){ _sbJustAuthed=false; throw error; } }
-    else if(m==='signup'){ try{ localStorage.setItem('sbx_last_email',em); }catch(e){} _sbJustAuthed=true; const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{emailRedirectTo:SB_CONFIRM_URL}}); if(error){ _sbJustAuthed=false; throw error; } if(!data.session){ _sbJustAuthed=false; _sbSentTo=em; sbAuthRender('sent'); return; } }
+    else if(m==='signup'){ try{ localStorage.setItem('sbx_last_email',em); }catch(e){} _sbJustAuthed=true; const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{emailRedirectTo:SB_CONFIRM_URL}}); if(error){ _sbJustAuthed=false; throw error; } if(uname){ if(state.profile){ state.profile.username=uname; LS.set('treesh_profile',state.profile); } else { try{ localStorage.setItem('sbx_pending_uname',uname); }catch(e){} } } if(!data.session){ _sbJustAuthed=false; _sbSentTo=em; sbAuthRender('sent'); return; } }
     else if(m==='reset'){ const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:sbRedirect()}); if(error) throw error; _sbSentTo=em; sbAuthRender('sent-reset'); return; }
     else if(m==='newpw'){ const {error}=await sb.auth.updateUser({password:pw}); if(error) throw error; closeModal2(); toast('Password updated','Use it next time you sign in'); }
   }catch(e){ sbMsg('err',sbErrText(e)); }

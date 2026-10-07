@@ -87,3 +87,11 @@ begin
 end; $$;
 revoke all on function public.delete_user() from public, anon;
 grant execute on function public.delete_user() to authenticated;
+
+-- 7) username_available(name): lets the app check if an @username is free (no profile data exposed)
+create or replace function public.username_available(name text)
+returns boolean language sql security definer set search_path = public stable as $$
+  select not exists (select 1 from public.profiles where username = lower(trim(name)) and id is distinct from auth.uid());
+$$;
+revoke all on function public.username_available(text) from public;
+grant execute on function public.username_available(text) to anon, authenticated;
