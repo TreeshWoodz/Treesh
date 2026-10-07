@@ -1,0 +1,36 @@
+{
+  "summary": "First iteration: ran full backend + frontend review of Ebonics (Treesh Games). 9/9 backend pytest cases pass against public URL covering health, leaderboard CRUD (upsert with $max score), mode & username validation, AI /ai/questions (returns valid 4-option questions), and /flip/judge (AI verdict + score). Frontend: / correctly redirects to /games/ebonics; header shows EBONICS title and starlites-balance=150 and daily-streak-badge; bottom nav routes to Modes/Lexicon/Shop/Trophies/Leaderboard(labelled 'RANKS')/Lobby. Daily reward grants +60 (balance 150->210), button disabled afterwards, streak badge shows 1. State persists after reload (ebonics_save_v1). Say Less: 10-question flow with 4 quiz-option-button, all 4 power-ups work and decrement, results-screen renders with result-score and result-starlites, header balance updates and 'First Word' achievement unlocks. Shop: buy-theme-btn-cookout deducts 200 Starlites and switches data-theme to cookout; buy-powerup-btn-fifty increments powerup-owned-fifty from 1 to 2. Leaderboard: username save + 7 mode tabs + rows render. Lexicon: 50 cards, search 'finna' filters to 1, 4 filter buttons present. Trophies: 19 achievements rendered, first_word data-unlocked=true, 7 mode trophy tracks. AI Remix: loaded questions in ~17s. Flip It: prompt/input/submit/verdict/score/next all work; verdict returned by Claude in ~4s with feedback & model answer.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/leaderboard", "issue": "No DELETE endpoint, so TEST_* seed rows left in leaderboard collection cannot be cleaned up by tests (acceptable for MVP but worth noting)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Bottom nav", "issues": ["Leaderboard tab is labelled 'RANKS' in the bottom nav even though the testid is nav-leaderboard-btn and the page it opens is /leaderboard — the label could be misleading to users expecting a Ranks/Rank-progression page."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_ebonics_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional UX: rename bottom nav label 'RANKS' to 'LEADERS' or 'BOARD' to match the destination page.",
+    "Optional: expose a cleanup/DELETE route (admin-only) for TEST_ leaderboard entries to make future automated testing idempotent."
+  ],
+  "critical_code_review_comments": [
+    "server.py returns Mongo docs via LeaderboardEntry.from_mongo which maps _id to id (PyObjectId) and populate_by_name — good, no raw _id leaks.",
+    "AI endpoints raise 503 on parse failure; frontend AI Remix retry path should be verified by main agent — the API itself is robust.",
+    "parse_json uses a greedy regex r'[\\[{].*[\\]}]' which could fail on nested text with trailing non-JSON; today it works but a stricter balanced-brace parse would be safer long term.",
+    "store.js daily reward formula is 50 + min(count,7)*10 which gives 60 on day 1 — matches spec. Good.",
+    "finishRound persists Starlites via localStorage; also posts to /api/leaderboard only if username set — correct behaviour, but note scores <=0 silently skipped."
+  ],
+  "updated_files": ["/app/backend/tests/test_ebonics_api.py"],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% of flows exercised"},
+  "test_credentials": "None required – guest play",
+  "seed_data_creation": "A few TEST_* leaderboard rows (TEST_user, TEST_max, TEST_PLAYER) left in Mongo across say_less mode — no delete endpoint available.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Flows not deeply exercised (just presence): Finish-the-Phrase, Real-or-Cap (Real/Cap buttons), 60s Speed Run (global timer), Daily Cookout 2x + locked state (would need to actually finish it which also sets dailyDone and locks modes). Lexicon learn-term-{i} marking was not clicked. All backend endpoints covered. Public URL: https://trophy-hustle.preview.emergentagent.com .",
+  "rca of the issue": "No bugs detected in this iteration."
+}

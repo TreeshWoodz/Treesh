@@ -50,7 +50,7 @@ export const Results = ({ mode, title, score, correct, total, bestCombo, reward,
         <Link data-testid="results-modes-btn" to={`${BASE}/modes`} className="lift flex items-center gap-2 px-6 py-3 rounded-full border border-[var(--eb-border)] font-bold"><Trophy className="w-4 h-4" />Other modes</Link>
         <Link data-testid="results-lobby-btn" to={BASE} className="lift flex items-center gap-2 px-6 py-3 rounded-full border border-[var(--eb-border)] font-bold"><Home className="w-4 h-4" />Lobby</Link>
       </div>
-      {!state.username && <p className="text-xs text-slate-400 mt-4">Set a username on the <Link className="underline text-[var(--eb-gold)]" to={`${BASE}/leaderboard`}>Ranks</Link> page to post your scores.</p>}
+      {!state.username && <p className="text-xs text-slate-400 mt-4">Set a username on the <Link className="underline text-[var(--eb-gold)]" to={`${BASE}/leaderboard`}>Leaders</Link> page to post your scores.</p>}
     </motion.div>
   );
 };

@@ -10,7 +10,7 @@ const NAV = [
   { to: "lexicon", label: "Lexicon", icon: BookOpen, id: "lexicon" },
   { to: "shop", label: "Shop", icon: ShoppingBag, id: "shop" },
   { to: "trophies", label: "Trophies", icon: Trophy, id: "trophies" },
-  { to: "leaderboard", label: "Ranks", icon: BarChart3, id: "leaderboard" },
+  { to: "leaderboard", label: "Leaders", icon: BarChart3, id: "leaderboard" },
 ];
 
 const Header = () => {
