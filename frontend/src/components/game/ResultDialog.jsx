@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { submitScore } from "@/lib/api";
 import { loadProfile, updateProfile } from "@/lib/progress";
 
-export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows = [], mode, date, onPlayAgain }) => {
+export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows = [], mode, date, onPlayAgain, allowSubmit = true, extra, playAgainLabel = "Play again" }) => {
   const [name, setName] = useState("");
   const [rank, setRank] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -61,7 +61,8 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
             ))}
           </div>
         </div>
-        {score > 0 && (
+        {extra}
+        {allowSubmit && score > 0 && (
           <div className="space-y-2">
             {rank ? (
               <p data-testid="result-rank" className="text-center font-display text-2xl font-black uppercase text-[#34C759]">
@@ -105,7 +106,7 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
             onClick={onPlayAgain}
             className="h-12 rounded-xl bg-[#FFCC00] text-[#0B0F19] font-black uppercase flex items-center justify-center gap-2 transition-transform duration-150 hover:scale-[1.02] active:scale-95"
           >
-            <RotateCcw className="w-4 h-4" /> Play again
+            <RotateCcw className="w-4 h-4" /> {playAgainLabel}
           </button>
         </div>
       </DialogContent>

@@ -56,6 +56,13 @@ export default function HowToPlay() {
           </div>
         </div>
         <Link
+          to="/play/tutorial"
+          data-testid="how-to-play-tutorial-button"
+          className="mt-10 mr-3 inline-flex h-14 px-8 rounded-2xl glass font-display text-2xl font-black uppercase italic items-center transition-colors duration-150 hover:bg-[#1E2640]"
+        >
+          Interactive tutorial
+        </Link>
+        <Link
           to="/play/sonoko"
           data-testid="how-to-play-start-button"
           className="mt-10 inline-flex h-14 px-8 rounded-2xl bg-[#FFCC00] text-[#0B0F19] font-display text-2xl font-black uppercase italic items-center transition-transform duration-150 hover:-translate-y-0.5"

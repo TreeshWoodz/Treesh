@@ -1,4 +1,5 @@
 import { Ban, Repeat, Sparkles, Eye } from "lucide-react";
+import { useSkin } from "@/lib/cosmetics";
 
 export const COLOR_HEX = { red: "#FF3B30", blue: "#007AFF", green: "#34C759", yellow: "#FFCC00" };
 
@@ -19,21 +20,22 @@ function face(card) {
   return { big: card.value, small: card.value };
 }
 
-const CardBack = ({ size, className = "", testid, onClick, style }) => (
+const CardBack = ({ size, className = "", testid, onClick, style, skin }) => (
   <button
     type="button"
     data-testid={testid}
     onClick={onClick}
     style={style}
-    className={`card-back relative flex items-center justify-center shrink-0 border-white/90 shadow-[0_8px_20px_rgba(0,0,0,0.45)] ${SIZES[size]} ${className}`}
+    className={`card-back skin-${skin} relative flex items-center justify-center shrink-0 border-white/90 shadow-[0_8px_20px_rgba(0,0,0,0.45)] ${SIZES[size]} ${className}`}
   >
-    <span className="absolute inset-[12%] rounded-[50%] bg-[#FF3B30] -rotate-[28deg]" />
+    <span className="card-oval absolute inset-[12%] rounded-[50%] bg-[#FF3B30] -rotate-[28deg]" />
     <span className="relative font-display font-black italic text-white tracking-tight text-[0.45em] sm:text-[0.5em]">SONOKO</span>
   </button>
 );
 
 export const PlayingCard = ({ card, size = "md", selected, dim, faceDown, onClick, testid, className = "", style, shake }) => {
-  if (faceDown) return <CardBack size={size} className={className} testid={testid} onClick={onClick} style={style} />;
+  const skin = useSkin();
+  if (faceDown) return <CardBack size={size} className={className} testid={testid} onClick={onClick} style={style} skin={skin} />;
   const isWildBg = card.color === "wild";
   const hex = COLOR_HEX[card.color];
   const { big, small } = face(card);
@@ -42,15 +44,15 @@ export const PlayingCard = ({ card, size = "md", selected, dim, faceDown, onClic
       type="button"
       data-testid={testid}
       onClick={onClick}
-      style={{ ...(isWildBg ? {} : { background: hex }), ...style }}
-      className={`relative flex items-center justify-center shrink-0 border-white select-none shadow-[0_10px_24px_rgba(0,0,0,0.45)] transition-[transform,opacity,box-shadow] duration-200 ${
+      style={{ ...(isWildBg ? {} : { background: hex }), "--card": hex || "#ffffff", ...style }}
+      className={`card-face skin-${skin} relative flex items-center justify-center shrink-0 border-white select-none shadow-[0_10px_24px_rgba(0,0,0,0.45)] transition-[transform,opacity,box-shadow] duration-200 ${
         isWildBg ? "wild-bg" : ""
       } ${SIZES[size]} ${selected ? "-translate-y-5 ring-4 ring-white/70 shadow-[0_0_30px_rgba(255,255,255,0.45)]" : ""} ${
         dim ? "opacity-50 saturate-[0.6]" : ""
       } ${shake ? "animate-shake" : ""} ${className}`}
     >
       <span
-        className={`absolute inset-[11%] rounded-[50%] -rotate-[28deg] ${card.kind === "wild" && !isWildBg ? "wild-bg" : "bg-[#0B0F19]"}`}
+        className={`card-oval absolute inset-[11%] rounded-[50%] -rotate-[28deg] ${card.kind === "wild" && !isWildBg ? "wild-bg" : "bg-[#0B0F19]"}`}
       />
       <span
         className="relative font-mono font-black leading-none flex items-center"

@@ -1,56 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Heart, RotateCcw, Flame, Clock, CalendarDays, Megaphone } from "lucide-react";
+import { Heart, RotateCcw, Flame, Clock, CalendarDays, Megaphone, GraduationCap } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { GameHeader, IconBtn } from "@/components/game/GameHeader";
 import { PlayingCard, COLOR_HEX } from "@/components/game/PlayingCard";
 import { HandFan } from "@/components/game/HandFan";
 import { ColorPicker } from "@/components/game/ColorPicker";
 import { ResultDialog } from "@/components/game/ResultDialog";
 import { Confetti } from "@/components/game/Confetti";
+import { SonokoBoard } from "@/components/game/SonokoBoard";
+import { DailyShare } from "@/components/game/DailyShare";
+import { COLORS, BUST, nextId, needed, multFor, makeCard, matches } from "@/lib/sonoko";
+import { buildTutorial, tutorialSteps } from "@/lib/tutorial";
 import { generateSudoku, makeRng, seedFromString, shuffle } from "@/lib/sudoku";
-import { commitProgress, todayStr, yesterdayStr, fmtTime, useProfile } from "@/lib/progress";
+import { commitProgress, todayStr, yesterdayStr, fmtTime, useProfile, loadProfile } from "@/lib/progress";
 import { sfx } from "@/lib/sound";
 
-const COLORS = ["red", "blue", "green", "yellow"];
 const HOLES = { easy: 14, normal: 18, hard: 22 };
-const BUST = 12;
-const TINT = {
-  red: "rgba(255,59,48,0.15)",
-  blue: "rgba(0,122,255,0.17)",
-  green: "rgba(52,199,89,0.15)",
-  yellow: "rgba(255,204,0,0.13)",
-};
-
-let uid = 0;
-const needed = (board, sol) => {
-  const c = Array(7).fill(0);
-  board.forEach((v, i) => !v && c[sol[i]]++);
-  return c;
-};
-const multFor = (combo) => Math.min(5, 1 + Math.floor(combo / 2));
-
-function makeCard(rng, board, sol) {
-  const need = needed(board, sol);
-  const total = need.reduce((x, y) => x + y, 0);
-  const color = COLORS[Math.floor(rng() * 4)];
-  const r = rng();
-  if (r < 0.07 || total === 0) return { id: ++uid, kind: "wild", color: "wild" };
-  if (r < 0.12) return { id: ++uid, kind: "reveal", color };
-  let pick = rng() * total;
-  let v = 1;
-  for (; v < 6; v++) {
-    pick -= need[v];
-    if (pick < 0) break;
-  }
-  return { id: ++uid, kind: "num", color, value: v };
-}
-
-const matches = (card, top) =>
-  card.kind === "wild" ||
-  card.color === top.color ||
-  (card.kind === "num" && top.kind === "num" && card.value === top.value) ||
-  (card.kind === "reveal" && top.kind === "reveal");
 
 const Setup = ({ daily, onStart, profile }) => (
   <div className="w-full max-w-xl mx-auto px-4 py-6 rise">
@@ -106,6 +73,19 @@ const Setup = ({ daily, onStart, profile }) => (
             </span>
           </button>
         ))}
+        <Link
+          to="/play/tutorial"
+          data-testid="sonoko-tutorial-link"
+          className="glass rounded-2xl p-4 flex items-center gap-3 text-slate-300 transition-colors duration-150 hover:bg-[#1E2640]"
+        >
+          <GraduationCap className="w-6 h-6 text-[#FFCC00]" /> New here? Take the 60-second tutorial
+        </Link>
+      </div>
+    )}
+    {daily && profile.lastDailyResult?.date === todayStr() && (
+      <div className="mt-4">
+        <p className="eyebrow mb-2">Your latest result today</p>
+        <DailyShare result={profile.lastDailyResult} />
       </div>
     )}
   </div>
@@ -121,8 +101,12 @@ const Stat = ({ icon: Icon, label, value, testid, color = "#fff" }) => (
   </div>
 );
 
-export default function SonokoGame({ daily = false }) {
+export default function SonokoGame({ daily = false, tutorial = false }) {
   const profile = useProfile();
+  const navigate = useNavigate();
+  const [tut, setTut] = useState(null);
+  const [coachShake, setCoachShake] = useState(false);
+  const tutStep = tut && tut.step < tut.steps.length ? tut.steps[tut.step] : null;
   const date = todayStr();
   const [diff, setDiff] = useState(null);
   const [g, setG] = useState(null);
@@ -138,7 +122,53 @@ export default function SonokoGame({ daily = false }) {
   const [floaters, setFloaters] = useState([]);
   const [msg, setMsg] = useState("");
 
+  const finishTutorial = () =>
+    commitProgress((s, p) => {
+      s.tutorialDone = 1;
+      p.tutorialDone = true;
+    });
+
+  const advance = () => {
+    if (!tut) return;
+    const step = tut.step + 1;
+    setTut({ ...tut, step });
+    if (step >= tut.steps.length) finishTutorial();
+  };
+
+  const nudge = () => {
+    sfx.error();
+    setCoachShake(true);
+    setTimeout(() => setCoachShake(false), 420);
+  };
+
+  const skipTutorial = () => {
+    finishTutorial();
+    navigate("/play/sonoko");
+  };
+
+  const startTutorial = () => {
+    const T = buildTutorial();
+    rngRef.current = T.rng;
+    setG({
+      solution: T.solution, board: T.puzzle.slice(), cellColors: T.cellColors, hand: T.hand, top: T.top,
+      given: T.puzzle.map((v) => v !== 0), placedColor: {}, lives: 3, score: 0, combo: 0, maxCombo: 0,
+      called: false, status: "playing", colorMatches: 0, cardsPlayed: 0, calls: 0, mistakes: 0,
+    });
+    setTut({ T, steps: tutorialSteps(T), step: 0 });
+    setDiff("easy");
+    setSel(null);
+    setSelCell(null);
+    setSeconds(0);
+    setResult(null);
+    setResultOpen(false);
+  };
+
+  useEffect(() => {
+    if (tutorial) startTutorial();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const start = (d) => {
+    if (tutorial) return startTutorial();
     const seed = daily ? `sonoko-daily-${date}` : `${Date.now()}-${Math.random()}`;
     const rng = makeRng(seedFromString(seed));
     rngRef.current = rng;
@@ -146,7 +176,7 @@ export default function SonokoGame({ daily = false }) {
     const cellColors = puzzle.map(() => COLORS[Math.floor(rng() * 4)]);
     const board = puzzle.slice();
     const hand = Array.from({ length: 5 }, () => makeCard(rng, board, solution));
-    const top = { id: ++uid, kind: "num", color: COLORS[Math.floor(rng() * 4)], value: 1 + Math.floor(rng() * 6) };
+    const top = { id: nextId(), kind: "num", color: COLORS[Math.floor(rng() * 4)], value: 1 + Math.floor(rng() * 6) };
     setG({
       solution, board, cellColors, hand, top, given: puzzle.map((v) => v !== 0), placedColor: {},
       lives: 3, score: 0, combo: 0, maxCombo: 0, called: false, status: "playing",
@@ -168,7 +198,7 @@ export default function SonokoGame({ daily = false }) {
   }, [g?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const float = (i, text, color = "#FFCC00") => {
-    const id = ++uid;
+    const id = nextId();
     setFloaters((f) => [...f, { id, i, text, color }]);
     setTimeout(() => setFloaters((f) => f.filter((x) => x.id !== id)), 900);
   };
@@ -180,8 +210,15 @@ export default function SonokoGame({ daily = false }) {
     const final = ng.score + timeBonus + lifeBonus;
     setG(ng);
     setSel(null);
+    const share = daily && {
+      date, score: final, won, time: fmtTime(seconds), lives: ng.lives,
+      streak: won && loadProfile().stats.lastDaily !== date
+        ? (loadProfile().stats.lastDaily === yesterdayStr() ? loadProfile().stats.dailyStreak + 1 : 1)
+        : loadProfile().stats.dailyStreak,
+      grid: ng.board.map((v, i) => (ng.given[i] ? "given" : v ? ng.placedColor[i] : "empty")),
+    };
     setResult({
-      won, final,
+      won, final, share,
       subtitle: won ? `Solved in ${fmtTime(seconds)}` : reason,
       rows: [
         ["Card points", ng.score.toLocaleString()],
@@ -193,7 +230,14 @@ export default function SonokoGame({ daily = false }) {
     });
     setTimeout(() => setResultOpen(true), won ? 700 : 400);
     won ? sfx.win() : sfx.lose();
+    if (tutorial)
+      return commitProgress((s, p) => {
+        s.tutorialDone = 1;
+        p.tutorialDone = true;
+        p.xp += 150;
+      });
     commitProgress((s, p) => {
+      if (share) p.lastDailyResult = share;
       s.modesPlayed[daily ? "daily" : "sonoko"] = 1;
       s.sonokoPlayed++;
       s.cardsPlayed += ng.cardsPlayed;
@@ -286,6 +330,7 @@ export default function SonokoGame({ daily = false }) {
     setSelCell(null);
     setMsg(colorMatch ? "Color match! Double points" : "Nice! Keep the chain going");
     afterPlay(ng);
+    if (tutStep?.t === "cell") advance();
   };
 
   const playReveal = (card) => {
@@ -310,6 +355,7 @@ export default function SonokoGame({ daily = false }) {
 
   const tapCard = (card) => {
     if (g.status !== "playing") return;
+    if (tutStep && !(tutStep.t === "card" && tutStep.id === card.id)) return nudge();
     if (!matches(card, g.top)) {
       setShakeId(card.id);
       setTimeout(() => setShakeId(null), 420);
@@ -330,6 +376,7 @@ export default function SonokoGame({ daily = false }) {
     }
     setSel(card);
     sfx.select();
+    if (tutStep) advance();
     setMsg(card.kind === "wild" ? "Wild! Tap any empty cell — it fills itself" : `Now tap the cell where this ${card.value} belongs`);
   };
 
@@ -340,6 +387,7 @@ export default function SonokoGame({ daily = false }) {
 
   const tapCell = (i) => {
     if (g.status !== "playing" || g.board[i]) return;
+    if (tutStep && !(tutStep.t === "cell" && tutStep.i === i && sel)) return nudge();
     if (sel && sel.kind !== "reveal") return attempt(sel, i);
     setSelCell(selCell === i ? null : i);
     setMsg("Cell selected — now tap a matching card");
@@ -347,7 +395,10 @@ export default function SonokoGame({ daily = false }) {
 
   const draw = () => {
     if (g.status !== "playing") return;
-    const ng = { ...g, hand: [...g.hand, makeCard(rngRef.current, g.board, g.solution)], combo: 0, called: false };
+    if (tutStep && tutStep.t !== "draw") return nudge();
+    const card = tutStep ? tut.T.wild : makeCard(rngRef.current, g.board, g.solution);
+    const ng = { ...g, hand: [...g.hand, card], combo: 0, called: false };
+    if (tutStep) advance();
     sfx.draw();
     setSel(null);
     if (ng.hand.length >= BUST) return endGame(ng, false, `Hand bust — ${BUST} cards`);
@@ -357,29 +408,32 @@ export default function SonokoGame({ daily = false }) {
 
   const callSonoko = () => {
     if (g.status !== "playing") return;
+    if (tutStep && tutStep.t !== "call") return nudge();
     if (g.hand.length !== 1) return toast("Call SONOKO! when you hold exactly 1 card");
     if (g.called) return;
     setG({ ...g, called: true });
+    if (tutStep) advance();
     sfx.call();
     toast.success("SONOKO! Now play your last card for the bonus");
   };
 
+  if (!g && tutorial) return <div className="min-h-[100dvh] bg-arcade" />;
   if (!g)
     return (
       <div className="min-h-[100dvh] bg-arcade">
-        <GameHeader title={daily ? "Daily" : "Sonoko"} accent={daily ? "#34C759" : "#FFCC00"} />
+        <GameHeader title={tutorial ? "Tutorial" : daily ? "Daily" : "Sonoko"} accent={daily ? "#34C759" : "#FFCC00"} />
         <Setup daily={daily} onStart={start} profile={profile} />
       </div>
     );
 
   const mult = multFor(g.combo);
-  const canCall = g.hand.length === 1 && !g.called && g.status === "playing";
+  const canCall = g.hand.length === 1 && !g.called && g.status === "playing" && (!tutStep || tutStep.t === "call");
 
   return (
     <div className="min-h-[100dvh] bg-arcade flex flex-col" data-testid="sonoko-game">
       <Confetti active={g.status === "won"} />
       <GameHeader
-        title={daily ? "Daily" : "Sonoko"}
+        title={tutorial ? "Tutorial" : daily ? "Daily" : "Sonoko"}
         accent={daily ? "#34C759" : "#FFCC00"}
         right={
           <IconBtn testid="sonoko-restart-button" label="Restart" onClick={() => start(diff)}>
@@ -402,69 +456,22 @@ export default function SonokoGame({ daily = false }) {
               ))}
             </div>
           </div>
-          <div data-testid="sonoko-board" className="grid grid-cols-6 aspect-square w-full rounded-2xl overflow-hidden border-2 border-white/25 bg-[#0F1424] shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-            {g.board.map((v, i) => {
-              const r = Math.floor(i / 6), c = i % 6;
-              const color = g.cellColors[i];
-              const target = !v && (sel ? sel.kind !== "reveal" : true) && g.status === "playing";
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  data-testid={`sonoko-cell-${r}-${c}`}
-                  onClick={() => tapCell(i)}
-                  style={{ background: TINT[color] }}
-                  className={`relative flex items-center justify-center border-white/[0.07] ${c < 5 ? "border-r" : ""} ${r < 5 ? "border-b" : ""} ${
-                    c === 2 ? "!border-r-2 !border-r-white/30" : ""
-                  } ${r === 1 || r === 3 ? "!border-b-2 !border-b-white/30" : ""} ${errCell === i ? "animate-shake !bg-[#FF3B30]/50" : ""} ${
-                    selCell === i ? "ring-4 ring-inset ring-white" : ""
-                  } ${target && sel ? "hover:bg-white/20" : ""} transition-colors duration-150`}
-                >
-                  {v ? (
-                    <motion.span
-                      initial={g.given[i] ? false : { scale: 0.2, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="font-mono font-extrabold text-2xl sm:text-4xl"
-                      style={{
-                        color: g.given[i] ? "#CBD5E1" : COLOR_HEX[g.placedColor[i]],
-                        textShadow: g.given[i] ? "none" : `0 0 18px ${COLOR_HEX[g.placedColor[i]]}99`,
-                      }}
-                    >
-                      {v}
-                    </motion.span>
-                  ) : (
-                    <span
-                      className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${sel && target ? "animate-pulse scale-150" : "opacity-70"} transition-transform duration-200`}
-                      style={{ background: COLOR_HEX[color] }}
-                    />
-                  )}
-                  <AnimatePresence>
-                    {floaters
-                      .filter((f) => f.i === i)
-                      .map((f) => (
-                        <motion.span
-                          key={f.id}
-                          initial={{ y: 0, opacity: 1 }}
-                          animate={{ y: -34, opacity: 0 }}
-                          transition={{ duration: 0.9 }}
-                          className="absolute z-10 font-mono font-black text-sm sm:text-base pointer-events-none whitespace-nowrap"
-                          style={{ color: f.color, textShadow: "0 2px 6px #000" }}
-                        >
-                          {f.text}
-                        </motion.span>
-                      ))}
-                  </AnimatePresence>
-                </button>
-              );
-            })}
-          </div>
+          <SonokoBoard
+            g={g}
+            floaters={floaters}
+            errCell={errCell}
+            selCell={selCell}
+            armed={!!sel && sel.kind !== "reveal" && g.status === "playing"}
+            glowCell={tutStep?.t === "cell" ? tutStep.i : null}
+            onTap={tapCell}
+          />
         </section>
 
         <aside className="w-full space-y-3">
           <div className="glass rounded-3xl p-3 sm:p-4 flex items-center justify-center gap-4 sm:gap-6">
             <div className="flex flex-col items-center gap-1">
               <div className="relative">
-                <PlayingCard faceDown size="md" testid="draw-pile-button" onClick={draw} className="hover:-translate-y-1 transition-transform duration-150" />
+                <PlayingCard faceDown size="md" testid="draw-pile-button" onClick={draw} className={`hover:-translate-y-1 transition-transform duration-150 ${tutStep?.t === "draw" ? "ring-4 ring-[#FFCC00] animate-glow" : ""}`} />
               </div>
               <span className="eyebrow !text-[10px]">Draw</span>
             </div>
@@ -520,9 +527,32 @@ export default function SonokoGame({ daily = false }) {
       </main>
 
       <div className="sticky bottom-0 w-full z-20 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/95 to-transparent pt-3 pb-[max(env(safe-area-inset-bottom),8px)]">
-        <p data-testid="sonoko-hint" className="text-center text-xs sm:text-sm text-slate-300 px-4 font-medium min-h-[1.25rem]">
-          {g.status === "playing" ? msg : g.status === "won" ? "Grid complete!" : "Game over"}
-        </p>
+        {tutStep ? (
+          <div data-testid="tutorial-coach" className={`max-w-xl mx-3 sm:mx-auto glass rounded-2xl p-3 sm:p-4 !border-[#FFCC00]/50 ${coachShake ? "animate-shake" : ""}`}>
+            <div className="flex items-start gap-3">
+              <GraduationCap className="w-6 h-6 text-[#FFCC00] shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p data-testid="tutorial-step-title" className="font-display text-lg sm:text-xl font-black uppercase leading-tight">{tutStep.title}</p>
+                <p data-testid="tutorial-step-text" className="text-xs sm:text-sm text-slate-300">{tutStep.text}</p>
+              </div>
+              <span className="font-mono text-[10px] text-slate-500">{tut.step + 1}/{tut.steps.length}</span>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <button type="button" data-testid="tutorial-skip-button" onClick={skipTutorial} className="text-xs text-slate-400 underline underline-offset-2 hover:text-white">
+                Skip tutorial
+              </button>
+              {tutStep.t === "next" && (
+                <button type="button" data-testid="tutorial-next-button" onClick={advance} className="h-9 px-5 rounded-lg bg-[#FFCC00] text-[#0B0F19] font-black text-sm uppercase transition-transform duration-150 active:scale-95">
+                  Next
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p data-testid="sonoko-hint" className="text-center text-xs sm:text-sm text-slate-300 px-4 font-medium min-h-[1.25rem]">
+            {g.status === "playing" ? msg : g.status === "won" ? "Grid complete!" : "Game over"}
+          </p>
+        )}
         <div className="max-w-3xl mx-auto">
           <HandFan
             cards={g.hand}
@@ -535,7 +565,7 @@ export default function SonokoGame({ daily = false }) {
                 dim={g.status === "playing" && !matches(c, g.top)}
                 shake={shakeId === c.id}
                 onClick={() => tapCard(c)}
-                className="lg:hover:-translate-y-3"
+                className={`lg:hover:-translate-y-3 ${tutStep?.t === "card" && tutStep.id === c.id ? "ring-4 ring-[#FFCC00] animate-glow" : ""}`}
               />
             )}
           />
@@ -557,6 +587,7 @@ export default function SonokoGame({ daily = false }) {
       <ColorPicker
         open={!!pendingWild}
         testPrefix="wild-color"
+        only={tutStep ? ["yellow"] : null}
         onPick={(color) => {
           const { card, i } = pendingWild;
           setPendingWild(null);
@@ -574,7 +605,10 @@ export default function SonokoGame({ daily = false }) {
           rows={result.rows}
           mode={daily ? "daily" : "sonoko"}
           date={date}
-          onPlayAgain={() => start(diff)}
+          allowSubmit={!tutorial}
+          extra={result.share && <DailyShare result={result.share} />}
+          playAgainLabel={tutorial ? "Real game" : undefined}
+          onPlayAgain={() => (tutorial ? navigate("/play/sonoko") : start(diff))}
         />
       )}
     </div>

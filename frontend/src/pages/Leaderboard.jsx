@@ -9,6 +9,7 @@ const TABS = [
   ["daily", "Daily", "#34C759"],
   ["sudoku", "Sudoku", "#007AFF"],
   ["uno", "Uno", "#FF3B30"],
+  ["versus", "Versus", "#F59E0B"],
 ];
 const MEDAL = ["#F59E0B", "#CBD5E1", "#D08A4E"];
 
@@ -33,14 +34,14 @@ export default function Leaderboard() {
     <div className="min-h-[100dvh] bg-arcade pb-10" data-testid="leaderboard-page">
       <GameHeader title="Leaderboard" accent="#007AFF" />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-4">
-        <div className="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-[#161C2E] border border-white/10">
+        <div className="grid grid-cols-5 gap-1 p-1 rounded-2xl bg-[#161C2E] border border-white/10">
           {TABS.map(([id, label, c]) => (
             <button
               key={id}
               type="button"
               data-testid={`leaderboard-tab-${id}`}
               onClick={() => setMode(id)}
-              className={`h-11 rounded-xl font-display text-lg font-black uppercase transition-colors duration-150 ${mode === id ? "text-[#0B0F19]" : "text-slate-300 hover:bg-white/5"}`}
+              className={`h-11 rounded-xl font-display text-sm sm:text-lg font-black uppercase transition-colors duration-150 ${mode === id ? "text-[#0B0F19]" : "text-slate-300 hover:bg-white/5"}`}
               style={mode === id ? { background: c } : {}}
             >
               {label}

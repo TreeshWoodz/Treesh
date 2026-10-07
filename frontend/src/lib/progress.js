@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ACHIEVEMENTS, TIERS } from "./achievements";
+import { ACHIEVEMENTS, TIERS, levelInfo } from "./achievements";
+import { SKINS, THEMES } from "./cosmetics";
 import { sfx } from "./sound";
 
 const KEY = "sonoko_profile_v1";
@@ -10,12 +11,17 @@ const defaultProfile = () => ({
   name: "",
   xp: 0,
   sound: true,
+  skin: "classic",
+  theme: "arcade",
+  tutorialDone: false,
+  lastDailyResult: null,
   unlocked: {},
   stats: {
     sonokoPlayed: 0, sonokoWins: 0, sonokoBest: 0, maxCombo: 0, sonokoCalls: 0, colorMatches: 0,
     flawless: 0, cardsPlayed: 0, sudokuPlayed: 0, sudokuWins: 0, sudokuHardWins: 0, sudokuFast: 0,
     sudokuBest: {}, unoPlayed: 0, unoWins: 0, uno3Wins: 0, dailyWins: 0, dailyStreak: 0,
-    bestDailyStreak: 0, lastDaily: null, modesPlayed: {},
+    bestDailyStreak: 0, lastDaily: null, modesPlayed: {}, versusPlayed: 0, versusWins: 0,
+    versusHardWins: 0, tutorialDone: 0, dailyShares: 0,
   },
 });
 
@@ -43,7 +49,18 @@ export function updateProfile(fn) {
 
 export function commitProgress(mutator) {
   const p = loadProfile();
+  const before = levelInfo(p.xp).level;
   mutator(p.stats, p);
+  const after = levelInfo(p.xp).level;
+  if (after > before) {
+    const fresh = [...SKINS.map((x) => ["card skin", x]), ...THEMES.map((x) => ["board theme", x])].filter(([, x]) => x.level > before && x.level <= after);
+    setTimeout(() => {
+      sfx.unlock();
+      toast.success(`Level up! You're now level ${after}`, {
+        description: fresh.length ? `Unlocked ${fresh.map(([k, x]) => `${x.name} ${k}`).join(", ")} — equip it in the Locker` : "Keep playing to unlock new looks",
+      });
+    }, 500);
+  }
   const newly = [];
   for (const ach of ACHIEVEMENTS) {
     if (!p.unlocked[ach.id] && ach.get(p.stats, p) >= ach.target) {

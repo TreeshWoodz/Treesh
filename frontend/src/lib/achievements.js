@@ -1,6 +1,6 @@
 import {
   Sparkles, Layers, Gem, Flame, Zap, Megaphone, Volume2, Palette, ShieldCheck, Star, Grid3x3,
-  Brain, Timer, Swords, Users, Trophy, CalendarCheck, CalendarHeart, Compass, Medal, Crown, Rocket,
+  Brain, Timer, Swords, Users, Trophy, CalendarCheck, CalendarHeart, Compass, Medal, Crown, Rocket, GraduationCap, Target, Skull, Sword, Share2,
 } from "lucide-react";
 
 export const TIERS = {
@@ -34,7 +34,12 @@ const BASE = [
   a("daily_first", "Daily Ritual", "Complete a Daily Challenge", "bronze", CalendarCheck, (s) => s.dailyWins, 1),
   a("daily_7", "Week Warrior", "Reach a 7-day Daily streak", "gold", CalendarHeart, (s) => s.bestDailyStreak, 7),
   a("card_shark", "Card Shark", "Play 500 cards across all modes", "silver", Layers, (s) => s.cardsPlayed, 500),
-  a("explorer", "Explorer", "Play every game mode", "bronze", Compass, (s) => Object.keys(s.modesPlayed || {}).length, 4),
+  a("explorer", "Explorer", "Play every game mode", "bronze", Compass, (s) => Object.keys(s.modesPlayed || {}).length, 5),
+  a("quick_learner", "Quick Learner", "Complete the Sonoko tutorial", "bronze", GraduationCap, (s) => s.tutorialDone, 1),
+  a("rival_down", "Rival Down", "Win a Sonoko Versus match", "bronze", Target, (s) => s.versusWins, 1),
+  a("nemesis", "Nemesis", "Beat the Hard bot in Versus", "silver", Skull, (s) => s.versusHardWins, 1),
+  a("duelist", "Duelist", "Win 10 Versus matches", "gold", Sword, (s) => s.versusWins, 10),
+  a("show_off", "Show Off", "Share a Daily Challenge result", "bronze", Share2, (s) => s.dailyShares, 1),
   a("level_10", "Veteran", "Reach player level 10", "gold", Medal, (s, p) => levelInfo(p.xp).level, 10),
 ];
 

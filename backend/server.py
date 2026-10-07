@@ -19,7 +19,7 @@ app = FastAPI(title="Sonoko API - Treesh Games")
 api_router = APIRouter(prefix="/api")
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
-Mode = Literal["sonoko", "daily", "sudoku", "uno"]
+Mode = Literal["sonoko", "daily", "sudoku", "uno", "versus"]
 
 
 class BaseDocument(BaseModel):

@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Trophy, BarChart3, BookOpen, CalendarDays, Grid3x3, Layers, Sparkles, ArrowRight, Flame } from "lucide-react";
+import { Trophy, BarChart3, BookOpen, CalendarDays, Grid3x3, Layers, Sparkles, ArrowRight, Flame, Swords, Shirt, GraduationCap } from "lucide-react";
 import { PlayingCard } from "@/components/game/PlayingCard";
 import { useProfile, updateProfile, todayStr } from "@/lib/progress";
 import { ACHIEVEMENTS, levelInfo } from "@/lib/achievements";
 
 const MODES = [
+  { id: "versus", to: "/play/versus", title: "Versus", desc: "Race bot Ivy on one shared Sonoko grid.", icon: Swords, color: "#F59E0B" },
   { id: "sudoku", to: "/play/sudoku", title: "Classic Sudoku", desc: "9×9 logic. Notes, hints, three strikes.", icon: Grid3x3, color: "#007AFF" },
   { id: "uno", to: "/play/uno", title: "Classic Uno", desc: "Go card-to-card against 1–3 bots.", icon: Layers, color: "#FF3B30" },
 ];
@@ -104,13 +105,27 @@ export default function Home() {
           <HeroCards />
         </section>
 
+        {!profile.tutorialDone && (
+          <Link
+            to="/play/tutorial"
+            data-testid="home-tutorial-banner"
+            className="mt-10 rounded-3xl border-2 border-dashed border-[#FFCC00]/50 p-4 sm:p-5 flex items-center gap-4 transition-colors duration-150 hover:bg-[#FFCC00]/10"
+          >
+            <GraduationCap className="w-9 h-9 text-[#FFCC00] shrink-0" />
+            <div className="flex-1">
+              <p className="font-display text-2xl font-black uppercase">New to Sonoko?</p>
+              <p className="text-slate-400 text-sm">Learn matching, placing and calling SONOKO! in a 60-second guided round.</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-[#FFCC00]" />
+          </Link>
+        )}
         <section className="mt-12 sm:mt-16">
           <p className="eyebrow mb-4">Game modes</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid sm:grid-cols-6 gap-3 sm:gap-4">
             <Link
               to="/play/sonoko"
               data-testid="mode-select-sonoko-button"
-              className="group sm:col-span-2 relative overflow-hidden rounded-3xl p-6 bg-[#FFCC00] text-[#0B0F19] min-h-[190px] flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1"
+              className="group sm:col-span-3 relative overflow-hidden rounded-3xl p-6 bg-[#FFCC00] text-[#0B0F19] min-h-[190px] flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1"
             >
               <Sparkles className="absolute -right-6 -top-6 w-40 h-40 opacity-15 transition-transform duration-500 group-hover:rotate-45" />
               <span className="text-xs font-black uppercase tracking-[0.2em]">Featured · Hybrid</span>
@@ -123,7 +138,7 @@ export default function Home() {
             <Link
               to="/play/daily"
               data-testid="mode-select-daily-button"
-              className="group sm:col-span-2 relative overflow-hidden rounded-3xl p-6 glass min-h-[190px] flex flex-col justify-between border-[#34C759]/40 transition-[transform,background-color] duration-200 hover:-translate-y-1 hover:bg-[#1E2640]"
+              className="group sm:col-span-3 relative overflow-hidden rounded-3xl p-6 glass min-h-[190px] flex flex-col justify-between border-[#34C759]/40 transition-[transform,background-color] duration-200 hover:-translate-y-1 hover:bg-[#1E2640]"
             >
               <CalendarDays className="absolute -right-4 -bottom-4 w-36 h-36 text-[#34C759] opacity-15" />
               <span className="text-xs font-black uppercase tracking-[0.2em] text-[#34C759]">Daily challenge · {todayStr()}</span>
@@ -140,7 +155,7 @@ export default function Home() {
                 key={m.id}
                 to={m.to}
                 data-testid={`mode-select-${m.id}-button`}
-                className="group sm:col-span-1 lg:col-span-2 rounded-3xl p-5 glass flex items-center gap-4 transition-[transform,background-color] duration-200 hover:-translate-y-1 hover:bg-[#1E2640]"
+                className="group sm:col-span-2 rounded-3xl p-5 glass flex items-center gap-4 transition-[transform,background-color] duration-200 hover:-translate-y-1 hover:bg-[#1E2640]"
               >
                 <span className="h-14 w-14 shrink-0 rounded-2xl grid place-items-center" style={{ background: m.color }}>
                   <m.icon className="w-7 h-7 text-white" />
@@ -155,7 +170,14 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mt-10 grid sm:grid-cols-3 gap-3 sm:gap-4">
+        <section className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Link to="/locker" data-testid="home-locker-link" className="glass rounded-3xl p-5 flex items-center gap-4 transition-colors duration-150 hover:bg-[#1E2640]">
+            <Shirt className="w-9 h-9 text-[#34C759]" />
+            <div>
+              <p className="font-display text-2xl font-black uppercase">Locker</p>
+              <p className="text-slate-400 text-sm">Card skins & board themes</p>
+            </div>
+          </Link>
           <Link to="/trophies" data-testid="home-trophies-link" className="glass rounded-3xl p-5 flex items-center gap-4 transition-colors duration-150 hover:bg-[#1E2640]">
             <Trophy className="w-9 h-9 text-[#F59E0B]" />
             <div>

@@ -8,9 +8,19 @@ import UnoGame from "@/pages/UnoGame";
 import Trophies from "@/pages/Trophies";
 import Leaderboard from "@/pages/Leaderboard";
 import HowToPlay from "@/pages/HowToPlay";
+import VersusGame from "@/pages/VersusGame";
+import Locker from "@/pages/Locker";
+import { useEffect } from "react";
+import { useProfile } from "@/lib/progress";
+import { SkinContext } from "@/lib/cosmetics";
 
 function App() {
+  const profile = useProfile();
+  useEffect(() => {
+    document.body.dataset.theme = profile.theme || "arcade";
+  }, [profile.theme]);
   return (
+    <SkinContext.Provider value={profile.skin || "classic"}>
     <div className="App">
       <BrowserRouter>
         <Routes>
@@ -22,10 +32,14 @@ function App() {
           <Route path="/trophies" element={<Trophies />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/how-to-play" element={<HowToPlay />} />
+          <Route path="/play/tutorial" element={<SonokoGame key="tutorial" tutorial />} />
+          <Route path="/play/versus" element={<VersusGame />} />
+          <Route path="/locker" element={<Locker />} />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-center" theme="dark" richColors closeButton duration={2600} />
     </div>
+    </SkinContext.Provider>
   );
 }
 
