@@ -103,6 +103,16 @@ rep('if(!state.profile){ onboard={step:0,nick:"",bday:"",avatar:""}; setTimeout(
 rep('No signup, everything stays on this device.','No signup needed, everything stays on this device.',1,'sbobcopy')
 rep('Everything in Treesh is saved only on this device.','Everything in Treesh is saved on this device. Signed in? Your profile also syncs to your account.',1,'sbstorecopy')
 
+# ---- P9h: welcome screen = Create account / Sign in / guest
+rep("swap('[data-testid=\"onboarding-progress\"]'); const foot=swap('.obx-foot');","swap('[data-testid=\"onboarding-progress\"]'); const foot=swap('.obx-foot'); { const x=root.querySelector('[data-testid=\"onboarding-account-row\"]'), y=nw.querySelector('[data-testid=\"onboarding-account-row\"]'), f=root.querySelector('[data-testid=\"onboarding-footer\"]'); if(x&&y) x.replaceWith(y); else if(x) x.remove(); else if(y&&f) f.appendChild(y); }",1,'obrowswap')
+rep('        ${onboard.step<4?`<button data-act="ob-next" data-testid="onboarding-next"','        ${(intro&&!sbUser()&&!state.profile)?sbWelcomeCta():onboard.step<4?`<button data-act="ob-next" data-testid="onboarding-next"',1,'obwelcome')
+# ---- P9h: Magic Markup "Select" (element edits) button
+rep("tb('layers','layers','Layers','mk-layers-button')","tb('layers','layers','Layers','mk-layers-button')+mkdTbBtn()",1,'mkdtb')
+# ---- P9h: sheets close on a quick flick (recent velocity, lower bar)
+rep("const d=Math.max(0,tc.clientY-S.y0); S.dy=d; S.p.style.transform=","const d=Math.max(0,tc.clientY-S.y0); S.dy=d; { const _n=performance.now(); (S.pts=S.pts||[]).push([_n,tc.clientY]); while(S.pts.length>2&&_n-S.pts[0][0]>90) S.pts.shift(); } S.p.style.transform=",1,'flick1')
+rep("const v=s.dy/Math.max(1,performance.now()-s.t0);\n    if(s.dy>110||(v>.5&&s.dy>40)){ p.style.transition='transform .22s cubic-bezier(.4,0,1,1)';",
+    "const _pa=s.pts&&s.pts[0], _pb=s.pts&&s.pts[s.pts.length-1]; const v=Math.max(s.dy/Math.max(1,performance.now()-s.t0),(_pa&&_pb&&_pb[0]>_pa[0])?(_pb[1]-_pa[1])/(_pb[0]-_pa[0]):0);\n    if(s.dy>100||(v>.35&&s.dy>22)){ p.style.transition='transform .18s cubic-bezier(.4,0,1,1)';",1,'flick2')
+
 # ---- boot
 rep("  mkRenderChrome(); p7Init(); p8Init(); }\n","  mkRenderChrome(); p7Init(); p8Init(); p9Init(); }\n",1,'init')
 
@@ -111,7 +121,7 @@ if errs:
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js'])
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js'])
 js=js.replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
@@ -128,7 +138,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)

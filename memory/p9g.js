@@ -1,13 +1,14 @@
 /* ---------- P9g: Treesh accounts (Supabase). Optional sign in; the profile syncs, localStorage stays the cache ---------- */
 let _sbBusy=false, _sbAgain=false, _sbJustAuthed=false, _sbMode='signin', _sbEmail='', _sbSentTo='';
 const SB_UNAME=/^[a-z0-9_.]{3,20}$/;
+const SB_HOME='https://treesh.app/', SB_CONFIRM_URL=(/(^|\.)treesh\.app$/.test(location.hostname)?SB_HOME:location.origin+location.pathname.replace(/[^/]*$/,''))+'confirm-signup';
 const SB_OFFLINE='You\u2019re offline. Changes will sync when you\u2019re back.';
 function sbReady(){ return !!sb; }
 function sbConfigured(){ return SB_KEY!=='YOUR_SB_PUBLISHABLE_KEY'; }
 function sbUser(){ return state.sbUser||null; }
 function sbMeta(patch){ const m=Object.assign({pending:false,at:0,uid:null},LS.get('treesh_sb_meta',{})||{}); if(patch){ Object.assign(m,patch); LS.set('treesh_sb_meta',m); } return m; }
 function sbSig(d){ return d?(d.length+':'+d.slice(-48)):''; }
-function sbRedirect(){ return location.origin+location.pathname; }
+function sbRedirect(){ return /(^|\.)treesh\.app$/.test(location.hostname)?SB_HOME:location.origin+location.pathname; }
 function sbIsNet(m){ return /Failed to fetch|NetworkError|Load failed|network/i.test(m||''); }
 function sbUname(v,fallback){ if(v==null) return fallback||''; const u=String(v).trim().replace(/^@+/,'').toLowerCase(); if(!u) return '';
   if(!SB_UNAME.test(u)){ state._unameErr='Use 3\u201320 letters, numbers, _ or .'; const h=document.getElementById('set-uname-hint'); if(h){ h.textContent=state._unameErr; h.classList.add('is-err'); } toast('Check your username','3\u201320 letters, numbers, _ or .'); return false; }
@@ -56,6 +57,7 @@ async function sbPayload(u){ const ls={};
   return {app:'treesh',type:'treesh-backup',v:4,exportedAt:new Date().toISOString(),localStorage:ls,assetsPath}; }
 async function sbPush(){ const u=sbUser(); if(!sb||!u) return;
   if(_sbBusy){ _sbAgain=true; return; }
+  if(!state.profile){ _sbDirty=true; sbMeta({pending:true}); return; }
   _sbBusy=true; _sbLast=Date.now(); _sbDirty=false; sbSet('saving'); let avErr=null;
   try{
     const p=Object.assign({},state.profile||{}); let av=p.avatarUrl||null;
@@ -102,7 +104,8 @@ async function sbPull(o){ o=o||{}; const u=sbUser(); if(!sb||!u) return 'none';
     _sbDirty=false; sbMeta({pending:false,at:Date.now(),uid:u.id,cloudAt:cAt}); sbSet('synced');
     return changed?'pulled':'same';
   }catch(e){ sbFail(e); return 'error'; } }
-function sbReload(){ try{ sessionStorage.setItem('treesh_sb_hello','1'); }catch(e){} toast('Synced from your account','Loading your Treesh\u2026'); setTimeout(()=>{ try{ location.reload(); }catch(e){} },700); }
+function sbReload(){ let last=0; try{ last=+sessionStorage.getItem('treesh_sb_rl')||0; }catch(e){} if(Date.now()-last<30000){ sbRerender(); toast('Synced from your account'); return; }
+  try{ sessionStorage.setItem('treesh_sb_rl',String(Date.now())); sessionStorage.setItem('treesh_sb_hello','1'); }catch(e){} toast('Synced from your account','Loading your Treesh\u2026'); setTimeout(()=>{ try{ location.reload(); }catch(e){} },700); }
 function sbApply(r){ const before=JSON.stringify(state.profile||null); const p=Object.assign({},state.profile||{});
   p.nickname=r.display_name||p.nickname||'Treesh Fan'; p.username=r.username||''; p.usernameSynced=p.username; p.bio=r.bio||'';
   const c=Date.parse(r.created_at||''); if(c&&(!p.joined||c<p.joined)) p.joined=c;
@@ -118,13 +121,13 @@ function sbCloseAuth(){ if(document.querySelector('#modal2 .sba-modal')) closeMo
 async function sbSignedIn(u){ const mine=_sbJustAuthed; _sbJustAuthed=false; if(mine){ sbCloseAuth(); toast('Signed in',u.email||''); }
   const r=await sbPull({restore:true});
   if(r==='pulled'){ sbReload(); return; }
-  if(sbObOpen()){ if(state._sbHadProfile&&state.profile){ closeModal(); try{ checkDailyStars(); }catch(e){} sbRerender(); toast('Welcome back',state.profile.nickname||''); setTimeout(()=>{ try{ wnMaybeAuto(state.view); }catch(e){} },600); } else { if(onboard.step===1) onboard.step=2; try{ renderOnboarding(); }catch(e){} } } }
+  if(sbObOpen()){ if(state._sbHadProfile&&state.profile){ closeModal(); try{ checkDailyStars(); }catch(e){} sbRerender(); toast('Welcome back',state.profile.nickname||''); setTimeout(()=>{ try{ wnMaybeAuto(state.view); }catch(e){} },600); } else { if(onboard.step===0) onboard.step=1; try{ renderOnboarding(); }catch(e){} } } }
 function sbSignedOut(){ clearTimeout(_sbTimer); _sbTimer=0; _sbDirty=false; state.sbSync={s:'idle',msg:''}; sbMeta({uid:null,pending:false,cloudAt:0,assetSig:'',assetsPath:null}); toast('Signed out','Your profile stays on this device'); sbPaint(); if(state.profileOpen) renderProfile(); }
 function sbHandleCallback(cb){ if(cb.error_description||cb.error){ setTimeout(()=>toast('That link didn\u2019t work',cb.error_description||cb.error),900); return; }
   if(!cb.access_token||!cb.refresh_token) return;
   sb.auth.setSession({access_token:cb.access_token,refresh_token:cb.refresh_token}).then(({error})=>{ if(error){ toast('Couldn\u2019t sign you in',sbErrText(error)); return; }
     if(cb.type==='recovery') setTimeout(()=>sbAuthOpen('newpw'),500); else if(cb.type==='signup'||cb.type==='email'||cb.type==='invite') setTimeout(()=>toast('Email confirmed','You\u2019re signed in and syncing'),700); }); }
-function sbInit(){ state.sbSync=state.sbSync||{s:'idle',msg:''}; try{ if(sessionStorage.getItem('treesh_sb_hello')){ sessionStorage.removeItem('treesh_sb_hello'); setTimeout(()=>toast('Welcome back',(state.profile&&state.profile.nickname)?'Your Treesh is synced, '+state.profile.nickname:'Your Treesh is synced'),900); } }catch(e){} if(!sb) return; _sbBootPending=!!sbMeta().pending; _sbDirty=_sbBootPending;
+function sbInit(){ state.sbSync=state.sbSync||{s:'idle',msg:''}; try{ if(localStorage.getItem('sbx_confirmed')){ localStorage.removeItem('sbx_confirmed'); setTimeout(()=>toast('Email confirmed','Your Treesh account is ready'),1200); } }catch(e){} try{ if(sessionStorage.getItem('treesh_sb_hello')){ sessionStorage.removeItem('treesh_sb_hello'); setTimeout(()=>toast('Welcome back',(state.profile&&state.profile.nickname)?'Your Treesh is synced, '+state.profile.nickname:'Your Treesh is synced'),900); } }catch(e){} if(!sb) return; _sbBootPending=!!sbMeta().pending; _sbDirty=_sbBootPending;
   sb.auth.onAuthStateChange((ev,session)=>{ const u=(session&&session.user)||null, prev=state.sbUser; state.sbUser=u;
     if(ev==='PASSWORD_RECOVERY') setTimeout(()=>sbAuthOpen('newpw'),0);
     if(u&&(!prev||prev.id!==u.id)) setTimeout(()=>sbSignedIn(u),0); else if(!u&&prev) setTimeout(sbSignedOut,0); else setTimeout(sbPaint,0); });
@@ -148,7 +151,7 @@ function sbAccountCardHtml(tab){ if(tab!=='account') return ''; const u=sbUser()
   let body;
   if(!sbReady()) body=head('cloud-off','Treesh account',sbConfigured()?'Can\u2019t reach Treesh accounts right now. Your profile is safe on this device. Try again when you\u2019re back online.':'Accounts aren\u2019t switched on yet. Your profile is saved on this device for now.')+`<div class="sba-acts">${btn('sb-auth-open','signin','sb-card-signin','log-in','Sign in','is-primary')}</div>`;
   else if(!u) body=head('cloud','Back up your profile','Sign in to keep your profile, playlists and settings on any device. Your custom music always stays on this device.')+`<div class="sba-perks">${[['refresh-cw','Syncs across devices'],['wifi-off','Still works offline'],['shield-check','Only you can edit it']].map(([i,l])=>`<span><i data-lucide="${i}"></i>${l}</span>`).join('')}</div><div class="sba-acts">${btn('sb-auth-open','signin','sb-card-signin','log-in','Sign in','is-primary')}${btn('sb-auth-open','signup','sb-card-signup','user-plus','Create account')}</div>`;
-  else body=`<div class="sba-user"><span class="sba-av">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<b>${esc((p.nickname||'T').charAt(0).toUpperCase())}</b>`}</span><div class="min-w-0 flex-1"><p class="sba-name clamp-1" data-testid="sb-card-name">${esc(p.nickname||'Treesh Fan')}</p><p class="sba-mail clamp-1" data-testid="sb-card-email">${p.username?'@'+esc(p.username)+' \u00b7 ':''}${esc(u.email||'')}</p></div>${sbPill()}</div>${st.msg&&st.s!=='saving'?`<p class="sba-note${st.s==='error'?' is-err':''}" data-testid="sb-sync-msg">${esc(st.msg)}</p>`:''}<div class="sba-acts">${btn('sb-sync-now','','sb-sync-now','refresh-cw','Sync now','is-primary')}${btn('sb-auth-open','newpw','sb-change-pw','key-round','Change password')}${btn('sb-signout','','sb-signout','log-out','Sign out','is-danger')}</div>`;
+  else body=`<div class="sba-user"><span class="sba-av">${p.avatar?img(p.avatar,'h-full w-full object-cover'):`<b>${esc((p.nickname||'T').charAt(0).toUpperCase())}</b>`}</span><div class="min-w-0 flex-1"><p class="sba-name clamp-1" data-testid="sb-card-name">${esc(p.nickname||'Treesh Fan')}</p><p class="sba-mail clamp-1" data-testid="sb-card-email">${p.username?'@'+esc(p.username)+' \u00b7 ':''}${esc(u.email||'')}</p></div>${sbPill()}</div>${st.msg&&st.s!=='saving'?`<p class="sba-note${st.s==='error'?' is-err':''}" data-testid="sb-sync-msg">${esc(st.msg)}</p>`:''}<div class="sba-acts">${btn('sb-sync-now','','sb-sync-now','refresh-cw','Sync now','is-primary')}${btn('sb-auth-open','newpw','sb-change-pw','key-round','Change password')}${btn('sb-signout','','sb-signout','log-out','Sign out','is-danger')}</div><button type="button" data-act="sb-delete-open" data-testid="sb-delete-account" class="sba-del press"><i data-lucide="trash-2"></i>Delete account</button>`;
   return `<section data-testid="sb-account-card" class="sba-card"><span class="sba-glow" aria-hidden="true"></span>${body}</section>`; }
 
 /* ---- sign in / create account sheet ---- */
@@ -156,7 +159,7 @@ function sbAuthOpen(mode){ _sbMode=mode||'signin'; _sbSentTo=''; sbAuthRender();
 function sbAuthHtml(){ const m=_sbMode, off=!sbReady();
   const T={signin:['Welcome back','Sign in to sync your Treesh profile.'],signup:['Create your account','Back up your profile and use it on any device.'],reset:['Reset your password','We\u2019ll email you a link to choose a new one.'],newpw:['Choose a new password','Use at least 6 characters.'],sent:['Check your email',`We sent a confirmation link to ${esc(_sbSentTo)}. Open it to finish signing up.`],'sent-reset':['Check your email',`If there\u2019s an account for ${esc(_sbSentTo)}, a reset link is on its way.`]}[m]||['',''];
   const hero=ic=>`<div class="sba-hero"><span class="sba-orb"><i data-lucide="${ic}"></i></span></div><h3 class="sba-mt">${T[0]}</h3><p class="sba-md">${T[1]}</p>`;
-  if(m==='sent'||m==='sent-reset') return `<div class="sba-modal" data-testid="sb-auth-sent">${hero('mail-check')}<div class="sba-col"><button type="button" data-act="sb-auth-mode" data-val="signin" data-testid="sb-auth-back-signin" class="sba-btn is-primary lg press">Back to sign in</button><button type="button" data-act="sb-auth-close" data-testid="sb-auth-done" class="sba-btn lg press">Done</button></div></div>`;
+  if(m==='sent'||m==='sent-reset') return `<div class="sba-modal" data-testid="sb-auth-sent">${hero('mail-check')}<div class="sba-col"><button type="button" data-act="sb-auth-mode" data-val="signin" data-testid="sb-auth-back-signin" class="sba-btn is-primary lg press">Back to sign in</button>${m==='sent'?`<button type="button" data-act="sb-resend" data-testid="sb-auth-resend" class="sba-btn lg press"><i data-lucide="mail"></i>Resend email</button>`:''}<button type="button" data-act="sb-auth-close" data-testid="sb-auth-done" class="sba-btn lg press">Done</button></div></div>`;
   const banner=off?`<div class="sba-banner" data-testid="sb-auth-offline"><i data-lucide="cloud-off"></i><span>${sbConfigured()?'Can\u2019t reach Treesh accounts. Check your connection and try again.':'Accounts aren\u2019t switched on yet. They\u2019ll work once the Supabase key is added.'}</span></div>`:'';
   const tabs=(m==='signin'||m==='signup')?`<div class="sba-tabs" role="tablist">${[['signin','Sign in'],['signup','Create account']].map(([k,l])=>`<button type="button" role="tab" aria-selected="${m===k}" data-act="sb-auth-mode" data-val="${k}" data-testid="sb-auth-tab-${k}" class="sba-tab${m===k?' on':''}">${l}</button>`).join('')}</div>`:'';
   const email=m!=='newpw'?`<label class="sba-f"><span>Email</span><input id="sb-email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" value="${esc(_sbEmail)}" placeholder="you@example.com" data-testid="sb-auth-email"></label>`:'';
@@ -177,25 +180,46 @@ async function sbAuthSubmit(){ const m=_sbMode; const em=((document.getElementBy
   sbMsg('',''); sbFormBusy(true);
   try{
     if(m==='signin'){ _sbJustAuthed=true; const {error}=await sb.auth.signInWithPassword({email:em,password:pw}); if(error){ _sbJustAuthed=false; throw error; } }
-    else if(m==='signup'){ _sbJustAuthed=true; const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{emailRedirectTo:sbRedirect()}}); if(error){ _sbJustAuthed=false; throw error; } if(!data.session){ _sbJustAuthed=false; _sbSentTo=em; sbAuthRender('sent'); return; } }
+    else if(m==='signup'){ try{ localStorage.setItem('sbx_last_email',em); }catch(e){} _sbJustAuthed=true; const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{emailRedirectTo:SB_CONFIRM_URL}}); if(error){ _sbJustAuthed=false; throw error; } if(!data.session){ _sbJustAuthed=false; _sbSentTo=em; sbAuthRender('sent'); return; } }
     else if(m==='reset'){ const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:sbRedirect()}); if(error) throw error; _sbSentTo=em; sbAuthRender('sent-reset'); return; }
     else if(m==='newpw'){ const {error}=await sb.auth.updateUser({password:pw}); if(error) throw error; closeModal2(); toast('Password updated','Use it next time you sign in'); }
   }catch(e){ sbMsg('err',sbErrText(e)); }
   finally{ sbFormBusy(false); } }
+function sbWelcomeCta(){ if(onboard.guest) return `<button type="button" data-act="ob-next" data-testid="onboarding-next" class="obx-cta press obx-cta-xl w-full sm:w-auto">Continue <i data-lucide="arrow-right" style="width:18px;height:18px"></i></button>`;
+  return `<div class="obx-wcta" data-testid="onboarding-auth-cta"><button type="button" data-act="sb-auth-open" data-val="signup" data-testid="onboarding-create-account" class="obx-cta press obx-cta-xl"><i data-lucide="user-plus" style="width:18px;height:18px"></i>Create account</button><button type="button" data-act="sb-auth-open" data-val="signin" data-testid="onboarding-signin" class="obx-cta press obx-cta-xl is-ghost"><i data-lucide="log-in" style="width:18px;height:18px"></i>Sign in</button></div>`; }
 function sbObRow(){ if(sbUser()) return '';
-  if(onboard.step===5) return `<p class="obx-acct" data-testid="onboarding-account-row"><i data-lucide="hard-drive"></i><span>Saved on this device.</span><button type="button" data-act="sb-auth-open" data-val="signup" data-testid="onboarding-create-account" class="obx-acct-btn press">Create an account</button><span class="obx-acct-or">to use it anywhere.</span></p>`;
+  if(onboard.step===0&&!state.profile) return onboard.guest
+    ?`<p class="obx-acct" data-testid="onboarding-account-row"><i data-lucide="user-round"></i><span>Exploring as a guest.</span><button type="button" data-act="sb-auth-open" data-val="signin" data-testid="onboarding-row-signin" class="obx-acct-btn press">Sign in</button><span class="obx-acct-or">or</span><button type="button" data-act="sb-auth-open" data-val="signup" data-testid="onboarding-row-signup" class="obx-acct-btn press">Create account</button></p>`
+    :`<p class="obx-acct" data-testid="onboarding-account-row"><button type="button" data-act="ob-guest" data-testid="onboarding-guest" class="obx-acct-btn press">Continue as guest</button><span class="obx-acct-or">No signup, everything stays on this device.</span></p>`;
+  if(onboard.step===4) return `<p class="obx-acct" data-testid="onboarding-account-row"><i data-lucide="hard-drive"></i><span>Saved on this device.</span><button type="button" data-act="sb-auth-open" data-val="signup" data-testid="onboarding-create-account" class="obx-acct-btn press">Create an account</button><span class="obx-acct-or">to use it anywhere.</span></p>`;
   return ''; }
-function obAcctHtml(){ const u=sbUser();
-  if(u) return `<div class="obx-acc" data-testid="onboarding-account"><div class="obx-acc-on" data-testid="onboarding-account-signed"><span class="obx-acc-ic is-ok"><i data-lucide="cloud-check"></i></span><span class="min-w-0"><b>You\u2019re signed in</b><small class="clamp-1">${esc(u.email||'')} \u00b7 your profile will sync</small></span></div><p class="obx-acc-fine">Tap Continue to set up your profile.</p></div>`;
-  const opt=(act,val,tid,ic,t,d,cls)=>`<button type="button" data-act="${act}"${val?` data-val="${val}"`:''} data-testid="${tid}" class="obx-acc-opt press${cls?' '+cls:''}"><span class="obx-acc-ic"><i data-lucide="${ic}"></i></span><span class="min-w-0 flex-1 text-left"><b>${t}</b><small>${d}</small></span><i data-lucide="chevron-right" class="obx-acc-go"></i></button>`;
-  return `<div class="obx-acc" data-testid="onboarding-account">${opt('sb-auth-open','signup','onboarding-create-account','user-plus','Create an account','Sync your profile, playlists and settings across devices','is-primary')}${opt('sb-auth-open','signin','onboarding-signin','log-in','I already have one','Sign in and pick up where you left off')}<div class="obx-acc-or"><span>or</span></div>${opt('ob-next','','onboarding-guest','user-round','Be our guest','No signup. Everything stays on this device','is-guest')}${sbReady()?'':`<p class="obx-acc-fine" data-testid="onboarding-account-offline"><i data-lucide="cloud-off"></i>Accounts aren\u2019t switched on yet, so guest mode is the way in for now.</p>`}<p class="obx-acc-fine"><i data-lucide="music-4"></i>Custom music you upload always stays on this device.</p></div>`; }
+
+/* ---- delete account: storage files, then the delete_user() function removes rows + the auth user ---- */
+function sbDelHtml(){ return `<div class="sba-modal" data-testid="sb-delete-sheet"><div class="sba-hero"><span class="sba-orb is-danger"><i data-lucide="trash-2"></i></span></div><h3 class="sba-mt">Delete your account?</h3><p class="sba-md">This permanently removes your Treesh account, profile, photo and synced backup from the cloud. Music and settings on this device stay here.</p><form data-sb-del class="sba-form" novalidate><label class="sba-f"><span>Type DELETE to confirm</span><input id="sb-del-word" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DELETE" data-testid="sb-delete-input"></label><p id="sb-msg" class="sba-msg" role="status" aria-live="polite" data-testid="sb-delete-msg"></p><button type="submit" data-testid="sb-delete-confirm" class="sba-btn is-danger-fill lg press"><i data-lucide="loader-circle" class="sba-spin"></i><span>Delete forever</span></button><button type="button" data-act="sb-auth-close" data-testid="sb-delete-cancel" class="sba-btn lg press">Cancel</button></form></div>`; }
+async function sbListAll(bucket,dir,depth){ const out=[]; const {data,error}=await sb.storage.from(bucket).list(dir,{limit:1000}); if(error) throw error;
+  for(const it of (data||[])){ const p=dir+'/'+it.name; if(it.id==null&&depth>0) out.push(...await sbListAll(bucket,p,depth-1)); else if(it.id!=null) out.push(p); } return out; }
+async function sbDeleteAccount(){ const u=sbUser(); if(!sb||!u) return; const w=((document.getElementById('sb-del-word')||{}).value||'').trim().toUpperCase();
+  if(w!=='DELETE') return sbMsg('err','Type DELETE to confirm.'); if(!navigator.onLine) return sbMsg('err','You\u2019re offline. Connect to the internet and try again.');
+  const b=document.querySelector('#modal2 [data-testid="sb-delete-confirm"]'); if(b){ b.disabled=true; b.classList.add('is-busy'); } sbMsg('','');
+  clearTimeout(_sbTimer); _sbTimer=0; _sbDirty=false;
+  try{
+    for(const bk of ['avatars','treesh-data']){ try{ const files=await sbListAll(bk,u.id,3); if(files.length){ const {error}=await sb.storage.from(bk).remove(files); if(error) throw error; } }catch(e){ if(!/Bucket not found/i.test((e&&e.message)||'')) console.warn('Treesh delete files',bk,e); } }
+    const {error}=await sb.rpc('delete_user'); if(error) throw error;
+    try{ await sb.auth.signOut({scope:'local'}); }catch(e){}
+    const p=state.profile; if(p){ delete p.avatarUrl; delete p.avatarSig; delete p.usernameSynced; if(p.avatar&&/^https?:/.test(p.avatar)) p.avatar=''; sbQuietSet('treesh_profile',p); }
+    sbMeta({uid:null,pending:false,cloudAt:0,assetSig:'',assetsPath:null,at:0}); state.sbUser=null; state.sbSync={s:'idle',msg:''};
+    closeModal2(); toast('Account deleted','Your Treesh account is gone from the cloud'); sbPaint(); if(state.profileOpen) renderProfile();
+  }catch(e){ const m=(e&&e.message)||''; sbMsg('err',(e&&(e.code==='PGRST202'||e.code==='42883'))||/delete_user|Could not find the function/i.test(m)?'Account deletion isn\u2019t switched on yet. Run the delete_user SQL in Supabase.':sbErrText(e)); if(b){ b.disabled=false; b.classList.remove('is-busy'); } } }
 function sbUnameField(uname){ const err=state._unameErr||''; return `<div><label class="mb-1.5 block text-xs uppercase tracking-wide text-white/50" for="set-uname">Username</label><div class="relative"><span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/40">@</span><input id="set-uname" data-testid="settings-username-input" value="${esc(uname)}" maxlength="20" autocapitalize="none" autocomplete="username" spellcheck="false" placeholder="yourname" class="h-11 w-full rounded-2xl border ${err?'border-red-400/60':'border-white/15'} bg-white/5 pl-8 pr-4 text-sm outline-none focus:border-[color:var(--treesh-purple)]"></div><p id="set-uname-hint" data-testid="settings-username-hint" class="sba-uhint${err?' is-err':''}">${esc(err||(sbUser()?'Unique across Treesh. 3\u201320 letters, numbers, _ or .':'3\u201320 letters, numbers, _ or . Claimed when you sign in.'))}</p></div>`; }
 
-document.addEventListener('submit',e=>{ const f=e.target; if(f&&f.matches&&f.matches('form[data-sb-form]')){ e.preventDefault(); sbAuthSubmit(); } });
+document.addEventListener('submit',e=>{ const f=e.target; if(f&&f.matches&&f.matches('form[data-sb-form]')){ e.preventDefault(); sbAuthSubmit(); } else if(f&&f.matches&&f.matches('form[data-sb-del]')){ e.preventDefault(); sbDeleteAccount(); } });
 document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.target.closest('[data-act]'); if(!t) return;
   switch(t.dataset.act){
     case 'sb-auth-open': if(t.dataset.val==='newpw'&&!sbUser()){ sbAuthOpen('signin'); break; } sbAuthOpen(t.dataset.val); break;
     case 'sb-auth-mode': sbAuthRender(t.dataset.val); break;
+    case 'ob-guest': onboard.guest=true; onboard.step=1; renderOnboarding(); break;
+    case 'sb-delete-open': if(!sbUser()) break; $("#modal2").innerHTML=modal2Wrap(sbDelHtml(),'sb-delete-modal'); syncScrollLock(); icons(); break;
+    case 'sb-resend': if(!sb||!_sbSentTo) break; t.disabled=true; sb.auth.resend({type:'signup',email:_sbSentTo,options:{emailRedirectTo:SB_CONFIRM_URL}}).then(({error})=>{ t.disabled=false; if(error) toast('Couldn\u2019t resend',sbErrText(error)); else toast('Email sent','Check your inbox for a new link'); }); break;
     case 'sb-auth-close': closeModal2(); break;
     case 'sb-pw-toggle': { const i=document.getElementById('sb-pw'); if(!i) break; const show=i.type==='password'; i.type=show?'text':'password'; t.setAttribute('aria-label',show?'Hide password':'Show password'); t.innerHTML=`<i data-lucide="${show?'eye-off':'eye'}"></i>`; icons(); break; }
     case 'sb-sync-now': if(!navigator.onLine){ sbSet('offline',SB_OFFLINE); break; } if(_sbBusy){ toast('Already syncing','Hang tight'); break; } if(_sbDirty||sbMeta().pending){ clearTimeout(_sbTimer); _sbTimer=0; sbPush().then(()=>{ if(state.sbSync&&state.sbSync.s==='synced') toast('Synced','Up to date on all your devices'); }); break; } sbPull({restore:true}).then(r=>{ if(r==='pulled') sbReload(); else if(r==='same'||r==='pushed') toast('Synced','Up to date on all your devices'); }); break;

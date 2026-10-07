@@ -115,7 +115,7 @@ function renderLS(){
      <button data-act="ls-export" data-testid="ls-export" aria-label="Export LRC" title="Export" class="lsx-ic lg press"><i data-lucide="file-down"></i></button>
      <button data-act="ls-save" data-testid="ls-save" class="lsx-save press"><i data-lucide="check"></i>Save</button></div>`;
   const tabs=ls.hasAudio?`<div class="lsx-tabs" role="tablist">${tab('write','Write','pencil')}${tab('sync','Sync','clock')}${tab('preview','Preview','play')}</div>`:'';
-  const rail=lsDeskMode();
+  const rail=lsDeskMode(); ls._rail=rail;
   c.innerHTML=`<div data-ls-root data-testid="lyric-studio" data-ls-theme="${lt?'light':'dark'}" class="lsx ${lt?'lsx-light':'lsx-dark dark-surface'} fixed inset-0 z-[200] flex flex-col">
      <div class="lsx-bg" aria-hidden="true"><i></i><i></i></div>
      <div class="lsx-shell relative z-10 mx-auto flex h-[100dvh] w-full max-w-3xl flex-col">
