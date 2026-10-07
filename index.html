@@ -12969,17 +12969,51 @@ function sbQueuePush(){ if(!sb) return; sbMeta({pending:true}); if(!sbUser()) re
 async function sbAvatarUpload(uid,d){ const b=await (await fetch(d)).blob(); const ext=((b.type||'image/jpeg').split('/')[1]||'jpg').replace('jpeg','jpg'); const path=uid+'/avatar.'+ext;
   const {error}=await sb.storage.from('avatars').upload(path,b,{upsert:true,contentType:b.type||'image/jpeg',cacheControl:'3600'}); if(error) throw error;
   return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl+'?v='+Date.now(); }
-async function sbPush(){ const u=sbUser(); if(!sb||!u) return; if(_sbBusy){ _sbAgain=true; return; } _sbBusy=true; sbSet('saving'); let warn='';
-  try{ const p=Object.assign({},state.profile||{}); let av=p.avatarUrl||null;
-    if(!p.avatar) av=null;
-    else if(/^data:image\//.test(p.avatar)){ const sig=sbSig(p.avatar); if(sig!==p.avatarSig||!av){ try{ av=await sbAvatarUpload(u.id,p.avatar); p.avatarSig=sig; }catch(e){ warn='Your photo didn\u2019t upload ('+sbErrText(e)+'). Everything else synced.'; } } }
-    else if(/^https?:/.test(p.avatar)) av=p.avatar;
-    const {error}=await sb.from('profiles').upsert({id:u.id,username:p.username||null,display_name:p.nickname||null,avatar_url:av,bio:p.bio||null});
+async function sbPush(){
+  const u=sbUser();
+  if(!sb||!u) return;
+
+  if(_sbBusy){
+    _sbAgain=true;
+    return;
+  }
+
+  _sbBusy=true;
+  sbSet('saving');
+
+  try{
+    const payload=await sbExportPayload();
+
+    const {error}=await sb
+      .from('user_data')
+      .upsert({
+        user_id:u.id,
+        data:payload,
+        updated_at:new Date().toISOString()
+      });
+
     if(error) throw error;
-    const cur=state.profile||{}; Object.assign(cur,{avatarUrl:av,avatarSig:p.avatarSig||'',usernameSynced:p.username||''}); state.profile=cur; LS.set('treesh_profile',cur);
-    sbMeta({pending:false,at:Date.now(),uid:u.id}); sbSet(warn?'error':'synced',warn);
-  }catch(e){ sbFail(e); }
-  finally{ _sbBusy=false; if(_sbAgain){ _sbAgain=false; setTimeout(sbPush,0); } } }
+
+    sbMeta({
+      pending:false,
+      at:Date.now(),
+      uid:u.id
+    });
+
+    sbSet('synced');
+
+  }catch(e){
+    sbFail(e);
+
+  }finally{
+    _sbBusy=false;
+
+    if(_sbAgain){
+      _sbAgain=false;
+      setTimeout(sbPush,0);
+    }
+  }
+}
 function sbFail(e){ const code=e&&e.code, msg=((e&&(e.message||''))+' '+((e&&e.details)||'')).trim();
   if(code==='23505'&&/username/i.test(msg)){ const p=state.profile||{}; const tried=p.username; p.username=p.usernameSynced||''; LS.set('treesh_profile',p);
     state._unameErr='@'+tried+' is taken. Try another one.'; state._pfDraft=Object.assign({},state._pfDraft||{},{uname:tried}); state.settingsEditProfile=true;
@@ -12987,13 +13021,148 @@ function sbFail(e){ const code=e&&e.code, msg=((e&&(e.message||''))+' '+((e&&e.d
   sbMeta({pending:true});
   if(!navigator.onLine||sbIsNet(msg)){ sbSet('offline',SB_OFFLINE); return; }
   console.warn('Treesh sync',e); sbSet('error',sbErrText(e)); }
-async function sbPull(){ const u=sbUser(); if(!sb||!u) return 'none'; state._sbPulled=Date.now(); sbSet('saving');
-  try{ const {data,error}=await sb.from('profiles').select('id,username,display_name,avatar_url,bio,created_at').eq('id',u.id).maybeSingle(); if(error) throw error;
-    const m=sbMeta();
-    if(!data){ if(state.profile){ await sbPush(); return 'pushed'; } sbSet('idle'); return 'empty'; }
-    if(m.pending&&m.uid===u.id&&state.profile){ await sbPush(); return 'pushed'; }
-    sbApply(data); sbMeta({pending:false,at:Date.now(),uid:u.id}); sbSet('synced'); return 'pulled';
-  }catch(e){ sbFail(e); return 'error'; } }
+async function sbPull(){
+  const u=sbUser();
+
+  if(!sb||!u) return 'none';
+
+  state._sbPulled=Date.now();
+  sbSet('saving');
+
+  try{
+    const {data,error}=await sb
+      .from('user_data')
+      .select('data,updated_at')
+      .eq('user_id',u.id)
+      .maybeSingle();
+
+    if(error) throw error;
+
+    /*
+      No cloud data yet.
+      Upload everything currently on this device.
+    */
+    if(!data||!data.data){
+      await sbPush();
+      return 'pushed';
+    }
+
+    const backup=data.data;
+
+    if(
+      backup.type!=="treesh-backup" ||
+      typeof backup.localStorage!=="object"
+    ){
+      throw new Error("Invalid Treesh cloud data");
+    }
+
+    /*
+      Restore localStorage
+    */
+    const rm=[];
+
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+
+      if(
+        k &&
+        TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)
+      ){
+        rm.push(k);
+      }
+    }
+
+    rm.forEach(k=>{
+      try{
+        localStorage.removeItem(k);
+      }catch(e){}
+    });
+
+    Object.keys(backup.localStorage||{}).forEach(k=>{
+      try{
+        localStorage.setItem(
+          k,
+          backup.localStorage[k]
+        );
+      }catch(e){
+        if(isQuotaError(e)) notifyStorageFull();
+      }
+    });
+
+    /*
+      Restore IndexedDB media
+    */
+    if(Array.isArray(backup.media)){
+
+      for(const m of backup.media){
+
+        const rec={
+          id:m.id,
+          audioType:m.audioType||"",
+          coverType:m.coverType||"",
+          meta:m.meta||null,
+          duration:m.duration||0,
+          addedAt:m.addedAt||Date.now()
+        };
+
+        if(m.audio){
+          rec.audioBlob=_dataURLToBlob(m.audio);
+        }
+
+        if(m.cover){
+          rec.coverBlob=_dataURLToBlob(m.cover);
+        }
+
+        try{
+          await idbPut(rec);
+        }catch(e){}
+      }
+    }
+
+    /*
+      Restore assets
+    */
+    await assetClear();
+
+    if(Array.isArray(backup.assets)){
+
+      for(const a of backup.assets){
+
+        if(a&&a.id){
+
+          try{
+            await assetPut(a.id,a.value);
+          }catch(e){}
+        }
+      }
+    }
+
+    sbMeta({
+      pending:false,
+      at:Date.now(),
+      uid:u.id
+    });
+
+    sbSet('synced');
+
+    /*
+      Reload so Treesh rebuilds its state
+      from the restored cloud data.
+    */
+    setTimeout(()=>{
+      try{
+        location.reload();
+      }catch(e){}
+    },300);
+
+    return 'pulled';
+
+  }catch(e){
+
+    sbFail(e);
+    return 'error';
+  }
+}
 function sbApply(r){ const before=JSON.stringify(state.profile||null); const p=Object.assign({},state.profile||{});
   p.nickname=r.display_name||p.nickname||'Treesh Fan'; p.username=r.username||''; p.usernameSynced=p.username; p.bio=r.bio||'';
   const c=Date.parse(r.created_at||''); if(c&&(!p.joined||c<p.joined)) p.joined=c;
