@@ -4,7 +4,7 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { cancelAnimation, Easing as RE, useSharedValue, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NeonButton, ScreenHeader } from "@/src/components/ui";
@@ -35,6 +35,12 @@ const TUTORIAL: { icon: keyof typeof Ionicons.glyphMap; title: string; body: str
 const TAP_MAX = 0.18; // press longer than this (live) → hold note
 const MOVE_EPS = 16;  // sideways travel beyond this (live) → wavy note
 const FLICK_MAX = 0.28, FLICK_MIN = 26; // a quick stroke this long → flick note
+const SHORTCUTS: [string, string][] = [
+  ["Space", "Play / pause"], ["1 \u2013 6", "Select \u00B7 Tap \u00B7 Hold \u00B7 Flick \u00B7 Wavy \u00B7 Erase"], ["R", "Record on / off"],
+  ["\u2191 / \u2193", "Step a beat (or nudge selection)"], ["\u2190 / \u2192", "Move selection lane"], ["Ctrl+C / Ctrl+V", "Copy / paste at playhead"],
+  ["Ctrl+D", "Duplicate selection"], ["M", "Mirror selection"], ["Ctrl+A", "Select all"], ["Del", "Delete selection"],
+  ["Ctrl+Z / Ctrl+Shift+Z", "Undo / redo"], ["+ / \u2212", "Zoom in / out"], ["Esc", "Clear selection"],
+];
 type Capture = { sx: number; sy: number; lx: number; ly: number; t0: number; wall: number; lane: number; moved: boolean; points: { t: number; x: number }[] };
 type StepDrag = { t0: number; tRaw: number; lane: number; sx: number; sy: number; points: { t: number; x: number }[]; moved?: boolean };
 
@@ -61,6 +67,9 @@ export default function EditorScreen() {
   const [draft, setDraft] = useState<Note | null>(null);
   const [board, setBoard] = useState({ w: 0, h: 0 });
   const [shareCode, setShareCode] = useState<string | null>(null);
+  const [keysOpen, setKeysOpen] = useState(false);
+  const winW = useWindowDimensions().width;
+  const showKeys = Platform.OS === "web" && winW >= 960;
   const [clip, setClip] = useState<Note[]>([]); // copied notes, times relative to the first one
   const [band, setBand] = useState<{ y0: number; y1: number } | null>(null);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 1900); return () => clearTimeout(t); }, [toast]);
@@ -228,6 +237,42 @@ export default function EditorScreen() {
   const doShareCode = () => { if (!selectedSong || !notes.length) { setToast("Add notes before sharing"); return; } try { setShareCode(encodeChartCode(buildChart(), selectedSong)); } catch { setToast("Couldn't build a code"); } };
   const test = () => { if (!selectedSong || !notes.length) { setToast("Add some notes first"); return; } pause(); setTestChart(buildChart()); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/game"); };
 
+  // ---- Desktop keyboard shortcuts (web). The handler is refreshed every render so it always sees current state. ----
+  const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
+  keyHandler.current = (e: KeyboardEvent) => {
+    const el = e.target as HTMLElement | null;
+    if (tutorial || shareCode || (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable))) return;
+    const mod = e.ctrlKey || e.metaKey; const k = e.key.toLowerCase(); const sel = selected.size > 0;
+    let handled = true;
+    if (e.key === " ") { if (playingRef.current) pause(); else play(); }
+    else if (!mod && /^[1-6]$/.test(e.key)) setTool(TOOLS[Number(e.key) - 1].id);
+    else if (mod && k === "c") copySel();
+    else if (mod && k === "v") pasteHere();
+    else if (mod && k === "d") duplicateSel();
+    else if (mod && k === "a") setSelected(new Set(notes.map(n => n.id)));
+    else if (mod && k === "z") { if (e.shiftKey) doRedo(); else doUndo(); }
+    else if (mod && k === "y") doRedo();
+    else if (!mod && k === "m") mirrorSel();
+    else if (!mod && k === "r") setRecording(r => !r);
+    else if (e.key === "Delete" || e.key === "Backspace") eraseSelected();
+    else if (e.key === "Escape") { setSelected(new Set()); setKeysOpen(false); }
+    else if (e.key === "ArrowUp") { if (sel) nudgeSel(1); else stepBy(1); }
+    else if (e.key === "ArrowDown") { if (sel) nudgeSel(-1); else stepBy(-1); }
+    else if (e.key === "ArrowLeft" && sel) laneSel(-1);
+    else if (e.key === "ArrowRight" && sel) laneSel(1);
+    else if (e.key === "+" || e.key === "=") setZoomIdx(i => Math.max(0, i - 1));
+    else if (e.key === "-" || e.key === "_") setZoomIdx(i => Math.min(ZOOMS.length - 1, i + 1));
+    else if (e.key === "?") setKeysOpen(o => !o);
+    else handled = false;
+    if (handled) e.preventDefault();
+  };
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const onKey = (e: KeyboardEvent) => keyHandler.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const visible = useMemo(() => {
     const lo = now - 0.6, hi = now + lookahead + 0.2;
     const v = notes.filter(n => n.time < hi && n.time + (n.duration || 0) > lo);
@@ -244,8 +289,12 @@ export default function EditorScreen() {
   const toolMeta = TOOLS.find(t => t.id === tool)!;
 
   return <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-    <ScreenHeader title="Editor" right={<View style={styles.hRight}><Pressable testID="editor-help-button" onPress={() => { setTStep(0); setTutorial(true); }} style={styles.hBtn}><Ionicons name="help" size={16} color={colors.text} /></Pressable><Pressable testID="editor-share-code-button" onPress={doShareCode} style={styles.hBtn}><Ionicons name="share-social-outline" size={15} color={colors.text} /></Pressable><Pressable testID="export-chart-button" onPress={doExport} style={styles.hBtn}><Ionicons name="download-outline" size={15} color={colors.text} /></Pressable><Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable></View>} />
+    <ScreenHeader title="Editor" right={<View style={styles.hRight}>{showKeys && <Pressable testID="editor-shortcuts-button" onPress={() => setKeysOpen(o => !o)} style={[styles.hBtn, keysOpen && { borderColor: colors.cyan }]}><Ionicons name="keypad-outline" size={15} color={colors.text} /></Pressable>}<Pressable testID="editor-help-button" onPress={() => { setTStep(0); setTutorial(true); }} style={styles.hBtn}><Ionicons name="help" size={16} color={colors.text} /></Pressable><Pressable testID="editor-share-code-button" onPress={doShareCode} style={styles.hBtn}><Ionicons name="share-social-outline" size={15} color={colors.text} /></Pressable><Pressable testID="export-chart-button" onPress={doExport} style={styles.hBtn}><Ionicons name="download-outline" size={15} color={colors.text} /></Pressable><Pressable testID="save-chart-button" onPress={save} style={[styles.save, saved && { backgroundColor: rgba(0.35) }]}><Ionicons name={saved ? "checkmark" : "save"} size={15} color={colors.bg} /><Text selectable={false} style={styles.saveText}>{saved ? "Saved" : "Save"}</Text></Pressable></View>} />
     <ShareCodeModal visible={!!shareCode} code={shareCode || ""} title={selectedSong.title} onClose={() => setShareCode(null)} />
+    {keysOpen && <View testID="editor-shortcuts-panel" style={styles.keysPanel}>
+      <View style={styles.keysHead}><Text selectable={false} style={styles.keysTitle}>KEYBOARD SHORTCUTS</Text><Pressable testID="editor-shortcuts-close" onPress={() => setKeysOpen(false)} hitSlop={8}><Ionicons name="close" size={16} color={colors.muted} /></Pressable></View>
+      {SHORTCUTS.map(([k, d]) => <View key={k} style={styles.keyRow}><Text selectable={false} style={styles.keyCap}>{k}</Text><Text selectable={false} style={styles.keyDesc}>{d}</Text></View>)}
+    </View>}
     {toast && <View pointerEvents="none" style={styles.toast}><Ionicons name="checkmark-circle" size={16} color={colors.lime} /><Text selectable={false} style={styles.toastText}>{toast}</Text></View>}
     <Modal visible={tutorial} transparent animationType="fade" onRequestClose={endTutorial}>
       <View style={styles.tutOverlay}><View style={styles.tutCard}>
@@ -330,6 +379,9 @@ const styles = StyleSheet.create({
   hRight: { flexDirection: "row", alignItems: "center", gap: 6 }, hBtn: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center", ...GLASS },
   toast: { position: "absolute", top: 92, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 14, backgroundColor: "rgba(14,11,38,0.97)", borderWidth: 1, borderColor: colors.lime, zIndex: 50, elevation: 10 }, toastText: { color: colors.text, fontFamily: fonts.heavy, fontSize: 13 },
   tutOverlay: { flex: 1, backgroundColor: "rgba(6,5,26,0.85)", alignItems: "center", justifyContent: "center", padding: 26 }, tutCard: { width: "100%", maxWidth: 360, borderRadius: 24, padding: 24, backgroundColor: colors.bg1, borderWidth: 1, borderColor: "rgba(0,229,255,0.35)", alignItems: "center" }, tutIconWrap: { width: 60, height: 60, borderRadius: 20, backgroundColor: "rgba(0,229,255,0.1)", borderWidth: 1, borderColor: "rgba(0,229,255,0.4)", alignItems: "center", justifyContent: "center", marginBottom: 16 }, tutStep: { color: colors.cyan, fontSize: 10, letterSpacing: 1.6, fontFamily: fonts.heavy }, tutTitle: { color: colors.text, fontSize: 20, fontFamily: fonts.display, marginTop: 8, textAlign: "center" }, tutBody: { color: colors.muted, fontSize: 14, lineHeight: 20, fontFamily: fonts.body, textAlign: "center", marginTop: 10 }, tutDots: { flexDirection: "row", gap: 6, marginTop: 20 }, tutDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.18)" }, tutDotOn: { backgroundColor: colors.cyan, width: 20 }, tutBtns: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 22, alignSelf: "stretch" }, tutSkip: { flex: 1, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", ...GLASS }, tutSkipText: { color: colors.muted, fontFamily: fonts.heavy, fontSize: 14 }, tutNext: { flex: 1.4, height: 48, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.cyan }, tutNextText: { color: colors.bg, fontFamily: fonts.heavy, fontSize: 15 },
+  keysPanel: { position: "absolute", top: 64, right: 12, width: 340, zIndex: 60, padding: 14, gap: 6, borderRadius: 18, backgroundColor: "rgba(12,10,36,0.97)", borderWidth: 1, borderColor: "rgba(0,229,255,0.35)", elevation: 16 },
+  keysHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }, keysTitle: { color: colors.cyan, fontSize: 10, letterSpacing: 2, fontFamily: fonts.arcadeBlack },
+  keyRow: { flexDirection: "row", alignItems: "center", gap: 10 }, keyCap: { minWidth: 118, color: colors.text, fontSize: 11, fontFamily: fonts.heavy, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.08)", textAlign: "center" }, keyDesc: { flex: 1, color: colors.muted, fontSize: 12, fontFamily: fonts.bold },
   songBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingTop: 4 },
   thumb: { width: 38, height: 38, borderRadius: 9, overflow: "hidden", borderWidth: 1 }, thumbImg: { width: "100%", height: "100%" },
   song: { color: colors.text, fontSize: 15, fontFamily: fonts.heavy }, meta: { color: colors.cyan, fontSize: 9, letterSpacing: 1.2, marginTop: 2, fontFamily: fonts.arcade },
