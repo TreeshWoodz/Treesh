@@ -1,0 +1,67 @@
+{
+  "summary": "Frontend-only verification of Treesh single-file SPA covering (A) horizontal-overflow protection with Magic Markup edit mode, (B) swipe-to-close sheet behavior, (C) Studio widgets (Instrum/LyricFlow/ImageStudio), (D) 16 painterly onboarding avatars, (E1) Settings/onboarding account UI with no-SB-key placeholder, (E2) _sbtest.html signup happy path + validation, (E3) _sbtest.html sign in from onboarding on a fresh device, and (E6) global-search path. Most core flows pass. Two functional issues found: (1) avatar is NOT uploaded to storage on signup (upload call is missing from __mockLog and profile row avatar_url stays null), (2) quick ~60-100ms flick drag of the song-menu panel does NOT close it in the test harness (slow drag correctly springs back, but the flick threshold either requires more pixels or a faster velocity than the CDP touch dispatcher produced). zh/music-manager/profile 'sheets' are actually full-screen views (not .pm-panel) so their 'drag the top handle down to close' was not reproducible with the generic .pm-grab path.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Supabase signup (sbPush) avatar upload",
+        "issue": "After a valid signup in _sbtest.html with state.profile.avatar=OB_AVATARS[9] (data:image/webp;base64,...), the mock __mockLog contains only create/signup/select/upsert calls - NO 'upload' call to the 'avatars' bucket, and the resulting profiles row has avatar_url: null. Spec requires: 'avatar_url set (upload logged in __mockLog with upsert:true to avatars/<uid>/avatar.webp)'. Means a new account does NOT get the user's avatar synced to Storage, so other devices will not see the picture.",
+        "selector": "[data-testid='sb-account-card'] after sb-auth-submit",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Swipe-to-close sheet drag",
+        "issue": "Quick ~60-80px flick in <100ms on the open song-menu .pm-grab did NOT close the sheet in automated CDP touch dispatching. Slow 50px drag correctly springs back (sheet stays open). Longer slow drags (450px) do close. Likely either the velocity threshold is too strict for the CDP touch dispatcher, or the pm-grab handler is checking time elapsed differently than the UI touch pipeline reports. Suggest E1 confirm with manual swipe on a real device; if the velocity path is intended, consider a lower bar (e.g. v>0.4 px/ms) and/or treat >60px short-duration as a close.",
+        "selector": ".pm-grab",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "Swipe-to-close for zh / musicManager / profile",
+        "issue": "zhOpen(), openMusicManager(), openProfile() do NOT render as .pm-panel sheets with a .pm-grab top handle - they render as full-screen overlays (music-manager at 0,0 w390 h844; settings-profile at ~30,12 w357 h902). There is no visible drag handle, so the spec's 'drag the sheet's top bar/handle down to close' is unreachable via the common handle for these three. If the spec intends them to be sheets, add a .pm-grab/sheet-grab element and the pm-panel chrome; otherwise document that only the four true sheets (song menu, equalizer, add-to-playlist, MK add, sb-auth) support drag-to-close.",
+        "selector": "zhOpen/openMusicManager/openProfile containers",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_pass": {
+    "A_no_horizontal_overflow": "mkSetEdit(true); for views library/studios/settings/game/artists -> documentElement.scrollWidth===clientWidth (390/390) and window.scrollTo(300,0) keeps scrollX=0 at 390x844 with is_mobile+has_touch.",
+    "B_drag_close": "song menu, equalizer, add-to-playlist, MK Add sheet (mk-add-sheet), and sb-auth all close with a 450px CDP touch drag from the .pm-grab. Slow 50px drag correctly springs back and the sheet stays open (does not replay the entrance animation).",
+    "C_instrum_widget": "mk-instrum-recent-0 ('Night Drive') and mk-instrum-recent-1 ('Woodz Bounce') render with correct singular/plural ('1 track' for b2, '2 tracks' for b1). Clicking mk-instrum-recent-1 -> state.view==='instrum' and state.instrum.project.name==='Woodz Bounce'.",
+    "C_lyricflow_widget": "mk-lf-recent-0 click opens Lyric Studio with the 'Moonlit Verse' draft visible (title 'Moonlit...', 'Under the trees' line, Rhymes-for panel showing). mk-lf-open button exists.",
+    "C_imagestudio_widget": "Widget shows swatches by default (recent-0 absent). After isRecSave(tiny canvas JPEG dataURL) returns ok, mk-is-recent-0 appears and persists across a page reload (IndexedDB). Clicking it shows is-result-edit, is-result-remove, is-result-close. is-result-remove -> confirm-ok -> swatches state restored (recent-0 gone).",
+    "D_16_painterly_avatars": "OB_AVATARS.length===16; 16 [data-testid^=ob-preset-] buttons; all 16 <img>s have naturalWidth>0 (first 8 are 176px webp, last 8 are 192px webp - the new ones); clicking ob-preset-11 -> OB_AVATARS[11]===onboard.avatar; documentElement.scrollWidth===clientWidth at both 390x844 and 1920x800.",
+    "E1_no_sb_key_states": "Settings account tab shows sb-account-card with 'Accounts aren't switched on yet. Your profile is saved on this device for now.' + sb-card-signin. Clicking it opens sb-auth sheet with sb-auth-offline banner and sb-auth-submit disabled. Fresh-storage onboarding step 0 shows onboarding-account-row + onboarding-signin ('Already on Treesh? Sign in or begin as a guest'). onboard.step=4 re-render shows onboarding-create-account ('Create an account'). No non-Tailwind console errors.",
+    "E2_signup_validation_and_happy_path": "In _sbtest.html with autoConfirm:true: sb-card-signup -> sb-auth-tab-signup aria-selected='true'. Password '123' -> sb-auth-msg 'Passwords need at least 6 characters.' Invalid email -> 'Enter a valid email address.' Valid email+password -> sheet closes, sb-account-card shows name 'Guesty' + email 'newuser@test.com', sb-sync-status 'Synced \u00b7 just now', mock profiles row has display_name='Guesty' and bio='hi'. (BUT avatar_url stays null and no 'upload' call is logged - see HIGH bug above.)",
+    "E3_signin_from_onboarding_fresh_device": "Mock db seeded with user a@test.com/secret123 confirmed + profiles row {username:'woodz_kid',display_name:'Cloudy',bio:'from cloud',avatar_url:'/treesh_logo.png'}. No treesh_profile. Onboarding opens; onboarding-signin -> sheet. Wrong password -> 'That email and password don\u2019t match.' Correct password -> onboarding closes automatically, state.profile.nickname='Cloudy', username='woodz_kid', bio='from cloud', avatar cached as data: URL ('data:image/png;base6...'), state.view='library'. openProfile() -> settings-profile-username reads '@woodz_kid'."
+  },
+  "not_fully_tested": {
+    "E4_profile_editing_offline_queue": "Did not run @Taken conflict + offline bio-queue flow in this iteration due to time, but underlying hooks (sbPush, sbMeta, pending state, online event listener) are referenced in /app/memory/p9g.js. Previous iteration behaviour on auth-less app was fine.",
+    "E5_second_device_signout_email_links": "Not exercised in this run.",
+    "E6_global_search_account_entry": "Attempted the search overlay click but the search-overlay-input selector was not reachable from the profile-sheet state in the automation; needs a clean navigation path. Manual spot-check recommended.",
+    "B_zh_mm_profile_drag_close": "These three use full-screen view containers rather than .pm-panel sheets with a .pm-grab handle - see MEDIUM bug above.",
+    "B_mouse_drag_pm_grab_nontouch": "Not exercised in this run; focus was on CDP touch dispatch."
+  },
+  "test_report_links": ["/app/test_reports/iteration_15.json"],
+  "action_items": [
+    "HIGH: Fix signup avatar upload. After a successful signup when state.profile.avatar is a data: URL, sbPush/sbSave* should (a) blob-decode the data URL, (b) call supabase.storage.from('avatars').upload(`${uid}/avatar.webp`, blob, {upsert:true, contentType:'image/webp'}), (c) set profile.avatar_url to the returned public URL, (d) upsert the profiles row again. Verify in _sbtest.html that __mockLog contains an 'upload' entry and __mock_sb_db.profiles[uid].avatar_url is a non-null string.",
+    "MEDIUM: Investigate why a short/fast CDP touch flick doesn't close song-menu via .pm-grab (slow drag closes; slow 50px springs back fine). Likely the pm drag code requires either (distance>=X AND v>=Y) OR (distance>=large). Lower one of the thresholds or add a velocity-only close path.",
+    "MEDIUM: Decide whether zhOpen / openMusicManager / openProfile should be sheets (with .pm-grab top handle + drag-to-close) or stay as full-screen views. If sheets, wrap them in .pm-panel with a .pm-grab and reuse the same drag handler. If views, update the spec accordingly.",
+    "NICE: Add data-testid='search-overlay-root' or similar so tests can enter the search overlay without racing other sheets.",
+    "NICE: On fresh storage, the natural onboarding render path works, but programmatic `onboard.step=0; renderOnboarding()` after a profile has been set does NOT render the onboarding-account-row (state.profile check hides it). Not a bug - documenting for next tester."
+  ],
+  "critical_code_review_comments": [
+    "Tailwind CDN production warning in console is expected per the single-file app design (not an issue).",
+    "sbPush path appears to upsert the profile row before/without uploading the avatar - the sequence should be: upload -> getPublicUrl -> upsert with avatar_url. See /app/memory/p9g.js around sbPush / sbSave* and the sbsave1-3 blocks in /app/memory/patch_p9.py.",
+    "zh/musicManager/profile are rendered inline, not inside .pm-panel. If they are intended to behave like sheets (per Task B), add the same wrapper + grab handle; otherwise consider removing them from the 'sheets that must close by drag' list in the spec."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "~85% (A, D, E1, C-core, E2-validation, E2-core, E3 all pass; one HIGH avatar-upload bug, two MEDIUM drag-close gaps; E4/E5/E6 not exercised in this iteration)"},
+  "test_credentials": "N/A - the only credentials used are mock seeded ones for _sbtest.html (a@test.com / secret123 for E3, newuser@test.com / secret123 for E2).",
+  "seed_data_creation": "Seeded via add_init_script: treesh_profile, treesh_whatsnew_off, treesh_cookie, treesh_beats (b1/b2 with 16/32 step tracks), treesh_lyric_drafts (d1 'Moonlit Verse'), __mock_sb_db (users/profiles/files/autoConfirm) for _sbtest.html runs. Also state.profile.avatar=OB_AVATARS[9] for E2 avatar upload check.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Confirmed-working testids: ob-preset-0..15, OB_AVATARS[16]; mk-instrum-recent-0/1 (strings include 'N BPM \u00b7 N bar(s) \u00b7 N track(s)' with correct singular), mk-lf-recent-0, mk-lf-open, mk-is-recent-0, is-result-edit/remove/close, confirm-ok. Supabase/mock testids: sb-account-card, sb-card-signin/signup/name/email, sb-sync-status, sb-auth, sb-auth-offline, sb-auth-tab-signin/signup, sb-auth-email, sb-auth-password, sb-auth-submit, sb-auth-msg, sb-auth-pw-toggle, sb-auth-forgot, sb-auth-sent, sb-signout. Onboarding testids: onboarding-account-row, onboarding-signin, onboarding-create-account. Profile view: settings-profile-username. B drag-to-close works via CDP touch slow-drag 450px on .pm-grab for song-menu/equalizer/add-to-playlist/mk-add-sheet/sb-auth. E3 flow validated end-to-end. Priority bug to retest after fix: avatar upload to Storage must appear in __mockLog as an 'upload' call and profiles row avatar_url must be a non-null string.",
+  "rca of the issue": "Avatar not synced on signup: sbPush likely writes the profiles row via upsert({id, username, display_name, avatar_url, bio}) but does not run the storage upload branch when state.profile.avatar is a data: URL. Expected sequence per spec and p9g.js: detect data:/blob URL -> upload to avatars/<uid>/avatar.webp with upsert:true -> use getPublicUrl.data.publicUrl as avatar_url -> upsert row. Repro: in _sbtest.html seed __mock_sb_db={autoConfirm:true,users:{},profiles:{},files:{}} and treesh_profile with avatar=OB_AVATARS[9], Settings->sb-card-signup, submit email+password, then window.__mockLog - no 'upload' entry; __mock_sb_db.profiles[uid].avatar_url === null."
+}
