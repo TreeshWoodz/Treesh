@@ -77,3 +77,13 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 ## Backlog
 - P1: Lyrics editor for content/lyrics
 - P2: Main-app patch to honor data-release (badge + playback lock)
+
+## 2026 — Storage-loss investigation (main app, treesh.app)
+- M.A.D. never clears storage. Icon updates only rewrite content/icons.html, and nothing in the main app wipes storage when the catalog changes (checked on live treesh.app: data survives a reload with the new icons file).
+- Most likely cause: iOS evicted storage for the home-screen web app. The app never asked iOS to keep its storage.
+- Patched main app saved as /app/deliverables/index.html (based on live treesh.app index):
+  - Asks the browser for persistent storage at startup (navigator.storage.persist)
+  - "Erase everything" now removes only Treesh-owned keys (treesh*, frea_, chainz_, vocotap_, voco_, nects_) instead of the whole localStorage/sessionStorage
+  - Closing or cancelling a confirm dialog clears the pending confirm action, so it can't fire later
+- Noted: artist #17 Jay Saulx is missing from live content/icons.html
+- Pending (user deferred): end-to-end testing of Blog Coder, banner previews, PR Status, Sign-in Activity
