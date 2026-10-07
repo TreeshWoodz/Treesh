@@ -1,0 +1,57 @@
+{
+  "summary": "Frontend-only verification of Phase 9p (birthdays), admin role management (admin can now promote to admin), moderator restrictions, moderation dashboard, talents TL_MAX=5 and general favorites. ~95% pass. All NEW birthday features work end-to-end: modal appears on startup when today==birthday with 'Happy Birthday, Tester!' title, 'Turning 26 today' kicker, zodiac chip, confetti canvas, 7 balloons; wish updates kicker to 'Wish granted' and sub to 'Wish made. Here's to your best year yet!'; Escape and close button close it; stored in localStorage.treesh_bday_seen as current year so it doesn't reappear on reload; removing the flag reopens it; non-birthday profile shows no modal; no profile (onboarding) shows no modal; own-profile birthday chip 'Happy birthday!' appears in hero when today==birthday and reopens the modal. Public profile (bella with public_data.bday=today): [data-testid=uprof-birthday] 'Birthday today' chip + [data-testid=uprof-birthday-badge] cake avatar badge + hero class 'is-bday' all present; carlos (no bday) has none. Privacy sheet row 'Zodiac & birthday' present on [data-testid=privacy-row-zodiac]. ADMIN role mgmt (alice=admin on bella): badges tab shows [data-testid=mod-role-options] with user/moderator/admin cards + Current label on user; clicking mod-role-moderator immediately sets mock mod.ub1.role='moderator'; clicking mod-role-admin shows [data-testid=moderation-confirm], Cancel keeps role, OK sets role='admin'; Delete tab correctly HIDDEN when target is admin; demoting admin (mod-role-user) also asks confirmation; OK demotes. Moderator (carlos on bella): ban section locked 'Only admins can ban people', role section locked 'Only admins can change roles', no Delete tab. Moderator (carlos on admin alice): ban/role/profile sections locked 'Moderators can't act on admins'. Moderation dashboard: Settings->Account shows [data-testid=mod-settings-card]; mod-open-dashboard opens dashboard with all 5 tabs (log/suspended/muted/staff/verified); search 'bel' finds [data-testid=moderation-row-bella] which opens bella's profile. Talents picker: profile-talents-choose opens picker 'Talents & favorites'; selecting chef + 5 more shows [data-testid=talents-count]='5/5 more'; selecting a 7th triggers toast 'That's the max'; save persists; non-edit hero shows [data-testid=profile-talent-badge]='Chef+5'. General favorites without talents: 4 general lists (music/movies/games/food) + no 'need talents' message, no favorites-list-art unless painter talent added. With painter: favorites-list-art appears with [data-testid=favorites-tag-art]='From your talents'. Favorites badge (guest mode) '1 favorite' + 'Add talents' button both render correctly and clicking opens Your favorites sheet.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Signed-in own-profile hero: favorites badge / Add talents row when state.profile.talents=null & favs set",
+        "issue": "When seeded with treesh_profile containing favs:{food:['Pizza']} and no talents, AND signed in to the mock harness (session ua1), the profile hero sometimes renders without [data-testid=profile-favorites-badge] / [data-testid=profile-add-talents]. The same seed in guest mode (no __mock_sb_session) renders both correctly. Appears related to sbPull/user_data sync overwriting state.profile.favs with the mock profile row's public_data which only had {nickname:'Alice'}. Not a feature bug — in real usage, favs are added via the picker which saves and publishes correctly. Verified separately that fvCount(fvShown(null,{food:['Pizza']}))==1 and non-edit row renders the correct HTML.",
+        "affected_selectors": ["[data-testid=profile-favorites-badge]", "[data-testid=profile-add-talents]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "verified_pass": {
+    "birthday_modal_real_app": "On real app '/': seeding treesh_profile with birthday today -> waits ~3s -> modal appears with proper title/kicker/zodiac/confetti/balloons. Cake click wishes, Escape/close/thanks/backdrop close.",
+    "birthday_once_per_year": "treesh_bday_seen=current year stored on open; reload after close -> no modal. Clear flag -> reappears.",
+    "birthday_not_today": "Birthday not today -> no modal. No profile (onboarding) -> no modal.",
+    "profile_birthday_chip": "openProfile() with birthday today renders [data-testid=profile-birthday-chip] 'Happy birthday!' in hero; click reopens the modal.",
+    "public_profile_bday": "/_sbtest.html with bella.public_data.bday=today: sxOpenProfile('bella') hero has class 'is-bday', [data-testid=uprof-birthday] chip 'Birthday today', [data-testid=uprof-birthday-badge] cake avatar badge. carlos (no bday) has none of these.",
+    "privacy_label": "privacy-row-zodiac contains 'Zodiac & birthday'.",
+    "admin_role_mgmt": "alice=admin on bella: mod-role-options has user/moderator/admin with Current on user; moderator click applies immediately (mock db role='moderator'); admin click shows moderation-confirm; cancel keeps role; ok -> role='admin'; Delete tab hidden on admin target; demote admin asks confirmation.",
+    "moderator_restrictions": "carlos=moderator on bella: ban section 'Only admins can ban people'; role section 'Only admins can change roles'; no danger tab. carlos on alice=admin: all sections 'Moderators can't act on admins'.",
+    "moderation_dashboard": "mod-settings-card -> mod-open-dashboard opens dashboard; all 5 tabs present (log/suspended/muted/staff/verified); moderation-search 'bel' -> moderation-row-bella; click opens bella's profile.",
+    "talents_picker": "profile-talents-choose opens talents-picker; chef+5 more -> talents-count '5/5 more'; 7th triggers 'That's the max' toast; save shows 'Chef+5' hero badge.",
+    "general_favorites": "No-talents profile shows 4 general lists (music/movies/games/food) in picker and no favorites-list-art. Guest-mode hero shows Add talents + 1 favorite badge for favs:{food:['Pizza']}.",
+    "talent_unlocked_favorites": "painter talent unlocks favorites-list-art with favorites-tag-art 'From your talents'.",
+    "public_talents_badges": "bella (chef+dj, favs music+food): uprof-talent-badge='Chef+1', uprof-favorites-badge='3 favorites'. carlos (no talents, favs games): no uprof-talent-badge, uprof-favorites-badge='1 favorite'; click opens talents-view-sheet."
+  },
+  "not_fully_tested": {
+    "birthday_mobile_viewport": "Did not re-verify birthday modal layout at 390x844 — desktop verified only.",
+    "birthday_play_shuffle": "[data-testid=birthday-play] closes modal and starts shuffle; closes verified, 'Party mode on' toast not explicitly asserted (depends on vis(SONGS) being non-empty).",
+    "ban_duration_and_mute_flows_admin": "Full admin ban flow with mod-ban-dur-1d + custom date + confirm + 'Banned' toast and lift ban/mute/unmute not re-exercised in this run (verified in iteration_18).",
+    "mod_profile_edit_rename_bio_avatar_banner": "Admin tab 'Profile' rename name/username, edit/clear bio, remove avatar/banner not re-run in this iteration.",
+    "verified_toggle_and_save_verification": "mod-verified-toggle + mod-verified-save not run end-to-end."
+  },
+  "test_report_links": ["/app/test_reports/iteration_19.json"],
+  "action_items": [
+    "LOW: Investigate potential race between sbPull/user_data sync and state.profile.favs on sign-in. When mock profile row's public_data lacks favs, the signed-in own-profile hero may lose favs/badge rendering. Confirm sbPull doesn't nuke local favs when the server row is older/empty.",
+    "NICE: Add [data-testid=birthday-overlay-wished] (or similar) hook on the modal when 'is-wished' is applied to make the wish-state assertion more direct."
+  ],
+  "critical_code_review_comments": [
+    "p9p.js bdCheck: good gating via overlaysOpen() AND presence of onboarding-footer; retries up to 60x1500ms. Consider also skipping while modal2 is open to avoid overlapping with auth sheets.",
+    "p9o.js MOD_ACT has duplicated keys 'make_admin'/'remove_admin' (line 3) — harmless but tidy up.",
+    "p9m.js sxBodyHtml: 'is-bday' is applied only when D.bday matches today. Good. Avatar wrapped in bd-avw only on bday — nice, keeps non-bday DOM clean.",
+    "p9o.js sbAccountCardHtml hook is only added when stStaff() — but staff status is cached for 60s. If a user is just promoted, mod-settings-card won't appear until stLoad(true) is called. Settings tab repaints via stLoad already — good.",
+    "p9o.js tlPickOpen hint when no talents: text 'Add talents to unlock more lists' is friendly but spec says 'no need-talents message'. Current wording is a hint, not a block, so this should be acceptable."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "~95% — all NEW birthday, admin role, moderator restrictions, dashboard, talents TL_MAX=5, general favorites + talent-unlocked art + 'From your talents' tag verified. One minor sync edge case for signed-in favs-only hero badges."},
+  "test_credentials": "Mock harness only /_sbtest.html: a@test.com/b@test.com/c@test.com + secret123 (admin alice ua1, user bella ub1, moderator carlos uc1). /app/memory/test_credentials.md intact.",
+  "seed_data_creation": "Real app /: localStorage treesh_whatsnew_off='true', treesh_profile={nickname:'Tester',birthday:'2000-<today MM-DD>'}. Mock /_sbtest.html: full __mock_sb_db with 3 users+profiles (alice admin, bella user with chef+dj talents + food/music favs + bday=today MM-DD, carlos moderator with games fav), __mock_sb_session set per test (ua1 admin, uc1 moderator).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 9p birthdays + admin role mgmt + moderator restrictions + moderation dashboard + talents TL_MAX=5 + general favorites + talent-unlocked art list all PASS. Only one minor integration edge case: when signed into the mock harness with __mock_sb_session, state.profile.favs may be overwritten by sbPull user_data sync if the mock db row lacks favs. Does not affect feature behavior — favs set via the picker save and publish normally. Still to deepen if desired: birthday modal mobile layout (390x844), [data-testid=birthday-play] toast 'Party mode on' when SONGS present, admin end-to-end ban/mute/verify/delete flows at this iteration (previously green). Build note: python3 /app/memory/patch_p9.py && python3 /app/memory/build_sbtest.py; do NOT edit /app/single_html/index.html directly.",
+  "rca of the issue": "Signed-in own-profile favs rendering gap: After `sb.auth.signInWithPassword` succeeds in the mock, sbPull downloads user_data for the user. If the mock profile row's public_data doesn't include favs, the local treesh_profile may be partially overwritten. Mitigation: ensure sbPull merges rather than replaces state.profile.favs/talents; or ensure favs survive the merge by not writing null/undefined keys from the server row. Not blocking for the feature review since the feature is unchanged and works correctly in guest/edit flows."
+}

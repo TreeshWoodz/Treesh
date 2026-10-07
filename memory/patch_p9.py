@@ -122,6 +122,8 @@ rep('function updateSearchTabs(){ ["songs","artists","lyrics","settings"].forEac
 # ---- P9l: Support + Feedback in System & About
 rep('     </div>\n     <div class="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">\n       <div class="flex items-center gap-2 text-sm font-semibold"><i data-lucide="copyright"','     </div>\n     ${tsAboutRows()}\n     <div class="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">\n       <div class="flex items-center gap-2 text-sm font-semibold"><i data-lucide="copyright"',1,'tsabout')
 rep('<p class="mb-4 pl-11 text-sm text-white/50">Legal &amp; app information.</p>','<p class="mb-4 pl-11 text-sm text-white/50">Help, legal &amp; app information.</p>',1,'tsaboutsub')
+# ---- nicer cover placeholder (missing / broken art)
+rrep(r'const FALLBACK = "data:image/svg\+xml;utf8," \+ encodeURIComponent\("[^\n]*?"\);', open(M+'p9q_fallback.txt',encoding='utf-8').read().strip(), 1, 'fallback')
 # ---- boot
 rep("  mkRenderChrome(); p7Init(); p8Init(); }\n","  mkRenderChrome(); p7Init(); p8Init(); p9Init(); }\n",1,'init')
 
@@ -130,7 +132,7 @@ if errs:
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js'])
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js'])
 js=js.replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
@@ -147,7 +149,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)

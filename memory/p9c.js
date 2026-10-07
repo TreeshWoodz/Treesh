@@ -58,7 +58,7 @@ function p9MouseSheetDrag(){ document.addEventListener('pointerdown',e=>{ if(e.p
   document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up); }); }
 
 /* ---------- P9: Lyric Studio, styled editor + light mode ---------- */
-function lsLight(){ return LS.get('treesh_ls_light',false)===true; }
+function lsLight(){ return state.theme==='light'; }
 function lyMd(l){ return !!(l&&l.md&&lsStripFmt(l.md)===l.text); }
 function lyFmt(l){ return lyMd(l)?lsInlineFmt(l.md):esc(l?l.text:''); }
 const escT=v=>String(v==null?'':v).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
@@ -108,10 +108,9 @@ function renderLS(){
   const ls=state.ls, lt=lsLight();
   if(!ls.hasAudio&&ls.mode!=='write') ls.mode='write';
   const tab=(id,label,ic)=>`<button data-act="ls-mode" data-mode="${id}" data-testid="ls-tab-${id}" role="tab" aria-selected="${ls.mode===id}" class="ls-tab lsx-tab press"><i data-lucide="${ic}"></i>${label}</button>`;
-  const title=ls.isBlank?`<button id="ls-doc-title" data-act="ls-doc-rename" data-testid="ls-doc-title" class="lsx-doc press"><span class="clamp-1">${esc(ls.title||'Untitled lyrics')}</span><i data-lucide="pencil"></i></button>`:`<p class="lsx-doc clamp-1">${esc(ls.title||'Untitled')} <span>\u00b7 ${esc(ls.artist||'')}</span></p>`;
+  const title=ls.isBlank?`<button id="ls-doc-title" data-act="ls-doc-rename" data-testid="ls-doc-title" class="lsx-doc press"><span class="clamp-1">${esc(ls.title||'Untitled lyrics')}</span><i data-lucide="pencil"></i></button>`:`<p class="lsx-doc is-song" data-testid="ls-doc-heading"><span class="lsx-doc-t" data-testid="ls-doc-song">${esc(ls.title||'Untitled')}</span>${ls.artist?`<span class="lsx-doc-a" data-testid="ls-doc-artist"><b>\u00b7</b> ${esc(ls.artist)}</span>`:''}</p>`;
   const header=`<div class="lsx-head"><button data-act="ls-close" data-testid="ls-close" aria-label="Close" class="lsx-ic lg press"><i data-lucide="chevron-down"></i></button>
      <div class="min-w-0 flex-1"><p class="lsx-kick">${ls.isBlank?'Lyric Draft':'Lyric Studio'}<span id="ls-dirty" class="${ls.dirty?'':'hidden'} lsx-dot" title="Unsaved changes"></span></p>${title}</div>
-     <button data-act="ls-theme" data-testid="ls-theme-toggle" aria-label="${lt?'Dark mode':'Light mode'}" title="${lt?'Dark paper':'Light paper'}" class="lsx-ic lg press"><i data-lucide="${lt?'moon':'sun'}"></i></button>
      <button data-act="ls-import" data-testid="ls-import" aria-label="Import lyrics" title="Import" class="lsx-ic lg press"><i data-lucide="import"></i></button>
      <button data-act="ls-export" data-testid="ls-export" aria-label="Export LRC" title="Export" class="lsx-ic lg press"><i data-lucide="file-down"></i></button>
      <button data-act="ls-save" data-testid="ls-save" class="lsx-save press"><i data-lucide="check"></i>Save</button></div>`;
@@ -148,7 +147,6 @@ document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.tar
 function p9SettingsIdx(){ if(window._p9Idx||typeof SETTINGS_INDEX==='undefined') return; window._p9Idx=true; SETTINGS_INDEX.push(
   {id:'np-style',label:'Player style',desc:'Classic, record player, CD, polaroid, glass, beat pulse and more',kw:'now playing player cover art style vinyl record cd circle polaroid glass pulse minimal full screen look',ic:'disc-3',type:'action',go:()=>{ closeSearch(); setTimeout(()=>{ if(curSong()){ state.npOpen=true; renderNP(); setTimeout(npsOpen,350); } else goSettingSection('appearance','Now Playing look'); },220); }},
   {id:'np-peek',label:'Live lyrics in the player',desc:'Lyrics glow word by word under the song title',kw:'live lyrics karaoke words glow player now playing peek sing along',ic:'mic-vocal',type:'toggle',get:()=>npPeekOn(),toggle:()=>{ LS.set('treesh_np_peek',!npPeekOn()); if(state.npOpen) renderNP(); }},
-  {id:'ls-light',label:'Lyric Studio light paper',desc:'Write lyrics on a light page',kw:'lyric studio light mode paper white theme writing',ic:'sun',type:'toggle',get:()=>lsLight(),toggle:()=>{ LS.set('treesh_ls_light',!lsLight()); if(state.lsOpen) renderLS(); }},
   {id:'sb-account',label:'Treesh account',desc:'Sign in, sync your profile to any device, sign out',kw:'account sign in login log in sign up register create account email password cloud sync backup username devices sign out logout',ic:'cloud',type:'action',go:()=>goSettingSection('account')},
   {id:'zodiac-hub',label:'Zodiac, numerology & fortune',desc:'Daily horoscope, life path, tarot and fortune cookie',kw:'zodiac astrology horoscope star sign numerology life path fortune cookie tarot moon chinese compatibility',ic:'sparkles',type:'action',go:()=>{ closeSearch(); setTimeout(zhOpen,220); }}
 ); }

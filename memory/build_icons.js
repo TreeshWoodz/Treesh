@@ -1,7 +1,7 @@
 const L=require('/app/memory/lucide_src.js'); const fs=require('fs');
 const icons=L.icons;
 const toP=s=>{ let out='',up=false; for(const ch of s){ if(ch==='-'||ch==='_'||ch<=' '){ up=out.length>0; continue;} out+= out.length===0?ch.toLowerCase(): (up?ch.toUpperCase():ch); up=false;} return out.charAt(0).toUpperCase()+out.slice(1); };
-const files=['/app/memory/index.before_p9.html',...['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js'].map(f=>'/app/memory/'+f)].filter(f=>fs.existsSync(f));
+const files=['/app/memory/index.before_p9.html',...['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js'].map(f=>'/app/memory/'+f)].filter(f=>fs.existsSync(f));
 const src=files.map(f=>fs.readFileSync(f,'utf8')).join('\n');
 const lit=new Set(); let m;
 const reA=/data-lucide="([a-z0-9-]+)"/g; while((m=reA.exec(src))) lit.add(m[1]);

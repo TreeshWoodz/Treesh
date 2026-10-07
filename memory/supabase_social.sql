@@ -170,8 +170,8 @@ begin
   see_all := staff or (rel <> 'blocked' and (rel in ('self', 'friends') or not coalesce(p.is_private, false)));
   src := coalesce(p.public_data, '{}'::jsonb);
   if see_all then
-    d := jsonb_build_object('nickname', src->'nickname', 'joined', src->'joined', 'accent', src->'accent', 'theme', src->'theme', 'custom', src->'custom', 'talents', src->'talents', 'favs', src->'favs');
-    foreach k in array array['zodiac', 'badges', 'favorites', 'lyrics', 'disliked', 'playlists', 'listening'] loop
+    d := jsonb_build_object('nickname', src->'nickname', 'joined', src->'joined', 'accent', src->'accent', 'theme', src->'theme', 'custom', src->'custom', 'space', src->'space', 'talents', src->'talents', 'favs', src->'favs');
+    foreach k in array array['zodiac', 'badges', 'favorites', 'lyrics', 'disliked', 'playlists', 'listening', 'arcade'] loop
       vis := coalesce(p.privacy->>k, 'everyone');
       keys := case k when 'badges' then array['badges', 'stats', 'top'] when 'zodiac' then array['zodiac', 'bday'] else array[k] end;
       if staff or rel = 'self' or vis = 'everyone' or (vis = 'friends' and rel = 'friends') then
