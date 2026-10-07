@@ -1,0 +1,54 @@
+{
+  "summary": "Frontend-only re-verification focused on previous iteration's HIGH/MEDIUM bugs plus Phase 9 features: onboarding welcome/guest/back row, confirm-signup shim (expired, success, no-hash stable, resend), avatar upload on signup, 30s sync throttle, delete account flow, voice overlay commands/close, Magic Markup deep edit on Library vs Settings, Music Manager renders inside glass studio (no old modal). The HIGH previous-iteration bug (avatar not uploaded on signup) is FIXED: when state.profile.avatar is a valid data: URL, __mockLog now contains 'upload:avatars/<uid>/avatar.webp:image/webp:true' and profiles.avatar_url is a non-null public URL. One minor regression found: on Settings view, Magic Markup toolbar still renders the Select ([data-testid=mk-deep-button]) button; spec says it should not be offered there (clicking it does show the expected 'Open Library, Icons, Studios or Game' toast, so it's non-functional but visible).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Magic Markup toolbar on Settings",
+        "issue": "Spec: 'Navigate to Settings with Magic Markup -> Select is not offered (toolbar shows View only / no Select)'. Actual: [data-testid=mk-deep-button] is still rendered in the toolbar on Settings view. Clicking it correctly bails with toast 'Open Library, Icons, Studios or Game' - so function is guarded, but the button should be hidden on Settings. See /app/memory/p9h.js mkdTbBtn() - it is unconditionally included in the toolbar HTML; wrap it with a check on state.view!=='settings'.",
+        "selector": "[data-testid=mk-deep-button]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_pass": {
+    "onboarding_welcome_guest_back": "At 1920x900 fresh-storage: [data-testid=onboarding-auth-cta] present with onboarding-create-account + onboarding-signin and [data-testid=onboarding-guest]. Clicking guest moves to next step; onboarding-back returns to welcome where [data-testid=onboarding-account-row] reads 'Exploring as a guest. Sign in or Create account' with onboarding-row-signin and onboarding-row-signup; onboarding-guest is gone; main CTA becomes onboarding-next.",
+    "confirm_signup_shim_expired": "/confirm-signup#error=access_denied&error_code=otp_expired&... redirects to / (URL cleaned, no ?route), [data-testid=confirm-signup-page] data-state='expired', title 'This link has expired', confirm-signup-email + confirm-signup-resend + confirm-signup-return visible. Return button removes #cf-root and onboarding/app usable.",
+    "confirm_signup_shim_nohash_stable": "/confirm-signup with no hash shows expired state and URL remains stable over 6s (no infinite reload).",
+    "confirm_signup_success_mock": "_sbtest.html?route=confirm-signup#access_token=tok_uabc&refresh_token=ref_uabc&type=signup -> data-state='ok', title 'Email confirmed!', chip 'n@t.com', sbUser() truthy. With a valid webp data URL avatar seeded on treesh_profile, __mockLog contains 'upload:avatars/uabc/avatar.webp:image/webp:true' and profiles row avatar_url is a non-null public URL ('https://.../treesh_logo.png#avatars/uabc/avatar.webp?v=...'). display_name='Guesty' upserted.",
+    "sync_throttle_30s": "After signing in as a@test.com/secret123 via UI, 20 rapid localStorage writes to treesh_accent produced 0 'upsert:user_data' calls within 2s and only 1 within 30s. No 'upload:treesh-data/<uid>/assets.json' calls when assets unchanged. No audio/track uploads ever appeared in __mockLog.",
+    "delete_account": "Signed in as a@test.com, [data-testid=sb-delete-account] opens [data-testid=sb-delete-sheet]. Clicking sb-delete-confirm without typing shows sb-delete-msg 'Type DELETE to confirm.'. Filling sb-delete-input with 'DELETE' and confirming logs 'rpc:delete_user' in __mockLog, toast 'Account deleted · Your Treesh account is gone from the cloud' appears, and the card reverts to signed-out state with sb-card-signin visible.",
+    "voice_overlay": "window.showVoice() -> #voice-ov.vx2 full-screen with [data-testid=voice-listening-orb]. vxThemeCmd('change theme to blue') changes --treesh-purple from '#9328ff' to '#60a5fa' and saves treesh_accent='#60a5fa' to localStorage. 'light mode' adds class 'theme-light' to <html>; 'dark mode' removes it. Clicking empty space at (300,400) hides the voice overlay (offsetParent null).",
+    "magic_markup_deep_edit_library": "mkStart() + mkd-toggle on Library -> clicking the hero heading shows [data-testid=mkd-panel] with [data-testid=mkd-selected] and [data-testid=mkd-breadcrumb]; Style/Move/Size tabs, Hide/Reset/Parent visible. (Did not re-exercise persistence+reset in this run - validated in previous iteration.)",
+    "music_manager_studio": "openMusicManager() renders .um-panel inside the glass studio (not the old custom-studio-dialog) with [data-testid=um-dropzone] and [data-testid=um-file-input]. Desktop size ~1740x816 at viewport 1920x900 (~90.6% x 90.6%, close to 92% spec). [data-testid=custom-studio-dialog] does NOT appear.",
+    "onboarding_create_signin_buttons": "onboarding-create-account + onboarding-signin render on welcome step as spec requires."
+  },
+  "not_fully_tested": {
+    "flick_to_close_np_pmgrab": "Previous iteration flagged quick CDP touch flick not closing #np / .pm-grab. Code note says threshold lowered to v>.35 & dy>22. Not re-exercised with CDP touch here due to flakiness; recommend manual verification on real device. The slow-drag close path was previously validated.",
+    "music_manager_upload_and_edit_flow": "um-queue cards, cover, preview, remove, save, in-studio edit via [data-testid=edit-track-sheet] and [data-testid=um-edit-back] not individually re-walked in this run (dropzone + input + panel presence confirmed).",
+    "lyric_studio_desktop_rail": "openLyricSync requires a SONGS entry with audioUrl which was not available in SONGS[0] at the harness page's state (SONGS was undefined when queried shortly after load). Need to either seed custom music in IndexedDB or wait for SONGS catalog to populate before calling openLyricSync. [data-testid=ls-rail-player], ls-find-online, ls-live-preview, ls-preview-play were NOT visible in this run; recommend main agent verify or provide a reliable seed harness.",
+    "weather_calendar_bigger_desktop": "Not exercised in this iteration.",
+    "magic_markup_persistence_reset": "Deep-edit persistence to localStorage treesh_mk pages.library.deep and Reset validated in iteration_15; not re-exercised."
+  },
+  "test_report_links": ["/app/test_reports/iteration_16.json"],
+  "action_items": [
+    "LOW: In /app/memory/p9h.js, suppress the mk-deep-button in the Magic Markup toolbar when state.view==='settings' (and anywhere not Library/Icons/Studios/Game). The function already gates behaviour with a toast, but the Select affordance should not be visible on Settings per spec.",
+    "NICE: Flick-to-close for #np / .pm-grab is hard to validate via CDP touch dispatch. Consider adding a programmatic test hook like window.__testNpFlickClose() or expose current velocity thresholds via a getter to enable automated verification.",
+    "NICE: Make Lyric Studio desktop rail testable without needing live-catalog SONGS - e.g. accept a mock songId or allow passing audioUrl directly to openLyricSync."
+  ],
+  "critical_code_review_comments": [
+    "p9g.js sbPush avatar upload path works correctly only when state.profile.avatar is a /^data:image\\//-matching URL AND fetch(dataUrl).blob() succeeds. If the seeded data URL is malformed (e.g. truncated base64), the upload branch throws and is caught silently (av stays null, avErr logged with warn). Consider surfacing avErr in __mockLog or sb state when running tests, so avatar-upload regressions are easier to spot.",
+    "sb_mock.js logs 'upload:<bucket>/<path>:<contentType>:<upsert>' - good; keeping this format stable is important for test agents.",
+    "mkdTbBtn() in p9h.js should check page gating before rendering the Select button."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "~92% (all previous HIGH bug fixed; sync throttle + delete account + voice + onboarding + confirm-signup shim + MM deep edit all pass; one LOW regression on Settings MM toolbar; a few features not exercised this iteration)"},
+  "test_credentials": "Mock-only in _sbtest.html: a@test.com / secret123 (confirmed:true) for signin+delete, n@t.com / secret123 for confirm-signup success flow. /app/memory/test_credentials.md is empty.",
+  "seed_data_creation": "add_init_script: treesh_whatsnew_off='true', treesh_profile={nickname:'Tester',birthday:'2000-01-01'}. For _sbtest.html runs: __mock_sb_db with users/profiles/files; for avatar test a valid webp data URL generated via canvas.toBlob was placed on treesh_profile.avatar.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "HIGH avatar-upload bug from iteration_15 is CONFIRMED FIXED (upload:avatars/<uid>/avatar.webp + non-null avatar_url). To reproduce the avatar test reliably: use a canvas.toBlob('image/webp')->readAsDataURL to generate a valid data URL (not a truncated hardcoded base64). Mock-sb helpers in /app/memory/sb_mock.js log 'upload:<bucket>/<path>:<contentType>:<upsert>' - stable interface. Signing in via UI: Settings tab->settings-tab-account->sb-card-signin->sb-auth-email/password/submit. Settings MM Select button still renders - small fix in /app/memory/p9h.js mkdTbBtn(). openLyricSync requires a SONGS entry with audioUrl - SONGS may be lazy-loaded; may need to await window.SONGS?.length > 0 before calling. Delete-account UI testids: sb-delete-account, sb-delete-sheet, sb-delete-input, sb-delete-confirm, sb-delete-msg. Voice: window.showVoice(), window.vxThemeCmd('change theme to <color>' | 'light mode' | 'dark mode').",
+  "rca of the issue": "Settings MM Select button: /app/memory/p9h.js mkdTbBtn() returns the Select button unconditionally, and the toolbar builder appends it on every page. The handler (mkdToggle) runs mkStart() and only then checks mkCurPage() to decide whether to show a toast and bail. Fix: wrap `mkdTbBtn()` inclusion in the toolbar HTML with `${['library','icons','studios','game'].includes(state.view)?mkdTbBtn():''}` or similar."
+}

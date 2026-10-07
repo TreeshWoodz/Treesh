@@ -1,40 +1,39 @@
-# Treesh — PRD (Phase 5)
+# Treesh — PRD
 
 ## Original problem statement
-Treesh web app: massive single-file architecture (`/app/single_html/index.html`), zero build steps, offline-first via LocalStorage/IndexedDB. DO NOT use npm/yarn, do not touch /app/frontend or /app/backend. Served at preview root by `python3 -m http.server 3000 --directory /app/single_html`. Respond in English.
+Treesh web app: massive single-file architecture (`/app/single_html/index.html`), zero build steps for users, offline-first via LocalStorage/IndexedDB. Do not use npm/yarn, do not touch /app/frontend or /app/backend. Served at preview root by `python3 -m http.server 3000 --directory /app/single_html`. Respond in English.
+
+## Build workflow (user-approved)
+- Never edit `index.html` directly. Author in `/app/memory/p9*.js|css`, then run `python3 /app/memory/patch_p9.py && python3 /app/memory/build_sbtest.py` (rebuilds index.html from `index.before_p9.html` + the `_sbtest.html` mock harness).
+- Icons: `node /app/memory/build_icons.js` refreshes the embedded icon set when new lucide names are used.
 
 ## Architecture
-- Vanilla JS SPA + Tailwind CDN, Web Audio, Web Speech, lrclib.net (lyrics), datamuse (rhymes).
-- localStorage (~5 MB cap): settings/state only.
-- IndexedDB `treesh_media` v2: store `tracks` (uploaded audio/cover blobs) + store `assets` (`bg_images` array of data URLs, `custom_font` {data,name}).
-- Edits to index.html must be sequential (never parallel search/replace).
+- Vanilla JS SPA + Tailwind CDN, Web Audio, Web Speech, lrclib.net, datamuse, Open-Meteo.
+- localStorage = settings/state; IndexedDB `treesh_media` (tracks = custom music, assets = fonts/backdrops).
+- Supabase (optional accounts): `profiles` table, `user_data` table (settings backup), `avatars` bucket (public), `treesh-data` bucket (private, fonts/backdrops), `delete_user()` RPC. SQL in `/app/memory/supabase_setup.sql`.
+- `/confirm-signup/index.html` shim → `/?route=confirm-signup` (+query/hash) → in-app confirmation screen.
 
 ## Implemented
-- Earlier sessions: Instrum DAW, Backdrops Studio, Music Manager, Games/Things tabs, game stats bridge (FREA, Chainz), honest storage meter, PWA install hints, full export/import transfer.
-- 2026-06 (this session):
-  - Roomier Storage: fonts + backdrops moved to IndexedDB `assets`; auto-migration of legacy LS keys; "Fonts & backgrounds" storage row (clearable); backup v2 includes assets; backdrop quality raised (1920px @0.85), settings bg limit 9, font limit 15 MB.
-  - Settings Search: "Settings" tab in global search (44 entries), inline toggles, go-to jumps with highlight flash, quick settings block on Songs tab.
-  - Image Studio (renamed from Cover Art Studio): Adjust + "Text & stickers" tabs; text/emoji layers (drag, pinch, rotate, resize, fonts, color, align, position, max 10) baked into exported JPEG.
-  - Tested: iteration_11.json — 100% frontend pass.
-  - Crossfade: ghost-element overlap with equal-power fades (default 6s, 0–12s, "Song endings" or "Endings + skips"), Settings → Appearance → Sound card, 3 Settings Search entries; iOS gets an early gap-free advance (Safari ignores volume). State in LS `treesh_xf`.
-  - Karaoke fullscreen stage: real Fullscreen API, pulsing glow (Accent default / Cover / Rainbow, LS `treesh_kar_glow`), big word-by-word glowing current line, dimmed next/prev lines, auto-hiding controls (3s), progress seek, count-in + performer tags kept.
-  - Tested: iteration_12.json — 100% frontend pass.
+- Earlier phases: Instrum DAW, Backdrops, Music Manager, Games, Image Studio, crossfade, karaoke stage, onboarding revamp, Supabase accounts (P9g).
+- 2026-10 Phase 9 (this session):
+  - Sync engine: max 1 push / 30s, quiet writes, fonts/backdrops only when changed, custom music never uploaded, no push before a profile exists.
+  - Onboarding: Welcome → Create account / Sign in / Continue as guest; guest button turns into "Sign in / Create account" row; account row now swaps on step change. Avatar uploads to `avatars/<uid>/avatar.*` on sync.
+  - /confirm-signup page (ok / already / expired / error, resend link, Return to Treesh, URL cleaned, no reload loops).
+  - Delete account (type DELETE; removes storage files, rpc delete_user, local sign-out).
+  - Flick-to-close: Now Playing + all sheets use recent velocity.
+  - Voice: Siri-style full-screen glass + glowing orb, tap outside closes, "change theme to <color>" = accent, "dark/light mode".
+  - Music Manager: glass studio 100dvh mobile / 92% desktop, drag-drop + card-per-file queue, editor inside the studio (old modals retired).
+  - Lyric Studio desktop: rail player above Find lyrics; preview matches Now Playing.
+  - Magic Markup "Select": per-element move/resize/hide/restyle + breadcrumbs, saved per page (not on Settings).
+  - Bigger Weather/Date widgets on desktop; What's New entries.
+  - Privacy Policy + Terms updated for Treesh accounts.
+  - Tested: iteration_16.json (~92% pass, 1 LOW bug fixed after) + self-tests (Music Manager upload/edit, Lyric Studio rail, legal pages).
 
-  - Link preview card: og:* + twitter:summary_large_image meta tags in <head> using https://ik.imagekit.io/treesh/Treesh%20Card?updatedAt=1790948609792 (1536x1024 JPEG). Verified via curl.
-  - Onboarding revamp (patch_p5c.py / p5_ob.js / p5_ob.css) applied — testing_agent verification still PENDING.
-
-## Pending (Phase 5)
-- A) testing_agent run on welcome/onboarding overflow fix
-- B) Magic Markup: better UI, stickers locked to parent sections, time/date/weather widgets, premade static + music-reactive stickers
-- C) Profile picture/banner → Image Studio crop + compression
-- D) "Edit track" editor revamp (Lyric Card style)
-- P2: Configurable default homepage
-
-## Backlog
-- P1 (blocked): Vocotap & Nects Starlites/stats — need the user's game files / storage keys.
-- P2: Lyric Card Studio revamp (preview always visible)
-- P2: Find Lyrics search improvements (lrclib formatting)
-- P2: Instrum DAW recording/session/export polish
+## Pending / Backlog
+- User action: run updated `/app/memory/supabase_setup.sql` in Supabase SQL editor (user_data, treesh-data bucket, delete_user, avatar delete policy); add `https://treesh.app/confirm-signup**` to Supabase Auth Redirect URLs.
+- P1: Manual device check of flick-to-close (CDP touch is flaky in automation).
+- P2: Configurable default homepage.
+- P2: Vocotap & Nects stats (need game files), Instrum polish, Find Lyrics improvements.
 
 ## Testing notes
-Seed on load: `localStorage.setItem('treesh_whatsnew_off','true'); localStorage.setItem('treesh_profile', JSON.stringify({nickname:'Tester',birthday:'2000-01-01'}))`.
+Seed: `localStorage.setItem('treesh_whatsnew_off','true'); localStorage.setItem('treesh_profile', JSON.stringify({nickname:'Tester',birthday:'2000-01-01'}))`. Account flows: use `/_sbtest.html` (fake Supabase, see test_credentials.md).
