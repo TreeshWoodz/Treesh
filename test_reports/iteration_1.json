@@ -1,0 +1,27 @@
+{
+  "summary": "First-run comprehensive test of Sonoko (Treesh Games). Backend (9 pytest cases) and frontend (Home, Sonoko, Daily, Sudoku, Uno, Trophies, Leaderboard, mobile 390x844) all pass. API contract matches spec: POST /api/scores returns {id, rank}; GET /api/leaderboard returns list sorted desc with 'id' (not _id); invalid mode -> 422; daily filter by date works. Frontend data-testids all present, deterministic daily seed verified (same discard top across reloads), Sudoku keyboard input + mistake tracking works, Uno auto-starts with 7-card hand and opponents, Trophies has 24 achievement cards + 3 tabs, Leaderboard shows empty state with 4 tabs. Mobile viewport has no horizontal overflow on any game page. Back-home and sound-toggle work.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Home (mobile 390)", "issues": ["SONOKO hero wordmark is visually clipped on far right - last 'O' partially off-screen. No horizontal scroll overflow (scrollWidth=390), but letter spacing/font-size could be reduced on <sm breakpoint for cleaner look."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_scores_leaderboard.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Optional/minor) Tighten Home hero 'SONOKO' wordmark on <sm breakpoint so last letter is not visually clipped on 390px wide screens."
+  ],
+  "critical_code_review_comments": [
+    "server.py is clean, async, uses Pydantic validators, no ObjectId leaks (response_model_by_alias=False strips _id -> id). CORS wide open via '*' which is fine for public leaderboard but worth noting.",
+    "ResultDialog gates the name input + submit button behind score>0, which hides submission for a 0-score bust. Intended behavior but means losing without placing any card won't surface submission UI (consistent with 'score > 0' check). Not a bug.",
+    "No rate limiting on POST /api/scores — leaderboard can be spammed. Minor concern for a public app."
+  ],
+  "updated_files": ["/app/backend/tests/test_scores_leaderboard.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "N/A - no auth",
+  "seed_data_creation": "Pytest inserted TEST_ prefixed scores (TEST_sonoko, TEST_sudoku, TEST_uno, TEST_daily, TEST_rank_hi, TEST_rank_lo) and cleaned them up in module teardown via direct mongo delete_many on scores collection where name regex ^TEST_.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest file: /app/backend/tests/test_scores_leaderboard.py (9 tests, all pass). Mongo cleanup is automatic for TEST_ prefix. Frontend data-testid coverage is complete per spec. uno-pass-button is conditional (only renders after drawing a playable card) — not a bug. ResultDialog name-input/submit are gated behind score>0; to exercise score submission in Sonoko you must place at least one correct card (not just bust by drawing). Daily seed is deterministic per date (verified)."
+}

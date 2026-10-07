@@ -76,7 +76,7 @@ export default function Home() {
         <section className="grid lg:grid-cols-[1.15fr_1fr] gap-6 lg:gap-10 items-center pt-8 sm:pt-12">
           <div>
             <p className="eyebrow">Treesh Games presents</p>
-            <h1 data-testid="home-title" className="font-display font-black italic uppercase leading-[0.85] tracking-tight text-[22vw] sm:text-[9rem] lg:text-[10.5rem] mt-2">
+            <h1 data-testid="home-title" className="font-display font-black italic uppercase leading-[0.85] tracking-tight text-[18.5vw] sm:text-[9rem] lg:text-[10.5rem] mt-2 pr-2">
               {["S", "O", "N", "O", "K", "O"].map((ch, i) => (
                 <Letter key={i} ch={ch} i={i} color={["#FF3B30", "#FFCC00", "#007AFF", "#34C759", "#FFCC00", "#FF3B30"][i]} />
               ))}

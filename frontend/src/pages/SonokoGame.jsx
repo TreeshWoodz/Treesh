@@ -113,7 +113,7 @@ const Setup = ({ daily, onStart, profile }) => (
 
 const Stat = ({ icon: Icon, label, value, testid, color = "#fff" }) => (
   <div className="glass rounded-2xl px-3 py-2 flex items-center gap-2 min-w-0">
-    <Icon className="w-4 h-4 shrink-0" style={{ color }} />
+    <Icon className="hidden sm:block w-4 h-4 shrink-0" style={{ color }} />
     <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 leading-none">{label}</p>
       <p data-testid={testid} className="font-mono font-extrabold text-base sm:text-lg leading-tight truncate">{value}</p>
