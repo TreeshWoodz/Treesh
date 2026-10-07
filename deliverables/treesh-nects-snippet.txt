@@ -1,0 +1,18 @@
+/* Treesh x Nects snippet (paste into Treesh index.html)
+   1) Add this entry to the GAME_DATA_SOURCES array so Nects shows in
+      Profile > Stats > Arcade games.
+   2) Paste the two listeners anywhere after `state` and `updateStarDisplays`
+      are defined. They keep Treesh's in-memory Starlites in sync while
+      Nects (iframe or other tab) earns or spends from the shared wallet,
+      so Treesh never overwrites Nects' changes with a stale balance. */
+
+/* 1) GAME_DATA_SOURCES entry */
+{ key:"nects", name:"Nects", mono:"N", a:"#1f9a9a", b:"#0d5757",
+  starlites:()=>{ const s=_gdJson("nects_save_v4",{})||{}; return (s.stats&&+s.stats.starsEarned)||0; },
+  hasData:()=> _gdRaw("nects_save_v4")!=null,
+  stats:()=>{ const st=((_gdJson("nects_save_v4",{})||{}).stats)||{}; return [["Matches",fmtNum(st.matches||0)],["Wins",fmtNum(st.wins||0)],["Best streak",fmtNum(st.bestStreak||0)]]; } },
+
+/* 2) Shared-wallet sync listeners */
+function _nectsSyncStars(){ try{ state.stars=LS.get("treesh_stars",state.stars); updateStarDisplays(); if(state.profileOpen) renderProfileBody(); }catch(e){} }
+addEventListener('storage',e=>{ if(e.key==="treesh_stars") _nectsSyncStars(); });
+addEventListener('message',e=>{ if(e.origin!==location.origin) return; const d=e.data||{}; if(d.source==="nects"&&d.type==="treesh-stars-updated") _nectsSyncStars(); });
