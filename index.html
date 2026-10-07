@@ -4481,61 +4481,77 @@ function _dataURLToBlob(u){ try{ const i=u.indexOf(","); const meta=u.slice(0,i)
   }
 
   const media=[];
+  const recs=await idbGetAll();
 
-  try{
-    const recs=await idbGetAll();
+  for(const r of (recs||[])){
 
-    for(const r of (recs||[])){
-      const rec={
-        id:r.id,
-        audioType:r.audioType||"",
-        coverType:r.coverType||"",
-        meta:r.meta||null,
-        duration:r.duration||0,
-        addedAt:r.addedAt||0
-      };
+    const rec={
+      id:r.id,
+      audioType:r.audioType||"",
+      coverType:r.coverType||"",
+      meta:r.meta||null,
+      duration:r.duration||0,
+      addedAt:r.addedAt||0
+    };
 
-      const base=u.id+"/media/"+encodeURIComponent(String(r.id));
+    const base=u.id+"/media/"+encodeURIComponent(String(r.id));
 
-      if(r.audioBlob){
-        const audioPath=base+"/audio";
+    /*
+      Upload audio as ArrayBuffer.
+      This avoids the iPhone/Safari Blob issue.
+    */
+    if(r.audioBlob && r.audioBlob.size>0){
 
-        const {error}=await sb.storage
-          .from("treesh-data")
-          .upload(audioPath,r.audioBlob,{
-            contentType:r.audioType||"application/octet-stream",
-            upsert:true
-          });
+      const audioPath=base+"/audio";
+      const audioData=await r.audioBlob.arrayBuffer();
 
-        if(error) throw error;
+      const {error}=await sb.storage
+        .from("treesh-data")
+        .upload(audioPath,audioData,{
+          contentType:r.audioType||"application/octet-stream",
+          upsert:true
+        });
 
-        rec.audioPath=audioPath;
+      if(error){
+        throw new Error(
+          "Audio upload failed: "+
+          (error.message||"Unknown storage error")
+        );
       }
 
-      if(r.coverBlob){
-        const coverPath=base+"/cover";
-
-        const {error}=await sb.storage
-          .from("treesh-data")
-          .upload(coverPath,r.coverBlob,{
-            contentType:r.coverType||"image/jpeg",
-            upsert:true
-          });
-
-        if(error) throw error;
-
-        rec.coverPath=coverPath;
-      }
-
-      media.push(rec);
+      rec.audioPath=audioPath;
     }
-  }catch(e){
-    throw e;
+
+    /*
+      Upload cover as ArrayBuffer.
+    */
+    if(r.coverBlob && r.coverBlob.size>0){
+
+      const coverPath=base+"/cover";
+      const coverData=await r.coverBlob.arrayBuffer();
+
+      const {error}=await sb.storage
+        .from("treesh-data")
+        .upload(coverPath,coverData,{
+          contentType:r.coverType||"image/jpeg",
+          upsert:true
+        });
+
+      if(error){
+        throw new Error(
+          "Cover upload failed: "+
+          (error.message||"Unknown storage error")
+        );
+      }
+
+      rec.coverPath=coverPath;
+    }
+
+    media.push(rec);
   }
 
   /*
-    Store assets as one Storage file instead of putting
-    potentially large asset data into the database row.
+    Upload assets separately.
   */
   let assets=[];
 
@@ -4553,15 +4569,20 @@ function _dataURLToBlob(u){ try{ const i=u.indexOf(","); const meta=u.slice(0,i)
     {type:"application/json"}
   );
 
-  {
-    const {error}=await sb.storage
-      .from("treesh-data")
-      .upload(assetsPath,assetsBlob,{
-        contentType:"application/json",
-        upsert:true
-      });
+  const assetsData=await assetsBlob.arrayBuffer();
 
-    if(error) throw error;
+  const {error:assetsError}=await sb.storage
+    .from("treesh-data")
+    .upload(assetsPath,assetsData,{
+      contentType:"application/json",
+      upsert:true
+    });
+
+  if(assetsError){
+    throw new Error(
+      "Assets upload failed: "+
+      (assetsError.message||"Unknown storage error")
+    );
   }
 
   return {
@@ -4570,8 +4591,8 @@ function _dataURLToBlob(u){ try{ const i=u.indexOf(","); const meta=u.slice(0,i)
     v:3,
     exportedAt:new Date().toISOString(),
     localStorage:ls,
-    media,
-    assetsPath
+    media:media,
+    assetsPath:assetsPath
   };
 }
 async function exportAllData(){
