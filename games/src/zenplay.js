@@ -312,7 +312,7 @@
       if(holding){if(p.kind!=='circle'&&p.bw>=30&&d<bsd&&!(p.phys&&p.phys.float)){bsd=d;bs=p;}}else if(d<bd){bd=d;best=p;}}
     Z.near=best;Z.surface=bs;}
   function aiTick(){var t=now();if(t-Z.lastAI<900)return;Z.lastAI=t;
-    (fleas||[]).forEach(function(f){if(!f||f.isP||f===player||f.hidden||f.infected)return;if(Math.random()>.12)return;
+    (fleas||[]).forEach(function(f){if(!f||f.isP||f===player||f.hidden||f.infected||f._mn)return;if(Math.random()>.12)return;
       if(f._wornItem&&Math.random()<.12){unwear(f,true);f.emoteEmoji='🙃';f.emoteT=1200;return;}
       var cand=[];for(var i=3;i<platforms.length;i++){var p=platforms[i];if(!p.deco||isHeld(p))continue;var c=propCenter(p);if(Math.hypot(c.x-f.cx,c.y-f.cy)<170)cand.push(p);}if(!cand.length)return;var p2=rnd(cand),ty=p2.deco;
       if(ROLL[ty]&&ty!=='rock'){kick(p2,propCenter(p2).x>f.cx?1:-1,8);f.action='karate';f.actionT=0;f.actionUntil=t+700;return;}
@@ -342,5 +342,5 @@
   /* ---------------- test hook ---------------- */
   window.__zenPlay=function(){return {near:Z.near&&Z.near.deco,surface:Z.surface&&Z.surface.deco,carry:player&&player.carry&&player.carry.deco,carryMode:player&&player.carryMode,worn:(fleas||[]).filter(function(f){return f._wornItem;}).map(function(f){return {flea:f.name,isPlayer:f===player,item:f._wornItem.deco};}),
     objects:platforms.filter(function(p){return p.deco;}).map(function(p){return {id:p.zenId,type:p.deco,x:Math.round(p.cenx),y:Math.round(p.ceny),state:p.zenState||{},held:isHeld(p)};}),actionsFor:function(t){return (ZA[t]||[]).map(function(a){return a[1];});},types:Object.keys(ZEN_OBJECT_CATALOG)};};
-  window.__zenPlayApi={screenOf:function(o){var x=o.cx!=null?o.cx:o.cenx,y=o.cy!=null?o.cy:o.ceny;return {x:(x-camera.x)*VZ_UI,y:(y-camera.y)*VZ_UI};},fleas:function(){return fleas;},player:function(){return player;},spawn:function(t){return spawnZen(t);},open:function(p){var c=propCenter(p);openZenContext(p,c.x-camera.x,c.y-camera.y);},find:function(t){for(var i=platforms.length-1;i>=3;i--)if(platforms[i].deco===t)return platforms[i];return null;},teleportNear:function(p){if(!p||!player)return;var c=propCenter(p);player.x=c.x-60-player.w/2;player.y=p.by+p.bh-player.h;player.vx=player.vy=0;}};
+  window.__zenPlayApi={za:ZA,S:S,screenOf:function(o){var x=o.cx!=null?o.cx:o.cenx,y=o.cy!=null?o.cy:o.ceny;return {x:(x-camera.x)*VZ_UI,y:(y-camera.y)*VZ_UI};},fleas:function(){return fleas;},player:function(){return player;},spawn:function(t){return spawnZen(t);},open:function(p){var c=propCenter(p);openZenContext(p,c.x-camera.x,c.y-camera.y);},find:function(t){for(var i=platforms.length-1;i>=3;i--)if(platforms[i].deco===t)return platforms[i];return null;},teleportNear:function(p){if(!p||!player)return;var c=propCenter(p);player.x=c.x-60-player.w/2;player.y=p.by+p.bh-player.h;player.vx=player.vy=0;}};
 })();
