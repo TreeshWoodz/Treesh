@@ -31,17 +31,236 @@ function sbQueuePush(){ if(!sb) return; sbMeta({pending:true}); if(!sbUser()) re
 async function sbAvatarUpload(uid,d){ const b=await (await fetch(d)).blob(); const ext=((b.type||'image/jpeg').split('/')[1]||'jpg').replace('jpeg','jpg'); const path=uid+'/avatar.'+ext;
   const {error}=await sb.storage.from('avatars').upload(path,b,{upsert:true,contentType:b.type||'image/jpeg',cacheControl:'3600'}); if(error) throw error;
   return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl+'?v='+Date.now(); }
-async function sbPush(){ const u=sbUser(); if(!sb||!u) return; if(_sbBusy){ _sbAgain=true; return; } _sbBusy=true; sbSet('saving'); let warn='';
-  try{ const p=Object.assign({},state.profile||{}); let av=p.avatarUrl||null;
-    if(!p.avatar) av=null;
-    else if(/^data:image\//.test(p.avatar)){ const sig=sbSig(p.avatar); if(sig!==p.avatarSig||!av){ try{ av=await sbAvatarUpload(u.id,p.avatar); p.avatarSig=sig; }catch(e){ warn='Your photo didn\u2019t upload ('+sbErrText(e)+'). Everything else synced.'; } } }
-    else if(/^https?:/.test(p.avatar)) av=p.avatar;
-    const {error}=await sb.from('profiles').upsert({id:u.id,username:p.username||null,display_name:p.nickname||null,avatar_url:av,bio:p.bio||null});
+  async function sbExportPayload(u){
+  const ls={};
+
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+
+    if(k && TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)){
+      try{
+        ls[k]=localStorage.getItem(k);
+      }catch(e){}
+    }
+  }
+
+  const media=[];
+  const recs=await idbGetAll();
+
+  for(const r of (recs||[])){
+
+    const rec={
+      id:r.id,
+      audioType:r.audioType||"",
+      coverType:r.coverType||"",
+      meta:r.meta||null,
+      duration:r.duration||0,
+      addedAt:r.addedAt||0
+    };
+
+    const base=u.id+"/media/"+encodeURIComponent(String(r.id));
+
+    /*
+      Upload audio as ArrayBuffer.
+      This avoids the iPhone/Safari Blob issue.
+    */
+    if(r.audioBlob && r.audioBlob.size>0){
+
+      const audioPath=base+"/audio";
+      const audioData=await r.audioBlob.arrayBuffer();
+
+      const {error}=await sb.storage
+        .from("treesh-data")
+        .upload(audioPath,audioData,{
+          contentType:r.audioType||"application/octet-stream",
+          upsert:true
+        });
+
+      if(error){
+        throw new Error(
+          "Audio upload failed: "+
+          (error.message||"Unknown storage error")
+        );
+      }
+
+      rec.audioPath=audioPath;
+    }
+
+    /*
+      Upload cover as ArrayBuffer.
+    */
+    if(r.coverBlob && r.coverBlob.size>0){
+
+      const coverPath=base+"/cover";
+      const coverData=await r.coverBlob.arrayBuffer();
+
+      const {error}=await sb.storage
+        .from("treesh-data")
+        .upload(coverPath,coverData,{
+          contentType:r.coverType||"image/jpeg",
+          upsert:true
+        });
+
+      if(error){
+        throw new Error(
+          "Cover upload failed: "+
+          (error.message||"Unknown storage error")
+        );
+      }
+
+      rec.coverPath=coverPath;
+    }
+
+    media.push(rec);
+  }
+
+  /*
+    Upload assets separately.
+  */
+  let assets=[];
+
+  try{
+    assets=(await assetAll()).map(r=>({
+      id:r.id,
+      value:r.value
+    }));
+  }catch(e){}
+
+  const assetsPath=u.id+"/assets.json";
+
+  const assetsBlob=new Blob(
+    [JSON.stringify(assets)],
+    {type:"application/json"}
+  );
+
+  const assetsData=await assetsBlob.arrayBuffer();
+
+  const {error:assetsError}=await sb.storage
+    .from("treesh-data")
+    .upload(assetsPath,assetsData,{
+      contentType:"application/json",
+      upsert:true
+    });
+
+  if(assetsError){
+    throw new Error(
+      "Assets upload failed: "+
+      (assetsError.message||"Unknown storage error")
+    );
+  }
+
+  return {
+    app:"treesh",
+    type:"treesh-backup",
+    v:3,
+    exportedAt:new Date().toISOString(),
+    localStorage:ls,
+    media:media,
+    assetsPath:assetsPath
+  };
+}
+async function sbPush(){
+  const u=sbUser();
+  if(!sb||!u) return;
+
+  if(_sbBusy){
+    _sbAgain=true;
+    return;
+  }
+
+  _sbBusy=true;
+  sbSet("saving");
+
+  try{
+
+    /*
+      Keep the existing profile synchronization.
+    */
+    const p=Object.assign({},state.profile||{});
+    let av=p.avatarUrl||null;
+
+    if(!p.avatar){
+      av=null;
+    }else if(/^data:image\//.test(p.avatar)){
+
+      const sig=sbSig(p.avatar);
+
+      if(sig!==p.avatarSig||!av){
+        try{
+          av=await sbAvatarUpload(u.id,p.avatar);
+          p.avatarSig=sig;
+        }catch(e){
+          av=p.avatarUrl||null;
+        }
+      }
+
+    }else if(/^https?:/.test(p.avatar)){
+      av=p.avatar;
+    }
+
+    const profileResult=await sb
+      .from("profiles")
+      .upsert({
+        id:u.id,
+        username:p.username||null,
+        display_name:p.nickname||null,
+        avatar_url:av,
+        bio:p.bio||null
+      });
+
+    if(profileResult.error) throw profileResult.error;
+
+    /*
+      Upload the complete Treesh dataset.
+      Large media goes into Storage, NOT user_data.
+    */
+    const payload=await sbExportPayload(u);
+
+    const {error}=await sb
+      .from("user_data")
+      .upsert({
+        user_id:u.id,
+        data:payload,
+        updated_at:new Date().toISOString()
+      });
+
     if(error) throw error;
-    const cur=state.profile||{}; Object.assign(cur,{avatarUrl:av,avatarSig:p.avatarSig||'',usernameSynced:p.username||''}); state.profile=cur; LS.set('treesh_profile',cur);
-    sbMeta({pending:false,at:Date.now(),uid:u.id}); sbSet(warn?'error':'synced',warn);
-  }catch(e){ sbFail(e); }
-  finally{ _sbBusy=false; if(_sbAgain){ _sbAgain=false; setTimeout(sbPush,0); } } }
+
+    const cur=state.profile||{};
+
+    Object.assign(cur,{
+      avatarUrl:av,
+      avatarSig:p.avatarSig||"",
+      usernameSynced:p.username||""
+    });
+
+    state.profile=cur;
+
+    try{
+      LS.set("treesh_profile",cur);
+    }catch(e){}
+
+    sbMeta({
+      pending:false,
+      at:Date.now(),
+      uid:u.id
+    });
+
+    sbSet("synced");
+
+  }catch(e){
+    sbFail(e);
+
+  }finally{
+
+    _sbBusy=false;
+
+    if(_sbAgain){
+      _sbAgain=false;
+      setTimeout(sbPush,0);
+    }
+  }
+}
 function sbFail(e){ const code=e&&e.code, msg=((e&&(e.message||''))+' '+((e&&e.details)||'')).trim();
   if(code==='23505'&&/username/i.test(msg)){ const p=state.profile||{}; const tried=p.username; p.username=p.usernameSynced||''; LS.set('treesh_profile',p);
     state._unameErr='@'+tried+' is taken. Try another one.'; state._pfDraft=Object.assign({},state._pfDraft||{},{uname:tried}); state.settingsEditProfile=true;
@@ -49,13 +268,199 @@ function sbFail(e){ const code=e&&e.code, msg=((e&&(e.message||''))+' '+((e&&e.d
   sbMeta({pending:true});
   if(!navigator.onLine||sbIsNet(msg)){ sbSet('offline',SB_OFFLINE); return; }
   console.warn('Treesh sync',e); sbSet('error',sbErrText(e)); }
-async function sbPull(){ const u=sbUser(); if(!sb||!u) return 'none'; state._sbPulled=Date.now(); sbSet('saving');
-  try{ const {data,error}=await sb.from('profiles').select('id,username,display_name,avatar_url,bio,created_at').eq('id',u.id).maybeSingle(); if(error) throw error;
-    const m=sbMeta();
-    if(!data){ if(state.profile){ await sbPush(); return 'pushed'; } sbSet('idle'); return 'empty'; }
-    if(m.pending&&m.uid===u.id&&state.profile){ await sbPush(); return 'pushed'; }
-    sbApply(data); sbMeta({pending:false,at:Date.now(),uid:u.id}); sbSet('synced'); return 'pulled';
-  }catch(e){ sbFail(e); return 'error'; } }
+async function sbPull(){
+  const u=sbUser();
+
+  if(!sb||!u) return "none";
+
+  state._sbPulled=Date.now();
+  sbSet("saving");
+
+  try{
+
+    /*
+      Get the full cloud backup and profile at the same time.
+    */
+    const [cloudResult,profileResult]=await Promise.all([
+      sb
+        .from("user_data")
+        .select("data,updated_at")
+        .eq("user_id",u.id)
+        .maybeSingle(),
+
+      sb
+        .from("profiles")
+        .select("id,username,display_name,avatar_url,bio,created_at")
+        .eq("id",u.id)
+        .maybeSingle()
+    ]);
+
+    if(cloudResult.error) throw cloudResult.error;
+    if(profileResult.error) throw profileResult.error;
+
+    const data=cloudResult.data;
+    const profile=profileResult.data;
+
+    /*
+      Restore the profile if one exists.
+    */
+    if(profile){
+      sbApply(profile);
+    }
+
+    /*
+      No full cloud data yet.
+      Upload the current device's data.
+    */
+    if(!data||!data.data){
+
+      await sbPush();
+
+      return "pushed";
+    }
+
+    const backup=data.data;
+
+    if(
+      backup.type!=="treesh-backup" ||
+      typeof backup.localStorage!=="object"
+    ){
+      throw new Error("Invalid Treesh cloud data");
+    }
+
+    /*
+      Restore LocalStorage.
+    */
+    const rm=[];
+
+    for(let i=0;i<localStorage.length;i++){
+
+      const k=localStorage.key(i);
+
+      if(
+        k &&
+        TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)
+      ){
+        rm.push(k);
+      }
+    }
+
+    rm.forEach(k=>{
+      try{
+        localStorage.removeItem(k);
+      }catch(e){}
+    });
+
+    Object.keys(backup.localStorage||{}).forEach(k=>{
+      try{
+        localStorage.setItem(
+          k,
+          backup.localStorage[k]
+        );
+      }catch(e){
+
+        if(isQuotaError(e)){
+          notifyStorageFull();
+        }
+      }
+    });
+
+    /*
+      Restore media from Supabase Storage.
+    */
+    if(Array.isArray(backup.media)){
+
+      for(const m of backup.media){
+
+        const rec={
+          id:m.id,
+          audioType:m.audioType||"",
+          coverType:m.coverType||"",
+          meta:m.meta||null,
+          duration:m.duration||0,
+          addedAt:m.addedAt||Date.now()
+        };
+
+        /*
+          Download audio.
+        */
+        if(m.audioPath){
+
+          const {data:audio,error}=await sb.storage
+            .from("treesh-data")
+            .download(m.audioPath);
+
+          if(error) throw error;
+
+          rec.audioBlob=audio;
+        }
+
+        /*
+          Download cover.
+        */
+        if(m.coverPath){
+
+          const {data:cover,error}=await sb.storage
+            .from("treesh-data")
+            .download(m.coverPath);
+
+          if(error) throw error;
+
+          rec.coverBlob=cover;
+        }
+
+        try{
+          await idbPut(rec);
+        }catch(e){}
+      }
+    }
+
+    /*
+      Restore assets.
+    */
+    await assetClear();
+
+    if(backup.assetsPath){
+
+      const {data:assetFile,error}=await sb.storage
+        .from("treesh-data")
+        .download(backup.assetsPath);
+
+      if(error) throw error;
+
+      const assetText=await assetFile.text();
+      const assets=JSON.parse(assetText);
+
+      if(Array.isArray(assets)){
+
+        for(const a of assets){
+
+          if(a&&a.id){
+
+            try{
+              await assetPut(a.id,a.value);
+            }catch(e){}
+          }
+        }
+      }
+    }
+
+    sbMeta({
+      pending:false,
+      at:Date.now(),
+      uid:u.id
+    });
+
+    sbSet("synced");
+
+    return "pulled";
+
+  }catch(e){
+
+    sbFail(e);
+    return "error";
+  }
+}
 function sbApply(r){ const before=JSON.stringify(state.profile||null); const p=Object.assign({},state.profile||{});
   p.nickname=r.display_name||p.nickname||'Treesh Fan'; p.username=r.username||''; p.usernameSynced=p.username; p.bio=r.bio||'';
   const c=Date.parse(r.created_at||''); if(c&&(!p.joined||c<p.joined)) p.joined=c;

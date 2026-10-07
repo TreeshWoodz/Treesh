@@ -4467,6 +4467,134 @@ function installHintHtml(){
 const TRANSFER_PREFIXES=["treesh","frea_","chainz_","vocotap_","voco_","nects_"];
 function _blobToDataURL(blob){ return new Promise((res)=>{ try{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>res(null); r.readAsDataURL(blob); }catch(e){ res(null); } }); }
 function _dataURLToBlob(u){ try{ const i=u.indexOf(","); const meta=u.slice(0,i), b64=u.slice(i+1); const mime=(meta.match(/data:([^;]+)/)||[])[1]||"application/octet-stream"; const bin=atob(b64); const len=bin.length; const arr=new Uint8Array(len); for(let j=0;j<len;j++) arr[j]=bin.charCodeAt(j); return new Blob([arr],{type:mime}); }catch(e){ return null; } }
+  async function sbExportPayload(u){
+  const ls={};
+
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+
+    if(k && TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)){
+      try{
+        ls[k]=localStorage.getItem(k);
+      }catch(e){}
+    }
+  }
+
+  const media=[];
+  const recs=await idbGetAll();
+
+  for(const r of (recs||[])){
+
+    const rec={
+      id:r.id,
+      audioType:r.audioType||"",
+      coverType:r.coverType||"",
+      meta:r.meta||null,
+      duration:r.duration||0,
+      addedAt:r.addedAt||0
+    };
+
+    const base=u.id+"/media/"+encodeURIComponent(String(r.id));
+
+    /*
+      Upload audio as ArrayBuffer.
+      This avoids the iPhone/Safari Blob issue.
+    */
+    if(r.audioBlob && r.audioBlob.size>0){
+
+      const audioPath=base+"/audio";
+      const audioData=await r.audioBlob.arrayBuffer();
+
+      const {error}=await sb.storage
+        .from("treesh-data")
+        .upload(audioPath,audioData,{
+          contentType:r.audioType||"application/octet-stream",
+          upsert:true
+        });
+
+      if(error){
+        throw new Error(
+          "Audio upload failed: "+
+          (error.message||"Unknown storage error")
+        );
+      }
+
+      rec.audioPath=audioPath;
+    }
+
+    /*
+      Upload cover as ArrayBuffer.
+    */
+    if(r.coverBlob && r.coverBlob.size>0){
+
+      const coverPath=base+"/cover";
+      const coverData=await r.coverBlob.arrayBuffer();
+
+      const {error}=await sb.storage
+        .from("treesh-data")
+        .upload(coverPath,coverData,{
+          contentType:r.coverType||"image/jpeg",
+          upsert:true
+        });
+
+      if(error){
+        throw new Error(
+          "Cover upload failed: "+
+          (error.message||"Unknown storage error")
+        );
+      }
+
+      rec.coverPath=coverPath;
+    }
+
+    media.push(rec);
+  }
+
+  /*
+    Upload assets separately.
+  */
+  let assets=[];
+
+  try{
+    assets=(await assetAll()).map(r=>({
+      id:r.id,
+      value:r.value
+    }));
+  }catch(e){}
+
+  const assetsPath=u.id+"/assets.json";
+
+  const assetsBlob=new Blob(
+    [JSON.stringify(assets)],
+    {type:"application/json"}
+  );
+
+  const assetsData=await assetsBlob.arrayBuffer();
+
+  const {error:assetsError}=await sb.storage
+    .from("treesh-data")
+    .upload(assetsPath,assetsData,{
+      contentType:"application/json",
+      upsert:true
+    });
+
+  if(assetsError){
+    throw new Error(
+      "Assets upload failed: "+
+      (assetsError.message||"Unknown storage error")
+    );
+  }
+
+  return {
+    app:"treesh",
+    type:"treesh-backup",
+    v:3,
+    exportedAt:new Date().toISOString(),
+    localStorage:ls,
+    media:media,
+    assetsPath:assetsPath
+  };
+}
 async function exportAllData(){
   try{
     toast("Preparing backup","Packing your data\u2026");
@@ -12918,134 +13046,6 @@ function sbQueuePush(){ if(!sb) return; sbMeta({pending:true}); if(!sbUser()) re
 async function sbAvatarUpload(uid,d){ const b=await (await fetch(d)).blob(); const ext=((b.type||'image/jpeg').split('/')[1]||'jpg').replace('jpeg','jpg'); const path=uid+'/avatar.'+ext;
   const {error}=await sb.storage.from('avatars').upload(path,b,{upsert:true,contentType:b.type||'image/jpeg',cacheControl:'3600'}); if(error) throw error;
   return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl+'?v='+Date.now(); }
-  async function sbExportPayload(u){
-  const ls={};
-
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);
-
-    if(k && TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)){
-      try{
-        ls[k]=localStorage.getItem(k);
-      }catch(e){}
-    }
-  }
-
-  const media=[];
-  const recs=await idbGetAll();
-
-  for(const r of (recs||[])){
-
-    const rec={
-      id:r.id,
-      audioType:r.audioType||"",
-      coverType:r.coverType||"",
-      meta:r.meta||null,
-      duration:r.duration||0,
-      addedAt:r.addedAt||0
-    };
-
-    const base=u.id+"/media/"+encodeURIComponent(String(r.id));
-
-    /*
-      Upload audio as ArrayBuffer.
-      This avoids the iPhone/Safari Blob issue.
-    */
-    if(r.audioBlob && r.audioBlob.size>0){
-
-      const audioPath=base+"/audio";
-      const audioData=await r.audioBlob.arrayBuffer();
-
-      const {error}=await sb.storage
-        .from("treesh-data")
-        .upload(audioPath,audioData,{
-          contentType:r.audioType||"application/octet-stream",
-          upsert:true
-        });
-
-      if(error){
-        throw new Error(
-          "Audio upload failed: "+
-          (error.message||"Unknown storage error")
-        );
-      }
-
-      rec.audioPath=audioPath;
-    }
-
-    /*
-      Upload cover as ArrayBuffer.
-    */
-    if(r.coverBlob && r.coverBlob.size>0){
-
-      const coverPath=base+"/cover";
-      const coverData=await r.coverBlob.arrayBuffer();
-
-      const {error}=await sb.storage
-        .from("treesh-data")
-        .upload(coverPath,coverData,{
-          contentType:r.coverType||"image/jpeg",
-          upsert:true
-        });
-
-      if(error){
-        throw new Error(
-          "Cover upload failed: "+
-          (error.message||"Unknown storage error")
-        );
-      }
-
-      rec.coverPath=coverPath;
-    }
-
-    media.push(rec);
-  }
-
-  /*
-    Upload assets separately.
-  */
-  let assets=[];
-
-  try{
-    assets=(await assetAll()).map(r=>({
-      id:r.id,
-      value:r.value
-    }));
-  }catch(e){}
-
-  const assetsPath=u.id+"/assets.json";
-
-  const assetsBlob=new Blob(
-    [JSON.stringify(assets)],
-    {type:"application/json"}
-  );
-
-  const assetsData=await assetsBlob.arrayBuffer();
-
-  const {error:assetsError}=await sb.storage
-    .from("treesh-data")
-    .upload(assetsPath,assetsData,{
-      contentType:"application/json",
-      upsert:true
-    });
-
-  if(assetsError){
-    throw new Error(
-      "Assets upload failed: "+
-      (assetsError.message||"Unknown storage error")
-    );
-  }
-
-  return {
-    app:"treesh",
-    type:"treesh-backup",
-    v:3,
-    exportedAt:new Date().toISOString(),
-    localStorage:ls,
-    media:media,
-    assetsPath:assetsPath
-  };
-}
 async function sbPush(){
   const u=sbUser();
   if(!sb||!u) return;
