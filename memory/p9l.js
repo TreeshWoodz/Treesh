@@ -124,16 +124,16 @@ async function tsSend(kind,p){ if(!TS_SEND_ON||!sb||!sb.functions) throw new Err
   if(error||!(data&&data.ok)) throw new Error((error&&error.message)||'send failed'); return 'resend'; }
 async function tsSubmit(kind){ const out=document.getElementById('ts-msg-out'), btn=document.querySelector('#modal2 [data-testid="ts-submit"]'); const say=(k,t)=>{ if(out){ out.innerHTML=t; out.className='sba-msg'+(k?' is-'+k:''); } };
   const v=id=>((document.getElementById(id)||{}).value||'').trim(); const email=tsEmail()||v('ts-email');
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ say('err','Enter your email so we can get back to you.'); const i=document.getElementById('ts-email'); if(i) i.focus(); return; }
+  const okEmail=()=>{ if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return true; say('err','Enter your email so we can get back to you.'); const i=document.getElementById('ts-email'); if(i) i.focus(); return false; };
   const u=sbUser(), p=state.profile||{}; let subject, fields, text;
   if(kind==='support'){ const T=TS_TOPICS.find(x=>x.id===_ts.topic); const msg=v('ts-msg');
-    if(!T){ say('err','Pick what you need help with.'); return; } if(!msg&&!_ts.sym.length){ say('err','Pick what\u2019s happening or tell us a bit more.'); document.getElementById('ts-msg').focus(); return; }
+    if(!T){ say('err','Pick what you need help with.'); return; } if(!msg&&!_ts.sym.length){ say('err','Pick what\u2019s happening or tell us a bit more.'); document.getElementById('ts-msg').focus(); return; } if(!okEmail()) return;
     const sev={q:'Just a question',a:'Annoying',b:'Blocking'}[_ts.sev]||'Not set';
     subject='[Support] '+T.l+(_ts.sym[0]?' \u00b7 '+_ts.sym[0]:'')+(_ts.sev==='b'?' (blocking)':'');
     fields={Topic:T.l,Symptoms:_ts.sym.join(', ')||'None picked',Impact:sev,Started:v('ts-when')||'Not set',Name:v('ts-name')||p.nickname||'',Email:email,Username:p.username?'@'+p.username:'',Account:u?'Signed in ('+u.id+')':'Guest'};
     if(document.getElementById('ts-dev')&&document.getElementById('ts-dev').checked) Object.entries(tsDevice()).forEach(([k,x])=>{ fields['Device '+k]=x; });
     text=msg||'(No extra details)'; }
-  else { if(!_ts.stars){ say('err','Give Treesh a star rating first.'); return; }
+  else { if(!_ts.stars){ say('err','Give Treesh a star rating first.'); return; } if(!okEmail()) return;
     subject='[Feedback] '+'\u2605'.repeat(_ts.stars)+'\u2606'.repeat(5-_ts.stars)+(v('ts-fav')?' \u00b7 loves '+v('ts-fav'):'');
     fields={Rating:_ts.stars+' / 5',Uses:_ts.use.join(', ')||'Not set','Ease of use':_ts.ease?_ts.ease+' / 5':'Not set',Recommend:_ts.nps>=0?_ts.nps+' / 10':'Not set','Favorite feature':v('ts-fav')||'Not set',Email:email,Username:p.username?'@'+p.username:'',Account:u?'Signed in':'Guest',Device:Object.values(tsDevice()).slice(0,3).join(' \u00b7 ')};
     text='Improve or add:\n'+(v('ts-better')||'-')+'\n\nAnything else:\n'+(v('ts-else')||'-'); }

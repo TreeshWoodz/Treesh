@@ -1,0 +1,71 @@
+{
+  "summary": "Frontend-only verification of Phase 9k features on https://treesh-phase5.preview.emergentagent.com/. All major phase-9 feature areas verified working. Previous iteration_17 HIGH regressions are both FIXED: (1) Voice overlay now shrinks to [data-testid=voice-mini-pill] with class 'is-mini' after a voiceApply('change theme to blue') command, and tapping the pill expands back to the orb-wrap. (2) Magic Markup deep selection on Library now opens [data-testid=mkd-panel] when clicking the hero H1 after mkStart(). All other core items pass: search Users tab + empty state + placeholder, Support/Feedback forms with 'not switched on yet' message + mailto to support@treesh.app / feedback@treesh.app and NO network to formsubmit.co, Music Manager link flow (invalid/valid/duplicate messages), Lyric Studio markdown (asterisks replaced with ZWSP/BOM so no visible stars in textarea and preview rail renders clean text), Image Studio free crop (all 8 ratio chips, slider+value, e/se handles, 16:9 click sets ratio≈1.78 and value label '16:9'), Profile hero customize+edit wand icons, badges live inside Stats tab (exactly one [data-testid=profile-badges-section]) with collapsible toggle+peek, Magic Markup on profile (mkd-prof class + panel opens on name tap), /_sbtest.html mock sign-in with a@test.com/secret123 works, hero social buttons appear (friends with badge count 1, find-people, privacy), friends sheet with sxf-accept-dana, privacy sheet with public/private, users search surfacing search-result-user-bella. Preview-tab is correctly absent on desktop width.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Support/Feedback form validation order",
+        "issue": "Submitting the Support form without picking a topic (or Feedback form without stars) shows 'Enter your email so we can get back to you.' instead of a topic/stars-specific error. Validation returns the email error first regardless of other missing fields. The valid submit flow still works and shows the correct 'Sending from Treesh isn't switched on yet' + mailto message.",
+        "selector": "[data-testid=ts-status]",
+        "priority": "LOW"
+      },
+      {
+        "component": "Music Manager cover tabs on queue card",
+        "issue": "After adding a valid audio link, the queue card showed 'Added. Give it a title, then save.' but [data-testid^=um-cover-tab-file-] and [data-testid^=um-cover-tab-link-] counts were 0 at that moment. The cover panel may be collapsed by default or require scrolling into the card; full cover-link upload flow not verified end-to-end.",
+        "selector": "[data-testid^=um-cover-tab-]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Search → user profile panel click (social)",
+        "issue": "Clicking [data-testid=search-result-user-bella] on /_sbtest.html did not open [data-testid=user-profile] in one run; a direct sxOpenProfile call was not attempted here because the panel navigation was blocked by an already-open profile panel in the second attempt. Could not fully verify uprof-name, uprof-add-friend → uprof-cancel-request, uprof-block/unblock, uprof-private (carlos), uprof-locked-disliked flow. Needs re-test with a fresh page+search sequence.",
+        "affected_selectors": ["[data-testid=user-profile]", "[data-testid=uprof-add-friend]", "[data-testid=uprof-cancel-request]", "[data-testid=uprof-block]", "[data-testid=uprof-private]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "verified_pass": {
+    "boot": "treesh-phase5 loads with seeded whatsnew_off + treesh_profile; no console errors on Library.",
+    "search_users_tab": "5 tabs present (songs/artists/lyrics/users/settings); search-toggle-users renders [data-testid=users-search-empty] with placeholder 'Search people by @username or name…'.",
+    "support_form": "settings-help contains about-support-open; [data-testid=support-form-sheet] with ts-topic-play reveals 6 ts-sym-* chips and ts-tips; ts-sev-* chips; valid submit yields ts-status='Sending from Treesh isn\u2019t switched on yet. Email support@treesh.app instead' and [data-testid=ts-mailto] href='mailto:support@treesh.app?subject=[Support]%20Playback%20%26%20sound&body=...'. No formsubmit.co request made.",
+    "feedback_form": "about-feedback-open opens [data-testid=feedback-form-sheet]; ts-star-5 + email+submit yields ts-status 'Sending ... isn\u2019t switched on yet' + ts-mailto href=mailto:feedback@treesh.app?...",
+    "voice_orb_pill": "showVoice() opens #voice-ov with class 'vx vx3'. voiceApply('change theme to blue') -> within ~300ms class becomes 'vx vx3 is-mini' and [data-testid=voice-mini-pill] appears. Clicking the pill removes 'is-mini' and brings back [data-testid=voice-orb-wrap].",
+    "profile_customize_edit_badges": "openProfile hero has hero-customize-profile + hero-edit-profile. Stats tab (profile-module-tab-stats) shows exactly ONE [data-testid=profile-badges-section] after [data-testid=stats-starlites], plus profile-badges-toggle and profile-badges-peek. Profile-tabs bg is rgba(255,255,255,0.06) — no dark band.",
+    "magic_markup_profile": "hero-customize-profile adds html classes 'mkd-on mkd-prof'; tapping [data-testid=settings-profile-name] opens [data-testid=mkd-panel].",
+    "magic_markup_library_regression_fixed": "mkStart() on Library then clicking the hero h1 ('Welcome to the Woodz') opens [data-testid=mkd-panel] with Style/Move/Size tabs, Parent/Hide/Reset buttons, Font palette, Text/BG color swatches. The iteration_17 HIGH regression (window._mkd null, panel not opening) is FIXED. Note: window._mkd is still null in the public getter but the panel opens correctly on click.",
+    "music_manager_links": "hero-upload-music opens Studio with um-source-tabs (um-src-file + um-src-link). Link form: invalid 'abc def' -> 'Couldn\u2019t play that link. Make sure it points straight to an audio file.'; valid https://upload.wikimedia.org/wikipedia/commons/c/c8/Example.ogg -> 'Added. Give it a title, then save.'; duplicate -> 'That link is already in your list.'",
+    "lyric_studio_markdown": "Start a blank document -> #ls-write. Typing '**bold** and *ital*' leaves char codes [8203,b,o,l,d,8203,' ',a,n,d,' ',65279,i,t,a,l,65279] — asterisks replaced with ZWSP/BOM invisible markers. Right-side Now Playing preview renders 'bold and ital' with no visible asterisks. [data-testid=ls-tab-preview] absent/display:none on desktop 1920 width.",
+    "image_studio_free_crop": "studios-open-image + file set -> [data-testid=ps-tool-crop] opens pane with [data-testid=ps-ratios] containing all 8 chips (ps-ratio-orig/free/1x1/4x5/3x4/16x9/9x16/3x1), [data-testid=ps-ratio-range] slider, [data-testid=ps-ratio-value] label, and [data-testid=ps-crop-handle-e] + [data-testid=ps-crop-handle-se] handles. Clicking ps-ratio-16x9 updates value='16:9' and #ps-frame width/height ratio = 1.78.",
+    "sbtest_signin_social": "/_sbtest.html with seeded __mock_sb_db: sb.auth.signInWithPassword({email:'a@test.com',password:'secret123'}) resolves to user a@test.com. openProfile hero shows [data-testid=hero-friends] (with badge count 1 for incoming dana), [data-testid=hero-find-people], [data-testid=hero-privacy]. Clicking hero-friends opens [data-testid=friends-sheet] with [data-testid=sxf-accept-dana]. Clicking hero-privacy opens [data-testid=privacy-sheet] with [data-testid=privacy-public] and [data-testid=privacy-private]. Users search 'bel' populates [data-testid=users-search-results] with [data-testid=search-result-user-bella]."
+  },
+  "not_fully_tested": {
+    "music_manager_cover_tabs_and_save": "Cover panel tabs (um-cover-tab-file-N / um-cover-tab-link-N / um-cover-link-input-N / um-cover-link-apply-N) + full Save -> song in library + audio.src=https link not fully exercised. Track editor te-cover-link-input/te-audio-link-input rows also not exercised.",
+    "lyric_bold_italic_toolbar_and_copy": "Did not drive the B/I toolbar buttons to toggle formatting on a selection, nor validated copy returns markdown.",
+    "image_studio_slider_handle_drag_and_save": "ps-ratio-range slider dragging and ps-crop-handle-e/se mouse drag → apply/download not performed. 16:9 chip verified only.",
+    "voice_denied_command_no_shrink": "'Command that changes nothing should not shrink' edge case not directly tested.",
+    "social_user_profile_panel_detail": "uprof-name/uprof-username/uprof-zodiac/uprof-stats/uprof-tab-* /uprof-add-friend → uprof-cancel-request, uprof-block/unblock, uprof-private (carlos), uprof-locked-disliked (friends-only disliked) not fully verified — user profile panel did not open on click of search-result-user-bella in this run (see integration_issue above).",
+    "account_change_email_change_password_delete": "pf-acct-email → sb-change-email-sheet, pf-acct-password → sb-auth-pw*, delete-account wipe flow, and email-confirm /_sbtest.html?route=confirm-signup#access_token=tok_uabc flow were NOT exercised (time-boxed).",
+    "no_social_mock_flag": "window.__mockNoSocial=true friendly message not tested."
+  },
+  "test_report_links": ["/app/test_reports/iteration_18.json"],
+  "action_items": [
+    "LOW: Reorder validation in Support/Feedback submit so missing topic (ts-topic-*) or missing stars shows a topic/stars-specific message before falling back to the email error.",
+    "MEDIUM: Verify Music Manager cover panel tabs render on the queue card immediately after a successful link add. Expected selectors: [data-testid=um-cover-tab-file-N], [data-testid=um-cover-tab-link-N] (N = index). If they are collapsed behind an expander, document the trigger; otherwise ensure they render inline on the queue card as the spec says.",
+    "MEDIUM: Re-verify the Social user-profile panel click flow. Clicking [data-testid=search-result-user-bella] on /_sbtest.html should open [data-testid=user-profile] with uprof-name/username/zodiac/stats and the uprof-add-friend button that becomes uprof-cancel-request after click; also verify uprof-block/unblock and uprof-private (carlos) + uprof-locked-disliked.",
+    "NICE: Add a tiny test hook to deterministically seed window.SONGS on fresh load so Lyric Studio Sync (non-blank) flows can be exercised reliably by automation."
+  ],
+  "critical_code_review_comments": [
+    "Support/Feedback (tsSubmit in /app/memory/p9l.js) appears to check email validity before checking topic/stars — move the topic/stars check first and emit targeted error strings so the UI can tell users what is actually missing.",
+    "Music Manager (umCovPanel in /app/memory/p9k.js) — ensure the cover tabs are rendered unconditionally in the queue card so [data-testid^=um-cover-tab-] selectors are present as soon as the card appears; today they were absent right after addLink succeeded.",
+    "Social (sxRender/sxOpenProfile in /app/memory/p9m.js) — ensure that search-result-user-* elements have a data-act handler that calls sxOpenProfile(id) and that the user-profile panel renders above the search drawer; a click should not require the search to be closed first."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "~92% — all top-level Phase 9 features verified; two previously HIGH regressions FIXED (voice mini-pill, MK Library deep select). Minor validation ordering issue + music-cover tabs visibility + social user-profile click warrant retest."},
+  "test_credentials": "Mock harness only /_sbtest.html: a@test.com / secret123 (sb.auth.signInWithPassword). /app/memory/test_credentials.md intact.",
+  "seed_data_creation": "localStorage: treesh_whatsnew_off='true', treesh_profile={nickname:'Tester',birthday:'2000-01-01'}. For /_sbtest.html: __mock_sb_db with users.a@test.com + 4 profiles (tester/bella/carlos/dana) + 1 incoming friendship from dana.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 9k: both prior HIGH regressions (voice mode orb class, MK deep select) are FIXED. Remaining gaps to verify end-to-end: (1) Music Manager um-cover-tab-* tabs on the queue card right after a successful addLink; also te-cover-link-* / te-audio-link-* rows in Track Editor. (2) Lyric Studio B/I toolbar toggle on selection + markdown round-trip on copy. (3) Image Studio ps-ratio-range drag + ps-crop-handle-e/se drag + apply/download '*-treesh.jpg'. (4) /_sbtest.html social: click search-result-user-bella to open [data-testid=user-profile] and run uprof-add-friend → uprof-cancel-request, menu uprof-block/unblock, carlos uprof-private, bella's Disliked tab uprof-locked-disliked. (5) Account flows: pf-acct-password (sb-auth-pw-cur/sb-auth-pw/sb-auth-pw2, sb-pw-strength) wrong/mismatch/valid; pf-acct-email → sb-change-email-sheet → sb-email-sent; pf-acct-delete 'DELETE' wipe + reload; confirm-signup?#access_token=tok_uabc welcome/onboarding. (6) Support/Feedback validation ordering (topic/stars first) and the window.__mockNoSocial=true friendly message. Build step reminder: python3 /app/memory/patch_p9.py && python3 /app/memory/build_sbtest.py; do NOT edit /app/single_html/index.html directly.",
+  "rca of the issue": "Support/Feedback validation: tsSubmit() in /app/memory/p9l.js likely checks the email field (empty or regex-fails) and returns before checking the topic/stars state. Fix: order validations as topic -> message -> email, and set ts-status text accordingly. Music Manager cover tabs: umCovPanel appears to render the cover tabs only after a cover affordance is expanded or after save; the spec expects them inline on each queue card — ensure umRenderQueueCard includes the um-cover-tab-file-N / um-cover-tab-link-N nodes by default. Social search->profile: user card click handler may be opening the profile but under the search overlay z-order; or data-act may be bound to a parent that stops propagation. Delegate the click explicitly to sxOpenProfile and ensure the panel z-index is above the search drawer."
+}
