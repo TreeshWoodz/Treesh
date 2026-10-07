@@ -1547,6 +1547,7 @@ function XM(){return EXTRA_MODES[gameMode]||null;}
 var platformDensity='normal';try{var _pd=localStorage.getItem('frea_platdensity');if(_pd)platformDensity=_pd;}catch(e){}
 var configAi=3, matchTime=90, fuseMax=10000, fuse=fuseMax;
 var allowMoving=true, allowSpinning=true;
+var specTarget=function(){return null;};
 var isPaused=false, playerDead=false, countdown=3.0, lastCd=3;
 
 var parts=[],sparks=[],platforms=[],fleas=[],ambient=[],player=null,orb=null;
@@ -4913,7 +4914,7 @@ function eliminate(f){
   updScore();
   if(fleas.length<=1){endGame(fleas[0]||null);return;}
   assignOrbToRandom();
-  if(playerDead){setTimeout(function(){if(STATE==='play')endGame(survLeader());},1400);}
+  /* player knocked out → keeps spectating (see spectate.js) until the round resolves */
 }
 function survLeader(){if(!fleas.length)return null;return fleas[0];}
 function leader(){if(!fleas.length)return null;var w=fleas[0];for(var i=1;i<fleas.length;i++)if((fleas[i].matchPoints||0)>(w.matchPoints||0))w=fleas[i];return w;}
@@ -5475,7 +5476,7 @@ function loop(ts){
   if(STATE==='title'){
     pal=LC[1];drawBG();updateAmbient(dt);drawAmbient();return;
   }
-  var camF=(XM()&&XM().camTarget)?XM().camTarget():((gameMode==='hns'&&hnsPhase==='seek'&&hnsSeeker)?hnsSeeker:player);
+  var camF=specTarget()||((XM()&&XM().camTarget)?XM().camTarget():((gameMode==='hns'&&hnsPhase==='seek'&&hnsSeeker)?hnsSeeker:player));
   if(camF&&!editMode){camera.x+=(camF.cx-W/2-camera.x)*0.1;camera.y+=(camF.cy-H/2-camera.y)*0.1;
     camera.x=Math.max(0,Math.min(WORLD_W-W,camera.x));camera.y=Math.max(0,Math.min(WORLD_H-H+FLOOR_PAD,camera.y));}
   if(camera.shake>0){camera.x+=(Math.random()-.5)*camera.shake;camera.y+=(Math.random()-.5)*camera.shake;camera.shake*=0.85;if(camera.shake<.3)camera.shake=0;}

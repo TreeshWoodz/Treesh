@@ -80,7 +80,7 @@ var Modes=(function(){
       for(var j=fleas.length-1;j>=0;j--){var f2=fleas[j];if(f2.y+f2.h>S.lava+6)kill(f2);}
       if(STATE!=='play')return;
       if(fleas.length<=1){endGame(fleas[0]||null);return;}
-      if(playerDead&&!S.end){S.end=1;setTimeout(function(){if(STATE==='play'&&gameMode==='lava')endGame(LAVA.highest());},1600);}},
+      },
     highest:function(){var b=null;fleas.forEach(function(f){if(!b||f.y<b.y)b=f;});return b;},
     second:function(){if(S.grace>0)return;S.left--;setT('Lava',Math.max(0,S.left));if(S.left<=10)el('tbox').classList.add('danger');if(S.left<=0)endGame(LAVA.highest());},
     ai:function(f){var best=null,bs=-1e9,ps=plats();for(var i=0;i<ps.length;i++){var p=ps[i];if(p.sinking||p.crumbT)continue;var tp=p.topPoint();var safe=S.lava-tp.y;if(safe<60)continue;
