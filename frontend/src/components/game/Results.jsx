@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Trophy, RotateCcw, Home, Award } from "lucide-react";
 import { BASE, rankFor } from "@/data/game";
-import { useGame } from "@/lib/store";
+import { useGame, playerName } from "@/lib/store";
 import { Starlite } from "@/components/game/Starlite";
 import { Confetti } from "@/components/game/Confetti";
 
@@ -14,7 +14,7 @@ const Stat = ({ label, value, testid }) => (
 );
 
 export const Results = ({ mode, title, score, correct, total, bestCombo, reward, onAgain }) => {
-  const { state } = useGame();
+  const { state, profile } = useGame();
   const { rank, next, pct } = rankFor(state.xp);
   const party = reward.isBest || reward.unlocked.length > 0;
   return (
@@ -50,7 +50,7 @@ export const Results = ({ mode, title, score, correct, total, bestCombo, reward,
         <Link data-testid="results-modes-btn" to={`${BASE}/modes`} className="lift flex items-center gap-2 px-6 py-3 rounded-full border border-[var(--eb-border)] font-bold"><Trophy className="w-4 h-4" />Other modes</Link>
         <Link data-testid="results-lobby-btn" to={BASE} className="lift flex items-center gap-2 px-6 py-3 rounded-full border border-[var(--eb-border)] font-bold"><Home className="w-4 h-4" />Lobby</Link>
       </div>
-      {!state.username && <p className="text-xs text-slate-400 mt-4">Set a username on the <Link className="underline text-[var(--eb-gold)]" to={`${BASE}/leaderboard`}>Leaders</Link> page to post your scores.</p>}
+      {playerName(profile).length < 2 && <p className="text-xs text-slate-400 mt-4">Add a name on your <Link className="underline text-[var(--eb-gold)]" to={`${BASE}/profile`}>Profile</Link> to post your scores.</p>}
     </motion.div>
   );
 };

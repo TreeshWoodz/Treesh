@@ -12,6 +12,7 @@ import Lexicon from "@/pages/Lexicon";
 import Shop from "@/pages/Shop";
 import Trophies from "@/pages/Trophies";
 import Leaderboard from "@/pages/Leaderboard";
+import Profile from "@/pages/Profile";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
               <Route path="shop" element={<Shop />} />
               <Route path="trophies" element={<Trophies />} />
               <Route path="leaderboard" element={<Leaderboard />} />
+              <Route path="profile" element={<Profile />} />
             </Route>
             <Route path="*" element={<Navigate to={BASE} replace />} />
           </Routes>

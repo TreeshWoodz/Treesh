@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Outlet, NavLink, Link, useLocation } from "react-router-dom";
 import { Gamepad2, Flame, BookOpen, ShoppingBag, Trophy, BarChart3, Volume2, VolumeX } from "lucide-react";
 import { useGame } from "@/lib/store";
 import { BASE } from "@/data/game";
 import { Starlite } from "@/components/game/Starlite";
+import { Avatar } from "@/components/game/Avatar";
+import { ProfileSheet } from "@/components/game/ProfileSheet";
 
 const NAV = [
   { to: "", label: "Lobby", icon: Gamepad2, id: "lobby" },
@@ -14,7 +17,7 @@ const NAV = [
 ];
 
 const Header = () => {
-  const { state, set } = useGame();
+  const { state, set, profile } = useGame();
   return (
     <header data-testid="game-header" className="glass sticky top-0 z-40 border-x-0 border-t-0">
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center gap-3">
@@ -33,6 +36,9 @@ const Header = () => {
           <button data-testid="sound-toggle-btn" aria-label="Toggle sound" onClick={() => set({ sound: !state.sound })} className="p-2 rounded-full hover:bg-white/5 text-slate-300">
             {state.sound ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
+          <Link to={`${BASE}/profile`} data-testid="header-profile-btn" aria-label="Profile" className="rounded-full transition-transform duration-200 hover:scale-105">
+            <Avatar profile={profile} />
+          </Link>
         </div>
       </div>
     </header>
@@ -52,12 +58,15 @@ const BottomNav = () => (
 
 export const Shell = () => {
   const { pathname } = useLocation();
+  const { profile } = useGame();
+  const [onboard, setOnboard] = useState(() => !profile);
   const playing = pathname.includes("/play/");
   return (
     <div className="relative z-10 min-h-screen pb-28">
       <Header />
       <main className="max-w-5xl mx-auto px-4 pt-6"><Outlet /></main>
       {!playing && <BottomNav />}
+      <ProfileSheet open={onboard} onOpenChange={setOnboard} onboarding />
     </div>
   );
 };

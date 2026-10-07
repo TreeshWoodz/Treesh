@@ -1,40 +1,36 @@
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import { Crown, Loader2 } from "lucide-react";
-import { useGame } from "@/lib/store";
-import { MODES } from "@/data/game";
-import { getLeaderboard, submitScore } from "@/lib/api";
+import { useGame, playerName } from "@/lib/store";
+import { BASE, MODES } from "@/data/game";
+import { getLeaderboard } from "@/lib/api";
+import { Avatar } from "@/components/game/Avatar";
 
-const UsernameForm = () => {
-  const { state, set } = useGame();
-  const [name, setName] = useState(state.username);
-  const save = () => {
-    const n = name.trim();
-    if (n.length < 2 || n.length > 20) return toast.error("Username must be 2–20 characters");
-    set({ username: n });
-    Object.entries(state.best).forEach(([mode, score]) => score > 0 && submitScore({ player_id: state.playerId, username: n, mode, score }).catch(() => {}));
-    toast.success("You're on the board", { description: "Your best scores have been posted." });
-  };
+const PlayerCard = () => {
+  const { profile } = useGame();
+  const name = playerName(profile);
   return (
-    <div className="glass rounded-3xl p-5 flex flex-col sm:flex-row gap-3 sm:items-center">
-      <div className="flex-1"><div className="font-bold">{state.username ? `Playing as ${state.username}` : "Claim your name"}</div><div className="text-xs text-slate-400">No account needed — your progress lives on this device.</div></div>
-      <input data-testid="username-input" value={name} onChange={(e) => setName(e.target.value)} maxLength={20} placeholder="Your tag"
-        className="rounded-full bg-[var(--eb-bg)] border border-[var(--eb-border)] px-4 py-2.5 outline-none focus:border-[var(--eb-gold)]" />
-      <button data-testid="save-username-btn" onClick={save} className="lift px-5 py-2.5 rounded-full bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase text-sm">Save</button>
+    <div className="glass rounded-3xl p-5 flex items-center gap-4" data-testid="leaderboard-player-card">
+      <Avatar profile={profile} className="w-12 h-12 text-xl" />
+      <div className="flex-1 min-w-0">
+        <div className="font-bold truncate">{name.length >= 2 ? `Posting as ${name}` : "Add a name to get on the board"}</div>
+        <div className="text-xs text-slate-400">Uses your Treesh profile. Your best score in each mode is posted automatically.</div>
+      </div>
+      <Link data-testid="leaderboard-edit-profile-btn" to={`${BASE}/profile`} className="lift px-5 py-2.5 rounded-full bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase text-sm">Profile</Link>
     </div>
   );
 };
 
 export default function Leaderboard() {
-  const { state } = useGame();
+  const { state, profile } = useGame();
   const [mode, setMode] = useState("say_less");
   const [rows, setRows] = useState(null);
-  useEffect(() => { setRows(null); getLeaderboard(mode).then(setRows).catch(() => setRows([])); }, [mode, state.username]);
+  useEffect(() => { setRows(null); getLeaderboard(mode).then(setRows).catch(() => setRows([])); }, [mode, profile]);
   return (
     <div data-testid="leaderboard-page">
       <div className="text-xs uppercase tracking-[0.3em] text-[var(--eb-gold)]">Global</div>
       <h1 className="font-display text-6xl sm:text-7xl mt-1">LEADERBOARD</h1>
-      <div className="mt-6"><UsernameForm /></div>
+      <div className="mt-6"><PlayerCard /></div>
       <div className="flex gap-2 overflow-x-auto mt-6 pb-2">
         {MODES.map((m) => (
           <button key={m.id} data-testid={`leaderboard-tab-${m.id}`} onClick={() => setMode(m.id)}
