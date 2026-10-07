@@ -213,7 +213,7 @@ var FreaPlus=(function(){
   var _dfx=drawFX;drawFX=function(){
     try{if(STATE==='play'&&!editMode&&R.mode===gameMode&&gameMode!=='zen'&&gameMode!=='tutorial'){var dt=Math.min(50,T()-(R._lt||T()));R._lt=T();if(isPaused)dt=0;
         /* pickups */
-        if(MODE_PU[gameMode]){R.spawnT-=dt;var cap=gameMode==='redlight'?3:Math.min(4,2+Math.floor(fleas.length/4));if(R.spawnT<=0){R.spawnT=7000+Math.random()*5000;if(R.pick.length<cap)spawnPU();}
+        if(MODE_PU[gameMode]){R.spawnT-=dt;var cap=gameMode==='redlight'?3:Math.min(4,2+Math.floor(fleas.length/4));if(R.spawnT<=0){var _pr=window.FreaGameplay?FreaGameplay.puRate():1;R.spawnT=(7000+Math.random()*5000)*(_pr||1);if(_pr&&R.pick.length<cap)spawnPU();}
           for(var i=R.pick.length-1;i>=0;i--){var p=R.pick[i];if(T()-p.born>15000){R.pick.splice(i,1);continue;}
             if(gameMode==='lava'){var S=XS();if(p.y>S.lava-10){R.pick.splice(i,1);continue;}}
             for(var j=0;j<fleas.length;j++){var f=fleas[j];if(f.hidden||f.iced)continue;if(Math.hypot(f.cx-p.x,f.cy-p.y)<f.w/2+17){R.pick.splice(i,1);pickup(f,p);break;}}}}

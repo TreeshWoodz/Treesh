@@ -32,8 +32,8 @@ var FreaModeSettings=(function(){
   function rowHtml(m,r){var cur=get(m,r.k);return '<div class="setting-row xm-row"><div class="section-label"><span>'+esc(r.l)+'</span>'+(r.sub?'<small class="xm-sub">'+esc(r.sub)+'</small>':'')+'</div><div class="layout-row" style="flex-wrap:wrap">'+
       r.opts.map(function(p,i){return '<button class="lbtn'+(p[0]===cur?' active':'')+'" data-xm="'+m+'" data-xk="'+r.k+'" data-xi="'+i+'" data-testid="xm-'+m+'-'+r.k+'-'+String(p[0])+'" aria-pressed="'+(p[0]===cur)+'">'+esc(p[1])+'</button>';}).join('')+'</div></div>';}
   function render(){var b=host();if(!b)return;var m=gameMode,rows=SCH[m]||[],h='';
-    rows.forEach(function(r){if(r.show&&!r.show())return;h+=rowHtml(m,r);});
-    if(m!=='zen'&&m!=='tutorial'){var sk=skill();h+='<div class="setting-row xm-row"><div class="section-label"><span>CPU Skill</span><small class="xm-sub">How clever rival fleas are</small></div><div class="layout-row" id="cpu-skill-row">'+
+    rows.forEach(function(r){if(r.show&&!r.show())return;if(r.head){h+='<div class="xm-head" data-testid="xm-head-'+esc(r.head).toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(r.head)+'</div>';return;}h+=rowHtml(m,r);});
+    if(m!=='zen'&&m!=='tutorial'){var sk=skill();h+='<div class="xm-head">Rivals</div><div class="setting-row xm-row"><div class="section-label"><span>CPU Skill</span><small class="xm-sub">How clever rival fleas are</small></div><div class="layout-row" id="cpu-skill-row">'+
       [['easy','Easy'],['normal','Normal'],['pro','Pro']].map(function(p){return '<button class="lbtn'+(p[0]===sk?' active':'')+'" data-skill="'+p[0]+'" data-testid="cpu-skill-'+p[0]+'">'+p[1]+'</button>';}).join('')+'</div></div>';}
     b.innerHTML=h;b.style.display=h?'':'none';
     b.querySelectorAll('[data-skill]').forEach(function(x){x.addEventListener('click',function(){try{localStorage.setItem(SKILL_K,x.dataset.skill);}catch(e){}render();});});}
