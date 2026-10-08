@@ -19,3 +19,7 @@ const _sbPaint9zc=sbPaint; sbPaint=function(){ const r=_sbPaint9zc.apply(this,ar
 function ixTpSync(){ const r=document.querySelector('.ix-root.is-ph'), tb=document.querySelector('header .topbar-surface'); if(!r||!tb) return; const h=tb.closest('header'); const b=(h?h.getBoundingClientRect().top:0)+tb.offsetTop+tb.offsetHeight; r.style.setProperty('--ixtp',Math.max(6,Math.round(b+6))+'px'); }
 const _iar9zc=iAfterRender; iAfterRender=function(){ const r=_iar9zc.apply(this,arguments); try{ ixTpSync(); }catch(e){} return r; };
 window.addEventListener('resize',()=>{ try{ ixTpSync(); }catch(e){} },{passive:true});
+
+/* ---------- P9zc: Icons + Settings headings use the Games & Things heading style ---------- */
+const _va9zc=viewArtists; viewArtists=function(){ return _va9zc.apply(this,arguments).replace('<p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">The Collective</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">The Icons</h1>','<p class="st3-hk">The Collective</p><h1 class="st3-h1" data-testid="icons-title"><span>The Icons</span></h1>'); };
+const _sh9zc=settingsHeadHtml; settingsHeadHtml=function(){ return _sh9zc.apply(this,arguments).replace('<p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Treesh</p><h1 class="mt-1 text-3xl font-bold sm:text-4xl">Settings</h1>','<p class="st3-hk">Make it yours</p><h1 class="st3-h1" data-testid="settings-title"><span>Settings</span></h1>'); };
