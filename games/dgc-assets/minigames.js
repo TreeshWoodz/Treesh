@@ -34,7 +34,7 @@ MINIS.dial = {
   id: 'dial', name: 'The Kitchen Phone', room: 'room_kitchen', verb: '', icon: 'phone', noBtn: true,
   hint: 'Dial the number. It\u2019s an old rotary: every digit spins back slowly and you\u2019re exposed until it stops. Wrong digits make noise.',
   mount(el, ctx) {
-    const len = 6 + Math.min(4, Math.floor(ctx.night / 3)), seq = [9, 1, 1].concat(Array.from({ length: len - 3 }, () => Math.floor(Math.random() * 10)));
+    const len = 6 + Math.min(4, Math.floor(ctx.night / 3)), seq = [9, 1, 1].concat(Array.from({ length: len - 3 }, () => Math.floor(RNG.m() * 10)));
     let idx = 0, busyUntil = 0, busyStart = 0;
     const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, ''];
     el.innerHTML = `<div class="mg mg-dial"><div class="dial-screen" data-testid="mg-dial-sequence">${seq.map((d, i) => `<span data-d="${i}">${d}</span>`).join('')}</div>
@@ -69,7 +69,7 @@ MINIS.scrub = {
   mount(el, ctx) {
     el.innerHTML = `<div class="mg mg-scrub"><canvas id="sc-cv" width="320" height="200" data-testid="mg-scrub-canvas"></canvas><p class="mg-cap">Swipe to scrub \u00b7 Desktop: drag or alternate <kbd>A</kbd> <kbd>D</kbd></p></div>`;
     const cv = $('#sc-cv', el), c = cv.getContext('2d', { willReadFrequently: true }), W = 320, H = 200;
-    for (let i = 0; i < 26; i++) { const x = rand(40, W - 40), y = rand(30, H - 30), r = rand(14, 46), g = c.createRadialGradient(x, y, 2, x, y, r); g.addColorStop(0, 'rgba(110,0,8,.98)'); g.addColorStop(.7, 'rgba(80,0,6,.92)'); g.addColorStop(1, 'rgba(60,0,4,0)'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+    for (let i = 0; i < 26; i++) { const x = mr(40, W - 40), y = mr(30, H - 30), r = mr(14, 46), g = c.createRadialGradient(x, y, 2, x, y, r); g.addColorStop(0, 'rgba(110,0,8,.98)'); g.addColorStop(.7, 'rgba(80,0,6,.92)'); g.addColorStop(1, 'rgba(60,0,4,0)'); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
     const base = c.getImageData(0, 0, W, H).data; let total = 0; for (let i = 3; i < base.length; i += 16) if (base[i] > 40) total++;
     let last = null, lastMove = -9, down = false, side = 0, chk = 0;
     const strength = () => (0.09 + 0.02 * 1 / (1 + ctx.night * 0.08)) * ctx.speed();
@@ -99,7 +99,7 @@ MINIS.stitch = {
   id: 'stitch', name: 'The Workbench', room: 'room_wound', verb: 'Tap to stitch', icon: 'scissors',
   hint: 'Your arm is bleeding. Tap (or Space) when the needle crosses the pale zone. Misses make you cry out.',
   mount(el, ctx) {
-    const N = 8 + Math.min(6, Math.floor(ctx.night / 2)); let done = 0, ph = 0, lastTap = -9, zone = 0.22, zc = rand(0.3, 0.7);
+    const N = 8 + Math.min(6, Math.floor(ctx.night / 2)); let done = 0, ph = 0, lastTap = -9, zone = 0.22, zc = mr(0.3, 0.7);
     el.innerHTML = `<div class="mg mg-stitch"><div class="st-count" data-testid="mg-stitch-count"><b id="st-n">0</b>/<span>${N}</span> stitches</div><div class="st-bar"><i class="st-zone" id="st-z"></i><i class="st-needle" id="st-nd"></i></div><div class="st-wound">${'<i></i>'.repeat(N)}</div><p class="mg-cap">Tap when the needle is inside the zone</p></div>`;
     const lay = () => { const z = $('#st-z', el); z.style.left = ((zc - zone / 2) * 100) + '%'; z.style.width = (zone * 100) + '%'; };
     lay();
@@ -108,7 +108,7 @@ MINIS.stitch = {
       if (now() - lastTap < 0.22) return; lastTap = now();
       if (Math.abs(pos() - zc) <= zone / 2 + 0.015) {
         done++; ctx.add(100 / N * 0.999); Sfx.tone(520 + done * 30, 0.08, 'triangle', 0.12); const w = $$('.st-wound i', el)[done - 1]; if (w) w.classList.add('on');
-        $('#st-n', el).textContent = done; zone = Math.max(0.1, zone - 0.008); zc = rand(0.2, 0.8); lay(); if (done >= N) ctx.add(1);
+        $('#st-n', el).textContent = done; zone = Math.max(0.1, zone - 0.008); zc = mr(0.2, 0.8); lay(); if (done >= N) ctx.add(1);
       } else { Sfx.tone(300, 0.25, 'sawtooth', 0.12, 180); haptic(80); el.querySelector('.st-bar').classList.add('miss'); setTimeout(() => el.querySelector('.st-bar') && el.querySelector('.st-bar').classList.remove('miss'), 300); if (Math.random() < 0.5) ctx.forceTurn(0.45); }
     };
     return {

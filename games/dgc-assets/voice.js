@@ -47,7 +47,7 @@ function lullabyMini(kind) {
       el.innerHTML = `<div class="mg mg-lull"><canvas id="lu-cv" width="480" height="240" data-testid="mg-lullaby-canvas"></canvas><div class="lu-row"><span>Discord</span><div class="meter"><i id="lu-d" data-testid="mg-lullaby-discord"></i></div></div><p class="mg-cap" id="lu-c">${kind === 'pitch' ? 'Hum. Follow the band.' : 'Hum steady. Ride the band.'}</p></div>`;
       const cv = $('#lu-cv', el), c = cv.getContext('2d'), W = 480, H = 240, n = ctx.night;
       const A = kind === 'pitch' ? 3.5 + Math.min(4, n * 0.35) : 0.26, hw = kind === 'pitch' ? Math.max(1, 2 - n * 0.07) : Math.max(0.09, 0.15 - n * 0.004);
-      const w1 = 0.35 + n * 0.03, w2 = 0.9 + n * 0.05, p1 = rand(0, 6), p2 = rand(0, 6), mid = kind === 'pitch' ? 0 : 0.5;
+      const w1 = 0.35 + n * 0.03, w2 = 0.9 + n * 0.05, p1 = mr(0, 6), p2 = mr(0, 6), mid = kind === 'pitch' ? 0 : 0.5;
       const target = t => mid + A * (0.65 * Math.sin(t * w1 + p1) + 0.35 * Math.sin(t * w2 + p2));
       const range = kind === 'pitch' ? A + 4 : 0.5, toY = v => H / 2 - (v - mid) / range * (H / 2 - 12);
       let hist = [], disc = 0, sm = []; const rate = 100 / (13 + n * 0.45);

@@ -53,12 +53,12 @@ const SAVE_KEY = 'dgc_save_v1';
 function defSave() {
   return { v: 1, inv: {}, char: 'mara', chars: ['mara', 'eli'], look: {}, owned: ['tint_none', 'tint_accent', 'charm_none', 'light_warm', 'light_accent'], ach: {},
     stats: { runs: 0, deaths: 0, rounds: 0, escapes: 0, best: { classic: 0, hush: 0, lullaby: 0, impress: 0 }, earned: 0, spent: 0, items: 0, close: 0, rooms: {}, imp: {}, playMs: 0, bought: 0, bestBank: 0 },
-    set: { vol: 0.8, sound: true, flash: true, shake: true, haptic: true }, mode: 'classic', seenStory: false };
+    set: { vol: 0.8, sound: true, flash: true, shake: true, haptic: true, taunts: true }, mode: 'classic', seenStory: false, killer: 'hush', daily: { key: '', played: false, best: 0, streak: 0, last: '' } };
 }
 function loadSave() {
   const d = defSave(), s = LS.get(SAVE_KEY, null); if (!s || typeof s !== 'object') return d;
   const st = Object.assign(d.stats, s.stats || {}); st.best = Object.assign(defSave().stats.best, (s.stats || {}).best || {});
-  return Object.assign(d, s, { stats: st, set: Object.assign(d.set, s.set || {}) });
+  return Object.assign(d, s, { stats: st, set: Object.assign(d.set, s.set || {}), daily: Object.assign(d.daily, s.daily || {}) });
 }
 let S = loadSave();
 function save() { LS.set(SAVE_KEY, S); }
@@ -80,7 +80,7 @@ const charById = id => CHARS.find(c => c.id === id) || CHARS[0];
 
 const ITEMS = [
   { id: 'bell', name: 'Music Box', icon: 'music', cost: 60, type: 'active', desc: 'Wind it up. He wanders off to find it and stays away 4 extra seconds.' },
-  { id: 'blackout', name: 'Blackout Fuse', icon: 'zap-off', cost: 90, type: 'active', desc: 'Kill the lights. For 3 seconds he can\u2019t see you, even when he looks.' },
+  { id: 'blackout', name: 'Blackout Fuse', icon: 'zap-off', cost: 90, type: 'active', desc: 'Kill the lights and hold your breath. For 3 seconds nothing in the house can find you.' },
   { id: 'adren', name: 'Adrenaline', icon: 'syringe', cost: 70, type: 'active', desc: 'Your hands move twice as fast for 6 seconds.' },
   { id: 'watch', name: 'Pocket Watch', icon: 'watch', cost: 50, type: 'passive', desc: '+8 seconds on every candle for the whole run.' },
   { id: 'lens', name: 'Thermal Lens', icon: 'scan-eye', cost: 100, type: 'passive', desc: 'Spot his fake-outs, plus 0.25s extra warning, for the whole run.' },
@@ -146,8 +146,49 @@ const ACH = [
   { id: 'dressed', name: 'Dressed to Die', desc: 'Customize a survivor.', tier: 'bronze', icon: 'shirt' },
   { id: 'crew', name: 'The Whole Crew', desc: 'Unlock every survivor.', tier: 'gold', icon: 'users' },
   { id: 'star500', name: 'Starlit', desc: 'Earn 500 Starlites from this game.', tier: 'gold', icon: 'sparkles' },
-  { id: 'runs25', name: 'Can\u2019t Stop', desc: 'Play 25 runs.', tier: 'silver', icon: 'repeat' }
+  { id: 'runs25', name: 'Can\u2019t Stop', desc: 'Play 25 runs.', tier: 'silver', icon: 'repeat' },
+  { id: 'bride_unlock', name: 'Something Else Is Listening', desc: 'Survive night 10 and wake the Hollow Bride.', tier: 'silver', icon: 'ear' },
+  { id: 'bride5', name: 'Quiet as the Grave', desc: 'Survive 5 nights against the Hollow Bride.', tier: 'gold', icon: 'volume-x' },
+  { id: 'daily1', name: 'Night Shift', desc: 'Finish an official Nightly Challenge.', tier: 'bronze', icon: 'calendar-days' },
+  { id: 'daily3', name: 'Regular Guest', desc: 'Play the Nightly Challenge 3 nights in a row.', tier: 'silver', icon: 'calendar-check' }
 ];
+
+/* ---------- Killers ---------- */
+const KILLERS = [
+  { id: 'hush', name: 'Mr. Hush', sense: 'Sight', icon: 'eye', img: 'hush_front', desc: 'Only kills what he sees. Freeze when he turns around.' },
+  { id: 'bride', name: 'The Hollow Bride', sense: 'Sound', icon: 'ear', img: 'bride_close', unlockAt: 10, desc: 'Blind, eyes sewn shut. She hunts by sound: keep your noise under her line, and the closer she gets, the lower that line drops.' }
+];
+const killerById = id => KILLERS.find(k => k.id === id) || KILLERS[0];
+const killerUnlocked = id => !killerById(id).unlockAt || bestNightAll() >= killerById(id).unlockAt;
+
+/* ---------- Seeded RNG (Nightly Challenge) ---------- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hashStr(str) { let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19; } return h >>> 0; }
+const RNG = { k: Math.random, m: Math.random };
+const kr = (a, b) => a + RNG.k() * (b - a), mr = (a, b) => a + RNG.m() * (b - a);
+const seededShuffle = (a, r) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const DAILY_MODS = [
+  { id: 'paranoid', name: 'Paranoid', icon: 'eye', desc: 'He fakes you out from the very first night.' },
+  { id: 'short', name: 'Short Candles', icon: 'flame', desc: 'Every candle burns 20% faster.' },
+  { id: 'quick', name: 'Quick Turns', icon: 'zap', desc: 'His warnings are 25% shorter.' },
+  { id: 'heavy', name: 'Heavy Hands', icon: 'hand', desc: 'Everything you do is 50% noisier.' },
+  { id: 'blind', name: 'Lights Out', icon: 'eye-off', desc: 'No status badge. Trust your ears and his silhouette.' },
+  { id: 'blood', name: 'Blood Moon', icon: 'moon', desc: 'Starlites in your pocket are doubled.' }
+];
+function dailyInfo(d = new Date()) {
+  const key = d.toISOString().slice(0, 10), no = Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(2026, 0, 1)) / 864e5) + 1;
+  const r = mulberry32(hashStr('dgc-nightly-' + key)); r(); return { key, no, mod: DAILY_MODS[Math.floor(r() * DAILY_MODS.length)] };
+}
+function dailyResetIn() { const n = new Date(), next = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1), ms = next - n.getTime(); return Math.floor(ms / 36e5) + 'h ' + Math.floor(ms % 36e5 / 6e4) + 'm'; }
+const dailyPlayedToday = () => S.daily.key === dailyInfo().key && S.daily.played;
+
+/* ---------- Spoken taunts (pre-generated voice lines) ---------- */
+const TAUNTS = {
+  hush: { caught: ['hush_c1', 'hush_c2', 'hush_c3', 'hush_c4', 'hush_c5', 'hush_c6'], time: ['hush_t1'], impress: ['hush_i1', 'hush_i2'], escape: ['hush_e1', 'hush_e2', 'hush_e3', 'hush_e4'] },
+  bride: { caught: ['bride_c1', 'bride_c2', 'bride_c3'], escape: ['bride_e1'] }
+};
+const TAUNT_TEXT = { hush_c1: 'I see you.', hush_c2: 'There you are\u2026', hush_c3: 'Shhh\u2026 it\u2019s over now.', hush_c4: 'You moved. I told you\u2026 not to move.', hush_c5: 'Found you.', hush_c6: 'Hush now. Hush.', hush_t1: 'The candle\u2019s out. So are you.', hush_i1: 'That\u2026 was pathetic.', hush_i2: 'Do it again. Oh, wait. You can\u2019t.', hush_e1: 'Run, little guest. I\u2019ll be waiting.', hush_e2: 'Leaving so soon? Come back tomorrow night.', hush_e3: 'Go on. The door was never locked.', hush_e4: 'I\u2019ll keep your room\u2026 just as you left it.', bride_c1: 'I heard you.', bride_c2: 'Such a loud\u2026 little heart.', bride_c3: 'Shhh. Stay with me\u2026 forever.', bride_e1: 'I\u2019ll listen for you\u2026 always.' };
+function pickTaunt(killer, kind) { const t = TAUNTS[killer] || TAUNTS.hush, pool = t[kind] || t.caught; return pick(pool); }
 const RANKS = [[0, 'Prey'], [3, 'Hider'], [6, 'Survivor'], [10, 'Phantom'], [15, 'Nightmare'], [20, 'The Unseen']];
 function rankOf(best) { let r = RANKS[0][1]; RANKS.forEach(([n, t]) => { if (best >= n) r = t; }); return r; }
 function bestNightAll() { return Math.max(0, ...Object.values(S.stats.best)); }
@@ -207,6 +248,22 @@ const Sfx = {
     const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 0.08; lg.gain.value = 90; lfo.connect(lg); lg.connect(f.frequency); lfo.start(); os.push(lfo);
     f.connect(g); g.connect(this.master); this.droneNodes = { g, os };
   },
+  bell() { [0, 0.18].forEach(d => { this.tone(1480, 1.1, 'sine', 0.09, 1440, d); this.tone(2210, 0.8, 'sine', 0.04, null, d); }); },
+  vbuf: {}, verb: null,
+  async loadVoice(id) {
+    if (this.vbuf[id]) return this.vbuf[id]; const ac = this.ctx(); if (!ac) return null;
+    try { const r = await fetch(ASSET + 'voice/' + id + '.mp3'); const ab = await r.arrayBuffer(); this.vbuf[id] = await new Promise((ok, no) => ac.decodeAudioData(ab, ok, no)); } catch (e) { return null; }
+    return this.vbuf[id];
+  },
+  preloadVoices(killer) { const t = TAUNTS[killer] || TAUNTS.hush; Object.values(t).flat().forEach(id => this.loadVoice(id)); },
+  async speak(id, killer) {
+    if (!S.set.taunts) return; const ac = this.ctx(), buf = await this.loadVoice(id); if (!ac || !buf) return;
+    if (!this.verb) { const len = ac.sampleRate * 2.4, ir = ac.createBuffer(2, len, ac.sampleRate); for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); } this.verb = ac.createConvolver(); this.verb.buffer = ir; const vg = ac.createGain(); vg.gain.value = 0.55; this.verb.connect(vg); vg.connect(this.master); }
+    const src = ac.createBufferSource(), hp = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = buf; src.playbackRate.value = killer === 'bride' ? 0.94 : 0.86; hp.type = 'highpass'; hp.frequency.value = killer === 'bride' ? 260 : 120; g.gain.value = 1.5;
+    src.connect(hp); hp.connect(g); g.connect(this.master); g.connect(this.verb); src.start();
+    this.noise(buf.duration * 1.1, 'bandpass', 3800, 0.03, 1.5);
+  },
   musicBox() { const sc = [523, 494, 440, 392, 440, 494, 523, 392]; sc.forEach((f, i) => this.tone(f, 0.5, 'triangle', 0.06, null, i * 0.32)); }
 };
 function haptic(ms) { try { if (S.set.haptic && navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
@@ -235,5 +292,6 @@ function checkMetaAch() {
   const rooms = ['lockpick', 'dial', 'scrub', 'stitch', 'keys', 'closet'];
   if (rooms.every(r => (st.rooms[r] || 0) >= 1)) unlock('tour');
   if (rooms.every(r => (st.rooms[r] || 0) >= 10)) unlock('master');
+  if (bestNightAll() >= 10) unlock('bride_unlock');
   if (st.close >= 1) unlock('close'); if (st.close >= 10) unlock('close10');
 }

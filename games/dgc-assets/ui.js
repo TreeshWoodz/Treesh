@@ -10,6 +10,24 @@ function portrait(cid, cls = '') {
 }
 function avatarHtml() { const a = Treesh.avatar(), n = Treesh.name(); return a ? `<img src="${esc(a)}" alt="" data-testid="user-profile-avatar">` : `<span class="av-mono" data-testid="user-profile-avatar">${esc(n.slice(0, 1).toUpperCase())}</span>`; }
 
+/* ---------- Nightly Challenge ---------- */
+function nightlyCard() {
+  const di = dailyInfo(), done = dailyPlayedToday();
+  return `<button class="nightly ${done ? 'done' : ''}" data-act="daily" data-testid="nightly-card"><span class="n-ic"><i data-lucide="calendar-days"></i></span><span class="n-b"><small>Nightly Challenge #${di.no} \u00b7 ${esc(di.mod.name)}</small><b>${done ? 'Survived ' + S.daily.best + ' night' + (S.daily.best === 1 ? '' : 's') + ' tonight' : 'Same house for everyone. One shot.'}</b><em>${done ? 'New house in ' + dailyResetIn() + ' \u00b7 practice anytime' : 'Bonus Starlites' + (S.daily.streak && S.daily.last === new Date(Date.now() - 864e5).toISOString().slice(0, 10) ? ' \u00b7 keep your ' + S.daily.streak + '-night streak' : '')}</em></span><i data-lucide="chevron-right"></i></button>`;
+}
+function renderDaily() {
+  const di = dailyInfo(), done = dailyPlayedToday(), c = charById(S.char);
+  $('#scr-loadout').innerHTML = `${subTop('Nightly Challenge')}<div class="loadout" data-testid="daily-screen">
+    <section class="daily-hero"><div class="dh-img" style="background-image:url(${img('key_art')})"></div><div class="dh-b"><p class="kicker">Nightly #${di.no} \u00b7 ${di.key}</p><h2>Tonight\u2019s House</h2>
+      <p>Every player faces the same rooms, in the same order, with the same turns and fake-outs. Mr. Hush. Nightfall rooms. No items.</p>
+      <div class="dh-mod" data-testid="daily-modifier"><i data-lucide="${di.mod.icon}"></i><div><b>${esc(di.mod.name)}</b><span>${esc(di.mod.desc)}</span></div></div>
+      <div class="over-stats"><div><small>Status</small><b data-testid="daily-status">${done ? 'Played' : 'Ready'}</b></div><div><small>Tonight\u2019s best</small><b>${done ? S.daily.best : '\u2014'}</b></div><div><small>Streak</small><b data-testid="daily-streak">${S.daily.streak || 0}</b></div></div>
+      <p class="muted">${done ? 'You\u2019ve used tonight\u2019s official attempt. Practice runs earn your normal pocket but no nightly bonus. New house in ' + dailyResetIn() + '.' : 'Your first run tonight is official: +8 Starlites per night survived, plus +10 per streak night (up to +70).'}</p></div></section>
+    <section class="lo-who" data-act="go" data-to="chars">${portrait(c.id)}<div><small>Survivor</small><b>${esc(c.name)}</b><span class="perk"><i data-lucide="sparkle"></i>${esc(c.perk)}</span></div></section>
+    <div class="row center"><button class="btn btn-acc btn-xl" data-act="daily-start" data-testid="daily-start-btn"><i data-lucide="door-open"></i>${done ? 'Practice tonight\u2019s house' : 'Enter tonight\u2019s house'}</button></div></div>`;
+  icons();
+}
+
 /* ---------- Title ---------- */
 function renderTitle() {
   const c = charById(S.char), l = lookOf(c.id), best = bestNightAll(), m = modeById(S.mode);
@@ -22,6 +40,7 @@ function renderTitle() {
       <p class="tagline">Mr. Hush only kills what he sees. So don\u2019t let him see you.</p>
       <div class="modes" data-testid="mode-list">${MODES.map(md => `<button class="mode ${md.id === m.id ? 'on' : ''}" data-act="mode" data-id="${md.id}" data-testid="mode-${md.id}-btn"><i data-lucide="${md.icon}"></i><span><b>${md.name}</b><small>${md.tag}${S.stats.best[md.id] ? ' \u00b7 Best night ' + S.stats.best[md.id] : ''}</small></span>${md.voice ? '<em><i data-lucide="mic"></i></em>' : ''}</button>`).join('')}</div>
       <p class="mode-desc" data-testid="mode-desc">${esc(m.desc)}</p>
+      ${nightlyCard()}
       <div class="row"><button class="btn btn-acc btn-xl" data-act="play" data-testid="start-game-btn"><i data-lucide="skull"></i>Enter the house</button></div>
       <nav class="title-nav">
         <button data-act="go" data-to="chars" data-testid="chars-open-btn"><i data-lucide="users"></i>Survivors</button>
@@ -40,9 +59,9 @@ function renderStory(thenPlay) {
   const n = esc(Treesh.name()), c = charById(S.char);
   const panels = [
     ['key_art', `${n}. Wake up. Quietly.`, `You don\u2019t remember the drive. You remember headlights, then nothing. Now you\u2019re in an old house that smells like wet wood and pennies.`],
-    ['hush_front', 'This is Mr. Hush.', `He never speaks. He only listens and watches. He has one rule, and he lets his guests learn it the hard way: <b>he only kills what he sees.</b>`],
+    ['hush_front', 'This is Mr. Hush.', `He rarely speaks. When he does, it\u2019s already too late. He watches. He has one rule, and he lets his guests learn it the hard way: <b>he only kills what he sees.</b>`],
     ['room_door', 'So work while he isn\u2019t looking.', `Pick the locks. Call for help. Clean up what you\u2019ve done. Every night is a new room. Listen for his footsteps. When he turns, <b>freeze</b>.`],
-    ['hush_back', 'Survive until dawn.', `Every five nights a window opens. Escape and keep your Starlites, or go deeper for more. ${esc(c.name)} is counting on you.`]
+    ['hush_back', 'Survive until dawn.', `Every five nights a window opens. Escape and keep your Starlites, or go deeper for more. And if you last ten nights\u2026 something else in this house wakes up. It can\u2019t see you. It doesn\u2019t need to.`]
   ];
   $('#scr-story').innerHTML = `${subTop('The Story')}<div class="story">${panels.map((p, i) => `<article class="panel" style="--d:${i * 0.15}s"><div class="panel-img" style="background-image:url(${img(p[0])})"></div><div><h3>${p[1]}</h3><p>${p[2]}</p></div></article>`).join('')}
   <div class="row center"><button class="btn btn-acc btn-xl" data-act="${thenPlay ? 'story-done' : 'go'}" data-to="title" data-testid="story-continue-btn"><i data-lucide="${thenPlay ? 'skull' : 'arrow-left'}"></i>${thenPlay ? 'I understand' : 'Back'}</button></div></div>`;
@@ -95,7 +114,7 @@ function renderTrophies() {
       <div class="tiers">${Object.keys(TIERS).map(t => `<span style="--c:${TIERS[t]}" data-testid="tier-${t}"><i data-lucide="trophy"></i><b>${cnt(t)}</b><small>${t}</small></span>`).join('')}</div></section>
     <div class="ach-grid" data-testid="achievements-grid">${ACH.map(a => `<article class="ach ${S.ach[a.id] ? 'got' : ''}" style="--c:${TIERS[a.tier]}" data-testid="ach-${a.id}"><i data-lucide="${S.ach[a.id] ? a.icon : 'lock'}"></i><div><b>${esc(a.name)}</b><span>${esc(a.desc)}</span></div><em>${a.tier}</em></article>`).join('')}</div>
     <h3 class="sec-h"><i data-lucide="chart-no-axes-column"></i>Stats</h3>
-    <div class="stats" data-testid="stats-grid">${[['Runs', st.runs], ['Nights survived', st.rounds], ['Times caught', st.deaths], ['Escapes', st.escapes], ['Close calls', st.close], ['Items used', st.items], ['Starlites earned', st.earned], ['Starlites spent', st.spent], ['Best Nightfall', st.best.classic], ['Best Dead Silent', st.best.hush], ['Best Lullaby', st.best.lullaby], ['Best Impressions', st.best.impress], ['Play time', Math.round(st.playMs / 60000) + 'm']].map(([k, v]) => `<div><small>${k}</small><b>${typeof v === 'number' ? fmt(v) : v}</b></div>`).join('')}</div></div>`;
+    <div class="stats" data-testid="stats-grid">${[['Runs', st.runs], ['Nights survived', st.rounds], ['Times caught', st.deaths], ['Escapes', st.escapes], ['Close calls', st.close], ['Items used', st.items], ['Starlites earned', st.earned], ['Starlites spent', st.spent], ['Best Nightfall', st.best.classic], ['Best Dead Silent', st.best.hush], ['Best Lullaby', st.best.lullaby], ['Best Impressions', st.best.impress], ['Nightly streak', S.daily.streak || 0], ['Play time', Math.round(st.playMs / 60000) + 'm']].map(([k, v]) => `<div><small>${k}</small><b>${typeof v === 'number' ? fmt(v) : v}</b></div>`).join('')}</div></div>`;
   icons();
 }
 
@@ -107,6 +126,7 @@ function renderLoadout() {
   $('#scr-loadout').innerHTML = `${subTop('Before you go in')}<div class="loadout">
     <section class="lo-who" data-act="go" data-to="chars" data-testid="loadout-survivor">${portrait(c.id)}<div><small>Survivor</small><b>${esc(c.name)}</b><span class="perk"><i data-lucide="sparkle"></i>${esc(c.perk)}: ${esc(c.desc)}</span><span class="link">Change survivor</span></div></section>
     <section class="lo-mode"><i data-lucide="${m.icon}"></i><div><small>Mode</small><b>${m.name}</b><span>${esc(m.desc)}</span></div></section>
+    ${m.id === 'classic' || m.id === 'hush' ? `<h3 class="sec-h"><i data-lucide="skull"></i>Who\u2019s hunting you</h3><div class="killers">${KILLERS.map(k => { const ok = killerUnlocked(k.id), on = (killerUnlocked(S.killer) ? S.killer : 'hush') === k.id; return `<button class="killer ${on ? 'on' : ''} ${ok ? '' : 'locked'}" data-act="killer" data-id="${k.id}" ${ok ? '' : 'disabled'} data-testid="killer-${k.id}-btn"><img src="${img(k.img)}" alt=""><span><small><i data-lucide="${k.icon}"></i>Hunts by ${k.sense}</small><b>${esc(k.name)}</b><em>${ok ? esc(k.desc) : 'Locked: survive night ' + k.unlockAt + ' in any mode to wake her.'}</em></span>${ok ? '' : '<i data-lucide="lock" class="k-lock"></i>'}</button>`; }).join('')}</div>` : ''}
     <h3 class="sec-h"><i data-lucide="backpack"></i>Bring up to 3 items <small>${UI.loadout.length}/3</small></h3>
     ${own.length ? `<div class="lo-items">${own.map(it => `<button class="lo-item ${UI.loadout.includes(it.id) ? 'on' : ''}" data-act="lo-toggle" data-id="${it.id}" data-testid="loadout-item-${it.id}"><i data-lucide="${it.icon}"></i><span><b>${esc(it.name)} \u00d7${S.inv[it.id]}</b><small>${esc(it.desc)}</small></span><em><i data-lucide="${UI.loadout.includes(it.id) ? 'check' : 'plus'}"></i></em></button>`).join('')}</div>` : `<p class="muted">No items yet. Buy tools in the <a href="#" data-act="go" data-to="shop">Shop</a> with your Starlites.</p>`}
     <div class="lo-tips"><p><i data-lucide="ear"></i>Listen for footsteps and creaks: that\u2019s him turning.</p><p><i data-lucide="hand"></i>Freeze the moment he turns. One wrong move and it\u2019s over.</p>${m.voice ? '<p><i data-lucide="headphones"></i>Voice mode: use headphones so the game\u2019s sounds don\u2019t reach your mic.</p>' : ''}</div>
@@ -142,6 +162,7 @@ function renderGameShell() {
     <main class="hud-main"><section class="kp" id="kp" data-testid="killer-panel"><img id="kp-img" alt="Mr. Hush"><div class="kp-fx"></div><div class="kp-badge" id="kp-badge" data-testid="killer-state-badge"></div></section>
       <section class="act" id="act" data-testid="activity-panel"><div class="act-bg" id="act-bg"></div><div class="act-light"></div><div id="act-stage"></div><div class="act-intro" id="act-intro" hidden></div></section></main>
     <footer class="hud-bot"><div class="prog"><i id="h-prog" data-testid="progress-bar-fill"></i><span id="h-prog-t">0%</span></div>
+      <div class="vm nm" id="nm" data-testid="noise-meter" hidden><small><i data-lucide="ear"></i>Noise</small><div class="vm-bar"><i id="nm-f"></i><b id="nm-lim"></b></div></div>
       <div class="vm" id="vm" data-testid="voice-meter" hidden><small>Voice</small><div class="vm-bar"><i id="vm-f"></i><b id="vm-lim"></b></div></div>
       <div class="hud-ctrl"><div class="hud-items" id="h-items" data-testid="hud-items"></div><button class="act-btn" id="act-btn" data-testid="action-hold-btn"></button></div></footer></div>`;
   icons();
@@ -155,10 +176,12 @@ function renderOver(res) {
   $('#scr-over').innerHTML = `<div class="over ${res.escaped ? 'esc' : 'dead'}" data-testid="game-over">
     <div class="over-img">${portrait(c.id, 'lg ' + (res.escaped ? '' : 'gone'))}</div>
     <div class="over-b"><p class="kicker">${esc(m.name)} \u00b7 ${esc(Treesh.name())} as ${esc(c.name)}</p><h1 data-testid="game-over-title">${res.escaped ? 'Escaped' : 'Caught'}</h1><p class="over-reason" data-testid="game-over-reason">${esc(res.text)}</p>
+      ${res.taunt && S.set.taunts ? `<blockquote class="taunt" data-testid="game-over-taunt">\u201c${esc(TAUNT_TEXT[res.taunt])}\u201d<cite>${esc(killerById(res.killer).name)}</cite></blockquote>` : ''}
       <div class="over-stats"><div><small>Nights survived</small><b data-testid="over-nights">${res.survived}</b></div><div><small>Starlites banked</small><b class="gold" data-testid="over-banked"><i data-lucide="sparkles"></i>${fmt(res.banked)}</b></div><div><small>Best (${esc(m.name)})</small><b>${S.stats.best[res.mode] || 0}</b></div></div>
       ${!res.escaped && res.reason !== 'quit' && Run.pocket ? `<p class="muted">He took half your pocket. Escape at a checkpoint to keep it all.</p>` : ''}
+      ${res.daily ? `<p class="daily-line" data-testid="over-daily">${res.official ? `<i data-lucide="calendar-check"></i>Nightly #${dailyInfo().no} official run \u00b7 +${fmt(res.dailyBonus)} bonus Starlites included` : `<i data-lucide="calendar-days"></i>Nightly #${dailyInfo().no} practice run (no bonus)`}</p>` : ''}
       ${newA.length ? `<div class="over-ach"><p class="cust-h">New achievements</p>${newA.map(a => `<span style="--c:${TIERS[a.tier]}"><i data-lucide="${a.icon}"></i>${esc(a.name)}</span>`).join('')}</div>` : ''}
-      <div class="row"><button class="btn btn-acc btn-xl" data-act="retry" data-testid="retry-run-btn"><i data-lucide="rotate-ccw"></i>Try again</button><button class="btn btn-ghost" data-act="go" data-to="title" data-testid="over-menu-btn"><i data-lucide="house"></i>Menu</button></div></div></div>`;
+      <div class="row"><button class="btn btn-acc btn-xl" data-act="${res.daily ? 'daily' : 'retry'}" data-testid="retry-run-btn"><i data-lucide="rotate-ccw"></i>Try again</button>${res.daily ? `<button class="btn btn-ghost" data-act="share" data-n="${res.survived}" data-testid="over-share-btn"><i data-lucide="share-2"></i>Share</button>` : ''}<button class="btn btn-ghost" data-act="go" data-to="title" data-testid="over-menu-btn"><i data-lucide="house"></i>Menu</button></div></div></div>`;
   icons();
 }
 
@@ -168,7 +191,7 @@ function openModal(html, onClose) { const m = $('#modal'); m.innerHTML = `<div c
 function closeModal() { $('#modal').hidden = true; const f = modalClose; modalClose = null; if (f) f(); }
 function openSettings() {
   const t = (k, l, d) => `<label class="tog"><span><b>${l}</b><small>${d}</small></span><input type="checkbox" data-set="${k}" ${S.set[k] ? 'checked' : ''} data-testid="setting-${k}"></label>`;
-  openModal(`<h3>Settings</h3>${t('sound', 'Sound', 'Heartbeat, footsteps and screams')}<label class="tog"><span><b>Volume</b></span><input type="range" min="0" max="1" step="0.05" value="${S.set.vol}" data-set="vol" data-testid="setting-vol"></label>${t('flash', 'Flashes', 'Red flashes during jump scares')}${t('shake', 'Screen shake', 'Shake when he looks or catches you')}${t('haptic', 'Vibration', 'On supported phones')}
+  openModal(`<h3>Settings</h3>${t('sound', 'Sound', 'Heartbeat, footsteps and screams')}<label class="tog"><span><b>Volume</b></span><input type="range" min="0" max="1" step="0.05" value="${S.set.vol}" data-set="vol" data-testid="setting-vol"></label>${t('taunts', 'Spoken taunts', 'Killers whisper when they catch you or you escape')}${t('flash', 'Flashes', 'Red flashes during jump scares')}${t('shake', 'Screen shake', 'Shake when he looks or catches you')}${t('haptic', 'Vibration', 'On supported phones')}
     <div class="row"><button class="btn btn-ghost" data-act="story-replay" data-testid="settings-story-btn"><i data-lucide="book-open"></i>Replay story</button><button class="btn btn-acc" data-act="close-modal" data-testid="settings-close-btn">Done</button></div>`);
   $$('#modal [data-set]').forEach(i => i.oninput = () => { S.set[i.dataset.set] = i.type === 'checkbox' ? i.checked : +i.value; save(); Sfx.vol(); });
 }
@@ -201,6 +224,11 @@ document.addEventListener('click', e => {
     case 'go-run': if (modeById(S.mode).voice) micSetup(); else startRun(S.mode, UI.loadout); break;
     case 'start-run': startRun(S.mode, UI.loadout); break;
     case 'retry': go('loadout'); break;
+    case 'daily': closeModal(); renderDaily(); show('scr-loadout'); break;
+    case 'daily-start': startRun('classic', [], { daily: true }); break;
+    case 'killer': S.killer = id; save(); renderLoadout(); break;
+    case 'share': { const di = dailyInfo(), n = +t.dataset.n, txt = `Don\u2019t Get Caught \u00b7 Nightly #${di.no} (${di.mod.name}): I survived ${n} night${n === 1 ? '' : 's'}. Can you? https://treesh.app/games/dgc`;
+      if (navigator.share) navigator.share({ text: txt }).catch(() => {}); else { try { navigator.clipboard.writeText(txt); toast('Copied to clipboard', 'Paste it anywhere'); } catch (x) { toast('Couldn\u2019t copy'); } } break; }
     case 'pause': pauseRun(); break;
     case 'resume': closeModal(); break;
     case 'quit-run': modalClose = null; closeModal(); Run.paused = false; caught('quit'); break;
