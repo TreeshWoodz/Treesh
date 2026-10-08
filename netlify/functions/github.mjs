@@ -1,6 +1,8 @@
 // Treesh M.A.D. secure GitHub proxy (Netlify Function). GITHUB_TOKEN never leaves the server.
 // Netlify env vars: GITHUB_TOKEN (required), MAD_PASSCODE (required, 12+ chars), MAD_SESSION_SECRET (optional), MAD_REPO (optional, default TreeshWoodz/Treesh)
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+// Needs "@netlify/blobs" in the repo's package.json dependencies (sign-in activity + reliable lockout).
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { getStore } from '@netlify/blobs';
 
 export const config = { path: ['/api/github', '/api/github/*'] };
 
@@ -10,7 +12,8 @@ const MAX_AGE = 60 * 60 * 24 * 30;
 const MIN_PASSCODE = 12;
 const MAX_FAILS = 5;
 const LOCK_MS = 15 * 60 * 1000;
-const fails = new Map();
+const MAX_LOG = 100;
+const memFails = new Map();
 
 // Only the GitHub calls M.A.D. actually makes, relative to /repos/<REPO>
 const ALLOW = [
@@ -33,9 +36,54 @@ const secret = () => process.env.MAD_SESSION_SECRET || createHash('sha256').upda
 const sign = data => createHmac('sha256', secret()).update(data).digest('base64url');
 const cookie = (value, maxAge) => `${COOKIE}=${value}; Path=/api/github; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`;
 
+/* ---------- storage (Netlify Blobs, memory fallback) ---------- */
+let store = null;
+function blobs(){
+  if (store === null){ try { store = getStore({ name: 'mad-security', consistency: 'strong' }); } catch { store = false; } }
+  return store || null;
+}
+async function readKey(key, fallback){
+  const s = blobs();
+  if (!s) return key.startsWith('fail:') ? memFails.get(key) || fallback : fallback;
+  try { return (await s.get(key, { type: 'json' })) ?? fallback; } catch { return fallback; }
+}
+async function writeKey(key, value){
+  const s = blobs();
+  if (!s){ if (key.startsWith('fail:')) value ? memFails.set(key, value) : memFails.delete(key); return; }
+  try { value ? await s.setJSON(key, value) : await s.delete(key); } catch {}
+}
+
+/* ---------- activity ---------- */
+function maskIp(ip){
+  if (!ip || ip === 'unknown') return 'Unknown';
+  if (ip.includes('.')) return ip.split('.').slice(0, 2).join('.') + '.•••.•••';
+  return ip.split(':').filter(Boolean).slice(0, 2).join(':') + ':••••';
+}
+function device(ua = ''){
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Macintosh|Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : 'Unknown device';
+  const br = /EdgiOS|Edg\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : /curl|python|node|axios|wget/i.test(ua) ? 'Script / bot' : 'Unknown browser';
+  return `${os} · ${br}`;
+}
+async function logEvent(req, context, result, sid){
+  const geo = context.geo || {};
+  const entry = {
+    t: Date.now(), result,
+    city: geo.city || '', country: (geo.country && geo.country.name) || '',
+    device: device(req.headers.get('user-agent') || ''),
+    ip: maskIp(clientIp(req, context)),
+    ...(sid ? { sid } : {})
+  };
+  const log = await readKey('activity', []);
+  await writeKey('activity', [entry, ...(Array.isArray(log) ? log : [])].slice(0, MAX_LOG));
+}
+const clientIp = (req, context) => context.ip || req.headers.get('x-nf-client-connection-ip') || 'unknown';
+const failKey = ip => 'fail:' + createHash('sha256').update(ip).digest('hex').slice(0, 32);
+
+/* ---------- sessions ---------- */
 function newSession(){
-  const exp = Date.now() + MAX_AGE * 1000, data = Buffer.from(JSON.stringify({ exp })).toString('base64url');
-  return { value: `${data}.${sign(data)}`, exp };
+  const exp = Date.now() + MAX_AGE * 1000, sid = randomBytes(9).toString('base64url');
+  const data = Buffer.from(JSON.stringify({ exp, sid })).toString('base64url');
+  return { value: `${data}.${sign(data)}`, exp, sid };
 }
 function readSession(req){
   const m = (req.headers.get('cookie') || '').match(/(?:^|;\s*)mad_session=([^;]+)/);
@@ -49,31 +97,42 @@ function sameOrigin(req){
   if (!origin) return req.headers.get('sec-fetch-site') !== 'cross-site';
   try { return new URL(origin).host === new URL(req.url).host; } catch { return false; }
 }
-function lockedFor(ip){ const f = fails.get(ip); return f && f.until > Date.now() ? f.until - Date.now() : 0; }
-function addFail(ip){
-  const f = fails.get(ip) || { n: 0, until: 0 };
-  f.n += 1;
-  if (f.n >= MAX_FAILS){ f.n = 0; f.until = Date.now() + LOCK_MS; }
-  fails.set(ip, f);
-}
 
 async function session(req, context, method){
-  if (method === 'GET'){ const s = readSession(req); return json(200, { signedIn: !!s, expires: s ? s.exp : null, repo: REPO }); }
+  if (method === 'GET'){ const s = readSession(req); return json(200, { signedIn: !!s, expires: s ? s.exp : null, repo: REPO, activity: !!blobs() }); }
   if (method === 'DELETE') return json(200, { signedIn: false, repo: REPO }, { 'Set-Cookie': cookie('', 0) });
   if (method !== 'POST') return json(405, { message: 'Method not allowed.' });
-  const ip = context.ip || req.headers.get('x-nf-client-connection-ip') || 'unknown';
-  const wait = lockedFor(ip);
-  if (wait) return json(429, { message: `Too many wrong tries. Wait ${Math.ceil(wait / 60000)} min and try again.`, code: 'locked' });
+  const key = failKey(clientIp(req, context));
+  const f = await readKey(key, { n: 0, until: 0 });
+  if (f.until > Date.now()){
+    await logEvent(req, context, 'locked');
+    return json(429, { message: `Too many wrong tries. Wait ${Math.ceil((f.until - Date.now()) / 60000)} min and try again.`, code: 'locked' });
+  }
   let body = {};
   try { body = await req.json(); } catch {}
   if (typeof body.passcode !== 'string' || !same(body.passcode, process.env.MAD_PASSCODE)){
-    addFail(ip);
+    const n = f.n + 1, locked = n >= MAX_FAILS;
+    await writeKey(key, locked ? { n: 0, until: Date.now() + LOCK_MS } : { n, until: 0 });
+    await logEvent(req, context, locked ? 'locked' : 'wrong');
     await new Promise(r => setTimeout(r, 800));
-    return json(401, { message: 'Wrong passcode.', code: 'passcode' });
+    return locked
+      ? json(429, { message: 'Too many wrong tries. Sign-in is locked for 15 min.', code: 'locked' })
+      : json(401, { message: `Wrong passcode. ${MAX_FAILS - n} ${MAX_FAILS - n === 1 ? 'try' : 'tries'} left before a 15 min lock.`, code: 'passcode' });
   }
-  fails.delete(ip);
+  await writeKey(key, null);
   const s = newSession();
+  await logEvent(req, context, 'signin', s.sid);
   return json(200, { signedIn: true, expires: s.exp, repo: REPO }, { 'Set-Cookie': cookie(s.value, MAX_AGE) });
+}
+
+async function activity(sess){
+  const log = await readKey('activity', []), list = Array.isArray(log) ? log : [];
+  const day = Date.now() - 864e5;
+  return json(200, {
+    stored: !!blobs(),
+    failed24h: list.filter(e => e.t > day && e.result !== 'signin').length,
+    entries: list.map(({ sid, ...e }) => ({ ...e, current: !!sid && sid === sess.sid }))
+  });
 }
 
 export default async (req, context) => {
@@ -85,7 +144,9 @@ export default async (req, context) => {
   if (method !== 'GET' && !sameOrigin(req)) return json(403, { message: 'Blocked: request did not come from this site.', code: 'origin' });
 
   if (sub === '/session') return session(req, context, method);
-  if (!readSession(req)) return json(401, { message: 'Signed out. Sign in to M.A.D. in Settings.', code: 'session' });
+  const sess = readSession(req);
+  if (!sess) return json(401, { message: 'Signed out. Sign in to M.A.D. in Settings.', code: 'session' });
+  if (sub === '/activity' && method === 'GET') return activity(sess);
 
   if (sub !== '/repo' && !sub.startsWith('/repo/')) return json(404, { message: 'Unknown M.A.D. route.', code: 'route' });
   const rest = sub.slice('/repo'.length);
