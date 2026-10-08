@@ -11,10 +11,6 @@ function portrait(cid, cls = '') {
 function avatarHtml() { const a = Treesh.avatar(), n = Treesh.name(); return a ? `<img src="${esc(a)}" alt="" data-testid="user-profile-avatar">` : `<span class="av-mono" data-testid="user-profile-avatar">${esc(n.slice(0, 1).toUpperCase())}</span>`; }
 
 /* ---------- Nightly Challenge ---------- */
-function nightlyCard() {
-  const di = dailyInfo(), done = dailyPlayedToday();
-  return `<button class="nightly ${done ? 'done' : ''}" data-act="daily" data-testid="nightly-card"><span class="n-ic"><i data-lucide="calendar-days"></i></span><span class="n-b"><small>Nightly Challenge #${di.no} \u00b7 ${esc(di.mod.name)}</small><b>${done ? 'Survived ' + S.daily.best + ' night' + (S.daily.best === 1 ? '' : 's') + ' tonight' : 'Same house for everyone. One shot.'}</b><em>${done ? 'New house in ' + dailyResetIn() + ' \u00b7 practice anytime' : 'Bonus Starlites' + (S.daily.streak && S.daily.last === new Date(Date.now() - 864e5).toISOString().slice(0, 10) ? ' \u00b7 keep your ' + S.daily.streak + '-night streak' : '')}</em></span><i data-lucide="chevron-right"></i></button>`;
-}
 function renderDaily() {
   const di = dailyInfo(), done = dailyPlayedToday(), c = charById(S.char);
   $('#scr-loadout').innerHTML = `${subTop('Nightly Challenge')}<div class="loadout" data-testid="daily-screen">
@@ -28,31 +24,69 @@ function renderDaily() {
   icons();
 }
 
-/* ---------- Title ---------- */
-function renderTitle() {
-  const c = charById(S.char), l = lookOf(c.id), best = bestNightAll(), m = modeById(S.mode);
-  $('#scr-title').innerHTML = `<div class="title-bg" style="background-image:url(${img('key_art')})"></div>
-  <header class="topbar"><div class="prof" data-testid="user-profile-chip">${avatarHtml()}<span><small>Playing as</small><b data-testid="user-profile-name">${esc(Treesh.name())}</b></span></div><div class="tb-r">${starChip()}<button class="ic-btn" data-act="settings" data-testid="settings-open-btn" aria-label="Settings"><i data-lucide="settings"></i></button></div></header>
-  <div class="title-wrap">
-    <div class="title-main">
-      <p class="kicker">Treesh Games \u00b7 Horror</p>
-      <h1 class="logo" data-testid="game-logo">Don\u2019t Get <span>Caught</span></h1>
-      <p class="tagline">Mr. Hush only kills what he sees. So don\u2019t let him see you.</p>
-      <div class="modes" data-testid="mode-list">${MODES.map(md => `<button class="mode ${md.id === m.id ? 'on' : ''}" data-act="mode" data-id="${md.id}" data-testid="mode-${md.id}-btn"><i data-lucide="${md.icon}"></i><span><b>${md.name}</b><small>${md.tag}${S.stats.best[md.id] ? ' \u00b7 Best night ' + S.stats.best[md.id] : ''}</small></span>${md.voice ? '<em><i data-lucide="mic"></i></em>' : ''}</button>`).join('')}</div>
-      <p class="mode-desc" data-testid="mode-desc">${esc(m.desc)}</p>
-      ${nightlyCard()}
-      <div class="row"><button class="btn btn-acc btn-xl" data-act="play" data-testid="start-game-btn"><i data-lucide="skull"></i>Enter the house</button></div>
-      <nav class="title-nav">
-        <button data-act="go" data-to="chars" data-testid="chars-open-btn"><i data-lucide="users"></i>Survivors</button>
-        <button data-act="go" data-to="shop" data-testid="shop-open-btn"><i data-lucide="shopping-bag"></i>Shop</button>
-        <button data-act="go" data-to="trophies" data-testid="achievements-open-btn"><i data-lucide="trophy"></i>Trophies</button>
-        <button data-act="go" data-to="story" data-testid="story-open-btn"><i data-lucide="book-open"></i>Story</button>
-      </nav>
-    </div>
-    <aside class="title-char" data-act="go" data-to="chars" data-testid="title-survivor-card">${portrait(c.id)}<div><small>${esc(l.title || c.role)}</small><b>${esc(c.name)}</b><span class="perk"><i data-lucide="sparkle"></i>${esc(c.perk)}</span><span class="rank" data-testid="title-rank"><i data-lucide="trophy"></i>${rankOf(best)}${best ? ' \u00b7 Night ' + best : ''}</span></div></aside>
-  </div>`;
-  icons();
+/* ---------- Main menu (game-style) ---------- */
+UI.menuIdx = 0; UI.splashed = false;
+function menuItems() {
+  const di = dailyInfo(), c = charById(S.char), best = bestNightAll(), got = ACH.filter(a => S.ach[a.id]).length, inv = Object.values(S.inv).reduce((a, b) => a + (b || 0), 0), done = dailyPlayedToday();
+  return [
+    { label: 'Enter the House', act: 'play', tid: 'start-game-btn', icon: 'skull', mode: true },
+    { label: 'Nightly Challenge', act: 'daily', tid: 'nightly-card', icon: 'calendar-days', sub: `#${di.no} \u00b7 ${di.mod.name} \u00b7 ${done ? 'Survived ' + S.daily.best + ' tonight' : 'Ready'}`, badge: done ? '' : 'Tonight' },
+    { label: 'Survivors', act: 'go', to: 'chars', tid: 'chars-open-btn', icon: 'users', sub: `${c.name} \u00b7 ${c.perk}` },
+    { label: 'The Pantry', act: 'go', to: 'shop', tid: 'shop-open-btn', icon: 'shopping-bag', sub: inv ? `${inv} tool${inv === 1 ? '' : 's'} in your bag` : 'Tools to stay alive' },
+    { label: 'Trophies', act: 'go', to: 'trophies', tid: 'achievements-open-btn', icon: 'trophy', sub: `${rankOf(best)} \u00b7 ${got}/${ACH.length} unlocked` },
+    { label: 'Story', act: 'go', to: 'story', tid: 'story-open-btn', icon: 'book-open', sub: 'How you got here' },
+    { label: 'Settings', act: 'settings', tid: 'settings-open-btn', icon: 'settings', sub: 'Sound, flashes, taunts' }
+  ];
 }
+const DUST = Array.from({ length: 26 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 100).toFixed(1)}%;--s:${(Math.random() * 2.4 + 1).toFixed(1)}px;--d:${(Math.random() * 14 + 10).toFixed(1)}s;--dl:-${(Math.random() * 20).toFixed(1)}s"></i>`).join('');
+function renderTitle() {
+  const c = charById(S.char), l = lookOf(c.id), m = modeById(S.mode), items = menuItems(), best = bestNightAll();
+  UI.menuIdx = clamp(UI.menuIdx, 0, items.length - 1);
+  $('#scr-title').innerHTML = `<div class="title-bg" style="background-image:url(${img('key_art')})"></div><div class="mm-fog f1"></div><div class="mm-fog f2"></div><div class="mm-dust">${DUST}</div><div class="mm-lamp"></div>
+  <header class="mm-top"><div class="prof" data-testid="user-profile-chip">${avatarHtml()}<span><small>${esc(rankOf(best))}${best ? ' \u00b7 Night ' + best : ''}</small><b data-testid="user-profile-name">${esc(Treesh.name())}</b></span></div>${starChip()}</header>
+  <div class="mm">
+    <div class="mm-left">
+      <h1 class="logo mm-logo" data-testid="game-logo"><small>Don\u2019t Get</small><span>Caught</span></h1>
+      <nav class="mm-list" role="menu" data-testid="main-menu">${items.map((it, i) => `<div class="mm-item ${i === UI.menuIdx ? 'on' : ''}" role="menuitem" tabindex="-1" data-i="${i}" data-act="${it.act}" ${it.to ? `data-to="${it.to}"` : ''} data-testid="${it.tid}" style="--i:${i}">
+        <i class="mm-cur" aria-hidden="true"></i><span class="mm-lab"><b>${it.label}</b>${it.mode ? `<span class="mm-mode" data-testid="mode-list"><button data-act="mode-step" data-d="-1" data-testid="mode-prev-btn" aria-label="Previous mode"><i data-lucide="chevron-left"></i></button><em data-testid="mode-name"><i data-lucide="${m.icon}"></i>${m.name}${m.voice ? '<i data-lucide="mic" class="mic"></i>' : ''}</em><button data-act="mode-step" data-d="1" data-testid="mode-next-btn" aria-label="Next mode"><i data-lucide="chevron-right"></i></button></span>` : `<small>${esc(it.sub)}</small>`}</span>${it.badge ? `<em class="mm-badge">${it.badge}</em>` : ''}</div>`).join('')}</nav>
+      <p class="mm-desc" data-testid="mode-desc">${UI.menuIdx === 0 ? `<b>${m.tag}${S.stats.best[m.id] ? ' \u00b7 Best night ' + S.stats.best[m.id] : ''}</b>${esc(m.desc)}` : ''}</p>
+    </div>
+    <aside class="mm-show" data-act="go" data-to="chars" data-testid="title-survivor-card">${portrait(c.id, 'show')}<div class="mm-show-b"><small>${esc(l.title || c.role)}</small><b>${esc(c.name)}</b><span><i data-lucide="sparkle"></i>${esc(c.perk)}</span></div></aside>
+  </div>
+  <footer class="mm-foot"><span>Treesh Games \u00b7 v1.3</span><span class="mm-hints"><span><kbd>\u2191</kbd><kbd>\u2193</kbd>Select</span><span><kbd>\u2190</kbd><kbd>\u2192</kbd>Mode</span><span><kbd>Enter</kbd>Confirm</span></span></footer>
+  ${UI.splashed ? '' : `<div class="splash" data-act="splash" data-testid="splash-screen"><div class="title-bg" style="background-image:url(${img('key_art')})"></div><div class="mm-fog f1"></div><div class="splash-b"><p class="kicker">Treesh Games presents</p><h1 class="logo"><small>Don\u2019t Get</small><span>Caught</span></h1><p class="splash-press" data-testid="splash-press">${matchMedia('(hover:none)').matches ? 'Tap to begin' : 'Press any key'}</p><p class="splash-warn"><i data-lucide="headphones"></i>Headphones recommended \u00b7 Contains jump scares</p></div></div>`}`;
+  icons(); if (UI.splashed) Sfx.drone(true);
+}
+function menuFocus(i) {
+  const items = $$('#scr-title .mm-item'); if (!items.length) return; i = (i + items.length) % items.length;
+  if (i !== UI.menuIdx) { UI.menuIdx = i; Sfx.tick(); }
+  items.forEach((el, j) => el.classList.toggle('on', j === i));
+  const d = $('#scr-title .mm-desc'), m = modeById(S.mode);
+  if (d) d.innerHTML = i === 0 ? `<b>${m.tag}${S.stats.best[m.id] ? ' \u00b7 Best night ' + S.stats.best[m.id] : ''}</b>${esc(m.desc)}` : '';
+}
+function modeStep(d) {
+  const i = MODES.findIndex(x => x.id === S.mode), m = MODES[(i + d + MODES.length) % MODES.length]; S.mode = m.id; save(); Sfx.tone(d > 0 ? 520 : 440, 0.08, 'triangle', 0.08);
+  const em = $('#scr-title [data-testid="mode-name"]'); if (em) { em.innerHTML = `<i data-lucide="${m.icon}"></i>${m.name}${m.voice ? '<i data-lucide="mic" class="mic"></i>' : ''}`; em.style.animation = 'none'; void em.offsetWidth; em.style.animation = ''; icons(); }
+  menuFocus(0);
+}
+function dismissSplash() {
+  if (UI.splashed) return; UI.splashed = true; Sfx.ctx(); Sfx.shh(); Sfx.thump(0.6); Sfx.drone(true);
+  const sp = $('#scr-title .splash'); if (sp) { sp.classList.add('out'); setTimeout(() => sp.remove(), 700); }
+}
+setInterval(() => {
+  if (!UI.splashed || Run.active || document.hidden || !$('#scr-title').classList.contains('on')) return;
+  const r = Math.random(); if (r < 0.25) Sfx.musicBox(); else if (r < 0.6) Sfx.creak(); else Sfx.step(0.12);
+}, 14000);
+document.addEventListener('mouseover', e => { const it = e.target.closest && e.target.closest('#scr-title .mm-item'); if (it) menuFocus(+it.dataset.i); });
+document.addEventListener('keydown', e => {
+  if (!$('#scr-title').classList.contains('on') || !$('#modal').hidden || (e.target.matches && e.target.matches('input'))) return;
+  if (!UI.splashed) { e.preventDefault(); dismissSplash(); return; }
+  const k = e.key;
+  if (k === 'ArrowDown' || k === 's') { e.preventDefault(); menuFocus(UI.menuIdx + 1); }
+  else if (k === 'ArrowUp' || k === 'w') { e.preventDefault(); menuFocus(UI.menuIdx - 1); }
+  else if ((k === 'ArrowLeft' || k === 'ArrowRight' || k === 'a' || k === 'd') && UI.menuIdx === 0) { e.preventDefault(); modeStep(k === 'ArrowRight' || k === 'd' ? 1 : -1); }
+  else if (k === 'Enter' || k === ' ') { e.preventDefault(); const it = $$('#scr-title .mm-item')[UI.menuIdx]; if (it) it.click(); }
+});
 
 /* ---------- Story ---------- */
 function renderStory(thenPlay) {
@@ -206,7 +240,8 @@ document.addEventListener('click', e => {
   if (a !== 'go' || t.dataset.to) Sfx.click();
   switch (a) {
     case 'go': if (t.dataset.to === 'title' && Mic.ok && !Run.active) Mic.stop(); closeModal(); go(t.dataset.to); break;
-    case 'mode': S.mode = id; save(); renderTitle(); break;
+    case 'splash': dismissSplash(); break;
+    case 'mode-step': modeStep(+t.dataset.d); break;
     case 'mode-classic': Mic.stop(); S.mode = 'classic'; save(); go('loadout'); break;
     case 'play': if (!S.seenStory) { renderStory(true); show('scr-story'); } else go('loadout'); break;
     case 'story-done': S.seenStory = true; save(); go('loadout'); break;
