@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 2 frontend-only re-test of Bronze Blitz focused on scroll fixes and Treesh parent-app integration. All critical items PASS: (1) Level map has no horizontal scroll at 320/360/375/390/414/768/1024/1440/1920 widths and every level-node-1..30 is fully within the viewport (overflow-x-clip on .level-map-container + sinusoidal offset clamped via min(24vw,120px)). (2) Play screens (classic/1, timed, moves, daily, zen) fit the viewport exactly at 320x568, 375x667, 390x844, 414x896, 1920x800, 1366x768 — scrollWidth==innerWidth, scrollHeight==innerHeight, HUD + 8x8 game-board-grid + all 4 powerup-btn-* fit (verified bounding boxes). (3) Result modal (zen cashout) is .result-screen position:fixed inset:0, modal rect == full viewport at 320x568 & 375x667, all 3 action buttons (replay/ranks/home) inside viewport. (A) Treesh integration: pre-seeded treesh_profile={nickname:'Treesh Tester'} and treesh_stars.points=1234 — no welcome modal, hub-greeting shows 'WELCOME BACK, TREESH TESTER', starlites-balance-display shows 1,434 (1234 + 200 welcome gift written to treesh_stars), profile page shows treesh-name-synced ('Treesh Tester — Synced from your Treesh profile'). (B) Shop buy hammer decrements treesh_stars.points by exactly 150 and appends log entry 'Bronze Blitz: Bronze Hammer added'; daily-bonus-claim-btn adds +100 to treesh_stars.points; bronze_save_v1 key is written. (C) Fresh context with no treesh_profile — welcome-modal appears and treesh_stars seeded with {points:200, log:[{r:'Bronze Blitz: Welcome gift'}]}.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_bronze_blitz.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "store.js uses a module-level `giftDone` flag to prevent double-gifting across remounts. This is fine for a single tab but if two Bronze Blitz tabs load simultaneously both will award the gift because the check in effect runs before the setState lands in localStorage. Consider gating on `readJson('treesh_stars')?.log?.some(e=>e.r==='Bronze Blitz: Welcome gift')` for idempotency across tabs.",
+    "wallet.changeStarlites posts to window.parent with origin=window.location.origin — in the iframe-embedded Treesh case this is same-origin as required, but a hostile outer page could still read via postMessage; acceptable for same-origin assumption but worth documenting.",
+    "Play.js useCellSize caps max cell on `Math.min(el.clientWidth, el.clientHeight, 600)-30)/8` which works, but there is a tight dependency on .play-screen being 100dvh; add a fallback test for iOS Safari where dvh resolves to 0 on initial paint."
+  ],
+  "updated_files": ["/app/test_reports/iteration_2.json"],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100%"},
+  "test_credentials": "None - guest via localStorage treesh_profile / treesh_stars / bronze_save_v1",
+  "seed_data_creation": "Playwright tests seeded bronze_save_v1 (all 30 levels unlocked) and treesh_profile/treesh_stars in-browser only; cleared between scenarios.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Both BUG 1 (level map horizontal scroll) and BUG 2/2b (play + result screens fit viewport) are confirmed FIXED on all requested breakpoints. Treesh parent-app integration verified end-to-end: wallet reads/writes treesh_stars.points, name sync from treesh_profile.nickname, bronze_save_v1 is the new game-save key, welcome gift written into treesh_stars with log entry. The .tile-hint element does not carry a data-testid (its data-testid lives on the tile button itself as `tile-{r}-{c}`); if next tester needs to automate a swap, query `.tile-hint` then read its own data-testid attribute from the DOM — simple click-click swap still appears unreliable from Playwright (iteration 1 noted this), use pointerdown/pointermove/pointerup drag instead."
+}

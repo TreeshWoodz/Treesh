@@ -31,4 +31,6 @@ export function readTreeshProfile() {
   return name ? { name: name.slice(0, 20) } : null;
 }
 
+export const hasWelcomeGift = () => (readJson(STARS_KEY)?.log || []).some((e) => e.r === "Bronze Blitz: Welcome gift");
+
 export const TREESH_KEYS = [STARS_KEY, PROFILE_KEY];

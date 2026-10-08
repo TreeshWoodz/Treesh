@@ -23,6 +23,11 @@
 - Starlites economy, daily Starlite drop, shop (4 power-ups, 6 themes), 20 trophies with claimable rewards
 - Per-mode global leaderboard (classic = total stars, daily = today only), cloud save/load with auto-sync after games
 
+## Iteration 2 (Oct 8 2026)
+- Treesh integration: name from treesh_profile.nickname (prompt only if missing), shared wallet treesh_stars.points, progress key bronze_save_v1, one-time 200 welcome gift; parent snippets in /app/memory/treesh_parent_snippet.md
+- Level map horizontal scroll fixed; play + result screens fit viewport (100dvh, no scrolling)
+- Applied user's branch changes: homepage /games/bronze-blitz, _redirects
+
 ## Backlog
 - P1: Deploy and connect treesh.app custom domain (path /games/bronze-blitz)
 - P1: More obstacle types (locked tiles, chained crates), special+special combo effects

@@ -1,7 +1,7 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { sfx } from "./sound";
 import { api } from "./api";
-import { getStarlites, changeStarlites, readTreeshProfile, TREESH_KEYS } from "./wallet";
+import { getStarlites, changeStarlites, readTreeshProfile, hasWelcomeGift, TREESH_KEYS } from "./wallet";
 
 const KEY = "bronze_save_v1";
 const LEGACY_KEY = "bronze-blitz-profile-v1";
@@ -55,7 +55,7 @@ export function ProfileProvider({ children }) {
   const lastGames = useRef(profile.stats.games);
 
   useEffect(() => {
-    if (!profile.giftGiven && !giftDone) {
+    if (!profile.giftGiven && !giftDone && !hasWelcomeGift()) {
       giftDone = true;
       setStarlites(changeStarlites(WELCOME_GIFT, "Welcome gift"));
       setProfile((p) => ({ ...p, giftGiven: true }));
