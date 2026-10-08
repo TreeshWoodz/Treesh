@@ -44,7 +44,7 @@ function arfChips(){ const F=state.arf; return ARF.map(([id,l,ic])=>{ if(id==='a
     return `<button type="button" data-act="arf-set" data-f="${id}" data-testid="arcade-filter-${id}" aria-pressed="${F.f===id}" class="arf-chip press${F.f===id?' is-on':''}"><i data-lucide="${ic}"></i>${l}</button>`; }).join(''); }
 function arfMenuSync(){ let m=document.getElementById('arf-menu'); const b=document.querySelector('[data-testid="arcade-filter-age"]'), F=state.arf;
   if(!state.arfMenu||!b){ if(m) m.remove(); state.arfMenu=false; return; }
-  if(!m){ m=document.createElement('div'); m.id='arf-menu'; m.className='arf-menu'; m.setAttribute('role','menu'); m.dataset.testid='arcade-age-menu'; document.body.appendChild(m); }
+  if(!m){ b.scrollIntoView({block:'nearest',inline:'nearest'}); m=document.createElement('div'); m.id='arf-menu'; m.className='arf-menu'; m.setAttribute('role','menu'); m.dataset.testid='arcade-age-menu'; document.body.appendChild(m); }
   m.innerHTML=ARF_AGES.map(([v,t])=>`<button type="button" role="menuitemradio" aria-checked="${F.age===v}" data-act="arf-age-set" data-v="${v}" data-testid="arcade-age-${v?v.replace('+','plus').toLowerCase():'any'}" class="arf-mi${F.age===v?' is-on':''}">${esc(t)}${F.age===v?'<i data-lucide="check"></i>':''}</button>`).join('');
   const r=b.getBoundingClientRect(); m.style.top=Math.round(r.bottom+8)+'px'; m.style.left=Math.round(Math.max(10,Math.min(r.left,innerWidth-m.offsetWidth-10)))+'px'; }
 addEventListener('scroll',()=>{ if(state.arfMenu) arfMenuSync(); },{capture:true,passive:true});

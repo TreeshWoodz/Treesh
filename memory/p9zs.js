@@ -122,3 +122,16 @@ document.addEventListener('keydown',e=>{ const k=e.key; if(!((e.metaKey||e.ctrlK
   const t=e.target, typing=t&&(t.isContentEditable||/^(input|textarea|select)$/i.test(t.tagName||''));
   if(k==='/'&&typing) return; if(state.searchOpen){ e.preventDefault(); const i=document.getElementById('search-input'); if(i){ i.focus(); i.select(); } return; }
   if(document.querySelector('#modal > *, #modal2 > *')||(state.gameFrame&&!state.gameFrame.min)) return; e.preventDefault(); openSearch(); });
+
+/* What's New */
+(function(){ const D='October 8, 2026', add=(k,sub,items,keep)=>{ const W=WHATS_NEW[k]; if(!W) return; W.v=(W.v||0)+1; W.date=D; if(sub) W.sub=sub; W.items=items.concat((W.items||[]).slice(0,keep)); };
+  add('game','Don\u2019t Get Caught is live.',[
+    {icon:'ghost',title:'Don\u2019t Get Caught is live',desc:'A horror mini-game gauntlet. Mr. Hush only kills what he sees, and The Hollow Bride hunts by sound. Freeze, stay quiet and survive. Ages 13+.'},
+    {icon:'sliders-horizontal',title:'Arcade filters & search',desc:'Sort the Arcade by Recently updated, Newly added, Coming soon, age rating, Most played by you or A\u2013Z, or type a game\u2019s name in the search box.'},
+    {icon:'bell',title:'Notify me',desc:'Coming-soon games get a Notify me button, and Treesh tells you when they go live.'}],3);
+  add('player','',[
+    {icon:'swatch-book',title:'Lyric themes',desc:'Tap the swatch next to the lyrics: Text Messages, Karaoke Neon, Typewriter, Notebook, Retro Terminal, Comic Bubbles or Polaroid Story. Pin a theme to one song if you like.'},
+    {icon:'message-circle',title:'Lyrics as a group chat',desc:'Text Messages turns each line into a text bubble from the artist, with typing dots and read receipts. They\u2019re lyrics, not real messages.'},
+    {icon:'palette',title:'Singer colors are optional',desc:'Lines on songs with more than one artist now use one color by default. Turn on Color lines by singer in the Lyric theme sheet.'},
+    {icon:'image',title:'Themed lyric cards',desc:'Lyric cards can use any lyric theme as their style.'}],3);
+  add('library','',[{icon:'search',title:'Smarter search',desc:'One search for songs, artists, lyrics, games, users and settings, with a top result, See all, recent and trending searches. Press Ctrl+K or / on a keyboard.'}],4); })();
