@@ -127,13 +127,27 @@ rrep(r'const FALLBACK = "data:image/svg\+xml;utf8," \+ encodeURIComponent\("[^\n
 # ---- boot
 rep("  mkRenderChrome(); p7Init(); p8Init(); }\n","  mkRenderChrome(); p7Init(); p8Init(); p9Init(); }\n",1,'init')
 
+# ---- P9t: Instrum one timeline (zoomable px/sec) + Studios card copy
+rep("const IDAW_PPS=44, IDAW_TRACK_H=76, IDAW_RULER_H=20, IDAW_STRIP_W=134;","let IDAW_PPS=44; const IDAW_TRACK_H=76, IDAW_RULER_H=20, IDAW_STRIP_W=134;",1,'ixpps')
+rep("desc:'Layer drums, 808s, leads and pads on a step sequencer. Play it live, then save or export to WAV.',chips:['10 instruments','Presets & swing','Metronome','Export WAV',",
+    "desc:'Drums and vocals on one timeline. Program beats, record over them, mix every track and export the whole song.',chips:['Drums + vocals','Mixer','Arrange bars','Export WAV',",1,'ixcard')
+
+# ---- P9z: loading screen uses the accent colour (set before first paint)
+rep('background:radial-gradient(130% 120% at 50% 28%, #16101f 0%, #0b0a0e 55%, #08080a 100%);','background:radial-gradient(130% 120% at 50% 28%, var(--sp-bg,#16101f) 0%, #0b0a0e 55%, #08080a 100%);',1,'spbg')
+rep('border-radius:50%; border:2px solid rgba(147,40,255,0.18); }','border-radius:50%; border:2px solid rgba(var(--sp-rgb,147,40,255),0.18); }',1,'spring1')
+rep('border-top-color:#9328ff; animation:splashSpin 1s linear infinite; box-shadow:0 0 26px rgba(147,40,255,0.32); }','border-top-color:var(--sp-a,#9328ff); animation:splashSpin 1s linear infinite; box-shadow:0 0 26px rgba(var(--sp-rgb,147,40,255),0.32); }',1,'spring2')
+rep('background:linear-gradient(180deg,#c39bff,#9328ff); box-shadow:0 0 14px rgba(147,40,255,0.55); animation:splashEq','background:linear-gradient(180deg,var(--sp-a2,#c39bff),var(--sp-a,#9328ff)); box-shadow:0 0 14px rgba(var(--sp-rgb,147,40,255),0.55); animation:splashEq',1,'speq')
+rep('      <div class="splash-sub">Welcome to the Woodz</div>\n    </div>\n  </div>\n','      <div class="splash-sub">Welcome to the Woodz</div>\n    </div>\n  </div>\n  <script>(function(){try{var h=JSON.parse(localStorage.getItem("treesh_accent")||"null");if(typeof h!=="string"||!/^#[0-9a-f]{6}$/i.test(h))return;var n=parseInt(h.slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255,s=document.getElementById("app-splash").style,m=function(c){return Math.round(c+(255-c)*.45)};s.setProperty("--sp-a",h);s.setProperty("--sp-rgb",r+","+g+","+b);s.setProperty("--sp-a2","rgb("+m(r)+","+m(g)+","+m(b)+")");s.setProperty("--sp-bg","rgb("+Math.round(11+r*.07)+","+Math.round(10+g*.07)+","+Math.round(14+b*.07)+")");document.documentElement.style.setProperty("--treesh-purple",h);}catch(e){}})();</script>\n',1,'spjs')
+# ---- P9z: remember the original lyrics before edits replace them (revert in the player)
+rep("if(SONG_BY_ID[id] && Array.isArray(ed[id])) SONG_BY_ID[id].lyrics=ed[id];","if(SONG_BY_ID[id] && Array.isArray(ed[id])){ const _s=SONG_BY_ID[id]; if(!_s._ly0&&_s.lyrics!==ed[id]) _s._ly0=_s.lyrics; _s.lyrics=ed[id]; }",1,'ly0')
+
 if errs:
     print('\n'.join(errs)); sys.exit(1)
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js'])
-js=js.replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js','p9t.js','p9u.js','p9v.js','p9w.js','p9x.js','p9y.js','p9z.js'])
+js=js.replace('__P9W_ART__',open(M+'p9w_art.json',encoding='utf-8').read()).replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
     keep=':not(.glow-purple):not([class*="treesh-purple)]"])'
@@ -149,13 +163,16 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)
 if s.count('</style>\n</head>')!=1: print('style end count',s.count('</style>\n</head>')); sys.exit(1)
 s=s.replace('</style>\n</head>','\n'+css+'\n</style>\n</head>')
-for ph in ['__P9_','__ICO__','__LSX_']:
+sys.path.insert(0,M); from copy_p9 import apply_copy
+s,_cm=apply_copy(s)
+for x in _cm: print('copy miss',x)
+for ph in ['__P9_','__P9W_','__ICO__','__LSX_']:
     if ph in s: print('placeholder left',ph); sys.exit(1)
 out='/tmp/index.p9.html' if DRY else P
 open(out,'w',encoding='utf-8').write(s); print('ok', out, len(s))
