@@ -4,7 +4,7 @@ EXE="/pw-browsers/chromium_headless_shell-1208/chrome-linux/headless_shell"
 MOBILE = len(sys.argv)>1 and sys.argv[1]=='m'
 async def main():
     async with async_playwright() as p:
-        b = await p.chromium.launch(executable_path=EXE)
+        b = await p.chromium.launch(executable_path=EXE, args=['--autoplay-policy=no-user-gesture-required'])
         ctx = await b.new_context(**(p.devices['iPhone 13'] if MOBILE else {'viewport':{'width':1280,'height':800}}))
         pg = await ctx.new_page()
         pg.on('pageerror', lambda e: print('PAGEERR', e))

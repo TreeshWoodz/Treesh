@@ -1,0 +1,46 @@
+{
+  "summary": "Frontend-only validation of iteration 27 (Treesh single-file SPA) covering P0 double-tap/scroll-lock, scrubber+lyric seek, karaoke line seek, resume-last-song, phone profile sheet origin + header icon-only, Chainz/Nects new art, and nav regression. All 8 scenarios in review_request pass end-to-end. No console pageerrors on load.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "chainz_art_modal": "PASS - openGameInfo('chainz') modal contains TREESH + CHAINZ text and 6 svg/img nodes (new banner tiles + logo badge render).",
+    "nects_art_modal": "PASS - openGameInfo('nects') modal contains NECTS text and 6 svg/img nodes (emoji-based logo/banner render).",
+    "single_tap_open_close_phone": "PASS - iPhone13: single tap on game-open-chainz opens modal; single tap on game-info-close closes it; openGameFrame + game-frame-close works; body.style.position returns to '' after each close.",
+    "scroll_lock_self_heal": "PASS - setting _locked=true and body.position='fixed' manually heals to '' within ~1s without any touch (500ms self-heal interval).",
+    "tap_rescue_synthetic": "PASS - synthetic TouchEvent (touchstart+touchend, no click) on game-info-close: modal still open at 250ms, auto-rescued and closed by 650ms (~420ms deferred click).",
+    "no_double_fire_real_tap": "PASS - real touchscreen.tap on #mini [data-act=toggle-play]: exactly 1 click captured; audio toggled paused False->True once (no double fire).",
+    "scrubber_resumes_after_seek": "PASS - tapped #np-seek at 50%: audio.currentTime jumped from 3.48s to 89.32s (seek=50, mini=50%); 3s later currentTime=92.32s and seek=51.7 (slider keeps advancing while focused -> drag flag + updateProgress wrapper working).",
+    "lyric_seek_normal": "PASS - tapping #np-lyrics [data-act=lyric-seek] with data-t=31.06 -> audio.currentTime=31.42s.",
+    "lyric_seek_karaoke": "PASS - after toggle-karaoke, tapping #kstage-scroll .k-line (index 20) -> audio.currentTime=59.87s which matches line-20 time in SONGS lyrics array (~59.36s).",
+    "resume_last_song": "PASS - seed treesh_resume {t:64.2} then reload: curSong='Shake It Some Mo', audio.currentTime=64.2, mini-prog width=36.0055%, mini shows song+artist; clicking play (with autoplay flag) continues from ~64.2 -> 67.1 after 3s.",
+    "profile_sheet_origin_phone": "PASS - iPhone13 tap on nav-mobile-profile: #profile-panel animationName='profileIn', transformOrigin='338px 610px' which matches nav-mobile-profile button center (338.2, 619.5). Desktop retains top-right origin (per code path in p9zn.js pfOriginSync).",
+    "profile_header_no_overlap_390": "PASS - at 390px viewport header buttons layout: close [13,53], theme [193,233], customize [241,281], style-icon-only [289,329], edit-icon-only [337,377]; all fit within 390px, no overlap with close X. Style/Edit are icon-only under 400px as expected.",
+    "mobile_nav_order": "PASS - [nav-mobile-game, nav-mobile-studios, nav-mobile-library, nav-mobile-artists, nav-mobile-profile] = Game, Studios, Home(library), Icons(artists), Profile.",
+    "page_errors_on_load": "PASS - zero pageerror events during load/reload on iPhone13 viewport."
+  },
+  "test_report_links": [
+    "/app/memory/tests/taps.py",
+    "/app/memory/tests/audio.py",
+    "/app/memory/tests/kar.py",
+    "/app/memory/tests/res.py",
+    "/app/memory/tests/pfhead.py"
+  ],
+  "action_items": [
+    "LOW: /app/memory/tests/res.py launches chromium without --autoplay-policy=no-user-gesture-required, so when run standalone the mini play button does not actually resume audio in headless (play() rejected silently). The resume feature itself works correctly - verified via a one-off script with autoplay flag. Suggest adding args=['--autoplay-policy=no-user-gesture-required'] to res.py for future regression runs."
+  ],
+  "critical_code_review_comments": [
+    "No critical issues found this iteration. P0 double-tap/scroll-lock self-heal, scrubber drag flag, karaoke line seek, and profile pfOriginSync are implemented correctly and verified end-to-end."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "None (static index.html, no login). Seed: localStorage treesh_whatsnew_off='true', treesh_profile={nickname:'Tester',birthday:'2000-01-01'}.",
+  "seed_data_creation": "treesh_whatsnew_off, treesh_profile, and for resume test treesh_resume={id:'chelly-banqz-shake-it-some-mo',t:64.2,q:[...],b:null,at:now}.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 8 scenarios in iteration 27 review_request pass. Scripts in /app/memory/tests/ (taps.py, audio.py, kar.py, res.py, pfhead.py) are the canonical regression repros. For res.py add --autoplay-policy flag to see post-click play. Karaoke .k-line uses data-k as line INDEX (not time); audio.currentTime matches the index-N line's data-t in SONGS array. Profile sheet origin is set dynamically by pfOriginSync in p9zn.js at the tapped nav button center on phones.",
+  "rca_of_issue": "N/A - all critical flows pass"
+}
