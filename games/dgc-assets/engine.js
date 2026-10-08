@@ -207,12 +207,10 @@ function caught(reason) {
 function escapeRun() { const n = Run.night, amt = Run.pocket + 10 * n; S.stats.escapes++; unlock('escape'); if (n >= 10) unlock('escape10'); endRun(true, amt, 'escape'); }
 function endRun(escaped, bank, reason) {
   Run.active = false; Run.paused = false; cancelAnimationFrame(rafId); Sfx.drone(false);
-  if (Run.rosary) {} // unused rosary stays in inventory
   S.stats.playMs += Date.now() - Run.t0;
   const banked = bank > 0 ? Treesh.earn(bank, 'Don\u2019t Get Caught', Run.key) : 0;
   if (banked > (S.stats.bestBank || 0)) S.stats.bestBank = banked; save(); checkMetaAch();
   const survived = escaped ? Run.night : Run.night - 1, res = { escaped, banked, reason, survived, mode: Run.mode, text: escaped ? 'You slipped out the back door before dawn.' : reasonText(reason) };
-  if (Mic.ok && reason !== 'quit' && !escaped) {} 
   if (escaped || reason === 'quit') { Mic.stop(); renderOver(res); show('scr-over'); }
   else jumpScare(res);
 }

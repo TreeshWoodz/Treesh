@@ -214,7 +214,7 @@ document.addEventListener('keydown', e => {
   if (Run.paused) return;
   if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); if (!R.started) return beginRound(); if (R.done) { const nb = $('#next-btn'); if (nb && !e.repeat) nb.click(); return; } if (!e.repeat) Input.down(); return; }
   if (/^[1-3]$/.test(e.key) && R.mini.id !== 'dial') { const bs = $$('.item-btn'); const b = bs[+e.key - 1]; if (b && !b.disabled) useItem(b.dataset.item); return; }
-  if (R.ctx && R.ctx.onKey && !e.repeat) R.ctx.onKey(e.key);
+  if (R.started && R.ctx && R.ctx.onKey && !e.repeat) R.ctx.onKey(e.key);
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space' || e.key === 'Enter') Input.up(); });
 window.addEventListener('blur', () => Input.up());
