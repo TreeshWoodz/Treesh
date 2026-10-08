@@ -6369,6 +6369,20 @@ function parseSongs(doc){
   return out;
 }
 
+/* Banner focal point: phone (<640px) vs desktop value. Legacy px offsets become a clamped % so the photo always fills the frame. */
+function bnPosPct(raw,iw,ih,cw,ch){
+  const KW={left:0,top:0,center:50,right:100,bottom:100}, t=String(raw||'center').trim().toLowerCase().split(/\s+/).slice(0,2), out=[50,50], taken=[false,false];
+  const s=(iw&&ih&&cw&&ch)?Math.max(cw/iw,ch/ih):0, over=[iw*s-cw, ih*s-ch];
+  const val=(k,ax)=>{ let v=50; if(k in KW) v=KW[k]; else if(/%$/.test(k)) v=parseFloat(k); else if(/px$/.test(k)){ const o=over[ax]; v=o>0.5?(-parseFloat(k)/o*100):50; } return Math.max(0,Math.min(100,isNaN(v)?50:v)); };
+  t.forEach(k=>{ const ax=(k==='top'||k==='bottom')?1:(k==='left'||k==='right')?0:-1; if(ax>=0){ out[ax]=val(k,ax); taken[ax]=true; } });
+  t.forEach(k=>{ if(k==='top'||k==='bottom'||k==='left'||k==='right') return; const ax=taken[0]?1:0; if(taken[ax]) return; out[ax]=val(k,ax); taken[ax]=true; });
+  return +out[0].toFixed(1)+'% '+(+out[1].toFixed(1))+'%';
+}
+const bnRaw=(d,m)=>(window.matchMedia&&matchMedia('(max-width:639px)').matches&&m)||d||'';
+function bnPosFit(im){ try{ const raw=bnRaw(im.dataset.posD,im.dataset.posM); if(raw) im.style.objectPosition=bnPosPct(raw,im.naturalWidth,im.naturalHeight,im.clientWidth,im.clientHeight); }catch(e){} }
+function bnAttrs(d,m){ if(!d&&!m) return ''; return `data-pos-d="${esc(d||'')}" data-pos-m="${esc(m||'')}" style="object-position:${bnPosPct(bnRaw(d,m))}" onload="bnPosFit(this)"`; }
+window.addEventListener('resize',()=>{ document.querySelectorAll('img[data-pos-d]').forEach(bnPosFit); });
+
 function parseArtists(doc){
   const out = [];
   doc.querySelectorAll("article.artist").forEach(el => {
@@ -6378,7 +6392,7 @@ function parseArtists(doc){
     const bg = attr(el,"data-bg");
     out.push({
       id, name: attr(el,"data-name"), bio: attr(el,"data-bio"),
-      background: bg, bgPos: attr(el,"data-bg-pos") || "center",
+      background: bg, bgPos: attr(el,"data-bg-pos") || "center", bgPosM: attr(el,"data-bg-pos-mobile"),
       cashapp: attr(el,"data-cashapp"),
       role: roleEl ? roleEl.textContent.trim() : "Music Artist",
       image: (imgEl && imgEl.getAttribute("src")) || bg,
@@ -6496,14 +6510,11 @@ function idbWipe(){
     return new Promise((res)=>{ try{ const rq=indexedDB.deleteDatabase(IDB_NAME); rq.onsuccess=()=>res(true); rq.onerror=()=>res(true); rq.onblocked=()=>res(true); setTimeout(()=>res(true),1500); }catch(e){ res(true); } });
   })();
 }
-/* Full factory reset: erase ALL local data (localStorage + sessionStorage +
-   IndexedDB) and reload to a clean URL so the app returns to its default state
+/* Full factory reset: erase Treesh-owned local data (prefixed keys + IndexedDB) and reload to a clean URL so the app returns to its default state
    (Library view + Welcome/onboarding). */
 async function eraseAllData(){
   try{ if(typeof audio!=="undefined" && audio){ audio.pause(); audio.removeAttribute("src"); audio.load(); } }catch(e){}
-  try{ const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("treesh")===0) rm.push(k); } rm.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){}
-  try{ localStorage.clear(); }catch(e){}
-  try{ sessionStorage.clear(); }catch(e){}
+  [localStorage, sessionStorage].forEach(st=>{ try{ const rm=[]; for(let i=0;i<st.length;i++){ const k=st.key(i); if(k && TRANSFER_PREFIXES.some(p=>k.indexOf(p)===0)) rm.push(k); } rm.forEach(k=>{ try{ st.removeItem(k); }catch(e){} }); }catch(e){} });
   try{ await idbWipe(); }catch(e){}
   try{ window.location.replace(location.origin+location.pathname); }
   catch(e){ try{ location.hash=""; }catch(_){} location.reload(); }
@@ -7333,6 +7344,7 @@ function isStandalone(){ try{ return (window.matchMedia && window.matchMedia("(d
 let _deferredInstall=null;
 try{ window.addEventListener("beforeinstallprompt",(e)=>{ e.preventDefault(); _deferredInstall=e; }); }catch(e){}
 try{ window.addEventListener("appinstalled",()=>{ _deferredInstall=null; try{ toast("Added to device","Treesh is now an app on your home screen"); }catch(_){} }); }catch(e){}
+(function persistStorage(){ try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p=>{ if(!p) return navigator.storage.persist(); }).catch(()=>{}); }catch(e){} })();
 (function injectManifest(){ try{ if(document.querySelector('link[rel="manifest"]')) return; const icon="https://ik.imagekit.io/treesh/IMG_5825.png"; const base=location.origin+location.pathname; const mani={ name:"Treesh", short_name:"Treesh", description:"Welcome to the Woodz. Sing, write, make beats, design and play.", start_url:base, scope:location.origin+location.pathname.replace(/[^/]*$/,""), display:"standalone", background_color:"#08080a", theme_color:"#0a0a0b", icons:[{src:icon, sizes:"192x192", type:"image/png"},{src:icon, sizes:"512x512", type:"image/png", purpose:"any maskable"}] }; const blob=new Blob([JSON.stringify(mani)],{type:"application/manifest+json"}); const url=URL.createObjectURL(blob); const link=document.createElement("link"); link.rel="manifest"; link.href=url; (document.head||document.documentElement).appendChild(link); }catch(e){} })();
 function canPromptInstall(){ return !!_deferredInstall; }
 async function triggerInstall(){ if(!_deferredInstall) return false; try{ _deferredInstall.prompt(); const c=await _deferredInstall.userChoice; _deferredInstall=null; return !!(c && c.outcome==="accepted"); }catch(e){ return false; } }
@@ -10726,6 +10738,7 @@ function closeQueue(){
    RENDER: MODALS (onboarding, add-to-playlist, prompt, confirm, songmenu)
    ============================================================ */
 function closeModal(){
+  state._confirmCb=null;
   if(state._wnOpenId){ const _wid=state._wnOpenId; wnMarkSeen(_wid); state._wnOpenId=null; setTimeout(()=>wnRefreshBadges(_wid),0); }
   if(state.tot){ try{ totStopPreview(); }catch(e){} state.tot=null; }
   if(typeof amDestroyPreview==="function"){ try{ amDestroyPreview(); }catch(e){} }
@@ -14342,7 +14355,7 @@ function parseModels(doc){ const out=[], used=new Set();
     const m={}; Object.keys(d).forEach(k=>{ const v=String(d[k]||'').trim(); if(v) m[k]=v; });
     const im=imgEl&&imgEl.getAttribute('src');
     m.id=id; m.display=name; m.fullName=[d.firstName,d.lastName].filter(Boolean).join(' ').trim()||String(d.name||'').trim();
-    m.pic=mdUrl(d.profilePic||d.mainImage||d.thumbnail||im); m.thumb=mdUrl(d.thumbnail||d.profilePic||d.mainImage||im); m.backdrop=mdUrl(d.backdropPic||'');
+    m.pic=mdUrl(d.profilePic||d.mainImage||d.thumbnail||im); m.thumb=mdUrl(d.thumbnail||d.profilePic||d.mainImage||im); m.backdrop=mdUrl(d.backdropPic||d.bg||'');
     const photos=[...el.querySelectorAll('.model__photos img')].map(x=>mdUrl(x.getAttribute('src'))).filter(Boolean);
     m.photos=[...new Set([...photos,m.pic,mdUrl(d.mainImage),m.backdrop].filter(Boolean))];
     out.push(m); });
@@ -14354,7 +14367,7 @@ async function loadModels(){
   try{ const c=await assetGet('models_cache'); if(c&&Array.isArray(c.list)&&!MODELS.length){ mdIndex(c.list); _mdLoaded=true; mdRefreshView(); } }catch(e){}
   try{ const html=await fetchFirst(CONTENT_SOURCES.models); const list=parseModels(parseDoc(html)); const changed=JSON.stringify(list)!==JSON.stringify(MODELS); mdIndex(list); _mdLoaded=true; assetPut('models_cache',{list,ts:Date.now()}).catch(()=>{}); if(changed) mdRefreshView(); }
   catch(e){ if(!_mdLoaded){ _mdLoaded=true; mdRefreshView(); } } }
-function mdPhoto(src,name,cls){ const ini=esc(String(name||'M').trim().charAt(0).toUpperCase()); return `<span class="md-ph ${cls||''}" data-initial="${ini}">${src?`<img src="${esc(src)}" alt="${esc(name||'')}" loading="lazy" referrerpolicy="no-referrer" draggable="false" onerror="this.onerror=null;this.classList.add('md-img-err')">`:''}</span>`; }
+function mdPhoto(src,name,cls,extra){ const ini=esc(String(name||'M').trim().charAt(0).toUpperCase()); return `<span class="md-ph ${cls||''}" data-initial="${ini}">${src?`<img src="${esc(src)}" alt="${esc(name||'')}" ${extra||''} loading="lazy" referrerpolicy="no-referrer" draggable="false" onerror="this.onerror=null;this.classList.add('md-img-err')">`:''}</span>`; }
 
 /* ---------- Icons hub: Artists + Models sub-pages ---------- */
 function viewArtists(){ const tab=state.iconsTab==='models'?'models':'artists'; const seen=LS.get('treesh_models_seen',false);
@@ -14405,7 +14418,7 @@ function viewModelDetail(){ const back=`<button data-act="md-back" data-testid="
   const cur=m.currency||''; const money=v=>v?(cur==='USD'||!cur?'$':'')+fmtNum(+v||0)+(cur&&cur!=='USD'?' '+cur:''):''; const rates=[['Day',money(m.dayRate||m.rate)],['Half day',money(m.halfDayRate)],['Hourly',money(m.hourlyRate)]].filter(x=>x[1]);
   const photos=(m.photos||[]).slice(0,12);
   return `<div class="md-detail space-y-6" data-testid="model-detail">${back}
-  <section class="md-hero dark-surface" data-testid="model-hero">${mdPhoto(m.backdrop||m.pic,m.display,'md-hero-bg')}<span class="md-hero-shade"></span>
+  <section class="md-hero dark-surface" data-testid="model-hero">${mdPhoto(m.backdrop||m.pic,m.display,'md-hero-bg',bnAttrs(m.bgPos,m.bgPosMobile))}<span class="md-hero-shade"></span>
    <div class="md-hero-inner">${mdPhoto(m.pic,m.display,'md-hero-pic')}<div class="min-w-0"><p class="md-kicker">${esc(m.modelCategory||'Model')}${m.agency?` \u00b7 ${esc(m.agency)}`:''}</p><h1 class="md-hero-name" data-testid="model-name">${esc(m.display)}</h1><p class="md-hero-sub">${esc([m.fullName&&m.fullName.toLowerCase()!==m.display.toLowerCase()?m.fullName:'',m.pronouns].filter(Boolean).join(' \u00b7 '))}</p>${(m.basedIn||m.location)?`<p class="md-hero-loc"><i data-lucide="map-pin"></i>${esc(m.basedIn||m.location)}</p>`:''}<div class="md-badges">${badges}</div></div></div></section>
   ${comp.length?`<section class="md-comp" data-testid="model-comp-card"><div class="md-comp-h"><h3 class="md-info-h"><span><i data-lucide="ruler"></i></span>Comp card</h3><div class="md-seg" role="group" aria-label="Units"><button data-act="md-units" data-val="in" data-testid="model-units-in" aria-pressed="${!cm}" class="${!cm?'on':''}">in</button><button data-act="md-units" data-val="cm" data-testid="model-units-cm" aria-pressed="${cm}" class="${cm?'on':''}">cm</button></div></div><div class="md-comp-grid">${comp.map(([l,v])=>`<div class="md-stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div></section>`:''}
   ${photos.length>1?`<section data-testid="model-photos"><h3 class="md-info-h mb-3"><span><i data-lucide="images"></i></span>Photos</h3><div class="md-strip no-scrollbar">${photos.map((p,i)=>`<button data-act="md-photo" data-id="${esc(m.id)}" data-i="${i}" data-testid="model-photo-${i}" class="md-shot press">${mdPhoto(p,m.display,'h-full w-full')}</button>`).join('')}</div></section>`:''}
@@ -14426,7 +14439,7 @@ function viewArtistDetail(){
   const mine=new Set(songs.map(s=>s.id)); const collab=ARTISTS.filter(b=>b.id!==a.id).map(b=>({b,n:[...(ARTIST_SONG_IDS[b.id]||[])].filter(id=>mine.has(id)).length})).filter(x=>x.n>0).sort((x,y)=>y.n-x.n).slice(0,10);
   const longBio=(a.bio||'').length>260;
   return `<div class="ar-detail space-y-8" data-testid="artist-detail"><button data-act="back" data-testid="artist-back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back</button>
-  <section class="ar-hero dark-surface" data-testid="artist-hero"><div class="ar-hero-bg">${img(a.background||a.image,'h-full w-full object-cover',`style="object-position:${esc(a.bgPos||'center')}"`)}</div><span class="ar-hero-shade"></span>
+  <section class="ar-hero dark-surface" data-testid="artist-hero"><div class="ar-hero-bg">${img(a.background||a.image,'h-full w-full object-cover',bnAttrs(a.bgPos||'center',a.bgPosM))}</div><span class="ar-hero-shade"></span>
    <div class="ar-hero-inner"><div class="ar-avatar"><span class="ar-ring" aria-hidden="true"></span><span class="ar-avatar-img">${img(a.image,'h-full w-full object-cover',`alt="${esc(a.name)}"`)}</span></div>
     <div class="min-w-0 flex-1"><p class="ar-kicker"><i data-lucide="badge-check"></i>${esc(a.role||'Music Artist')}</p><h1 class="ar-name" data-testid="artist-name">${esc(a.name)}</h1>${(a.location||topG)?`<p class="ar-loc">${a.location?`<span><i data-lucide="map-pin"></i>${esc(a.location)}</span>`:''}${topG?`<span><i data-lucide="disc-3"></i>${esc(topG)}</span>`:''}</p>`:''}
      <div class="ar-stats" data-testid="artist-stats"><span><b>${songs.length}</b>Track${songs.length!==1?'s':''}</span><span><b>${fmtNum(plays)}</b>Your plays</span><span><b>${liked}</b>Liked</span></div>
