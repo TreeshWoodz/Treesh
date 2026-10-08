@@ -43,7 +43,7 @@ const _vxApply9k=voiceApply; voiceApply=function(text){ const before=vxSnap(); c
   if(v&&v.classList.contains('vx3')&&!v.classList.contains('tr-fade-out')){ setTimeout(()=>{ const now=vxSnap(); if(now!==before) vx3Mini(true); else if(v.classList.contains('is-mini')&&_voiceLast&&_voiceLast.reply) vx3Mini(false); },260); } return r; };
 const _ovo9k=overlaysOpen; overlaysOpen=function(){ const v=document.getElementById('voice-ov'); if(!(v&&v.classList.contains('is-mini'))) return _ovo9k.apply(this,arguments);
   const L=listening; v.removeAttribute('id'); listening=false; try{ return _ovo9k.apply(this,arguments); } finally{ v.id='voice-ov'; listening=L; } };
-window.addEventListener('click',e=>{ const v=document.getElementById('voice-ov'); if(!v||!v.classList.contains('is-mini')) return; const w=e.target&&e.target.closest&&e.target.closest('#voice-ov .vx3-orbwrap'); if(!w) return; e.preventDefault(); e.stopImmediatePropagation(); vx3Mini(false); },true);
+window.addEventListener('click',e=>{ const v=document.getElementById('voice-ov'); if(!v||!v.classList.contains('is-mini')) return; const w=e.target&&e.target.closest&&e.target.closest('#voice-ov .vx3-orbwrap'); if(!w) return; e.preventDefault(); e.stopImmediatePropagation(); vx3Mini(false); if(!(listening&&!_voicePaused&&!_voiceSpeaking)) try{ vxListenNow(); }catch(err){} },true);
 
 /* ---------- P9k: Music Manager, songs and covers from a link ---------- */
 let _umSrc='file';
