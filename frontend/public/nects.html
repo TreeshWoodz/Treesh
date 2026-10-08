@@ -391,9 +391,10 @@ const BOT_NAMES={
 
 const MODES=[
   {id:'classic',name:'Classic',hue:'#9328ff',icon:'swords',tag:'Race the bot',feature:true,setup:['diff','grid','rounds'],desc:'The original Nects. An emoji is called, and whoever taps it first claims it. Finish a full row, column or diagonal to take the round.',rules:['First to tap the called emoji claims it.','Complete any full line to win the round.','Harder bots pay more Starlites.']},
+  {id:'bingo',name:'Bingo',hue:'#f472b6',icon:'ticket',tag:'Daub and shout',feature:true,setup:['diff','rounds'],desc:'A 5×5 card with a free ★ in the middle. Emojis are called on a timer, and you daub any that are on your card. Finish a line or the four corners, then hit BINGO before your rivals do.',rules:['Daub any emoji that has already been called. It doesn\u2019t have to be the latest one.','Any row, column, diagonal or the four corners counts.','You have to press BINGO yourself. A false Bingo locks you out for 4s.','Two or three bots play their own cards against you.']},
   {id:'blitz',name:'Blitz',hue:'#f59e0b',icon:'zap',tag:'Timed turns',setup:['diff','grid','rounds'],desc:'Every call has a fuse. If you don\u2019t tap it before the timer runs out, the bot takes it.',rules:['Each call gets a few seconds, scaled by board size.','Miss the timer and the call goes to the bot.','Pays 1.25x Starlites.']},
   {id:'daily',name:'Daily Challenge',hue:'#c3ab69',icon:'calendar-days',tag:'Same board for everyone',setup:[],desc:'One seeded 4x4 board and call order per day. Beat the Daily Rival for a once-a-day bonus.',rules:['Board, calls and rival are the same for everyone today.','First to 2 rounds wins.','+25 Starlites for your first win each day.']},
-  {id:'survival',name:'Survival',hue:'#fb7185',icon:'heart-pulse',tag:'Endless waves',setup:['grid'],desc:'Three lives against an endless stream of bots that get faster every wave.',rules:['Win a round to clear a wave. Bots speed up each time.','Losing a round costs a life.','Starlites grow with every wave.']},
+  {id:'survival',name:'Survival',hue:'#fb7185',icon:'heart-pulse',tag:'Endless waves',feature:true,setup:['grid'],desc:'Three lives against an endless stream of bots that get faster every wave.',rules:['Win a round to clear a wave. Bots speed up each time.','Losing a round costs a life.','Starlites grow with every wave.']},
   {id:'gravity',name:'Gravity',hue:'#60a5fa',icon:'arrow-down-to-line',tag:'Pieces drop',setup:['diff','grid','rounds'],desc:'Claimed tiles fall to the lowest open spot in their column, like four-in-a-row. Plan your lines from the floor up.',rules:['Tap the called emoji and your claim drops down its column.','Lines still win, but you build them from the bottom.','Pays 1.15x Starlites.']},
   {id:'fog',name:'Fog of War',hue:'#b58cff',icon:'cloud-fog',tag:'Memory + speed',setup:['diff','grid','rounds'],desc:'You see your board for a moment, then the fog rolls in. Remember where everything is.',rules:['The board shows briefly at the start of each round.','Tapping a hidden tile peeks at it. A wrong peek costs half a second.','The fog lifts for a moment every 5 calls. Pays 1.3x.']},
   {id:'chaos',name:'Chaos',hue:'#ff2d78',icon:'tornado',tag:'Random events',setup:['diff','grid','rounds'],desc:'Quakes, naps, flips and free tiles go off between calls. Anything can happen.',rules:['A random event fires every few calls.','Events can help you or the bot.','Pays 1.2x Starlites.']},
@@ -435,7 +436,8 @@ const BADGES=[
   {id:'unstop',icon:'🔥',name:'Unstoppable',desc:'Win 10 rounds in a row',test:s=>s.stats.bestStreak>=10},
   {id:'speed',icon:'⚡',name:'Speed Demon',desc:'Tap a call in under 0.5s',test:s=>s.stats.fastestMs>0&&s.stats.fastestMs<500},
   {id:'explorer',icon:'🧭',name:'Explorer',desc:'Play 6 different modes',test:s=>modesPlayed(s)>=6},
-  {id:'complete',icon:'🌐',name:'Completionist',desc:'Play all 12 modes',test:s=>modesPlayed(s)>=12},
+  {id:'complete',icon:'🌐',name:'Completionist',desc:'Play all 13 modes',test:s=>modesPlayed(s)>=13},
+  {id:'bingo',icon:'🎱',name:'Bingo Caller',desc:'Win a Bingo match',test:s=>!!s.flags.bingo},
   {id:'abyss',icon:'🕳️',name:'Abyss Walker',desc:'Beat an Abysmal bot',test:s=>!!s.flags.abyss},
   {id:'big',icon:'🧱',name:'Big Board',desc:'Win a match on 6x6',test:s=>!!s.flags.big},
   {id:'survivor',icon:'💗',name:'Survivor',desc:'Reach wave 10 in Survival',test:s=>s.survivalBest>=10},
@@ -702,7 +704,7 @@ function renderMenu(){
       <div class="hero-emojis" aria-hidden="true">${heroE.map((e,i)=>`<span class="${on.includes(i)?'on':''}" style="animation-delay:${i*.2}s">${e}</span>`).join('')}</div>
       <p class="eyebrow">Treesh Games · Nects</p>
       <h1>Spot it. Tap it. Nect it.</h1>
-      <p class="lead">Welcome back, <b style="color:#fff" data-testid="menu-nickname">${esc(name)}</b>. Twelve ways to play, and every Starlite you win goes straight to your Treesh wallet.</p>
+      <p class="lead">Welcome back, <b style="color:#fff" data-testid="menu-nickname">${esc(name)}</b>. Thirteen ways to play, and every Starlite you win goes straight to your Treesh wallet.</p>
       <div class="hero-actions">
         <button class="btn btn-primary btn-lg" data-act="quick-play" data-testid="quick-play-button">${ic('play',18)}Quick play</button>
         <button class="btn btn-ghost btn-lg" data-act="help" data-testid="how-to-play-button">${ic('book-open',18)}How to play</button>
@@ -736,6 +738,7 @@ function modeMeta(m){
   if(m.id==='daily'){ const d=S.daily[todayKey()]; return d&&d.won?`<span class="tag gold">Done today</span>`:`<span class="tag new">New board</span>`; }
   if(m.id==='zen') return `<span class="tag">${fmt(S.stats.zenLines)} lines</span>`;
   const isNew=!['classic','custom','mirror'].includes(m.id)&&!b.played;
+  if(m.id==='bingo'&&b.played) return `<span class="tag">${b.wins||0} wins</span>`;
   return `${isNew?'<span class="tag new">New</span>':''}${b.played?`<span class="tag">${b.wins||0} wins</span>`:''}`;
 }
 function modeCard(m,i){
@@ -807,6 +810,7 @@ function startFromSheet(){
   if(m==='custom') S.custom={...sheet.custom};
   S.lastMode=m; saveNects(); closeModal();
   if(m==='puzzle') return startPuzzle(sheet.level);
+  if(m==='bingo'){ S.settings.diff=sheet.diff; S.settings.rounds=sheet.rounds; saveNects(); return startBingo({diff:sheet.diff,rounds:sheet.rounds,pack:S.equipped.pack}); }
   startMatch(buildConfig(m,sheet));
 }
 
@@ -885,7 +889,7 @@ const T={bot:null,blitz:null,next:null,pz:null,misc:[]};
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 function clearTimers(){ clearTimeout(T.bot); clearInterval(T.blitz); clearTimeout(T.next); T.bot=T.blitz=T.next=null; }
 function later(fn,ms){ const id=setTimeout(()=>{ T.misc=T.misc.filter(x=>x!==id); fn(); },ms); T.misc.push(id); return id; }
-function stopGame(){ if(G) G.active=false; clearTimers(); clearInterval(T.pz); T.misc.forEach(clearTimeout); T.misc=[]; $('#banner-root').innerHTML=''; }
+function stopGame(){ if(G) G.active=false; if(BG) BG.active=false; clearTimers(); clearInterval(T.pz); T.misc.forEach(clearTimeout); T.misc=[]; $('#banner-root').innerHTML=''; }
 const DAILY_PACKS=['smileys','animals','food','sports','travel','objects','nature'];
 function dailySeed(){ const k=todayKey().replace(/-/g,''); return +k; }
 
@@ -1426,14 +1430,137 @@ function puzzleResult(won){
       ${won&&z.L<40?`<button class="btn btn-primary btn-lg" style="flex:1.3" data-act="pz-next" data-testid="puzzle-next">Next ${ic('arrow-right',17)}</button>`:''}</div>`,{testid:'puzzle-result-modal',lock:true});
 }
 
+/* ===== Bingo mode ===== */
+let BG=null;
+const BINGO_SPEED={easy:3200,normal:2600,hard:2000,insane:1600,abysmal:1300};
+const BINGO_BOT={easy:{miss:.25,shout:2600,count:2},normal:{miss:.15,shout:1800,count:3},hard:{miss:.07,shout:1100,count:3},insane:{miss:.03,shout:750,count:3},abysmal:{miss:0,shout:480,count:3}};
+const BINGO_LINES=(()=>{ const L=buildLines(5,5,{h:true,v:true,d:true}); L.push([0,4,20,24]); return L; })();
+function bingoLine(daub){ return BINGO_LINES.find(l=>l.every(i=>daub[i]))||null; }
+function bingoToGo(daub){ return Math.min(...BINGO_LINES.map(l=>l.filter(i=>!daub[i]).length)); }
+function bingoCard(pool){ const c=shuffle(pool).slice(0,24); c.splice(12,0,'★'); const d=Array(25).fill(false); d[12]=true; return {card:c,daub:d}; }
+
+function startBingo(cfg){
+  stopGame(); G=null; currentScreen='bingo';
+  const names=shuffle(BOT_NAMES[cfg.diff]||BOT_NAMES.normal);
+  BG={cfg,round:0,pW:0,bots:[...Array(BINGO_BOT[cfg.diff].count)].map((_,i)=>({name:names[i%names.length],w:0})),
+    earned:0,logKey:Date.now(),startT:Date.now(),paused:false,active:true,streak:0,best:0,falseUntil:0,misses:0};
+  bingoRound(); window.scrollTo(0,0);
+}
+function bingoRound(){
+  const b=BG; b.round++;
+  const src=packEmojis(b.cfg.pack); b.pool=shuffle(src).slice(0,Math.min(src.length,60));
+  Object.assign(b,bingoCard(b.pool));
+  b.bots.forEach(bot=>{ Object.assign(bot,bingoCard(b.pool)); bot.shouting=false; });
+  b.calls=shuffle(b.pool); b.called=[]; b.over=false; b.fx={}; b.win=null;
+  renderBingo();
+  T.next=setTimeout(bingoCall,1200);
+}
+function bingoCall(){
+  const b=BG; if(!b||!b.active||b.over) return;
+  if(b.paused){ b.needCall=true; return; }
+  if(!b.calls.length){ toast('Out of balls','Fresh cards, same round'); b.round--; return later(bingoRound,600); }
+  const e=b.calls.pop(); b.called.push(e); b.callAt=performance.now(); Sound.call();
+  const cfgB=BINGO_BOT[b.cfg.diff];
+  b.bots.forEach(bot=>{ const i=bot.card.indexOf(e); if(i<0||Math.random()<cfgB.miss) return;
+    later(()=>{ if(!BG||BG!==b||b.over) return; bot.daub[i]=true; renderBingoBots();
+      if(!bot.shouting&&bingoLine(bot.daub)){ bot.shouting=true; later(()=>{ if(BG===b&&!b.over&&!b.paused) bingoEnd(bot); else if(BG===b&&!b.over) bot.shouting=false; },cfgB.shout+Math.random()*600); }
+    },400+Math.random()*900); });
+  renderBingoCaller(true);
+  T.next=setTimeout(bingoCall,BINGO_SPEED[b.cfg.diff]);
+}
+function bingoTap(i){
+  const b=BG; if(!b||!b.active||b.over||b.paused||b.daub[i]) return;
+  const e=b.card[i];
+  if(!b.called.includes(e)){ b.misses++; const el=$(`#board-b [data-idx="${i}"]`); if(el){ el.classList.remove('wrong'); void el.offsetWidth; el.classList.add('wrong'); } Sound.wrong(); buzz(30); return; }
+  if(e===b.called[b.called.length-1]){ const rt=performance.now()-b.callAt; S.stats.taps++; S.stats.tapMs+=rt; if(!S.stats.fastestMs||rt<S.stats.fastestMs) S.stats.fastestMs=Math.round(rt); }
+  b.daub[i]=true; b.fx[i]='pop'; Sound.claim(); buzz(12); renderBingoBoard();
+}
+function bingoShout(){
+  const b=BG; if(!b||!b.active||b.over||b.paused) return;
+  if(Date.now()<b.falseUntil) return toast('Cooling down','Wait a moment after a false Bingo','warn');
+  if(bingoLine(b.daub)) return bingoEnd(null);
+  b.falseUntil=Date.now()+4000; Sound.wrong(); buzz(60);
+  toast('False Bingo!','No full line yet. Shout again in 4s','warn'); renderBingoCaller();
+}
+function bingoEnd(bot){
+  const b=BG; b.over=true; clearTimers();
+  let gained=0;
+  if(!bot){ b.pW++; b.streak++; b.best=Math.max(b.best,b.streak); S.stats.roundsWon++; S.stats.bestStreak=Math.max(S.stats.bestStreak,b.streak); b.win=bingoLine(b.daub);
+    gained=Math.max(1,Math.round(5*DIFFS[b.cfg.diff].mult+Math.min(b.streak-1,10))); b.earned+=gained; Treesh.earn(gained,`Nects · Bingo (${DIFFS[b.cfg.diff].name})`,b.logKey); Sound.win(); }
+  else { bot.w++; b.streak=0; S.stats.roundsLost++; Sound.lose(); }
+  saveNects(); renderBingo();
+  banner(bot?`${bot.name} shouts Bingo!`:'BINGO!',bot?'They finished a line first':`${b.called.length} balls called`,gained,!bot);
+  later(()=>{ if(!BG||BG!==b) return; const top=Math.max(b.pW,...b.bots.map(x=>x.w)); if(top>=b.cfg.rounds) bingoMatchEnd(false); else bingoRound(); },2000);
+}
+function bingoMatchEnd(quit){
+  const b=BG; b.active=false; stopGame();
+  const won=!quit&&b.pW>=b.cfg.rounds, bm=S.stats.byMode.bingo=S.stats.byMode.bingo||{played:0,wins:0,best:0};
+  bm.played++; S.stats.matches++; S.stats.playMs+=Date.now()-b.startT;
+  const bonus=[];
+  if(won){ S.stats.wins++; bm.wins++; S.flags.bingo=true; bonus.push(['Match win',Math.round(10*DIFFS[b.cfg.diff].mult)]); if(S.firstWinDay!==todayKey()){ S.firstWinDay=todayKey(); bonus.push(['First win today',20]); } if(b.cfg.diff==='abysmal') S.flags.abyss=true; }
+  else S.stats.losses++;
+  const bt=bonus.reduce((a,x)=>a+x[1],0); if(bt){ b.earned+=bt; Treesh.earn(bt,`Nects · Bingo (${DIFFS[b.cfg.diff].name}) win`,b.logKey); }
+  const leader=[...b.bots].sort((x,y)=>y.w-x.w)[0];
+  S.history.unshift({t:Date.now(),mode:'bingo',sub:`${DIFFS[b.cfg.diff].name} · ${b.bots.length} rivals`,detail:`${b.pW}-${leader.w}${quit?', forfeited':''}`,result:won?'win':'loss',stars:b.earned}); if(S.history.length>30) S.history.length=30;
+  saveNects(); checkBadges();
+  const rows=[['Your Bingos',b.pW],['Top rival',`${leader.name} (${leader.w})`],['Round Starlites','+'+(b.earned-bt)],...bonus.map(x=>[x[0],'+'+x[1]])];
+  openModal(`<div class="result-hero" data-testid="match-result"><span class="big">${won?'🎉':quit?'🏳️':'💔'}</span><h2 class="font-display" data-testid="match-result-title">${won?'Bingo champion':quit?'Forfeited':'Out-daubed'}</h2><p class="text2" style="margin-top:6px">${won?`You beat ${b.bots.length} rivals`:`${esc(leader.name)} took the match`}</p></div>
+    <div class="breakdown">${rows.map(r=>`<div><span class="text2">${esc(r[0])}</span><b>${esc(r[1])}</b></div>`).join('')}<div class="tot" data-testid="match-result-starlites"><span>Starlites to Treesh</span><span>${ic('sparkles',14)} +${b.earned}</span></div></div>
+    <div style="display:flex;gap:10px;margin-top:20px"><button class="btn btn-ghost btn-lg" style="flex:1" data-act="menu" data-testid="match-result-menu-button">${ic('house',17)}Menu</button>
+      <button class="btn btn-primary btn-lg" style="flex:1.4" data-act="again" data-testid="match-result-claim-button">${ic('rotate-ccw',17)}Play again</button></div>`,{testid:'result-modal',lock:true});
+}
+function bingoPause(){
+  const b=BG; if(!b||!b.active||b.paused) return;
+  b.paused=true; clearTimeout(T.next);
+  openModal(`<p class="eyebrow">Bingo</p><h2>Paused</h2><div style="display:grid;gap:10px;margin-top:20px">
+    <button class="btn btn-primary btn-lg" data-act="resume" data-testid="pause-resume">${ic('play',17)}Resume</button>
+    <button class="btn btn-ghost btn-lg" data-act="restart" data-testid="pause-restart">${ic('rotate-ccw',17)}Restart</button>
+    <button class="btn btn-danger btn-lg" data-act="quit" data-testid="pause-quit">${ic('flag',17)}Forfeit match</button></div>`,{testid:'pause-modal',onClose:bingoResume});
+}
+function bingoResume(){ const b=BG; if(!b||!b.active||!b.paused) return; b.paused=false; if(!b.over){ b.needCall=false; T.next=setTimeout(bingoCall,900); } }
+
+function renderBingo(){
+  const b=BG;
+  $('#screen').innerHTML=`<div class="game" data-testid="bingo-screen">
+    <div class="hud"><button class="btn btn-ghost btn-icon" data-act="pause" data-testid="game-pause-button" aria-label="Pause">${ic('pause',18)}</button>
+      <div class="title"><b data-testid="game-mode-title">Bingo</b><small data-testid="game-round-info">Round ${b.round} · First to ${b.cfg.rounds} · ${DIFFS[b.cfg.diff].name} · any line or 4 corners</small></div>
+      <span class="tag" style="color:#f472b6">${ic('ticket',12)}${b.bots.length} rivals</span></div>
+    <div class="board-wrap"><div class="board" id="board-b" style="--cols:5" data-testid="bingo-card"></div><p class="muted" style="font-size:12px;text-align:center">Tap any emoji that has been called. The ★ is free.</p></div>
+    <div class="side-col">
+      <div class="caller glass" data-testid="caller-panel"><p class="lbl" id="bingo-ball">Ball ${b.called.length}</p>
+        <div><span class="call-emoji" id="call-emoji" data-testid="caller-emoji-display">${b.called[b.called.length-1]||'·'}</span></div>
+        <div id="bingo-recent" data-testid="bingo-recent-calls" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:6px;font-family:var(--emoji);font-size:20px;min-height:26px"></div></div>
+      <div class="opp glass" data-testid="bingo-rivals"><p class="panel-title"><span>Rivals</span><span>${b.pW} - ${b.bots.map(x=>x.w).join(' - ')}</span></p><div id="bingo-bots"></div></div>
+      <div class="tray-box glass" style="border-radius:24px;padding:14px"><button class="btn btn-gold btn-lg" style="width:100%;font-family:var(--display);font-size:20px;letter-spacing:.04em" data-act="bingo-shout" data-testid="bingo-call-button">BINGO!</button></div>
+    </div></div>`;
+  icons(); renderBingoBoard(); renderBingoCaller(); renderBingoBots();
+}
+function renderBingoBoard(){
+  const b=BG, el=$('#board-b'); if(!el) return;
+  el.innerHTML=b.card.map((e,i)=>`<button class="tile ${b.daub[i]?'claimed':''} ${b.fx[i]||''} ${b.win&&b.win.includes(i)?'win':''}" data-tap="b" data-idx="${i}" data-testid="tile-b-${i}" ${i===12?'style="font-family:var(--display);color:var(--gold)"':''}>${e}</button>`).join('');
+  b.fx={};
+}
+function renderBingoCaller(animate){
+  const b=BG, el=$('#call-emoji'); if(!el) return;
+  el.textContent=b.called[b.called.length-1]||'·';
+  if(animate){ el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
+  const bl=$('#bingo-ball'); if(bl) bl.textContent=`Ball ${b.called.length}`;
+  const rc=$('#bingo-recent'); if(rc) rc.innerHTML=b.called.slice(-9,-1).reverse().map((e,i)=>`<span style="opacity:${1-i*.1}">${e}</span>`).join('');
+}
+function renderBingoBots(){
+  const el=$('#bingo-bots'); if(!el||!BG) return;
+  el.innerHTML=BG.bots.map((bot,i)=>{ const tg=bingoToGo(bot.daub); return `<div class="list-row" style="margin-top:6px;padding:8px 10px" data-testid="bingo-rival-${i}"><span class="avatar sm" style="background:linear-gradient(135deg,#fb7185,#4c0519)">${ic('bot',13)}</span><div class="grow"><b>${esc(bot.name)}</b><small>${tg===0?'Has a line!':tg+' to go'}</small></div><span class="tag">${bot.w}</span></div>`; }).join('');
+  icons();
+}
+
 /* ===== Events + boot ===== */
 const ACT={
-  'home':()=>{ if(currentScreen==='game'&&G&&G.active) return pauseGame(); closeModal(); renderMenu(); },
+  'home':()=>{ if(currentScreen==='bingo'&&BG&&BG.active) return bingoPause(); if(currentScreen==='game'&&G&&G.active) return pauseGame(); closeModal(); renderMenu(); },
   'open-profile':el=>openProfile(el.dataset.tab||null),
   'close-profile':()=>closeProfile(),
   'pf-tab':el=>{ pfTab=el.dataset.tab; $$('[data-act="pf-tab"]').forEach(b=>b.classList.toggle('on',b.dataset.tab===pfTab)); $('#pf-content').innerHTML=pfContent(); icons(); },
   'seed-demo':()=>{ Treesh.seedDemo(); renderTopbar(); renderProfile(); if(currentScreen==='menu') renderMenu(); toast('Demo Treesh profile loaded','Only shown outside treesh.app'); },
-  'quick-play':()=>{ const m=MODE_BY_ID[S.lastMode]; const id=m&&!['puzzle','daily','pass','custom','mirror'].includes(m.id)?m.id:'classic'; startMatch(buildConfig(id)); },
+  'quick-play':()=>{ const m=MODE_BY_ID[S.lastMode]; const id=m&&!['puzzle','daily','pass','custom','mirror','bingo'].includes(m.id)?m.id:'classic'; startMatch(buildConfig(id)); },
   'help':()=>openHelp(),
   'mode':el=>openModeSheet(el.dataset.mode),
   'sheet-set':el=>sheetSet(el.dataset.k,el.dataset.v),
@@ -1448,13 +1575,14 @@ const ACT={
   'settings':()=>openSettings(),
   'setting-toggle':el=>{ const k=el.dataset.k; S.settings[k]=!S.settings[k]; saveNects(); el.classList.toggle('on',S.settings[k]); applyTheme(); },
   'reset-data':()=>confirmBox('Reset Nects progress?','Stats, unlocks, badges and history for Nects will be erased on this device. Your Treesh Starlites are not touched.','Reset',()=>{ S=defaultSave(); S.migrated=true; saveNects(); applyTheme(); renderMenu(); toast('Nects progress reset'); },true),
-  'pause':()=>pauseGame(),
+  'pause':()=>currentScreen==='bingo'?bingoPause():pauseGame(),
+  'bingo-shout':()=>bingoShout(),
   'resume':()=>closeModal(),
-  'restart':()=>{ const cfg=G.cfg; modalOnClose=null; closeModal(); startMatch(cfg); },
-  'quit':()=>{ modalOnClose=null; closeModal(); if(G.cfg.zen||G.cfg.survival||G.cfg.pass) endMatch(false); else endMatch(true); },
+  'restart':()=>{ if(currentScreen==='bingo'){ modalOnClose=null; closeModal(); return startBingo(BG.cfg); } const cfg=G.cfg; modalOnClose=null; closeModal(); startMatch(cfg); },
+  'quit':()=>{ modalOnClose=null; closeModal(); if(currentScreen==='bingo') return bingoMatchEnd(true); if(G.cfg.zen||G.cfg.survival||G.cfg.pass) endMatch(false); else endMatch(true); },
   'zen-finish':()=>endMatch(false),
   'pu':el=>usePU(el.dataset.id),
-  'again':()=>{ const cfg=G.cfg; modalOnClose=null; closeModal(); startMatch(cfg); },
+  'again':()=>{ if(currentScreen==='bingo'){ closeModal(); return startBingo(BG.cfg); } const cfg=G.cfg; modalOnClose=null; closeModal(); startMatch(cfg); },
   'menu':()=>{ modalOnClose=null; closeModal(); renderMenu(); },
   'pz-card':el=>playCard(+el.dataset.i),
   'pz-retry':()=>{ closeModal(); startPuzzle(PZ.L); },
@@ -1468,12 +1596,12 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('pointerdown',e=>{
   const t=e.target.closest('[data-tap]'); if(!t) return;
-  e.preventDefault(); onTap(t.dataset.tap,+t.dataset.idx);
+  e.preventDefault(); if(t.dataset.tap==='b') return bingoTap(+t.dataset.idx); onTap(t.dataset.tap,+t.dataset.idx);
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){ if($('#profile-root .pf-panel')) return closeProfile(); if(modalOpen()){ const b=$('#modal-root .backdrop'); if(b&&b.dataset.backdrop!=='lock') closeModal(); return; } if(currentScreen==='game') pauseGame(); }
+  if(e.key==='Escape'){ if($('#profile-root .pf-panel')) return closeProfile(); if(modalOpen()){ const b=$('#modal-root .backdrop'); if(b&&b.dataset.backdrop!=='lock') closeModal(); return; } if(currentScreen==='game') pauseGame(); if(currentScreen==='bingo') bingoPause(); }
 });
-document.addEventListener('visibilitychange',()=>{ if(document.hidden&&currentScreen==='game'&&G&&G.active&&!G.paused) pauseGame(); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) return; if(currentScreen==='game'&&G&&G.active&&!G.paused) pauseGame(); if(currentScreen==='bingo'&&BG&&BG.active&&!BG.paused) bingoPause(); });
 window.addEventListener('storage',e=>{
   if(e.key==='treesh_stars') updateStarUI(true);
   if(e.key==='treesh_profile'){ renderTopbar(); if(currentScreen==='menu'&&!modalOpen()) renderMenu(); if($('#profile-root .pf-panel')) renderProfile(); }

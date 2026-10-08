@@ -9,7 +9,7 @@ OUT=/app/frontend/public/nects.html
   echo "</style>"
   cat $D/20-body.html
   echo "<script>"
-  for f in $D/30-data.js $D/40-store.js $D/50-ui.js $D/55-screens.js $D/60-engine.js $D/65-modes.js $D/99-boot.js; do cat "$f"; echo; done
+  for f in $D/30-data.js $D/40-store.js $D/50-ui.js $D/55-screens.js $D/60-engine.js $D/65-modes.js $D/67-bingo.js $D/99-boot.js; do cat "$f"; echo; done
   echo "</script>"
   echo "</body>"
   echo "</html>"

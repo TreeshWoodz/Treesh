@@ -4,7 +4,7 @@ const T={bot:null,blitz:null,next:null,pz:null,misc:[]};
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 function clearTimers(){ clearTimeout(T.bot); clearInterval(T.blitz); clearTimeout(T.next); T.bot=T.blitz=T.next=null; }
 function later(fn,ms){ const id=setTimeout(()=>{ T.misc=T.misc.filter(x=>x!==id); fn(); },ms); T.misc.push(id); return id; }
-function stopGame(){ if(G) G.active=false; clearTimers(); clearInterval(T.pz); T.misc.forEach(clearTimeout); T.misc=[]; $('#banner-root').innerHTML=''; }
+function stopGame(){ if(G) G.active=false; if(BG) BG.active=false; clearTimers(); clearInterval(T.pz); T.misc.forEach(clearTimeout); T.misc=[]; $('#banner-root').innerHTML=''; }
 const DAILY_PACKS=['smileys','animals','food','sports','travel','objects','nature'];
 function dailySeed(){ const k=todayKey().replace(/-/g,''); return +k; }
 

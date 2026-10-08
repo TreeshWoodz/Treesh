@@ -11,7 +11,7 @@ function renderMenu(){
       <div class="hero-emojis" aria-hidden="true">${heroE.map((e,i)=>`<span class="${on.includes(i)?'on':''}" style="animation-delay:${i*.2}s">${e}</span>`).join('')}</div>
       <p class="eyebrow">Treesh Games · Nects</p>
       <h1>Spot it. Tap it. Nect it.</h1>
-      <p class="lead">Welcome back, <b style="color:#fff" data-testid="menu-nickname">${esc(name)}</b>. Twelve ways to play, and every Starlite you win goes straight to your Treesh wallet.</p>
+      <p class="lead">Welcome back, <b style="color:#fff" data-testid="menu-nickname">${esc(name)}</b>. Thirteen ways to play, and every Starlite you win goes straight to your Treesh wallet.</p>
       <div class="hero-actions">
         <button class="btn btn-primary btn-lg" data-act="quick-play" data-testid="quick-play-button">${ic('play',18)}Quick play</button>
         <button class="btn btn-ghost btn-lg" data-act="help" data-testid="how-to-play-button">${ic('book-open',18)}How to play</button>
@@ -45,6 +45,7 @@ function modeMeta(m){
   if(m.id==='daily'){ const d=S.daily[todayKey()]; return d&&d.won?`<span class="tag gold">Done today</span>`:`<span class="tag new">New board</span>`; }
   if(m.id==='zen') return `<span class="tag">${fmt(S.stats.zenLines)} lines</span>`;
   const isNew=!['classic','custom','mirror'].includes(m.id)&&!b.played;
+  if(m.id==='bingo'&&b.played) return `<span class="tag">${b.wins||0} wins</span>`;
   return `${isNew?'<span class="tag new">New</span>':''}${b.played?`<span class="tag">${b.wins||0} wins</span>`:''}`;
 }
 function modeCard(m,i){
@@ -116,6 +117,7 @@ function startFromSheet(){
   if(m==='custom') S.custom={...sheet.custom};
   S.lastMode=m; saveNects(); closeModal();
   if(m==='puzzle') return startPuzzle(sheet.level);
+  if(m==='bingo'){ S.settings.diff=sheet.diff; S.settings.rounds=sheet.rounds; saveNects(); return startBingo({diff:sheet.diff,rounds:sheet.rounds,pack:S.equipped.pack}); }
   startMatch(buildConfig(m,sheet));
 }
 
