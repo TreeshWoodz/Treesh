@@ -25,7 +25,7 @@ var FreaGameplay=(function(){
   getLaunchVec=function(){var px=player.cx-camera.x,py=player.cy-camera.y,dx=aim.x-px,dy=aim.y-py,d=Math.hypot(dx,dy),md=dragLen(),dead=6;MAX_DRAG=md;
     var u=Math.max(0,Math.min(1,(d-dead)/(md-dead))),sp=PLAYER_MAX*strength()*Math.pow(u,1.4),nx=d>0?dx/d:0,ny=d>0?dy/d:0;
     var v={vx:-nx*sp,vy:-ny*sp,pow:u};if(C.fling==='forward'){v.vx=-v.vx;v.vy=-v.vy;}return v;};
-  return {feel:function(){return {strength:strength(),drag:dragLen(),sens:C.sens,jump:C.jump};},get:get,set:set,apply:apply,puRate:function(){return C.pu==='off'?0:C.pu==='lots'?0.5:C.pu==='few'?1.8:1;},defaults:D};
+  return {feel:function(){return {strength:strength(),drag:dragLen(),sens:C.sens,jump:C.jump,max:PLAYER_MAX};},testVec:function(dx,dy){var ox=aim.x,oy=aim.y;aim.x=player.cx-camera.x+dx;aim.y=player.cy-camera.y+dy;var v=getLaunchVec();aim.x=ox;aim.y=oy;return v;},get:get,set:set,apply:apply,puRate:function(){return C.pu==='off'?0:C.pu==='lots'?0.5:C.pu==='few'?1.8:1;},defaults:D};
 })();
 window.FreaGameplay=FreaGameplay;
 

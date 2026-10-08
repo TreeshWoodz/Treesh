@@ -273,8 +273,38 @@
   function giveTo(f){var p=player&&player.carry;if(!p||!f)return;releaseCarry(true);if(wearable(p))wear(p,f);else{var c=propCenter(p);p._shift(f.cx-c.x,f.y-40-c.y);}flash('Gave '+nm(p)+' to '+f.name,'#ffd23d');}
   window.zenPlay={wear:wear,unwear:unwear,throwIt:throwIt,dropIt:dropIt,placeOn:placeOn,giveTo:giveTo,actions:ZA};
 
+  /* ---------------- animate EVERY interaction ----------------
+     perform(): the flea hops over to the object first (if it's not already beside it), faces it,
+     runs the action, and — if the action itself didn't animate the flea — plays a gesture that
+     matches the verb, plus a reach-sparkle from flea to object and an object reaction. */
+  var GEST=[[/power|lights?\b|fire|toggle|door|station|channel|volume|speed|fast|reverse|aim|alarm|time|warp|honk|squeak|tap|bass|switch|on \/ off/i,{a:'wave',ms:800,e:'👆',c:'#2de2ff'}],
+    [/eat|lick|snack|slice|gumball|berries|coconut|apple|roast|cook|pizza|nom/i,{a:'wiggle',ms:1300,e:'😋',c:'#ffb03d'}],
+    [/read|watch|look|check|gaze|find|admire|inspect|stargaz/i,{a:'peek',ms:1300,e:'👀',c:'#c6ff3d'}],
+    [/play|sing|party|tune|song|drum|rock|music|dance|solo|horn|shout/i,{a:'dance',ms:2200,e:'🎶',c:'#ff3db5'}],
+    [/wish|love|hug|cuddle|share/i,{a:'heart',ms:1400,e:'💖',c:'#ff7ab0'}],
+    [/kick|push|skip|roll|fetch|throw|poke|zap|pop|spin|shake|rustle|yeet|flex|lift/i,{a:'karate',ms:600,e:null,c:'#ffd23d'}],
+    [/sit|relax|warm|flop|nap|chill|rest/i,{a:'sit',ms:2400,e:'😌',c:'#9b6bff'}],
+    [/bounce|boing|ride|climb|float|vroom|hop/i,{a:'jump',ms:900,e:null,c:'#c6ff3d'}],
+    [/wear|head|crown|hat/i,{a:'bow',ms:900,e:'😎',c:'#ffd23d'}],
+    [/give|gave/i,{a:'wave',ms:1000,e:'🎁',c:'#ffd23d'}],
+    [/pick|move|drop|place|put|take|steal|carry|hold/i,{a:'squish',ms:500,e:null,c:'#c6ff3d'}],
+    [/set|sort|make|polish|carve|letter|colou?r|fill|refill|scarf|flavor|untie|charge|bloom|grow|water|inflate|deposit|coin|open|close|feed|type/i,{a:'clap',ms:900,e:'✨',c:'#c6ff3d'}]];
+  function gesture(k,l){var s2=(k||'')+' '+(l||'');for(var i=0;i<GEST.length;i++)if(GEST[i][0].test(s2))return GEST[i][1];return {a:'cheer',ms:900,e:null,c:'#c6ff3d'};}
+  function reach(p,col){if(!player)return;var c=propCenter(p),hx=player.cx+(player.face||1)*player.w*.4,hy=player.cy-4;for(var i=0;i<7;i++){var u=i/7;parts.push({x:hx,y:hy,vx:(c.x-hx)/22*(.7+u*.5)+(Math.random()-.5),vy:(c.y-hy)/22*(.7+u*.5)-1.2+(Math.random()-.5),l:.55,r:1.6+Math.random()*1.4,c:col||'#c6ff3d'});}}
+  function perform(p,a){if(!player||!p){try{a[2](p);}catch(e){}return;}var c=propCenter(p),near=Math.abs(c.x-player.cx)<p.bw/2+player.w+70&&Math.abs(c.y-player.cy)<p.bh/2+player.h+90;
+    if(!near&&!heldByPlayer(p)&&p._heldBy!==player&&!player._zenSeat&&a[0]!=='movie'){hopTo(p,function(){if(!isNear(p))hopTo(p,function(){act(p,a);});else act(p,a);});return;}act(p,a);}
+  function isNear(p){var c=propCenter(p);return Math.abs(c.x-player.cx)<p.bw/2+player.w+70&&Math.abs(c.y-player.cy)<p.bh/2+player.h+90;}
+  function hopTo(p,cb){var c=propCenter(p),side=player.cx<c.x?-1:1,tx=c.x+side*(p.bw/2+player.w*.6+8),ty=Math.min(p.by+p.bh,WORLD_H-60)-player.h/2-2,dx=tx-player.cx,dy=ty-player.cy,T=Math.max(18,Math.min(44,Math.hypot(dx,dy)/10));
+    player.stuck=false;player.onG=false;try{player.launch(dx/T,(dy-.5*GRAV*T*T)/T);}catch(e){player.vx=dx/T;player.vy=(dy-.5*GRAV*T*T)/T;}player.face=dx>=0?1:-1;player.emoteEmoji='💨';player.emoteT=600;
+    var t0=now(),iv=setInterval(function(){var el2=now()-t0;if(!player){clearInterval(iv);return;}if((el2>220&&(player.stuck||player.onG))||el2>1300){clearInterval(iv);cb();}},50);}
+  function act(p,a){var t0=now(),b0=player.actionUntil||0;player.face=dirTo(p);try{a[2](p);}catch(e){console.warn(e);}
+    var g=gesture(a[0],a[1]);if(!((player.actionUntil||0)>b0+50)){F(g.a,g.ms);if(g.e&&!(player.emoteT>0)){player.emoteEmoji=g.e;player.emoteT=1100;}}
+    if(!(p.zenState&&p.zenState.interactionAt>=t0))zsync(p,'bounce');reach(p,g.c);
+    try{var c=propCenter(p);emotePops.push({x:c.x,y:p.by-6,vy:-1.1,l:.8,e:g.e||'✨'});}catch(e){}}
+  window.__zenPerform=perform;
+
   /* ---------------- context menu ---------------- */
-  function btn(id,label,fn,cls){var b=document.createElement('button');b.type='button';b.setAttribute('data-testid','zen-action-'+id);b.setAttribute('role','menuitem');b.textContent=label;if(cls)b.className=cls;b.addEventListener('click',function(e){e.stopPropagation();closeZenContext();try{fn();}catch(err){console.warn(err);}});return b;}
+  function btn(id,label,fn,cls){var b=document.createElement('button');b.type='button';b.setAttribute('data-testid','zen-action-'+id);b.setAttribute('role','menuitem');b.textContent=label;if(cls)b.className=cls;b.addEventListener('click',function(e){e.stopPropagation();closeZenContext();var b0=player?player.actionUntil||0:0;try{fn();}catch(err){console.warn(err);}try{if(player&&cls!=='zcm-act'&&id!=='close'&&!((player.actionUntil||0)>b0+50)){var g=gesture(id,label);F(g.a,g.ms);if(g.e){player.emoteEmoji=g.e;player.emoteT=1000;}}}catch(err){}});return b;}
   openZenContext=function(p,sx,sy){var m=el('zen-context-menu');if(!m)return;var vz=(typeof VZ_UI!=='undefined'?VZ_UI:1);sx*=vz;sy*=vz;zenContext.object=p;m.innerHTML='';
     var hd=document.createElement('div');hd.className='zcm-title';hd.id='zcm-title';hd.textContent=nm(p)+(p._heldBy?' · on '+(p._heldBy===player?'your':p._heldBy.name+'\u2019s')+' head':'');m.appendChild(hd);
     var main=document.createElement('div');main.className='zcm-group';var gen=document.createElement('div');gen.className='zcm-group zcm-gen';
@@ -288,7 +318,7 @@
         if(wearable(p)){gen.appendChild(btn('wear','Put on my head',function(){wear(p,player);}));var f2=nearestFlea(p,260);if(f2)gen.appendChild(btn('wear-flea','Put on '+f2.name+'\u2019s head',function(){wear(p,f2);}));}
         if(ZA[p.deco]!==BALLS)gen.appendChild(btn('kickit','Kick',function(){kick(p,dirTo(p),heavy(p)?4:8);F('karate',600);}));}}
     var acts=ZA[p.deco]||[['inspect','Inspect',function(q){zsync(q,'bounce');fx(q);}]];
-    acts.forEach(function(a,i){main.appendChild(btn(i===0?'interact':('act-'+a[0]),a[1],function(){a[2](p);if(i===0&&typeof bump==='function'){try{bump('zenInteractions');}catch(e){}}},'zcm-act'));});
+    acts.forEach(function(a,i){main.appendChild(btn(i===0?'interact':('act-'+a[0]),a[1],function(){perform(p,a);if(i===0&&typeof bump==='function'){try{bump('zenInteractions');}catch(e){}}},'zcm-act'));});
     m.appendChild(main);if(gen.children.length){var sep=document.createElement('div');sep.className='zcm-sep';sep.textContent='Move';m.appendChild(sep);m.appendChild(gen);}
     m.appendChild(btn('close','Close',function(){},'zcm-close'));
     m.classList.add('show');var r=m.getBoundingClientRect(),mw=r.width||260,mh=r.height||200;m.style.left=Math.max(10,Math.min(innerWidth-mw-10,sx+14))+'px';m.style.top=Math.max(64,Math.min(innerHeight-mh-10,sy-40))+'px';};
