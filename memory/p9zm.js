@@ -36,7 +36,7 @@ window.addEventListener('storage',e=>{ const k=e.key||''; if(!/^(bronze_|ebonics
 /* one Starlites wallet: the games write treesh_stars from their own frame, so read it fresh instead of overwriting it */
 window.addEventListener('storage',e=>{ if(e.key!=='treesh_stars'||!e.newValue) return; try{ state.stars=JSON.parse(e.newValue)||state.stars; updateStarDisplays(); }catch(_){} });
 window.addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.type!=='treesh:starlites') return; state.stars=LS.get('treesh_stars',state.stars)||state.stars; updateStarDisplays(); });
-const _aws9zm=awardStars; awardStars=function(){ try{ state.stars=LS.get('treesh_stars',state.stars)||state.stars; }catch(e){} return _aws9zm.apply(this,arguments); };
+const _aws9zm=awardStars; awardStars=function(){ try{ const ls=LS.get('treesh_stars',null), mem=state.stars; if(ls&&typeof ls==='object'&&ls!==mem) state.stars=Object.assign({},ls,mem,{points:ls.points,log:ls.log}); }catch(e){} return _aws9zm.apply(this,arguments); };
 
 /* What's New: the new games lead the home carousel, every page's notes catch up */
 WNU.unshift(

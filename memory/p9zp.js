@@ -91,7 +91,7 @@ function lytPrev(id){ return `<span class="lyp lyp-${id}" aria-hidden="true"><i>
 function lytTiles(cur,scope,tidp){ return LYT.map(t=>`<button type="button" data-act="lyt-set" data-val="${t.id}"${scope?` data-scope="${scope}"`:''} data-testid="${tidp}-${t.id}" aria-pressed="${cur===t.id}" title="${esc(t.desc)}" class="nps-tile lyt-tile press${cur===t.id?' is-on':''}"><span class="nps-prev lyt-prev" style="--lyt-cover:url('${esc((curSong()||{}).coverArt||FALLBACK)}')">${lytPrev(t.id)}</span><span class="nps-l">${t.name}</span>${t.id==='classic'?'<span class="lyt-def">Default</span>':''}${cur===t.id?'<span class="nps-check"><i data-lucide="check"></i></span>':''}</button>`).join(''); }
 function lytSheetHtml(still){ const s=curSong(), pinned=!!(s&&lytPins()[s.id]), cur=lytFor(s);
   return `<div class="nps-bd" data-act="np-style-close" data-testid="lyt-backdrop"></div><div class="nps-sheet${still?' is-still':''}" role="dialog" aria-label="Lyric theme" data-testid="lyt-sheet"><div class="nps-head" data-nps-drag><span class="nps-grab"></span><div class="flex items-center justify-between gap-3"><div><p class="nps-k">Lyrics</p><h3 class="nps-t">Lyric theme</h3></div><button type="button" data-act="np-style-close" data-testid="lyt-close" aria-label="Close" class="nps-x press"><i data-lucide="x"></i></button></div></div>
-    <div class="nps-scroll"><div class="nps-grid lyt-grid">${lytTiles(cur,'','lyt-opt')}</div><div class="nps-opts">${s?npsSwitch('lyt-pin','lyt-pin-toggle',pinned,'pin','Only for this song',pinned?`${esc(s.title)} keeps ${esc(lytName(cur))}. Other songs use ${esc(lytName(lytAll()))}`:`Pin the theme you pick to ${esc(s.title)}`):''}</div><p class="lyt-foot">Tap any line to jump there. Hold a line for its menu.</p></div></div>`; }
+    <div class="nps-scroll"><div class="nps-grid lyt-grid">${lytTiles(cur,'','lyt-opt')}</div><div class="nps-opts">${s?npsSwitch('lyt-pin','lyt-pin-toggle',pinned,'pin','Only for this song',pinned?`${esc(s.title)} keeps ${esc(lytName(cur))}. Other songs use ${esc(lytName(lytAll()))}`:`Pin the theme you pick to ${esc(s.title)}`):''}${lytMulti(s)?npsSwitch('lyt-duet','lyt-duet-toggle',duetOn(),'palette','Color lines by singer','Each artist on this song gets their own color'):''}</div><p class="lyt-foot">Tap any line to jump there. Hold a line for its menu.</p></div></div>`; }
 function lytOpen(){ closeLyricPop(); let r=document.getElementById('nps-root'); if(!r){ r=document.createElement('div'); r.id='nps-root'; document.body.appendChild(r); }
   state.npsOpen=true; r.className=''; r.dataset.kind='lyt'; r.setAttribute('style',npVars(state.palette)); r.innerHTML=lytSheetHtml(false); icons(); npsWireDrag(); }
 function lytSheetSync(){ const r=document.getElementById('nps-root'); if(!r||r.dataset.kind!=='lyt'||!state.npsOpen) return; const sc=r.querySelector('.nps-scroll'), top=sc?sc.scrollTop:0;
@@ -108,6 +108,14 @@ function lytPin(){ const s=curSong(); if(!s) return; const pins=lytPins();
   else { pins[s.id]=lytFor(s); LS.set('treesh_lyt_song',pins); toast('Pinned to this song','Pick a theme and only '+s.title+' uses it'); }
   lytRefresh(); }
 
+/* singer colors are opt-in (Settings > Duet colors, or the toggle in this sheet) */
+state.duetColors=LS.get('treesh_duet_colors',false)===true; _duetCache={lines:null}; duetOn=function(){ return state.duetColors===true; };
+const _lytMC={};
+function lytMulti(s){ if(!s) return false; const k=s.id+'|'+(s.lyrics||[]).length; if(_lytMC[k]!==undefined) return _lytMC[k]; const was=state.duetColors, c=_duetCache; let m=false;
+  state.duetColors=true; _duetCache={lines:null}; try{ m=!!duetInfo(s); }catch(e){} state.duetColors=was; _duetCache=c; return _lytMC[k]=m; }
+function lytDuet(){ state.duetColors=!duetOn(); LS.set('treesh_duet_colors',state.duetColors); _duetCache={lines:null}; try{ _karSongSig=''; }catch(e){}
+  if(state.npOpen) renderNP(); lytSheetSync(); toast(state.duetColors?'Singer colors on':'Singer colors off',state.duetColors?'Each artist gets their own color':'Lyrics use one color'); }
+
 const LYT_BTN=(tid,cls)=>`<button data-act="lyt-open" data-testid="${tid}" aria-label="Lyric theme" title="Lyric theme" class="${cls}"><i data-lucide="swatch-book" style="width:17px;height:17px"></i></button>`;
 const _lth9zp=lyricToolsHtml; lyricToolsHtml=function(s){ const h=_lth9zp.apply(this,arguments); if(!s||state.lyricsEdit||state.lyricSelect||!lytHasText(s)) return h;
   return h.replace('<button data-act="lyrics-tools-menu"',LYT_BTN('lyt-open-button','press lg:hidden grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10')+'<button data-act="lyrics-tools-menu"'); };
@@ -120,4 +128,4 @@ const _nps9zp=npSettingsHtml; npSettingsHtml=function(tab){ return _nps9zp.apply
 SETTINGS_INDEX.push({id:'lyt',label:'Lyric theme',desc:'Text Messages, Neon, Typewriter, Notebook, Terminal, Comic or Polaroid lyrics',kw:'lyrics theme text message chat imessage neon typewriter notebook handwritten terminal comic polaroid style look',ic:'swatch-book',type:'action',go:()=>{ state.settingsTab='appearance'; closeSearch(); setTimeout(()=>{ try{ navigate('settings'); }catch(e){} setTimeout(()=>{ const el=document.querySelector('[data-testid="settings-lyric-theme"]'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); },350); },60); }});
 
 document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act;
-  if(a==='lyt-open') lytOpen(); else if(a==='lyt-set') lytSet(t.dataset.val,t.dataset.scope==='all'); else if(a==='lyt-pin') lytPin(); });
+  if(a==='lyt-open') lytOpen(); else if(a==='lyt-set') lytSet(t.dataset.val,t.dataset.scope==='all'); else if(a==='lyt-pin') lytPin(); else if(a==='lyt-duet') lytDuet(); });
