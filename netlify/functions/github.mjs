@@ -99,7 +99,7 @@ function sameOrigin(req){
 }
 
 async function session(req, context, method){
-  if (method === 'GET'){ const s = readSession(req); return json(200, { signedIn: !!s, expires: s ? s.exp : null, repo: REPO }); }
+  if (method === 'GET'){ const s = readSession(req); return json(200, { signedIn: !!s, expires: s ? s.exp : null, repo: REPO, activity: !!blobs() }); }
   if (method === 'DELETE') return json(200, { signedIn: false, repo: REPO }, { 'Set-Cookie': cookie('', 0) });
   if (method !== 'POST') return json(405, { message: 'Method not allowed.' });
   const key = failKey(clientIp(req, context));

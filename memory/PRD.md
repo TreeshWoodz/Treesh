@@ -87,3 +87,13 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
   - Closing or cancelling a confirm dialog clears the pending confirm action, so it can't fire later
 - Noted: artist #17 Jay Saulx is missing from live content/icons.html
 - Pending (user deferred): end-to-end testing of Blog Coder, banner previews, PR Status, Sign-in Activity
+
+## 2026-10 — Banner position fix + publishing (LIVE)
+- Root cause: treesh.app ignored data-bg-pos-mobile and applied the old desktop px values (e.g. "center -200px") on every screen, pushing photos out of the frame.
+- index.html on main: bnPosPct/bnPosFit/bnAttrs. Phones (<640px) use the Mobile value, larger screens use Desktop. px values are converted to a clamped % using the image's real size. Model heroes now use data-bg plus their bg positions.
+- M.A.D.: pctPos is the same math as the site, the preview fits px values like the site does, drag starts from the fitted value, and the quick buttons are % (upper/lower).
+- Published with the GitHub contents API (memory/gh_put.py, token from env only, never saved):
+  - main: index.html, tools/mad.html (treesh.app/tools/mad), package.json (@netlify/blobs), netlify/functions/github.mjs (activity + Blobs lockout)
+  - songcoder: Tools/songcoder.html, netlify/functions/github.mjs
+- Patch script for the main index: memory/patch_main_index.py. The file uses CRLF line endings; always fetch the latest main index before patching.
+- Verified live: /api/github/session returns activity:true (Blobs working); banners use mobile/desktop values.
