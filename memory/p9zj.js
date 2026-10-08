@@ -29,3 +29,35 @@ const _sbReset9zj=sbResetDevice; sbResetDevice=async function(){ const keep={}; 
 function wnDiscAdd(){ const h=document.querySelector('#modal [data-game-root] .wc-head'); if(!h||h.parentNode.querySelector('.wc-disc')) return;
   h.insertAdjacentHTML('afterend',`<div class="wc-disc" role="note" aria-label="Just a game. These messages are not from the real artists." data-testid="game-disclaimer"><span class="wc-disc-dot" aria-hidden="true"></span><span>Just a game \u00b7 not the real artists texting</span></div>`); }
 const _rg9zj=renderGame; renderGame=function(){ const r=_rg9zj.apply(this,arguments); try{ wnDiscAdd(); }catch(e){} return r; };
+
+/* phones: hover-only reveals (fade-ins on :hover) made iOS treat the first tap as a hover, so buttons needed a second tap. Touch screens skip those hover rules */
+function selSplit(s){ const out=[]; let d=0, cur=''; for(const ch of s){ if(ch==='('||ch==='[') d++; else if(ch===')'||ch===']') d--; if(ch===','&&d===0){ out.push(cur); cur=''; } else cur+=ch; } out.push(cur); return out.map(x=>x.trim()).filter(Boolean); }
+function touchHoverFix(){ if(!window.matchMedia||!matchMedia('(hover: none)').matches) return;
+  const rev=/^(opacity|visibility|display|left)$/;
+  const fix=list=>{ for(let i=list.length-1;i>=0;i--){ const r=list[i];
+    if(r.type===4){ const m=(r.media&&r.media.mediaText)||''; if(!/hover\s*:\s*hover|pointer\s*:\s*fine/.test(m)) fix(r.cssRules); continue; }
+    if(r.type===12){ fix(r.cssRules); continue; }
+    if(r.type!==1||!r.selectorText||r.selectorText.indexOf(':hover')<0) continue;
+    let reveal=false; for(let k=0;k<r.style.length;k++) if(rev.test(r.style[k])){ reveal=true; break; } if(!reveal) continue;
+    const keep=selSplit(r.selectorText).filter(x=>x.indexOf(':hover')<0);
+    try{ if(keep.length) r.selectorText=keep.join(', '); else (r.parentRule||r.parentStyleSheet).deleteRule(i); }catch(e){} } };
+  for(const s of document.styleSheets){ let rules=null; try{ rules=s.cssRules; }catch(e){} if(rules) fix(rules); } }
+touchHoverFix(); setTimeout(touchHoverFix,2500);
+
+/* pick up where you left off: one clean jump once the song can seek. Any seek you make wins, and the song is never pulled back to the old spot */
+let _resAt=0;
+resSeekNow=function(e){ if(_resSeek==null) return; const cs=curSong(); if(!cs||cs.id!==_resId){ _resSeek=null; return; }
+  if(audio.readyState<1) return;
+  const t=_resSeek, ct=audio.currentTime||0;
+  if(Math.abs(ct-t)<=1.2){ if(!audio.paused||(e&&e.type==='seeked')) _resSeek=null; return; }
+  if(_resAt&&performance.now()-_resAt<1500) return;
+  if(_resAt){ _resSeek=null; state.currentTime=ct; try{ updateProgress(); }catch(err){} return; }
+  _resAt=performance.now(); try{ audio.currentTime=t; }catch(err){ _resSeek=null; } };
+const _resRestore9zj=resRestore; resRestore=function(){ _resAt=0; return _resRestore9zj.apply(this,arguments); };
+audio.addEventListener('seeked',resSeekNow);
+audio.addEventListener('seeking',()=>{ if(_resSeek!=null&&Math.abs((audio.currentTime||0)-_resSeek)>1.5) _resSeek=null; });
+audio.addEventListener('timeupdate',()=>{ if(_resSeek!=null&&!audio.paused&&_resAt&&performance.now()-_resAt>3000) _resSeek=null; });
+/* a lyric tap or scrub before the song has loaded (phones load on play) is kept and applied as soon as it can be */
+const _seekTo9zj=seekTo; seekTo=function(t){ t=+t; if(isNaN(t)) return; _resSeek=null;
+  const cs=curSong(); if(cs&&audio.readyState<1){ _resSeek=t; _resId=cs.id; _resAt=0; state.currentTime=t; try{ audio.currentTime=t; }catch(e){} try{ updateProgress(); }catch(e){} return; }
+  return _seekTo9zj.call(this,t); };

@@ -3,6 +3,8 @@ SB_LOCAL.push('treesh_eco','treesh_eco_ask','treesh_eco_user'); SB_KEEP.push('tr
 state.eco=!!LS.get('treesh_eco',false);
 window._ecoT=window._ecoT||{};
 const ECO_BLUR=10;
+/* floating 3D renders, bobbing art, swaying and drifting decor all hold still in Eco (spinners keep spinning) */
+const ECO_FLOATY=/float|bob|sway|drift|tilt|wobble|breath|levit/i;
 function ecoOn(){ return !!(state.eco&&!state.perfMode); }
 /* decorative loops (beat glow, starfield, visualizer) draw every other frame; the starfield stops while a full screen covers it */
 function ecoSkip(k){ if(!ecoOn()) return false; if(k==='stars'&&(document.hidden||document.documentElement.classList.contains('cv-hide'))) return true; const t=performance.now(), T=window._ecoT; if(t-(T[k]||0)<30) return true; T[k]=t; return false; }
@@ -17,7 +19,7 @@ function ecoRules(){ if(_ecoBuilt) return; _ecoBuilt=true; const out=[], heavy=n
   sheets.forEach(s=>walk(s.cssRules,r=>{ if(r.type!==1||!r.selectorText) return; const st=r.style;
     const bf=st.getPropertyValue('backdrop-filter')||st.getPropertyValue('-webkit-backdrop-filter'), tb=st.getPropertyValue('--tw-backdrop-blur');
     const an=st.getPropertyValue('animation-name'), it=st.getPropertyValue('animation-iteration-count');
-    const blurFix=bf&&/blur\(/.test(bf)&&cap(bf)!==bf, twFix=tb&&/blur\(/.test(tb)&&cap(tb)!==tb, animFix=an&&/infinite/.test(it||'')&&an.split(',').some(n=>heavy.has(n.trim()));
+    const blurFix=bf&&/blur\(/.test(bf)&&cap(bf)!==bf, twFix=tb&&/blur\(/.test(tb)&&cap(tb)!==tb, animFix=an&&/infinite/.test(it||'')&&an.split(',').some(n=>{ n=n.trim(); return heavy.has(n)||ECO_FLOATY.test(n); });
     if(!blurFix&&!twFix&&!animFix) return; const sel=r.selectorText.split(',').map(x=>ecoSel(x.trim())).filter(Boolean).join(','); if(!sel) return;
     let d=''; if(blurFix){ const v=cap(bf); d+='backdrop-filter:'+v+' !important;-webkit-backdrop-filter:'+v+' !important;'; } if(twFix) d+='--tw-backdrop-blur:'+cap(tb)+';'; if(animFix) d+='animation:none !important;';
     out.push(sel+'{'+d+'}'); }));

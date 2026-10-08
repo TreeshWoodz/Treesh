@@ -84,7 +84,14 @@ function cvSet(on){ if(on===_cvOn) return; _cvOn=on; const de=document.documentE
 function cvUnhide(){ cvSet(false); _cvSince=0; _cvHold=performance.now()+900; }
 setInterval(()=>{ if(!((document.documentElement.classList.contains('perf-mode')||document.documentElement.classList.contains('eco'))&&innerWidth<1024)){ cvSet(false); _cvSince=0; return; }
   if(!cvCovered()){ _cvSince=0; cvSet(false); return; } const now=performance.now(); if(!_cvSince) _cvSince=now; if(now-_cvSince>=450&&now>=_cvHold) cvSet(true); },300);
-document.addEventListener('pointerdown',e=>{ if(!_cvOn) return; const t=e.target; if(e.clientY<140||(t.closest&&t.closest('[data-act*="close"],[data-act*="back"],[data-act*="exit"],[data-act*="min"],[class*="grab"],[data-sheet-drag],header'))) cvUnhide(); },true);
+/* the page behind comes back as a close tap lands or a drag starts moving, never on touch-down (iOS treats content appearing under a finger as a hover and swallows the tap) */
+document.addEventListener('click',e=>{ if(!_cvOn) return; const t=e.target; if(t.closest&&t.closest('[data-act*="close"],[data-act*="back"],[data-act*="exit"],[data-act*="min"],[data-mclose]')) cvUnhide(); },true);
+let _cvPD=null;
+document.addEventListener('pointerdown',e=>{ _cvPD=null; if(!_cvOn) return; const t=e.target; if(e.clientY<140||(t.closest&&t.closest('[class*="grab"],[data-sheet-drag],header'))) _cvPD={x:e.clientX,y:e.clientY}; },true);
+const cvMove=(x,y)=>{ if(_cvPD&&_cvOn&&Math.abs(x-_cvPD.x)+Math.abs(y-_cvPD.y)>10){ _cvPD=null; cvUnhide(); } };
+document.addEventListener('pointermove',e=>cvMove(e.clientX,e.clientY),{capture:true,passive:true});
+document.addEventListener('touchmove',e=>{ const p=e.touches&&e.touches[0]; if(p) cvMove(p.clientX,p.clientY); },{capture:true,passive:true});
+document.addEventListener('pointerup',()=>{ _cvPD=null; },true);
 window.addEventListener('popstate',()=>{ if(_cvOn) cvUnhide(); },true);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&_cvOn) cvUnhide(); },true);
 
