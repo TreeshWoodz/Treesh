@@ -115,7 +115,7 @@ function lookOf() { return Object.assign({ charm: 'charm_none', light: 'light_wa
 function lightRGB() { const v = (cosById(lookOf().light) || cosById('light_warm')).val; return v === 'acc' ? getComputedStyle(document.documentElement).getPropertyValue('--acc-rgb').trim() : v; }
 
 const MODES = [
-  { id: 'classic', name: 'Nightfall', tag: 'Classic', icon: 'moon', voice: false, desc: 'Six rooms. One killer. Only work while his back is turned.' },
+  { id: 'classic', name: 'Nightfall', tag: 'Classic', icon: 'moon', voice: false, desc: 'Nine rooms. One killer. Only work while his back is turned.' },
   { id: 'hush', name: 'Dead Silent', tag: 'Voice', icon: 'mic-off', voice: true, desc: 'Same rooms, but your mic is live. Make a sound and he hears you.' },
   { id: 'lullaby', name: 'Lullaby', tag: 'Voice', icon: 'audio-waveform', voice: true, desc: 'Hum along to his shifting note, and never stop when he\u2019s listening.' },
   { id: 'impress', name: 'Impressions', tag: 'Voice \u00b7 Comedy', icon: 'drama', voice: true, desc: 'He\u2019s bored. Sound like a pig. Or a car engine. Or else.' }
