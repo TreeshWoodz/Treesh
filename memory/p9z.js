@@ -32,7 +32,7 @@ const _vg9z=viewGame; viewGame=function(){ return _vg9z.apply(this,arguments)
 state.gyroOn=!!LS.get('treesh_gyro',false);
 const _gy={x:0,y:0,tx:0,ty:0,raf:0,base:null,live:false,perm:false,on:false};
 /* only cards on screen tilt: an IntersectionObserver keeps the visible set, vars are written per element (never on <html>) */
-const GY_SEL='.ar-hero,.md-hero,.md-big,.md-hero-pic,.np9-art .a-glass,.st3';
+const GY_SEL='.ar-hero,.md-hero,.md-big,.md-hero-pic,.np9-art .a-glass,.st3,.plx,.plx-hero';
 const _gv={io:null,vis:new Set(),seen:new WeakSet(),scanT:0};
 function gyAllowed(){ const h=document.documentElement.classList; return !!state.gyroOn&&!h.contains('perf-mode')&&!h.contains('a11y-reduce-motion'); }
 function gyNeedsPerm(){ return typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'; }

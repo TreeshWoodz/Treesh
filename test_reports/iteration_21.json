@@ -1,0 +1,54 @@
+{
+  "summary": "Frontend-only verification of Phase 9z features: (1) Now Playing lyric editor (desktop 1440x900) with Undo/Redo, per-line revert, clear+Enter restore, line selection + revert-selected, Revert all, save/discard flow, and reopen→revert-all→save clearing entry; (2) Phone 390x800 Lyric Studio Preview tab mimicking NP card; (3) Games page 3D heroes (What's Next quote marks, This or That vinyl records) + arcade tiles with new art + coming-soon soon tiles; (4) Motion tilt toggle persists to localStorage treesh_gyro; (5) Splash accent uses treesh_accent (--sp-a:#22d3ee verified inline); (6) Status bubble preview width ok (156px with 40+ chars); (7) Status SFX from SFXMint: search 'laughing' returned 12 results, Use/Current/Remove, 20 Pick-a-vibe chips, save persists state.profile.space.mood.snd with sfxmint.com/dl URL, own bubble shows speaker badge, clicking badge triggers is-playing without opening editor, spNorm drops non-sfxmint.com/dl URLs; (8) Regressions: Instrum launch modal (New/Import/7 presets) opens on both desktop and phone with no landing page, phone Instrum shows [ix-phone-tabs] Timeline/Mixer/Arrange, Magic Markup is in topbar [topbar-markup-button] + #mk-fab hidden, Music Studio grid/list switch is visually present on the right. 0 console errors throughout.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_pass": {
+    "splash_accent": "localStorage treesh_accent '#22d3ee' → [data-testid=app-splash] inline style '--sp-a: #22d3ee; --sp-rgb: 34,211,238; --sp-a2: rgb(133,231,246); --sp-bg: rgb(13,25,31)'.",
+    "motion_tilt_toggle": "[data-testid=settings-toggle-gyro] exists, aria-pressed='false' default, clicking persists treesh_gyro='true' in localStorage; no JS errors; small 'Motion tilt on' toast shown.",
+    "games_3d": "[data-testid=game-heroes] + [data-testid=games-arcade] render; 7 tiles (frea/vocotap/chainz/nects live + bronze-blitz/ebonics/sonoku soon), each with [data-testid=game-art-<key>]. Hero screenshots show purple glass quotes+question bubble (What's Next) and twin vinyl+bolt (This or That) new 3D art.",
+    "np_lyric_editor_desktop": "On synced-lyrics song, [data-testid=lyrics-edit-button-d] opens editor with [lyric-edit-bar] + lyrics-undo-button + lyrics-redo-button + lyrics-revert-all-button + lyrics-save-button + lyrics-edit-cancel-button + lyrics-report-button + 60 lyric-edit-input-N inputs. Initial undo and revAll both disabled. Typing enables undo; row gets is-ch class; per-line revert button appears. Ctrl+Z restores original. Clearing input+Enter restores catalog original. Selecting line via lyric-edit-select-N shows [lyric-edit-selbar] with lyrics-revert-selected-button (enabled when changed) + lyrics-sel-clear. 'Revert all' restores to catalog. Save → closes editor, treesh_lyric_edits[songId] contains numeric-indexed line keys (no 'orig' field) ✓. Reopen after save: revAll enabled; revAll+save removes the song's entry (keys empty). Cancel with unsaved changes shows custom [data-testid=confirm-dialog] 'Discard lyric changes?' modal.",
+    "ls_phone_preview": "On 390x800, openLyricSync(id) + ls-tab-preview → [data-testid=ls-live-preview] has class 'lsx-prev lsnp lsnp-pv dark-surface', [ls-pv-seek], [ls-pv-back], [ls-pv-fwd], [ls-preview-play] all present; #ls-bar hidden (offsetHeight===0).",
+    "status_bubble_width": "editor-mood-text filled with 40+ char status; preview bubble renders full text at ~156px width (not tiny) — fix confirmed.",
+    "sfx_search": "'laughing' search → [data-testid=sfx-modal] with sfx-modal-close, 12 sfx-result-N rows each with sfx-result-play-N/sfx-result-use-N; first row URL sfxmint.com/dl/crowd-laughter-22.mp3.",
+    "sfx_use_save": "Clicking sfx-result-use-0 populated [editor-status-sfx-current] with title 'Big Burst Crowd Laughter 22' + remove button. Save → state.profile.space.mood.snd={id,t,u,ms} with sfxmint.com/dl URL ✓.",
+    "sfx_badge": "After save [data-testid=profile-status-bubble-sound] present; click toggles .is-playing on the bubble AND does NOT open the editor (drawer not opened). Pick-a-vibe chip 0 ('Audience laugh') replaces current sound ✓.",
+    "sbxHtml_security": "sbxHtml(spNorm({...sfxmint url}),'them') returns <button data-act=\"sbx-play\" ...>; sbxHtml with evil.com URL returns element WITHOUT sbx-play attribute and WITHOUT sbub-snd badge (spNorm drops invalid URLs) ✓.",
+    "regression_instrum_desktop": "Studios → Open Instrum opens [data-testid=ix-launch] modal (no landing page).",
+    "regression_instrum_phone": "On 390x800, Open Instrum → [ix-launch] with testids ix-launch-close, ix-launch-new, ix-launch-import, ix-launch-preset-boombap/trap/house/lofi/afro/pop/drill. Clicking ix-launch-new → [data-testid=ix-phone-tabs] with 'Timeline / Mixer / Arrange'.",
+    "regression_markup": "[data-testid=topbar-markup-button] present; #mk-fab hidden.",
+    "regression_music_studio_switch": "Visible grid/list toggle shown on the right next to 'Newest' selector (visual confirm)."
+  },
+  "notes": {
+    "lyrics_edit_button_duplicate": "There are two elements with data-testid: 'lyrics-edit-button' (0x0, hidden) and 'lyrics-edit-button-d' (40x40 visible on desktop). Review spec names it 'lyrics-edit-button' without -d. Non-blocking (both have data-act=lyrics-edit), but worth normalizing to a single testid or marking the hidden one differently to avoid Playwright 'element not visible' failures.",
+    "ctrl_y_redo": "After Ctrl+Z undo, Ctrl+Y was pressed but the input value did not restore the typed 'MYEDIT' prefix (returned the typed draft). The lyrics-redo-button itself works via click; Ctrl+Shift+Z was not independently retested due to Loop Prevention. Minor — review the keydown handler for the Ctrl+Y mapping.",
+    "editor_status_preview_bubble_testid": "Searching for [data-testid=editor-status-preview-bubble] returned null, but a status preview element is clearly rendered inside the editor and expands to fit text (width 156px with long status). Testid may be attached to an inner span; consider adding/moving the data-testid to the outer bubble container.",
+    "image_studio_open_image_testid": "[data-testid=is-open-image] not reachable from the Studios landing (likely requires entering the Image Studio first). Not retested due to limited scope; verify selector presence inside the Image Studio screen.",
+    "music_switch_testids": "Grid/list toggle is visually present on the right in Custom Music Studio but no [data-testid=music-view-grid]/[music-view-list]/[view-switch] testids were found. Add testids to improve testability."
+  },
+  "test_report_links": ["/app/test_reports/iteration_21.json"],
+  "action_items": [
+    "Normalize lyrics-edit-button data-testid: either make the hidden duplicate not share the same testid, or ensure only the visible one carries data-testid=lyrics-edit-button (currently visible one is suffixed -d). This blocks Playwright [data-testid=lyrics-edit-button] clicks per the review spec.",
+    "Verify Ctrl+Y keyboard shortcut maps to redo in the lyric editor (Ctrl+Z works; the redo button works; Ctrl+Y did not restore typed text).",
+    "Add data-testid=editor-status-preview-bubble to the actual outer status preview bubble inside the Style editor so the review's selector resolves.",
+    "Expose data-testid on the Image Studio 'Open image' button and the Custom Music Studio grid/list switch for easier testing."
+  ],
+  "critical_code_review_comments": [
+    "p9z.js leBarHtml/leSelBarHtml/leRowHtml are tightly coupled template literals — fine for a single-file SPA phase, but consider extracting into dedicated builders if more editors reuse the same pattern.",
+    "SFX fetch has retry button + error state ([data-testid=sfx-error]) but no debounced search; search spam could rate-limit sfxmint.com in the wild — consider a 300ms debounce on [editor-status-sfx-search] input.",
+    "spNorm correctly drops non-sfxmint.com/dl URLs (verified by test) — good XSS/url-origin hygiene for public profile playback.",
+    "Lyric editor save (lsSave wrapper) persists numeric-indexed line keys without storing 'orig' (correct per spec), relying on SONG_BY_ID[id]._ly0 (set by applyLyricEdits) for the catalog original — works, but a comment near the _ly0 stash would help future maintainers.",
+    "Two elements share data-testid=lyrics-edit-button — bad testing contract; one is a hidden 0x0 button that intercepts first-match selectors."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only per request)", "frontend": "~95% (all core flows pass; 4 minor testid/keybind nits above)"},
+  "test_credentials": "No auth tested on the real app. Seeded localStorage: treesh_whatsnew_off, treesh_profile {nickname:'Tester',birthday:'2000-01-01'}, treesh_accent '#22d3ee' for splash color test.",
+  "seed_data_creation": "localStorage only; no sb_mock harness required for this round.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Prefer [data-testid=lyrics-edit-button-d] on desktop to open the NP lyric editor (the undecorated 'lyrics-edit-button' resolves to a 0x0 hidden button). The Discard dialog is a custom modal with [data-testid=confirm-dialog], not window.confirm — click its Confirm/Cancel buttons rather than attaching a page.on('dialog') listener. SFX API (sfxmint.com) is real; headless audio playback is blocked so check the .is-playing class on the bubble as the integration signal. Build command (if patches needed): python3 /app/memory/patch_p9.py && python3 /app/memory/build_sbtest.py.",
+  "rca of the issue": "N/A — no critical issues; only minor testid naming and one keyboard-shortcut nit."
+}
