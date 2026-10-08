@@ -20,7 +20,9 @@ const _ovo9zh=overlaysOpen; overlaysOpen=function(){ const held={};
 let _shRaf=0;
 function shTick(){ _shRaf=0; sheetMoveSync(); mkGuardSync(); try{ if(_locked!==overlaysOpen()) syncScrollLock(); }catch(e){} }
 function shSoon(){ if(!_shRaf) _shRaf=requestAnimationFrame(shTick); }
-new MutationObserver(shSoon).observe(document.body,{childList:true,subtree:true});
+/* only overlay hosts opening/closing matter (not lyric or player ticks deep inside them) */
+new MutationObserver(recs=>{ for(const r of recs){ const t=r.target; if(t===document.body||t.parentNode===document.body){ shSoon(); return; } } }).observe(document.body,{childList:true,subtree:true});
+window.addEventListener('pageshow',shSoon); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) shSoon(); });
 document.addEventListener('touchstart',e=>{ if(e.touches.length===1){ if(_mkTrackEnd) _mkTrackEnd(); if(!state.mkEdit){ _mkTouchLock=false; _mkLP=null; } } shTick(); },{passive:true,capture:true});
 document.addEventListener('wheel',shSoon,{passive:true,capture:true});
 mkGuardSync();

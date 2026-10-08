@@ -138,7 +138,7 @@ async function sbSignedIn(u){ const mine=_sbJustAuthed; _sbJustAuthed=false; if(
   const r=await sbPull({restore:true});
   if(r==='pulled'||(mine&&r!=='error'&&(state._sbHadProfile||(state.profile&&state.profile.nickname)))){ sbReload(mine); return; }
   if(sbObOpen()){ if(state._sbHadProfile&&state.profile){ closeModal(); try{ checkDailyStars(); }catch(e){} sbRerender(); toast('Welcome back',state.profile.nickname||''); setTimeout(()=>{ try{ wnMaybeAuto(state.view); }catch(e){} },600); } else { if(onboard.step===0) onboard.step=1; try{ renderOnboarding(); }catch(e){} } } }
-function sbSignedOut(){ if(_sbOut) return; clearTimeout(_sbTimer); _sbTimer=0; _sbDirty=false; state.sbSync={s:'idle',msg:''}; sbMeta({uid:null,pending:false,cloudAt:0,assetSig:'',assetsPath:null}); toast('Signed out','Your profile stays on this device'); sbPaint(); if(state.profileOpen) renderProfile(); }
+function sbSignedOut(){ if(_sbOut) return; clearTimeout(_sbTimer); _sbTimer=0; _sbDirty=false; state.sbSync={s:'idle',msg:''}; toast('Signed out','Sign back in any time to sync again'); sbPaint(); if(state.profileOpen) renderProfile(); }
 function sbHandleCallback(cb){ if(cb.error_description||cb.error){ setTimeout(()=>toast('That link didn\u2019t work',cb.error_description||cb.error),900); return; }
   if(!cb.access_token||!cb.refresh_token) return;
   sb.auth.setSession({access_token:cb.access_token,refresh_token:cb.refresh_token}).then(({error})=>{ if(error){ toast('Couldn\u2019t sign you in',sbErrText(error)); return; }
@@ -244,5 +244,5 @@ document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.tar
     case 'sb-auth-close': closeModal2(); break;
     case 'sb-pw-toggle': { const i=document.getElementById('sb-pw'); if(!i) break; const show=i.type==='password'; i.type=show?'text':'password'; t.setAttribute('aria-label',show?'Hide password':'Show password'); t.innerHTML=`<i data-lucide="${show?'eye-off':'eye'}"></i>`; icons(); break; }
     case 'sb-sync-now': if(!navigator.onLine){ sbSet('offline',SB_OFFLINE); break; } if(_sbBusy){ toast('Already syncing','Hang tight'); break; } if(_sbDirty||sbMeta().pending){ clearTimeout(_sbTimer); _sbTimer=0; sbPush().then(()=>{ if(state.sbSync&&state.sbSync.s==='synced') toast('Synced','Up to date on all your devices'); }); break; } sbPull({restore:true}).then(r=>{ if(r==='pulled') sbReload(); else if(r==='same'||r==='pushed') toast('Synced','Up to date on all your devices'); }); break;
-    case 'sb-signout': if(!sb) break; openConfirm('Sign out?','We\u2019ll save everything to your account first, then clear your profile from this device. Your custom music stays here. Sign back in any time to get it all back.',()=>{ sbSignOut(); }); break;
+    case 'sb-signout': if(!sb) break; openConfirm('Sign out?','We\u2019ll save everything to your account first, then reset Treesh to a fresh start. Your custom music stays. Sign back in any time to get it all back.',()=>{ sbSignOut(); }); break;
   } });
