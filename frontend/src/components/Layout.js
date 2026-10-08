@@ -9,13 +9,13 @@ export const Logo = () => (
     <div className="logo-mark">BB</div>
     <div className="leading-none">
       <div className="font-display text-base sm:text-lg font-black tracking-tight text-gold">BRONZE BLITZ</div>
-      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.35em] text-amber-200/50">Treesh Games</div>
+      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.35em] text-[var(--ac-hi)]">Treesh Games</div>
     </div>
   </Link>
 );
 
 export const TopBar = () => {
-  const { profile, starlites } = useProfile();
+  const { profile, starlites, treesh } = useProfile();
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-[#0A070D]/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -23,7 +23,7 @@ export const TopBar = () => {
         <div className="flex items-center gap-2 sm:gap-3">
           <StarliteBadge value={starlites} />
           <Link to="/profile" data-testid="nav-profile-btn" className="avatar-btn" title={profile.name}>
-            {profile.name.slice(0, 1).toUpperCase()}
+            {treesh?.avatar ? <img data-testid="nav-profile-avatar" src={treesh.avatar} alt={profile.name} /> : profile.name.slice(0, 1).toUpperCase()}
           </Link>
         </div>
       </div>

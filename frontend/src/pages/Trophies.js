@@ -22,7 +22,7 @@ export default function Trophies() {
   return (
     <Layout>
       <PageTitle eyebrow="Achievements" title="Trophy Room">
-        <div className="starlite-pill" data-testid="trophies-unlocked-count"><Trophy size={16} className="text-[#C87D32]" /> <span className="font-display font-bold">{unlocked}/{ACHIEVEMENTS.length}</span></div>
+        <div className="starlite-pill" data-testid="trophies-unlocked-count"><Trophy size={16} className="text-[var(--ac)]" /> <span className="font-display font-bold">{unlocked}/{ACHIEVEMENTS.length}</span></div>
       </PageTitle>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ACHIEVEMENTS.map((a, i) => {
@@ -40,7 +40,7 @@ export default function Trophies() {
                 </div>
               </div>
               <div className="mt-4 h-2 rounded-full bg-white/5">
-                <div className="h-full rounded-full bg-gradient-to-r from-[#C87D32] to-[#FFC800]" style={{ width: `${(v / a.goal) * 100}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-[var(--ac)] to-[var(--ac-hi)]" style={{ width: `${(v / a.goal) * 100}%` }} />
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <span className="text-xs font-bold tabular-nums text-slate-400">{v.toLocaleString()} / {a.goal.toLocaleString()}</span>
@@ -48,7 +48,7 @@ export default function Trophies() {
                   <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-emerald-400"><Check size={14} /> Claimed</span>
                 ) : (
                   <button data-testid={`trophy-claim-btn-${a.id}`} disabled={!ready} onClick={() => claim(a)} className="btn-bronze !px-3 !py-1.5 text-xs">
-                    Claim <StarliteAmount value={a.reward} size={12} className="text-[#2a1405]" />
+                    Claim <StarliteAmount value={a.reward} size={12} className="text-[var(--ac-ink)]" />
                   </button>
                 )}
               </div>

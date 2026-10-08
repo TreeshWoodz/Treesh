@@ -91,16 +91,16 @@ export default function Hub() {
             <div className="text-sm text-slate-400">{bonusReady ? "Your free daily bag is ready." : "Claimed. Fresh drop tomorrow."}</div>
           </div>
           <button data-testid="daily-bonus-claim-btn" disabled={!bonusReady || claiming} onClick={claimBonus} className="btn-bronze !px-4 !py-2 text-sm">
-            {bonusReady ? <>Claim <StarliteAmount value={100} className="text-[#2a1405]" /></> : "Claimed"}
+            {bonusReady ? <>Claim <StarliteAmount value={100} className="text-[var(--ac-ink)]" /></> : "Claimed"}
           </button>
         </div>
-        <Link to="/trophies" data-testid="hub-trophies-link" className="bonus-card hover:border-[#C87D32]/60">
-          <div className="mode-icon" style={{ "--accent": "#C87D32" }}><Trophy size={22} /></div>
+        <Link to="/trophies" data-testid="hub-trophies-link" className="bonus-card hover:border-[rgba(var(--ac-rgb),0.6)]">
+          <div className="mode-icon" style={{ "--accent": "var(--ac)" }}><Trophy size={22} /></div>
           <div className="flex-1">
             <div className="font-display text-lg font-bold text-white">Trophy Room</div>
             <div className="text-sm text-slate-400">Unlock achievements and claim Starlite rewards.</div>
           </div>
-          <Flame size={20} className="text-amber-400" />
+          <Flame size={20} className="text-[var(--ac-hi)]" />
         </Link>
       </section>
 

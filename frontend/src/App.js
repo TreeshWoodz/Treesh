@@ -2,6 +2,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "./components/ui/sonner";
 import { ProfileProvider } from "./game/store";
+import { applyTreeshAccent } from "./game/wallet";
 import { WelcomeModal } from "./components/WelcomeModal";
 import Hub from "./pages/Hub";
 import LevelMap from "./pages/LevelMap";
@@ -12,6 +13,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 
 const BASE = "/games/bronze-blitz";
+applyTreeshAccent();
 if (!window.location.pathname.startsWith(BASE)) {
   window.history.replaceState(null, "", BASE + window.location.pathname.replace(/^\/$/, "/") + window.location.search);
 }

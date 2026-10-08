@@ -90,7 +90,7 @@ function Game({ cfg, onReplay }) {
           <AnimatePresence>
             {g.armed === "hammer" && (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} data-testid="hammer-armed-hint"
-                className="pointer-events-none absolute bottom-0 left-0 right-0 text-center text-[11px] font-bold uppercase tracking-[0.25em] text-amber-300">Tap any tile to smash it</motion.div>
+                className="pointer-events-none absolute bottom-0 left-0 right-0 text-center text-[11px] font-bold uppercase tracking-[0.25em] text-[var(--ac-hi)]">Tap any tile to smash it</motion.div>
             )}
           </AnimatePresence>
         </div>

@@ -41,7 +41,7 @@ export default function LevelMap() {
         {CHAPTERS.map((ch) => (
           <section key={ch.name} className="relative mb-12">
             <div className="chapter-banner">
-              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-amber-200/60">{ch.sub}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-[var(--ac-hi)]">{ch.sub}</div>
               <div className="font-display text-xl font-black text-gold">{ch.name}</div>
             </div>
             <div className="map-trail relative mt-8 flex flex-col gap-10 py-4">

@@ -55,11 +55,14 @@ export default function Profile() {
       <PageTitle eyebrow="Player Profile" title={profile.name} />
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card-surface p-6">
-          <h2 className="font-display text-lg font-bold text-amber-200">Player Tag</h2>
-          {treesh ? (
-            <div data-testid="treesh-name-synced" className="mt-4 rounded-xl border border-[#FFC800]/25 bg-[#FFC800]/5 px-4 py-3">
-              <div className="font-display text-xl font-black text-white">{treesh.name}</div>
-              <div className="mt-1 text-xs text-slate-400">Synced from your Treesh profile. Change it in Treesh settings.</div>
+          <h2 className="font-display text-lg font-bold text-[var(--ac-hi)]">Player Tag</h2>
+          {treesh?.name ? (
+            <div data-testid="treesh-name-synced" className="mt-4 flex items-center gap-4 rounded-xl border border-[rgba(var(--ac-rgb),0.3)] bg-[rgba(var(--ac-rgb),0.06)] px-4 py-3">
+              {treesh.avatar && <img data-testid="profile-avatar-img" src={treesh.avatar} alt={treesh.name} className="h-14 w-14 shrink-0 rounded-full border-2 border-[var(--ac)] object-cover" />}
+              <div>
+                <div className="font-display text-xl font-black text-white">{treesh.name}</div>
+                <div className="mt-1 text-xs text-slate-400">Synced from your Treesh profile. Change it in Treesh settings.</div>
+              </div>
             </div>
           ) : (
             <div className="mt-4 flex gap-2">
@@ -82,11 +85,11 @@ export default function Profile() {
         </section>
 
         <section className="card-surface p-6">
-          <h2 className="flex items-center gap-2 font-display text-lg font-bold text-amber-200"><Cloud size={20} /> Cloud Save</h2>
+          <h2 className="flex items-center gap-2 font-display text-lg font-bold text-[var(--ac-hi)]"><Cloud size={20} /> Cloud Save</h2>
           <p className="mt-2 text-sm text-slate-400">Claim your player tag and back up Starlites, levels and trophies. Use your tag + save code to restore on any device.</p>
           {profile.saveCode && (
-            <div className="mt-4 flex items-center justify-between rounded-xl border border-[#FFC800]/30 bg-[#FFC800]/5 px-4 py-3">
-              <div><div className="hud-label">Your save code</div><div data-testid="cloud-save-code" className="font-display text-2xl font-black tracking-[0.3em] text-[#FFC800]">{profile.saveCode}</div></div>
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-[rgba(var(--ac-rgb),0.3)] bg-[rgba(var(--ac-rgb),0.06)] px-4 py-3">
+              <div><div className="hud-label">Your save code</div><div data-testid="cloud-save-code" className="font-display text-2xl font-black tracking-[0.3em] text-[var(--ac-hi)]">{profile.saveCode}</div></div>
               <button data-testid="copy-save-code-btn" className="icon-btn" onClick={() => { navigator.clipboard?.writeText(profile.saveCode); toast.success("Code copied"); }}><Copy size={16} /></button>
             </div>
           )}

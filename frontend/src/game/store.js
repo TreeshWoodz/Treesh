@@ -1,7 +1,7 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { sfx } from "./sound";
 import { api } from "./api";
-import { getStarlites, changeStarlites, readTreeshProfile, hasWelcomeGift, TREESH_KEYS } from "./wallet";
+import { getStarlites, changeStarlites, readTreeshProfile, hasWelcomeGift, applyTreeshAccent, TREESH_KEYS } from "./wallet";
 
 const KEY = "bronze_save_v1";
 const LEGACY_KEY = "bronze-blitz-profile-v1";
@@ -34,7 +34,7 @@ export const mergeProfile = (data) => {
 
 const withTreesh = (p) => {
   const t = readTreeshProfile();
-  return t ? { ...p, name: t.name, onboarded: true } : p;
+  return t?.name ? { ...p, name: t.name, onboarded: true } : p;
 };
 
 function load() {
@@ -55,6 +55,7 @@ export function ProfileProvider({ children }) {
   const lastGames = useRef(profile.stats.games);
 
   useEffect(() => {
+    applyTreeshAccent();
     if (!profile.giftGiven && !giftDone && !hasWelcomeGift()) {
       giftDone = true;
       setStarlites(changeStarlites(WELCOME_GIFT, "Welcome gift"));
@@ -64,6 +65,7 @@ export function ProfileProvider({ children }) {
       if (e.key && !TREESH_KEYS.includes(e.key)) return;
       setStarlites(getStarlites());
       setTreesh(readTreeshProfile());
+      applyTreeshAccent();
       setProfile((p) => withTreesh(p));
     };
     window.addEventListener("storage", onStorage);

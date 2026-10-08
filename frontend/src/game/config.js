@@ -12,7 +12,7 @@ export const TILES = [
 ];
 
 export const MODES = [
-  { id: "classic", name: "Classic Levels", tag: "Level Map", desc: "30 handcrafted levels across 3 chapters. Hit targets, collect pieces, clear the Kente.", Icon: Map, color: "#C87D32" },
+  { id: "classic", name: "Classic Levels", tag: "Level Map", desc: "30 handcrafted levels across 3 chapters. Hit targets, collect pieces, clear the Kente.", Icon: Map, color: "var(--ac)" },
   { id: "timed", name: "Timed Blitz", tag: "Speed", desc: "60 seconds on the clock. Match fast, chain combos, stack points.", Icon: Timer, color: "#EF4444" },
   { id: "moves", name: "Moves Challenge", tag: "Strategy", desc: "Only 15 moves. Every swap counts. Make it legendary.", Icon: Target, color: "#06B6D4" },
   { id: "daily", name: "Daily Challenge", tag: "2x Starlites", desc: "One fresh board for everybody, every day. Double Starlite payout.", Icon: CalendarDays, color: "#FFC800" },
@@ -83,8 +83,8 @@ export const POWERUPS = [
 ];
 
 export const THEMES = [
-  { id: "bronze", name: "Bronze Classic", cost: 0, desc: "The original. Warm, polished, timeless.",
-    board: { bg: "linear-gradient(160deg,#2a1a0e,#120b07)", cellA: "rgba(200,125,50,.10)", cellB: "rgba(200,125,50,.04)", frame: "#C87D32" } },
+  { id: "bronze", name: "Signature", cost: 0, desc: "Matches your Treesh accent color. Bronze by default.",
+    board: { bg: "linear-gradient(160deg,rgba(var(--ac-rgb),.22),#0d0810 75%)", cellA: "rgba(var(--ac-rgb),.12)", cellB: "rgba(var(--ac-rgb),.05)", frame: "var(--ac)" } },
   { id: "kente", name: "Golden Kente", cost: 600, desc: "Woven gold, green and red. Royalty on every row.",
     board: { bg: "repeating-linear-gradient(90deg,#3b2a05 0 14px,#0b3b2a 14px 20px,#3b2a05 20px 34px,#4a0f0f 34px 40px,#0a0a0a 40px 46px)", cellA: "rgba(10,7,13,.55)", cellB: "rgba(10,7,13,.7)", frame: "#FFC800" } },
   { id: "harlem", name: "Harlem Nights", cost: 800, desc: "Jazz clubs, neon marquees, midnight blue.",

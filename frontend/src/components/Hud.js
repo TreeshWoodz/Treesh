@@ -8,7 +8,7 @@ const Progress = ({ score, target }) => {
   const pct = Math.min(100, (score / max) * 100);
   return (
     <div className="relative mt-2 h-3 w-full rounded-full bg-white/5" data-testid="hud-progress">
-      <div className="h-full rounded-full bg-gradient-to-r from-[#C87D32] via-[#FFC800] to-[#FFF4B0] transition-[width] duration-500" style={{ width: `${pct}%` }} />
+      <div className="h-full rounded-full bg-gradient-to-r from-[var(--ac)] via-[var(--ac-hi)] to-white transition-[width] duration-500" style={{ width: `${pct}%` }} />
       {[0.5, 0.75, 1].map((f) => (
         <Star key={f} size={14} className={`absolute -top-[1px] -translate-x-1/2 ${pct >= f * 100 ? "fill-[#FFC800] text-[#FFC800]" : "fill-[#2E2338] text-[#4b3a5c]"}`} style={{ left: `${f * 100 - (f === 1 ? 3 : 0)}%` }} />
       ))}

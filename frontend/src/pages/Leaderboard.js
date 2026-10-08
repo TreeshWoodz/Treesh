@@ -35,17 +35,17 @@ export default function Leaderboard() {
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
           <span>Player</span><span>{LEADER_METRIC[mode]}</span>
         </div>
-        {rows === null && <div className="flex justify-center p-10"><Loader2 className="animate-spin text-amber-400" /></div>}
+        {rows === null && <div className="flex justify-center p-10"><Loader2 className="animate-spin text-[var(--ac-hi)]" /></div>}
         {rows?.length === 0 && <div data-testid="leaderboard-empty" className="p-10 text-center text-slate-400">No scores yet. Be the first legend on this board.</div>}
         {rows?.map((r, i) => {
           const me = r.player_id === profile.playerId;
           return (
             <motion.div key={r.player_id} data-testid={`leaderboard-row-${r.rank}`} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }} className={`flex items-center gap-4 border-b border-white/5 px-5 py-3 ${me ? "bg-[#C87D32]/10" : ""}`}>
+              transition={{ delay: i * 0.03 }} className={`flex items-center gap-4 border-b border-white/5 px-5 py-3 ${me ? "bg-[rgba(var(--ac-rgb),0.1)]" : ""}`}>
               <span className="w-8 font-display text-lg font-black tabular-nums" style={{ color: medal[i] || "#64748B" }}>
                 {i < 3 ? <Crown size={20} /> : r.rank}
               </span>
-              <span className="flex-1 truncate font-semibold text-white">{r.name}{me && <span className="ml-2 text-xs font-bold uppercase text-amber-300">You</span>}</span>
+              <span className="flex-1 truncate font-semibold text-white">{r.name}{me && <span className="ml-2 text-xs font-bold uppercase text-[var(--ac-hi)]">You</span>}</span>
               <span className="font-display font-bold tabular-nums text-[#FFC800]">{r.score.toLocaleString()}</span>
             </motion.div>
           );
