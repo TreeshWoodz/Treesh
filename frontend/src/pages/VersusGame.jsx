@@ -1,8 +1,8 @@
 import { BoardFit } from "@/components/game/BoardFit";
+import { DeckStack, TopCardSlot, CallButton } from "@/components/game/TableBits";
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { RotateCcw, Megaphone, Bot, User } from "lucide-react";
+import { RotateCcw, Bot, User } from "lucide-react";
 import { GameHeader, IconBtn } from "@/components/game/GameHeader";
 import { PlayingCard, COLOR_HEX } from "@/components/game/PlayingCard";
 import { HandFan } from "@/components/game/HandFan";
@@ -374,9 +374,12 @@ export default function VersusGame() {
       />
       <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto px-3 sm:px-6 flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)] lg:gap-8 lg:pb-2">
         <section className="flex-1 min-h-0 flex flex-col gap-2 lg:h-full">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
+          <TopCardSlot card={s.top} />
+          <div className="flex-1 min-w-0 grid grid-cols-2 gap-1.5 sm:gap-2">
             <Side testid="versus-you" name="You" icon={User} score={s.scores[0]} combo={s.combos[0]} cards={s.hands[0].length} called={s.called[0]} active={s.turn === 0} color="#FFCC00" />
             <Side testid="versus-bot" name={`Ivy · ${BOTS[diff].label}`} icon={Bot} score={s.scores[1]} combo={s.combos[1]} cards={s.hands[1].length} called={s.called[1]} active={s.turn === 1} color="#FF3B30" />
+          </div>
           </div>
           <BoardFit>
           <SonokoBoard
@@ -390,32 +393,7 @@ export default function VersusGame() {
           />
           </BoardFit>
         </section>
-        <aside className="shrink-0 w-full space-y-3 lg:self-center">
-          <div className="glass rounded-3xl p-2 sm:p-4 flex items-center justify-center gap-4 sm:gap-6">
-            <div className="flex flex-col items-center gap-1">
-              <PlayingCard faceDown size="md" testid="draw-pile-button" onClick={onDraw} className={myTurn ? "hover:-translate-y-1 transition-transform duration-150" : "opacity-70"} />
-              <span className="eyebrow !text-[10px]">Draw</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <AnimatePresence mode="popLayout">
-                <motion.div key={s.top.id} initial={{ scale: 1.4, rotate: -14, opacity: 0 }} animate={{ scale: 1, rotate: 4, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-                  <PlayingCard card={s.top} size="pile" testid="discard-pile-top-card" />
-                </motion.div>
-              </AnimatePresence>
-              <span className="eyebrow !text-[10px]">Top card</span>
-            </div>
-            <button
-              type="button"
-              data-testid="versus-call-button"
-              onClick={callSonoko}
-              className={`h-16 w-16 sm:h-20 sm:w-20 rounded-full font-display font-black italic uppercase text-sm sm:text-base leading-none border-4 transition-[transform,background-color] duration-200 active:scale-90 ${
-                s.called[0] ? "bg-[#34C759] border-white text-[#0B0F19]" : myTurn && s.hands[0].length === 1 ? "bg-[#FFCC00] border-white text-[#0B0F19] animate-glow scale-110" : "bg-white/5 border-white/15 text-slate-400"
-              }`}
-            >
-              <Megaphone className="w-5 h-5 mx-auto mb-0.5" />
-              {s.called[0] ? "Called" : "Sonoko!"}
-            </button>
-          </div>
+        <aside className="hidden lg:block w-full space-y-3 lg:self-center">
           <div className="hidden lg:block glass rounded-2xl px-4 py-3 text-center">
             <p data-testid="versus-turn-indicator" className="font-display text-xl font-black uppercase italic" style={{ color: myTurn ? "#FFCC00" : "#FF3B30" }}>
               {s.status === "over" ? (s.winner === 0 ? "You win!" : s.winner === "tie" ? "Tie!" : "Ivy wins") : myTurn ? "Your turn" : "Ivy's turn"}
@@ -432,7 +410,14 @@ export default function VersusGame() {
 
       <div className="shrink-0 w-full z-20 pt-1 pb-[max(env(safe-area-inset-bottom),6px)]">
         <p data-testid="versus-hint" className={`text-center text-xs sm:text-sm px-4 font-semibold ${myTurn ? "text-[#FFCC00]" : "text-slate-300"}`}>{hint}</p>
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto flex items-end gap-1 sm:gap-3 px-2">
+          <DeckStack
+            testid="draw-pile-button"
+            onClick={onDraw}
+            className={myTurn ? "" : "opacity-70"}
+            label={<span className="font-mono text-[10px] sm:text-xs font-bold text-slate-400">{s.hands[0].length}/{BUST}</span>}
+          />
+          <div className="flex-1 min-w-0">
           <HandFan
             cards={s.hands[0]}
             renderCard={(c, i) => (
@@ -448,6 +433,8 @@ export default function VersusGame() {
               />
             )}
           />
+          </div>
+          <CallButton testid="versus-call-button" onClick={callSonoko} called={s.called[0]} ready={myTurn && s.hands[0].length === 1} />
         </div>
         {s.status === "over" && result && !resultOpen && (
           <div className="flex justify-center pb-2">

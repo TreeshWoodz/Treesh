@@ -7,6 +7,7 @@ const SIZES = {
   xs: "w-7 h-10 text-xs border-2 rounded-md",
   sm: "w-10 h-14 text-lg border-2 rounded-lg",
   md: "w-14 h-20 sm:w-16 sm:h-24 text-2xl sm:text-3xl border-[3px] rounded-xl",
+  hud: "w-10 h-14 text-xl border-2 rounded-lg lg:w-14 lg:h-20 lg:text-2xl lg:border-[3px] lg:rounded-xl",
   pile: "w-16 h-24 sm:w-24 sm:h-36 text-3xl sm:text-5xl border-4 rounded-2xl",
   lg: "w-20 h-28 sm:w-24 sm:h-36 text-4xl sm:text-5xl border-4 rounded-2xl",
 };

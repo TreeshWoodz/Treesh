@@ -1,8 +1,8 @@
 import { BoardFit } from "@/components/game/BoardFit";
+import { DeckStack, TopCardSlot, CallButton } from "@/components/game/TableBits";
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Heart, RotateCcw, Flame, Clock, CalendarDays, Megaphone, GraduationCap } from "lucide-react";
+import { Heart, RotateCcw, Flame, Clock, CalendarDays, GraduationCap } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { GameHeader, IconBtn } from "@/components/game/GameHeader";
 import { PlayingCard, COLOR_HEX } from "@/components/game/PlayingCard";
@@ -93,7 +93,7 @@ const Setup = ({ daily, onStart, profile }) => (
 );
 
 const Stat = ({ icon: Icon, label, value, testid, color = "#fff" }) => (
-  <div className="glass rounded-2xl px-3 py-2 flex items-center gap-2 min-w-0">
+  <div className="glass rounded-2xl px-2 sm:px-3 py-2 flex items-center gap-2 min-w-0">
     <Icon className="hidden sm:block w-4 h-4 shrink-0" style={{ color }} />
     <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 leading-none">{label}</p>
@@ -444,7 +444,9 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
       />
       <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto px-3 sm:px-6 flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)] lg:gap-8 lg:pb-2">
         <section className="flex-1 min-h-0 flex flex-col gap-2 lg:h-full">
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
+          <TopCardSlot card={g.top} />
+          <div className="flex-1 min-w-0 grid grid-cols-4 gap-1.5 sm:gap-2">
             <Stat icon={Flame} label="Score" value={g.score.toLocaleString()} testid="sonoko-score" color="#FFCC00" />
             <Stat icon={Flame} label="Combo" value={`x${mult}`} testid="sonoko-combo" color="#FF3B30" />
             <Stat icon={Clock} label="Time" value={fmtTime(seconds)} testid="sonoko-timer" color="#007AFF" />
@@ -456,6 +458,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
                 />
               ))}
             </div>
+          </div>
           </div>
           <BoardFit>
           <SonokoBoard
@@ -470,44 +473,8 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
           </BoardFit>
         </section>
 
-        <aside className="shrink-0 w-full space-y-3 lg:self-center">
-          <div className="glass rounded-3xl p-2 sm:p-4 flex items-center justify-center gap-4 sm:gap-6">
-            <div className="flex flex-col items-center gap-1">
-              <div className="relative">
-                <PlayingCard faceDown size="md" testid="draw-pile-button" onClick={draw} className={`hover:-translate-y-1 transition-transform duration-150 ${tutStep?.t === "draw" ? "ring-4 ring-[#FFCC00] animate-glow" : ""}`} />
-              </div>
-              <span className="eyebrow !text-[10px]">Draw</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <AnimatePresence mode="popLayout">
-                <motion.div key={g.top.id} initial={{ scale: 1.4, rotate: -14, opacity: 0 }} animate={{ scale: 1, rotate: 4, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-                  <PlayingCard card={g.top} size="pile" testid="discard-pile-top-card" />
-                </motion.div>
-              </AnimatePresence>
-              <span className="eyebrow !text-[10px]">Top card</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                data-testid="sonoko-call-button"
-                onClick={callSonoko}
-                className={`h-16 w-16 sm:h-20 sm:w-20 rounded-full font-display font-black italic uppercase text-sm sm:text-base leading-none border-4 transition-[transform,background-color] duration-200 active:scale-90 ${
-                  g.called
-                    ? "bg-[#34C759] border-white text-[#0B0F19]"
-                    : canCall
-                    ? "bg-[#FFCC00] border-white text-[#0B0F19] animate-glow scale-110"
-                    : "bg-white/5 border-white/15 text-slate-400"
-                }`}
-              >
-                <Megaphone className="w-5 h-5 mx-auto mb-0.5" />
-                {g.called ? "Called" : "Sonoko!"}
-              </button>
-              <span data-testid="sonoko-hand-count" className={`font-mono text-xs font-bold ${g.hand.length >= 10 ? "text-[#FF3B30]" : "text-slate-400"}`}>
-                Hand {g.hand.length}/{BUST}
-              </span>
-            </div>
-          </div>
-          <div className="hidden lg:block glass rounded-3xl p-4 space-y-3 text-sm">
+        <aside className="hidden lg:block w-full space-y-3 lg:self-center">
+          <div className="glass rounded-3xl p-4 space-y-3 text-sm">
             <p className="eyebrow">Run stats</p>
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -556,7 +523,18 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
             {g.status === "playing" ? msg : g.status === "won" ? "Grid complete!" : "Game over"}
           </p>
         )}
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto flex items-end gap-1 sm:gap-3 px-2">
+          <DeckStack
+            testid="draw-pile-button"
+            onClick={draw}
+            className={tutStep?.t === "draw" ? "ring-4 ring-[#FFCC00] animate-glow" : ""}
+            label={
+              <span data-testid="sonoko-hand-count" className={`font-mono text-[10px] sm:text-xs font-bold ${g.hand.length >= 10 ? "text-[#FF3B30]" : "text-slate-400"}`}>
+                {g.hand.length}/{BUST}
+              </span>
+            }
+          />
+          <div className="flex-1 min-w-0">
           <HandFan
             cards={g.hand}
             renderCard={(c, i) => (
@@ -572,6 +550,8 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
               />
             )}
           />
+          </div>
+          <CallButton testid="sonoko-call-button" onClick={callSonoko} called={g.called} ready={canCall} />
         </div>
         {g.status !== "playing" && result && !resultOpen && (
           <div className="flex justify-center pb-2">
