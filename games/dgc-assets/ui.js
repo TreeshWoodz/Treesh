@@ -79,6 +79,7 @@ setInterval(() => {
 }, 14000);
 document.addEventListener('mouseover', e => { const it = e.target.closest && e.target.closest('#scr-title .mm-item'); if (it) menuFocus(+it.dataset.i); });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !Run.active && !$('#modal').hidden) { closeModal(); return; }
   if (!$('#scr-title').classList.contains('on') || !$('#modal').hidden || (e.target.matches && e.target.matches('input'))) return;
   if (!UI.splashed) { e.preventDefault(); dismissSplash(); return; }
   const k = e.key;
