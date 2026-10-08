@@ -1,7 +1,9 @@
+import { BASE } from "./base";
+
 const HEX = { red: "#FF3B30", blue: "#007AFF", green: "#34C759", yellow: "#FFCC00" };
 const SQ = { red: "🟥", blue: "🟦", green: "🟩", yellow: "🟨", given: "⬛", empty: "⬜" };
 
-export const shareUrl = () => `${window.location.origin}/play/daily`;
+export const shareUrl = () => `${window.location.origin}${BASE}/play/daily`;
 
 export function shareText(r) {
   const rows = [];

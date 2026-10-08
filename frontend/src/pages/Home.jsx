@@ -4,6 +4,8 @@ import { Trophy, BarChart3, BookOpen, CalendarDays, Grid3x3, Layers, Sparkles, A
 import { PlayingCard } from "@/components/game/PlayingCard";
 import { useProfile, updateProfile, todayStr } from "@/lib/progress";
 import { ACHIEVEMENTS, levelInfo } from "@/lib/achievements";
+import { useTreesh } from "@/lib/treesh";
+import { Avatar } from "@/pages/Profile";
 
 const MODES = [
   { id: "versus", to: "/play/versus", title: "Versus", desc: "Race bot Ivy on one shared Sonoko grid.", icon: Swords, color: "#F59E0B" },
@@ -53,6 +55,7 @@ const HeroCards = () => (
 
 export default function Home() {
   const profile = useProfile();
+  const treesh = useTreesh();
   const lv = levelInfo(profile.xp);
   const unlocked = Object.keys(profile.unlocked).length;
   const doneToday = profile.stats.lastDaily === todayStr();
@@ -64,12 +67,14 @@ export default function Home() {
           <span className="h-8 w-8 rounded-lg bg-[#34C759] grid place-items-center font-display font-black text-[#0B0F19] text-lg">T</span>
           <span className="font-display font-bold uppercase tracking-[0.18em] text-sm text-slate-300">Treesh Games</span>
         </div>
-        <Link to="/trophies" data-testid="home-level-chip" className="glass rounded-full pl-1 pr-3 py-1 flex items-center gap-2 transition-colors duration-150 hover:bg-[#1E2640]">
-          <span className="h-7 w-7 rounded-full bg-[#FFCC00] text-[#0B0F19] grid place-items-center font-mono font-black text-xs">{lv.level}</span>
-          <span className="w-16 sm:w-24 h-1.5 rounded-full bg-white/10 overflow-hidden">
-            <span className="block h-full bg-[#FFCC00]" style={{ width: `${lv.pct}%` }} />
+        <Link to="/profile" data-testid="home-profile-chip" className="glass rounded-full pl-1 pr-3 py-1 flex items-center gap-2 transition-colors duration-150 hover:bg-[#1E2640]">
+          <Avatar treesh={treesh} name={treesh ? treesh.nickname : profile.name} size="h-8 w-8 text-sm !rounded-full" />
+          <span className="hidden sm:block max-w-[120px] truncate text-sm font-semibold">{treesh ? treesh.nickname : profile.name || "Guest"}</span>
+          <span className="h-6 px-1.5 rounded-full bg-[#FFCC00] text-[#0B0F19] grid place-items-center font-mono font-black text-[11px]" data-testid="home-level-chip">Lv {lv.level}</span>
+          <span className="font-mono text-xs font-bold text-[#F59E0B] flex items-center gap-1" data-testid="home-starlites">
+            <Sparkles className="w-3.5 h-3.5" />
+            {(profile.starlites || 0).toLocaleString()}
           </span>
-          <span className="font-mono text-xs text-slate-300">{profile.xp} XP</span>
         </Link>
       </header>
 

@@ -13,6 +13,8 @@ import Locker from "@/pages/Locker";
 import { useEffect } from "react";
 import { useProfile } from "@/lib/progress";
 import { SkinContext } from "@/lib/cosmetics";
+import { BASE } from "@/lib/base";
+import Profile from "@/pages/Profile";
 
 function App() {
   const profile = useProfile();
@@ -22,7 +24,7 @@ function App() {
   return (
     <SkinContext.Provider value={profile.skin || "classic"}>
     <div className="App">
-      <BrowserRouter>
+      <BrowserRouter basename={BASE}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/play/sonoko" element={<SonokoGame key="sonoko" />} />
@@ -35,6 +37,7 @@ function App() {
           <Route path="/play/tutorial" element={<SonokoGame key="tutorial" tutorial />} />
           <Route path="/play/versus" element={<VersusGame />} />
           <Route path="/locker" element={<Locker />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-center" theme="dark" richColors closeButton duration={2600} />

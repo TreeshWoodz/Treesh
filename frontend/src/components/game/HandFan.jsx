@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 export const HandFan = ({ cards, renderCard, testid = "player-hand" }) => {
   const mid = (cards.length - 1) / 2;
   return (
-    <div data-testid={testid} className="flex justify-center items-end w-full px-3 pt-7 pb-2">
+    <div data-testid={testid} className="flex justify-center items-end w-full px-3 pt-5 pb-1">
       {cards.map((c, i) => (
         <div
           key={c.id}

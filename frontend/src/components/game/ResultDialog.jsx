@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Input } from "@/components/ui/input";
 import { submitScore } from "@/lib/api";
 import { loadProfile, updateProfile } from "@/lib/progress";
+import { treeshAccount, treeshDisplayName } from "@/lib/treesh";
 
 export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows = [], mode, date, onPlayAgain, allowSubmit = true, extra, playAgainLabel = "Play again" }) => {
   const [name, setName] = useState("");
@@ -14,7 +15,7 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
 
   useEffect(() => {
     if (open) {
-      setName(loadProfile().name || "");
+      setName(loadProfile().name || treeshDisplayName(treeshAccount()).slice(0, 20));
       setRank(null);
       setErr("");
     }

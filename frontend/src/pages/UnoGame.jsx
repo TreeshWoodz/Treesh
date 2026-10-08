@@ -45,7 +45,7 @@ const Opponent = ({ s, p }) => {
   const count = s.hands[p].length;
   const active = s.turn === p && s.winner === null;
   return (
-    <div data-testid={`uno-opponent-${p}`} className={`glass rounded-2xl px-3 py-2 flex flex-col items-center gap-1 min-w-[96px] transition-[transform,box-shadow] duration-300 ${active ? "ring-2 ring-[#FFCC00] -translate-y-1 shadow-[0_0_24px_rgba(255,204,0,0.35)]" : ""}`}>
+    <div data-testid={`uno-opponent-${p}`} className={`glass rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2 flex flex-col items-center gap-1 min-w-0 flex-1 max-w-[150px] transition-[transform,box-shadow] duration-300 ${active ? "ring-2 ring-[#FFCC00] -translate-y-1 shadow-[0_0_24px_rgba(255,204,0,0.35)]" : ""}`}>
       <div className="flex items-center gap-1.5">
         <Bot className={`w-4 h-4 ${active ? "text-[#FFCC00]" : "text-slate-400"}`} />
         <span className="font-display font-black uppercase text-lg">{BOT_NAMES[p]}</span>
@@ -200,7 +200,7 @@ export default function UnoGame() {
   const hand = s.hands[0];
 
   return (
-    <div className="min-h-[100dvh] bg-arcade flex flex-col" data-testid="uno-game">
+    <div className="h-[100dvh] overflow-hidden bg-arcade flex flex-col" data-testid="uno-game">
       <Confetti active={s.winner === 0} />
       <GameHeader
         title="Classic Uno"
@@ -211,20 +211,20 @@ export default function UnoGame() {
           </IconBtn>
         }
       />
-      <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 flex flex-col gap-4 sm:gap-6 pt-2">
-        <div className="flex justify-center gap-2 sm:gap-4 flex-wrap">
+      <main className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-3 sm:px-6 flex flex-col gap-3 sm:gap-5 pt-1">
+        <div className="shrink-0 flex justify-center gap-2 sm:gap-4">
           {s.hands.slice(1).map((_, k) => (
             <Opponent key={k} s={s} p={k + 1} />
           ))}
         </div>
 
-        <div className="glass rounded-[2rem] p-4 sm:p-8 flex flex-col items-center gap-4 relative overflow-hidden">
+        <div className="flex-1 min-h-0 glass rounded-[2rem] p-3 sm:p-8 flex flex-col items-center justify-center gap-2 sm:gap-4 relative overflow-hidden">
           <div className="absolute inset-0 opacity-25 pointer-events-none" style={{ background: `radial-gradient(circle at 50% 50%, ${COLOR_HEX[s.color]}, transparent 65%)` }} />
           <div className="relative flex items-center gap-6 sm:gap-10">
             <div className="flex flex-col items-center gap-1">
               <PlayingCard
                 faceDown
-                size="lg"
+                size="pile"
                 testid="draw-pile-button"
                 onClick={draw}
                 className={myTurn && s.drawnId === null ? "hover:-translate-y-1 transition-transform duration-150 ring-2 ring-white/40" : "opacity-80"}
@@ -234,7 +234,7 @@ export default function UnoGame() {
             <div className="flex flex-col items-center gap-1">
               <AnimatePresence mode="popLayout">
                 <motion.div key={top.id} initial={{ scale: 1.5, rotate: -20, opacity: 0 }} animate={{ scale: 1, rotate: 5, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-                  <PlayingCard card={top} size="lg" testid="discard-pile-top-card" />
+                  <PlayingCard card={top} size="pile" testid="discard-pile-top-card" />
                 </motion.div>
               </AnimatePresence>
               <span className="eyebrow !text-[10px]">Discard</span>
@@ -253,7 +253,7 @@ export default function UnoGame() {
         </div>
       </main>
 
-      <div className="sticky bottom-0 w-full z-20 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/95 to-transparent pt-3 pb-[max(env(safe-area-inset-bottom),8px)]">
+      <div className="shrink-0 w-full z-20 pt-1 pb-[max(env(safe-area-inset-bottom),6px)]">
         <div className="flex justify-center gap-3">
           <button
             type="button"

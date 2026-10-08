@@ -1,3 +1,4 @@
+import { BoardFit } from "@/components/game/BoardFit";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -179,7 +180,7 @@ export default function SudokuGame() {
   g.board.forEach((v) => v && counts[v]++);
 
   return (
-    <div className="min-h-[100dvh] bg-arcade flex flex-col" data-testid="sudoku-game">
+    <div className="h-[100dvh] overflow-hidden bg-arcade flex flex-col" data-testid="sudoku-game">
       <Confetti active={g.status === "won"} />
       <GameHeader
         title="Sudoku"
@@ -190,8 +191,8 @@ export default function SudokuGame() {
           </IconBtn>
         }
       />
-      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 pb-6 grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4 lg:gap-8 items-start">
-        <section className="sudoku-board-wrap space-y-2">
+      <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto px-3 sm:px-6 pb-[max(env(safe-area-inset-bottom),8px)] flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)] lg:gap-8">
+        <section className="flex-1 min-h-0 flex flex-col gap-2 lg:h-full">
           <div className="flex items-center justify-between text-sm">
             <span className="font-display text-xl font-black uppercase italic" style={{ color: DIFFS[diff].color }}>{DIFFS[diff].label}</span>
             <span data-testid="sudoku-mistakes" className="font-mono font-bold text-slate-300 flex items-center gap-1">
@@ -201,6 +202,7 @@ export default function SudokuGame() {
               <Clock className="w-4 h-4 text-[#007AFF]" /> {fmtTime(seconds)}
             </span>
           </div>
+          <BoardFit>
           <div data-testid="sudoku-board" className="grid grid-cols-9 aspect-square w-full rounded-2xl overflow-hidden border-2 border-white/30 bg-[#0F1424] shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
             {g.board.map((v, i) => {
               const r = Math.floor(i / 9), c = i % 9;
@@ -247,8 +249,9 @@ export default function SudokuGame() {
               );
             })}
           </div>
+          </BoardFit>
         </section>
-        <aside className="w-full max-w-[600px] mx-auto space-y-3">
+        <aside className="shrink-0 w-full max-w-[600px] mx-auto space-y-2 lg:space-y-3 lg:self-center">
           <div className="grid grid-cols-3 gap-2">
             {[
               ["notes", Pencil, notesMode ? "Notes on" : "Notes", () => setNotesMode((m) => !m), notesMode],
@@ -260,7 +263,7 @@ export default function SudokuGame() {
                 type="button"
                 data-testid={`sudoku-${id}-button`}
                 onClick={fn}
-                className={`h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 text-xs font-bold border transition-colors duration-150 ${
+                className={`h-12 lg:h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 text-xs font-bold border transition-colors duration-150 ${
                   on ? "bg-[#007AFF] border-white/40 text-white" : "glass text-slate-200 hover:bg-[#1E2640]"
                 }`}
               >
@@ -276,7 +279,7 @@ export default function SudokuGame() {
                 data-testid={`sudoku-numpad-${n}`}
                 disabled={counts[n] >= 9}
                 onClick={() => input(n)}
-                className="h-14 lg:h-20 rounded-xl lg:rounded-2xl glass flex flex-col items-center justify-center transition-[transform,background-color] duration-150 hover:bg-[#1E2640] active:scale-90 disabled:opacity-20"
+                className="h-12 lg:h-20 rounded-xl lg:rounded-2xl glass flex flex-col items-center justify-center transition-[transform,background-color] duration-150 hover:bg-[#1E2640] active:scale-90 disabled:opacity-20"
               >
                 <span className="font-mono text-2xl lg:text-4xl font-extrabold text-white">{n}</span>
                 <span className="text-[9px] lg:text-xs text-slate-500 font-mono">{9 - counts[n]}</span>

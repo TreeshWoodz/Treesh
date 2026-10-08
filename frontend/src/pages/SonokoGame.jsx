@@ -1,3 +1,4 @@
+import { BoardFit } from "@/components/game/BoardFit";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -430,7 +431,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
   const canCall = g.hand.length === 1 && !g.called && g.status === "playing" && (!tutStep || tutStep.t === "call");
 
   return (
-    <div className="min-h-[100dvh] bg-arcade flex flex-col" data-testid="sonoko-game">
+    <div className="h-[100dvh] overflow-hidden bg-arcade flex flex-col" data-testid="sonoko-game">
       <Confetti active={g.status === "won"} />
       <GameHeader
         title={tutorial ? "Tutorial" : daily ? "Daily" : "Sonoko"}
@@ -441,8 +442,8 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
           </IconBtn>
         }
       />
-      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 grid lg:grid-cols-[minmax(0,1fr)_320px] gap-3 lg:gap-8 items-start">
-        <section className="sonoko-board-wrap space-y-2">
+      <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto px-3 sm:px-6 flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)] lg:gap-8 lg:pb-2">
+        <section className="flex-1 min-h-0 flex flex-col gap-2 lg:h-full">
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             <Stat icon={Flame} label="Score" value={g.score.toLocaleString()} testid="sonoko-score" color="#FFCC00" />
             <Stat icon={Flame} label="Combo" value={`x${mult}`} testid="sonoko-combo" color="#FF3B30" />
@@ -456,6 +457,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
               ))}
             </div>
           </div>
+          <BoardFit>
           <SonokoBoard
             g={g}
             floaters={floaters}
@@ -465,10 +467,11 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
             glowCell={tutStep?.t === "cell" ? tutStep.i : null}
             onTap={tapCell}
           />
+          </BoardFit>
         </section>
 
-        <aside className="w-full space-y-3">
-          <div className="glass rounded-3xl p-3 sm:p-4 flex items-center justify-center gap-4 sm:gap-6">
+        <aside className="shrink-0 w-full space-y-3 lg:self-center">
+          <div className="glass rounded-3xl p-2 sm:p-4 flex items-center justify-center gap-4 sm:gap-6">
             <div className="flex flex-col items-center gap-1">
               <div className="relative">
                 <PlayingCard faceDown size="md" testid="draw-pile-button" onClick={draw} className={`hover:-translate-y-1 transition-transform duration-150 ${tutStep?.t === "draw" ? "ring-4 ring-[#FFCC00] animate-glow" : ""}`} />
@@ -478,7 +481,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
             <div className="flex flex-col items-center gap-1">
               <AnimatePresence mode="popLayout">
                 <motion.div key={g.top.id} initial={{ scale: 1.4, rotate: -14, opacity: 0 }} animate={{ scale: 1, rotate: 4, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-                  <PlayingCard card={g.top} size="lg" testid="discard-pile-top-card" />
+                  <PlayingCard card={g.top} size="pile" testid="discard-pile-top-card" />
                 </motion.div>
               </AnimatePresence>
               <span className="eyebrow !text-[10px]">Top card</span>
@@ -526,7 +529,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
         </aside>
       </main>
 
-      <div className="sticky bottom-0 w-full z-20 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/95 to-transparent pt-3 pb-[max(env(safe-area-inset-bottom),8px)]">
+      <div className="shrink-0 w-full z-20 pt-1 pb-[max(env(safe-area-inset-bottom),6px)]">
         {tutStep ? (
           <div data-testid="tutorial-coach" className={`max-w-xl mx-3 sm:mx-auto glass rounded-2xl p-3 sm:p-4 !border-[#FFCC00]/50 ${coachShake ? "animate-shake" : ""}`}>
             <div className="flex items-start gap-3">

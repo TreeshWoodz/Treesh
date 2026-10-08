@@ -2,7 +2,7 @@ let ctx;
 
 const soundOn = () => {
   try {
-    const p = JSON.parse(localStorage.getItem("sonoko_profile_v1"));
+    const p = JSON.parse((localStorage.getItem("treesh_sonoku_v1") || localStorage.getItem("sonoko_profile_v1")));
     return p?.sound !== false;
   } catch {
     return true;

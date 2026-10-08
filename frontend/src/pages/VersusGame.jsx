@@ -1,3 +1,4 @@
+import { BoardFit } from "@/components/game/BoardFit";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -360,7 +361,7 @@ export default function VersusGame() {
     : "Your turn — play a matching card or draw";
 
   return (
-    <div className="min-h-[100dvh] bg-arcade flex flex-col" data-testid="versus-game">
+    <div className="h-[100dvh] overflow-hidden bg-arcade flex flex-col" data-testid="versus-game">
       <Confetti active={s.winner === 0} />
       <GameHeader
         title="Versus"
@@ -371,12 +372,13 @@ export default function VersusGame() {
           </IconBtn>
         }
       />
-      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 grid lg:grid-cols-[minmax(0,1fr)_320px] gap-3 lg:gap-8 items-start">
-        <section className="versus-board-wrap space-y-2">
+      <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto px-3 sm:px-6 flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)] lg:gap-8 lg:pb-2">
+        <section className="flex-1 min-h-0 flex flex-col gap-2 lg:h-full">
           <div className="grid grid-cols-2 gap-2">
             <Side testid="versus-you" name="You" icon={User} score={s.scores[0]} combo={s.combos[0]} cards={s.hands[0].length} called={s.called[0]} active={s.turn === 0} color="#FFCC00" />
             <Side testid="versus-bot" name={`Ivy · ${BOTS[diff].label}`} icon={Bot} score={s.scores[1]} combo={s.combos[1]} cards={s.hands[1].length} called={s.called[1]} active={s.turn === 1} color="#FF3B30" />
           </div>
+          <BoardFit>
           <SonokoBoard
             g={s}
             testid="versus-board"
@@ -386,9 +388,10 @@ export default function VersusGame() {
             armed={myTurn && !!sel && !ON_DISCARD.includes(sel.kind)}
             onTap={tapCell}
           />
+          </BoardFit>
         </section>
-        <aside className="w-full space-y-3">
-          <div className="glass rounded-3xl p-3 sm:p-4 flex items-center justify-center gap-4 sm:gap-6">
+        <aside className="shrink-0 w-full space-y-3 lg:self-center">
+          <div className="glass rounded-3xl p-2 sm:p-4 flex items-center justify-center gap-4 sm:gap-6">
             <div className="flex flex-col items-center gap-1">
               <PlayingCard faceDown size="md" testid="draw-pile-button" onClick={onDraw} className={myTurn ? "hover:-translate-y-1 transition-transform duration-150" : "opacity-70"} />
               <span className="eyebrow !text-[10px]">Draw</span>
@@ -396,7 +399,7 @@ export default function VersusGame() {
             <div className="flex flex-col items-center gap-1">
               <AnimatePresence mode="popLayout">
                 <motion.div key={s.top.id} initial={{ scale: 1.4, rotate: -14, opacity: 0 }} animate={{ scale: 1, rotate: 4, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
-                  <PlayingCard card={s.top} size="lg" testid="discard-pile-top-card" />
+                  <PlayingCard card={s.top} size="pile" testid="discard-pile-top-card" />
                 </motion.div>
               </AnimatePresence>
               <span className="eyebrow !text-[10px]">Top card</span>
@@ -427,7 +430,7 @@ export default function VersusGame() {
         </aside>
       </main>
 
-      <div className="sticky bottom-0 w-full z-20 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/95 to-transparent pt-3 pb-[max(env(safe-area-inset-bottom),8px)]">
+      <div className="shrink-0 w-full z-20 pt-1 pb-[max(env(safe-area-inset-bottom),6px)]">
         <p data-testid="versus-hint" className={`text-center text-xs sm:text-sm px-4 font-semibold ${myTurn ? "text-[#FFCC00]" : "text-slate-300"}`}>{hint}</p>
         <div className="max-w-3xl mx-auto">
           <HandFan
