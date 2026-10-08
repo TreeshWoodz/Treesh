@@ -11,7 +11,7 @@
       hop to a free spot. */
 var FreaUnstick=(function(){
   var SKIP_CPU={zen:1,hns:1,cards:1,flappy:1,tutorial:1,hoops:1,copycat:1};
-  var stats={rescued:0,escapes:0,ignored:0};
+  var stats={rescued:0,escapes:0,ignored:0,log:[]};
   function now(){return Date.now();}
   function solid(p){return p&&!p._heldBy&&!(p.deco&&p.carriedBy)&&!p.gone&&!p.noCollide&&p.ptype!=='lava'&&p.ptype!=='pool'&&!p._hnsHider&&!(p.deco&&p.kind==='circle'&&p.r<16);}
   /* does point (x,y) sit inside platform p (with inset m for rects) */
@@ -24,7 +24,7 @@ var FreaUnstick=(function(){
   function findFree(f){var w=f.w,h=f.h,ox=f.x,oy=f.y;var dirs=[[0,-1],[-.7,-.7],[.7,-.7],[-1,0],[1,0],[-.7,.7],[.7,.7],[0,1]];
     for(var r=8;r<=420;r+=10){for(var d=0;d<dirs.length;d++){var x=ox+dirs[d][0]*r,y=oy+dirs[d][1]*r;if(freeAt(x,y,w,h))return {x:x,y:y};}}
     return null;}
-  function rescue(f,why){var s=findFree(f);if(!s)return false;f.x=s.x;f.y=s.y;f.vx=0;f.vy=.6;f.stuck=false;f.platform=null;f.onG=false;f.angle=0;f._embedN=0;stats.rescued++;
+  function rescue(f,why){var s=findFree(f);if(!s)return false;try{var hp=null;for(var i=0;i<platforms.length;i++){var p=platforms[i];if(solid(p)&&hits(p,f.x,f.y,f.w,f.h,Math.min(7,f.w*.22))>=3){hp=p;break;}}stats.log.push(gameMode+':'+f.name+':'+why+':'+(hp?(hp.deco||hp.kind)+(hp.ptype?'/'+hp.ptype:''):'-')+':'+(f.hnsRole||''));if(stats.log.length>20)stats.log.shift();}catch(e){}f.x=s.x;f.y=s.y;f.vx=0;f.vy=.6;f.stuck=false;f.platform=null;f.onG=false;f.angle=0;f._embedN=0;stats.rescued++;
     try{jpfx(f.cx,f.cy,f.col||'#fff');}catch(e){}f.lastStuckPos={x:f.x,y:f.y,t:now()};return true;}
 
   /* ---- 1. clean launches ---- */

@@ -421,3 +421,9 @@ Status: In Progress
 - Neon/Beach balls + rim/hoop in Ball & Hoop Studio verified (not in Settings)
 - Zen life: staging/props generalized to ALL fleas (stageF); CPU fleas now watch TV from couch/front with popcorn + TV glow + reaction emotes, read books at bookshelf, snack at fridge/stove/table, nap on bed with Zzz, water plants, sing at mic
 - H&S Mansion/Haunted/Graveyard verified loading with themed props
+
+## Phase N+2 — Movie Night, Crumb maps, Card house rules, Anti-stuck (Status: IN PROGRESS → testing)
+- movienight.js/.css: FreaMovie.start(); TV & couch menus get "Movie night"; family seated (couch + cushions), lights dim w/ lamp-off, projector screen, 7-beat film, coordinated staggered reactions, rating at end
+- arcade3.js Crumb: 4 hard maps (Drift Bridge, Elevator Shaft, Stepping Stones, Windmill Gap) with bramble pits (respawn) + moving platforms; Map Pack setting (all/classic/hard), shuffled order, 1/3/5 maps
+- arcade3.js Cards: house rules settings (Stack +2/+4 on/off, Sevens Swap, Zeros Rotate), seat picker UI for 7, AI uses 7 when behind, rules chip on table
+- unstick.js: clean launches (ignore surfaces touched at take-off while moving away), embedded rescue (spawned inside props → nearest free spot), round-start settle, CPU escape (ray-tested best direction, teleport after 3 fails). FreaUnstick.stats()

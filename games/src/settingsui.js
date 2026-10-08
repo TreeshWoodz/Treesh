@@ -7,18 +7,25 @@
    Mode gear buttons jump straight to Game for that mode.
    Also adds global Gameplay options (all modes): Power-ups, Jump Power, Gravity, Screen Shake. */
 var FreaGameplay=(function(){
-  var K='frea_gameplay',D={pu:'normal',jump:'normal',grav:'normal',shake:'on',fling:'back'};
+  var K='frea_gameplay',D={pu:'normal',jump:'normal',grav:'normal',shake:'on',fling:'back',sens:'normal'};
   function load(){var o={};try{o=JSON.parse(localStorage.getItem(K)||'{}')||{};}catch(e){}var r={};Object.keys(D).forEach(function(k){r[k]=o[k]||D[k];});return r;}
   var C=load();function get(k){return C[k];}function set(k,v){C[k]=v;try{localStorage.setItem(K,JSON.stringify(C));}catch(e){}}
   var BASE={grav:GRAV,sling:SLING_POWER,pmax:PLAYER_MAX};
-  function apply(){var j=C.jump==='soft'?0.88:C.jump==='super'?1.15:1,g=C.grav==='moon'?0.72:C.grav==='heavy'?1.25:1;
+  function apply(){var j=1,g=C.grav==='moon'?0.72:C.grav==='heavy'?1.25:1;
     GRAV=BASE.grav*g;SLING_POWER=BASE.sling*j*Math.sqrt(g);PLAYER_MAX=BASE.pmax*j*Math.sqrt(g);}
   /* screen shake toggle without touching every shake call */
   try{var sh=camera.shake||0;Object.defineProperty(camera,'shake',{configurable:true,get:function(){return sh;},set:function(v){sh=C.shake==='off'?0:v;}});}catch(e){}
   var _sg=startGame;startGame=function(){try{apply();}catch(e){}return _sg.apply(this,arguments);};
   /* inverted controls: push forward → launch toward the drag direction */
-  var _glv=getLaunchVec;getLaunchVec=function(){var v=_glv.apply(this,arguments);if(C.fling==='forward'){v.vx=-v.vx;v.vy=-v.vy;}return v;};
-  return {get:get,set:set,apply:apply,puRate:function(){return C.pu==='off'?0:C.pu==='lots'?0.5:C.pu==='few'?1.8:1;},defaults:D};
+  /* fling feel: strength = top speed, sensitivity = how far you must pull for full power.
+     Power follows an ease-in curve so small pulls stay small (old behaviour hit max speed after ~40px). */
+  var STR={soft:.66,normal:.82,super:1},SENS={low:240,normal:175,high:120};
+  function dragLen(){var sc=Math.max(.62,Math.min(1,Math.min(innerWidth,innerHeight)/820));return (SENS[C.sens]||175)*sc;}
+  function strength(){return STR[C.jump]||.82;}
+  getLaunchVec=function(){var px=player.cx-camera.x,py=player.cy-camera.y,dx=aim.x-px,dy=aim.y-py,d=Math.hypot(dx,dy),md=dragLen(),dead=6;MAX_DRAG=md;
+    var u=Math.max(0,Math.min(1,(d-dead)/(md-dead))),sp=PLAYER_MAX*strength()*Math.pow(u,1.4),nx=d>0?dx/d:0,ny=d>0?dy/d:0;
+    var v={vx:-nx*sp,vy:-ny*sp,pow:u};if(C.fling==='forward'){v.vx=-v.vx;v.vy=-v.vy;}return v;};
+  return {feel:function(){return {strength:strength(),drag:dragLen(),sens:C.sens,jump:C.jump};},get:get,set:set,apply:apply,puRate:function(){return C.pu==='off'?0:C.pu==='lots'?0.5:C.pu==='few'?1.8:1;},defaults:D};
 })();
 window.FreaGameplay=FreaGameplay;
 
@@ -52,7 +59,8 @@ window.FreaGameplay=FreaGameplay;
   if(gb&&!gb.querySelector('.sm-match-h')){var mh=document.createElement('div');mh.className='xm-head sm-match-h';mh.textContent='Match';gb.insertBefore(mh,gb.firstChild);}
   /* global gameplay block */
   var GP=[{k:'pu',l:'Power-ups',sub:'How often pickups appear in modes that have them',o:[['off','Off'],['few','Few'],['normal','Normal'],['lots','Lots']]},
-    {k:'jump',l:'Jump Power',sub:'Slingshot strength for every flea',o:[['soft','Soft'],['normal','Normal'],['super','Super']]},
+    {k:'jump',l:'Fling Strength',sub:'Top launch speed when you pull all the way',o:[['soft','Gentle'],['normal','Normal'],['super','Strong']]},
+    {k:'sens',l:'Fling Sensitivity',sub:'How far you pull for full power · Low = small pulls stay gentle & precise',o:[['low','Low'],['normal','Normal'],['high','High']]},
     {k:'grav',l:'Gravity',sub:'Moon = floaty, long hang time',o:[['moon','Moon'],['normal','Normal'],['heavy','Heavy']]},
     {k:'fling',l:'Fling Direction',sub:'Pull back like a slingshot, or push forward toward where you want to go',o:[['back','Pull back'],['forward','Push forward']]},
     {k:'shake',l:'Screen Shake',o:[['on','On'],['off','Off']]}];
