@@ -19425,7 +19425,9 @@ const _ovo9zj=overlaysOpen; overlaysOpen=function(){ return !!_ovo9zj.apply(this
 /* signing in: the restored profile (with your Space) is what stays in memory, so a late photo download can't write an older copy over it */
 let _sbRow9zj=null;
 const _sbApply9zj=sbApply; sbApply=function(r){ _sbRow9zj=r; return _sbApply9zj.apply(this,arguments); };
-const _sbRes9zj=sbRestore; sbRestore=async function(){ const ch=await sbNoCache(()=>_sbRes9zj.apply(this,arguments));
+const _sbRes9zj=sbRestore; sbRestore=async function(){ const uid=(sbUser()||{}).id||sbMeta().uid||'', refs=umLocalRefs();
+  const ch=await sbNoCache(()=>_sbRes9zj.apply(this,arguments));
+  try{ umRefsBack(refs,uid); }catch(e){}
   if(ch){ const p=LS.get('treesh_profile',null); if(p&&typeof p==='object'){ state.profile=p; if(_sbRow9zj) try{ _sbApply9zj(_sbRow9zj); }catch(e){} } } return ch; };
 
 /* caches (like the artist model list) never go into the account backup */
@@ -19433,10 +19435,38 @@ const SB_ASSET_SKIP=/^models_cache$/;
 async function sbNoCache(fn){ const aa=assetAll; assetAll=function(){ return aa.apply(this,arguments).then(l=>(l||[]).filter(r=>r&&!SB_ASSET_SKIP.test(r.id))); }; try{ return await fn(); } finally{ assetAll=aa; } }
 const _sbPay9zj=sbPayload; sbPayload=function(){ const a=arguments; return sbNoCache(()=>_sbPay9zj.apply(this,a)); };
 
-/* signing out keeps the lyrics you wrote for your own custom songs on this device (they never sync) */
+/* custom songs never reach the account backup, not even their ids (likes, playlists, plays, history).
+   This device keeps them: merged back after every restore, and parked per account while signed out */
+const UM_ID=/^u-[\w-]+$/;
+SB_LOCAL.push('treesh_um_stash'); SB_KEEP.push('treesh_um_stash');
+const umRef=v=>typeof v==='string'?UM_ID.test(v):!!(v&&typeof v==='object'&&!Array.isArray(v)&&typeof v.id==='string'&&UM_ID.test(v.id));
+function umScrub(v){ if(Array.isArray(v)){ let ch=false; const out=[]; for(const x of v){ if(umRef(x)){ ch=true; continue; } const r=umScrub(x); if(r.ch) ch=true; out.push(r.v); } return {v:out,ch}; }
+  if(v&&typeof v==='object'){ let ch=false; const out={}; for(const k of Object.keys(v)){ if(UM_ID.test(k)||umRef(v[k])){ ch=true; continue; } const r=umScrub(v[k]); if(r.ch) ch=true; out[k]=r.v; } return {v:out,ch}; }
+  return {v,ch:false}; }
+function umMerge(cloud,local){ if(Array.isArray(local)){ const base=Array.isArray(cloud)?cloud.slice():[];
+    local.forEach((x,i)=>{ if(umRef(x)){ const j=JSON.stringify(x); if(!base.some(y=>JSON.stringify(y)===j)) base.splice(Math.min(i,base.length),0,x); }
+      else if(x&&typeof x==='object'&&!Array.isArray(x)&&x.id!=null){ const j=base.findIndex(y=>y&&y.id===x.id); if(j>=0) base[j]=umMerge(base[j],x); } });
+    return base; }
+  if(local&&typeof local==='object'){ const base=(cloud&&typeof cloud==='object'&&!Array.isArray(cloud))?Object.assign({},cloud):{};
+    for(const k of Object.keys(local)){ const lv=local[k]; if(UM_ID.test(k)||umRef(lv)){ if(!(k in base)) base[k]=lv; } else if(lv&&typeof lv==='object'&&base[k]&&typeof base[k]==='object') base[k]=umMerge(base[k],lv); }
+    return base; }
+  return cloud; }
+function umLocalRefs(){ const out={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(!k||k==='treesh_lyric_edits'||!sbSyncKey(k)) continue; let v; try{ v=JSON.parse(localStorage.getItem(k)); }catch(e){ continue; } if(v&&typeof v==='object'&&umScrub(v).ch) out[k]=v; } return out; }
+function umRefsBack(refs,uid){ let st={}; try{ st=JSON.parse(localStorage.getItem('treesh_um_stash')||'{}')||{}; }catch(e){}
+  const parked=(uid&&st[uid])||{}; const keys=new Set([...Object.keys(refs),...Object.keys(parked)]); if(!keys.size) return;
+  keys.forEach(k=>{ let cur=null; try{ cur=JSON.parse(localStorage.getItem(k)); }catch(e){} let v=cur; if(parked[k]) v=umMerge(v,parked[k]); if(refs[k]) v=umMerge(v,refs[k]); if(v!=null&&JSON.stringify(v)!==JSON.stringify(cur)) sbQuietSet(k,v); });
+  if(uid&&st[uid]){ delete st[uid]; try{ _lsSetRaw9zj.call(localStorage,'treesh_um_stash',JSON.stringify(st)); }catch(e){} } }
+const _sbPay9zj2=sbPayload; sbPayload=async function(){ const b=await _sbPay9zj2.apply(this,arguments);
+  try{ const L=b&&b.localStorage; if(L) Object.keys(L).forEach(k=>{ const raw=L[k]; if(typeof raw!=='string') return; if(UM_ID.test(raw)){ delete L[k]; return; } let v; try{ v=JSON.parse(raw); }catch(e){ return; } if(umRef(v)){ delete L[k]; return; } const r=umScrub(v); if(r.ch) L[k]=JSON.stringify(r.v); }); }catch(e){} return b; };
+
+/* signing out parks this account's custom-song likes/playlist spots and lyrics on the device; they come back when the same account signs in */
 const _lsSetRaw9zj=Storage.prototype.setItem;
-const _sbReset9zj=sbResetDevice; sbResetDevice=async function(){ const keep={}; try{ const o=JSON.parse(localStorage.getItem('treesh_lyric_edits')||'{}')||{}; Object.keys(o).forEach(id=>{ if(umIsUserId(id)) keep[id]=o[id]; }); }catch(e){}
-  const r=await _sbReset9zj.apply(this,arguments); if(Object.keys(keep).length) try{ _lsSetRaw9zj.call(localStorage,'treesh_lyric_edits',JSON.stringify(keep)); }catch(e){} return r; };
+const _sbReset9zj=sbResetDevice; sbResetDevice=async function(){ const uid=(sbUser()||{}).id||sbMeta().uid||'', refs=umLocalRefs(), keep={}; let st={};
+  try{ st=JSON.parse(localStorage.getItem('treesh_um_stash')||'{}')||{}; }catch(e){}
+  try{ const o=JSON.parse(localStorage.getItem('treesh_lyric_edits')||'{}')||{}; Object.keys(o).forEach(id=>{ if(umIsUserId(id)) keep[id]=o[id]; }); }catch(e){}
+  const r=await _sbReset9zj.apply(this,arguments);
+  try{ if(uid&&Object.keys(refs).length){ st[uid]=refs; } if(Object.keys(st).length) _lsSetRaw9zj.call(localStorage,'treesh_um_stash',JSON.stringify(st)); }catch(e){}
+  if(Object.keys(keep).length) try{ _lsSetRaw9zj.call(localStorage,'treesh_lyric_edits',JSON.stringify(keep)); }catch(e){} return r; };
 
 /* What's Next: a small blinking note for the whole game, these chats are made up */
 function wnDiscAdd(){ const h=document.querySelector('#modal [data-game-root] .wc-head'); if(!h||h.parentNode.querySelector('.wc-disc')) return;
