@@ -1,0 +1,40 @@
+import asyncio, sys
+from playwright.async_api import async_playwright
+EXE="/pw-browsers/chromium_headless_shell-1208/chrome-linux/headless_shell"
+MOBILE = len(sys.argv)>1 and sys.argv[1]=='m'
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path=EXE)
+        ctx = await b.new_context(**(p.devices['iPhone 13'] if MOBILE else {'viewport':{'width':1400,'height':850}}))
+        pg = await ctx.new_page(); pg.on('pageerror', lambda e: print('PAGEERR', e))
+        await pg.goto('http://localhost:3000/'); await pg.evaluate("()=>{localStorage.setItem('treesh_whatsnew_off','true'); localStorage.setItem('treesh_eco_ask','1'); localStorage.setItem('treesh_recent_searches', JSON.stringify(['black barbie','pink'])); localStorage.setItem('treesh_profile', JSON.stringify({nickname:'Tester',birthday:'2000-01-01'}));}"); await pg.reload(); await pg.wait_for_timeout(3500)
+        sfx='m' if MOBILE else 'd'
+        if MOBILE: await pg.evaluate("()=>openSearch()")
+        else: await pg.keyboard.press('Control+k')
+        await pg.wait_for_timeout(900)
+        print('open', await pg.locator('[data-testid="search-overlay"]').count(), 'home', await pg.locator('[data-testid="search-home"]').count())
+        await pg.screenshot(path=f'/tmp/sr_{sfx}_home.png')
+        await pg.locator('#search-input').type('chel', delay=40); await pg.wait_for_timeout(1500)
+        print('secs', await pg.evaluate("()=>[...document.querySelectorAll('[data-testid^=search-sec-]')].map(e=>e.dataset.testid+':'+e.querySelectorAll('[data-kn]').length)"), 'hit', await pg.locator('[data-testid="search-top-hit"]').count())
+        print('chips', await pg.evaluate("()=>[...document.querySelectorAll('#sr-chips .sr-chip')].map(e=>e.textContent.trim()).join(' | ')"))
+        await pg.screenshot(path=f'/tmp/sr_{sfx}_top.png')
+        await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('ArrowDown'); await pg.wait_for_timeout(200)
+        print('kn', await pg.evaluate("()=>{const e=document.querySelector('#search-results .is-kn'); return e&&e.dataset.testid}"))
+        await pg.screenshot(path=f'/tmp/sr_{sfx}_kn.png')
+        await pg.keyboard.press('ArrowUp'); await pg.wait_for_timeout(100)
+        print('kn2', await pg.evaluate("()=>{const e=document.querySelector('#search-results .is-kn'); return e&&e.dataset.testid}"))
+        see = pg.locator('[data-testid^="search-see-all-"]').first; tid = await see.get_attribute('data-testid'); await see.click(); await pg.wait_for_timeout(500)
+        print('see all', tid, '->', await pg.evaluate("()=>state.searchTab"))
+        await pg.locator('[data-testid="search-toggle-games"]').click(); await pg.wait_for_timeout(300)
+        await pg.locator('#search-input').fill('caught'); await pg.wait_for_timeout(400)
+        print('games', await pg.evaluate("()=>[...document.querySelectorAll('[data-testid^=search-result-game-]')].map(e=>e.dataset.key)"))
+        await pg.locator('[data-testid="search-toggle-top"]').click(); await pg.wait_for_timeout(300)
+        await pg.locator('#search-input').fill('qqqzzzx'); await pg.wait_for_timeout(600)
+        print('none', await pg.locator('[data-testid="search-no-results"]').count())
+        await pg.locator('#search-input').fill('crossfade'); await pg.wait_for_timeout(600)
+        print('settings sec', await pg.locator('[data-testid="search-sec-settings"]').count())
+        await pg.locator('#search-input').fill('caught'); await pg.wait_for_timeout(600)
+        await pg.focus('#search-input'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(900)
+        print('enter -> modal', await pg.locator('[data-testid="game-info-dgc"]').count(), 'search open', await pg.evaluate("()=>state.searchOpen"), 'recent', await pg.evaluate("()=>localStorage.getItem('treesh_recent_searches')"))
+        await b.close()
+asyncio.run(main())

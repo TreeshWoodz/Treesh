@@ -19,6 +19,14 @@ const lcMove=(ctx,st)=>ctx.translate(+st.lyricDX||0,+st.lyricDY||0);
 const lcFlat=G=>G.flatMap(g=>g.lines);
 const W1=1080;
 
+/* always on the Text Messages card (preview + saved image): these are lyrics, not real texts */
+function lcChatDisclaimer(ctx,s){ const who=(s.artist||'the artist').slice(0,34), t='Not real messages from '+who+' \u00b7 these are song lyrics';
+  let fs=22; ctx.font=`600 ${fs}px Manrope, sans-serif`; while(fs>15&&ctx.measureText(t).width>860){ fs-=1; ctx.font=`600 ${fs}px Manrope, sans-serif`; }
+  const w=ctx.measureText(t).width+92, h=fs+26, x=(W1-w)/2, y=968-h;
+  ctx.save(); ctx.fillStyle='rgba(12,11,20,.92)'; roundRectPath(ctx,x,y,w,h,h/2); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=2; ctx.stroke();
+  const cx=x+30, cy=y+h/2; ctx.beginPath(); ctx.arc(cx,cy,fs*0.55,0,Math.PI*2); ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font=`800 ${Math.round(fs*0.72)}px Manrope, sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('i',cx,cy+1);
+  ctx.textAlign='left'; ctx.font=`600 ${fs}px Manrope, sans-serif`; ctx.fillStyle='rgba(255,255,255,.82)'; ctx.fillText(t,x+58,cy+1); ctx.textBaseline='alphabetic'; ctx.restore(); }
 const LCP={
 chat(ctx,s,st,G){ const bg=ctx.createLinearGradient(0,0,0,W1); bg.addColorStop(0,'#0c0b16'); bg.addColorStop(1,'#050509'); ctx.fillStyle=bg; ctx.fillRect(0,0,W1,W1);
   const gl=ctx.createRadialGradient(540,0,40,540,0,620); gl.addColorStop(0,'rgba(147,40,255,.32)'); gl.addColorStop(1,'rgba(147,40,255,0)'); ctx.fillStyle=gl; ctx.fillRect(0,0,W1,W1);
@@ -28,14 +36,14 @@ chat(ctx,s,st,G){ const bg=ctx.createLinearGradient(0,0,0,W1); bg.addColorStop(0
   const X=150, MAXW=700, TOP=290, AV=34, me=getComputedStyle(document.documentElement).getPropertyValue('--treesh-purple').trim()||'#9328ff';
   const lay=fs=>{ ctx.font=`500 ${fs}px Manrope, sans-serif`; let h=0; const out=G.map((g,gi)=>{ const showName=G.length>1||!!g.by; const bs=g.lines.map(t=>{ const rows=wrapCanvasText(ctx,[t],MAXW-56); const w=Math.min(MAXW,Math.max(...rows.map(r=>ctx.measureText(r).width))+56); return {rows,w,h:rows.length*fs*1.3+34}; });
       const gh=(showName?36:0)+bs.reduce((a,b)=>a+b.h,0)+(bs.length-1)*8; h+=gh+(gi?26:0); return {g,bs,showName}; }); return {out,h:h+92}; };
-  let fs=50, L=lay(fs); while(fs>22&&L.h>650){ fs-=2; L=lay(fs); }
-  ctx.save(); lcMove(ctx,st); let y=TOP+Math.max(0,(650-L.h)/2); lcBox(st,AV*2,y,MAXW+X-AV*2,L.h);
+  let fs=50, L=lay(fs); while(fs>22&&L.h>610){ fs-=2; L=lay(fs); }
+  ctx.save(); lcMove(ctx,st); let y=TOP+Math.max(0,(610-L.h)/2); lcBox(st,AV*2,y,MAXW+X-AV*2,L.h);
   L.out.forEach((o,gi)=>{ if(gi) y+=26; if(o.showName){ ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='600 24px Manrope, sans-serif'; ctx.fillText((o.g.face.artist||'Artist').slice(0,40),X+14,y+24); y+=36; }
     o.bs.forEach((b,bi)=>{ const last=bi===o.bs.length-1; ctx.save(); ctx.fillStyle='#2a2930'; ctx.beginPath(); const r=34, x=X, w=b.w, h=b.h; ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,last?10:r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=2; ctx.stroke(); ctx.restore();
       ctx.fillStyle='#fff'; ctx.font=`500 ${fs}px Manrope, sans-serif`; ctx.textBaseline='top'; b.rows.forEach((row,k)=>ctx.fillText(row,X+28,y+17+k*fs*1.3+fs*0.08)); ctx.textBaseline='alphabetic';
       if(last) lcAvatar(ctx,o.g.face,X-AV-16,y+b.h-AV,AV); y+=b.h+(last?0:8); }); });
   y+=22; ctx.fillStyle='#2a2930'; roundRectPath(ctx,X,y,128,64,32); ctx.fill(); [0,1,2].forEach(k=>{ ctx.beginPath(); ctx.arc(X+38+k*26,y+32,8,0,Math.PI*2); ctx.fillStyle=`rgba(255,255,255,${.35+k*.2})`; ctx.fill(); });
-  ctx.restore();
+  ctx.restore(); lcChatDisclaimer(ctx,s);
   ctx.fillStyle=me; ctx.font='800 22px Manrope, sans-serif'; ctx.fillText('T R E E S H   \u00b7   L Y R I C S',96,1030); ctx.textAlign='right'; ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='600 22px Manrope, sans-serif'; ctx.fillText(((s.title||'')+' \u00b7 '+(s.artist||'')).slice(0,46),984,1030); ctx.textAlign='left'; },
 neon(ctx,s,st,G){ ctx.fillStyle='#07020f'; ctx.fillRect(0,0,W1,W1); const hz=760;
   const sun=ctx.createRadialGradient(540,hz,10,540,hz,420); sun.addColorStop(0,'rgba(255,45,120,.45)'); sun.addColorStop(1,'rgba(255,45,120,0)'); ctx.fillStyle=sun; ctx.fillRect(0,0,W1,W1);
