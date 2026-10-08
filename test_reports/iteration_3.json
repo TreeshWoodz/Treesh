@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 3: Frontend-only verification of Sonoku<->Treesh wallet merge and accent-color theming. ALL 6 scenarios PASS. (1) Wallet award: playing /play/sonoko easy and spamming draw-pile until bust increased localStorage.treesh_stars.points by +2 with log entry {a:2, r:'Sonoku · Game played'}; Home chip (home-starlites) and Profile (profile-starlites) both show 102, and profile sub-label '2 earned in Sonoku' renders. (2) Legacy merge: seeding treesh_sonoku_v1={xp:100,starlites:40}, treesh_stars={points:500,log:[]} and reloading produced points=540 and starMerged=true; second reload stayed at 540 (idempotent). (3) Embedded parent: injected iframe loading /play/sonoko into parent that defines window.awardStars; playing the iframe game pushed exactly one call ([2,'Sonoku · Game played',{silent:true}]) into parent.__calls and the parent's localStorage.treesh_stars remained null (not written by iframe), confirming parent-bridge path. (4) Accent: treesh_accent=JSON.stringify('#22d3ee') -> --brand=#22d3ee, --brand-rgb='34 211 238', --brand-ink-rgb='11 15 25' (dark ink on light accent), home-play-now-button bg=rgb(34,211,238); only treesh_profile (no accent) -> --brand=#9328ff with white ink '255 255 255'; neither -> default yellow #ffcc00 (rgb(255,204,0)). Simulated StorageEvent for treesh_accent live-updated --brand to #22d3ee without reload. (5) Layout/no-scroll: /play/sonoko, /play/versus, /play/tutorial on 375x667, 390x844, 1920x800 all show draw-pile-button left of hand (drawX=8 mobile), call button right (callX=311 @375, 326 @390, 1272 @1920), discard-pile-top-card in HUD row (y~64, above hand y~552-729), and scrollHeight<=innerHeight on every combination (overflow=0 including the previously-flagged 375x667 Sonoko - the iPhone-SE overflow from iteration 2 is RESOLVED). (6) Regression smoke: /play/sudoku, /play/uno, /locker, /trophies, /leaderboard, /profile all load with 0 pageerrors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "treesh.js addStarlites correctly short-circuits to parent.awardStars when embedded same-origin; try/catch guards cross-origin access. Good.",
+    "progress.js mergeLegacyStarlites is idempotent via p.starMerged flag; saveProfile persists it. Verified reload-safe.",
+    "applyTreeshAccent uses relative luminance to pick ink color (threshold 0.6) producing dark ink on cyan (#22d3ee) and white ink on purple (#9328ff) - verified at runtime.",
+    "No console/page errors on any of the 6 regression routes.",
+    "Minor: addStarlites log reasons concatenate with ' · ' when multiple earnings fire in one commit; log entry per event still begins with 'Sonoku · ' prefix as required."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (6/6 scenarios pass)"},
+  "test_credentials": "N/A",
+  "seed_data_creation": "Only transient localStorage keys set during tests (treesh_stars, treesh_sonoku_v1, treesh_profile, treesh_accent); cleared between scenarios.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sonoko difficulty testids are 'sonoko-difficulty-{easy|normal|hard}-button' (not 'difficulty-*'); versus uses 'versus-difficulty-*-button'. Wallet merge path: addStarlites() detects window.parent.awardStars first (same-origin iframe) and writes treesh_stars localStorage otherwise. Legacy merge is guarded by profile.starMerged. The iPhone-SE (375x667) Sonoko overflow reported in iteration 2 is no longer reproducible (overflow=0 across all viewports).",
+  "rca of the issue": "N/A - no bugs found this iteration."
+}

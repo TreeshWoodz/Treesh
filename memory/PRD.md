@@ -28,6 +28,11 @@ Come up with an original game that mixes sudoku and uno together. Call it Sonoko
 - Treesh integration: save key `treesh_sonoku_v1` (synced by parent's Supabase backup since it starts with "treesh"), reads `treesh_profile` + `treesh_stars`, Profile page (/profile), Starlites (per game + trophy payouts), `summary` object for the parent. Parent patch at /app/parent/index.html (+ /app/parent/sonoku-bridge.js) registers Sonoku in GAME_DATA_SOURCES.
 - All gameplay screens fit viewport (h-dvh, BoardFit container-query board).
 
+## Iteration 3 (2026-06)
+- Bottom of game restructured: stacked draw pile left of hand, SONOKO! right, top card in HUD row (bigger board on mobile).
+- One Starlites wallet: Sonoku awards go to parent `treesh_stars` (via parent.awardStars when embedded, else same key); legacy Sonoku starlites merged once (`starMerged`). Parent bridge reports 0 separate game Starlites + reloads wallet on storage events.
+- Game UI accent follows the Treesh accent (`treesh_accent`, default #9328ff when a Treesh profile exists, yellow for guests) via `--brand` CSS vars / Tailwind `brand` color. Card colors unchanged.
+
 ## Backlog
 - P1: Tutorial walkthrough on first Sonoko game; pause menu
 - P1: Rate limiting for score submissions
