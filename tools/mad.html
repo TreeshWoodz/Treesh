@@ -701,6 +701,11 @@ input[type=datetime-local].input{min-height:50px}
 /* secure sign-in */
 .auth-box{margin-top:14px}
 #s-signin-box .field{margin-bottom:12px !important}
+.gh-btn{width:100%;justify-content:center;background:#f5f3ff;color:#0b0a10;border-color:transparent;font-weight:700}
+.gh-btn:hover:not(:disabled){background:#fff;transform:translateY(-1px)}
+.gh-btn:disabled{opacity:.45;cursor:not-allowed}
+.or-line{display:flex;align-items:center;gap:10px;margin:14px 0 12px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted,#8b8698)}
+.or-line::before,.or-line::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
 /* profile preview */
 #a-hero{display:none}
 .pp{margin:0 0 22px}
@@ -1259,12 +1264,15 @@ input[type=datetime-local].input{min-height:50px}
     <div class="drawer-body soft-scroll">
       <div class="set-sec">
         <h3><i data-lucide="shield-check"></i>Secure sign-in</h3>
-        <p>Your GitHub token lives only on the server (Netlify, as <code>GITHUB_TOKEN</code>). Sign in with your M.A.D. passcode and this device keeps a secure 30-day login that scripts can’t read. No token is ever saved on this device.</p>
+        <p>Your GitHub token lives only on the server (Netlify, as <code>GITHUB_TOKEN</code>). Sign in with your GitHub account (only approved accounts) or your M.A.D. passcode, and this device keeps a secure 30-day login that scripts can’t read. No token is ever saved on this device.</p>
         <div class="checks" id="s-auth" data-testid="settings-auth-status"></div>
         <div id="s-signin-box" class="auth-box">
+          <button type="button" class="btn btn-sm gh-btn" id="s-github" data-testid="settings-github-signin-btn"><i data-lucide="github"></i>Continue with GitHub</button>
+          <small class="hint" id="s-github-hint" hidden style="display:block;margin-top:8px" data-testid="settings-github-setup-hint">GitHub sign-in isn’t set up on the server yet. Add GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET in Netlify, then redeploy.</small>
+          <div class="or-line">or use your passcode</div>
           <div class="field">
             <label for="s-pass">Passcode</label>
-            <div class="with-btn"><input class="input" id="s-pass" type="password" placeholder="Your M.A.D. passcode" autocomplete="current-password" spellcheck="false" data-testid="settings-passcode-input"><button type="button" class="in-btn" id="s-eye" title="Show / hide" data-testid="settings-passcode-toggle"><i data-lucide="eye"></i></button></div>
+            <div class="with-btn"><input class="input" id="s-pass" type="password" placeholder="Your M.A.D. passcode" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" data-testid="settings-passcode-input"><button type="button" class="in-btn" id="s-eye" title="Show / hide" data-testid="settings-passcode-toggle"><i data-lucide="eye"></i></button></div>
           </div>
           <button type="button" class="btn btn-primary btn-sm" id="s-signin" data-testid="settings-signin-btn"><i data-lucide="log-in"></i>Sign in</button>
         </div>
@@ -1448,7 +1456,7 @@ async function authReq(method, body, path = '/session'){
   return d;
 }
 function setAuth(d){
-  state.auth = { signedIn: !!d.signedIn, expires: d.expires || null, error:'' };
+  state.auth = { signedIn: !!d.signedIn, expires: d.expires || null, login: d.login || '', oauth: !!d.oauth, error:'' };
   if (d.repo && d.repo.includes('/')) [cfg.owner, cfg.repo] = d.repo.split('/');
 }
 async function checkSession(){ try { setAuth(await authReq('GET')); } catch (e){ state.auth = { signedIn:false, expires:null, error:e.message }; } }
@@ -3737,9 +3745,11 @@ function openPrPanel(){
 
 /* ---------- sign-in activity ---------- */
 const SEEN_KEY = 'treesh_mad_activity_seen';
-const ACT = { signin:['Signed in','log-in'], wrong:['Wrong passcode','key-round'], locked:['Locked out','lock'] };
+const ACT = { signin:['Signed in','log-in'], wrong:['Wrong passcode','key-round'], locked:['Locked out','lock'], denied:['GitHub account not allowed','user-x'] };
 const actRow = e => {
-  const [lbl, ic] = ACT[e.result] || [e.result, 'info'], where = [e.city, e.country].filter(Boolean).join(', ') || 'Unknown location';
+  let [lbl, ic] = ACT[e.result] || [e.result, 'info'];
+  if (e.via === 'github'){ lbl = `${e.result === 'signin' ? 'Signed in with GitHub' : lbl} · @${esc(e.login || '?')}`; if (e.result === 'signin') ic = 'github'; }
+  const where = [e.city, e.country].filter(Boolean).join(', ') || 'Unknown location';
   return `<li class="act ${esc(e.result)}" data-testid="signin-activity-item"><span class="ai">${icon(ic)}</span><div><b data-testid="signin-activity-result">${lbl}</b>${e.current ? '<span class="me" data-testid="signin-activity-this-device">This device</span>' : ''}<small>${new Date(e.t).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })} · ${esc(where)}<br>${esc(e.device)} · IP ${esc(e.ip)}</small></div></li>`;
 };
 async function checkActivityAlert(){
@@ -3752,6 +3762,20 @@ async function checkActivityAlert(){
   } catch {}
 }
 
+function signinNotice(){
+  const q = new URLSearchParams(location.search), r = q.get('signin');
+  if (!r) return;
+  q.delete('signin'); history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '') + location.hash);
+  const msg = {
+    github: [state.auth.signedIn ? `Signed in with GitHub${state.auth.login ? ` as @${state.auth.login}` : ''}. This device stays signed in for 30 days.` : 'GitHub said yes, but this browser blocked the sign-in cookie. Try again or use your passcode.', state.auth.signedIn ? 'ok' : 'bad'],
+    denied: ['That GitHub account isn’t allowed in M.A.D. Sign in as TreeshWoodz.', 'bad'],
+    cancelled: ['GitHub sign-in was cancelled.', 'info'],
+    expired: ['GitHub sign-in timed out. Please try again.', 'bad'],
+    setup: ['GitHub sign-in isn’t set up on the server yet. Use your passcode for now.', 'bad'],
+    error: ['GitHub couldn’t confirm your account. Try again in a moment.', 'bad']
+  }[r];
+  if (msg) toast(msg[0], msg[1], 6000);
+}
 function reloadAll(){ updateConn(); loadRoster(); loadCatalog(); loadLyrics(); loadModels(); loadPosts(); }
 function openSettings(){
   const root = $('#drawer-root');
@@ -3765,9 +3789,9 @@ function openSettings(){
   const read = () => { const o = {}; Object.entries(map).forEach(([id, k]) => { o[k] = ($('#' + id).value || '').trim(); }); o.branch = o.branch || 'main'; return o; };
   const paintAuth = () => {
     const a = state.auth;
-    $('#s-auth').innerHTML = a.signedIn ? statusHtml('ok', 'shield-check', `Signed in on this device until ${new Date(a.expires).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' })}`, 'auth-status')
+    $('#s-auth').innerHTML = a.signedIn ? statusHtml('ok', 'shield-check', `Signed in${a.login ? ` as @${esc(a.login)}` : ''} on this device until ${new Date(a.expires).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' })}`, 'auth-status')
       : statusHtml(a.error ? 'bad' : 'warn', 'shield-alert', a.error || 'Not signed in on this device. Catalog is read-only.', 'auth-status');
-    $('#s-signin-box').hidden = a.signedIn; $('#s-signout').hidden = !a.signedIn; $('#s-activity').hidden = !a.signedIn; $('#s-repo-name').textContent = `${cfg.owner}/${cfg.repo}`; icons();
+    $('#s-signin-box').hidden = a.signedIn; $('#s-github').disabled = !a.oauth; $('#s-github-hint').hidden = !!a.oauth || !!a.error; $('#s-signout').hidden = !a.signedIn; $('#s-activity').hidden = !a.signedIn; $('#s-repo-name').textContent = `${cfg.owner}/${cfg.repo}`; icons();
     if (a.signedIn) loadActivity();
   };
   let actAll = false, actData = null;
@@ -3797,6 +3821,7 @@ function openSettings(){
     b.disabled = false; paintAuth();
   };
   $('#s-signin').addEventListener('click', signIn);
+  $('#s-github').addEventListener('click', () => { location.href = `${API}/oauth/start?return=${encodeURIComponent(location.pathname)}`; });
   $('#s-pass').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); signIn(); } });
   $('#s-signout').addEventListener('click', async () => {
     try { setAuth(await authReq('DELETE')); } catch { state.auth = { signedIn:false, expires:null, error:'' }; }
@@ -3931,7 +3956,7 @@ function boot(){
   if (d0.savedAt) toast(`Picked up your draft from ${when(d0.savedAt)}.`, 'info', 3600);
   if (document.fonts) document.fonts.ready.then(moveInd);
   if (hadOldToken){ saveCfg(); toast('Your old saved GitHub token was removed from this device. Sign in with your passcode instead.', 'info', 6000); }
-  checkSession().then(() => { reloadAll(); checkActivityAlert(); });
+  checkSession().then(() => { reloadAll(); checkActivityAlert(); signinNotice(); });
 }
 boot();
 })();
