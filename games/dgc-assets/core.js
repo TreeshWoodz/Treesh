@@ -51,32 +51,39 @@ const Treesh = {
 /* ---------- Game save ---------- */
 const SAVE_KEY = 'dgc_save_v1';
 function defSave() {
-  return { v: 1, inv: {}, char: 'mara', chars: ['mara', 'eli'], look: {}, owned: ['tint_none', 'tint_accent', 'charm_none', 'light_warm', 'light_accent'], ach: {},
+  return { v: 1, inv: {}, trait: 'steady', traits: ['steady', 'soft'], look: { charm: 'charm_none', light: 'light_warm' }, owned: ['charm_none', 'light_warm', 'light_accent'], ach: {}, diff: 'normal',
     stats: { runs: 0, deaths: 0, rounds: 0, escapes: 0, best: { classic: 0, hush: 0, lullaby: 0, impress: 0 }, earned: 0, spent: 0, items: 0, close: 0, rooms: {}, imp: {}, playMs: 0, bought: 0, bestBank: 0 },
-    set: { vol: 0.8, sound: true, flash: true, shake: true, haptic: true, taunts: true }, mode: 'classic', seenStory: false, killer: 'hush', daily: { key: '', played: false, best: 0, streak: 0, last: '' } };
+    set: { vol: 0.8, sound: true, flash: true, shake: true, haptic: true, taunts: true, music: true }, mode: 'classic', seenStory: false, killer: 'hush', daily: { key: '', played: false, best: 0, streak: 0, last: '' } };
 }
 function loadSave() {
   const d = defSave(), s = LS.get(SAVE_KEY, null); if (!s || typeof s !== 'object') return d;
   const st = Object.assign(d.stats, s.stats || {}); st.best = Object.assign(defSave().stats.best, (s.stats || {}).best || {});
-  return Object.assign(d, s, { stats: st, set: Object.assign(d.set, s.set || {}), daily: Object.assign(d.daily, s.daily || {}) });
+  const out = Object.assign(d, s, { stats: st, set: Object.assign(d.set, s.set || {}), daily: Object.assign(d.daily, s.daily || {}) });
+  const MAP = { mara: 'steady', eli: 'soft', theo: 'quick', june: 'ears', rosa: 'sixth' };
+  if (Array.isArray(s.chars) && !s.traits) { out.traits = [...new Set(['steady', 'soft'].concat(s.chars.map(c => MAP[c]).filter(Boolean)))]; out.trait = MAP[s.char] || 'steady'; }
+  if (!out.look || out.look.light === undefined) { const old = (s.look && s.char && s.look[s.char]) || {}; out.look = { charm: old.charm || 'charm_none', light: old.light || 'light_warm' }; }
+  delete out.chars; delete out.char; return out;
 }
 let S = loadSave();
 function save() { LS.set(SAVE_KEY, S); }
 
 /* ---------- Data ---------- */
-const CHARS = [
-  { id: 'mara', name: 'Mara Quinn', role: 'The Nurse', perk: 'Steady Hands', desc: 'Stitching and scrubbing go 25% faster.', cost: 0, mods: { speed: { stitch: 1.25, scrub: 1.25 } },
-    bio: 'Night-shift nurse. Took a wrong turn on the county road and woke up in his cellar.' },
-  { id: 'eli', name: 'Eli Brandt', role: 'The Quiet One', perk: 'Soft Spoken', desc: 'Voice limit +25%. Noise builds 30% slower. Holds breath 20% longer.', cost: 0, mods: { voice: 1.25, noise: 0.7, oxy: 1.2 },
-    bio: 'Seventeen. Says almost nothing. That might keep him alive.' },
-  { id: 'theo', name: 'Theo Banks', role: 'The Mechanic', perk: 'Quick Fingers', desc: 'Lockpicking and key-stealing go 30% faster.', cost: 300, mods: { speed: { lockpick: 1.3, keys: 1.3 } },
-    bio: 'Fixes engines for a living. Locks are just engines that hate you.' },
-  { id: 'june', name: 'June Sato', role: 'The Planner', perk: 'Sharp Ears', desc: 'Warnings last 25% longer. +4s on every candle.', cost: 450, mods: { warn: 1.25, time: 4 },
-    bio: 'Counted his footsteps for three nights. She knows his rhythm.' },
-  { id: 'rosa', name: 'Grandma Rosa', role: 'The Medium', perk: 'Sixth Sense', desc: 'Sees through his fake-outs. Earns 20% more Starlites.', cost: 800, mods: { seeFakes: true, stars: 1.2 },
-    bio: 'She has met men like him before. She is still here. They are not.' }
+const TRAITS = [
+  { id: 'steady', name: 'Steady Hands', icon: 'hand', cost: 0, desc: 'Stitching and scrubbing go 25% faster.', mods: { speed: { stitch: 1.25, scrub: 1.25 } } },
+  { id: 'soft', name: 'Soft Spoken', icon: 'volume-1', cost: 0, desc: 'Voice limit +25%. Noise builds 30% slower. Hold your breath 20% longer.', mods: { voice: 1.25, noise: 0.7, oxy: 1.2 } },
+  { id: 'quick', name: 'Quick Fingers', icon: 'key-round', cost: 300, desc: 'Lockpicking and key-stealing go 30% faster.', mods: { speed: { lockpick: 1.3, keys: 1.3 } } },
+  { id: 'ears', name: 'Sharp Ears', icon: 'ear', cost: 450, desc: 'Warnings last 25% longer. +4s on every candle.', mods: { warn: 1.25, time: 4 } },
+  { id: 'sixth', name: 'Sixth Sense', icon: 'eye', cost: 800, desc: 'See through his fake-outs. Earn 20% more Starlites.', mods: { seeFakes: true, stars: 1.2 } }
 ];
-const charById = id => CHARS.find(c => c.id === id) || CHARS[0];
+const traitById = id => TRAITS.find(t => t.id === id) || TRAITS[0];
+const DIFFS = [
+  { id: 'easy', name: 'Restless', icon: 'moon', desc: 'Longer warnings, longer candles, fewer fake-outs. 0.75\u00d7 Starlites.', warn: 1.4, time: 10, fake: -0.15, stars: 0.75, imp: 1.2 },
+  { id: 'normal', name: 'Nightmare', icon: 'skull', desc: 'The way Mr. Hush intended. 1\u00d7 Starlites.', warn: 1, time: 0, fake: 0, stars: 1, imp: 1 },
+  { id: 'hard', name: 'Terror', icon: 'eye-off', desc: 'No warning badge: read his body and listen. Shorter warnings, more fake-outs. 1.5\u00d7 Starlites.', warn: 0.8, time: 0, fake: 0.1, stars: 1.5, imp: 0.9, hideBadge: true },
+  { id: 'unseen', name: 'Unseen', icon: 'ghost', desc: 'Audio only. The killer view is pitch black, no badge, no candle numbers, no Rosary. 2.5\u00d7 Starlites.', warn: 0.7, time: 0, fake: 0.12, stars: 2.5, imp: 0.8, hideBadge: true, hideView: true, noRosary: true, unlock: 'hard5' }
+];
+const diffById = id => DIFFS.find(d => d.id === id) || DIFFS[1];
+const diffUnlocked = d => !d.unlock || !!S.ach[d.unlock];
 
 const ITEMS = [
   { id: 'bell', name: 'Music Box', icon: 'music', cost: 60, type: 'active', desc: 'Wind it up. He wanders off to find it and stays away 4 extra seconds.' },
@@ -90,13 +97,6 @@ const ITEMS = [
 const itemById = id => ITEMS.find(i => i.id === id);
 
 const COSMETICS = [
-  { id: 'tint_none', kind: 'tint', name: 'Original', cost: 0, val: 'transparent' },
-  { id: 'tint_accent', kind: 'tint', name: 'Treesh Accent', cost: 0, val: 'var(--acc)' },
-  { id: 'tint_crimson', kind: 'tint', name: 'Crimson', cost: 40, val: '#b3121f' },
-  { id: 'tint_teal', kind: 'tint', name: 'Drowned Teal', cost: 40, val: '#0f8a8a' },
-  { id: 'tint_ash', kind: 'tint', name: 'Ash', cost: 40, val: '#8d8d8d' },
-  { id: 'tint_gold', kind: 'tint', name: 'Gilded', cost: 60, val: '#c3ab69' },
-  { id: 'tint_toxic', kind: 'tint', name: 'Toxic', cost: 60, val: '#7bd400' },
   { id: 'charm_none', kind: 'charm', name: 'No charm', cost: 0, val: '' },
   { id: 'charm_rabbit', kind: 'charm', name: 'Rabbit\u2019s Foot', cost: 50, val: 'rabbit' },
   { id: 'charm_locket', kind: 'charm', name: 'Locket', cost: 50, val: 'heart' },
@@ -111,8 +111,8 @@ const COSMETICS = [
   { id: 'light_uv', kind: 'light', name: 'Blacklight', cost: 60, val: '160,80,255' }
 ];
 const cosById = id => COSMETICS.find(c => c.id === id);
-function lookOf(cid) { return Object.assign({ tint: 'tint_none', charm: 'charm_none', light: 'light_warm', title: '' }, S.look[cid] || {}); }
-function lightRGB(cid) { const v = cosById(lookOf(cid).light).val; return v === 'acc' ? getComputedStyle(document.documentElement).getPropertyValue('--acc-rgb').trim() : v; }
+function lookOf() { return Object.assign({ charm: 'charm_none', light: 'light_warm' }, S.look || {}); }
+function lightRGB() { const v = (cosById(lookOf().light) || cosById('light_warm')).val; return v === 'acc' ? getComputedStyle(document.documentElement).getPropertyValue('--acc-rgb').trim() : v; }
 
 const MODES = [
   { id: 'classic', name: 'Nightfall', tag: 'Classic', icon: 'moon', voice: false, desc: 'Six rooms. One killer. Only work while his back is turned.' },
@@ -135,7 +135,7 @@ const ACH = [
   { id: 'close10', name: 'Nerves of Steel', desc: 'Pull off 10 close calls.', tier: 'silver', icon: 'heart-pulse' },
   { id: 'wire', name: 'Down to the Wire', desc: 'Finish a room with under 2 seconds of candle left.', tier: 'silver', icon: 'flame' },
   { id: 'clean5', name: 'Bare Hands', desc: 'Survive 5 nights without using an item.', tier: 'silver', icon: 'hand' },
-  { id: 'tour', name: 'House Tour', desc: 'Clear all six rooms at least once.', tier: 'silver', icon: 'house' },
+  { id: 'tour', name: 'House Tour', desc: 'Clear every room at least once.', tier: 'silver', icon: 'house' },
   { id: 'master', name: 'Master of the House', desc: 'Clear every room 10 times.', tier: 'gold', icon: 'crown' },
   { id: 'shopper', name: 'Window Shopper', desc: 'Buy something in the shop.', tier: 'bronze', icon: 'shopping-bag' },
   { id: 'saved', name: 'Saved by Grace', desc: 'Let the Rosary save your life.', tier: 'bronze', icon: 'cross' },
@@ -143,13 +143,16 @@ const ACH = [
   { id: 'lull3', name: 'Perfect Pitch', desc: 'Survive 3 nights in Lullaby.', tier: 'silver', icon: 'music-2' },
   { id: 'imp1', name: 'Barnyard Debut', desc: 'Pass your first impression.', tier: 'bronze', icon: 'drama' },
   { id: 'impall', name: 'A Thousand Voices', desc: 'Pass every impression at least once.', tier: 'gold', icon: 'theater' },
-  { id: 'dressed', name: 'Dressed to Die', desc: 'Customize a survivor.', tier: 'bronze', icon: 'shirt' },
-  { id: 'crew', name: 'The Whole Crew', desc: 'Unlock every survivor.', tier: 'gold', icon: 'users' },
+  { id: 'dressed', name: 'Dressed to Die', desc: 'Equip a lucky charm or a new flashlight.', tier: 'bronze', icon: 'shirt' },
+  { id: 'crew', name: 'Jack of All Trades', desc: 'Unlock every trait.', tier: 'gold', icon: 'users' },
   { id: 'star500', name: 'Starlit', desc: 'Earn 500 Starlites from this game.', tier: 'gold', icon: 'sparkles' },
   { id: 'runs25', name: 'Can\u2019t Stop', desc: 'Play 25 runs.', tier: 'silver', icon: 'repeat' },
   { id: 'bride_unlock', name: 'Something Else Is Listening', desc: 'Survive night 10 and wake the Hollow Bride.', tier: 'silver', icon: 'ear' },
   { id: 'bride5', name: 'Quiet as the Grave', desc: 'Survive 5 nights against the Hollow Bride.', tier: 'gold', icon: 'volume-x' },
   { id: 'daily1', name: 'Night Shift', desc: 'Finish an official Nightly Challenge.', tier: 'bronze', icon: 'calendar-days' },
+  { id: 'swift', name: 'Swift Hands', desc: 'Clear a room with more than half the candle left.', tier: 'bronze', icon: 'zap' },
+  { id: 'hard5', name: 'Terror Incarnate', desc: 'Survive 5 nights on Terror difficulty. Unlocks Unseen.', tier: 'gold', icon: 'eye-off' },
+  { id: 'unseen3', name: 'Eyes Wide Shut', desc: 'Survive 3 nights on Unseen difficulty.', tier: 'platinum', icon: 'ghost' },
   { id: 'daily3', name: 'Regular Guest', desc: 'Play the Nightly Challenge 3 nights in a row.', tier: 'silver', icon: 'calendar-check' }
 ];
 
@@ -184,10 +187,10 @@ const dailyPlayedToday = () => S.daily.key === dailyInfo().key && S.daily.played
 
 /* ---------- Spoken taunts (pre-generated voice lines) ---------- */
 const TAUNTS = {
-  hush: { caught: ['hush_c1', 'hush_c2', 'hush_c3', 'hush_c4', 'hush_c5', 'hush_c6'], time: ['hush_t1'], impress: ['hush_i1', 'hush_i2'], escape: ['hush_e1', 'hush_e2', 'hush_e3', 'hush_e4'] },
-  bride: { caught: ['bride_c1', 'bride_c2', 'bride_c3'], escape: ['bride_e1'] }
+  hush: { caught: ['hush_c1', 'hush_c2', 'hush_c3', 'hush_c4', 'hush_c5', 'hush_c6'], time: ['hush_t1', 'hush_t2'], impress: ['hush_i1', 'hush_i2'], escape: ['hush_e1', 'hush_e2', 'hush_e3', 'hush_e4'] },
+  bride: { caught: ['bride_c1', 'bride_c2', 'bride_c3', 'bride_c4'], time: ['bride_t1', 'bride_t2'], escape: ['bride_e1', 'bride_e2'] }
 };
-const TAUNT_TEXT = { hush_c1: 'I see you.', hush_c2: 'There you are\u2026', hush_c3: 'Shhh\u2026 it\u2019s over now.', hush_c4: 'You moved. I told you\u2026 not to move.', hush_c5: 'Found you.', hush_c6: 'Hush now. Hush.', hush_t1: 'The candle\u2019s out. So are you.', hush_i1: 'That\u2026 was pathetic.', hush_i2: 'Do it again. Oh, wait. You can\u2019t.', hush_e1: 'Run, little guest. I\u2019ll be waiting.', hush_e2: 'Leaving so soon? Come back tomorrow night.', hush_e3: 'Go on. The door was never locked.', hush_e4: 'I\u2019ll keep your room\u2026 just as you left it.', bride_c1: 'I heard you.', bride_c2: 'Such a loud\u2026 little heart.', bride_c3: 'Shhh. Stay with me\u2026 forever.', bride_e1: 'I\u2019ll listen for you\u2026 always.' };
+const TAUNT_TEXT = { hush_c1: 'I see you.', hush_c2: 'There you are\u2026', hush_c3: 'Shhh\u2026 it\u2019s over now.', hush_c4: 'You moved. I told you\u2026 not to move.', hush_c5: 'Found you.', hush_c6: 'Hush now. Hush.', hush_t1: 'The candle\u2019s out. So are you.', hush_i1: 'That\u2026 was pathetic.', hush_i2: 'Do it again. Oh, wait. You can\u2019t.', hush_e1: 'Run, little guest. I\u2019ll be waiting.', hush_e2: 'Leaving so soon? Come back tomorrow night.', hush_e3: 'Go on. The door was never locked.', hush_e4: 'I\u2019ll keep your room\u2026 just as you left it.', bride_c1: 'I heard you.', bride_c2: 'Such a loud\u2026 little heart.', bride_c3: 'Shhh. Stay with me\u2026 forever.', bride_e1: 'I\u2019ll listen for you\u2026 always.', bride_c4: 'Shhh\u2026 I can hear you thinking.', bride_t1: 'The candle died, darling. I never needed the light.', bride_t2: 'Darkness changes nothing for me\u2026 but everything for you.', bride_e2: 'Go, then. I will hear your heart from miles away.', hush_t2: 'No more light. Only me.' };
 function pickTaunt(killer, kind) { const t = TAUNTS[killer] || TAUNTS.hush, pool = t[kind] || t.caught; return pick(pool); }
 const RANKS = [[0, 'Prey'], [3, 'Hider'], [6, 'Survivor'], [10, 'Phantom'], [15, 'Nightmare'], [20, 'The Unseen']];
 function rankOf(best) { let r = RANKS[0][1]; RANKS.forEach(([n, t]) => { if (best >= n) r = t; }); return r; }
@@ -217,7 +220,7 @@ const Sfx = {
   thump(v = 0.5, delay = 0) { this.tone(70, 0.16, 'sine', v, 38, delay); this.noise(0.08, 'lowpass', 160, v * 0.4, 1, delay); },
   heartbeat(dt, bpm) {
     if (!bpm) return; this.heartT -= dt;
-    if (this.heartT <= 0) { const v = clamp(0.18 + (bpm - 60) / 160, 0.18, 0.7); this.thump(v); this.thump(v * 0.7, 0.14); this.heartT = 60 / bpm; }
+    if (this.heartT <= 0) { const v = clamp(0.18 + (bpm - 60) / 160, 0.18, 0.7); this.thump(v); this.thump(v * 0.7, 0.14); this.heartT = 60 / bpm; if (bpm >= 150 && window.Pad) Pad.rumble(60, 0.3); }
   },
   step(v = 0.35) { this.noise(0.12, 'lowpass', 260, v); this.tone(55, 0.12, 'sine', v * 0.6, 40); },
   creak() { this.tone(240, 0.5, 'sawtooth', 0.05, 110); this.noise(0.4, 'bandpass', 700, 0.05, 8); },
@@ -259,14 +262,52 @@ const Sfx = {
   async speak(id, killer) {
     if (!S.set.taunts) return; const ac = this.ctx(), buf = await this.loadVoice(id); if (!ac || !buf) return;
     if (!this.verb) { const len = ac.sampleRate * 2.4, ir = ac.createBuffer(2, len, ac.sampleRate); for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); } this.verb = ac.createConvolver(); this.verb.buffer = ir; const vg = ac.createGain(); vg.gain.value = 0.55; this.verb.connect(vg); vg.connect(this.master); }
-    const src = ac.createBufferSource(), hp = ac.createBiquadFilter(), g = ac.createGain();
-    src.buffer = buf; src.playbackRate.value = killer === 'bride' ? 0.94 : 0.86; hp.type = 'highpass'; hp.frequency.value = killer === 'bride' ? 260 : 120; g.gain.value = 1.5;
-    src.connect(hp); hp.connect(g); g.connect(this.master); g.connect(this.verb); src.start();
+    const src = ac.createBufferSource(), hp = ac.createBiquadFilter(), g = ac.createGain(), t = ac.currentTime, bride = killer === 'bride';
+    src.buffer = buf; src.playbackRate.value = bride ? 1.0 : 0.84; hp.type = 'highpass'; hp.frequency.value = bride ? 320 : 90; g.gain.value = bride ? 1.1 : 1.7;
+    src.connect(hp); hp.connect(g); g.connect(this.master); src.start(t);
+    if (bride) {
+      const s2 = ac.createBufferSource(), g2 = ac.createGain(), trem = ac.createOscillator(), tg = ac.createGain(), wet = ac.createGain();
+      s2.buffer = buf; s2.playbackRate.value = 1.018; g2.gain.value = 0.55; s2.connect(g2); g2.connect(hp); s2.start(t + 0.035);
+      trem.frequency.value = 5.5; tg.gain.value = 0.35; trem.connect(tg); tg.connect(g.gain); trem.start(t); trem.stop(t + buf.duration + 0.5);
+      wet.gain.value = 1.6; g.connect(wet); wet.connect(this.verb);
+    } else { const lp = ac.createBiquadFilter(), wet = ac.createGain(); lp.type = 'lowshelf'; lp.frequency.value = 220; lp.gain.value = 6; hp.disconnect(); hp.connect(lp); lp.connect(g); wet.gain.value = 0.35; g.connect(wet); wet.connect(this.verb); }
     this.noise(buf.duration * 1.1, 'bandpass', 3800, 0.03, 1.5);
+  },
+  music: null,
+  menuMusic(on) {
+    const ac = this.ctx(); if (!ac) return;
+    if (!on || !S.set.music) { if (this.music) { const m = this.music; this.music = null; clearInterval(m.timer); m.g.gain.setTargetAtTime(0.0001, ac.currentTime, 0.4); setTimeout(() => m.g.disconnect(), 2500); } return; }
+    if (this.music) return;
+    const g = ac.createGain(), lp = ac.createBiquadFilter(); g.gain.value = 0.0001; g.gain.setTargetAtTime(0.55, ac.currentTime, 1.2); lp.type = 'lowpass'; lp.frequency.value = 3400; g.connect(lp); lp.connect(this.master);
+    const m = { g, t0: ac.currentTime, next: ac.currentTime + 0.4, i: 0 }; this.music = m; m.timer = setInterval(() => this.musicTick(), 90);
+  },
+  musicTick() {
+    const m = this.music, ac = this.ac; if (!m) return;
+    const d = Math.min(1, (ac.currentTime - m.t0) / 150); this.detune = d;
+    while (m.next < ac.currentTime + 0.35) {
+      const n = LULLABY[m.i % LULLABY.length]; m.i++;
+      const beat = 0.34 * (1 + d * 0.6) * (1 + (Math.random() - 0.5) * d * 0.3);
+      if (n[0] && !(d > 0.4 && Math.random() < d * 0.12)) {
+        const c = d * (Math.sin(m.i * 1.7) * 45 + (Math.random() - 0.5) * 80) - d * 60;
+        this.mbNote(n[0], m.next, c, d, 1);
+        if (d > 0.7 && Math.random() < 0.1) this.mbNote(n[0], m.next + beat * 0.5, c - 35, d, 0.7);
+      }
+      if (m.i % 8 === 1) this.mbNote((n[0] || 69) - 24, m.next, -d * 90, d, 0.6);
+      m.next += beat * n[1];
+    }
+  },
+  mbNote(midi, t, cents, d, v) {
+    const ac = this.ac, f = 440 * Math.pow(2, (midi - 69) / 12), o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain(), g2 = ac.createGain();
+    o.type = 'triangle'; o2.type = 'sine'; o.frequency.value = f; o2.frequency.value = f * 2.01; o.detune.setValueAtTime(cents, t); o2.detune.setValueAtTime(cents * 1.3, t);
+    if (d > 0.2) o.detune.linearRampToValueAtTime(cents - d * 45, t + 1);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.085 * v, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+    g2.gain.value = 0.3; o.connect(g); o2.connect(g2); g2.connect(g); g.connect(this.music.g); o.start(t); o2.start(t); o.stop(t + 1.6); o2.stop(t + 1.6);
   },
   musicBox() { const sc = [523, 494, 440, 392, 440, 494, 523, 392]; sc.forEach((f, i) => this.tone(f, 0.5, 'triangle', 0.06, null, i * 0.32)); }
 };
-function haptic(ms) { try { if (S.set.haptic && navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+function haptic(ms, str = 0.5) { if (!S.set.haptic) return; try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} if (window.Pad) Pad.rumble(Array.isArray(ms) ? ms.reduce((a, b) => a + b, 0) : ms, str); }
+
+const LULLABY = [[76, 1], [79, 1], [76, 1], [72, 1], [74, 1], [76, 1], [74, 2], [72, 1], [74, 1], [76, 1], [69, 1], [71, 2], [0, 2], [76, 1], [79, 1], [81, 1], [79, 1], [76, 1], [74, 1], [72, 2], [71, 1], [69, 1], [71, 1], [72, 1], [69, 3], [0, 1]];
 
 /* ---------- Toasts ---------- */
 function toast(title, sub = '', kind = '') {
@@ -288,8 +329,8 @@ function checkMetaAch() {
   const st = S.stats;
   if (st.earned >= 500) unlock('star500');
   if (st.runs >= 25) unlock('runs25');
-  if (CHARS.every(c => S.chars.includes(c.id))) unlock('crew');
-  const rooms = ['lockpick', 'dial', 'scrub', 'stitch', 'keys', 'closet'];
+  if (TRAITS.every(t => S.traits.includes(t.id))) unlock('crew');
+  const rooms = CLASSIC_ROOMS;
   if (rooms.every(r => (st.rooms[r] || 0) >= 1)) unlock('tour');
   if (rooms.every(r => (st.rooms[r] || 0) >= 10)) unlock('master');
   if (bestNightAll() >= 10) unlock('bride_unlock');

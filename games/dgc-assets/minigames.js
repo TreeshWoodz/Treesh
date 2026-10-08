@@ -160,4 +160,85 @@ MINIS.closet = {
     };
   }
 };
-const CLASSIC_ROOMS = ['lockpick', 'dial', 'scrub', 'stitch', 'keys', 'closet'];
+
+MINIS.tiptoe = {
+  id: 'tiptoe', name: 'The Long Hallway', room: 'room_hall', icon: 'footprints', noBtn: true,
+  hint: 'Tiptoe down the hall: alternate LEFT and RIGHT feet (tap the feet, or \u2190 \u2192 / A D). The same foot twice makes the boards creak. Freeze when he turns.',
+  mount(el, ctx) {
+    const N = 16 + Math.min(12, ctx.night); let steps = 0, last = 0, lastAt = -9;
+    el.innerHTML = `<div class="mg mg-tip"><div class="tip-hall" data-testid="mg-tiptoe-hall">${'<i></i>'.repeat(12)}<b id="tp-me"></b></div><p class="mg-cap"><b id="tp-n">0</b>/${N} steps \u00b7 next: <b id="tp-next">either foot</b></p>
+      <div class="tip-feet"><button class="tip-foot" data-f="1" data-testid="tiptoe-left"><i data-lucide="footprints"></i>Left</button><button class="tip-foot" data-f="2" data-testid="tiptoe-right"><i data-lucide="footprints"></i>Right</button></div></div>`;
+    icons();
+    const press = f => {
+      if (now() - lastAt < 0.16) return;
+      if (f === last) { lastAt = now(); Sfx.creak(); Sfx.tone(90, 0.4, 'sawtooth', 0.12, 60); haptic(90, 0.6); ctx.forceTurn(0.4); const h = $('.tip-hall', el); h.classList.remove('bad'); void h.offsetWidth; h.classList.add('bad'); return; }
+      last = f; steps++; lastAt = now(); Sfx.step(0.07); ctx.add(100 / N * 0.999); if (steps >= N) ctx.add(1);
+      $('#tp-n', el).textContent = steps; $('#tp-next', el).textContent = f === 1 ? 'RIGHT' : 'LEFT'; $('#tp-me', el).style.bottom = (steps / N * 82) + '%';
+      $$('.tip-foot', el).forEach(b => b.classList.toggle('next', +b.dataset.f !== f));
+    };
+    el.addEventListener('pointerdown', e => { const b = e.target.closest('.tip-foot'); if (b) { e.preventDefault(); press(+b.dataset.f); } });
+    ctx.onKey = k => { k = k.toLowerCase(); if (k === 'arrowleft' || k === 'a') press(1); if (k === 'arrowright' || k === 'd') press(2); };
+    return { update() {}, isActive: () => now() - lastAt < 0.35 };
+  }
+};
+
+MINIS.safe = {
+  id: 'safe', name: 'His Study', room: 'room_safe', icon: 'vault', noBtn: true,
+  hint: 'Crack his safe. Hold \u25c0 or \u25b6 (or \u2190 \u2192) to spin the dial. Tap to nudge one notch. Stop exactly on each number and stay still until it clicks.',
+  mount(el, ctx) {
+    const len = 3 + (ctx.night >= 6 ? 1 : 0), combo = Array.from({ length: len }, () => Math.floor(mr(0, 40))); let ang = Math.floor(mr(0, 40)), dir = 0, held = 0, idx = 0, still = 0, lastN = -1;
+    el.innerHTML = `<div class="mg mg-safe"><div class="sf-combo" data-testid="mg-safe-combo">${combo.map((c, i) => `<span data-c="${i}">${String(c).padStart(2, '0')}</span>`).join('')}</div>
+      <div class="sf-dial"><i class="sf-ptr"></i><div class="sf-face" id="sf-face">${Array.from({ length: 40 }, (_, i) => `<i style="transform:rotate(${i * 9}deg)" class="${i % 5 ? '' : 'big'}">${i % 5 ? '' : `<b>${i}</b>`}</i>`).join('')}</div><b class="sf-num" id="sf-num" data-testid="mg-safe-number">00</b></div>
+      <div class="tip-feet"><button class="tip-foot" data-d="-1" data-testid="safe-left"><i data-lucide="rotate-ccw"></i></button><button class="tip-foot" data-d="1" data-testid="safe-right"><i data-lucide="rotate-cw"></i></button></div></div>`;
+    icons();
+    const start = d => { if (dir) return; dir = d; held = 0; ang = (Math.round(ang) + d + 40) % 40; Sfx.tick(); }, stop = () => { dir = 0; };
+    el.addEventListener('pointerdown', e => { const b = e.target.closest('.tip-foot'); if (b) { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) {} start(+b.dataset.d); } });
+    ['pointerup', 'pointercancel'].forEach(ev => el.addEventListener(ev, stop));
+    ctx.onKey = k => { if (k === 'ArrowLeft' || k === 'a') start(-1); if (k === 'ArrowRight' || k === 'd') start(1); };
+    ctx.onKeyUp = k => { if (/^(ArrowLeft|ArrowRight|a|d)$/.test(k)) stop(); };
+    return {
+      update(dt) {
+        if (dir) { held += dt; if (held > 0.25) ang = (ang + dir * 8 * ctx.speed() * dt + 40) % 40; still = 0; }
+        const cur = Math.round(ang) % 40; if (cur !== lastN) { lastN = cur; if (dir) Sfx.tick(); }
+        if (!dir && idx < len) { if (cur === combo[idx]) { still += dt; if (still > 0.45) { still = 0; const sp = el.querySelector(`[data-c="${idx}"]`); if (sp) sp.classList.add('ok'); idx++; Sfx.lock(); ctx.add(100 / len * 0.999); if (idx >= len) ctx.add(1); } } else still = 0; }
+        $$('[data-c]', el).forEach((sp, i) => sp.classList.toggle('cur', i === idx));
+        $('#sf-face', el).style.transform = `rotate(${-ang * 9}deg)`; $('#sf-num', el).textContent = String(cur).padStart(2, '0');
+        $('#sf-num', el).classList.toggle('hit', idx < len && cur === combo[idx]);
+      },
+      isActive: () => dir !== 0
+    };
+  }
+};
+
+MINIS.radio = {
+  id: 'radio', name: 'The Attic Radio', room: 'room_radio', icon: 'radio', verb: 'Hold to transmit',
+  hint: 'Drag the tuner (or hold \u2190 \u2192) until the static clears, then HOLD transmit to send a mayday. He can hear you tuning, and the signal drifts.',
+  mount(el, ctx) {
+    let f = mr(5, 95), tf = mr(10, 90); while (Math.abs(f - tf) < 25) f = mr(5, 95);
+    let dir = 0, lastTune = -9, drift = 6, bt = 0; const tol = Math.max(2, 4 - ctx.night * 0.12), rate = 100 / (11 + ctx.night * 0.4);
+    el.innerHTML = `<div class="mg mg-radio"><div class="rd-scale" id="rd-sc" data-testid="mg-radio-tuner">${Array.from({ length: 21 }, (_, i) => `<i>${i % 5 ? '' : `<b>${88 + i}</b>`}</i>`).join('')}<em id="rd-ndl"></em></div>
+      <div class="lu-row"><span>Signal</span><div class="meter"><i id="rd-sig" data-testid="mg-radio-signal"></i></div></div><p class="mg-cap" id="rd-c">Find the frequency.</p>
+      <div class="tip-feet"><button class="tip-foot" data-d="-1" data-testid="radio-left"><i data-lucide="chevron-left"></i></button><button class="tip-foot" data-d="1" data-testid="radio-right"><i data-lucide="chevron-right"></i></button></div></div>`;
+    icons(); const sc = $('#rd-sc', el); let drag = false;
+    const setF = x => { const b = sc.getBoundingClientRect(); f = clamp((x - b.left) / b.width * 100, 0, 100); lastTune = now(); };
+    sc.addEventListener('pointerdown', e => { e.preventDefault(); drag = true; try { sc.setPointerCapture(e.pointerId); } catch (x) {} setF(e.clientX); });
+    sc.addEventListener('pointermove', e => { if (drag) setF(e.clientX); }); ['pointerup', 'pointercancel'].forEach(ev => sc.addEventListener(ev, () => drag = false));
+    el.addEventListener('pointerdown', e => { const b = e.target.closest('.tip-foot'); if (b) { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) {} dir = +b.dataset.d; } });
+    ['pointerup', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => dir = 0));
+    ctx.onKey = k => { if (k === 'ArrowLeft' || k === 'a') dir = -1; if (k === 'ArrowRight' || k === 'd') dir = 1; };
+    ctx.onKeyUp = k => { if (/^(ArrowLeft|ArrowRight|a|d)$/.test(k)) dir = 0; };
+    return {
+      update(dt) {
+        if (dir) { f = clamp(f + dir * 22 * dt, 0, 100); lastTune = now(); }
+        if (ctx.night >= 3) { drift -= dt; if (drift <= 0) { tf = clamp(tf + mr(-9, 9), 5, 95); drift = mr(4, 7); } }
+        const dist = Math.abs(f - tf), sig = clamp(1 - dist / 30, 0, 1), locked = dist <= tol;
+        if (now() - lastTune < 0.15 && Math.random() < 0.5) Sfx.noise(0.06, 'bandpass', 1500 + sig * 2000, 0.05 * (1 - sig) + 0.01, 0.8);
+        if (Input.hold && locked) { ctx.add(rate * ctx.speed() * dt); bt -= dt; if (bt <= 0) { Sfx.tone(880, 0.06, 'square', 0.04); bt = Math.random() < 0.5 ? 0.12 : 0.32; } }
+        $('#rd-ndl', el).style.left = f + '%'; const sg = $('#rd-sig', el); sg.style.width = (sig * 100) + '%'; sg.classList.toggle('lock', locked);
+        $('#rd-c', el).textContent = locked ? (Input.hold ? 'Transmitting\u2026 MAYDAY\u2026 MAYDAY\u2026' : 'Signal locked. Hold transmit!') : Input.hold ? 'Only static\u2026 tune first.' : sig > 0.6 ? 'Close\u2026 a voice in the static.' : 'Static. Keep tuning.';
+      },
+      isActive: () => Input.hold || now() - lastTune < 0.2
+    };
+  }
+};
+const CLASSIC_ROOMS = ['lockpick', 'dial', 'scrub', 'stitch', 'keys', 'closet', 'tiptoe', 'safe', 'radio'];

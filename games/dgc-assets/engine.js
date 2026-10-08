@@ -3,7 +3,7 @@
 const Run = { active: false, newAch: [] };
 let R = null, api = null, rafId = 0, lastTs = 0;
 
-const VERBS = { lockpick: 'picking his lock', dial: 'dialing for help', scrub: 'scrubbing away the blood', stitch: 'stitching your wound', keys: 'stealing his keys', closet: 'breathing' };
+const VERBS = { tiptoe: 'sneaking down the hall', safe: 'cracking his safe', radio: 'calling for help on his radio', lockpick: 'picking his lock', dial: 'dialing for help', scrub: 'scrubbing away the blood', stitch: 'stitching your wound', keys: 'stealing his keys', closet: 'breathing' };
 function reasonText(r) {
   const m = R && R.mini;
   return ({
@@ -20,9 +20,10 @@ function reasonText(r) {
 }
 
 function runMods() {
-  const c = charById(S.char).mods, p = Run.passive || {}, d = Run.daily ? dailyInfo().mod.id : '';
-  return { noise: (c.noise || 1) * (d === 'heavy' ? 1.5 : 1), oxy: (c.oxy || 1) * (p.oxy ? 1.5 : 1), voice: (c.voice || 1) * (p.oxy ? 1.2 : 1), warn: (c.warn || 1) * (d === 'quick' ? 0.75 : 1), time: (c.time || 0) + (p.watch ? 8 : 0),
-    seeFakes: !!(c.seeFakes || p.lens), lens: !!p.lens, stars: (c.stars || 1) * (d === 'blood' ? 2 : 1), speed: c.speed || {}, timeMult: d === 'short' ? 0.8 : 1, paranoid: d === 'paranoid', blind: d === 'blind' };
+  const c = traitById(S.trait).mods, p = Run.passive || {}, d = Run.daily ? dailyInfo().mod.id : '', df = diffById(Run.diff);
+  return { noise: (c.noise || 1) * (d === 'heavy' ? 1.5 : 1), oxy: (c.oxy || 1) * (p.oxy ? 1.5 : 1), voice: (c.voice || 1) * (p.oxy ? 1.2 : 1), warn: (c.warn || 1) * (d === 'quick' ? 0.75 : 1) * df.warn, time: (c.time || 0) + (p.watch ? 8 : 0) + df.time,
+    seeFakes: !!(c.seeFakes || p.lens), lens: !!p.lens, stars: (c.stars || 1) * (d === 'blood' ? 2 : 1) * df.stars, speed: c.speed || {}, timeMult: d === 'short' ? 0.8 : 1, paranoid: d === 'paranoid', blind: d === 'blind',
+    fakeAdd: df.fake, hideBadge: !!df.hideBadge, hideView: !!df.hideView, imp: df.imp };
 }
 
 /* ---------- Killer AI ---------- */
@@ -31,7 +32,7 @@ function makeKiller(n, mods, mini) {
     awayMin: Math.max(1.25, 3.0 - n * 0.1), awayMax: Math.max(2.3, 5.4 - n * 0.18),
     warn: Math.max(0.4, 1.15 - n * 0.045) * mods.warn + (mods.lens ? 0.25 : 0),
     lookMin: 1.3 + Math.min(1, n * 0.05), lookMax: Math.min(mini.survive ? 3.3 : 9, 2.6 + Math.min(1.2, n * 0.06)),
-    fake: mods.paranoid ? Math.min(0.45, 0.2 + n * 0.04) : n < 3 ? 0 : Math.min(0.38, (n - 2) * 0.06), dbl: mods.paranoid ? Math.min(0.32, 0.1 + n * 0.03) : n < 4 ? 0 : Math.min(0.28, (n - 3) * 0.045)
+    fake: Math.max(0, (mods.paranoid ? Math.min(0.45, 0.2 + n * 0.04) : n < 3 ? 0 : Math.min(0.38, (n - 2) * 0.06)) + mods.fakeAdd), dbl: mods.paranoid ? Math.min(0.32, 0.1 + n * 0.03) : n < 4 ? 0 : Math.min(0.28, (n - 3) * 0.045)
   };
   return { state: 'away', t: kr(2.4, 3.4), p, fake: false, dblNext: false, didDbl: false, lookAt: 0, warnAt: 0, stepT: 0 };
 }
@@ -57,9 +58,9 @@ function onKiller(k, from, to) {
   const kp = $('#kp'); if (!kp) return;
   kp.classList.remove('k-away', 'k-warn', 'k-look', 'k-fake'); kp.classList.add('k-' + to);
   const sc = $('#scr-game'); sc.classList.toggle('danger', to === 'look'); sc.classList.toggle('tense', to === 'warn');
-  if (to === 'warn') { k.warnAt = now(); Run.killer === 'bride' ? Sfx.bell() : Sfx.creak(); if (k.fake && R.mods.seeFakes) kp.classList.add('k-fake'); haptic(25); }
+  if (to === 'warn') { k.warnAt = now(); Run.killer === 'bride' ? Sfx.bell() : Sfx.creak(); if (k.fake && R.mods.seeFakes) kp.classList.add('k-fake'); haptic(120, 0.3); }
   if (to === 'look') {
-    k.lookAt = now(); Sfx.tone(62, 0.6, 'sawtooth', 0.25, 45); Sfx.noise(0.25, 'lowpass', 500, 0.3); haptic(50); shake(1);
+    k.lookAt = now(); Sfx.tone(62, 0.6, 'sawtooth', 0.25, 45); Sfx.noise(0.25, 'lowpass', 500, 0.3); haptic(260, 0.95); shake(1);
     if (Run.killer !== 'bride' && !R.mini.survive && !R.mini.noSight && R.lastActive > k.warnAt && now() - R.lastActive < 0.2) { S.stats.close++; save(); toast('Close call!', 'Froze just in time.', 'good'); checkMetaAch(); }
   }
   if (to === 'away' && from === 'warn') Run.killer === 'bride' ? Sfx.tone(196, 0.9, 'sine', 0.05, 185) : Sfx.chuckle();
@@ -68,14 +69,13 @@ function onKiller(k, from, to) {
 function renderKiller() {
   if (!R) return; const k = R.k, m = R.mini, bride = Run.killer === 'bride', view = bride ? 'bride' : m.view || 'default', st = m.noKiller ? 'look' : k.state;
   const labels = bride ? { away: 'Far away', warn: 'Coming closer\u2026', look: 'RIGHT BESIDE YOU' } : Object.assign({ away: 'Back turned', warn: 'Turning\u2026', look: 'WATCHING' }, m.labels || {});
-  let src = bride ? (st === 'look' ? 'bride_close' : 'bride_far') : st === 'look' ? 'hush_front' : 'hush_back';
-  if (view === 'bed' && st !== 'look') src = 'room_bedroom';
-  if (view === 'closet' && st === 'away') src = 'room_closet';
-  const im = $('#kp-img'); if (im && im.dataset.src !== src) { im.src = img(src); im.dataset.src = src; }
+  const SETS = { bride: ['bride_far', 'bride_far', 'bride_close'], bed: ['room_bedroom', 'room_bedroom', 'bed_awake'], closet: ['closet_empty', 'room_closet', 'closet_look'], judge: ['hush_front', 'hush_front', 'hush_front'], default: ['hush_back', 'hush_turn', 'hush_front'] };
+  const src = (SETS[view] || SETS.default)[st === 'look' ? 2 : st === 'warn' ? 1 : 0], ims = $$('#kp .kp-im');
+  if (ims.length) { const cur = ims.find(i => i.classList.contains('on')) || ims[0]; if (cur.dataset.src !== src) { if (!cur.dataset.src) { cur.src = img(src); cur.dataset.src = src; } else { const nx = ims.find(i => i !== cur); nx.src = img(src); nx.dataset.src = src; nx.classList.add('on'); cur.classList.remove('on'); } } }
   const b = $('#kp-badge'); if (!b) return;
   const fakeTxt = st === 'warn' && k.fake && R.mods.seeFakes;
   b.innerHTML = `<i data-lucide="${bride ? 'ear' : st === 'look' ? 'eye' : st === 'warn' ? 'triangle-alert' : 'eye-closed'}"></i>${fakeTxt ? 'Fake-out\u2026' : labels[st]}`;
-  b.dataset.state = st; b.hidden = !!R.mods.blind && !m.noKiller; $('#kp').dataset.view = view; icons();
+  b.dataset.state = st; b.hidden = (R.mods.blind || R.mods.hideBadge) && !m.noKiller; $('#kp').classList.toggle('unseen', R.mods.hideView && !m.noKiller); $('#kp').dataset.view = view; icons();
 }
 function shake(lvl) { if (!S.set.shake) return; const g = $('#app'); g.classList.remove('shake', 'shake2'); void g.offsetWidth; g.classList.add(lvl > 1 ? 'shake2' : 'shake'); }
 
@@ -83,18 +83,18 @@ function shake(lvl) { if (!S.set.shake) return; const g = $('#app'); g.classList
 function startRun(modeId, bring, opts = {}) {
   Run.daily = !!opts.daily; if (Run.daily) { modeId = 'classic'; bring = []; }
   Run.killer = (modeId === 'classic' || modeId === 'hush') && !Run.daily && killerUnlocked(S.killer) ? S.killer : 'hush';
-  Run.dailyOfficial = false;
+  Run.dailyOfficial = false; Run.diff = Run.daily ? 'normal' : S.diff;
   if (Run.daily) {
     const di = dailyInfo(); Run.dailyKey = di.key; Run.bagRng = mulberry32(hashStr(di.key + ':bag'));
     if (!dailyPlayedToday()) { const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10); S.daily.streak = S.daily.last === y ? S.daily.streak + 1 : 1; Object.assign(S.daily, { key: di.key, played: true, best: 0, last: di.key }); Run.dailyOfficial = true; }
   }
-  Sfx.preloadVoices(Run.killer);
+  Sfx.preloadVoices(Run.killer); ['hush_back', 'hush_turn', 'hush_front', 'bride_far', 'bride_close', 'room_bedroom', 'bed_awake', 'closet_empty', 'room_closet', 'closet_look', 'hush_scare', 'bride_scare'].forEach(n => { new Image().src = img(n); });
   Run.active = true; Run.mode = modeId; Run.night = 1; Run.pocket = 0; Run.key = Date.now(); Run.newAch = []; Run.usedItem = false; Run.bag = []; Run.lull = Math.random() < 0.5 ? 0 : 1;
   Run.passive = {}; Run.actives = {}; Run.rosary = false; Run.bring = bring.slice(); Run.t0 = Date.now(); Run.cleanNights = 0;
   bring.forEach(id => {
     const it = itemById(id); if (!it || !(S.inv[id] > 0)) return;
     if (it.type === 'passive') { S.inv[id]--; Run.passive[id] = true; S.stats.items++; }
-    else if (it.type === 'guard') Run.rosary = true; else Run.actives[id] = 1;
+    else if (it.type === 'guard') Run.rosary = !diffById(Run.diff).noRosary; else Run.actives[id] = 1;
   });
   S.stats.runs++; if (!Run.daily) S.mode = modeId; save(); checkMetaAch();
   renderGameShell(); show('scr-game'); Sfx.drone(true); nextRound();
@@ -110,9 +110,9 @@ function nextRound() {
   const m = nextMini(), n = Run.night, mods = runMods();
   if (api && api.destroy) api.destroy(); api = null; Input.tapCb = null; Input.hold = false;
   R = { mini: m, n, mods, t: 0, progress: 0, done: false, started: false, k: makeKiller(n, mods, m), shieldUntil: 0, adrenUntil: 0, lastActive: -9, loudT: 0, noise: 0 };
-  R.limit = (m.limit ? m.limit(n) : 30 + Math.min(10, n * 0.3)) * (m.survive ? 1 : mods.timeMult) + (m.noKiller ? 0 : mods.time);
+  R.limit = (m.limit ? m.limit(n) : 30 + Math.min(10, n * 0.3)) * (m.survive ? 1 : mods.timeMult) * (m.noKiller ? mods.imp : 1) + (m.noKiller ? 0 : mods.time);
   $('#h-night').textContent = n; $('#h-room').textContent = m.name; $('#act-bg').style.backgroundImage = `url(${img(m.room)})`;
-  $('#act').style.setProperty('--light', lightRGB(S.char));
+  $('#act').style.setProperty('--light', lightRGB()); $('#act').style.setProperty('--sub', `url(${img(Run.killer === 'bride' ? 'bride_scare' : 'hush_scare')})`); $('#h-time').hidden = mods.hideView; $('#nm-lim').hidden = mods.hideView;
   const btn = $('#act-btn'); btn.hidden = !!m.noBtn; btn.innerHTML = `<i data-lucide="${m.icon}"></i><span>${esc(m.verb || '')}</span>`;
   $('#vm').hidden = Run.mode !== 'hush' || Run.killer === 'bride'; $('#nm').hidden = Run.killer !== 'bride'; $('#act-stage').innerHTML = ''; renderItems(); renderKiller(); updateHud();
   const intro = $('#act-intro');
@@ -160,6 +160,7 @@ function step(dt) {
   if (Run.killer !== 'bride' && !m.noKiller && !m.noSight && k.state === 'look' && now() - k.lookAt > 0.14 && act && !ctx_sh()) return caught(m.survive ? 'breath' : 'seen');
   if (R.t >= R.limit) { if (m.survive) return win(); return caught(m.noKiller ? 'impress' : 'time'); }
   const bpm = m.noKiller ? 110 + R.progress * 0.5 : k.state === 'look' ? 165 : k.state === 'warn' ? 135 : 72 + R.progress * 0.45 + (R.t / R.limit) * 30;
+  if (!m.noKiller && R.n >= 3 && S.set.flash && k.state === 'away' && Math.random() < dt * 0.015 * (1 + R.n * 0.06)) { const a = $('#act'); a.classList.remove('sub'); void a.offsetWidth; a.classList.add('sub'); Sfx.noise(0.08, 'highpass', 2500, 0.06); }
   Sfx.heartbeat(dt, bpm); updateHud();
 }
 const ctx_sh = () => now() < R.shieldUntil;
@@ -191,8 +192,9 @@ function useItem(id) {
 
 function win() {
   if (R.done) return; R.done = true; Input.hold = false;
-  const m = R.mini, n = Run.night, left = R.limit - R.t, gain = Math.round((4 + n * 2) * R.mods.stars);
-  Run.pocket += gain; S.stats.rounds++;
+  const m = R.mini, n = Run.night, left = R.limit - R.t, swift = !m.survive && !m.noKiller && left > R.limit / 2, base = Math.round((4 + n * 2) * R.mods.stars), gain = base + (swift ? Math.round(base / 2) : 0);
+  Run.pocket += gain; if (swift) unlock('swift');
+  if (!Run.daily && Run.diff === 'hard' && n >= 5 && unlock('hard5')) toast('Unseen difficulty unlocked', 'Audio only. Good luck.', 'ach'); if (!Run.daily && Run.diff === 'unseen' && n >= 3) unlock('unseen3'); S.stats.rounds++;
   const rk = m.imp ? 'impress' : m.id; S.stats.rooms[rk] = (S.stats.rooms[rk] || 0) + 1;
   if (m.imp) { S.stats.imp[m.imp.id] = (S.stats.imp[m.imp.id] || 0) + 1; unlock('imp1'); if (IMPRESSIONS.every(i => S.stats.imp[i.id])) unlock('impall'); }
   if (n > (S.stats.best[Run.mode] || 0)) S.stats.best[Run.mode] = n;
@@ -206,7 +208,7 @@ function win() {
   if (Run.mode === 'hush' && n >= 3) unlock('silent3'); if (Run.mode === 'lullaby' && n >= 3) unlock('lull3');
   checkMetaAch();
   const cp = n % 5 === 0, intro = $('#act-intro');
-  intro.innerHTML = `<div class="intro-card win" data-testid="round-cleared"><p class="kicker">Night ${n} survived</p><h2>${m.imp ? 'He applauds.' : 'Done.'}</h2><p class="pocket-line"><i data-lucide="sparkles"></i> +${gain} Starlites in your pocket \u00b7 <b>${fmt(Run.pocket)}</b> total</p>
+  intro.innerHTML = `<div class="intro-card win" data-testid="round-cleared"><p class="kicker">Night ${n} survived</p><h2>${m.imp ? 'He applauds.' : 'Done.'}</h2><p class="pocket-line"><i data-lucide="sparkles"></i> +${gain} Starlites${swift ? ' (Swift bonus!)' : ''} in your pocket \u00b7 <b>${fmt(Run.pocket)}</b> total</p>
     ${cp ? `<p class="cp-txt">A window is open. Escape now and keep everything (+${10 * n} bonus), or push deeper. If he catches you, you lose half your pocket.</p><div class="row"><button class="btn btn-gold" id="esc-btn" data-testid="escape-btn"><i data-lucide="door-open"></i>Escape (+${fmt(Run.pocket + 10 * n)})</button><button class="btn btn-ghost" id="next-btn" data-testid="next-round-btn"><i data-lucide="skull"></i>Push on</button></div>`
       : `<p class="cp-txt">Pocketed Starlites are banked at checkpoints (every 5 nights). Get caught and you lose half.</p><button class="btn btn-acc" id="next-btn" data-testid="next-round-btn"><i data-lucide="chevron-right"></i>Next room</button>`}</div>`;
   intro.hidden = false; icons();
@@ -243,7 +245,7 @@ function jumpScare(res) {
   js.innerHTML = `<img src="${img(res.killer === 'bride' ? 'bride_scare' : 'hush_scare')}" alt="" data-testid="jumpscare-image"><div class="js-cap"><b>${comedic ? esc(res.text) : 'CAUGHT'}</b>${res.taunt && S.set.taunts ? `<i data-testid="jumpscare-taunt">\u201c${esc(TAUNT_TEXT[res.taunt])}\u201d</i>` : ''}</div>`;
   if (res.taunt) setTimeout(() => Sfx.speak(res.taunt, res.killer), 850);
   js.hidden = false; js.classList.toggle('noflash', !S.set.flash); js.classList.remove('go'); void js.offsetWidth; js.classList.add('go');
-  Sfx.scream(); if (comedic) setTimeout(() => Sfx.honk(), 700); shake(2); haptic([80, 40, 200]);
+  Sfx.scream(); if (comedic) setTimeout(() => Sfx.honk(), 700); shake(2); haptic([80, 40, 700], 1);
   setTimeout(() => { js.hidden = true; js.classList.remove('go'); Mic.stop(); renderOver(res); show('scr-over'); }, 2600);
 }
 function pauseRun() {
