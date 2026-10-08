@@ -22,6 +22,12 @@ Come up with an original game that mixes sudoku and uno together. Call it Sonoko
 - Daily seeded puzzle + streaks; leaderboard tabs per mode
 - Responsive mobile/desktop; tested 100% (iteration_1)
 
+## Iteration 2 (2026-06)
+- Synced with GitHub TreeshWoodz/Treesh branch `Sonoko` (basename /games/sonoku, _redirects). Router basename + `<base href>` auto-detect `/games/sonoku`, homepage "." so the build works at root or under /games/sonoku.
+- Tutorial (/play/tutorial, 13 guided steps), Versus vs bot Ivy (/play/versus), Locker skins/themes by level (/locker), Daily share card (Web Share / copy / PNG).
+- Treesh integration: save key `treesh_sonoku_v1` (synced by parent's Supabase backup since it starts with "treesh"), reads `treesh_profile` + `treesh_stars`, Profile page (/profile), Starlites (per game + trophy payouts), `summary` object for the parent. Parent patch at /app/parent/index.html (+ /app/parent/sonoku-bridge.js) registers Sonoku in GAME_DATA_SOURCES.
+- All gameplay screens fit viewport (h-dvh, BoardFit container-query board).
+
 ## Backlog
 - P1: Tutorial walkthrough on first Sonoko game; pause menu
 - P1: Rate limiting for score submissions

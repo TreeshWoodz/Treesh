@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 2 regression + new-feature test for Sonoko. Backend pytest = 10/10 pass (added 'versus' mode to parametrized submit/leaderboard tests - endpoint accepts mode 'versus' and ranks correctly). Frontend: all new testids verified across Tutorial, Versus, Locker, Profile, Daily, Treesh bridge, and existing routes. No-scroll viewport check passes on 390x844 and 1920x800 across all 6 gameplay routes; one minor overflow on /play/sonoko at 375x667 (scrollH=688 vs 667, +21px). Tutorial coach panel, step-title, step-text, next, skip all render; step progression Welcome -> Match by color -> Place it works. Versus: difficulty buttons, versus-you/-bot/-score, draw-pile-button, discard-pile-top-card, versus-call-button, versus-hint, versus-turn-indicator, versus-log, 36 versus-cells, 5 hand cards, versus-restart-button all present after difficulty selection; drawing a card triggers Ivy move (versus-cell-r-c-owner-bot marker appears within ~1.5s). Locker: both tabs present, all 5 skins and 5 themes present with correct enabled/disabled gating (classic & arcade disabled because currently-equipped, others unlocked after setting xp=30000). Equipping midnight theme updates document.body.dataset.theme='midnight'. Treesh bridge: setting treesh_profile + treesh_stars (points:500) and reloading shows 'Treesh Tester' nickname in home-profile-chip, 'Linked to your Treesh profile on this device' in profile-treesh-status, profile-treesh-starlites=500. All 4 tier chips (bronze/silver/gold/platinum) and starlog render; name-input correctly hidden when linked. Daily setup renders start button; share-card on setup only appears after a prior daily result (expected).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/play/sonoko @ 375x667", "issues": ["Minor vertical overflow of 21px after picking difficulty (scrollHeight=688 vs innerHeight=667). All other routes/viewports pass no-scroll requirement. BoardFit likely needs tighter min-height on sm breakpoint (iPhone SE)."]},
+      {"screen": "Home chip vs Profile level (potential inconsistency)", "issues": ["With only treesh_profile+treesh_stars(points:500) and no sonoku XP, home-level-chip rendered 'Lv 10' while profile-level rendered '1'. Appears home chip may compute level from treesh_stars.points while profile uses sonoku xp. Worth main agent verifying expected source-of-truth for displayed level."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_scores_leaderboard.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Minor) Fix small 21px vertical overflow on /play/sonoko at 375x667 viewport (iPhone SE). Other mobile size 390x844 is clean.",
+    "(Minor/verify) Confirm intended source for home-level-chip vs profile-level - they diverged in Treesh-only state (no sonoku xp)."
+  ],
+  "critical_code_review_comments": [
+    "server.py Mode Literal cleanly includes 'versus'; ScoreIn validates and daily date pattern is strict. No ObjectId leakage.",
+    "SonokoBoard/BoardFit achieves no-scroll on 390 and 1920 but not perfectly on 375 - consider a smaller min grid-cell size or reduced hand height below 667px vh.",
+    "VersusGame renders only after difficulty pick (lazy mount) - acceptable, but tests must select difficulty before asserting versus-you / draw-pile etc. (documented for next agent)."
+  ],
+  "updated_files": ["/app/backend/tests/test_scores_leaderboard.py"],
+  "success_rate": {"backend": "100%", "frontend": "~95% (1 minor viewport overflow + 1 minor level-display discrepancy; all testids present and functional)"},
+  "test_credentials": "N/A - no auth",
+  "seed_data_creation": "Pytest inserts TEST_ prefixed scores for sonoko/sudoku/uno/versus/daily and cleans up via pymongo delete_many on scores collection where name regex ^TEST_. Teardown runs in client fixture.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest file /app/backend/tests/test_scores_leaderboard.py now covers versus mode (10 tests total, all pass). Versus route requires picking a versus-difficulty-*-button before versus-you/-bot/draw-pile-button/etc render. Locker 'classic' skin and 'arcade' theme are disabled because they are the currently-equipped defaults (not because of lock). To unlock cosmetics set localStorage.treesh_sonoku_v1 JSON field xp=30000. Treesh bridge keys: treesh_profile ({nickname,username,avatar}) + treesh_stars ({points:number}) - app auto-reads on reload, surfacing 'Linked to your Treesh profile' in profile-treesh-status and injecting points into profile-treesh-starlites. No-scroll check: /play/sonoko @ 375x667 still overflows by 21px (minor).",
+  "rca of the issue": "Sonoko 375x667 overflow: after difficulty selection the stack (header + top-card area + 6x6 board + stats panel/hand) sums to ~688px because header/padding + board min size exceed the 667px vh of iPhone SE. BoardFit.jsx likely needs an additional breakpoint for h<=667 to further compress board cell size or stats panel. Impacts only legacy iPhone SE; iPhone 12/13 (390x844) is clean."
+}

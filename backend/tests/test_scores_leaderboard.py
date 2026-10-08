@@ -28,7 +28,7 @@ def test_root(client):
     assert "Sonoko" in r.json().get("message", "")
 
 
-@pytest.mark.parametrize("mode", ["sonoko", "sudoku", "uno"])
+@pytest.mark.parametrize("mode", ["sonoko", "sudoku", "uno", "versus"])
 def test_submit_and_leaderboard(client, mode):
     payload = {"name": f"TEST_{mode}", "mode": mode, "score": 1234}
     r = client.post(f"{API}/scores", json=payload)
