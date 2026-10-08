@@ -97,3 +97,10 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
   - songcoder: Tools/songcoder.html, netlify/functions/github.mjs
 - Patch script for the main index: memory/patch_main_index.py. The file uses CRLF line endings; always fetch the latest main index before patching.
 - Verified live: /api/github/session returns activity:true (Blobs working); banners use mobile/desktop values.
+
+## 2026-10 — Sign in with GitHub (LIVE, waiting on user's OAuth app env vars)
+- github.mjs: GET /api/github/oauth/start?return=<path> → github.com authorize (state cookie mad_oauth, SameSite=Lax, Path=/api/github/oauth, 10 min). GET /api/github/oauth/callback swaps the code, calls /user, checks MAD_GITHUB_USERS (default TreeshWoodz, case-insensitive), issues the same mad_session (with login), logs activity (via github, signin/denied), then returns a same-site HTML hop to <return>?signin=github|denied|cancelled|expired|setup|error. The OAuth token is never stored.
+- Session GET now also returns login + oauth (whether it's configured). Passcode compare trims whitespace on both sides.
+- M.A.D.: "Continue with GitHub" button (settings-github-signin-btn), setup hint when OAuth isn't configured, ?signin= toasts, activity rows show "Signed in with GitHub · @login" / "GitHub account not allowed".
+- Mock (server.py): /api/github/oauth/start skips github.com (?as=<login> to test denied, ?deny=1 for cancel); POST /api/mockgh/oauth/on|off toggles whether it's configured.
+- User must create a GitHub OAuth App (callback https://treesh.app/api/github/oauth/callback) and set GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET (and optionally MAD_GITHUB_USERS) in Netlify (Functions scope), then redeploy.

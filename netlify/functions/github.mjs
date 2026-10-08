@@ -1,5 +1,6 @@
 // Treesh M.A.D. secure GitHub proxy (Netlify Function). GITHUB_TOKEN never leaves the server.
 // Netlify env vars: GITHUB_TOKEN (required), MAD_PASSCODE (required, 12+ chars), MAD_SESSION_SECRET (optional), MAD_REPO (optional, default TreeshWoodz/Treesh)
+// GitHub sign-in (optional): GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, MAD_GITHUB_USERS (comma list, default TreeshWoodz). Callback: https://<site>/api/github/oauth/callback
 // Needs "@netlify/blobs" in the repo's package.json dependencies (sign-in activity + reliable lockout).
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
@@ -13,6 +14,8 @@ const MIN_PASSCODE = 12;
 const MAX_FAILS = 5;
 const LOCK_MS = 15 * 60 * 1000;
 const MAX_LOG = 100;
+const OAUTH_COOKIE = 'mad_oauth';
+const APP_PATH = '/tools/mad';
 const memFails = new Map();
 
 // Only the GitHub calls M.A.D. actually makes, relative to /repos/<REPO>
@@ -32,9 +35,10 @@ const json = (status, body, headers = {}) => new Response(JSON.stringify(body), 
 });
 const digest = s => createHash('sha256').update(String(s)).digest();
 const same = (a, b) => timingSafeEqual(digest(a), digest(b));
-const secret = () => process.env.MAD_SESSION_SECRET || createHash('sha256').update(`${process.env.MAD_PASSCODE}|${process.env.GITHUB_TOKEN}`).digest('hex');
+const secret = () => process.env.MAD_SESSION_SECRET || createHash('sha256').update(`${passcode()}|${process.env.GITHUB_TOKEN}`).digest('hex');
 const sign = data => createHmac('sha256', secret()).update(data).digest('base64url');
 const cookie = (value, maxAge) => `${COOKIE}=${value}; Path=/api/github; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`;
+const passcode = () => (process.env.MAD_PASSCODE || '').trim();
 
 /* ---------- storage (Netlify Blobs, memory fallback) ---------- */
 let store = null;
@@ -64,13 +68,14 @@ function device(ua = ''){
   const br = /EdgiOS|Edg\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : /curl|python|node|axios|wget/i.test(ua) ? 'Script / bot' : 'Unknown browser';
   return `${os} · ${br}`;
 }
-async function logEvent(req, context, result, sid){
+async function logEvent(req, context, result, sid, extra = {}){
   const geo = context.geo || {};
   const entry = {
     t: Date.now(), result,
     city: geo.city || '', country: (geo.country && geo.country.name) || '',
     device: device(req.headers.get('user-agent') || ''),
     ip: maskIp(clientIp(req, context)),
+    ...extra,
     ...(sid ? { sid } : {})
   };
   const log = await readKey('activity', []);
@@ -80,15 +85,15 @@ const clientIp = (req, context) => context.ip || req.headers.get('x-nf-client-co
 const failKey = ip => 'fail:' + createHash('sha256').update(ip).digest('hex').slice(0, 32);
 
 /* ---------- sessions ---------- */
-function newSession(){
+function newSession(login){
   const exp = Date.now() + MAX_AGE * 1000, sid = randomBytes(9).toString('base64url');
-  const data = Buffer.from(JSON.stringify({ exp, sid })).toString('base64url');
+  const data = Buffer.from(JSON.stringify({ exp, sid, ...(login ? { login } : {}) })).toString('base64url');
   return { value: `${data}.${sign(data)}`, exp, sid };
 }
 function readSession(req){
-  const m = (req.headers.get('cookie') || '').match(/(?:^|;\s*)mad_session=([^;]+)/);
+  const m = readCookie(req, COOKIE);
   if (!m) return null;
-  const [data, sig] = m[1].split('.');
+  const [data, sig] = m.split('.');
   if (!data || !sig || !same(sig, sign(data))) return null;
   try { const p = JSON.parse(Buffer.from(data, 'base64url').toString()); return p.exp > Date.now() ? p : null; } catch { return null; }
 }
@@ -99,7 +104,7 @@ function sameOrigin(req){
 }
 
 async function session(req, context, method){
-  if (method === 'GET'){ const s = readSession(req); return json(200, { signedIn: !!s, expires: s ? s.exp : null, repo: REPO, activity: !!blobs() }); }
+  if (method === 'GET'){ const s = readSession(req); return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady() }); }
   if (method === 'DELETE') return json(200, { signedIn: false, repo: REPO }, { 'Set-Cookie': cookie('', 0) });
   if (method !== 'POST') return json(405, { message: 'Method not allowed.' });
   const key = failKey(clientIp(req, context));
@@ -110,7 +115,7 @@ async function session(req, context, method){
   }
   let body = {};
   try { body = await req.json(); } catch {}
-  if (typeof body.passcode !== 'string' || !same(body.passcode, process.env.MAD_PASSCODE)){
+  if (typeof body.passcode !== 'string' || !same(body.passcode.trim(), passcode())){
     const n = f.n + 1, locked = n >= MAX_FAILS;
     await writeKey(key, locked ? { n: 0, until: Date.now() + LOCK_MS } : { n, until: 0 });
     await logEvent(req, context, locked ? 'locked' : 'wrong');
@@ -125,6 +130,63 @@ async function session(req, context, method){
   return json(200, { signedIn: true, expires: s.exp, repo: REPO }, { 'Set-Cookie': cookie(s.value, MAX_AGE) });
 }
 
+/* ---------- GitHub sign-in (OAuth App web flow; the OAuth token is used once and dropped) ---------- */
+const oauthReady = () => !!(process.env.GITHUB_OAUTH_CLIENT_ID && process.env.GITHUB_OAUTH_CLIENT_SECRET);
+const allowedUsers = () => (process.env.MAD_GITHUB_USERS || 'TreeshWoodz').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+const safeReturn = r => (typeof r === 'string' && /^\/(?![\/\\])[\w\-./]*$/.test(r) ? r : APP_PATH);
+function readCookie(req, name){
+  const m = (req.headers.get('cookie') || '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return m ? m[1] : null;
+}
+function redirect(to, cookies = []){
+  const h = new Headers({ Location: to, 'Cache-Control': 'no-store' });
+  cookies.forEach(c => h.append('Set-Cookie', c));
+  return new Response(null, { status: 302, headers: h });
+}
+const oauthCookie = (value, maxAge) => `${OAUTH_COOKIE}=${value}; Path=/api/github/oauth; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+function oauthStart(url){
+  const ret = safeReturn(url.searchParams.get('return'));
+  if (!oauthReady()) return redirect(`${ret}?signin=setup`);
+  const state = randomBytes(24).toString('base64url');
+  const auth = new URL('https://github.com/login/oauth/authorize');
+  auth.search = new URLSearchParams({ client_id: process.env.GITHUB_OAUTH_CLIENT_ID, redirect_uri: `${url.origin}/api/github/oauth/callback`, state, allow_signup: 'false' });
+  return redirect(auth.toString(), [oauthCookie(`${state}.${Buffer.from(ret).toString('base64url')}`, 600)]);
+}
+async function oauthCallback(req, context, url){
+  const [saved, retB64] = (readCookie(req, OAUTH_COOKIE) || '').split('.');
+  let ret = APP_PATH; try { ret = safeReturn(Buffer.from(retB64 || '', 'base64url').toString()); } catch {}
+  // Same-site hop (not a 302) so Safari sends the Strict session cookie after coming back from github.com
+  const done = (result, extraCookies = []) => {
+    const to = JSON.stringify(`${ret}?signin=${result}`), h = new Headers({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+    [oauthCookie('', 0), ...extraCookies].forEach(c => h.append('Set-Cookie', c));
+    return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>M.A.D.</title><body style="background:#0b0a10;color:#aaa;font:15px system-ui;display:grid;place-items:center;height:100vh;margin:0">Signing you in…<script>location.replace(${to})</script>`, { status: 200, headers: h });
+  };
+  const state = url.searchParams.get('state'), code = url.searchParams.get('code');
+  if (url.searchParams.get('error')) return done('cancelled');
+  if (!oauthReady()) return done('setup');
+  if (!saved || !state || !code || !same(saved, state)) return done('expired');
+  let login = '';
+  try {
+    const t = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': 'treesh-mad' },
+      body: JSON.stringify({ client_id: process.env.GITHUB_OAUTH_CLIENT_ID, client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET, code, redirect_uri: `${url.origin}/api/github/oauth/callback` })
+    });
+    const access = t.ok ? (await t.json()).access_token : null;
+    if (!access) return done('error');
+    const u = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${access}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'treesh-mad' } });
+    login = u.ok ? String((await u.json()).login || '') : '';
+  } catch { return done('error'); }
+  if (!login) return done('error');
+  if (!allowedUsers().includes(login.toLowerCase())){
+    await logEvent(req, context, 'denied', null, { via: 'github', login });
+    return done('denied');
+  }
+  const s = newSession(login);
+  await logEvent(req, context, 'signin', s.sid, { via: 'github', login });
+  return done('github', [cookie(s.value, MAX_AGE)]);
+}
+
 async function activity(sess){
   const log = await readKey('activity', []), list = Array.isArray(log) ? log : [];
   const day = Date.now() - 864e5;
@@ -136,7 +198,7 @@ async function activity(sess){
 }
 
 export default async (req, context) => {
-  const token = process.env.GITHUB_TOKEN, pass = process.env.MAD_PASSCODE || '';
+  const token = process.env.GITHUB_TOKEN, pass = passcode();
   if (!token || pass.length < MIN_PASSCODE) return json(500, { message: `Server not set up: add GITHUB_TOKEN and MAD_PASSCODE (${MIN_PASSCODE}+ characters) in Netlify, then redeploy.`, code: 'setup' });
 
   const url = new URL(req.url), method = req.method.toUpperCase();
@@ -144,6 +206,8 @@ export default async (req, context) => {
   if (method !== 'GET' && !sameOrigin(req)) return json(403, { message: 'Blocked: request did not come from this site.', code: 'origin' });
 
   if (sub === '/session') return session(req, context, method);
+  if (sub === '/oauth/start' && method === 'GET') return oauthStart(url);
+  if (sub === '/oauth/callback' && method === 'GET') return oauthCallback(req, context, url);
   const sess = readSession(req);
   if (!sess) return json(401, { message: 'Signed out. Sign in to M.A.D. in Settings.', code: 'session' });
   if (sub === '/activity' && method === 'GET') return activity(sess);

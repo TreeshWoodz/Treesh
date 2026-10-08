@@ -11,7 +11,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from starlette.middleware.cors import CORSMiddleware
 
 ROOT_DIR = Path(__file__).parent
@@ -24,6 +24,8 @@ COOKIE = "mad_session"
 MAX_AGE = 60 * 60 * 24 * 30
 SESSION_SECRET = secrets.token_hex(32)
 FAILS = {}
+OAUTH = {"on": True}
+ALLOWED_USERS = ["TreeshWoodz"]
 ACTIVITY = []
 SEED = {
     "content/songs.html": (ROOT_DIR / "mock_data/songs.html").read_text(encoding="utf-8"),
@@ -68,9 +70,9 @@ def sign(data):
     return base64.urlsafe_b64encode(hmac.new(SESSION_SECRET.encode(), data.encode(), hashlib.sha256).digest()).decode().rstrip("=")
 
 
-def new_session():
+def new_session(login=None):
     exp, sid = int(time.time() * 1000) + MAX_AGE * 1000, secrets.token_urlsafe(9)
-    data = base64.urlsafe_b64encode(json.dumps({"exp": exp, "sid": sid}).encode()).decode().rstrip("=")
+    data = base64.urlsafe_b64encode(json.dumps({"exp": exp, "sid": sid, **({"login": login} if login else {})}).encode()).decode().rstrip("=")
     return f"{data}.{sign(data)}", exp, sid
 
 
@@ -101,10 +103,10 @@ def device(ua):
     return f"{os_name} · {br}"
 
 
-def log_event(request, ip, result, sid=None):
+def log_event(request, ip, result, sid=None, **extra):
     entry = {"t": int(time.time() * 1000), "result": result, "city": request.headers.get("x-mock-city", ""),
              "country": request.headers.get("x-mock-country", ""), "device": device(request.headers.get("user-agent", "")),
-             "ip": mask_ip(ip)}
+             "ip": mask_ip(ip), **extra}
     if sid:
         entry["sid"] = sid
     ACTIVITY.insert(0, entry)
@@ -152,6 +154,7 @@ async def reset():
     reset_state()
     FAILS.clear()
     ACTIVITY.clear()
+    OAUTH["on"] = True
     return {"ok": True}
 
 
@@ -181,7 +184,65 @@ async def raw(path: str, branch: str = "main"):
 @api.get("/github/session")
 async def session_get(request: Request):
     s = read_session(request)
-    return {"signedIn": bool(s), "expires": s["exp"] if s else None, "repo": REPO}
+    return {"signedIn": bool(s), "expires": s["exp"] if s else None, "login": (s or {}).get("login"), "repo": REPO,
+            "activity": True, "oauth": OAUTH["on"]}
+
+
+def client_ip(request):
+    return request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+
+
+def safe_return(r):
+    return r if isinstance(r, str) and re.match(r"^/(?![/\\])[\w\-./]*$", r) else "/songcoder.html"
+
+
+@api.post("/mockgh/oauth/{mode}")
+async def mock_oauth_mode(mode: str):
+    OAUTH["on"] = mode == "on"
+    return OAUTH
+
+
+@api.get("/github/oauth/start")
+async def oauth_start(request: Request):
+    ret = safe_return(request.query_params.get("return"))
+    if not OAUTH["on"]:
+        return RedirectResponse(f"{ret}?signin=setup", 302)
+    state = secrets.token_urlsafe(24)
+    # Mock GitHub: skip github.com and go straight to the callback. ?as=<login> picks the GitHub account, ?deny=1 simulates Cancel.
+    q = "error=access_denied" if request.query_params.get("deny") else f"code=mock-{request.query_params.get('as', 'TreeshWoodz')}&state={state}"
+    r = RedirectResponse(f"/api/github/oauth/callback?{q}", 302)
+    r.set_cookie("mad_oauth", f"{state}.{base64.urlsafe_b64encode(ret.encode()).decode().rstrip('=')}", max_age=600, path="/api/github/oauth", httponly=True, secure=True, samesite="lax")
+    return r
+
+
+@api.get("/github/oauth/callback")
+async def oauth_callback(request: Request):
+    saved, _, ret_b64 = (request.cookies.get("mad_oauth") or "").partition(".")
+    try:
+        ret = safe_return(base64.urlsafe_b64decode(ret_b64 + "=" * (-len(ret_b64) % 4)).decode())
+    except Exception:
+        ret = "/songcoder.html"
+    q = request.query_params
+    cookie_val = None
+    if q.get("error"):
+        result = "cancelled"
+    elif not saved or not q.get("state") or not hmac.compare_digest(saved, q["state"]) or not q.get("code", "").startswith("mock-"):
+        result = "expired"
+    else:
+        login = q["code"][5:]
+        ip = client_ip(request)
+        if login.lower() not in [u.lower() for u in ALLOWED_USERS]:
+            log_event(request, ip, "denied", via="github", login=login)
+            result = "denied"
+        else:
+            cookie_val, _, sid = new_session(login)
+            log_event(request, ip, "signin", sid, via="github", login=login)
+            result = "github"
+    r = HTMLResponse(f'<!doctype html><body>Signing you in…<script>location.replace({json.dumps(f"{ret}?signin={result}")})</script>')
+    r.delete_cookie("mad_oauth", path="/api/github/oauth")
+    if cookie_val:
+        set_cookie(r, cookie_val, MAX_AGE)
+    return r
 
 
 @api.delete("/github/session")
@@ -202,7 +263,7 @@ async def session_post(request: Request, response: Response):
     except Exception:
         body = {}
     passcode = body.get("passcode") if isinstance(body, dict) else None
-    if not isinstance(passcode, str) or not hmac.compare_digest(hashlib.sha256(passcode.encode()).digest(), hashlib.sha256(os.environ["MAD_PASSCODE"].encode()).digest()):
+    if not isinstance(passcode, str) or not hmac.compare_digest(hashlib.sha256(passcode.strip().encode()).digest(), hashlib.sha256(os.environ["MAD_PASSCODE"].strip().encode()).digest()):
         f["n"] += 1
         locked = f["n"] >= 5
         if locked:
