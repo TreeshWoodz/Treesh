@@ -1,5 +1,5 @@
 /* ---------- P9g: Treesh accounts (Supabase). Optional sign in; the profile syncs, localStorage stays the cache ---------- */
-let _sbBusy=false, _sbAgain=false, _sbJustAuthed=false, _sbMode='signin', _sbEmail='', _sbSentTo='', _sbUnameIn='';
+let _sbOut=false, _sbAssetRev=0, _sbAssetDone=-1, _sbBusy=false, _sbAgain=false, _sbJustAuthed=false, _sbMode='signin', _sbEmail='', _sbSentTo='', _sbUnameIn='';
 const SB_UNAME=/^[a-z0-9_.]{3,20}$/;
 const SB_HOME='https://treesh.app/', SB_CONFIRM_URL=(/(^|\.)treesh\.app$/.test(location.hostname)?SB_HOME:location.origin+location.pathname.replace(/[^/]*$/,''))+'confirm-signup';
 const SB_OFFLINE='You\u2019re offline. Changes will sync when you\u2019re back.';
@@ -48,11 +48,11 @@ function sbAssetSig(list){ return list.map(r=>r.id+':'+sbSig(typeof r.value==='s
 async function sbPayload(u){ const ls={};
   for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(sbSyncKey(k)){ try{ ls[k]=localStorage.getItem(k); }catch(e){} } }
   const m=sbMeta(); let assetsPath=m.assetsPath||null;
-  try{ const all=((await assetAll())||[]).filter(r=>r&&r.id); const sig=sbAssetSig(all);
+  if(_sbAssetDone!==_sbAssetRev||!m.assetSig) try{ const rev=_sbAssetRev, all=((await assetAll())||[]).filter(r=>r&&r.id); const sig=sbAssetSig(all);
     if(sig!==m.assetSig){ const path=u.id+'/assets.json';
       if(all.length){ const data=await new Blob([JSON.stringify(all.map(r=>({id:r.id,value:r.value})))],{type:'application/json'}).arrayBuffer(); const {error}=await sb.storage.from('treesh-data').upload(path,data,{upsert:true,contentType:'application/json'}); if(error) throw error; assetsPath=path; }
       else assetsPath=null;
-      sbMeta({assetSig:sig,assetsPath}); } }
+      sbMeta({assetSig:sig,assetsPath}); } _sbAssetDone=rev; }
   catch(e){ console.warn('Treesh sync: fonts & backgrounds skipped',e); }
   return {app:'treesh',type:'treesh-backup',v:4,exportedAt:new Date().toISOString(),localStorage:ls,assetsPath}; }
 async function sbPush(){ const u=sbUser(); if(!sb||!u) return;
@@ -105,7 +105,7 @@ async function sbPull(o){ o=o||{}; const u=sbUser(); if(!sb||!u) return 'none';
     _sbDirty=false; sbMeta({pending:false,at:Date.now(),uid:u.id,cloudAt:cAt}); sbSet('synced');
     return changed?'pulled':'same';
   }catch(e){ sbFail(e); return 'error'; } }
-function sbReload(){ let last=0; try{ last=+sessionStorage.getItem('treesh_sb_rl')||0; }catch(e){} if(Date.now()-last<30000){ sbRerender(); toast('Synced from your account'); return; }
+function sbReload(force){ let last=0; try{ last=+sessionStorage.getItem('treesh_sb_rl')||0; }catch(e){} if(!force&&Date.now()-last<30000){ sbRerender(); toast('Synced from your account'); return; }
   try{ sessionStorage.setItem('treesh_sb_rl',String(Date.now())); sessionStorage.setItem('treesh_sb_hello','1'); }catch(e){} toast('Synced from your account','Loading your Treesh\u2026'); setTimeout(()=>{ try{ location.reload(); }catch(e){} },700); }
 function sbApply(r){ const before=JSON.stringify(state.profile||null); const p=Object.assign({},state.profile||{});
   p.nickname=r.display_name||p.nickname||'Treesh Fan'; p.username=r.username||''; p.usernameSynced=p.username; p.bio=r.bio||'';
@@ -116,19 +116,34 @@ function sbApply(r){ const before=JSON.stringify(state.profile||null); const p=O
 function sbCacheAvatar(url){ fetch(url).then(r=>{ if(!r.ok) throw 0; return r.blob(); }).then(b=>{ if(b.size>400*1024) throw 0; return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(b); }); })
   .then(d=>{ const p=state.profile; if(!p||p.avatarUrl!==url) return; p.avatar=d; p.avatarSig=sbSig(d); sbQuietSet('treesh_profile',p); }).catch(()=>{}); }
 
+/* ---- sign out: save to the account first, then reset this device to a fresh start ---- */
+const SB_KEEP=['treesh_mm_order','treesh_um','treesh_wx','treesh_perf','treesh_perf_opts','treesh_eco','treesh_eq_ios_ack','treesh_cookie'];
+async function sbSignOut(){ if(!sb||_sbOut) return; const u=sbUser(); _sbOut=true; toast('Signing out\u2026','Saving your profile to your account');
+  if(u&&(_sbDirty||sbMeta().pending)){ clearTimeout(_sbTimer); _sbTimer=0; for(let i=0;i<40&&_sbBusy;i++) await new Promise(r=>setTimeout(r,250));
+    if(navigator.onLine) await Promise.race([sbPush(),new Promise(r=>setTimeout(r,15000))]);
+    if(sbMeta().pending){ _sbOut=false; openConfirm('Your latest changes aren\u2019t saved yet',navigator.onLine?'We couldn\u2019t reach your account. If you sign out now, changes since your last sync are lost. Cancel to keep them and try again.':'You\u2019re offline. If you sign out now, changes since your last sync are lost. Cancel and sign out when you\u2019re back online.',()=>{ _sbOut=true; sbSignOutNow(); }); return; } }
+  sbSignOutNow(); }
+async function sbSignOutNow(){ try{ audio.pause(); }catch(e){} try{ await sb.auth.signOut({scope:'local'}); }catch(e){} await sbResetDevice();
+  try{ sessionStorage.setItem('treesh_signed_out','1'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname); }catch(e){ location.reload(); } },300); }
+async function sbResetDevice(){ const keep=k=>SB_KEEP.includes(k)||k===CATALOG_KEY||k.indexOf('__mock')===0; const ks=[];
+  for(let i=0;i<localStorage.length;i++) ks.push(localStorage.key(i)); ks.forEach(k=>{ if(k&&!keep(k)) try{ localStorage.removeItem(k); }catch(e){} });
+  try{ await assetClear(); }catch(e){} try{ sessionStorage.clear(); }catch(e){}
+  const si=Storage.prototype.setItem; Storage.prototype.setItem=function(k,v){ if(this===localStorage) return; return si.call(this,k,v); }; }
+['assetPut','assetDel','assetClear'].forEach(n=>{ const f=window[n]; if(typeof f==='function') window[n]=function(){ _sbAssetRev++; return f.apply(this,arguments); }; });
+
 /* ---- auth events ---- */
 function sbObOpen(){ return !!document.querySelector('#modal [data-ob-root]'); }
 function sbCloseAuth(){ if(document.querySelector('#modal2 .sba-modal')) closeModal2(); }
 async function sbSignedIn(u){ const mine=_sbJustAuthed; _sbJustAuthed=false; if(mine){ sbCloseAuth(); toast('Signed in',u.email||''); }
   const r=await sbPull({restore:true});
-  if(r==='pulled'||(mine&&state._sbHadProfile&&r!=='error')){ sbReload(); return; }
+  if(r==='pulled'||(mine&&r!=='error'&&(state._sbHadProfile||(state.profile&&state.profile.nickname)))){ sbReload(mine); return; }
   if(sbObOpen()){ if(state._sbHadProfile&&state.profile){ closeModal(); try{ checkDailyStars(); }catch(e){} sbRerender(); toast('Welcome back',state.profile.nickname||''); setTimeout(()=>{ try{ wnMaybeAuto(state.view); }catch(e){} },600); } else { if(onboard.step===0) onboard.step=1; try{ renderOnboarding(); }catch(e){} } } }
-function sbSignedOut(){ clearTimeout(_sbTimer); _sbTimer=0; _sbDirty=false; state.sbSync={s:'idle',msg:''}; sbMeta({uid:null,pending:false,cloudAt:0,assetSig:'',assetsPath:null}); toast('Signed out','Your profile stays on this device'); sbPaint(); if(state.profileOpen) renderProfile(); }
+function sbSignedOut(){ if(_sbOut) return; clearTimeout(_sbTimer); _sbTimer=0; _sbDirty=false; state.sbSync={s:'idle',msg:''}; sbMeta({uid:null,pending:false,cloudAt:0,assetSig:'',assetsPath:null}); toast('Signed out','Your profile stays on this device'); sbPaint(); if(state.profileOpen) renderProfile(); }
 function sbHandleCallback(cb){ if(cb.error_description||cb.error){ setTimeout(()=>toast('That link didn\u2019t work',cb.error_description||cb.error),900); return; }
   if(!cb.access_token||!cb.refresh_token) return;
   sb.auth.setSession({access_token:cb.access_token,refresh_token:cb.refresh_token}).then(({error})=>{ if(error){ toast('Couldn\u2019t sign you in',sbErrText(error)); return; }
     if(cb.type==='recovery') setTimeout(()=>sbAuthOpen('newpw'),500); else if(cb.type==='signup'||cb.type==='email'||cb.type==='invite') setTimeout(()=>toast('Email confirmed','You\u2019re signed in and syncing'),700); }); }
-function sbInit(){ state.sbSync=state.sbSync||{s:'idle',msg:''}; try{ if(localStorage.getItem('sbx_confirmed')){ localStorage.removeItem('sbx_confirmed'); setTimeout(()=>toast('Email confirmed','Your Treesh account is ready'),1200); } }catch(e){} try{ if(sessionStorage.getItem('treesh_sb_hello')){ sessionStorage.removeItem('treesh_sb_hello'); setTimeout(()=>toast('Welcome back',(state.profile&&state.profile.nickname)?'Your Treesh is synced, '+state.profile.nickname:'Your Treesh is synced'),900); } }catch(e){} if(!sb) return; _sbBootPending=!!sbMeta().pending; _sbDirty=_sbBootPending;
+function sbInit(){ state.sbSync=state.sbSync||{s:'idle',msg:''}; try{ if(localStorage.getItem('sbx_confirmed')){ localStorage.removeItem('sbx_confirmed'); setTimeout(()=>toast('Email confirmed','Your Treesh account is ready'),1200); } }catch(e){} try{ if(sessionStorage.getItem('treesh_signed_out')){ sessionStorage.removeItem('treesh_signed_out'); setTimeout(()=>toast('Signed out','Sign in any time to get your profile back'),900); } }catch(e){} try{ if(sessionStorage.getItem('treesh_sb_hello')){ sessionStorage.removeItem('treesh_sb_hello'); setTimeout(()=>toast('Welcome back',(state.profile&&state.profile.nickname)?'Your Treesh is synced, '+state.profile.nickname:'Your Treesh is synced'),900); } }catch(e){} if(!sb) return; _sbBootPending=!!sbMeta().pending; _sbDirty=_sbBootPending;
   sb.auth.onAuthStateChange((ev,session)=>{ const u=(session&&session.user)||null, prev=state.sbUser; state.sbUser=u;
     if(ev==='PASSWORD_RECOVERY') setTimeout(()=>sbAuthOpen('newpw'),0);
     if(u&&(!prev||prev.id!==u.id)) setTimeout(()=>sbSignedIn(u),0); else if(!u&&prev) setTimeout(sbSignedOut,0); else setTimeout(sbPaint,0); });
@@ -229,5 +244,5 @@ document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.tar
     case 'sb-auth-close': closeModal2(); break;
     case 'sb-pw-toggle': { const i=document.getElementById('sb-pw'); if(!i) break; const show=i.type==='password'; i.type=show?'text':'password'; t.setAttribute('aria-label',show?'Hide password':'Show password'); t.innerHTML=`<i data-lucide="${show?'eye-off':'eye'}"></i>`; icons(); break; }
     case 'sb-sync-now': if(!navigator.onLine){ sbSet('offline',SB_OFFLINE); break; } if(_sbBusy){ toast('Already syncing','Hang tight'); break; } if(_sbDirty||sbMeta().pending){ clearTimeout(_sbTimer); _sbTimer=0; sbPush().then(()=>{ if(state.sbSync&&state.sbSync.s==='synced') toast('Synced','Up to date on all your devices'); }); break; } sbPull({restore:true}).then(r=>{ if(r==='pulled') sbReload(); else if(r==='same'||r==='pushed') toast('Synced','Up to date on all your devices'); }); break;
-    case 'sb-signout': if(!sb) break; openConfirm('Sign out?','Your profile stays on this device. Sign back in any time to sync it again.',()=>{ sb.auth.signOut({scope:'local'}); }); break;
+    case 'sb-signout': if(!sb) break; openConfirm('Sign out?','We\u2019ll save everything to your account first, then clear your profile from this device. Your custom music stays here. Sign back in any time to get it all back.',()=>{ sbSignOut(); }); break;
   } });

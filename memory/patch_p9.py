@@ -175,12 +175,17 @@ rep("_sGo('go-glass','Glass themes',","_sGo('go-glass','Themes',",1,'themes2')
 rep("'appearance','Glass themes')","'appearance','Themes')",1,'themes3')
 rep("      ${toggleCard('toggle-whatsnew','settings-toggle-whatsnew'","      ${toggleCard('toggle-ptr','settings-toggle-ptr',ptrOn(),'refresh-cw','Pull to refresh','On phones, pull down at the top of a page to reload Treesh')}\n      ${toggleCard('toggle-whatsnew','settings-toggle-whatsnew'",1,'ptrtoggle')
 
+rep("document.addEventListener('touchmove',e=>{ if(!S||S.dead) return; const tc=e.touches[0]; const dx=tc.clientX-S.x0, dy=tc.clientY-S.y0;","sheetMoveBind(e=>{ if(!S||S.dead) return; const tc=e.touches[0]; const dx=tc.clientX-S.x0, dy=tc.clientY-S.y0;",1,'shmv1')
+rep("S.bd.style.opacity=String(Math.max(.2,1-d/650)); },{passive:false,capture:true});","S.bd.style.opacity=String(Math.max(.2,1-d/650)); });",1,'shmv2')
+rep("  function draw(){ ctx.clearRect(0,0,w,h); const g=ctx.createRadialGradient(w/2,h*0.35","  function draw(){ if(ecoSkip('stars')){ raf=requestAnimationFrame(draw); return; } ctx.clearRect(0,0,w,h); const g=ctx.createRadialGradient(w/2,h*0.35",1,'eco1')
+rep("const dpr=Math.min(window.devicePixelRatio||1,2); let w,h,stars=[],shoot=null","const dpr=ecoOn()?1:Math.min(window.devicePixelRatio||1,2); let w,h,stars=[],shoot=null",1,'eco2')
+rep("function vizTick(){ _vizRAF=requestAnimationFrame(vizTick); if(!_vizCanvases.length){ return; }","function vizTick(){ _vizRAF=requestAnimationFrame(vizTick); if(!_vizCanvases.length||ecoSkip('viz')){ return; }",1,'eco3')
 if errs:
     print('\n'.join(errs)); sys.exit(1)
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js','p9t.js','p9u.js','p9v.js','p9w.js','p9x.js','p9y.js','p9z.js','p9za.js','p9zb.js','p9zc.js','p9zd.js','p9ze.js','p9zf.js','p9zg.js'])
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js','p9t.js','p9u.js','p9v.js','p9w.js','p9x.js','p9y.js','p9z.js','p9za.js','p9zb.js','p9zc.js','p9zd.js','p9ze.js','p9zf.js','p9zg.js','p9zh.js','p9zi.js','p9zj.js'])
 js=js.replace('__P9W_ART__',open(M+'p9w_art.json',encoding='utf-8').read()).replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
@@ -197,7 +202,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css','p9za.css','p9zb.css','p9zc.css','p9zd.css','p9ze.css','p9zf.css','p9zg.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css','p9za.css','p9zb.css','p9zc.css','p9zd.css','p9ze.css','p9zf.css','p9zg.css','p9zh.css','p9zi.css','p9zj.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)

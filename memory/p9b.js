@@ -36,7 +36,7 @@ function beatFrame(now){ if(_bt.fnow===now&&_bt.out) return _bt.out; _bt.fnow=no
   _bt.out={dt,lvl,e,real,bins,playing,hit}; return _bt.out; }
 function mkAnimFree(){ document.querySelectorAll('svg[data-mk-anim]').forEach(sv=>{ try{ sv.unpauseAnimations(); }catch(_){} sv._mt=null; }); }
 function mkReactLoop(){ mkLyLoop(); if(_mkRAF) return; if(state.perfMode){ mkAnimFree(); return; } if(!document.querySelector('.mk-react,.mk-glow-beat,[data-mk-viz],svg[data-mk-anim]')) return;
-  const tick=now=>{ const list=document.querySelectorAll('.mk-react'), pages=document.querySelectorAll('.mk-glow-beat'), viz=document.querySelectorAll('[data-mk-viz]'), anim=document.querySelectorAll('svg[data-mk-anim]');
+  const tick=now=>{ if(ecoSkip('mkr')){ _mkRAF=requestAnimationFrame(tick); return; } const list=document.querySelectorAll('.mk-react'), pages=document.querySelectorAll('.mk-glow-beat'), viz=document.querySelectorAll('[data-mk-viz]'), anim=document.querySelectorAll('svg[data-mk-anim]');
     if((!list.length&&!pages.length&&!viz.length&&!anim.length)||state.perfMode){ _mkRAF=null; if(state.perfMode) mkAnimFree(); return; }
     const b=beatFrame(now), e=b.e, playing=b.playing, T=now/1000;
     const vars=[['--beat',(1+e*0.26).toFixed(3)],['--bounce',(e*24).toFixed(1)+'px'],['--wig',(playing?Math.sin(T*13)*(2+e*16):0).toFixed(1)+'deg'],['--spin',_bt.spin.toFixed(1)+'deg'],['--e',e.toFixed(3)],['--flt',(Math.sin(T*2.1)*(5+e*12)).toFixed(1)+'px'],['--sh',(playing?Math.sin(T*44)*e*7:0).toFixed(1)+'px'],['--swg',(Math.sin(T*(playing?3.2:1.6))*(playing?8+e*16:5)).toFixed(1)+'deg']];
@@ -123,7 +123,7 @@ document.addEventListener('pointerdown',e=>{ if(!state.mkEdit||(e.button&&e.butt
   const mv=ev=>{ const d=Math.hypot(ev.clientX-x0,ev.clientY-y0); if(mouse){ if(d>6) go(); } else if(d>10) clear(); };
   if(!mouse) tm=setTimeout(go,300);
   document.addEventListener('pointermove',mv,true); document.addEventListener('pointerup',clear,true); document.addEventListener('pointercancel',clear,true); },true);
-document.addEventListener('touchmove',e=>{ if((_mkLP||_mkTouchLock)&&e.cancelable) e.preventDefault(); },{passive:false,capture:true});
+function _mkTMGuard(e){ if((_mkLP||_mkTouchLock)&&e.cancelable) e.preventDefault(); }
 document.addEventListener('contextmenu',e=>{ if(state.mkEdit&&e.target&&e.target.closest&&e.target.closest('#view .mk-block')) e.preventDefault(); });
 function mkStartResize(e,id){ const blk=mkBlockEl(id); if(!blk) return; const inner=blk.querySelector(':scope > .mk-inner'); const grid=blk.parentNode; const r0=blk.getBoundingClientRect(); const gw=grid.getBoundingClientRect().width; const sx=e.clientX, sy=e.clientY, h0=inner.getBoundingClientRect().height; const wide=window.innerWidth>=640; const cfg=mkCfg(id); const key=wide?'w':'mw'; let w=cfg[key]||(wide?((blk.className.match(/mk-w-(\w+)/)||[])[1]):'')||'full', h=0, wm=false;
   blk.classList.add('mk-resizing','mk-sel'); state.mkSel=id; mkSizeTip(blk,w,h0);
