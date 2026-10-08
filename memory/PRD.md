@@ -41,3 +41,9 @@ Treesh web app: massive single-file architecture (`/app/single_html/index.html`)
 
 ## Testing notes
 Seed: `localStorage.setItem('treesh_whatsnew_off','true'); localStorage.setItem('treesh_profile', JSON.stringify({nickname:'Tester',birthday:'2000-01-01'}))`. Account flows: use `/_sbtest.html` (fake Supabase, see test_credentials.md).
+
+## Request queue (Oct 8, 2026, in order)
+1. New games: Bronze Blitz / Sonoko (/games/sonoku) / Ebonics: bios, ages (All / 6+ / 13+), logos + banners (+ Hoop logo/banner), arcade stats on profile, What's New updates on every page.
+2. P0 bugs: double-tap, scrubber, lyric tap-to-seek, resume last song, profile sheet animates from the bottom nav on mobile.
+3. P1: Urias polish, Zodiac flick-to-close.
+4. LAST: update the Support page with detailed explanations + screenshots of everything.

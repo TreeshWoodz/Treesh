@@ -1,0 +1,56 @@
+{
+  "summary": "Frontend-only testing of iteration 26 features: nav reorder with Profile tab + header gear, Magic Markup nav ordering/hiding, mini player dismiss persistence, voice mini overlay (no page blur) + blocked-restart tap-to-resume + stuck speaking recovery, voice tips scrubbed of non-Icon artists, quotes widget using app songs/artists only, What's New excluding custom uploads. All core scenarios pass. Minor content issues found in quotes data.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Quote widget (Magic Markup)", "issue": "quote-attribution testid missing. Attribution text ('— Chelly Banqz · 12:56 - 1:02') renders but there's no element with data-testid='quote-attribution' (quote-text and quote-next are present).", "selector": "[data-testid=quote-attribution]", "priority": "LOW"},
+      {"component": "Quote widget shuffle", "issue": "Clicking the inline quote-next shuffle icon did not change the quote text on first click (text stayed 'I said let's go bar for bar'). The sheet's 'Show another quote' button is likely the intended shuffle; the inline button may be deterministic/no-op or need multiple clicks.", "selector": "[data-testid=quote-next]", "priority": "LOW"},
+      {"component": "MK Pages sheet - Profile row", "issue": "Row for Profile shows 'Always on' label but a toggle element with data-testid='mk-page-toggle-profile' still exists in DOM. Spec says Profile cannot be hidden. Toggle appears visually disabled/absent in screenshot, but the testid still resolves which could lead to false-positive automated clicks.", "selector": "[data-testid=mk-page-toggle-profile]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "MK Quotes content", "issue": "MK_QUOTES[17] attributes to artist 'perfektenz' (lowercase, with 'z') which is NOT present in the ARTISTS list. Valid artists include 'PrettyBoyQuen','SAVIONCE','Palo', etc. Either add 'perfektenz' as an artist or remove/relabel this quote.", "affected_selectors": ["MK_QUOTES[17]"]},
+      {"flow": "MK Quotes content - profanity", "issue": "MK_QUOTES[21] attribution contains 'Billion $ Bitch (Remix)' which trips the profanity filter in the test spec ('bitch'). Since this is an actual Treesh song title, decide whether to censor the display (B****) or exempt real song titles from the filter.", "affected_selectors": ["MK_QUOTES[21]"]}
+    ],
+    "design_issues": []
+  },
+  "test_results": {
+    "mobile_nav_order": "PASS - [artists, library, profile, studios, game], no settings",
+    "profile_tab_avatar": "PASS - shows 'T' initial, opens profile panel, is-active toggles correctly",
+    "header_gear": "PASS - open-settings-button present, open-profile-button absent, click opens settings view (both mobile & desktop)",
+    "desktop_sidebar": "PASS - nav-artists, nav-library, nav-studios, nav-game (no profile), gear present",
+    "mk_nav_order_list": "PASS - 5 rows with grip/up/down, first up disabled, last down disabled, Profile labeled 'Always on'",
+    "mk_up_click_persist": "PASS - clicking mk-nav-up-library reorders to [library, artists, profile, studios, game] and persists in localStorage treesh_mk.navOrder across reload",
+    "mk_hide_studios": "PASS - toggling mk-page-toggle-studios removes studios from mobile nav bar",
+    "mini_player_dismiss": "PASS - dismissMini() removes treesh_resume; no mini/welcome-back after reload",
+    "voice_mini_no_blur": "PASS - after 'open studios' cmd: #voice-ov.is-mini, .vx-bd opacity=0, backdropFilter=none, body position=static, page scrollable (scrolled to y=300)",
+    "voice_blocked_restart_tap_resume": "PASS - onerror not-allowed -> _voiceMode='paused' (not denied); .vx-orb tap increments _fsrStarts and sets listening",
+    "voice_orb_pause_resume": "PASS - tap listening -> paused; tap paused -> listening",
+    "voice_stuck_speaking_recovery": "PASS - with _voiceSpeaking=true _voiceMode='speaking', orb tap starts listening",
+    "voice_tips_no_forbidden": "PASS - help overlay body has no 'drake' or 'blinding lights'. Find & Play lines: 'play bankrupt (freestyle)','play something by ozmozes','play my favorites' (real Treesh song + artist)",
+    "quotes_authors_mostly_valid": "MOSTLY PASS - 11 distinct quote artists, 10 match ARTISTS, 1 ('perfektenz') missing; 0 celebrity names (taylor swift/bob marley/nietzsche/bono/drake) detected",
+    "quote_widget_added": "PASS - mk-add-widget-quote in 'add' sheet, widget renders quote-text, next button exists",
+    "whats_new_no_custom": "PASS - after adding user song 'My Upload' via idbPut+loadUserSongs, buildWhatsNew returns 12 items, 0 with _user=true; #wn-track DOM does not contain 'My Upload'; user_songs confirms SONGS has 'My Upload' with _user=true",
+    "regression_smoke": "PASS - home/artists/studios/game/library all render; eco card still in Settings; no console errors"
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix MK_QUOTES[17]: attribute currently 'perfektenz · Got Em Like' - artist not in ARTISTS catalog. Rename to a valid artist or add 'perfektenz' to ARTISTS.",
+    "Decide handling for MK_QUOTES[21] 'Billion $ Bitch (Remix)' - either censor display, remove, or exempt real song titles from profanity filter.",
+    "Add data-testid='quote-attribution' to the attribution element in the quote widget render (data-testid='quote-text' is present but attribution has none).",
+    "Verify behavior of inline [data-testid=quote-next] shuffle button - first click did not change text; make sure it reliably picks a different quote.",
+    "In Pages & homepage sheet, Profile row should not emit a mk-page-toggle-profile element (even if visually 'Always on'), to prevent accidental programmatic toggling."
+  ],
+  "critical_code_review_comments": [
+    "mk-page-toggle-profile element present despite Profile being Always on - gate the row to skip toggle rendering for profile.",
+    "quote-attribution missing testid breaks automated verification of author strings.",
+    "Quote content pulled from lyrics may surface profanity in song titles (e.g., 'Billion $ Bitch Remix') - add a title-level sanitize or allow-list for display."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "95%"},
+  "test_credentials": "None (static index.html, no login)",
+  "seed_data_creation": "localStorage: treesh_whatsnew_off='true', treesh_profile={nickname:'Tester',birthday:'2000-01-01'}; IDB: u-test9 custom song 'My Upload'",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All P0 nav/voice/mini-dismiss/whatsnew/MK-reorder scenarios pass end-to-end. Remaining items are LOW-priority content/testid polish: (1) MK_QUOTES[17] artist 'perfektenz' not in ARTISTS, (2) MK_QUOTES[21] profanity in real song title, (3) missing data-testid='quote-attribution' and inline quote-next shuffle not changing text on first click, (4) mk-page-toggle-profile element still in DOM despite 'Always on'. SpeechRecognition is mocked via page.add_init_script in headless (no mic).",
+  "rca_of_issue": "N/A - all critical flows pass"
+}
