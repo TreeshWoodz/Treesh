@@ -11,7 +11,7 @@ const Stat = ({ label, value }) => (
 );
 
 export default function Profile() {
-  const { profile, update, replace } = useProfile();
+  const { profile, update, replace, treesh } = useProfile();
   const [name, setName] = useState(profile.name);
   const [loadName, setLoadName] = useState("");
   const [loadCode, setLoadCode] = useState("");
@@ -56,10 +56,17 @@ export default function Profile() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card-surface p-6">
           <h2 className="font-display text-lg font-bold text-amber-200">Player Tag</h2>
-          <div className="mt-4 flex gap-2">
-            <input data-testid="player-name-input" value={name} onChange={(e) => setName(e.target.value)} maxLength={20} className="field flex-1" />
-            <button data-testid="save-profile-btn" onClick={saveName} className="btn-bronze !px-4 !py-2 text-sm">Save</button>
-          </div>
+          {treesh ? (
+            <div data-testid="treesh-name-synced" className="mt-4 rounded-xl border border-[#FFC800]/25 bg-[#FFC800]/5 px-4 py-3">
+              <div className="font-display text-xl font-black text-white">{treesh.name}</div>
+              <div className="mt-1 text-xs text-slate-400">Synced from your Treesh profile. Change it in Treesh settings.</div>
+            </div>
+          ) : (
+            <div className="mt-4 flex gap-2">
+              <input data-testid="player-name-input" value={name} onChange={(e) => setName(e.target.value)} maxLength={20} className="field flex-1" />
+              <button data-testid="save-profile-btn" onClick={saveName} className="btn-bronze !px-4 !py-2 text-sm">Save</button>
+            </div>
+          )}
           <div className="mt-6 flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
             <div className="flex items-center gap-3 text-sm font-semibold text-slate-200">{profile.sound ? <Volume2 size={18} /> : <VolumeX size={18} />} Sound effects</div>
             <Switch data-testid="sound-toggle" checked={profile.sound} onCheckedChange={(v) => update(() => ({ sound: v }))} />

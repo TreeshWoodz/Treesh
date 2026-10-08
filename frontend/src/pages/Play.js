@@ -11,18 +11,21 @@ import { Hud, PowerBar } from "../components/Hud";
 import { ResultModal, ContinueModal } from "../components/ResultModal";
 
 const useCellSize = () => {
-  const calc = () => Math.max(34, Math.floor(Math.min(window.innerWidth - 40, 560, window.innerHeight - 330) / 8));
-  const [cell, setCell] = useState(calc);
+  const ref = useRef(null);
+  const [cell, setCell] = useState(0);
   useEffect(() => {
-    const on = () => setCell(calc());
-    window.addEventListener("resize", on);
-    return () => window.removeEventListener("resize", on);
+    const el = ref.current;
+    const measure = () => setCell(Math.max(26, Math.floor((Math.min(el.clientWidth, el.clientHeight, 600) - 30) / 8)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
-  return cell;
+  return [ref, cell];
 };
 
 function useFinalize(cfg, g) {
-  const { profile, update } = useProfile();
+  const { profile, update, earn } = useProfile();
   const [result, setResult] = useState(null);
   const done = useRef(false);
   useEffect(() => {
@@ -36,8 +39,8 @@ function useFinalize(cfg, g) {
       ? { ...profile.levelStars, [cfg.level]: Math.max(profile.levelStars[cfg.level] || 0, stars) } : profile.levelStars;
     const metric = cfg.mode === "classic" ? Object.values(levelStars).reduce((a, b) => a + b, 0) : e.score;
     const newBest = e.score > (profile.best[cfg.mode] || 0);
+    earn(reward, `${cfg.title} complete`);
     update((p) => ({
-      starlites: p.starlites + reward,
       levelStars,
       best: { ...p.best, [cfg.mode]: Math.max(p.best[cfg.mode] || 0, e.score) },
       stats: {
@@ -56,8 +59,8 @@ function useFinalize(cfg, g) {
 
 function Game({ cfg, onReplay }) {
   const nav = useNavigate();
-  const { profile, update } = useProfile();
-  const cell = useCellSize();
+  const { profile, update, spend } = useProfile();
+  const [areaRef, cell] = useCellSize();
   const theme = THEMES.find((t) => t.id === profile.theme) || THEMES[0];
 
   const payFor = (id) => {
@@ -66,8 +69,7 @@ function Game({ cfg, onReplay }) {
       update((p) => ({ inventory: { ...p.inventory, [id]: p.inventory[id] - 1 } }));
       return true;
     }
-    if (profile.starlites >= pu.cost) {
-      update((p) => ({ starlites: p.starlites - pu.cost }));
+    if (spend(pu.cost, pu.name)) {
       toast.success(`${pu.name} activated`);
       return true;
     }
@@ -80,16 +82,18 @@ function Game({ cfg, onReplay }) {
   const showContinue = g.ended && cfg.mode === "classic" && !g.ended.win && !g.ended.gaveUp;
 
   return (
-    <div className="min-h-screen bg-app">
-      <div className="mx-auto flex max-w-[620px] flex-col px-3 pb-10 pt-4 sm:pt-6">
+    <div className="play-screen bg-app" data-testid="play-screen">
+      <div className="mx-auto flex h-full w-full max-w-[620px] flex-col px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)]">
         <Hud cfg={cfg} g={g} onExit={() => nav(cfg.mode === "classic" ? "/levels" : "/")} />
-        <div className="mt-4 flex justify-center"><Board g={g} cell={cell} theme={theme} /></div>
-        <AnimatePresence>
-          {g.armed === "hammer" && (
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} data-testid="hammer-armed-hint"
-              className="mt-3 text-center text-xs font-bold uppercase tracking-[0.25em] text-amber-300">Tap any tile to smash it</motion.div>
-          )}
-        </AnimatePresence>
+        <div ref={areaRef} className="relative flex min-h-0 flex-1 items-center justify-center py-2">
+          {cell > 0 && <Board g={g} cell={cell} theme={theme} />}
+          <AnimatePresence>
+            {g.armed === "hammer" && (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} data-testid="hammer-armed-hint"
+                className="pointer-events-none absolute bottom-0 left-0 right-0 text-center text-[11px] font-bold uppercase tracking-[0.25em] text-amber-300">Tap any tile to smash it</motion.div>
+            )}
+          </AnimatePresence>
+        </div>
         <PowerBar cfg={cfg} g={g} inventory={profile.inventory} />
       </div>
       {showContinue && (

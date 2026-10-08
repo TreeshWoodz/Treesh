@@ -10,9 +10,10 @@ import { sfx } from "../game/sound";
 const tier = (reward) => (reward >= 400 ? "gold" : reward >= 200 ? "silver" : "bronze");
 
 export default function Trophies() {
-  const { profile, update } = useProfile();
+  const { profile, update, earn } = useProfile();
   const claim = (a) => {
-    update((p) => ({ starlites: p.starlites + a.reward, claimed: [...p.claimed, a.id], stats: { ...p.stats, earned: p.stats.earned + a.reward } }));
+    earn(a.reward, `Trophy: ${a.name}`);
+    update((p) => ({ claimed: [...p.claimed, a.id], stats: { ...p.stats, earned: p.stats.earned + a.reward } }));
     sfx.coin();
     toast.success(`${a.name} unlocked! +${a.reward} Starlites`);
   };

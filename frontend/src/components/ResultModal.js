@@ -14,7 +14,7 @@ const Stars = ({ count }) => (
 );
 
 const Shell = ({ children, testId }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md" data-testid={testId}>
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="result-screen bg-app" data-testid={testId}>
     <motion.div initial={{ y: 40, scale: 0.9 }} animate={{ y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}
       className="modal-card w-full max-w-sm text-center">
       {children}

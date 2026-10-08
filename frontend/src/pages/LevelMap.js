@@ -6,9 +6,9 @@ import { CHAPTERS, LEVELS } from "../game/config";
 import { useProfile } from "../game/store";
 
 const Node = ({ lvl, stars, unlocked, current, onClick }) => {
-  const offset = Math.sin(lvl.n * 0.85) * 34;
+  const offset = Math.sin(lvl.n * 0.85);
   return (
-    <div className="flex justify-center" style={{ transform: `translateX(${offset}%)` }}>
+    <div className="flex justify-center" style={{ transform: `translateX(calc(${offset.toFixed(3)} * min(24vw, 120px)))` }}>
       <motion.button data-testid={`level-node-${lvl.n}`} disabled={!unlocked} onClick={onClick}
         initial={{ scale: 0.6, opacity: 0 }} whileInView={{ scale: 1, opacity: 1 }} viewport={{ once: true }}
         whileHover={unlocked ? { scale: 1.08 } : {}} whileTap={unlocked ? { scale: 0.95 } : {}}
@@ -37,7 +37,7 @@ export default function LevelMap() {
       <PageTitle eyebrow="Classic Levels" title="The Level Map">
         <div className="starlite-pill" data-testid="map-total-stars"><Star size={16} className="fill-[#FFC800] text-[#FFC800]" /> <span className="font-display font-bold">{total}/90</span></div>
       </PageTitle>
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-md overflow-x-clip" data-testid="level-map-container">
         {CHAPTERS.map((ch) => (
           <section key={ch.name} className="relative mb-12">
             <div className="chapter-banner">

@@ -68,7 +68,7 @@ export const Hud = ({ cfg, g, onExit }) => {
 };
 
 export const PowerBar = ({ cfg, g, inventory }) => (
-  <div className="mt-4 grid grid-cols-4 gap-2 sm:gap-3">
+  <div className="mt-2 grid shrink-0 grid-cols-4 gap-2 sm:gap-3">
     {POWERUPS.map(({ id, name, cost, Icon }) => {
       const disabled = id === "extra_moves" && cfg.mode === "zen";
       const owned = inventory[id] || 0;

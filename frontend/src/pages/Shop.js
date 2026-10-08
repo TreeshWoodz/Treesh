@@ -22,17 +22,17 @@ const Preview = ({ theme }) => (
 );
 
 export default function Shop() {
-  const { profile, update } = useProfile();
+  const { profile, update, starlites, spend: pay } = useProfile();
   const spend = (cost, fn, msg) => {
-    if (profile.starlites < cost) return toast.error("Not enough Starlites. Play a few rounds!");
-    update((p) => ({ starlites: p.starlites - cost, ...fn(p) }));
+    if (!pay(cost, msg)) return toast.error("Not enough Starlites. Play a few rounds!");
+    update(fn);
     sfx.coin();
     toast.success(msg);
   };
 
   return (
     <Layout>
-      <PageTitle eyebrow="Spend your Starlites" title="The Shop"><StarliteBadge value={profile.starlites} testId="shop-balance" /></PageTitle>
+      <PageTitle eyebrow="Spend your Starlites" title="The Shop"><StarliteBadge value={starlites} testId="shop-balance" /></PageTitle>
       <Tabs defaultValue="powerups">
         <TabsList className="shop-tabs">
           <TabsTrigger value="powerups" data-testid="shop-tab-powerups" className="shop-tab">Power-ups</TabsTrigger>

@@ -15,13 +15,13 @@ export const Logo = () => (
 );
 
 export const TopBar = () => {
-  const { profile } = useProfile();
+  const { profile, starlites } = useProfile();
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-[#0A070D]/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Logo />
         <div className="flex items-center gap-2 sm:gap-3">
-          <StarliteBadge value={profile.starlites} />
+          <StarliteBadge value={starlites} />
           <Link to="/profile" data-testid="nav-profile-btn" className="avatar-btn" title={profile.name}>
             {profile.name.slice(0, 1).toUpperCase()}
           </Link>

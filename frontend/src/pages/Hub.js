@@ -44,7 +44,7 @@ const ModeCard = ({ m, i, onClick, big }) => (
 
 export default function Hub() {
   const nav = useNavigate();
-  const { profile, update } = useProfile();
+  const { profile, update, earn } = useProfile();
   const [claiming, setClaiming] = useState(false);
   const bonusReady = profile.lastBonus !== todayStr();
   const done = Object.keys(profile.levelStars).length;
@@ -53,7 +53,8 @@ export default function Hub() {
 
   const claimBonus = () => {
     setClaiming(true);
-    update((p) => ({ starlites: p.starlites + 100, lastBonus: todayStr(), stats: { ...p.stats, earned: p.stats.earned + 100 } }));
+    earn(100, "Daily drop");
+    update((p) => ({ lastBonus: todayStr(), stats: { ...p.stats, earned: p.stats.earned + 100 } }));
     sfx.coin();
     toast.success("+100 Starlites! Come back tomorrow for more.");
   };

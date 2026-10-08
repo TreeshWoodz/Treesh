@@ -15,7 +15,7 @@ export const WelcomeModal = () => {
           <motion.div initial={{ y: 40, scale: 0.92 }} animate={{ y: 0, scale: 1 }} className="modal-card w-full max-w-md">
             <div className="eyebrow">Treesh Games presents</div>
             <h2 className="font-display text-4xl font-black text-gold">Bronze Blitz</h2>
-            <p className="mt-3 text-sm text-slate-300">Match the culture, set off combos, and collect Starlites. Here's <StarliteAmount value={500} /> to get you started.</p>
+            <p className="mt-3 text-sm text-slate-300">Match the culture, set off combos, and collect Starlites. Here's <StarliteAmount value={200} /> to get you started.</p>
             <label className="hud-label mt-6 block">Choose your player tag</label>
             <input data-testid="welcome-name-input" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} className="field mt-2 w-full" />
             <button data-testid="welcome-start-btn" onClick={go} className="btn-bronze mt-6 w-full">Let's Blitz</button>
