@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 3 frontend-only test of Bronze Blitz Treesh avatar + accent color sync. ALL scenarios PASS. (1) treesh_profile.avatar as https URL renders in nav-profile-avatar img and naturalWidth=200 (image loaded). Profile page shows treesh-name-synced + profile-avatar-img (naturalWidth=200). (2) data:image/png;base64 avatar renders (naturalWidth=1 as expected for 1x1 pixel). (3) avatarUrl fallback used when avatar is empty string. (4) With no avatar, falls back to initial letter 'Z' in nav-profile-btn (no img rendered). (5) Accent #9328ff: --ac=#9328ff, hero-play-btn background uses rgb(147,40,255), nav-home active pill uses purple gradient. (6) Light accent #FDE047: --ac-ink=#332d0e (dark ink for contrast) rather than #ffffff. (7) Live storage event: dispatching StorageEvent for treesh_accent updates --ac from #9328ff -> #10B981 without reload; same works for treesh_profile (avatar img appears live). (8) Invalid accent 'not-a-color' falls back to default bronze #C87D32. (9) No accent key -> default bronze #C87D32. (10) Regression: no welcome-modal when nickname present, treesh_stars balance (500) correctly displays. applyTreeshAccent + storage listener in store.js wired correctly and readTreeshProfile prefers avatar over avatarUrl with proper regex validation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "wallet.readTreeshProfile uses regex /^(data:image\\/|https?:)/ which correctly validates both scheme types; good defensive filtering against javascript: or malformed values.",
+    "applyTreeshAccent removes CSS vars when accent invalid so :root falls back to the stylesheet defaults — clean approach, but consider logging a one-time console.warn in dev when a non-hex string is seen so parent app developers get feedback.",
+    "store.js storage listener filters by TREESH_KEYS which is good; however `e.key` is null when localStorage.clear() is called from another tab — current `if (e.key && !TREESH_KEYS.includes(e.key)) return;` correctly lets null-key events through to refresh everything.",
+    "Layout.js avatar <img> has no onError handler — if a Treesh URL 404s, the broken-image icon will show instead of falling back to the initial letter. Minor polish: add onError that nulls the src and shows initials."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100%"},
+  "test_credentials": "None - guest via localStorage treesh_profile / treesh_accent / treesh_stars",
+  "seed_data_creation": "In-browser localStorage only (treesh_profile, treesh_accent, treesh_stars, bronze_save_v1); cleared between scenarios.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Avatar + accent sync fully working end-to-end. Live update via StorageEvent verified for both treesh_accent and treesh_profile. Only minor polish item: Layout.js nav-profile-avatar <img> has no onError fallback — a 404 Treesh avatar URL would show a broken-image glyph instead of initials. Non-blocking."
+}

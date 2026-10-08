@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Home, Map, Trophy, ShoppingBag, BarChart3 } from "lucide-react";
 import { useProfile } from "../game/store";
@@ -16,6 +17,8 @@ export const Logo = () => (
 
 export const TopBar = () => {
   const { profile, starlites, treesh } = useProfile();
+  const [avErr, setAvErr] = useState(false);
+  useEffect(() => setAvErr(false), [treesh?.avatar]);
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-[#0A070D]/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -23,7 +26,7 @@ export const TopBar = () => {
         <div className="flex items-center gap-2 sm:gap-3">
           <StarliteBadge value={starlites} />
           <Link to="/profile" data-testid="nav-profile-btn" className="avatar-btn" title={profile.name}>
-            {treesh?.avatar ? <img data-testid="nav-profile-avatar" src={treesh.avatar} alt={profile.name} /> : profile.name.slice(0, 1).toUpperCase()}
+            {treesh?.avatar && !avErr ? <img data-testid="nav-profile-avatar" src={treesh.avatar} alt={profile.name} onError={() => setAvErr(true)} /> : profile.name.slice(0, 1).toUpperCase()}
           </Link>
         </div>
       </div>
