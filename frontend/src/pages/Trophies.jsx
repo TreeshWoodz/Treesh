@@ -106,12 +106,12 @@ export default function Trophies() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
         <div className="glass rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between rise">
           <div className="flex items-center gap-4">
-            <span className="h-16 w-16 rounded-2xl bg-[#FFCC00] text-[#0B0F19] grid place-items-center font-mono text-3xl font-black">{lv.level}</span>
+            <span className="h-16 w-16 rounded-2xl bg-brand text-brand-ink grid place-items-center font-mono text-3xl font-black">{lv.level}</span>
             <div>
               <p className="eyebrow">{profile.name || "Player"}</p>
               <p className="font-display text-3xl font-black uppercase">Level {lv.level}</p>
               <div className="w-48 h-2 rounded-full bg-white/10 overflow-hidden mt-1">
-                <span className="block h-full bg-[#FFCC00]" style={{ width: `${lv.pct}%` }} />
+                <span className="block h-full bg-brand" style={{ width: `${lv.pct}%` }} />
               </div>
               <p className="font-mono text-xs text-slate-400 mt-1">{profile.xp - lv.base}/{lv.next - lv.base} XP to next level</p>
             </div>

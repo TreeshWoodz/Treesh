@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { ACHIEVEMENTS, TIERS, levelInfo } from "./achievements";
 import { SKINS, THEMES } from "./cosmetics";
 import { sfx } from "./sound";
+import { addStarlites } from "./treesh";
 
 export const KEY = "treesh_sonoku_v1";
 const LEGACY_KEY = "sonoko_profile_v1";
@@ -107,6 +108,7 @@ export function commitProgress(mutator) {
   const total = earned.reduce((t, [n]) => t + n, 0);
   if (total) {
     p.starlites = (p.starlites || 0) + total;
+    addStarlites(total, earned.map(([, r]) => r).join(", "));
     p.starLog = [...earned.map(([a, r]) => ({ t: Date.now(), a, r })), ...(p.starLog || [])].slice(0, 50);
     setTimeout(() => toast(`+${total} Starlites`, { description: earned.map(([, r]) => r).join(" · ") }), 300);
   }
@@ -120,6 +122,14 @@ export function commitProgress(mutator) {
     }, 900 + i * 1100)
   );
   return newly;
+}
+
+export function mergeLegacyStarlites() {
+  const p = loadProfile();
+  if (p.starMerged) return;
+  if (p.starlites > 0) addStarlites(p.starlites, "Earlier progress");
+  p.starMerged = true;
+  saveProfile(p);
 }
 
 export function useProfile() {

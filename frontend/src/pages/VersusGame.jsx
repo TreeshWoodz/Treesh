@@ -201,13 +201,13 @@ const Side = ({ name, icon: Icon, score, combo, cards, called, active, color, te
   <div
     data-testid={testid}
     className={`glass rounded-2xl px-3 py-2 transition-[opacity,box-shadow] duration-300 ${active ? "ring-2" : "opacity-70"}`}
-    style={active ? { "--tw-ring-color": color, boxShadow: `0 0 24px ${color}55` } : {}}
+    style={active ? { "--tw-ring-color": color, boxShadow: `0 0 24px color-mix(in srgb, ${color} 35%, transparent)` } : {}}
   >
     <div className="flex items-center justify-between gap-2">
       <span className="font-display font-black uppercase text-lg flex items-center gap-1.5" style={{ color }}>
         <Icon className="w-4 h-4" /> {name}
       </span>
-      {called && <span className="text-[10px] font-black bg-[#FFCC00] text-[#0B0F19] rounded px-1.5">SONOKO</span>}
+      {called && <span className="text-[10px] font-black bg-brand text-brand-ink rounded px-1.5">SONOKO</span>}
     </div>
     <div className="flex items-end justify-between gap-2">
       <span data-testid={`${testid}-score`} className="font-mono text-xl sm:text-2xl font-extrabold">{score.toLocaleString()}</span>
@@ -280,7 +280,7 @@ export default function VersusGame() {
       }
       sfx.error();
     } else if (out?.cells.length) {
-      float(out.cells, out.pts, p === 0 ? "#FFCC00" : "#FF3B30");
+      float(out.cells, out.pts, p === 0 ? "var(--brand)" : "#FF3B30");
       sfx.play();
     } else sfx.draw();
     commit(ns);
@@ -377,7 +377,7 @@ export default function VersusGame() {
           <div className="flex gap-1.5 sm:gap-2">
           <TopCardSlot card={s.top} />
           <div className="flex-1 min-w-0 grid grid-cols-2 gap-1.5 sm:gap-2">
-            <Side testid="versus-you" name="You" icon={User} score={s.scores[0]} combo={s.combos[0]} cards={s.hands[0].length} called={s.called[0]} active={s.turn === 0} color="#FFCC00" />
+            <Side testid="versus-you" name="You" icon={User} score={s.scores[0]} combo={s.combos[0]} cards={s.hands[0].length} called={s.called[0]} active={s.turn === 0} color="var(--brand)" />
             <Side testid="versus-bot" name={`Ivy · ${BOTS[diff].label}`} icon={Bot} score={s.scores[1]} combo={s.combos[1]} cards={s.hands[1].length} called={s.called[1]} active={s.turn === 1} color="#FF3B30" />
           </div>
           </div>
@@ -395,7 +395,7 @@ export default function VersusGame() {
         </section>
         <aside className="hidden lg:block w-full space-y-3 lg:self-center">
           <div className="hidden lg:block glass rounded-2xl px-4 py-3 text-center">
-            <p data-testid="versus-turn-indicator" className="font-display text-xl font-black uppercase italic" style={{ color: myTurn ? "#FFCC00" : "#FF3B30" }}>
+            <p data-testid="versus-turn-indicator" className="font-display text-xl font-black uppercase italic" style={{ color: myTurn ? "var(--brand)" : "#FF3B30" }}>
               {s.status === "over" ? (s.winner === 0 ? "You win!" : s.winner === "tie" ? "Tie!" : "Ivy wins") : myTurn ? "Your turn" : "Ivy's turn"}
             </p>
             <p data-testid="versus-log" className="text-xs sm:text-sm text-slate-300">{s.log}</p>
@@ -409,7 +409,7 @@ export default function VersusGame() {
       </main>
 
       <div className="shrink-0 w-full z-20 pt-1 pb-[max(env(safe-area-inset-bottom),6px)]">
-        <p data-testid="versus-hint" className={`text-center text-xs sm:text-sm px-4 font-semibold ${myTurn ? "text-[#FFCC00]" : "text-slate-300"}`}>{hint}</p>
+        <p data-testid="versus-hint" className={`text-center text-xs sm:text-sm px-4 font-semibold ${myTurn ? "text-brand" : "text-slate-300"}`}>{hint}</p>
         <div className="max-w-3xl mx-auto flex items-end gap-1 sm:gap-3 px-2">
           <DeckStack
             testid="draw-pile-button"
@@ -438,7 +438,7 @@ export default function VersusGame() {
         </div>
         {s.status === "over" && result && !resultOpen && (
           <div className="flex justify-center pb-2">
-            <button type="button" data-testid="versus-show-results-button" onClick={() => setResultOpen(true)} className="h-11 px-6 rounded-xl bg-[#FFCC00] text-[#0B0F19] font-black uppercase">
+            <button type="button" data-testid="versus-show-results-button" onClick={() => setResultOpen(true)} className="h-11 px-6 rounded-xl bg-brand text-brand-ink font-black uppercase">
               View results
             </button>
           </div>

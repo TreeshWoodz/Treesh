@@ -45,9 +45,9 @@ const Opponent = ({ s, p }) => {
   const count = s.hands[p].length;
   const active = s.turn === p && s.winner === null;
   return (
-    <div data-testid={`uno-opponent-${p}`} className={`glass rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2 flex flex-col items-center gap-1 min-w-0 flex-1 max-w-[150px] transition-[transform,box-shadow] duration-300 ${active ? "ring-2 ring-[#FFCC00] -translate-y-1 shadow-[0_0_24px_rgba(255,204,0,0.35)]" : ""}`}>
+    <div data-testid={`uno-opponent-${p}`} className={`glass rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2 flex flex-col items-center gap-1 min-w-0 flex-1 max-w-[150px] transition-[transform,box-shadow] duration-300 ${active ? "ring-2 ring-brand -translate-y-1 shadow-[0_0_24px_rgb(var(--brand-rgb)/0.35)]" : ""}`}>
       <div className="flex items-center gap-1.5">
-        <Bot className={`w-4 h-4 ${active ? "text-[#FFCC00]" : "text-slate-400"}`} />
+        <Bot className={`w-4 h-4 ${active ? "text-brand" : "text-slate-400"}`} />
         <span className="font-display font-black uppercase text-lg">{BOT_NAMES[p]}</span>
         {count === 1 && <span className="text-[10px] font-black bg-[#FF3B30] rounded px-1">UNO</span>}
       </div>
@@ -246,7 +246,7 @@ export default function UnoGame() {
               </motion.div>
             </div>
           </div>
-          <p data-testid="uno-turn-indicator" className={`relative font-display text-2xl sm:text-3xl font-black uppercase italic ${myTurn ? "text-[#FFCC00]" : "text-slate-300"}`}>
+          <p data-testid="uno-turn-indicator" className={`relative font-display text-2xl sm:text-3xl font-black uppercase italic ${myTurn ? "text-brand" : "text-slate-300"}`}>
             {s.winner !== null ? (s.winner === 0 ? "You win!" : `${BOT_NAMES[s.winner]} wins`) : myTurn ? "Your turn" : `${BOT_NAMES[s.turn]} is thinking...`}
           </p>
           <p data-testid="uno-log" className="relative text-sm text-slate-300 text-center">{s.log}</p>
@@ -294,7 +294,7 @@ export default function UnoGame() {
         </div>
         {s.winner !== null && !resultOpen && result && (
           <div className="flex justify-center pb-2">
-            <button type="button" data-testid="uno-show-results-button" onClick={() => setResultOpen(true)} className="h-11 px-6 rounded-xl bg-[#FFCC00] text-[#0B0F19] font-black uppercase">
+            <button type="button" data-testid="uno-show-results-button" onClick={() => setResultOpen(true)} className="h-11 px-6 rounded-xl bg-brand text-brand-ink font-black uppercase">
               View results
             </button>
           </div>

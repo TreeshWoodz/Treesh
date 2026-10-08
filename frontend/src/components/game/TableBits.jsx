@@ -35,7 +35,7 @@ export const CallButton = ({ testid, onClick, called, ready }) => (
       data-testid={testid}
       onClick={onClick}
       className={`h-14 w-14 sm:h-16 sm:w-16 rounded-full font-display font-black italic uppercase text-[11px] sm:text-sm leading-none border-4 transition-[transform,background-color] duration-200 active:scale-90 ${
-        called ? "bg-[#34C759] border-white text-[#0B0F19]" : ready ? "bg-[#FFCC00] border-white text-[#0B0F19] animate-glow scale-110" : "bg-white/5 border-white/15 text-slate-400"
+        called ? "bg-[#34C759] border-white text-[#0B0F19]" : ready ? "bg-brand border-white text-brand-ink animate-glow scale-110" : "bg-white/5 border-white/15 text-slate-400"
       }`}
     >
       <Megaphone className="w-4 h-4 mx-auto mb-0.5" />

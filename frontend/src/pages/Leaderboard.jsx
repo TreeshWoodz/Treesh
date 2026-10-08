@@ -5,7 +5,7 @@ import { fetchLeaderboard } from "@/lib/api";
 import { todayStr, useProfile } from "@/lib/progress";
 
 const TABS = [
-  ["sonoko", "Sonoko", "#FFCC00"],
+  ["sonoko", "Sonoko", "var(--brand)"],
   ["daily", "Daily", "#34C759"],
   ["sudoku", "Sudoku", "#007AFF"],
   ["uno", "Uno", "#FF3B30"],
@@ -68,7 +68,7 @@ export default function Leaderboard() {
                   key={r.id}
                   data-testid={`leaderboard-row-${i}`}
                   className={`rounded-2xl px-4 py-3 flex items-center gap-4 rise ${me ? "border-2" : "glass"}`}
-                  style={{ animationDelay: `${Math.min(i, 10) * 40}ms`, ...(me ? { borderColor: accent, background: `${accent}14` } : {}) }}
+                  style={{ animationDelay: `${Math.min(i, 10) * 40}ms`, ...(me ? { borderColor: accent, background: `color-mix(in srgb, ${accent} 8%, transparent)` } : {}) }}
                 >
                   <span
                     className="h-10 w-10 shrink-0 rounded-xl grid place-items-center font-mono font-black"

@@ -14,7 +14,7 @@ export const IconBtn = ({ children, testid, onClick, label }) => (
   </button>
 );
 
-export const GameHeader = ({ title, accent = "#FFCC00", right }) => {
+export const GameHeader = ({ title, accent = "var(--brand)", right }) => {
   const profile = useProfile();
   return (
     <header className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 px-3 sm:px-6 pt-3 pb-2">

@@ -40,7 +40,7 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent data-testid="result-dialog" className="bg-[#161C2E] border-white/10 text-white max-w-md rounded-3xl">
         <div className="flex items-center gap-3">
-          <div className={`h-14 w-14 rounded-2xl grid place-items-center ${won ? "bg-[#FFCC00] text-[#0B0F19]" : "bg-[#FF3B30]/20 text-[#FF3B30]"}`}>
+          <div className={`h-14 w-14 rounded-2xl grid place-items-center ${won ? "bg-brand text-brand-ink" : "bg-[#FF3B30]/20 text-[#FF3B30]"}`}>
             {won ? <Trophy className="w-7 h-7" /> : <Skull className="w-7 h-7" />}
           </div>
           <div>
@@ -52,7 +52,7 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
         </div>
         <div className="rounded-2xl bg-[#0B0F19] border border-white/10 p-4">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Final score</p>
-          <p data-testid="result-score" className="font-mono text-5xl font-black text-[#FFCC00]">{score.toLocaleString()}</p>
+          <p data-testid="result-score" className="font-mono text-5xl font-black text-brand">{score.toLocaleString()}</p>
           <div className="mt-3 space-y-1">
             {rows.map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
@@ -105,7 +105,7 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
             type="button"
             data-testid="result-play-again-button"
             onClick={onPlayAgain}
-            className="h-12 rounded-xl bg-[#FFCC00] text-[#0B0F19] font-black uppercase flex items-center justify-center gap-2 transition-transform duration-150 hover:scale-[1.02] active:scale-95"
+            className="h-12 rounded-xl bg-brand text-brand-ink font-black uppercase flex items-center justify-center gap-2 transition-transform duration-150 hover:scale-[1.02] active:scale-95"
           >
             <RotateCcw className="w-4 h-4" /> {playAgainLabel}
           </button>

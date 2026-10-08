@@ -59,7 +59,7 @@ export const DailyShare = ({ result: r }) => {
       </div>
       <div className="flex-1 min-w-0">
         <p className="eyebrow !text-[10px]">Daily · {r.date}</p>
-        <p className="font-mono text-2xl font-black text-[#FFCC00] leading-tight">{r.score.toLocaleString()}</p>
+        <p className="font-mono text-2xl font-black text-brand leading-tight">{r.score.toLocaleString()}</p>
         <p className="text-xs text-slate-400 flex items-center gap-1">
           <Flame className="w-3.5 h-3.5 text-[#34C759]" /> {r.streak}-day streak · {r.time}
         </p>

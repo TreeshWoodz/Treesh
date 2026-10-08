@@ -20,7 +20,7 @@ const EquipButton = ({ unlocked, equipped, level, onEquip, testid }) => (
     disabled={!unlocked || equipped}
     onClick={onEquip}
     className={`h-10 px-4 rounded-xl text-sm font-black uppercase flex items-center gap-1.5 transition-transform duration-150 active:scale-95 ${
-      equipped ? "bg-[#34C759] text-[#0B0F19]" : unlocked ? "bg-[#FFCC00] text-[#0B0F19] hover:scale-105" : "bg-white/5 text-slate-500"
+      equipped ? "bg-[#34C759] text-[#0B0F19]" : unlocked ? "bg-brand text-brand-ink hover:scale-105" : "bg-white/5 text-slate-500"
     }`}
   >
     {equipped ? <><Check className="w-4 h-4" /> Equipped</> : unlocked ? "Equip" : <><Lock className="w-4 h-4" /> Level {level}</>}

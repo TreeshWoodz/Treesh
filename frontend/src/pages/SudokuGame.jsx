@@ -288,7 +288,7 @@ export default function SudokuGame() {
           </div>
           <p className="hidden lg:block text-xs text-slate-500">Keyboard: 1–9 to fill · arrows to move · N for notes · Backspace to erase</p>
           {g.status !== "playing" && result && !resultOpen && (
-            <button type="button" data-testid="sudoku-show-results-button" onClick={() => setResultOpen(true)} className="w-full h-11 rounded-xl bg-[#FFCC00] text-[#0B0F19] font-black uppercase">
+            <button type="button" data-testid="sudoku-show-results-button" onClick={() => setResultOpen(true)} className="w-full h-11 rounded-xl bg-brand text-brand-ink font-black uppercase">
               View results
             </button>
           )}

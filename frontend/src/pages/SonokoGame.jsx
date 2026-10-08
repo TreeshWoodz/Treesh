@@ -28,7 +28,7 @@ const Setup = ({ daily, onStart, profile }) => (
     </h2>
     <p className="text-slate-400 mt-3 text-sm sm:text-base">
       Play a card that matches the top card's <b className="text-white">color or number</b>, then drop it in the cell where that number
-      belongs. Match the cell's tint for double points. Empty your hand after calling <b className="text-[#FFCC00]">SONOKO!</b>
+      belongs. Match the cell's tint for double points. Empty your hand after calling <b className="text-brand">SONOKO!</b>
     </p>
     {daily ? (
       <div className="mt-8 glass rounded-3xl p-5 flex items-center justify-between gap-4">
@@ -79,7 +79,7 @@ const Setup = ({ daily, onStart, profile }) => (
           data-testid="sonoko-tutorial-link"
           className="glass rounded-2xl p-4 flex items-center gap-3 text-slate-300 transition-colors duration-150 hover:bg-[#1E2640]"
         >
-          <GraduationCap className="w-6 h-6 text-[#FFCC00]" /> New here? Take the 60-second tutorial
+          <GraduationCap className="w-6 h-6 text-brand" /> New here? Take the 60-second tutorial
         </Link>
       </div>
     )}
@@ -198,7 +198,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
     return () => clearInterval(t);
   }, [g?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const float = (i, text, color = "#FFCC00") => {
+  const float = (i, text, color = "var(--brand)") => {
     const id = nextId();
     setFloaters((f) => [...f, { id, i, text, color }]);
     setTimeout(() => setFloaters((f) => f.filter((x) => x.id !== id)), 900);
@@ -322,7 +322,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
     ng.cardsPlayed++;
     if (colorMatch) ng.colorMatches++;
     ng.top = card.kind === "wild" ? { ...card, color: wildColor } : card;
-    float(i, `+${pts}${colorMatch ? " ★" : ""}`, colorMatch ? COLOR_HEX[card.color] : "#FFCC00");
+    float(i, `+${pts}${colorMatch ? " ★" : ""}`, colorMatch ? COLOR_HEX[card.color] : "var(--brand)");
     if (multFor(ng.combo) > mult) {
       sfx.combo();
       toast(`Combo x${multFor(ng.combo)}!`);
@@ -422,7 +422,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
   if (!g)
     return (
       <div className="min-h-[100dvh] bg-arcade">
-        <GameHeader title={tutorial ? "Tutorial" : daily ? "Daily" : "Sonoko"} accent={daily ? "#34C759" : "#FFCC00"} />
+        <GameHeader title={tutorial ? "Tutorial" : daily ? "Daily" : "Sonoko"} accent={daily ? "#34C759" : "var(--brand)"} />
         <Setup daily={daily} onStart={start} profile={profile} />
       </div>
     );
@@ -435,7 +435,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
       <Confetti active={g.status === "won"} />
       <GameHeader
         title={tutorial ? "Tutorial" : daily ? "Daily" : "Sonoko"}
-        accent={daily ? "#34C759" : "#FFCC00"}
+        accent={daily ? "#34C759" : "var(--brand)"}
         right={
           <IconBtn testid="sonoko-restart-button" label="Restart" onClick={() => start(diff)}>
             <RotateCcw className="w-4 h-4" />
@@ -447,7 +447,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
           <div className="flex gap-1.5 sm:gap-2">
           <TopCardSlot card={g.top} />
           <div className="flex-1 min-w-0 grid grid-cols-4 gap-1.5 sm:gap-2">
-            <Stat icon={Flame} label="Score" value={g.score.toLocaleString()} testid="sonoko-score" color="#FFCC00" />
+            <Stat icon={Flame} label="Score" value={g.score.toLocaleString()} testid="sonoko-score" color="var(--brand)" />
             <Stat icon={Flame} label="Combo" value={`x${mult}`} testid="sonoko-combo" color="#FF3B30" />
             <Stat icon={Clock} label="Time" value={fmtTime(seconds)} testid="sonoko-timer" color="#007AFF" />
             <div className="glass rounded-2xl px-2 py-2 flex items-center justify-center gap-0.5" data-testid="sonoko-lives">
@@ -498,9 +498,9 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
 
       <div className="shrink-0 w-full z-20 pt-1 pb-[max(env(safe-area-inset-bottom),6px)]">
         {tutStep ? (
-          <div data-testid="tutorial-coach" className={`max-w-xl mx-3 sm:mx-auto glass rounded-2xl p-3 sm:p-4 !border-[#FFCC00]/50 ${coachShake ? "animate-shake" : ""}`}>
+          <div data-testid="tutorial-coach" className={`max-w-xl mx-3 sm:mx-auto glass rounded-2xl p-3 sm:p-4 !border-brand/50 ${coachShake ? "animate-shake" : ""}`}>
             <div className="flex items-start gap-3">
-              <GraduationCap className="w-6 h-6 text-[#FFCC00] shrink-0 mt-0.5" />
+              <GraduationCap className="w-6 h-6 text-brand shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p data-testid="tutorial-step-title" className="font-display text-lg sm:text-xl font-black uppercase leading-tight">{tutStep.title}</p>
                 <p data-testid="tutorial-step-text" className="text-xs sm:text-sm text-slate-300">{tutStep.text}</p>
@@ -512,7 +512,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
                 Skip tutorial
               </button>
               {tutStep.t === "next" && (
-                <button type="button" data-testid="tutorial-next-button" onClick={advance} className="h-9 px-5 rounded-lg bg-[#FFCC00] text-[#0B0F19] font-black text-sm uppercase transition-transform duration-150 active:scale-95">
+                <button type="button" data-testid="tutorial-next-button" onClick={advance} className="h-9 px-5 rounded-lg bg-brand text-brand-ink font-black text-sm uppercase transition-transform duration-150 active:scale-95">
                   Next
                 </button>
               )}
@@ -527,7 +527,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
           <DeckStack
             testid="draw-pile-button"
             onClick={draw}
-            className={tutStep?.t === "draw" ? "ring-4 ring-[#FFCC00] animate-glow" : ""}
+            className={tutStep?.t === "draw" ? "ring-4 ring-brand animate-glow" : ""}
             label={
               <span data-testid="sonoko-hand-count" className={`font-mono text-[10px] sm:text-xs font-bold ${g.hand.length >= 10 ? "text-[#FF3B30]" : "text-slate-400"}`}>
                 {g.hand.length}/{BUST}
@@ -546,7 +546,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
                 dim={g.status === "playing" && !matches(c, g.top)}
                 shake={shakeId === c.id}
                 onClick={() => tapCard(c)}
-                className={`lg:hover:-translate-y-3 ${tutStep?.t === "card" && tutStep.id === c.id ? "ring-4 ring-[#FFCC00] animate-glow" : ""}`}
+                className={`lg:hover:-translate-y-3 ${tutStep?.t === "card" && tutStep.id === c.id ? "ring-4 ring-brand animate-glow" : ""}`}
               />
             )}
           />
@@ -559,7 +559,7 @@ export default function SonokoGame({ daily = false, tutorial = false }) {
               type="button"
               data-testid="sonoko-show-results-button"
               onClick={() => setResultOpen(true)}
-              className="h-11 px-6 rounded-xl bg-[#FFCC00] text-[#0B0F19] font-black uppercase"
+              className="h-11 px-6 rounded-xl bg-brand text-brand-ink font-black uppercase"
             >
               View results
             </button>

@@ -11,13 +11,21 @@ import HowToPlay from "@/pages/HowToPlay";
 import VersusGame from "@/pages/VersusGame";
 import Locker from "@/pages/Locker";
 import { useEffect } from "react";
-import { useProfile } from "@/lib/progress";
+import { useProfile, mergeLegacyStarlites } from "@/lib/progress";
 import { SkinContext } from "@/lib/cosmetics";
 import { BASE } from "@/lib/base";
+import { applyTreeshAccent } from "@/lib/treesh";
 import Profile from "@/pages/Profile";
 
 function App() {
   const profile = useProfile();
+  useEffect(() => {
+    mergeLegacyStarlites();
+    applyTreeshAccent();
+    const h = (e) => (!e.key || /^treesh_(accent|profile)$/.test(e.key)) && applyTreeshAccent();
+    window.addEventListener("storage", h);
+    return () => window.removeEventListener("storage", h);
+  }, []);
   useEffect(() => {
     document.body.dataset.theme = profile.theme || "arcade";
   }, [profile.theme]);

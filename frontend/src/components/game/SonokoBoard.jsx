@@ -19,7 +19,7 @@ export const SonokoBoard = ({ g, floaters = [], errCell, selCell, armed, glowCel
             c === 2 ? "!border-r-2 !border-r-white/30" : ""
           } ${r === 1 || r === 3 ? "!border-b-2 !border-b-white/30" : ""} ${errCell === i ? "animate-shake !bg-[#FF3B30]/50" : ""} ${
             selCell === i ? "ring-4 ring-inset ring-white" : ""
-          } ${glowCell === i ? "ring-4 ring-inset ring-[#FFCC00] !bg-[#FFCC00]/30 animate-pulse" : ""} ${!v && armed ? "hover:bg-white/20" : ""} transition-colors duration-150`}
+          } ${glowCell === i ? "ring-4 ring-inset ring-brand !bg-brand/30 animate-pulse" : ""} ${!v && armed ? "hover:bg-white/20" : ""} transition-colors duration-150`}
         >
           {v ? (
             <motion.span
@@ -43,7 +43,7 @@ export const SonokoBoard = ({ g, floaters = [], errCell, selCell, armed, glowCel
             <span
               data-testid={`${cellPrefix}-${r}-${c}-owner-${owner}`}
               className="absolute top-0 right-0 w-0 h-0 border-t-[12px] border-l-[12px] border-l-transparent"
-              style={{ borderTopColor: owner === "bot" ? "#FF3B30" : "#FFCC00" }}
+              style={{ borderTopColor: owner === "bot" ? "#FF3B30" : "var(--brand)" }}
             />
           )}
           <AnimatePresence>

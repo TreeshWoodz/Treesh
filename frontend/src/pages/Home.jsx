@@ -4,7 +4,7 @@ import { Trophy, BarChart3, BookOpen, CalendarDays, Grid3x3, Layers, Sparkles, A
 import { PlayingCard } from "@/components/game/PlayingCard";
 import { useProfile, updateProfile, todayStr } from "@/lib/progress";
 import { ACHIEVEMENTS, levelInfo } from "@/lib/achievements";
-import { useTreesh } from "@/lib/treesh";
+import { useTreesh, useWallet } from "@/lib/treesh";
 import { Avatar } from "@/pages/Profile";
 
 const MODES = [
@@ -56,6 +56,7 @@ const HeroCards = () => (
 export default function Home() {
   const profile = useProfile();
   const treesh = useTreesh();
+  const wallet = useWallet();
   const lv = levelInfo(profile.xp);
   const unlocked = Object.keys(profile.unlocked).length;
   const doneToday = profile.stats.lastDaily === todayStr();
@@ -70,10 +71,10 @@ export default function Home() {
         <Link to="/profile" data-testid="home-profile-chip" className="glass rounded-full pl-1 pr-3 py-1 flex items-center gap-2 transition-colors duration-150 hover:bg-[#1E2640]">
           <Avatar treesh={treesh} name={treesh ? treesh.nickname : profile.name} size="h-8 w-8 text-sm !rounded-full" />
           <span className="hidden sm:block max-w-[120px] truncate text-sm font-semibold">{treesh ? treesh.nickname : profile.name || "Guest"}</span>
-          <span className="h-6 px-1.5 rounded-full bg-[#FFCC00] text-[#0B0F19] grid place-items-center font-mono font-black text-[11px]" data-testid="home-level-chip">Lv {lv.level}</span>
+          <span className="h-6 px-1.5 rounded-full bg-brand text-brand-ink grid place-items-center font-mono font-black text-[11px]" data-testid="home-level-chip">Lv {lv.level}</span>
           <span className="font-mono text-xs font-bold text-[#F59E0B] flex items-center gap-1" data-testid="home-starlites">
             <Sparkles className="w-3.5 h-3.5" />
-            {(profile.starlites || 0).toLocaleString()}
+            {wallet.toLocaleString()}
           </span>
         </Link>
       </header>
@@ -94,7 +95,7 @@ export default function Home() {
               <Link
                 to="/play/sonoko"
                 data-testid="home-play-now-button"
-                className="h-14 px-8 rounded-2xl bg-[#FFCC00] text-[#0B0F19] font-display text-2xl font-black uppercase italic flex items-center gap-2 shadow-[0_10px_30px_rgba(255,204,0,0.35)] transition-transform duration-150 hover:-translate-y-0.5 active:scale-95"
+                className="h-14 px-8 rounded-2xl bg-brand text-brand-ink font-display text-2xl font-black uppercase italic flex items-center gap-2 shadow-[0_10px_30px_rgb(var(--brand-rgb)/0.35)] transition-transform duration-150 hover:-translate-y-0.5 active:scale-95"
               >
                 Play Sonoko <ArrowRight className="w-6 h-6" />
               </Link>
@@ -114,14 +115,14 @@ export default function Home() {
           <Link
             to="/play/tutorial"
             data-testid="home-tutorial-banner"
-            className="mt-10 rounded-3xl border-2 border-dashed border-[#FFCC00]/50 p-4 sm:p-5 flex items-center gap-4 transition-colors duration-150 hover:bg-[#FFCC00]/10"
+            className="mt-10 rounded-3xl border-2 border-dashed border-brand/50 p-4 sm:p-5 flex items-center gap-4 transition-colors duration-150 hover:bg-brand/10"
           >
-            <GraduationCap className="w-9 h-9 text-[#FFCC00] shrink-0" />
+            <GraduationCap className="w-9 h-9 text-brand shrink-0" />
             <div className="flex-1">
               <p className="font-display text-2xl font-black uppercase">New to Sonoko?</p>
               <p className="text-slate-400 text-sm">Learn matching, placing and calling SONOKO! in a 60-second guided round.</p>
             </div>
-            <ArrowRight className="w-5 h-5 text-[#FFCC00]" />
+            <ArrowRight className="w-5 h-5 text-brand" />
           </Link>
         )}
         <section className="mt-12 sm:mt-16">
@@ -130,7 +131,7 @@ export default function Home() {
             <Link
               to="/play/sonoko"
               data-testid="mode-select-sonoko-button"
-              className="group sm:col-span-3 relative overflow-hidden rounded-3xl p-6 bg-[#FFCC00] text-[#0B0F19] min-h-[190px] flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1"
+              className="group sm:col-span-3 relative overflow-hidden rounded-3xl p-6 bg-brand text-brand-ink min-h-[190px] flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1"
             >
               <Sparkles className="absolute -right-6 -top-6 w-40 h-40 opacity-15 transition-transform duration-500 group-hover:rotate-45" />
               <span className="text-xs font-black uppercase tracking-[0.2em]">Featured · Hybrid</span>
@@ -206,7 +207,7 @@ export default function Home() {
               maxLength={20}
               placeholder="Enter your name"
               onBlur={(e) => updateProfile((p) => (p.name = e.target.value.trim()))}
-              className="mt-2 w-full h-11 rounded-xl bg-[#0B0F19] border border-white/15 px-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+              className="mt-2 w-full h-11 rounded-xl bg-[#0B0F19] border border-white/15 px-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
         </section>

@@ -2,14 +2,14 @@ import { Link } from "react-router-dom";
 import { Sparkles, Trophy, Link2, Star, Clock } from "lucide-react";
 import { GameHeader } from "@/components/game/GameHeader";
 import { useProfile, updateProfile } from "@/lib/progress";
-import { useTreesh } from "@/lib/treesh";
+import { useTreesh, useWallet } from "@/lib/treesh";
 import { ACHIEVEMENTS, TIERS, levelInfo } from "@/lib/achievements";
 
 export const Avatar = ({ treesh, name, size = "h-16 w-16 text-2xl" }) =>
   treesh?.avatar ? (
     <img src={treesh.avatar} alt="" className={`${size} rounded-2xl object-cover border-2 border-white/20`} />
   ) : (
-    <span className={`${size} rounded-2xl bg-[#FFCC00] text-[#0B0F19] grid place-items-center font-display font-black`}>
+    <span className={`${size} rounded-2xl bg-brand text-brand-ink grid place-items-center font-display font-black`}>
       {(name || "P").replace("@", "").slice(0, 1).toUpperCase()}
     </span>
   );
@@ -17,6 +17,7 @@ export const Avatar = ({ treesh, name, size = "h-16 w-16 text-2xl" }) =>
 export default function Profile() {
   const p = useProfile();
   const t = useTreesh();
+  const wallet = useWallet();
   const lv = levelInfo(p.xp);
   const s = p.summary || { tiers: {}, winsTotal: 0, played: 0 };
   const display = t ? t.nickname : p.name || "Guest player";
@@ -24,7 +25,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-[100dvh] bg-arcade pb-10" data-testid="profile-page">
-      <GameHeader title="Profile" accent="#FFCC00" />
+      <GameHeader title="Profile" accent="var(--brand)" />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 space-y-4">
         <section className="glass rounded-3xl p-5 sm:p-6 rise">
           <div className="flex items-center gap-4">
@@ -42,19 +43,20 @@ export default function Profile() {
             <div className="rounded-2xl bg-[#0B0F19]/70 p-3">
               <p className="eyebrow !text-[10px]">Level</p>
               <p data-testid="profile-level" className="font-mono text-2xl font-black">{lv.level}</p>
-              <span className="block h-1.5 rounded-full bg-white/10 overflow-hidden mt-1"><span className="block h-full bg-[#FFCC00]" style={{ width: `${lv.pct}%` }} /></span>
+              <span className="block h-1.5 rounded-full bg-white/10 overflow-hidden mt-1"><span className="block h-full bg-brand" style={{ width: `${lv.pct}%` }} /></span>
             </div>
             <div className="rounded-2xl bg-[#0B0F19]/70 p-3">
-              <p className="eyebrow !text-[10px]">Sonoku Starlites</p>
-              <p data-testid="profile-starlites" className="font-mono text-2xl font-black text-[#F59E0B] flex items-center gap-1"><Sparkles className="w-5 h-5" />{(p.starlites || 0).toLocaleString()}</p>
+              <p className="eyebrow !text-[10px]">Treesh Starlites</p>
+              <p data-testid="profile-starlites" className="font-mono text-2xl font-black text-[#F59E0B] flex items-center gap-1"><Sparkles className="w-5 h-5" />{wallet.toLocaleString()}</p>
+              <p className="text-[10px] text-slate-500">{(p.starlites || 0).toLocaleString()} earned in Sonoku</p>
             </div>
             <div className="rounded-2xl bg-[#0B0F19]/70 p-3">
               <p className="eyebrow !text-[10px]">Trophies</p>
               <p data-testid="profile-trophies" className="font-mono text-2xl font-black">{Object.keys(p.unlocked).length}<span className="text-slate-500 text-base">/{ACHIEVEMENTS.length}</span></p>
             </div>
             <div className="rounded-2xl bg-[#0B0F19]/70 p-3">
-              <p className="eyebrow !text-[10px]">{t ? "Treesh Starlites" : "Wins"}</p>
-              <p data-testid="profile-treesh-starlites" className="font-mono text-2xl font-black">{t ? (t.treeshStars + (p.starlites || 0)).toLocaleString() : s.winsTotal}</p>
+              <p className="eyebrow !text-[10px]">Wins</p>
+              <p data-testid="profile-wins" className="font-mono text-2xl font-black">{s.winsTotal}</p>
             </div>
           </div>
           {!t && (
@@ -67,7 +69,7 @@ export default function Profile() {
                 maxLength={20}
                 placeholder="Enter your name"
                 onBlur={(e) => updateProfile((x) => (x.name = e.target.value.trim()))}
-                className="mt-2 w-full h-11 rounded-xl bg-[#0B0F19] border border-white/15 px-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                className="mt-2 w-full h-11 rounded-xl bg-[#0B0F19] border border-white/15 px-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
           )}
@@ -76,7 +78,7 @@ export default function Profile() {
         <section className="glass rounded-3xl p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="eyebrow">Trophy case</p>
-            <Link to="/trophies" data-testid="profile-trophies-link" className="text-xs font-bold text-[#FFCC00] hover:underline">See all →</Link>
+            <Link to="/trophies" data-testid="profile-trophies-link" className="text-xs font-bold text-brand hover:underline">See all →</Link>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {Object.entries(TIERS).map(([id, tier]) => (
@@ -103,7 +105,7 @@ export default function Profile() {
         </section>
 
         <section className="glass rounded-3xl p-5">
-          <p className="eyebrow mb-3">Starlites history</p>
+          <p className="eyebrow mb-3">Starlites earned in Sonoku</p>
           <div className="space-y-1.5" data-testid="profile-starlog">
             {(p.starLog || []).slice(0, 12).map((e, i) => (
               <div key={i} className="flex items-center gap-3 text-sm">
