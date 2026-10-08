@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only testing of Treesh wallet + accent sync for Ebonics. All 13 required scenarios verified. (1) Fresh with treesh_stars={points:500} + welcome bonus => header shows 650 and treesh_stars.points=650 with 'Ebonics · Welcome bonus' a=150 log entry; reload keeps 650 (walletLinked flag prevents double bonus). (2) No treesh_stars at all => wallet created with points=150. (3) Migration from existing ebonics_save_v1 (starlites=400) with treesh_stars.points=100 => wallet becomes 500 with first log 'Ebonics · Balance moved to Treesh wallet' a=400. (4) Live parent sync: second page in same context mutates treesh_stars (+1000) => header on first page updates to 1500 without reload via storage event. (5) Daily claim +60 updates treesh_stars.points via applyToWallet and prepends 'Ebonics · Daily drop · day 1' entry. (6) Shop theme purchase deducts exact price from treesh_stars.points and adds 'Ebonics · Bought <name>' log entry (delta -200 for a 200-price theme when achievements already unlocked). (7) Insufficient funds blocks purchase (wallet unchanged, error toast). (8) Fresh wallet value enforcement: when 2nd page lowers points to 1 after shop loaded with 5000, buy attempt fails and wallet stays at 1 (buy() uses readWallet() at the moment of purchase, not stale state). (9) Profile wallet cells: wallet-treesh=777, wallet-ebonics-earned=1,234, wallet-spent=75 computed from local starLog, and ebonics_starlites localStorage=='1234' (lifetime earned). (10) Accent treesh_accent='\"#9328ff\"' sets --eb-gold=#9328ff and --eb-on-gold=#FFFFFF; quick-play-btn renders rgb(147,40,255) background with white text. (11) Live accent change from second page to '#34d399' updates --eb-gold immediately and --eb-on-gold flips to #0B0914 (luminance-based contrast). (12) Shop accent-sync-toggle: aria-checked='true' by default when accent present; toggling off reverts --eb-gold to theme default #FFC72C and persists after reload; toggling back on reapplies accent. (13) Toggle disabled (opacity 40%, cannot click) when no treesh_accent in storage. Regression: themes purchase/equip work; onboarding, nav still OK (previously validated in iteration 2).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_3.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "store.js applyToWallet() uses Math.max(0, points+delta) which silently clamps negative balances. If a buy() ever slipped past the readWallet guard (e.g. race with parent app writing a smaller value between the check and the write), the user would get the item for free. Consider aborting the write if resulting points would be negative instead of clamping.",
+    "store.js commit() replays queued _pending entries into applyToWallet() by summing deltas and prepending the reversed list; because this is done in a single localStorage write it is non-transactional versus concurrent parent-app writes. For low-frequency actions this is fine but worth noting if the parent app writes aggressively.",
+    "readAccent() accepts both JSON-stringified '\"#rrggbb\"' and raw '#rrggbb' / 'rrggbb' — good. Short-hex (#abc) and rgb() formats are silently ignored (returns null) which disables the toggle — acceptable per spec.",
+    "ebonics_starlites is written on every state change as String(state.totalEarned); fine, but it will never shrink even if the save is cleared via other means — intended as lifetime stat, documented."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "seed_data_creation": "All seeding via in-browser localStorage: treesh_stars, treesh_profile, treesh_accent, ebonics_save_v1. No backend writes. No new leaderboard entries (score=0 skipped).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Shared wallet keys: treesh_stars (JSON {points, log:[{t,a,r}]}), treesh_accent (JSON string of hex or raw hex), treesh_profile. Ebonics save: ebonics_save_v1 (has walletLinked flag to prevent re-migrating/re-welcome-bonusing, useAccent for toggle, totalEarned for lifetime). Lifetime earned also mirrored in ebonics_starlites localStorage. Storage events fire only in OTHER documents, so use context.new_page() + goto(same-origin URL) + evaluate(localStorage.setItem...) to simulate parent-app writes; the Ebonics tab must be brought to front afterwards so React picks up (storage event still fires in background tabs though)."
+}

@@ -14,6 +14,7 @@ Come up with an epic game for black culture and people called "Ebonics", owned b
 - Backend FastAPI: POST /api/flip/judge, POST /api/ai/questions (Claude claude-sonnet-5-5), GET/POST /api/leaderboard (Mongo, $max per player+mode)
 
 ## Implemented (Oct 2026)
+- Shared Treesh wallet: Ebonics balance = `treesh_stars.points` (fresh read-modify-write, `Ebonics · ...` log entries, live storage-event sync, one-time migration/welcome bonus); `ebonics_starlites` = lifetime earned. Treesh accent (`treesh_accent`) drives `--eb-gold` + auto-contrast `--eb-on-gold`, toggle in Shop (iteration_3 100% pass). Parent needs storage-listener patch in /app/memory/treesh_parent_snippet.md
 - Treesh parent integration: shared `treesh_profile` (nickname, @username, avatar, birthday/zodiac, joined) with onboarding sheet (16 Treesh preset avatars + upload), Profile page (wallet, rank, stats, Starlites history, personal bests), leaderboard uses username||nickname; Starlites stored in `ebonics_starlites` (FREA!/Chainz pattern), `treesh_stars.points` read-only; storage-event live sync. Parent snippet: /app/memory/treesh_parent_snippet.md (iteration_2 100% pass)
 - 7 modes: Say Less, Finish the Phrase, Real or Cap, Flip It (AI judge + offline fallback), 60s Speed Run, Daily Cookout (seeded, 2x, once/day), AI Remix (endless)
 - Combo multiplier up to 5x, hearts, timers, 4 power-ups, sounds toggle, confetti
