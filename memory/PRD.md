@@ -29,8 +29,12 @@ Treesh web app: massive single-file architecture (`/app/single_html/index.html`)
   - Privacy Policy + Terms updated for Treesh accounts.
   - Tested: iteration_16.json (~92% pass, 1 LOW bug fixed after) + self-tests (Music Manager upload/edit, Lyric Studio rail, legal pages).
 
+- Phase 9 (Oct 8, 2026): What's Next chat crew = main + featured (section labels) + credited (featuring/artistIds); featured artists use their own catalog pic (initials if not in catalog), show in header avatars/names, side panel "In the chat", all greet; round-1 audio unlocked via silent WAV in the tap. Arcade games all live, Updated "October 8, 2026". Support top nav shorter (56/50px, no safe-area pad in iframe). This or That turntables, studio header merge, playlist shuffle/picker, mini player look, perf mode, pull-to-refresh, settings merges built & verified (iteration_24.json, 100%).
+- Note: index.html had been stale; always run `python3 /app/memory/patch_p9.py && python3 /app/memory/build_sbtest.py` after edits.
+
 ## Pending / Backlog
-- User action: run updated `/app/memory/supabase_setup.sql` in Supabase SQL editor (user_data, treesh-data bucket, delete_user, avatar delete policy); add `https://treesh.app/confirm-signup**` to Supabase Auth Redirect URLs.
+- User action: run `/app/memory/supabase_update_p9p.sql` in Supabase SQL editor (if supabase_social.sql already ran; else run supabase_social.sql). Earlier: supabase_setup.sql; add `https://treesh.app/confirm-signup**` to Supabase Auth Redirect URLs.
+- On hold (user): Music Studio upload flow & sort UI; Image Studio text page merge with emojis.
 - P1: Manual device check of flick-to-close (CDP touch is flaky in automation).
 - P2: Configurable default homepage.
 - P2: Vocotap & Nects stats (need game files), Instrum polish, Find Lyrics improvements.
