@@ -30,6 +30,7 @@ Treesh web app: massive single-file architecture (`/app/single_html/index.html`)
   - Tested: iteration_16.json (~92% pass, 1 LOW bug fixed after) + self-tests (Music Manager upload/edit, Lyric Studio rail, legal pages).
 
 - Phase 9 (Oct 8, 2026): What's Next chat crew = main + featured (section labels) + credited (featuring/artistIds); featured artists use their own catalog pic (initials if not in catalog), show in header avatars/names, side panel "In the chat", all greet; round-1 audio unlocked via silent WAV in the tap. Arcade games all live, Updated "October 8, 2026". Support top nav shorter (56/50px, no safe-area pad in iframe). This or That turntables, studio header merge, playlist shuffle/picker, mini player look, perf mode, pull-to-refresh, settings merges built & verified (iteration_24.json, 100%).
+- Phase 9 (Oct 8, 2026, later): P0 fixes (double-tap, scrubber, resume, profile sheet anim; iteration_27). Lyric Themes (p9zp: Classic, Text Messages = wc-root chat w/ typing dots + read receipt, Neon, Typewriter, Notebook, Terminal, Comic, Polaroid; global + "Only for this song" pin; no box/background panel; Settings > Appearance) + Lyric Card styles (p9zq; Text Messages card has a permanent "Not real messages from <artist>" disclaimer). Singer (duet) colors now OFF by default, toggle in theme sheet. Starlites "New song discovered" repeat fixed (p9zm awardStars merge). Don't Get Caught LIVE (p9zr; mask 3D art, logo, banner in p9w_art/p9zm_art; 13+). Arcade filters + search + Notify me for future coming-soon games + open tracking (p9zr). Smart search redesign (p9zs: Top results, chips w/ counts, See all, recent/trending/jump-to, arrow+Enter nav, Ctrl+K and /, top panel desktop / bottom dock mobile). Support page + 8 new screenshots, What's New entries. Tested iteration_28 + iteration_29 (100%).
 - Note: index.html had been stale; always run `python3 /app/memory/patch_p9.py && python3 /app/memory/build_sbtest.py` after edits.
 
 ## Pending / Backlog
@@ -41,6 +42,10 @@ Treesh web app: massive single-file architecture (`/app/single_html/index.html`)
 
 ## Testing notes
 Seed: `localStorage.setItem('treesh_whatsnew_off','true'); localStorage.setItem('treesh_profile', JSON.stringify({nickname:'Tester',birthday:'2000-01-01'}))`. Account flows: use `/_sbtest.html` (fake Supabase, see test_credentials.md).
+
+## Next up (queued from earlier requests)
+- P1: Voice assistant mic deactivation bug; Zodiac modal flick-to-close (goes right instead of centering); Profile Space settings lost on sign-out/in.
+- P2: Admin controls & moderation redesign; Music Studio modal header merge; Playlist & Library UI redesign; Magic Markup for the mini player; hide #app-shell behind full-screen modals on mobile (perf).
 
 ## Request queue (Oct 8, 2026, in order)
 1. New games: Bronze Blitz / Sonoko (/games/sonoku) / Ebonics: bios, ages (All / 6+ / 13+), logos + banners (+ Hoop logo/banner), arcade stats on profile, What's New updates on every page.

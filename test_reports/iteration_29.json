@@ -1,0 +1,48 @@
+{
+  "summary": "Frontend-only end-to-end validation of all 8 features in the review_request on Treesh single-file SPA (desktop 1400x850 + iPhone 13). All targeted areas pass: (1) No-box lyric themes — for every non-classic theme (chat, neon, type, note, term, comic, pola) #np-lyric-region::before background is 'rgba(0,0,0,0) none' and #np-lyrics background is transparent, text remains readable on dark player bg. (2) Singer-colors opt-in — duetOn() returns false on fresh storage; [data-testid=lyt-duet-toggle] is only shown for multi-artist songs (SONGS.filter(lytMulti)=8 items incl. palo-bounce); clicking it writes treesh_duet_colors='true'. (3) Starlites toast de-bubbling — playing a never-played song, switching themes multiple times: exactly 1 'New song discovered' toast, state.stars.log has 1 matching entry, treesh_stars.newSongs contains the id. (4) Lyric card disclaimer — card-style-chat canvas shows ~113k dark pixels in the bottom 10% (dark pill drawn) vs ~43k for classic (no pill); disclaimer is baked into the canvas so it survives download/share. (5) Don't Get Caught live — games-arcade-count reads '8 live'; game-open-dgc has 3D mask art (st3-stage + st3-rig), no soon-badge and no notify chip; game-info-play-dgc opens frame at https://treesh.app/games/dgc; opens tracked in treesh_arcade_plays. (6) Arcade filters — All/updated/new/soon/most/az chips all work (new → dgc, sonoku, ebonics, bronze-blitz; soon → empty state; most → empty until a game is opened; az → alphabetical); Age menu with 13+ shows only vocotap/chainz/ebonics/dgc, 6+ shows frea/nects/sonoku; search 'caught' → only dgc, 'zzz' → empty state + reset works. (7) Notify-me generic — temporarily setting GAME_BY_KEY.sonoku.soon=true shows [data-testid=game-notify-sonoku], clicking it writes {sonoku: ts} to treesh_game_notify without opening info modal, and info modal shows [data-testid=game-info-notify-sonoku] in sync. (8) Smart search — Ctrl+K opens overlay (desktop top panel, mobile fullscreen); home shows 11 trending chips and all 4 jump links (arcade/lyt/users/settings); 'chel' → top-hit + sections songs/lyrics with chip counts (Songs10, Artists1, Lyrics12); ArrowDown/Up navigate .is-kn highlight (search-top-song-* IDs); see-all switches state.searchTab; Games chip + 'caught' → dgc; 'crossfade' → settings section; 'qqqzzzx' → search-no-results; Enter on 'caught' opens game-info-dgc, closes overlay, saves 'caught' to recent searches. (9) Support page — all 8 target data-shot screenshots (search, search-top, lyric-themes, lyt-chat, lyric-card, arcade, arcade-filters, dgc) load without broken images on both desktop and mobile; text contains Ctrl+K, 'lyric theme', 'Color lines by singer', 'Text Messages', \"Don't Get Caught\", 'Notify'; no 'coming soon' near Bronze Blitz/Ebonics/Sonoku. (10) Regression — zero pageerror and zero console errors on all runs (desktop + mobile) across duet, arc, srch, full_rt scripts.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "no_box_themes": "PASS - all 7 non-classic themes: ::before bg transparent/none, #np-lyrics bg transparent (desktop + mobile)",
+    "duet_opt_in": "PASS - duetOn()=false default; lyt-duet-toggle visible on multi-artist songs; writes treesh_duet_colors",
+    "starlites_toast_fix": "PASS - exactly 1 'New song discovered' toast + 1 log entry + saved id across theme switches",
+    "lyric_card_disclaimer": "PASS - chat style draws dark pill at bottom (~113k dark pixels vs ~43k classic); baked into canvas (preview+saved image)",
+    "dgc_live": "PASS - 8 live count; mask 3D art; no soon badge/notify chip; info modal + play opens treesh.app/games/dgc frame; opens tracked in treesh_arcade_plays",
+    "arcade_filters": "PASS - all/updated/new/soon/most/az chips, age menu 6+/13+, search + empty+reset, combinations work",
+    "notify_me_generic": "PASS - toggling GAME_BY_KEY.sonoku.soon=true exposes game-notify-sonoku chip; click toggles treesh_game_notify without opening info; info modal switch stays in sync",
+    "search_desktop": "PASS - Ctrl+K opens top panel overlay with home (11 trending chips + 4 jump links); chips row with counts; sections songs/lyrics; keyboard arrows + Enter work; recent saved on open",
+    "search_mobile": "PASS - openSearch() opens fullscreen overlay on iPhone 13; same features work (home, chips, sections, keyboard-equivalent clicks, recent)",
+    "search_top_hit_and_enter": "PASS - 'caught' top-hit is dgc game; Enter opens game-info-dgc, closes overlay, saves to treesh_recent_searches",
+    "support_page_shots": "PASS - all 8 data-shot images (search, search-top, lyric-themes, lyt-chat, lyric-card, arcade, arcade-filters, dgc) load fully on desktop + mobile after scroll/eager-load",
+    "support_page_text": "PASS - keywords Ctrl+K, 'lyric theme', 'Color lines by singer', 'Text Messages', \"Don't Get Caught\", 'Notify' present; no 'coming soon' near Bronze Blitz/Ebonics/Sonoku",
+    "regression_pageerrors": "PASS - zero pageerror on load + search + arcade filter + theme switches on desktop and mobile"
+  },
+  "test_report_links": [
+    "/app/memory/tests/duet.py",
+    "/app/memory/tests/arc.py",
+    "/app/memory/tests/srch.py",
+    "/app/memory/tests/full_rt.py",
+    "/app/memory/tests/supp.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Support page screenshots use native loading='lazy' — on initial 1500ms load they appear broken; eager-loading after scroll resolves them. Not a functional bug since users will scroll, but consider loading='eager' for critical hero shots or an IntersectionObserver prefetch.",
+    "No-box theme CSS correctly nukes both #np-lyric-region::before background AND #np-lyrics background; all 7 non-classic themes verified via getComputedStyle.",
+    "Starlites awardStars wrapper correctly merges localStorage treesh_stars.newSongs with in-memory state.stars.newSongs before deciding to toast — fixes the previous bubbling repeat."
+  ],
+  "updated_files": [
+    "/app/memory/tests/full_rt.py (new - end-to-end regression for review_request bugs 1-7)",
+    "/app/memory/tests/supp.py (new - support page screenshot loading check desktop+mobile)"
+  ],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "None (guest mode). Seed: treesh_whatsnew_off=true, treesh_eco_ask=1, treesh_profile={nickname:'Tester',birthday:'2000-01-01'}; recent-searches must be seeded BEFORE page load since srHome reads it at open time.",
+  "seed_data_creation": "localStorage: treesh_whatsnew_off, treesh_eco_ask, treesh_profile set before reload; treesh_recent_searches=['black barbie','pink'] seeded before reload where needed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Four canonical scripts: duet.py (singer-colors + starlites), arc.py (DGC live + arcade filters + notify), srch.py (search desktop + mobile), full_rt.py (no-box themes + card disclaimer + DGC tile + notify generic + support). All pass on desktop and `m` arg for iPhone 13. Note: support shots use loading='lazy' so wait for scroll/networkidle + eager-load before checking img.complete. The disclaimer is drawn directly on #lyric-canvas by lcChatDisclaimer() inside LCP.chat so counting dark pixels in bottom 10% is a reliable proxy. For Enter-navigates-recent, must focus #search-input first.",
+  "rca_of_issue": "N/A - all review_request items pass. Previous Starlites 'bubbling' repeat was fixed in p9zm.js awardStars wrapper by merging localStorage treesh_stars.newSongs with in-memory state before the toast gate; verified: switching themes 2x after a never-played song still yields exactly 1 toast + 1 log + 1 persisted entry."
+}
