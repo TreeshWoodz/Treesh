@@ -61,11 +61,14 @@ var FreaBalls=(function(){
 
   /* ---------- hoop look (read by hoops3) ---------- */
   function look(){return LOOK;}
+  /* remember the player's ball across games/reloads (player is re-created every match) */
+  function applySaved(){if(player){player._ball={color:BALL.color,style:BALL.style};}}
+  var _sgB=startGame;startGame=function(){var r=_sgB.apply(this,arguments);applySaved();return r;};
 
   /* ---------- studio modal (Ball tab + Hoop tab) ---------- */
   function el(id){return document.getElementById(id);}
   var raf=0,tab='ball';
-  function ensureBall(){if(player){player._ball=player._ball||{color:BALL.color,style:BALL.style};return player._ball;}return BALL;}
+  function ensureBall(){if(player){if(!player._ball||(player._ball.style==='classic'&&player._ball.color==='#e8752b'&&(BALL.style!=='classic'||BALL.color!=='#e8752b')))player._ball={color:BALL.color,style:BALL.style};return player._ball;}return BALL;}
   function thumb(st,col){var cv=document.createElement('canvas');cv.width=cv.height=56;draw(cv.getContext('2d'),28,28,22,-.35,col,st);return cv.toDataURL();}
   function build(){var m=el('bball-modal');if(!m||m._v2)return;m._v2=1;var card=m.querySelector('.m-card');card.style.maxWidth='';card.classList.add('bs-card');
     card.innerHTML='<div class="m-title">Ball &amp; Hoop <span>Studio</span></div><div class="bs-tabs" role="tablist"><button class="bs-tab on" data-tab="ball" data-testid="studio-tab-ball">Ball</button><button class="bs-tab" data-tab="hoop" data-testid="studio-tab-hoop">Hoop &amp; Rim</button></div>'+

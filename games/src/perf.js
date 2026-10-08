@@ -77,3 +77,10 @@ var FreaPerf=(function(){
   return {level:function(){return level;},resolved:resolved,set:set,isLite:isLite};
 })();
 window.FreaPerf=FreaPerf;
+/* ---- DOM thrash guards (big win on phones, esp. Hoops): skip no-op text writes and
+   coalesce scoreboard rebuilds to ≤ 5/sec (it was rebuilding + re-animating every frame) ---- */
+(function(){try{var d=Object.getOwnPropertyDescriptor(Node.prototype,'textContent');if(d&&d.set){Object.defineProperty(Node.prototype,'textContent',{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){v=v==null?'':String(v);var fc=this.firstChild;if(this.nodeType===1&&fc&&fc===this.lastChild&&fc.nodeType===3&&fc.data===v)return;d.set.call(this,v);}});}}catch(e){}
+  try{if(typeof updScore==='function'){var _us=updScore,last=0,pend=0,sig='';updScore=function(){var n=performance.now();
+      var k='';try{k=gameMode+'|'+STATE+'|'+fleas.map(function(f){return (f.score|0)+':'+(f.matchPoints|0)+':'+(f.infected?1:0)+':'+(f.hidden?1:0);}).join(',')+'|'+(typeof hoopScore!=='undefined'?hoopScore.home+'-'+hoopScore.away:'');}catch(e){k=String(n);}
+      if(k===sig&&n-last<1000)return;if(n-last>=200){last=n;sig=k;return _us.apply(this,arguments);}
+      if(!pend)pend=setTimeout(function(){pend=0;last=performance.now();try{sig='';_us();}catch(e){}},200-(n-last));};}}catch(e){}})();
