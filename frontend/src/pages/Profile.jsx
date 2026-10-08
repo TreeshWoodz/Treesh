@@ -17,17 +17,18 @@ const ago = (t) => {
 };
 
 const Wallet = () => {
-  const { state, treeshStars } = useGame();
-  const cells = [["Ebonics", state.starlites, "wallet-ebonics"], ["Treesh account", treeshStars, "wallet-treesh"], ["Combined", state.starlites + treeshStars, "wallet-total"]];
+  const { state } = useGame();
+  const spent = (state.starLog || []).filter((e) => e.a < 0).reduce((s, e) => s - e.a, 0);
+  const cells = [["Treesh wallet", state.starlites, "wallet-treesh"], ["Earned in Ebonics", state.totalEarned, "wallet-ebonics-earned"], ["Recently spent", spent, "wallet-spent"]];
   return (
     <div data-testid="profile-starlites" className="rounded-3xl p-5 border border-[var(--eb-gold)] gold-glow bg-[var(--eb-surface)]">
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-[var(--eb-gold)]"><Starlite className="w-4 h-4" />Starlites</div>
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-[var(--eb-gold)]"><Starlite className="w-4 h-4" />Starlites · synced with Treesh</div>
       <div className="grid grid-cols-3 gap-3 mt-3">
         {cells.map(([l, v, id]) => (
           <div key={id}><div data-testid={id} className="font-mono text-2xl font-extrabold">{v.toLocaleString()}</div><div className="text-[10px] uppercase tracking-wider text-slate-400">{l}</div></div>
         ))}
       </div>
-      <p className="text-xs text-slate-500 mt-3">Ebonics Starlites sync to your Treesh profile's Arcade stats. Lifetime earned in Ebonics: {state.totalEarned.toLocaleString()}.</p>
+      <p className="text-xs text-slate-500 mt-3">One balance across Treesh. Starlites you earn or spend here show up in the main app instantly, and vice versa.</p>
     </div>
   );
 };

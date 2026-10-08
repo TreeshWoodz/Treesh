@@ -4,15 +4,37 @@ import { ACHIEVEMENTS, THEMES, POWERUPS, MODES_BY_ID } from "@/data/game";
 import { sfx } from "@/lib/sound";
 import { submitScore } from "@/lib/api";
 
-// Treesh parent-app keys (same origin on treesh.app): profile is shared, Starlites live in the game's own key.
+// Treesh parent-app keys (same origin on treesh.app). Wallet is shared: treesh_stars.points.
 const KEY = "ebonics_save_v1";
-const STAR_KEY = "ebonics_starlites";
+const STAR_KEY = "ebonics_starlites"; // lifetime Starlites earned in Ebonics (parent Arcade stats)
 const PROFILE_KEY = "treesh_profile";
-const TREESH_STARS_KEY = "treesh_stars";
+const WALLET_KEY = "treesh_stars";
+const ACCENT_KEY = "treesh_accent";
 export const today = () => new Date().toLocaleDateString("en-CA");
 const yesterday = () => new Date(Date.now() - 864e5).toLocaleDateString("en-CA");
 const readJSON = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
-const readTreeshStars = () => (readJSON(TREESH_STARS_KEY, {}) || {}).points || 0;
+const WALLET_DEFAULT = { points: 0, lastDaily: null, streak: 0, newSongs: {}, minToday: 0, min30Date: null, secAccum: 0, totalMin: 0, games: 0, beats: 0, log: [] };
+const readWallet = () => ({ ...WALLET_DEFAULT, ...(readJSON(WALLET_KEY, {}) || {}) });
+
+export const readAccent = () => {
+  const v = localStorage.getItem(ACCENT_KEY);
+  if (!v) return null;
+  let h; try { h = JSON.parse(v); } catch { h = v; }
+  return typeof h === "string" && /^#?[0-9a-f]{6}$/i.test(h) ? (h[0] === "#" ? h : "#" + h).toLowerCase() : null;
+};
+const onColor = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => { const c = parseInt(hex.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.35 ? "#0B0914" : "#FFFFFF";
+};
+
+// Fresh read-modify-write on the shared Treesh wallet so the main app's balance is never clobbered
+const applyToWallet = (delta, entries) => {
+  const w = readWallet();
+  w.points = Math.max(0, (w.points || 0) + delta);
+  w.log = [...entries.map((e) => ({ ...e, r: `Ebonics · ${e.r}` })), ...(w.log || [])].slice(0, 50);
+  localStorage.setItem(WALLET_KEY, JSON.stringify(w));
+  return w.points;
+};
 
 export const zodiac = (b) => {
   const p = String(b || "").split("-"); if (p.length < 3) return "";
@@ -24,23 +46,33 @@ export const playerName = (p) => (p && (p.username || p.nickname)) || "";
 
 const fresh = () => ({
   playerId: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random().toString(36).slice(2),
-  starlites: 150, totalEarned: 0, xp: 0, totalCorrect: 0, gamesPlayed: 0, bestCombo: 0,
+  starlites: 0, totalEarned: 0, xp: 0, totalCorrect: 0, gamesPlayed: 0, bestCombo: 0,
   streak: { count: 0, last: null }, powerups: { fifty: 2, skip: 2, time: 2, heart: 1 },
   themes: ["obsidian"], theme: "obsidian", achievements: {}, best: {}, modesPlayed: [], learned: [],
-  dailyDone: null, sound: true, purchases: 0, starLog: [],
+  dailyDone: null, sound: true, purchases: 0, starLog: [], walletLinked: false, useAccent: true,
 });
 
 const load = () => {
-  const s = { ...fresh(), ...readJSON(KEY, {}) };
-  const raw = localStorage.getItem(STAR_KEY);
-  if (raw != null && !isNaN(parseInt(raw, 10))) s.starlites = Math.max(0, parseInt(raw, 10));
+  const saved = readJSON(KEY, null);
+  const s = { ...fresh(), ...(saved || {}) };
+  if (!s.walletLinked) {
+    // one-time: move the old Ebonics-only balance (or a welcome bonus) into the shared Treesh wallet
+    const carry = saved ? Math.max(0, saved.starlites || 0) : 150;
+    const e = { t: Date.now(), a: carry, r: saved ? "Balance moved to Treesh wallet" : "Welcome bonus" };
+    s.starlites = carry ? applyToWallet(carry, [e]) : readWallet().points;
+    if (carry) s.starLog = [e, ...s.starLog].slice(0, 50);
+    s.walletLinked = true;
+    localStorage.setItem(KEY, JSON.stringify(s));
+  } else s.starlites = readWallet().points;
   return s;
 };
 
 const earn = (d, a, r) => {
+  const e = { t: Date.now(), a, r };
   d.starlites += a;
   if (a > 0) d.totalEarned += a;
-  d.starLog = [{ t: Date.now(), a, r }, ...(d.starLog || [])].slice(0, 50);
+  d.starLog = [e, ...(d.starLog || [])].slice(0, 50);
+  (d._pending = d._pending || []).push(e);
 };
 
 const Ctx = createContext(null);
@@ -49,23 +81,29 @@ export const useGame = () => useContext(Ctx);
 export function GameProvider({ children }) {
   const [state, setState] = useState(load);
   const [profile, setProfile] = useState(() => readJSON(PROFILE_KEY, null));
-  const [treeshStars, setTreeshStars] = useState(readTreeshStars);
+  const [accent, setAccent] = useState(readAccent);
   const ref = useRef(state);
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(state));
-    localStorage.setItem(STAR_KEY, String(state.starlites));
+    localStorage.setItem(STAR_KEY, String(state.totalEarned));
     document.documentElement.dataset.theme = state.theme;
     sfx.enabled = state.sound;
   }, [state]);
+
+  useEffect(() => {
+    const root = document.documentElement.style;
+    if (state.useAccent && accent) { root.setProperty("--eb-gold", accent); root.setProperty("--eb-on-gold", onColor(accent)); }
+    else { root.removeProperty("--eb-gold"); root.removeProperty("--eb-on-gold"); }
+  }, [accent, state.useAccent]);
 
   // Live-sync with the Treesh parent app (same-origin iframe / other tabs)
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === PROFILE_KEY) setProfile(readJSON(PROFILE_KEY, null));
-      if (e.key === TREESH_STARS_KEY) setTreeshStars(readTreeshStars());
-      if (e.key === STAR_KEY && e.newValue != null && !isNaN(parseInt(e.newValue, 10))) {
-        const next = { ...ref.current, starlites: Math.max(0, parseInt(e.newValue, 10)) };
+      if (e.key === ACCENT_KEY) setAccent(readAccent());
+      if (e.key === WALLET_KEY) {
+        const next = { ...ref.current, starlites: readWallet().points };
         ref.current = next; setState(next);
       }
     };
@@ -90,6 +128,9 @@ export function GameProvider({ children }) {
     const d = fn(structuredClone(ref.current));
     const unlocked = ACHIEVEMENTS.filter((a) => !d.achievements[a.id] && a.test(d, round));
     unlocked.forEach((a) => { d.achievements[a.id] = Date.now(); earn(d, a.reward, `Achievement: ${a.name}`); });
+    const pending = d._pending || [];
+    delete d._pending;
+    if (pending.length) d.starlites = applyToWallet(pending.reduce((s, e) => s + e.a, 0), [...pending].reverse());
     ref.current = d;
     setState(d);
     if (unlocked.length) sfx.achievement();
@@ -134,7 +175,7 @@ export function GameProvider({ children }) {
 
   const buy = (kind, id) => {
     const item = (kind === "theme" ? THEMES : POWERUPS).find((x) => x.id === id);
-    if (ref.current.starlites < item.price) return false;
+    if (readWallet().points < item.price) return false;
     commit((d) => {
       earn(d, -item.price, `Bought ${item.name}`); d.purchases += 1;
       if (kind === "theme") { d.themes.push(id); d.theme = id; } else d.powerups[id] += 1;
@@ -153,6 +194,6 @@ export function GameProvider({ children }) {
   const set = (patch) => commit((d) => ({ ...d, ...patch }));
   const learn = (term) => commit((d) => { if (!d.learned.includes(term)) d.learned.push(term); return d; });
 
-  const value = { state, profile, treeshStars, saveProfile, finishRound, claimDaily, canClaimDaily, buy, spendPowerup, set, learn };
+  const value = { state, profile, accent, saveProfile, finishRound, claimDaily, canClaimDaily, buy, spendPowerup, set, learn };
   return createElement(Ctx.Provider, { value }, children);
 }

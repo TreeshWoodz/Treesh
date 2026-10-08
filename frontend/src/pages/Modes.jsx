@@ -33,7 +33,7 @@ export default function Modes() {
                 {tier >= 0 && <span className="px-2 py-0.5 rounded-full font-bold" style={{ color: TIERS[tier].color, border: `1px solid ${TIERS[tier].color}` }}>{TIERS[tier].name.toUpperCase()}</span>}
               </div>
               <Link to={locked ? "#" : `${BASE}/play/${m.id}`} data-testid={testId(m.id)} aria-disabled={locked}
-                className={`mt-5 flex items-center justify-center gap-2 py-3 rounded-full font-extrabold uppercase tracking-wider ${locked ? "bg-white/5 text-slate-500 pointer-events-none" : "bg-[var(--eb-gold)] text-[#0B0914]"}`}>
+                className={`mt-5 flex items-center justify-center gap-2 py-3 rounded-full font-extrabold uppercase tracking-wider ${locked ? "bg-white/5 text-slate-500 pointer-events-none" : "bg-[var(--eb-gold)] text-[var(--eb-on-gold)]"}`}>
                 <Play className="w-4 h-4 fill-current" />{locked ? "Done for today" : "Play"}
               </Link>
             </motion.div>

@@ -107,7 +107,7 @@ export default function Play() {
       <div data-testid="daily-locked" className="glass rounded-3xl p-8 max-w-lg">
         <div className="font-display text-5xl">PLATE CLEARED</div>
         <p className="text-slate-400 mt-2">You already finished today's Daily Cookout. A fresh plate drops at midnight.</p>
-        <Link to={`${BASE}/modes`} className="inline-block mt-6 px-6 py-3 rounded-full bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase">Other modes</Link>
+        <Link to={`${BASE}/modes`} className="inline-block mt-6 px-6 py-3 rounded-full bg-[var(--eb-gold)] text-[var(--eb-on-gold)] font-extrabold uppercase">Other modes</Link>
       </div>
     );
   }
@@ -116,7 +116,7 @@ export default function Play() {
     <div data-testid="ai-error" className="glass rounded-3xl p-8 max-w-lg">
       <div className="font-display text-4xl">THE KITCHEN IS BUSY</div>
       <p className="text-slate-400 mt-2">The AI couldn't cook up questions right now. Try again in a moment.</p>
-      <button data-testid="ai-retry-btn" onClick={load} className="mt-6 px-6 py-3 rounded-full bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase">Retry</button>
+      <button data-testid="ai-retry-btn" onClick={load} className="mt-6 px-6 py-3 rounded-full bg-[var(--eb-gold)] text-[var(--eb-on-gold)] font-extrabold uppercase">Retry</button>
     </div>
   );
   if (!qs) return <div data-testid="loading-questions" className="flex items-center gap-3 text-slate-400"><Loader2 className="w-5 h-5 animate-spin" />Cooking up fresh questions...</div>;

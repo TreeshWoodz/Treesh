@@ -25,7 +25,7 @@ export default function Lexicon() {
         <div className="flex gap-1 p-1 rounded-full border border-[var(--eb-border)] bg-[var(--eb-surface)]">
           {TYPES.map((t) => (
             <button key={t} data-testid={`lexicon-filter-${t}`} onClick={() => setType(t)}
-              className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-colors ${type === t ? "bg-[var(--eb-gold)] text-[#0B0914]" : "text-slate-400"}`}>{t}</button>
+              className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-colors ${type === t ? "bg-[var(--eb-gold)] text-[var(--eb-on-gold)]" : "text-slate-400"}`}>{t}</button>
           ))}
         </div>
       </div>
@@ -43,7 +43,7 @@ export default function Lexicon() {
               <div className="text-sm italic text-slate-300 mt-2">"{t.example}"</div>
               <div className="text-xs text-slate-500 mt-2">{t.note}</div>
               <button data-testid={`learn-term-${i}`} disabled={known} onClick={() => learn(t.term)}
-                className={`mt-4 self-start flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${known ? "bg-[var(--eb-gold)] text-[#0B0914]" : "border border-[var(--eb-border)] hover:border-[var(--eb-gold)]"}`}>
+                className={`mt-4 self-start flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${known ? "bg-[var(--eb-gold)] text-[var(--eb-on-gold)]" : "border border-[var(--eb-border)] hover:border-[var(--eb-gold)]"}`}>
                 <Check className="w-3.5 h-3.5" />{known ? "Learned" : "Mark learned"}
               </button>
             </motion.div>

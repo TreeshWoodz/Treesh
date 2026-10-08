@@ -82,7 +82,7 @@ export const ProfileSheet = ({ open, onOpenChange, onboarding }) => {
           <input data-testid="profile-birthday-input" type="date" value={f.birthday} onChange={upd("birthday")} className={`${inputCls} [color-scheme:dark]`} />
         </Field>
         <div className="flex gap-3 pt-1">
-          <button data-testid="profile-save-btn" onClick={save} className="lift flex-1 py-3 rounded-full bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase tracking-wider">{onboarding ? "Let's play" : "Save"}</button>
+          <button data-testid="profile-save-btn" onClick={save} className="lift flex-1 py-3 rounded-full bg-[var(--eb-gold)] text-[var(--eb-on-gold)] font-extrabold uppercase tracking-wider">{onboarding ? "Let's play" : "Save"}</button>
           {onboarding && <button data-testid="profile-skip-btn" onClick={skip} className="px-5 py-3 rounded-full border border-[var(--eb-border)] font-bold">Skip</button>}
         </div>
       </DialogContent>

@@ -81,7 +81,7 @@ export default function FlipIt() {
           placeholder={p.dir === "to_aave" ? "Say it how we say it..." : "Translate to standard English..."}
           className="flex-1 rounded-2xl bg-[var(--eb-surface)] border border-[var(--eb-border)] px-5 py-4 text-lg outline-none focus:border-[var(--eb-gold)] transition-colors" />
         {!verdict ? (
-          <button data-testid="flip-it-submit-btn" onClick={submit} disabled={busy || !input.trim()} className="lift px-6 rounded-2xl bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase disabled:opacity-40 flex items-center gap-2">
+          <button data-testid="flip-it-submit-btn" onClick={submit} disabled={busy || !input.trim()} className="lift px-6 rounded-2xl bg-[var(--eb-gold)] text-[var(--eb-on-gold)] font-extrabold uppercase disabled:opacity-40 flex items-center gap-2">
             {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}<span className="hidden sm:inline">{busy ? "Judging" : "Flip"}</span>
           </button>
         ) : (

@@ -49,7 +49,7 @@ const BottomNav = () => (
   <nav className="glass fixed bottom-3 left-1/2 -translate-x-1/2 z-40 rounded-2xl px-2 py-1.5 flex gap-1 w-[calc(100%-1.5rem)] max-w-xl justify-between">
     {NAV.map(({ to, label, icon: Icon, id }) => (
       <NavLink key={id} end={to === ""} to={`${BASE}${to ? "/" + to : ""}`} data-testid={`nav-${id}-btn`}
-        className={({ isActive }) => `flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10px] font-semibold uppercase tracking-wider transition-colors duration-200 ${isActive ? "bg-[var(--eb-gold)] text-[#0B0914]" : "text-slate-400 hover:text-white"}`}>
+        className={({ isActive }) => `flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10px] font-semibold uppercase tracking-wider transition-colors duration-200 ${isActive ? "bg-[var(--eb-gold)] text-[var(--eb-on-gold)]" : "text-slate-400 hover:text-white"}`}>
         <Icon className="w-5 h-5" />{label}
       </NavLink>
     ))}

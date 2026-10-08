@@ -51,7 +51,7 @@ export default function Lobby() {
           <h1 className="font-display text-7xl sm:text-8xl lg:text-9xl leading-[0.85] mt-2">EBON<span className="text-gold-grad">ICS</span></h1>
           <p className="text-base sm:text-lg text-slate-300 max-w-md mt-3">The language. The culture. The game. Prove you speak fluent AAVE — and stack Starlites doing it.</p>
           <div className="flex flex-wrap gap-3 mt-6">
-            <Link data-testid="quick-play-btn" to={`${BASE}/play/say_less`} className="lift flex items-center gap-2 px-7 py-3.5 rounded-full bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase tracking-wider gold-glow"><Play className="w-5 h-5 fill-current" />Quick play</Link>
+            <Link data-testid="quick-play-btn" to={`${BASE}/play/say_less`} className="lift flex items-center gap-2 px-7 py-3.5 rounded-full bg-[var(--eb-gold)] text-[var(--eb-on-gold)] font-extrabold uppercase tracking-wider gold-glow"><Play className="w-5 h-5 fill-current" />Quick play</Link>
             <Link data-testid="all-modes-btn" to={`${BASE}/modes`} className="lift flex items-center gap-2 px-7 py-3.5 rounded-full border border-[var(--eb-border)] bg-black/30 font-bold">All {MODES.length} modes<ChevronRight className="w-4 h-4" /></Link>
           </div>
         </div>

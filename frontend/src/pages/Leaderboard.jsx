@@ -16,7 +16,7 @@ const PlayerCard = () => {
         <div className="font-bold truncate">{name.length >= 2 ? `Posting as ${name}` : "Add a name to get on the board"}</div>
         <div className="text-xs text-slate-400">Uses your Treesh profile. Your best score in each mode is posted automatically.</div>
       </div>
-      <Link data-testid="leaderboard-edit-profile-btn" to={`${BASE}/profile`} className="lift px-5 py-2.5 rounded-full bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase text-sm">Profile</Link>
+      <Link data-testid="leaderboard-edit-profile-btn" to={`${BASE}/profile`} className="lift px-5 py-2.5 rounded-full bg-[var(--eb-gold)] text-[var(--eb-on-gold)] font-extrabold uppercase text-sm">Profile</Link>
     </div>
   );
 };
@@ -34,7 +34,7 @@ export default function Leaderboard() {
       <div className="flex gap-2 overflow-x-auto mt-6 pb-2">
         {MODES.map((m) => (
           <button key={m.id} data-testid={`leaderboard-tab-${m.id}`} onClick={() => setMode(m.id)}
-            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider border transition-colors ${mode === m.id ? "bg-[var(--eb-gold)] text-[#0B0914] border-[var(--eb-gold)]" : "border-[var(--eb-border)] text-slate-400"}`}>{m.title}</button>
+            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider border transition-colors ${mode === m.id ? "bg-[var(--eb-gold)] text-[var(--eb-on-gold)] border-[var(--eb-gold)]" : "border-[var(--eb-border)] text-slate-400"}`}>{m.title}</button>
         ))}
       </div>
       <div className="glass rounded-3xl mt-3 overflow-hidden" data-testid="leaderboard-list">

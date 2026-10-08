@@ -46,7 +46,7 @@ export const Results = ({ mode, title, score, correct, total, bestCombo, reward,
         <div className="h-2 rounded-full bg-black/40 mt-2 overflow-hidden"><div className="h-full bg-[var(--eb-gold)]" style={{ width: `${pct}%` }} /></div>
       </div>
       <div className="flex flex-wrap gap-3 mt-8">
-        <button data-testid="play-again-btn" onClick={onAgain} className="lift flex items-center gap-2 px-6 py-3 rounded-full bg-[var(--eb-gold)] text-[#0B0914] font-extrabold uppercase tracking-wider"><RotateCcw className="w-4 h-4" />Run it back</button>
+        <button data-testid="play-again-btn" onClick={onAgain} className="lift flex items-center gap-2 px-6 py-3 rounded-full bg-[var(--eb-gold)] text-[var(--eb-on-gold)] font-extrabold uppercase tracking-wider"><RotateCcw className="w-4 h-4" />Run it back</button>
         <Link data-testid="results-modes-btn" to={`${BASE}/modes`} className="lift flex items-center gap-2 px-6 py-3 rounded-full border border-[var(--eb-border)] font-bold"><Trophy className="w-4 h-4" />Other modes</Link>
         <Link data-testid="results-lobby-btn" to={BASE} className="lift flex items-center gap-2 px-6 py-3 rounded-full border border-[var(--eb-border)] font-bold"><Home className="w-4 h-4" />Lobby</Link>
       </div>

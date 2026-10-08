@@ -37,7 +37,7 @@ export default function Trophies() {
           return (
             <motion.div key={a.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.025 }}
               data-testid={`achievement-${a.id}`} data-unlocked={on} className={`rounded-2xl p-4 flex items-center gap-3 border ${on ? "border-[var(--eb-gold)] bg-[var(--eb-surface2)] gold-glow" : "border-[var(--eb-border)] bg-[var(--eb-surface)] opacity-60"}`}>
-              <div className={`w-11 h-11 rounded-xl grid place-items-center shrink-0 ${on ? "bg-[var(--eb-gold)] text-[#0B0914]" : "bg-black/30 text-slate-500"}`}>{on ? <Award className="w-6 h-6" /> : <Lock className="w-5 h-5" />}</div>
+              <div className={`w-11 h-11 rounded-xl grid place-items-center shrink-0 ${on ? "bg-[var(--eb-gold)] text-[var(--eb-on-gold)]" : "bg-black/30 text-slate-500"}`}>{on ? <Award className="w-6 h-6" /> : <Lock className="w-5 h-5" />}</div>
               <div><div className="font-bold">{a.name}</div><div className="text-xs text-slate-400">{a.desc}</div><div className="text-[10px] font-mono text-[var(--eb-gold)] mt-0.5">+{a.reward} Starlites</div></div>
             </motion.div>
           );
