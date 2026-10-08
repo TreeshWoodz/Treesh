@@ -20,9 +20,9 @@ const lcFlat=G=>G.flatMap(g=>g.lines);
 const W1=1080;
 
 /* always on the Text Messages card (preview + saved image): these are lyrics, not real texts */
-function lcChatDisclaimer(ctx,s){ const who=(s.artist||'the artist').slice(0,34), t='Not real messages from '+who+' \u00b7 these are song lyrics';
+function lcChatDisclaimer(ctx,s,yb){ const who=(s.artist||'the artist').slice(0,34), t='Not real messages from '+who+' \u00b7 these are song lyrics';
   let fs=22; ctx.font=`600 ${fs}px Manrope, sans-serif`; while(fs>15&&ctx.measureText(t).width>860){ fs-=1; ctx.font=`600 ${fs}px Manrope, sans-serif`; }
-  const w=ctx.measureText(t).width+92, h=fs+26, x=(W1-w)/2, y=968-h;
+  const w=ctx.measureText(t).width+92, h=fs+26, x=(W1-w)/2, y=(yb||968)-h;
   ctx.save(); ctx.fillStyle='rgba(12,11,20,.92)'; roundRectPath(ctx,x,y,w,h,h/2); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=2; ctx.stroke();
   const cx=x+30, cy=y+h/2; ctx.beginPath(); ctx.arc(cx,cy,fs*0.55,0,Math.PI*2); ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=2.5; ctx.stroke();
   ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font=`800 ${Math.round(fs*0.72)}px Manrope, sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('i',cx,cy+1);
