@@ -1,6 +1,6 @@
 /* ---------- P9ze: What's New mixes app updates with new music, and slides follow your finger ---------- */
 const WNU=[
-  {id:'whatsnext',art:'whatsnext_main',k:'Game update',t:'What\u2019s Next? 2.0',d:'Text with your favorite artists and finish their lyrics in a real chat thread.',chips:['Group chats','Hints','Glass & neon'],cta:'Play now',ic:'message-circle-more',a:'#9328ff',b:'#ff3d9a',go:'wn'},
+  {id:'whatsnext',art:'whatsnext_main',k:'Game update',t:'What\u2019s Next? 2.0',d:'Text with your favorite artists and finish their lyrics in a real chat thread.',chips:['Group chats','Hints'],cta:'Play now',ic:'message-circle-more',a:'#9328ff',b:'#ff3d9a',go:'wn'},
   {id:'image',art:'image_main',k:'New studio',t:'Image Studio',d:'Design covers, posts and stickers with layers, text and filters.',chips:['Layers','Stickers','Filters'],cta:'Start creating',ic:'wand-sparkles',a:'#ff2d78',b:'#ffb347',go:'image'},
   {id:'accounts',art:'',k:'Treesh accounts',t:'Online accounts',d:'Back up your profile, claim your @username and find your friends.',chips:['Cloud backup','@username','Friends'],cta:'Create account',ic:'cloud',a:'#22d3ee',b:'#6d5bff',go:'acct'},
   {id:'instrum',art:'instrum_main',k:'Studio update',t:'Instrum Groovebox',d:'Big pads, swipeable bars and a full timeline when you need it.',chips:['16 pads','Vocals','Timeline'],cta:'Make a beat',ic:'sliders-horizontal',a:'#f5c451',b:'#ff6b3d',go:'instrum'},

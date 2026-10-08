@@ -143,12 +143,44 @@ rep("if(SONG_BY_ID[id] && Array.isArray(ed[id])) SONG_BY_ID[id].lyrics=ed[id];",
 
 rep('<div id="app-splash" role="status"','<div id="app-splash" role="status"',1,'splashchk')
 rep('      <div class="splash-sub">Welcome to the Woodz</div>\n    </div>\n  </div>\n','      <div class="splash-sub">Welcome to the Woodz</div>\n    </div>\n  </div>\n  <script>try{if(JSON.parse(localStorage.getItem("treesh_theme")||\'"dark"\')==="light")document.getElementById("app-splash").classList.add("is-light")}catch(e){}</script>\n',1,'splashlight')
+
+# ---- P9zf: library grid cards (genre ellipsis, no play counts in the studio grid)
+rep('<span class="ml-auto flex items-center gap-1.5">${mp?`','<span class="sc-tail ml-auto flex min-w-0 items-center gap-1.5">${mp?`',1,'sctail')
+rep('${s.genre?`<span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50">${esc(s.genre)}</span>`:""}',
+    '${s.genre?`<span class="sc-genre rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/50" title="${esc(s.genre)}">${esc(s.genre)}</span>`:""}',1,'scgenre')
+rep("[d?fmt(d):'',s.genre||'',pc[s.id]?fmtNum(pc[s.id])+' plays':'']","[d?fmt(d):'',s.genre||'']",1,'umplays')
+# ---- P9zf: library section menus open as sheets; empty My Music shows a plus on phones
+rrep(r'const mobileMenu = `<details class="mm-menu relative sm:hidden">[\s\S]*?</details>`;',
+    'const mobileMenu = count?`<button type="button" data-act="mm-menu-open" data-testid="my-music-menu" aria-label="More options" class="press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 sm:hidden"><i data-lucide="more-vertical" style="width:16px;height:16px"></i></button>`:`<button type="button" data-act="add-music-open" data-testid="my-music-add-mobile" aria-label="Add music" class="press grid h-9 w-9 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white glow-purple sm:hidden"><i data-lucide="plus" style="width:16px;height:16px"></i></button>`;',1,'mmmenu')
+rrep(r"const menu = \(pls\.length && !selMode && !reMode\)\?`<details class=\"libpl-menu relative\">[\s\S]*?</details>`:'';",
+    "const menu = (pls.length && !selMode && !reMode)?`<button type=\"button\" data-act=\"libpl-menu-open\" data-testid=\"lib-playlists-menu\" aria-label=\"Playlist options\" class=\"press grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80\"><i data-lucide=\"more-vertical\" style=\"width:16px;height:16px\"></i></button>`:'';",1,'plmenu')
+# ---- P9zf: playlist page shuffle + add songs, empty playlists pick tracks right there
+rep('<div class="flex items-center gap-3"><button data-act="playall-context" data-ctx="pl:${pl.id}" class="inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold hover:opacity-90 glow-purple"><i data-lucide="play" style="width:16px;height:16px"></i> Play</button></div>',
+    '<div class="flex items-center gap-2.5" data-testid="playlist-actions"><button data-act="playall-context" data-ctx="pl:${pl.id}" data-testid="playlist-play" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 glow-purple"><i data-lucide="play" class="fill-current" style="width:16px;height:16px"></i> Play</button><button data-act="pl-shuffle" data-id="${pl.id}" data-testid="playlist-shuffle" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10"><i data-lucide="shuffle" style="width:16px;height:16px"></i> Shuffle</button><button data-act="pl-add-songs" data-id="${pl.id}" data-testid="playlist-add-songs" aria-label="Add songs" title="Add songs" class="press ml-auto grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/5 hover:bg-white/10"><i data-lucide="list-plus" style="width:17px;height:17px"></i></button></div>',1,'plactions')
+rep('<p class="text-sm text-white/50">Add songs using the \\u2022\\u2022\\u2022 menu on any track.</p><button data-act="nav" data-view="library" class="rounded-full border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold hover:bg-white/10">Browse Library</button>',
+    '<p class="text-sm text-white/50">Pick a few tracks to get it going.</p><button data-act="pl-add-songs" data-id="${pl.id}" data-testid="playlist-empty-add" class="press inline-flex items-center gap-2 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2.5 text-sm font-semibold text-white glow-purple"><i data-lucide="list-plus" style="width:16px;height:16px"></i>Add songs</button>',1,'plempty')
+# ---- P9zf: the floating wand is gone, so is its setting
+rep("""<div class="mt-4">${mkSwitch('mk-fab-toggle','','mk-fab-toggle-sheet',m.fab!==false,'wand-sparkles','Floating wand button','Drag it anywhere. If hidden, open Magic Markup from Settings')}${m.fabPos?'<button type="button" data-act="mk-fab-reset" data-testid="mk-fab-reset" class="mk-btn mt-2 w-full"><i data-lucide="locate-fixed"></i>Put the wand back in the corner</button>':''}</div>""",'',1,'nofab1')
+rep("""<div class="mt-4">${tog('mk-fab-toggle','','layout-fab-toggle',m.fab!==false,'wand-sparkles','Floating wand button','Keep the Magic Markup button on screen. Drag it anywhere')}${m.fabPos?'<button data-act="mk-fab-reset" data-testid="layout-fab-reset" class="press mt-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"><i data-lucide="locate-fixed" style="width:15px;height:15px"></i>Put the wand back in the corner</button>':''}</div>""",'',1,'nofab2')
+rep("""    {id:'mk-fab',label:'Magic Markup button',desc:'Show the floating wand button',kw:'magic markup wand button floating',ic:'wand-sparkles',type:'toggle',get:()=>mkS().fab!==false,toggle:()=>{ const m=mkS(); m.fab=(m.fab===false); mkSave(); mkRenderChrome(); }},\n""",'',1,'nofab3')
+# ---- P9zf: Font + Font color live in one card
+rrep(r'\n    <div class="rounded-3xl border border-white/10 bg-white/\[0\.04\] p-5 sm:p-6">\n      <div class="mb-1 flex items-center justify-between gap-2"><div class="flex items-center gap-2\.5"><span [^\n]*?<h2 class="text-lg font-bold">Font color</h2>[^\n]*\n[^\n]*\n      <div class="space-y-2\.5">\n[^\n]*\n      </div>\n    </div>\n','\n',1,'fontcolorcut')
+rep("saved on device storage.</p>`:''}\n      </div>\n    </div>\n",
+    "saved on device storage.</p>`:''}\n      </div>\n      <div class=\"mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5\" data-testid=\"settings-font-color\"><div class=\"mb-1 flex items-center justify-between gap-2\"><p class=\"flex items-center gap-2 text-sm font-semibold\"><i data-lucide=\"baseline\" style=\"width:15px;height:15px\" class=\"text-[color:var(--treesh-purple)]\"></i>Font color</p>${state.inkColor?`<button data-act=\"reset-ink-color\" data-testid=\"reset-ink-color\" class=\"press rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10\">Reset</button>`:''}</div><p class=\"mb-3 text-xs text-white/50\">Tint the main text across the app. Pick a shade that stays readable with your theme.</p>${colorRow('set-ink-color','reset-ink-color',state.inkColor,'baseline','Text color','Headings &amp; primary text')}</div>\n    </div>\n",1,'fontcolorin')
+rep('<p class="mb-4 pl-11 text-sm text-white/50">Choose a typeface for the whole app.</p>','<p class="mb-4 pl-11 text-sm text-white/50">Choose a typeface and text color for the whole app.</p>',1,'fontsub')
+rep("'font color text colour ink','type','display','Font color'),","'font color text colour ink','type','display','Font'),",1,'fontgo')
+# ---- P9zf: "Glass themes" is just "Themes"; pull to refresh toggle
+rep("Glass themes</h2></div>","Themes</h2></div>",1,'themes1')
+rep("_sGo('go-glass','Glass themes',","_sGo('go-glass','Themes',",1,'themes2')
+rep("'appearance','Glass themes')","'appearance','Themes')",1,'themes3')
+rep("      ${toggleCard('toggle-whatsnew','settings-toggle-whatsnew'","      ${toggleCard('toggle-ptr','settings-toggle-ptr',ptrOn(),'refresh-cw','Pull to refresh','On phones, pull down at the top of a page to reload Treesh')}\n      ${toggleCard('toggle-whatsnew','settings-toggle-whatsnew'",1,'ptrtoggle')
+
 if errs:
     print('\n'.join(errs)); sys.exit(1)
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js','p9t.js','p9u.js','p9v.js','p9w.js','p9x.js','p9y.js','p9z.js','p9za.js','p9zb.js','p9zc.js','p9zd.js','p9ze.js'])
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js','p9t.js','p9u.js','p9v.js','p9w.js','p9x.js','p9y.js','p9z.js','p9za.js','p9zb.js','p9zc.js','p9zd.js','p9ze.js','p9zf.js','p9zg.js'])
 js=js.replace('__P9W_ART__',open(M+'p9w_art.json',encoding='utf-8').read()).replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
@@ -165,7 +197,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css','p9za.css','p9zb.css','p9zc.css','p9zd.css','p9ze.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css','p9za.css','p9zb.css','p9zc.css','p9zd.css','p9ze.css','p9zf.css','p9zg.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)

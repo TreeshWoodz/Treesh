@@ -11,25 +11,27 @@ function wnLiveOff(){ document.querySelectorAll('#wc-thread .wc-b.is-live').forE
 function wnStopAudio(){ cancelAnimationFrame(_wnRaf); _wnRaf=0; wnLiveOff(); try{ if(_wnA) _wnA.pause(); }catch(e){} }
 function wnHalt(){ _wnSeq++; wnStopAudio(); clearGameTimer(); if(_wnVV&&window.visualViewport){ visualViewport.removeEventListener('resize',_wnVV); visualViewport.removeEventListener('scroll',_wnVV); } _wnVV=null; }
 function wnIni(n){ const w=String(n||'?').replace(/[^\p{L}\p{N}\s]/gu,'').trim().split(/\s+/).filter(Boolean); return ((w[0]||'?')[0]+((w[1]||'')[0]||'')).toUpperCase(); }
+/* the main artist is the one whose name matches the song (artistIds can list a featured artist first) */
+function wcMainId(s){ const ids=(s&&s.artistIds)||[]; if(ids.length<2) return ids[0]||null; const k=normKey(s.artist||''); return ids.find(id=>ARTIST_BY_ID[id]&&normKey(ARTIST_BY_ID[id].name)===k)||null; }
 function wnAvSrc(s){ s=s||state.game.song; const cov=s.coverArt&&s.coverArt!==FALLBACK?s.coverArt:''; if(s._user||s.source==='user') return cov;
-  const a=(s.artistIds||[]).map(id=>ARTIST_BY_ID[id]).find(x=>x&&x.image); return a?a.image:cov; }
+  const a=ARTIST_BY_ID[wcMainId(s)]; return a&&a.image?a.image:cov; }
 function wnAv(big,s){ s=s||state.game.song; const src=wnAvSrc(s); return `<span class="wc-av${big?' is-big':''}"${big?' data-testid="game-artist-avatar"':''}><b>${esc(wnIni(s.artist||s.title))}</b>${src?`<img src="${esc(src)}" alt="" onerror="this.remove()">`:''}</span>`; }
 
 /* audio: one private element so the main player queue stays untouched */
-function wnPrep(t){ const g=state.game, a=wnAud(); return Promise.resolve(g&&g._unlock).then(()=>new Promise(res=>{
+function wnPrep(t,ms){ const g=state.game, a=wnAud(); return Promise.race([Promise.resolve(g&&g._unlock),wnWait(6000)]).then(()=>new Promise(res=>{
   if(!g||!g.song.audioUrl||!isFinite(t)) return res(false);
   let done=false; const fin=ok=>{ if(done) return; done=true; clearTimeout(to); a.removeEventListener('seeked',chk); a.removeEventListener('canplay',chk); a.removeEventListener('error',bad); res(ok); };
   const chk=()=>{ if(!a.seeking&&a.readyState>=3&&Math.abs((a.currentTime||0)-t)<0.35) fin(true); };
-  const bad=()=>fin(false); const to=setTimeout(()=>fin(a.readyState>=2&&Math.abs((a.currentTime||0)-t)<0.5),3500);
+  const bad=()=>fin(false); const to=setTimeout(()=>fin(!a.error&&a.readyState>=1&&Math.abs((a.currentTime||0)-t)<0.5),ms||3500);
   a.addEventListener('seeked',chk); a.addEventListener('canplay',chk); a.addEventListener('error',bad);
   try{ a.pause(); }catch(e){}
   if(a.dataset.src!==g.song.audioUrl){ a.dataset.src=g.song.audioUrl; a.src=g.song.audioUrl; try{ a.load(); }catch(e){} }
   const go=()=>{ try{ a.currentTime=t; }catch(e){} chk(); };
   if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
 })); }
-function wnPlay(){ const a=wnAud(); return new Promise(res=>{ if(document.hidden) return res(false); if(!a.paused) return res(true);
+function wnPlay(ms){ const a=wnAud(); return new Promise(res=>{ if(document.hidden) return res(false); if(!a.paused) return res(true);
   let d=false; const f=ok=>{ if(d) return; d=true; clearTimeout(to); a.removeEventListener('playing',on); res(ok); };
-  const on=()=>f(true); const to=setTimeout(()=>f(!a.paused),1200); a.addEventListener('playing',on);
+  const on=()=>f(true); const to=setTimeout(()=>f(!a.paused),ms||1200); a.addEventListener('playing',on);
   try{ a.muted=false; a.volume=typeof state.volume==='number'?state.volume:1; const p=a.play(); if(p&&p.catch) p.catch(()=>f(false)); }catch(e){ f(false); } }); }
 function wnWatch(marks,tok){ return new Promise(res=>{ const a=wnAud(); let i=0, last=a.currentTime||0; const w0=performance.now(), limit=((marks.length?marks[marks.length-1].t:0)-last)*1000+6000;
   const flush=()=>{ while(i<marks.length){ marks[i].fn(); i++; } };
@@ -43,7 +45,7 @@ function wnWatch(marks,tok){ return new Promise(res=>{ const a=wnAud(); let i=0,
 function wnSegEnd(i){ const L=state.game.lines, s=wnT(L[i]&&L[i].t); let e=wnT(L[i+1]&&L[i+1].t); if(!isFinite(e)||e<=s) e=s+6; return Math.min(e,s+9)+0.2; }
 
 /* thread */
-function wnMsgHtml(m,i,anim){ const g=state.game, cls=anim?' wc-in':'', ms=(m.sid&&SONG_BY_ID[m.sid])||g.song, nm=esc(ms.artist||'Artist');
+function wnMsgHtml(m,i,anim){ const g=state.game, cls=anim?' wc-in':'', s0=(m.sid&&SONG_BY_ID[m.sid])||g.song, ms=m.by?wcByFace(m.by,s0):s0, nm=esc(ms.artist||'Artist');
   if(m.k==='div') return `<div class="wc-div${cls}" data-testid="game-round-divider-${i}">${m.text}</div>`;
   if(m.k==='sys') return `<div class="wc-sys is-${m.tone||'mid'}${cls}" data-testid="game-result-note-${i}">${m.html}</div>`;
   if(m.k==='hint') return `<div class="wc-sys is-hint${cls}" data-testid="game-hint-note-${i}"><i data-lucide="lightbulb" style="width:14px;height:14px"></i><span>${m.html}</span></div>`;
@@ -52,11 +54,13 @@ function wnMsgHtml(m,i,anim){ const g=state.game, cls=anim?' wc-in':'', ms=(m.si
   if(m.k==='me') return `<div class="wc-row is-me${cls}" data-testid="game-msg-me-${i}"><div class="wc-col"><div class="wc-b">${esc(m.text)}</div>${m.note?`<span class="wc-note">${m.note}</span>`:''}</div></div>`;
   const emo=m.k==='emoji';
   return `<div class="wc-row is-a${emo?' is-emo':''}${cls}" data-sid="${esc(ms.id)}" data-who="${esc(wcWho(ms))}" data-testid="game-msg-${emo?'emoji':'artist'}-${i}">${wnAv(false,wcFace(ms))}<div class="wc-col"><span class="wc-name">${nm}</span>${emo?`<div class="wc-emoji">${m.text}</div>`:`<div class="wc-b">${esc(m.text)}</div>`}</div></div>`; }
-function wnTypingHtml(sid){ const ms=(sid&&SONG_BY_ID[sid])||state.game.song; return `<div class="wc-row is-a wc-in" id="wc-typing" data-sid="${esc(ms.id)}" data-who="${esc(wcWho(ms))}" data-testid="game-typing">${wnAv(false,wcFace(ms))}<div class="wc-col"><span class="wc-name">${esc(ms.artist||'Artist')}</span><div class="wc-b wc-dots" aria-label="typing"><i></i><i></i><i></i></div></div></div>`; }
+function wnTypingHtml(sid,by){ const s0=(sid&&SONG_BY_ID[sid])||state.game.song, ms=by?wcByFace(by,s0):s0; return `<div class="wc-row is-a wc-in" id="wc-typing" data-sid="${esc(s0.id)}" data-who="${esc(wcWho(ms))}" data-testid="game-typing">${wnAv(false,wcFace(ms))}<div class="wc-col"><span class="wc-name">${esc(ms.artist||'Artist')}</span><div class="wc-b wc-dots" aria-label="typing"><i></i><i></i><i></i></div></div></div>`; }
 function wnScroll(smooth){ const th=document.getElementById('wc-thread'); if(th) th.scrollTo({top:th.scrollHeight,behavior:smooth?'smooth':'auto'}); }
-function wnTyping(on,sid){ const g=state.game; if(!g) return; sid=sid||g.song.id; g.typing=on?sid:false; const th=document.getElementById('wc-thread'); if(!th) return; let cur=document.getElementById('wc-typing');
-  if(cur&&(!on||cur.dataset.sid!==sid)){ cur.remove(); cur=null; }
-  if(on&&!cur){ th.insertAdjacentHTML('beforeend',wnTypingHtml(sid)); icons(); wnScroll(true); } wcRegroup(); }
+function wnTyping(on,sid,by){ const g=state.game; if(!g) return; sid=sid||g.song.id; by=on&&by||null; g.typing=on?sid:false; g.typingBy=by; const s0=SONG_BY_ID[sid]||g.song, face=by?wcByFace(by,s0):s0, who=wcWho(face);
+  const gi=document.getElementById('game-input'); if(on&&gi&&g.phase==='react') gi.placeholder=(face.artist||'Artist')+' is typing\u2026';
+  const th=document.getElementById('wc-thread'); if(!th) return; let cur=document.getElementById('wc-typing');
+  if(cur&&(!on||cur.dataset.sid!==sid||cur.dataset.who!==who)){ cur.remove(); cur=null; }
+  if(on&&!cur){ th.insertAdjacentHTML('beforeend',wnTypingHtml(sid,by)); icons(); wnScroll(true); } wcRegroup(); }
 function wcRegroup(){ const th=document.getElementById('wc-thread'); if(!th) return; const rows=[...th.children], key=x=>x&&x.classList.contains('wc-row')?(x.classList.contains('is-me')?'me':'a:'+(x.dataset.who||x.dataset.sid||'')):null;
   rows.forEach((r,i)=>{ const k=key(r); if(!k) return; const nx=rows[i+1], nk=key(nx); r.classList.toggle('g-cont',key(rows[i-1])===k); r.classList.toggle('g-mid',nk===k); r.classList.toggle('g-join',nk===k&&!nx.classList.contains('is-emo')); }); }
 function wnAdd(m,live){ const g=state.game; if(!g) return; if((m.k==='a'||m.k==='emoji')&&!m.sid) m.sid=g.song.id; g.msgs.push(m); const th=document.getElementById('wc-thread'); if(!th) return;
@@ -64,9 +68,9 @@ function wnAdd(m,live){ const g=state.game; if(!g) return; if((m.k==='a'||m.k===
   const html=wnMsgHtml(m,g.msgs.length-1,true); if(ty&&ty.isConnected) ty.insertAdjacentHTML('beforebegin',html); else th.insertAdjacentHTML('beforeend',html);
   if(live){ wnLiveOff(); const b=th.querySelectorAll('.wc-row.is-a .wc-b:not(.wc-dots)'); if(b.length) b[b.length-1].classList.add('is-live'); }
   icons(); wcRegroup(); wnScroll(true); }
-function wnHeadHtml(){ const g=state.game, n=g.targets.length, r=Math.min(g.round+1,n), pct=g.phase==='end'?100:Math.round(g.round/n*100);
+function wnHeadHtml(){ const g=state.game, crew=wcCrew(g), n=g.targets.length, r=Math.min(g.round+1,n), pct=g.phase==='end'?100:Math.round(g.round/n*100);
   return `<header class="wc-head"><div class="wc-hl"><button type="button" data-act="game-close" aria-label="Close game" data-testid="game-close-button" class="wc-hbtn press"><i data-lucide="chevron-left" style="width:24px;height:24px"></i></button><button type="button" data-act="wcx-style" aria-label="Chat style" data-testid="game-style-button" class="wc-hbtn is-sm press"><i data-lucide="palette" style="width:18px;height:18px"></i></button></div>
-    <div class="wc-hmid">${g.group&&wcPeople(g.songs).length>1?`<span class="wc-gav" data-testid="game-group-avatars">${wcPeople(g.songs).slice(0,3).map(x=>wnAv(false,x)).join('')}${wcPeople(g.songs).length>3?`<span class="wc-av wc-more">+${wcPeople(g.songs).length-3}</span>`:''}</span><p class="wc-hname clamp-1" data-testid="game-artist-name">${esc(wcGroupName(g.songs))}</p><p class="wc-hsub clamp-1">Group chat \u00B7 ${g.songs.length} songs</p>`:g.group?`${wnAv(true,g.songs[0])}<p class="wc-hname clamp-1" data-testid="game-artist-name">${esc(g.songs[0].artist||'Artist')}</p><p class="wc-hsub clamp-1">What\u2019s Next? \u00B7 ${g.songs.length} songs</p>`:`${wnAv(true)}<p class="wc-hname clamp-1" data-testid="game-artist-name">${esc(g.song.artist||'Artist')}<i data-lucide="chevron-right" style="width:12px;height:12px"></i></p><p class="wc-hsub clamp-1">What\u2019s Next? \u00B7 ${esc(g.song.title)}</p>`}</div>
+    <div class="wc-hmid">${crew.length>1?`<span class="wc-gav" data-testid="game-group-avatars">${crew.slice(0,3).map(x=>wnAv(false,x)).join('')}${crew.length>3?`<span class="wc-av wc-more">+${crew.length-3}</span>`:''}</span><p class="wc-hname clamp-1" data-testid="game-artist-name">${esc(wcGroupName(wcCrewSongs(g)))}</p><p class="wc-hsub clamp-1">Group chat \u00B7 ${g.group?g.songs.length+' songs':esc(g.song.title)}</p>`:g.group?`${wnAv(true,g.songs[0])}<p class="wc-hname clamp-1" data-testid="game-artist-name">${esc(g.songs[0].artist||'Artist')}</p><p class="wc-hsub clamp-1">What\u2019s Next? \u00B7 ${g.songs.length} songs</p>`:`${wnAv(true)}<p class="wc-hname clamp-1" data-testid="game-artist-name">${esc(g.song.artist||'Artist')}<i data-lucide="chevron-right" style="width:12px;height:12px"></i></p><p class="wc-hsub clamp-1">What\u2019s Next? \u00B7 ${esc(g.song.title)}</p>`}</div>
     <div class="wc-hstats"><span class="wc-hpill" data-testid="game-score"><b id="wc-score">${g.score}</b>pts</span><span class="wc-hmeta"><i data-lucide="flame" style="width:12px;height:12px" class="${g.streak>0?'is-hot':''}" id="wc-flame"></i><b id="wc-streak">${g.streak}</b><em id="wc-round" data-testid="game-round">${r}/${n}</em></span></div>
     <div class="wc-prog"><span id="wc-prog" style="width:${pct}%"></span></div></header>`; }
 function wnHead(){ const g=state.game; if(!g) return; const n=g.targets.length, set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
@@ -120,43 +124,43 @@ function wnUseRound(){ const g=state.game, p=g&&g.plan&&g.plan[g.round]; if(!p) 
 async function wnIntro(){ const g=state.game; if(!g) return; const tok=++_wnSeq; wnStopAudio(); g.try=1; wnUseRound();
   const L=g.lines, ti=g.targets[g.round], ctx=[ti-2,ti-1].filter(i=>i>=0&&L[i]);
   wnSetPhase('intro'); wnHead(); wnAdd({k:'div',text:`Round ${g.round+1} of ${g.targets.length}`});
-  const s0=wnT(L[ctx[0]].t), tEnd=wnT(L[ti].t), sync=!!g.song.audioUrl&&isFinite(s0)&&isFinite(tEnd)&&tEnd>s0&&tEnd-s0<45;
-  wnTyping(true);
-  const [ok]=await Promise.all([sync?wnPrep(s0):Promise.resolve(false), wnWait(g.round?850:1100)]);
+  const s0=wnT(L[ctx[0]].t), tEnd=wnT(L[ti].t), sync=!!g.song.audioUrl&&isFinite(s0)&&isFinite(tEnd)&&tEnd>s0&&tEnd-s0<45, by0=wcLineBy(g.song,L,ctx[0]), by1=ctx.length>1?wcLineBy(g.song,L,ctx[1]):null;
+  wnTyping(true,null,by0);
+  const r0=!g.round, [ok]=await Promise.all([sync?wnPrep(s0,r0?9000:3500):Promise.resolve(false), wnWait(r0?1100:850)]);
   if(tok!==_wnSeq) return;
-  const live=ok&&await wnPlay(); if(tok!==_wnSeq){ wnStopAudio(); return; }
-  wnAdd({k:'a',text:L[ctx[0]].text},live);
+  const live=ok&&await wnPlay(r0?4000:1200); if(tok!==_wnSeq){ wnStopAudio(); return; }
+  wnAdd({k:'a',text:L[ctx[0]].text,by:by0},live);
   if(ctx.length>1){ const t2=wnT(L[ctx[1]].t);
-    if(live&&isFinite(t2)&&t2>s0&&t2<tEnd){ let sent=false; const tt=setTimeout(()=>{ if(tok===_wnSeq&&!sent) wnTyping(true); },380);
-      await wnWatch([{t:t2-0.04,fn:()=>{ sent=true; clearTimeout(tt); wnAdd({k:'a',text:L[ctx[1]].text},true); }},{t:tEnd-0.12,fn:()=>{ wnLiveOff(); try{ wnAud().pause(); }catch(e){} }}],tok);
+    if(live&&isFinite(t2)&&t2>s0&&t2<tEnd){ let sent=false; const tt=setTimeout(()=>{ if(tok===_wnSeq&&!sent) wnTyping(true,null,by1); },380);
+      await wnWatch([{t:t2-0.04,fn:()=>{ sent=true; clearTimeout(tt); wnAdd({k:'a',text:L[ctx[1]].text,by:by1},true); }},{t:tEnd-0.12,fn:()=>{ wnLiveOff(); try{ wnAud().pause(); }catch(e){} }}],tok);
     } else {
       if(live) await wnWatch([{t:(isFinite(t2)&&t2>s0?t2:s0+6)-0.1,fn:()=>{ wnLiveOff(); try{ wnAud().pause(); }catch(e){} }}],tok);
-      if(tok!==_wnSeq) return; await wnWait(300); if(tok!==_wnSeq) return; wnTyping(true); await wnWait(1150); if(tok!==_wnSeq) return;
-      wnAdd({k:'a',text:L[ctx[1]].text}); }
+      if(tok!==_wnSeq) return; await wnWait(300); if(tok!==_wnSeq) return; wnTyping(true,null,by1); await wnWait(1150); if(tok!==_wnSeq) return;
+      wnAdd({k:'a',text:L[ctx[1]].text,by:by1}); }
   } else if(live){ await wnWatch([{t:tEnd-0.12,fn:()=>{ wnLiveOff(); try{ wnAud().pause(); }catch(e){} }}],tok); }
   if(tok!==_wnSeq) return;
   wnSetPhase('input'); wcTimer(); }
-async function wnArtistSays(tok,ms,send){ const g=state.game, ti=g.targets[g.round], L=g.lines, s=wnT(L[ti]&&L[ti].t), sync=!!g.song.audioUrl&&isFinite(s);
-  wnTyping(true); const [ok]=await Promise.all([sync?wnPrep(s):Promise.resolve(false), wnWait(ms)]);
+async function wnArtistSays(tok,ms,send,by){ const g=state.game, ti=g.targets[g.round], L=g.lines, s=wnT(L[ti]&&L[ti].t), sync=!!g.song.audioUrl&&isFinite(s);
+  wnTyping(true,null,by); const [ok]=await Promise.all([sync?wnPrep(s):Promise.resolve(false), wnWait(ms)]);
   if(tok!==_wnSeq) return false; const live=ok&&await wnPlay(); if(tok!==_wnSeq){ wnStopAudio(); return false; }
   send(live); if(live){ const e=wnSegEnd(ti); wnWatch([{t:e,fn:()=>{ wnLiveOff(); try{ wnAud().pause(); }catch(x){} }}],tok); }
   return true; }
-async function wnYes(r,second,tok){ const g=state.game, target=g.lines[g.targets[g.round]].text; wnRecord(r); wnSetPhase('react'); wnHead();
-  if(!(await wnArtistSays(tok,650,()=>wnAdd({k:'emoji',text:wnPick(WN_YES)})))) return;
+async function wnYes(r,second,tok){ const g=state.game, target=g.lines[g.targets[g.round]].text, by=wcLineBy(g.song,g.lines,g.targets[g.round]); wnRecord(r); wnSetPhase('react'); wnHead();
+  if(!(await wnArtistSays(tok,650,()=>wnAdd({k:'emoji',text:wnPick(WN_YES),by}),by))) return;
   wnAdd({k:'sys',tone:'good',html:wnNote(r,wnVerdict(r),second)+(r.exact||r.sim>=0.97?'':`<em>\u201C${esc(target)}\u201D</em>`)}); wnSetPhase('done'); wnHead(); }
-async function wnNope(tok){ wnSetPhase('react'); wnHead(); wnTyping(true); await wnWait(650); if(tok!==_wnSeq) return;
-  wnAdd({k:'emoji',text:wnPick(WN_NO)}); wnAdd({k:'sys',tone:'bad',html:'<span>Not quite</span><b>1 more try</b>'});
+async function wnNope(tok){ const g=state.game, by=wcLineBy(g.song,g.lines,g.targets[g.round]); wnSetPhase('react'); wnHead(); wnTyping(true,null,by); await wnWait(650); if(tok!==_wnSeq) return;
+  wnAdd({k:'emoji',text:wnPick(WN_NO),by}); wnAdd({k:'sys',tone:'bad',html:'<span>Not quite</span><b>1 more try</b>'});
   state.game.try=2; wnSetPhase('input'); wcTimer(); }
-async function wnReveal(r,label,second,tok){ const g=state.game, target=g.lines[g.targets[g.round]].text; wnRecord(r); wnSetPhase('react'); wnHead();
-  if(!(await wnArtistSays(tok,850,live=>wnAdd({k:'a',text:target},live)))) return;
+async function wnReveal(r,label,second,tok){ const g=state.game, target=g.lines[g.targets[g.round]].text, by=wcLineBy(g.song,g.lines,g.targets[g.round]); wnRecord(r); wnSetPhase('react'); wnHead();
+  if(!(await wnArtistSays(tok,850,live=>wnAdd({k:'a',text:target,by},live),by))) return;
   wnAdd({k:'sys',tone:r.sim>=0.3?'mid':'bad',html:wnNote(r,label,second)}); wnSetPhase('done'); wnHead(); }
 async function wnEnd(){ const g=state.game; if(!g) return; const tok=++_wnSeq; wnStopAudio(); wnSetPhase('react');
-  const sid=g.group?wnPick(wcPeople(g.songs)).id:g.song.id;
+  const crew=wcCrew(g), ep=crew.length>1?wnPick(crew):null, sid=ep?ep.id:g.song.id, eby=ep&&ep._by||null;
   if(g.group) g.song=Object.assign({},g.songs[0],{title:'Group chat',artist:wcGroupName(g.songs)});
   if(!g.saved){ saveGameResult(g); g.saved=true; }
   const acc=g.results.filter(x=>x.correct).length/g.targets.length;
-  wnTyping(true,sid); await wnWait(900); if(tok!==_wnSeq) return;
-  wnAdd({k:'a',sid,text:acc>=0.8?'You really know this one \uD83E\uDEF6':acc>=0.4?'That\u2019s a wrap \uD83C\uDFA4':'We\u2019ll run it back \uD83D\uDE05'});
+  wnTyping(true,sid,eby); await wnWait(900); if(tok!==_wnSeq) return;
+  wnAdd({k:'a',sid,by:eby,text:acc>=0.8?'You really know this one \uD83E\uDEF6':acc>=0.4?'That\u2019s a wrap \uD83C\uDFA4':'We\u2019ll run it back \uD83D\uDE05'});
   await wnWait(500); if(tok!==_wnSeq) return; g.phase='end'; wnAdd({k:'end'}); wnSetPhase('end'); wnHead(); }
 
 /* overrides */
@@ -165,7 +169,7 @@ renderGame=function(){ const g=state.game; if(!g) return; if(!g.msgs){ g.msgs=[]
   const c=wcCfg(), t=wcTheme(), lt=light&&t.f!=='neon';
   $('#modal').innerHTML=`<div data-game-root data-testid="game-fullscreen" class="wc-root ${lt?'is-light':'dark-surface'} ${existed?'':'np-entering'}" data-wcf="${t.f}" data-wct="${t.id}" data-glow="${c.glow}" data-ts="${c.ts}" data-live="${c.live}" style="${wcVars(t)}">
     <div class="wc-bg" aria-hidden="true">${img(g.song.coverArt,'wc-bg-img')}<span class="wc-orb is-1"></span><span class="wc-orb is-2"></span><span class="wc-bg-tint"></span></div>
-    <div class="wc-wrap">${gxWnSide()}<section class="wc-chat" data-testid="game-chat">${wnHeadHtml()}${wcStyleHtml()}<div class="wc-thread" id="wc-thread" data-testid="game-thread"><div class="wc-start">${g.group&&wcPeople(g.songs).length>1?`<span class="wc-gav is-big" data-testid="game-start-avatars">${wcPeople(g.songs).slice(0,4).map(x=>wnAv(false,x)).join('')}</span><p>${esc(wcGroupName(g.songs))} are in the chat. Everyone takes turns.</p>`:g.group?`${wnAv(false,g.songs[0])}<p>${esc(g.songs[0].artist||'Artist')} brought ${g.songs.length} songs. You finish the lines.</p>`:`${wnAv()}<p>${esc(g.song.artist||'Artist')} sends a line. You finish it.</p>`}</div>${g.msgs.map((m,i)=>wnMsgHtml(m,i,false)).join('')}${g.typing?wnTypingHtml(g.typing):''}</div>${wnComposeHtml()}</section></div></div>`;
+    <div class="wc-wrap">${gxWnSide()}<section class="wc-chat" data-testid="game-chat">${wnHeadHtml()}${wcStyleHtml()}<div class="wc-thread" id="wc-thread" data-testid="game-thread"><div class="wc-start">${wcCrew(g).length>1?`<span class="wc-gav is-big" data-testid="game-start-avatars">${wcCrew(g).slice(0,4).map(x=>wnAv(false,x)).join('')}</span><p data-testid="game-start-names">${esc(wcGroupName(wcCrewSongs(g)))} are in the chat. ${g.group?'Everyone takes turns.':'You finish the lines.'}</p>`:g.group?`${wnAv(false,g.songs[0])}<p>${esc(g.songs[0].artist||'Artist')} brought ${g.songs.length} songs. You finish the lines.</p>`:`${wnAv()}<p>${esc(g.song.artist||'Artist')} sends a line. You finish it.</p>`}</div>${g.msgs.map((m,i)=>wnMsgHtml(m,i,false)).join('')}${g.typing?wnTypingHtml(g.typing,g.typingBy):''}</div>${wnComposeHtml()}</section></div></div>`;
   const root=document.querySelector('#modal [data-game-root]'); if(root) root.addEventListener('animationend',e=>{ if(e.target===root) root.classList.remove('np-entering'); });
   icons(); wcRegroup(); wnBind(); wnSetPhase(g.phase); wnScroll(false); wnVVOn(); syncScrollLock(); };
 function wcPickTargets(L,n){ const nk=i=>gnorm(L[i]&&L[i].text||''), cand=[];
@@ -177,13 +181,44 @@ function wcPickTargets(L,n){ const nk=i=>gnorm(L[i]&&L[i].text||''), cand=[];
 const _wnStart=startGame; startGame=function(id){ const before=state.game; wnHalt(); _wnStart.apply(this,arguments); const g=state.game; if(!g||g===before) return;
   const tg=wcPickTargets(g.lines,wcRounds()); if(tg.length) g.targets=tg; g.plan=g.targets.map(ti=>({sid:g.song.id,ti})); wnHead();
   wnUnlock(); ovHistPush('game'); wnGreet(); };
-function wnUnlock(){ const g=state.game, a=wnAud(); try{ if(g.song.audioUrl){ a.dataset.src=g.song.audioUrl; a.src=g.song.audioUrl; } a.muted=true; const p=a.play(); g._unlock=(p&&p.then)?p.then(()=>{ a.pause(); a.muted=false; },()=>{ a.muted=false; }):Promise.resolve(); }catch(e){ g._unlock=Promise.resolve(); } }
+/* unlock: an audible (silent) play inside the tap so phones allow round 1's audio later, then load the real song */
+let _wnSil=null;
+function wnSilent(){ if(_wnSil) return _wnSil; const n=400, b=new Uint8Array(44+n), v=new DataView(b.buffer), w=(o,t)=>{ for(let i=0;i<t.length;i++) b[o+i]=t.charCodeAt(i); };
+  w(0,'RIFF'); v.setUint32(4,36+n,true); w(8,'WAVEfmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,8000,true); v.setUint32(28,8000,true); v.setUint16(32,1,true); v.setUint16(34,8,true); w(36,'data'); v.setUint32(40,n,true); b.fill(128,44);
+  return _wnSil=URL.createObjectURL(new Blob([b],{type:'audio/wav'})); }
+function wnUnlock(){ const g=state.game, a=wnAud(), p0=g.plan&&g.plan[0], s=(p0&&SONG_BY_ID[p0.sid])||g.song;
+  const load=()=>{ if(state.game!==g) return; if(s&&s.audioUrl&&a.dataset.src!==s.audioUrl){ a.dataset.src=s.audioUrl; a.src=s.audioUrl; try{ a.load(); }catch(e){} } wnWarm(); };
+  try{ a.muted=false; a.dataset.src=''; a.src=wnSilent(); const p=a.play(); g._unlock=((p&&p.then)?p.then(()=>{ try{ a.pause(); }catch(e){} },()=>{}):Promise.resolve()).then(load); }catch(e){ g._unlock=Promise.resolve().then(load); } }
+/* round 1 starts buffering at its first line while everyone says hi */
+function wnWarm(){ const g=state.game, p=g&&g.plan&&g.plan[0], a=wnAud(), s=p&&SONG_BY_ID[p.sid]; if(!s||!s.audioUrl||a.dataset.src!==s.audioUrl) return; const L=wcLines(s), l=L[Math.max(0,p.ti-2)], t=wnT(l&&l.t); if(isFinite(t)) try{ a.currentTime=t; }catch(e){} }
 function wcLines(s){ return (s.lyrics||[]).filter(l=>l.text&&l.text.trim()); }
 function wcRounds(){ const r=+((state.gameOpts||{}).rounds)||5; return [3,5,8,10,15].includes(r)?r:5; }
-function wcWho(s){ return (s&&s.artistIds&&s.artistIds[0])||('n:'+gnorm((s&&s.artist)||'')); }
-function wcFace(ms){ const g=state.game; return (g&&g.group&&wcPeople(g.songs).find(p=>wcWho(p)===wcWho(ms)))||ms; }
-function wcPeople(songs){ const seen=new Set(); return (songs||[]).filter(s=>{ const k=wcWho(s); if(seen.has(k)) return false; seen.add(k); return true; }); }
-function wcGroupName(songs){ const n=[...new Set(songs.map(s=>s.artist||'Artist'))]; return n.length<=3?n.join(', ').replace(/, ([^,]*)$/,' & $1'):n.slice(0,2).join(', ')+' +'+(n.length-2); }
+function wcWho(s){ return wcMainId(s)||('n:'+normKey((s&&s.artist)||'')); }
+/* the artist named in a line's section label sends that line */
+function wcByFace(by,s){ return {id:s.id, title:by.n, artist:by.n, artistIds:by.id?[by.id]:[], coverArt:by.img||''}; }
+function wcLineBy(s,L,i){ const l=L&&L[i]; if(!s||!l||!l.sec) return null;
+  const role=x=>String(x||'').split(':')[0].replace(/\([^)]*\)|\[[^\]]*\]/g,'').replace(/\d+/g,'').trim().toLowerCase();
+  let p=parseSection(l.sec,s);
+  if(!(p&&p.artists&&p.artists.length)){ const r=role(l.sec), m=r&&(s.lyrics||[]).find(x=>x&&x.sec&&x.sec.indexOf(':')>0&&role(x.sec)===r); p=m?parseSection(m.sec,s):null; }
+  const a=p&&p.artists&&p.artists[0]; if(!a) return null;
+  if(normKey(a.name)===normKey(s.artist||'')||(a.id&&wcMainId(s)===a.id)) return null;
+  return {n:a.name,id:a.id||null,img:a.image||null}; }
+function wcFace(ms){ const g=state.game; return (g&&wcCrew(g).find(p=>wcWho(p)===wcWho(ms)))||ms; }
+/* the songs whose artists are in this chat (a solo game is a one-song crew) */
+function wcCrewSongs(g){ return g.group?g.songs:(g._solo||(g._solo=[g.song])); }
+function wcCrew(g){ return g?wcPeople(wcCrewSongs(g)):[]; }
+/* credited artists (featuring + extra artist ids) join even when no section label names them */
+const WC_SPLIT=/\s*[,&\/+\u00d7]\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|vs\.?|x)\s+/i;
+function wcCredit(s){ const out=[], main=wcMainId(s), mk=normKey(s.artist||''), add=by=>out.push(Object.assign(wcByFace(by,s),{_by:by}));
+  (s.artistIds||[]).forEach(id=>{ const a=ARTIST_BY_ID[id]; if(a&&id!==main&&normKey(a.name)!==mk) add({n:a.name,id:a.id,img:a.image||null}); });
+  String(s.featuring||'').split(WC_SPLIT).map(x=>x.trim()).filter(Boolean).forEach(n=>{ const k=normKey(n); if(!k||k===mk) return; const a=(ARTISTS||[]).find(x=>normKey(x.name)===k); add(a?{n:a.name,id:a.id,img:a.image||null}:{n,id:null,img:null}); });
+  return out; }
+/* everyone in the chat: each song's main artist, then the featured artists who have lines */
+function wcFeat(s){ const L=wcLines(s), m=new Map(); for(let i=0;i<L.length;i++){ const by=wcLineBy(s,L,i); if(!by) continue; const f=wcByFace(by,s), k=wcWho(f); if(!m.has(k)) m.set(k,Object.assign(f,{_by:by})); } return [...m.values()]; }
+const _wcPplC=new WeakMap();
+function wcPeople(songs){ if(!songs) return []; const c=_wcPplC.get(songs); if(c) return c; const seen=new Set(), out=[], add=p=>{ const k=wcWho(p); if(seen.has(k)) return; seen.add(k); out.push(p); };
+  songs.forEach(add); songs.forEach(s=>wcFeat(s).forEach(add)); songs.forEach(s=>wcCredit(s).forEach(add)); _wcPplC.set(songs,out); return out; }
+function wcGroupName(songs){ const n=[...new Set(wcPeople(songs).map(s=>s.artist||'Artist'))]; return n.length<=3?n.join(', ').replace(/, ([^,]*)$/,' & $1'):n.slice(0,2).join(', ')+' +'+(n.length-2); }
 function wcStartGroup(ids){ const songs=[...new Set(ids)].map(id=>SONG_BY_ID[id]).filter(s=>s&&wcLines(s).length>=4);
   if(songs.length<2){ if(songs[0]) startGame(songs[0].id); else toast('Not enough lyrics','Pick other tracks'); return; }
   wnHalt(); for(let i=songs.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [songs[i],songs[j]]=[songs[j],songs[i]]; }
@@ -197,18 +232,19 @@ function wcStartGroup(ids){ const songs=[...new Set(ids)].map(id=>SONG_BY_ID[id]
   state.game={song:first, lines:wcLines(first), targets:plan.map(p=>p.ti), plan, group:true, songs:used, songIds:used.map(s=>s.id), round:0, score:0, streak:0, bestStreak:0, results:[], answered:false, saved:false, lastAnswer:'', lastSim:0, lastExact:false, lastPoints:0, lastBonus:0, lastTimedOut:false, mode:'type', timer:!!o.timer, exact:!!o.exact, timeLeft:GAME_TIME};
   try{ if(state.audio) state.audio.pause(); }catch(e){}
   renderGame(); wnUnlock(); ovHistPush('game'); wnGreet(); }
-const WN_HI=['yo {n}! \uD83D\uDC4B','hey {n} \uD83E\uDEF6','{n}!! you made it','what\u2019s good {n} \u270C\uFE0F','ayy {n}, welcome to the studio \uD83C\uDF99\uFE0F','look who pulled up \uD83D\uDC40','hiii {n} \uD83D\uDC9C','{n} in the building \uD83D\uDD25','sup {n}, glad you\u2019re here','oh it\u2019s you {n} \uD83D\uDE0F','{n}! been waiting on you \u23F3','welcome back {n} \uD83C\uDFA7'];
+const WN_HI=['yo {n}! \uD83D\uDC4B','hey {n} \uD83E\uDEF6','{n}!! you made it','what\u2019s good {n} \u270C\uFE0F','ayy {n}, welcome to the studio \uD83C\uDF99\uFE0F','look who pulled up \uD83D\uDC40','hiii {n} \uD83D\uDC9C','{n} in the building \uD83D\uDD25','sup {n}, glad you\u2019re here','oh it\u2019s you {n} \uD83D\uDE0F','{n}! been waiting on you \u23F3','welcome back {n} \uD83C\uDFA7','wassup {n} \uD83D\uDE4C','heyyy {n} \uD83D\uDE0E','yooo {n}, you\u2019re here \uD83C\uDFB6','{n}! finally \uD83D\uDE4F'];
 const WN_READY=['you know my songs? let\u2019s see \uD83D\uDE0F','i\u2019ll start the line, you finish it. ready?','get ready\u2026 don\u2019t leave me hanging','finish my lines and we good \uD83C\uDFA4','warm up those thumbs \uD83D\uDC40','bet you can\u2019t finish this one \uD83D\uDE24','listen close. here we go','i\u2019m only sending it once (jk, hit Hear it) \uD83D\uDE02','let\u2019s run it \uD83D\uDD01','no cheating. ok maybe a little \uD83E\uDD2B','turn it up, this one hits \uD83D\uDD0A','ready when you are. starting now \u23F3','prove you\u2019re a real fan \uD83D\uDCAF','ok focus. first line coming up'];
 const WN_GROUP=['the whole crew\u2019s here \uD83D\uDC65','we\u2019re all taking turns tonight','i got next \uD83D\uDE4B','don\u2019t play favorites \uD83D\uDE05','who knows the most lyrics? we\u2019ll see','group chat going crazy rn \uD83D\uDCA5','we each got a song for you \uD83C\uDFB6','try to keep up with all of us \uD83C\uDFC3'];
 function wnPickFresh(pool,key){ let rec=[]; try{ rec=JSON.parse(localStorage.getItem(key)||'[]'); }catch(e){} let opts=pool.map((_,i)=>i).filter(i=>!rec.includes(i)); if(!opts.length) opts=pool.map((_,i)=>i);
   const i=opts[Math.floor(Math.random()*opts.length)]; rec=[i].concat(rec).slice(0,Math.min(6,pool.length-1)); try{ localStorage.setItem(key,JSON.stringify(rec)); }catch(e){} return pool[i]; }
+function wnPickMany(pool,key,k){ const out=[]; for(let i=0;i<k;i++){ let t, n=0; do{ t=wnPickFresh(pool,key); }while(out.includes(t)&&++n<20); out.push(t); } return out; }
 async function wnGreet(){ const g=state.game; if(!g) return; const tok=++_wnSeq; wnSetPhase('intro');
   const nm=String((state.profile&&state.profile.nickname)||'friend').trim().split(/\s+/)[0]||'friend';
-  const ids=(g.group?wcPeople(g.songs).map(s=>s.id):[g.song.id]).sort(()=>Math.random()-.5), crew=ids.length>1;
-  const seq=[{sid:ids[0],text:wnPickFresh(WN_HI,'treesh_wn_hi').replace('{n}',nm)}];
-  if(crew) seq.push({sid:ids[1],text:wnPickFresh(WN_GROUP,'treesh_wn_grp')});
-  seq.push({sid:crew?(ids[2]||ids[0]):ids[0],text:wnPickFresh(WN_READY,'treesh_wn_rdy')});
-  for(let i=0;i<seq.length;i++){ wnTyping(true,seq[i].sid); await wnWait(i?800+Math.random()*500:1000); if(tok!==_wnSeq) return; wnAdd({k:'a',text:seq[i].text,sid:seq[i].sid}); await wnWait(380); if(tok!==_wnSeq) return; }
+  const mix=a=>a.slice().sort(()=>Math.random()-.5), all=wcCrew(g), ppl=mix(all.filter(p=>!p._by)).concat(mix(all.filter(p=>p._by))), crew=ppl.length>1, big=ppl.length>4, hi=wnPickMany(WN_HI,'treesh_wn_hi',ppl.length);
+  const msg=(p,text)=>({sid:p.id,by:p._by||null,text}), seq=ppl.map((p,i)=>msg(p,hi[i].replace('{n}',nm)));
+  if(crew) seq.push(msg(ppl[ppl.length>2?1:ppl.length-1],wnPickFresh(WN_GROUP,'treesh_wn_grp')));
+  seq.push(msg(ppl[0],wnPickFresh(WN_READY,'treesh_wn_rdy')));
+  for(let i=0;i<seq.length;i++){ const q=seq[i]; wnTyping(true,q.sid,q.by); await wnWait(!i?1000:big?420+Math.random()*260:crew?560+Math.random()*380:800+Math.random()*500); if(tok!==_wnSeq) return; wnAdd({k:'a',text:q.text,sid:q.sid,by:q.by}); await wnWait(crew?240:380); if(tok!==_wnSeq) return; }
   await wnWait(450); if(tok!==_wnSeq) return; wnIntro(); }
 submitAnswer=function(ans,mode,timedOut){ const g=state.game; if(!g||!g.msgs||g.phase!=='input') return; clearGameTimer(); g.answered=true;
   const a=String(ans||'').trim(), gi=document.getElementById('game-input'); if(gi){ gi.value=''; delete gi.dataset.voice; wnGrow(gi); }
@@ -284,3 +320,6 @@ function wcUseHint(id){ const g=state.game; if(!g||g.phase!=='input') return; co
 document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('[data-act="wcx-hints"],[data-act="wcx-hint"],[data-act="wcx-pick"]'); if(!t) return;
   const a=t.dataset.act; if(a==='wcx-hints') wcHintsToggle(); else if(a==='wcx-hint') wcUseHint(t.dataset.val);
   else if(a==='wcx-pick'){ const g=state.game; if(!g||g.phase!=='input') return; const m=g.msgs[+t.dataset.msg]; if(!m||m.used) return; submitAnswer(m.opts[+t.dataset.i],'type'); } });
+/* desktop side panel: who's in this chat */
+const _gxS9zb=gxWnSide; gxWnSide=function(){ const h=_gxS9zb.apply(this,arguments), crew=wcCrew(state.game); if(!h||crew.length<2) return h;
+  return h.replace('<div class="wn-side-stats">',`<div class="wn-side-crew" data-testid="game-side-crew"><p class="wn-side-k">In the chat \u00B7 ${crew.length}</p><ul>${crew.map((p,i)=>`<li data-testid="game-side-crew-${i}">${wnAv(false,p)}<span class="clamp-1">${esc(p.artist||'Artist')}</span></li>`).join('')}</ul></div><div class="wn-side-stats">`); };

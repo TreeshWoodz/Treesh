@@ -13,7 +13,7 @@ document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closes
 document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('[data-act="game-again"]'); const g=state.game; if(!t||!g||!g.group) return; e.preventDefault(); e.stopPropagation(); wcStartGroup(g.songIds); },true);
 const _vg9zd=viewGame; viewGame=function(){ const tab=state.gameTab; if(tab==='lyrics'||tab==='tot'){ state.gameTab='games'; setTimeout(()=>{ if(!ovKind()) wlOpen(tab==='lyrics'?'wn':'tot'); },0); } return _vg9zd.apply(this,arguments); };
 
-function wlOpen(game){ state.wl={game, step:1, dir:'in', mode:LS.get('treesh_wl_mode','solo')==='group'?'group':'solo', sel:[], q:'', genre:null}; wlRender(true); ovHistPush('wl'); syncScrollLock(); }
+function wlOpen(game){ state.wl={game, step:1, dir:'in', mode:LS.get('treesh_wl_mode','solo')==='group'?'group':'solo', sel:[], q:'', genre:null, f:'all', ar:''}; wlRender(true); ovHistPush('wl'); syncScrollLock(); }
 function wlClose(){ closeModal(); state.wl=null; syncScrollLock(); if(state.view==='game') renderView(); }
 function wlBest(){ const b={}; ((state.gameStats||{}).recent||[]).forEach(r=>{ if(r&&r.id&&(b[r.id]||0)<r.score) b[r.id]=r.score; }); return b; }
 function wlCover(s){ return s&&s.coverArt&&s.coverArt!==FALLBACK?s.coverArt:''; }
@@ -26,19 +26,55 @@ function wlTop(){ const w=state.wl, s2=w.step===2, lab=w.game==='wn'?['Songs','S
     ${s2?`<button type="button" data-act="wl-exit" class="wl-ic press" data-testid="wl-exit" aria-label="Exit"><i data-lucide="x"></i></button>`:`<span class="wl-stars" data-testid="wl-starlites"><i data-lucide="sparkles"></i><b data-star-count>${fmtNum(state.stars.points||0)}</b></span>`}</header>`; }
 
 /* What's Next? step 1: songs */
-function wlSongs(){ const q=(state.wl.q||'').toLowerCase().trim(); let s=gameEligibleSongs(); if(q) s=s.filter(x=>(x.title||'').toLowerCase().includes(q)||(x.artist||'').toLowerCase().includes(q)); return s; }
-function wlSongCards(){ const w=state.wl, list=wlSongs(), best=wlBest(); if(!list.length) return `<div class="wl-empty" data-testid="wl-empty">${w.q?`No songs match \u201C${esc(w.q)}\u201D`:'No songs with lyrics yet.'}</div>`;
+function wlSongs(){ const w=state.wl, q=(w.q||'').toLowerCase().trim(), f=w.f||'all', best=f==='new'?wlBest():null; let s=gameEligibleSongs();
+  if(q) s=s.filter(x=>(x.title||'').toLowerCase().includes(q)||(x.artist||'').toLowerCase().includes(q)||(x.featuring||'').toLowerCase().includes(q));
+  if(f==='fav') s=s.filter(x=>isFav(x.id)); else if(f==='new') s=s.filter(x=>best[x.id]==null); else if(f==='yours') s=s.filter(x=>x._user); else if(f.indexOf('g:')===0) s=s.filter(x=>(x.genre||'')===f.slice(2));
+  if(w.ar) s=s.filter(x=>wlArKey(x)===w.ar); return s; }
+/* filters: quick picks + genres, then artists */
+function wlArKey(s){ return normKey(s.artist||''); }
+function wlArtists(){ const m=new Map(); gameEligibleSongs().forEach(s=>{ const k=wlArKey(s); if(!k) return; let a=m.get(k); if(!a){ const ar=(s.artistIds||[]).map(id=>ARTIST_BY_ID[id]).find(x=>x&&x.image); a={k,name:s.artist,img:ar?ar.image:wlCover(s),n:0}; m.set(k,a); } a.n++; }); return [...m.values()].sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name)); }
+function wlFiltersHtml(){ const w=state.wl, all=gameEligibleSongs(), f=w.f||'all', genres=[...new Set(all.map(s=>s.genre).filter(Boolean))].sort();
+  const chips=[['all','All','layers'],['fav','Liked','heart'],['new','New to you','sparkles']].concat(all.some(s=>s._user)?[['yours','Yours','disc-3']]:[]).concat(genres.map(g=>['g:'+g,g,'']));
+  const tid=v=>v.replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+  return `<div class="wl-filters no-scrollbar" data-testid="wl-filters">${chips.map(([v,l,ic])=>`<button type="button" data-act="wl-filter" data-val="${esc(v)}" data-testid="wl-filter-${tid(v)}" aria-pressed="${f===v}" class="wl-fchip press${f===v?' on':''}">${ic?`<i data-lucide="${ic}"></i>`:''}<span>${esc(l)}</span></button>`).join('')}</div>
+    <div class="wl-artists no-scrollbar" data-testid="wl-artist-filter">${wlArtists().map((a,i)=>`<button type="button" data-act="wl-artist" data-val="${esc(a.k)}" data-testid="wl-artist-${i}" aria-pressed="${w.ar===a.k}" class="wl-achip press${w.ar===a.k?' on':''}"><span class="wl-aav"><b>${esc(wnIni(a.name))}</b>${a.img?`<img src="${esc(a.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}</span><span class="wl-an clamp-1">${esc(a.name)}</span></button>`).join('')}</div>
+    <div class="wl-count-row"><p class="wl-count" id="wl-count" data-testid="wl-count">${wlCountTxt()}</p><button type="button" data-act="wl-clear" data-testid="wl-clear-filters" class="wl-clear press" id="wl-clear"${wlFiltered()?'':' hidden'}><i data-lucide="x"></i>Clear filters</button></div>`; }
+function wlFiltered(){ const w=state.wl; return (w.f&&w.f!=='all')||!!w.ar||!!(w.q||'').trim(); }
+function wlCountTxt(){ const n=wlSongs().length; return n+' song'+(n!==1?'s':''); }
+function wlRefresh(){ const w=state.wl, g=document.getElementById('wl-grid'); if(g){ g.innerHTML=wlSongCards(); icons(); }
+  const c=document.getElementById('wl-count'); if(c) c.textContent=wlCountTxt(); const x=document.getElementById('wl-clear'); if(x) x.hidden=!wlFiltered();
+  document.querySelectorAll('[data-wl-root] [data-act="wl-filter"]').forEach(b=>{ const on=b.dataset.val===(w.f||'all'); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
+  document.querySelectorAll('[data-wl-root] [data-act="wl-artist"]').forEach(b=>{ const on=b.dataset.val===w.ar; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); }
+function wlSongCards(){ const w=state.wl, list=wlSongs(), best=wlBest(); if(!list.length) return `<div class="wl-empty" data-testid="wl-empty">${w.q?`No songs match \u201C${esc(w.q)}\u201D`:wlFiltered()?'No songs match these filters.':'No songs with lyrics yet.'}</div>`;
   return list.map((s,i)=>{ const n=w.sel.indexOf(s.id), b=best[s.id];
-    return `<button type="button" data-act="wl-song" data-id="${esc(s.id)}" data-testid="wl-song-${esc(s.id)}" aria-pressed="${n>=0}" class="wl-song press${n>=0?' is-sel':''}" style="--i:${Math.min(i,18)}"><span class="wl-cov">${img(s.coverArt,'')}<span class="wl-tick">${n>=0?n+1:'<i data-lucide="plus"></i>'}</span>${b?`<span class="wl-best"><i data-lucide="trophy"></i>${b}</span>`:''}</span><span class="wl-st"><b class="clamp-1">${esc(s.title)}</b><small class="clamp-1">${esc(s.artist)}</small></span></button>`; }).join(''); }
+    return `<button type="button" data-act="wl-song" data-id="${esc(s.id)}" data-testid="wl-song-${esc(s.id)}" aria-pressed="${n>=0}" class="wl-song press${n>=0?' is-sel':''}" style="--i:${Math.min(i,18)}"><span class="wl-cov">${img(s.coverArt,'')}<span class="wl-tick" data-v="${n>=0?n+1:''}">${n>=0?n+1:'<i data-lucide="plus"></i>'}</span>${b?`<span class="wl-best"><i data-lucide="trophy"></i>${b}</span>`:''}</span><span class="wl-st"><b class="clamp-1">${esc(s.title)}</b><small class="clamp-1">${esc(s.artist)}</small></span></button>`; }).join(''); }
 function wlWnSongs(){ const w=state.wl, st=state.gameStats||{}, acc=st.rounds?Math.round(st.correct/st.rounds*100):0;
   return `<section class="wl-hero"><p class="wl-k"><i data-lucide="message-circle-more"></i>Lyric game</p><h1 class="wl-h1">What\u2019s Next?</h1><p class="wl-sub">The artist texts you a lyric. You text back the next line.</p>
       <div class="wl-stats" data-testid="wl-stats"><span><b>${st.bestScore||0}</b>High score</span><span><b>${st.games||0}</b>Games</span><span><b>${st.bestStreak||0}</b>Best streak</span><span><b>${acc}%</b>Accuracy</span></div></section>
     <div class="wl-mode" data-mode="${w.mode}" role="tablist" data-testid="wl-mode"><span class="wl-mode-pill"></span><button type="button" role="tab" data-act="wl-mode" data-val="solo" data-testid="wl-mode-solo" aria-selected="${w.mode==='solo'}"><i data-lucide="message-circle"></i>1-on-1</button><button type="button" role="tab" data-act="wl-mode" data-val="group" data-testid="wl-mode-group" aria-selected="${w.mode==='group'}"><i data-lucide="users"></i>Group chat</button></div>
-    <p class="wl-tip" data-testid="wl-tip">${w.mode==='group'?'Tick 2 or more songs. Each artist takes a turn.':'Tap a song to set up your game.'}</p>
+    <p class="wl-tip" data-testid="wl-tip">${wlTipTxt()}</p>
     <div class="wl-search"><i data-lucide="search"></i><input id="wl-q" type="search" value="${esc(w.q)}" placeholder="Search songs or artists" data-testid="wl-search" autocomplete="off" enterkeyhint="search"><button type="button" data-act="wl-random" data-testid="wl-random" class="press"><i data-lucide="dices"></i><span>Random</span></button></div>
-    <div class="wl-grid" id="wl-grid" data-testid="wl-song-grid">${wlSongCards()}</div>`; }
-function wlGroupBar(){ const w=state.wl, songs=w.sel.map(id=>SONG_BY_ID[id]).filter(Boolean), ok=songs.length>=2;
-  return `<div class="wl-bar is-group" data-testid="wl-group-bar"><span class="wl-bar-av">${songs.slice(0,4).map(s=>`<span>${img(s.coverArt,'')}</span>`).join('')||'<span class="is-empty"><i data-lucide="users"></i></span>'}</span><span class="wl-bar-t"><b data-testid="wl-group-count">${songs.length} song${songs.length!==1?'s':''}</b><small>${ok?esc(wcGroupName(songs)):'Pick at least 2'}</small></span><button type="button" data-act="wl-next" data-testid="wl-next" class="wl-go press"${ok?'':' disabled'}>Next<i data-lucide="arrow-right"></i></button></div>`; }
+    ${wlFiltersHtml()}<div class="wl-grid" id="wl-grid" data-testid="wl-song-grid">${wlSongCards()}</div>`; }
+function wlTipTxt(){ return state.wl.mode==='group'?'Tick 2 or more songs. Each artist takes a turn.':'Tap a song to set up your game.'; }
+function wlSelSongs(){ return state.wl.sel.map(id=>SONG_BY_ID[id]).filter(Boolean); }
+function wlBarAvHtml(s){ return s?`<span data-id="${esc(s.id)}">${img(s.coverArt,'')}</span>`:'<span class="is-empty"><i data-lucide="users"></i></span>'; }
+function wlGroupBar(){ const songs=wlSelSongs(), ok=songs.length>=2;
+  return `<div class="wl-bar is-group" data-testid="wl-group-bar"><span class="wl-bar-av">${songs.length?songs.slice(0,4).map(wlBarAvHtml).join(''):wlBarAvHtml()}</span><span class="wl-bar-t"><b data-testid="wl-group-count">${songs.length} song${songs.length!==1?'s':''}</b><small data-testid="wl-group-names">${ok?esc(wcGroupName(songs)):'Pick at least 2'}</small></span><button type="button" data-act="wl-next" data-testid="wl-next" class="wl-go press"${ok?'':' disabled'}>Next<i data-lucide="arrow-right"></i></button></div>`; }
+/* selection changes patch the page in place so nothing re-animates */
+function wlBarSync(bar){ const songs=wlSelSongs(), ok=songs.length>=2, av=bar.querySelector('.wl-bar-av'), have=new Map([...av.children].map(c=>[c.dataset.id||'',c])), tmp=document.createElement('span');
+  const nodes=(songs.length?songs.slice(0,4):[null]).map(s=>{ const c=have.get(s?s.id:''); if(c) return c; tmp.innerHTML=wlBarAvHtml(s); const n=tmp.firstElementChild; n.classList.add('is-new'); return n; });
+  av.replaceChildren(...nodes); bar.querySelector('[data-testid="wl-group-count"]').textContent=songs.length+' song'+(songs.length!==1?'s':'');
+  bar.querySelector('[data-testid="wl-group-names"]').textContent=ok?wcGroupName(songs):'Pick at least 2'; bar.querySelector('[data-act="wl-next"]').disabled=!ok; }
+function wlPaintSel(){ const w=state.wl, r=document.querySelector('[data-wl-root]'); if(!w||!r) return;
+  r.querySelectorAll('.wl-song').forEach(b=>{ const n=w.sel.indexOf(b.dataset.id), on=n>=0, tk=b.querySelector('.wl-tick'), v=on?String(n+1):'';
+    b.classList.toggle('is-sel',on); b.setAttribute('aria-pressed',on); if(tk&&tk.dataset.v!==v){ tk.dataset.v=v; tk.innerHTML=on?v:'<i data-lucide="plus"></i>'; } });
+  const want=w.game==='wn'&&w.step===1&&w.mode==='group', old=r.querySelector('.wl-bar.is-group'), body=r.querySelector('.wl-body');
+  if(!want){ if(old) old.remove(); } else if(old) wlBarSync(old); else r.insertAdjacentHTML('beforeend',wlGroupBar());
+  if(body) body.classList.toggle('has-bar',want); icons(); }
+function wlModePaint(){ const w=state.wl, r=document.querySelector('[data-wl-root]'); if(!r) return; const md=r.querySelector('.wl-mode'); if(md) md.dataset.mode=w.mode;
+  r.querySelectorAll('[data-act="wl-mode"]').forEach(b=>b.setAttribute('aria-selected',b.dataset.val===w.mode)); const tp=r.querySelector('[data-testid="wl-tip"]'); if(tp) tp.textContent=wlTipTxt(); wlPaintSel(); }
+function wlSegPaint(act,cur){ document.querySelectorAll(`[data-wl-root] [data-act="${act}"]`).forEach(b=>{ const on=String(b.dataset.val)===String(cur); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); }
+function wlRoundsNote(){ const w=state.wl, r=wcRounds(), grp=wlSelSongs().length>1; return w._cap<r?`<p class="wl-note" data-testid="wl-rounds-note"><i data-lucide="info"></i>${grp?'These songs have':'This song has'} room for ${w._cap} round${w._cap!==1?'s':''} without repeats</p>`:''; }
 
 /* What's Next? step 2: setup */
 function wlWnSetup(){ const w=state.wl, o=state.gameOpts||{}, songs=w.sel.map(id=>SONG_BY_ID[id]).filter(Boolean), grp=songs.length>1, r=wcRounds(), best=wlBest();
@@ -48,7 +84,7 @@ function wlWnSetup(){ const w=state.wl, o=state.gameOpts||{}, songs=w.sel.map(id
   const tg=(k,t,d,ic)=>{ const on=!!o[k]; return `<button type="button" data-act="wl-opt" data-opt="${k}" data-testid="wl-opt-${k}" aria-pressed="${on}" class="wl-row press${on?' is-on':''}"><span class="wl-row-ic"><i data-lucide="${ic}"></i></span><span class="wl-row-t"><b>${t}</b><small>${d}</small></span><span class="wl-sw" aria-hidden="true"><i></i></span></button>`; };
   return `<section class="wl-sel${grp?' is-group':''}">${hero}</section>
     <section class="wl-panel" data-testid="wl-difficulty"><h3><i data-lucide="gauge"></i>Difficulty</h3>${tg('timer','Timed mode','15s per line \u00B7 speed bonus','timer')}${tg('exact','Exact lyrics','Match the line word for word','type')}</section>
-    <section class="wl-panel" data-testid="wl-rounds"><h3><i data-lucide="repeat"></i>Rounds</h3>${wlSeg('wl-rounds',[3,5,8,10,15].map(n=>[n,n]),r)}${w._cap<r?`<p class="wl-note" data-testid="wl-rounds-note"><i data-lucide="info"></i>${grp?'These songs have':'This song has'} room for ${w._cap} round${w._cap!==1?'s':''} without repeats</p>`:''}</section>`; }
+    <section class="wl-panel" data-testid="wl-rounds"><h3><i data-lucide="repeat"></i>Rounds</h3>${wlSeg('wl-rounds',[3,5,8,10,15].map(n=>[n,n]),r)}${wlRoundsNote()}</section>`; }
 
 /* This or That */
 function wlMosaic(songs){ const c=songs.filter(s=>wlCover(s)).slice(0,4); for(let i=0;c.length<4&&i<songs.length*2;i++) c.push(songs[i%songs.length]); return c.slice(0,4).map(s=>`<span>${img(s.coverArt,'')}</span>`).join(''); }
@@ -74,23 +110,25 @@ function wlRender(first){ const w=state.wl; if(!w) return; const m=$('#modal'); 
     <div class="wl-bg" aria-hidden="true">${bgS&&wlCover(bgS)?img(bgS.coverArt,'wl-bg-img'):''}<span class="wc-orb is-1"></span><span class="wc-orb is-2"></span><span class="wl-tint"></span></div>
     ${wlTop()}<div class="wl-scroll" id="wl-scroll"><div class="wl-body wl-go-${w.dir||'in'}${bar?' has-bar':''}">${body}</div></div>${bar}</div>`;
   w.dir='in'; icons(); wlBind(); }
-function wlKeep(fn){ const sc=document.getElementById('wl-scroll'), y=sc?sc.scrollTop:0; fn(); const n=document.getElementById('wl-scroll'); if(n) n.scrollTop=y; }
-function wlBind(){ const q=document.getElementById('wl-q'); if(q) q.addEventListener('input',()=>{ state.wl.q=q.value; const g=document.getElementById('wl-grid'); if(g){ g.innerHTML=wlSongCards(); icons(); } });
+function wlBind(){ const q=document.getElementById('wl-q'); if(q) q.addEventListener('input',()=>{ state.wl.q=q.value; wlRefresh(); });
   const r=document.querySelector('[data-wl-root]'); if(r) r.addEventListener('animationend',e=>{ if(e.target===r) r.classList.remove('np-entering'); }); }
 function wlStep(n,dir){ state.wl.step=n; state.wl.dir=dir; if(n===2) state.wl._cap=null; wlRender(); }
 document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('[data-act^="wl-"]'); const w=state.wl; if(!t||!w||!t.closest('[data-wl-root]')) return; const a=t.dataset.act, v=t.dataset.val;
   if(a==='wl-exit') wlClose();
   else if(a==='wl-back') wlStep(1,'back');
-  else if(a==='wl-mode'){ if(w.mode===v) return; w.mode=v; w.sel=[]; LS.set('treesh_wl_mode',v); wlKeep(wlRender); }
+  else if(a==='wl-mode'){ if(w.mode===v) return; w.mode=v; w.sel=[]; LS.set('treesh_wl_mode',v); wlModePaint(); }
   else if(a==='wl-song'){ const id=t.dataset.id; if(w.mode==='solo'){ w.sel=[id]; wlStep(2,'fwd'); return; }
-    const i=w.sel.indexOf(id); if(i>=0) w.sel.splice(i,1); else if(w.sel.length>=8){ toast('Up to 8 songs in a group chat'); return; } else w.sel.push(id); wlKeep(wlRender); }
+    const i=w.sel.indexOf(id); if(i>=0) w.sel.splice(i,1); else if(w.sel.length>=8){ toast('Up to 8 songs in a group chat'); return; } else w.sel.push(id); wlPaintSel(); }
+  else if(a==='wl-filter'){ w.f=v||'all'; wlRefresh(); }
+  else if(a==='wl-artist'){ w.ar=w.ar===v?'':v; wlRefresh(); }
+  else if(a==='wl-clear'){ w.f='all'; w.ar=''; w.q=''; const qi=document.getElementById('wl-q'); if(qi) qi.value=''; wlRefresh(); }
   else if(a==='wl-next'){ if(w.sel.length>=2) wlStep(2,'fwd'); }
   else if(a==='wl-random'){ const pool=wlSongs().slice(); if(!pool.length) return; for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
-    w.sel=pool.slice(0,w.mode==='group'?Math.min(3,pool.length):1).map(s=>s.id); if(w.mode==='group'&&w.sel.length<2){ wlKeep(wlRender); return; } wlStep(2,'fwd'); }
-  else if(a==='wl-opt'){ const k=t.dataset.opt; state.gameOpts[k]=!state.gameOpts[k]; LS.set('treesh_game_opts',state.gameOpts); wlKeep(wlRender); }
-  else if(a==='wl-rounds'){ state.gameOpts.rounds=+v; LS.set('treesh_game_opts',state.gameOpts); wlKeep(wlRender); }
+    w.sel=pool.slice(0,w.mode==='group'?Math.min(3,pool.length):1).map(s=>s.id); if(w.mode==='group'&&w.sel.length<2){ wlPaintSel(); return; } wlStep(2,'fwd'); }
+  else if(a==='wl-opt'){ const k=t.dataset.opt; state.gameOpts[k]=!state.gameOpts[k]; LS.set('treesh_game_opts',state.gameOpts); t.classList.toggle('is-on',!!state.gameOpts[k]); t.setAttribute('aria-pressed',!!state.gameOpts[k]); }
+  else if(a==='wl-rounds'){ state.gameOpts.rounds=+v; LS.set('treesh_game_opts',state.gameOpts); wlSegPaint('wl-rounds',wcRounds()); const p=t.closest('[data-testid="wl-rounds"]'), old=p&&p.querySelector('.wl-note'); if(old) old.remove(); if(p){ p.insertAdjacentHTML('beforeend',wlRoundsNote()); icons(); } }
   else if(a==='wl-genre'){ w.genre=v||null; wlStep(2,'fwd'); }
-  else if(a==='wl-skips'||a==='wl-len'){ const o=wlTotOpts(); o[a==='wl-skips'?'skips':'len']=+v; LS.set('treesh_tot_opts',o); wlKeep(wlRender); }
+  else if(a==='wl-skips'||a==='wl-len'){ const o=wlTotOpts(); o[a==='wl-skips'?'skips':'len']=+v; LS.set('treesh_tot_opts',o); wlSegPaint(a,v); }
   else if(a==='wl-play'){ if(w.game==='tot'){ state.totGenre=w.genre||''; state.wl=null; startTot(); return; }
     const ids=w.sel.slice(); state.wl=null; if(ids.length>1) wcStartGroup(ids); else if(ids[0]) startGame(ids[0]); } });
 

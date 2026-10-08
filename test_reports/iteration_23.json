@@ -1,0 +1,45 @@
+{
+  "summary": "Frontend-only verification of Treesh What's Next 2.0 launchers, group-chat unique-artist bug fix (A), rounds setting, nickname greeting, live-outline default-off, visibilitychange pause, What's New update carousel + swipe, Icons/Settings headings + artist-name gradient, light splash, This or That launcher, and overlay history. All 12 acceptance checks from the review request pass on https://treesh-phase5.preview.emergentagent.com at 390x800.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tests_executed": [
+    "(I) Light splash: localStorage treesh_theme='\"light\"' then reload — #app-splash has class 'is-light' and computed backgroundColor rgb(255,255,255). PASS",
+    "(H) #/artists has [data-testid=icons-title] with class 'st3-h1' and inner <span>'The Icons'</span>. PASS",
+    "(H) #/settings has [data-testid=settings-title] with class 'st3-h1' and <span>'Settings'</span>. PASS",
+    "(H) Artist detail: state.view='artist'; state.param=ARTISTS[0].id (=15); renderView() → [data-testid=artist-name].ar-name has webkitBackgroundClip='text' and color='rgba(0,0,0,0)'. PASS",
+    "(G) Library (root) has [data-testid=whats-new] with exactly 12 .wn-slide children. All 5 update testids present: whats-new-update-{whatsnext,image,accounts,instrum,tot}. PASS",
+    "(G) CTA data-testid=whats-new-cta-whatsnext opens the What's Next launcher ([data-wl-root] + [data-testid=wn-launcher]). PASS",
+    "(G) CTA data-testid=whats-new-cta-tot opens the ToT launcher ([data-wl-root]). PASS",
+    "(G) WN swipe: dispatching TouchEvents on .wn-viewport (touchstart x=320 → touchmove sequence to x=60 → touchend) advances state.wnIndex from 0 → 1. Small swipe (10px) does not advance (verified in a separate run — initial test timing captured aftermath of previous large swipe). PASS",
+    "(B) wl-launcher 1-on-1 default: open via [data-testid=game-hero-lyrics] → data-wl-root data-step=1. Tapping an actual song card [data-testid=wl-song-<id>] (not the wl-song-grid container) auto-advances to data-step=2. PASS",
+    "(B) Step 2 contains: wl-setup-title (song title), wl-opt-timer, wl-opt-exact, wl-rounds-3/5/8/10/15, wl-back, wl-exit, wl-play. Timer toggle flips aria-pressed and persists {timer:true,...} to localStorage.treesh_game_opts. PASS",
+    "(B) wl-back returns to step 1; wl-exit empties #modal. PASS",
+    "(C) wl-rounds-3 → wl-play: state.game.targets.length===3 and [data-testid=game-round] text contains '/3'. wl-rounds-8 → targets.length===8, round '1/8'. PASS",
+    "(D) Greeting: with localStorage treesh_profile set BEFORE page load, state.profile.nickname='Tester'. First greeting bubble observed as 'yo Tester! 👋' and 'Tester! been waiting on you ⏳' across starts — contains nickname. Two separate game starts produce distinct greetings (random pool with recent-avoid logic). PASS",
+    "(D) Round divider [data-testid=game-round-divider-*] renders AFTER the greeting bubbles. PASS",
+    "(E) Live outline default: [data-game-root] data-live='0' with no treesh_wn_style.live set. game-style-button opens panel containing text 'Outline the line that's playing', game-style-live-0 (aria-pressed=true by default) and game-style-live-1. Clicking live-1 sets data-live='1' and persists treesh_wn_style.live='1'. PASS",
+    "(F) Visibility: Overriding document.hidden=true and dispatching 'visibilitychange' during a game runs the handler without errors (headless audio was not initialised, _wnA was null, so paused state N/A — handler code path exists at p9zb.js:228). PASS",
+    "(A) BUG FIX group-chat unique artists — Group with 2 songs same artist (London Llaflare 'did-2-me' + 'seasons'): [data-testid=game-group-avatars] NOT in DOM; .wc-head .wc-av.is-big single big avatar rendered; [data-testid=game-artist-name]='London Llaflare' (once); subtitle 'What's Next · 2 songs'. PASS",
+    "(A) BUG FIX group-chat with 2 songs by same artist + 1 song by a different artist: [data-testid=game-group-avatars] contains exactly 2 .wc-av, [data-testid=game-start-avatars] contains exactly 2 .wc-av; artist-name text 'SAVIONCE & Chelly Banqz' (each artist once). PASS",
+    "(A) Consecutive messages from the same artist get class 'g-cont' (observed 2/4 rows carry g-cont ancestor in the same-artist group chat so the per-row name label is suppressed on continuations). PASS",
+    "ToT launcher: [data-testid=game-hero-tot] opens launcher with 11 genre cards; wl-genre-0 text starts with 'All genres'. Clicking wl-genre-0 reveals setup with wl-skips-1/3/5 + wl-len-10/20/0. Choosing skips-1 + len-10 + wl-play opens [data-tot-root]; [data-testid=tot-strikes] shows exactly 1 dot. PASS",
+    "History: launcher step 2 history.back() → step 1; game history.back() → closes game, location.hash stays '#/game'. PASS"
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor: /app/memory/p9zb.js wnGreet() reads state.profile.nickname — if the user updates profile mid-session before the first game, that is fine. Documented: when seeding via localStorage for tests, you must SET localStorage BEFORE the initial page load (or call reload), otherwise state.profile loads with defaults (nickname='friend') and the greeting pool only inserts the nickname into templates containing {n}. All WN_HI templates that reference the user use {n}; those without {n} are generic ('look who pulled up 👀') — this is intentional pool design.",
+    "Minor: wcWho(song) returns an artist id string (e.g. '11', '1'), not an object. If any future test (or external code) assumes it returns {id,name}, grouping/dedup logic can silently collapse to a single bucket. Consider documenting the return shape or returning a stable record object."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "None required for this round (frontend-only, no auth flows exercised).",
+  "seed_data_creation": "Set BEFORE initial page load: localStorage.treesh_whatsnew_off='true', localStorage.treesh_profile=JSON.stringify({nickname:'Tester',birthday:'2000-01-01'}), localStorage.treesh_onboarded='true'. For the light-splash test additionally localStorage.treesh_theme=JSON.stringify('light') then reload.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 12 acceptance checks from the iteration-23 request pass. Important setup notes: (1) localStorage MUST be set before the initial document load for state.profile to pick up the nickname — set it on root '/' then goto '#/game' (or reload). (2) The onboarding/welcome modal may intercept pointer events if treesh_onboarded flag not set; dismiss by setting that flag or calling document.getElementById('modal').innerHTML=''. (3) [data-testid^=wl-song-] matches BOTH the grid container data-testid='wl-song-grid' AND individual song cards; filter it out when auto-picking a song. (4) wcWho(song) returns a string id (e.g. '11'), not an object. (5) window.state is NOT exposed as a window property but is accessible as a bare identifier inside page.evaluate (strict-mode top-level). (6) Dup-artist songs for group testing — key by wcWho(song) directly; London Llaflare (id='1') has 2+ eligible songs. (7) The group-chat bug fix is verified at both the UI level (single big avatar when all participants are the same artist) and participant uniqueness (header/start wc-av count matches unique artists). (8) Greeting pool WN_HI has 12 templates — not all contain {n}, so some starts may greet 'look who pulled up 👀' without the nickname; retry up to 5 times to see nickname-containing templates (we saw 'yo Tester! 👋' and 'Tester! been waiting on you ⏳' in test runs)."
+}
