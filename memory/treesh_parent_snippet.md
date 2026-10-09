@@ -4,7 +4,7 @@ Ebonics is served at `https://treesh.app/games/ebonics` (same origin as the pare
 - Profile (read/write, same format): `treesh_profile` ({nickname, username, avatar, birthday, zodiac, joined})
 - **Starlites wallet (shared, read/write): `treesh_stars.points`** — Ebonics does a fresh read-modify-write on every change and adds log entries `{t, a, r:"Ebonics · ..."}` to `treesh_stars.log`
 - Accent color (read-only): `treesh_accent` — used as Ebonics' highlight color (toggle in Ebonics Shop)
-- Lifetime Starlites earned in Ebonics: `ebonics_starlites` (integer, for Arcade stats)
+- `ebonics_starlites` is no longer used (removed on load) — Starlites exist only in `treesh_stars`
 - Full game save/stats: `ebonics_save_v1`
 
 ## How Ebonics syncs Starlites (automatic, in this order)
@@ -45,13 +45,15 @@ function awardStars(amount, reason, opts){ opts=opts||{}; if(!amount) return; st
 {key:'ebonics', name:'Ebonics', url:'https://treesh.app/games/ebonics', logo:'', banner:'', mono:'E', a:'#FFC72C', b:'#8B5CF6', age:'13+', updated:'October 7, 2026', desc:'The language. The culture. The game. Decode AAVE, flip phrases with an AI judge and stack Starlites across 7 modes.'},
 ```
 
-## 2) Add to `GAME_DATA_SOURCES` (Arcade games stats)
+## 2) Add to `GAME_DATA_SOURCES` (Arcade games stats) — NO separate Starlites
+Ebonics has no balance of its own; every Starlite lives in `treesh_stars`. Make sure the Ebonics entry reports 0 so the main app doesn't show a second number:
 ```js
 { key:"ebonics", name:"Ebonics", mono:"E", a:"#FFC72C", b:"#8B5CF6",
-  starlites:()=> _gdInt("ebonics_starlites"),
+  starlites:()=> 0,
   hasData:()=> _gdRaw("ebonics_save_v1")!=null,
   stats:()=>{ const s=_gdJson("ebonics_save_v1",{})||{}; return [["Games",fmtNum(s.gamesPlayed||0)],["Correct",fmtNum(s.totalCorrect||0)],["Best combo",fmtNum(s.bestCombo||0)+"x"]]; } },
 ```
+(Your live entry currently uses `starlites:()=>_gdInt('ebonics_starlites')||gdNum(ebSave().totalEarned)` — replace it with `starlites:()=>0`. The new Ebonics build also deletes `ebonics_starlites` and no longer stores `totalEarned`, so even the old line will show 0.)
 
 ## 3) Include Ebonics data in transfer / cloud sync
 ```js

@@ -20,7 +20,7 @@ const ago = (t) => {
 const Wallet = () => {
   const { state } = useGame();
   const spent = (state.starLog || []).filter((e) => e.a < 0).reduce((s, e) => s - e.a, 0);
-  const cells = [["Treesh wallet", state.starlites, "wallet-treesh"], ["Earned in Ebonics", state.totalEarned, "wallet-ebonics-earned"], ["Recently spent", spent, "wallet-spent"]];
+  const cells = [["Treesh wallet", state.starlites, "wallet-treesh"], ["Earned playing Ebonics", state.lifetimeEarned, "wallet-ebonics-earned"], ["Recently spent", spent, "wallet-spent"]];
   return (
     <div data-testid="profile-starlites" className="rounded-3xl p-5 border border-[var(--eb-gold)] gold-glow bg-[var(--eb-surface)]">
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-[var(--eb-gold)]"><Starlite className="w-4 h-4" />Starlites · synced with Treesh</div>

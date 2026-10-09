@@ -58,7 +58,7 @@ export const ACHIEVEMENTS = [
   { id: "streak_7", name: "Week Strong", desc: "7-day login streak", reward: 150, test: (s) => s.streak.count >= 7 },
   { id: "century", name: "Century Club", desc: "100 correct answers all-time", reward: 100, test: (s) => s.totalCorrect >= 100 },
   { id: "legend", name: "Certified Legend", desc: "500 correct answers all-time", reward: 300, test: (s) => s.totalCorrect >= 500 },
-  { id: "bag", name: "Secured the Bag", desc: "Earn 1,000 Starlites total", reward: 100, test: (s) => s.totalEarned >= 1000 },
+  { id: "bag", name: "Secured the Bag", desc: "Earn 1,000 Starlites total", reward: 100, test: (s) => s.lifetimeEarned >= 1000 },
   { id: "big_spender", name: "Big Spender", desc: "Buy something in the shop", reward: 20, test: (s) => s.purchases >= 1 },
   { id: "drip_lord", name: "Drip Lord", desc: "Own 3 themes", reward: 80, test: (s) => s.themes.length >= 3 },
   { id: "scholar", name: "Scholar", desc: "Learn 25 Lexicon terms", reward: 80, test: (s) => s.learned.length >= 25 },

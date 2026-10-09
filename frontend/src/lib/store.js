@@ -7,7 +7,7 @@ import { sb, REFRESH, routeAward, queueCloud, setCloudSession, cloudPull, startM
 
 // Treesh parent-app keys (same origin on treesh.app). Wallet is shared: treesh_stars.points.
 const KEY = "ebonics_save_v1";
-const STAR_KEY = "ebonics_starlites"; // lifetime Starlites earned in Ebonics (parent Arcade stats)
+const LEGACY_STAR_KEY = "ebonics_starlites"; // old Ebonics-only balance, removed so Treesh shows one wallet
 const PROFILE_KEY = "treesh_profile";
 const WALLET_KEY = "treesh_stars";
 const ACCENT_KEY = "treesh_accent";
@@ -50,7 +50,7 @@ export const playerName = (p) => (p && (p.username || p.nickname)) || "";
 
 const fresh = () => ({
   playerId: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random().toString(36).slice(2),
-  starlites: 0, totalEarned: 0, xp: 0, totalCorrect: 0, gamesPlayed: 0, bestCombo: 0,
+  starlites: 0, lifetimeEarned: 0, xp: 0, totalCorrect: 0, gamesPlayed: 0, bestCombo: 0,
   streak: { count: 0, last: null }, powerups: { fifty: 2, skip: 2, time: 2, heart: 1 },
   themes: ["obsidian"], theme: "obsidian", achievements: {}, best: {}, modesPlayed: [], learned: [],
   dailyDone: null, sound: true, purchases: 0, starLog: [], walletLinked: false, useAccent: true,
@@ -59,10 +59,13 @@ const fresh = () => ({
 const load = () => {
   const saved = readJSON(KEY, null);
   const s = { ...fresh(), ...(saved || {}) };
+  // Starlites live only in the Treesh wallet: drop legacy Ebonics-only counters the main app used to show separately
+  if (s.totalEarned != null) { s.lifetimeEarned = Math.max(s.lifetimeEarned || 0, s.totalEarned); delete s.totalEarned; }
+  localStorage.removeItem(LEGACY_STAR_KEY);
   if (!s.walletLinked) {
-    // one-time: move the old Ebonics-only balance (or a welcome bonus) into the shared Treesh wallet
-    const carry = saved ? Math.max(0, saved.starlites || 0) : 150;
-    const e = { t: Date.now(), a: carry, r: saved ? "Balance moved to Treesh wallet" : "Welcome bonus" };
+    // one-time: merge an old Ebonics-only balance into the Treesh wallet (no bonus for new players)
+    const carry = saved ? Math.max(0, saved.starlites || 0) : 0;
+    const e = { t: Date.now(), a: carry, r: "Ebonics balance merged into Treesh" };
     s.starlites = carry ? applyToWallet(carry, [e]) : readWallet().points;
     if (carry) s.starLog = [e, ...s.starLog].slice(0, 50);
     s.walletLinked = true;
@@ -74,7 +77,7 @@ const load = () => {
 const earn = (d, a, r) => {
   const e = { t: Date.now(), a, r };
   d.starlites += a;
-  if (a > 0) d.totalEarned += a;
+  if (a > 0) d.lifetimeEarned += a;
   d.starLog = [e, ...(d.starLog || [])].slice(0, 50);
   (d._pending = d._pending || []).push(e);
 };
@@ -92,7 +95,6 @@ export function GameProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(state));
-    localStorage.setItem(STAR_KEY, String(state.totalEarned));
     document.documentElement.dataset.theme = state.theme;
     sfx.enabled = state.sound;
   }, [state]);
