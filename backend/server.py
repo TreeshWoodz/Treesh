@@ -1,3 +1,5 @@
+import httpx
+import asyncio
 """Local mock of netlify/functions/github.mjs + GitHub REST API, used only to test songcoder.html in preview."""
 import base64
 import calendar
@@ -314,7 +316,7 @@ async def session_get(request: Request):
     return {"signedIn": bool(s), "expires": s["exp"] if s else None, "login": (s or {}).get("login"), "repo": REPO,
             "role": (s.get("role") or "admin") if s else None, "artistId": (s or {}).get("artistId"),
             "email": mask_email(alert_to()) if s and s.get("role") != "icon" and alert_to() else None,
-            "version": "2026-10-09", "features": {"email": bool(alert_to()), "imagekit": True, "icons": True, "oauth": OAUTH["on"]},
+            "version": "2026-10-10", "features": {"email": bool(alert_to()), "imagekit": True, "icons": True, "oauth": OAUTH["on"], "audio": True},
             "activity": True, "oauth": OAUTH["on"]}
 
 
@@ -589,6 +591,83 @@ async def create_pull(request: Request):
         send_alert("icon-change", f"{who} sent a change for review", f"{who} sent a change for review",
                    [("Icon", f"{who} (#{sess['artistId']})"), ("Change", re.sub(r"^[^:]+:\s*", "", pr["title"])), ("Request", f"#{number}")])
     return pr
+
+
+@api.get("/github/cloudinary-sign")
+async def cloudinary_sign(request: Request):
+    sess = require_session(request)
+    folder = f"treesh/music/icons/{sess['artistId']}" if sess.get("role") == "icon" else "treesh/music"
+    ts = int(time.time())
+    sig = hashlib.sha1(f"folder={folder}&timestamp={ts}mock_secret".encode()).hexdigest()
+    return {"cloudName": "treesh", "apiKey": "mock_key", "folder": folder, "timestamp": ts, "signature": sig, "maxBytes": 100 * 1024 * 1024,
+            "uploadUrl": "/api/mockgh/cloudinary-upload"}
+
+
+@api.post("/mockgh/cloudinary-upload")
+async def mock_cloudinary_upload(request: Request):
+    form = await request.form()
+    folder, ts, sig = str(form.get("folder") or ""), str(form.get("timestamp") or ""), str(form.get("signature") or "")
+    if not form.get("file") or form.get("api_key") != "mock_key" or sig != hashlib.sha1(f"folder={folder}&timestamp={ts}mock_secret".encode()).hexdigest():
+        return JSONResponse({"error": {"message": "Invalid Signature"}}, status_code=401)
+    name = re.sub(r"[^\w.-]", "_", getattr(form.get("file"), "filename", "track.mp3") or "track.mp3")
+    STATE.setdefault("uploads", []).append({"folder": folder, "name": name})
+    return {"secure_url": f"https://res.cloudinary.com/treesh/video/upload/v1/{folder}/{secrets.token_hex(3)}-{name}", "resource_type": "video"}
+
+
+LINK_LAST = {"keys": []}
+
+
+async def probe_link(client, url, kind):
+    if not re.match(r"https?://", url or "", re.I):
+        return "missing"
+    try:
+        r = await client.get(url, headers={"Range": "bytes=0-1", "User-Agent": "Mozilla/5.0 (compatible; TreeshMAD-LinkCheck/1.0)"}, timeout=7)
+        if r.status_code >= 400:
+            return f"bad:{r.status_code}"
+        ct = (r.headers.get("content-type") or "").split(";")[0].strip()
+        ok = re.match(r"(audio/|video/|application/octet-stream|binary/octet-stream)", ct, re.I) if kind == "audio" else ct.lower().startswith("image/")
+        return "ok" if (not ct or ok) else "bad:type"
+    except httpx.TimeoutException:
+        return "slow"
+    except Exception:
+        return "bad:net"
+
+
+@api.post("/github/link-report")
+async def link_report(request: Request):
+    require_admin(request)
+    main = STATE["branches"]["main"]
+    items = []
+    for b in blocks_of(main.get("content/songs.html", ""))[0]:
+        if re.search(r"\bsong\b", attr_of(b, "class")):
+            n, by, k = attr_of(b, "data-track"), attr_of(b, "data-artist"), title_key(attr_of(b, "data-track"))
+            items += [{"key": f"song|{k}|audio", "kind": "audio", "what": "Audio", "name": n, "by": by, "url": attr_of(b, "data-mp3")},
+                      {"key": f"song|{k}|cover", "kind": "image", "what": "Cover", "name": n, "by": by, "url": attr_of(b, "data-coverart")}]
+    for b in blocks_of(main.get("content/icons.html", ""))[0]:
+        if re.search(r"\bartist\b", attr_of(b, "class")):
+            aid, n = attr_of(b, "data-artist-id"), attr_of(b, "data-name")
+            m = re.search(r'<img\b[^>]*class="[^"]*artist__image[^"]*"[^>]*\bsrc="([^"]*)"', b) or re.search(r'<img\b[^>]*\bsrc="([^"]*)"', b)
+            items.append({"key": f"artist|{aid}|photo", "kind": "image", "what": "Photo", "name": n, "by": "Icon profile", "url": m.group(1) if m else ""})
+            if attr_of(b, "data-bg"):
+                items.append({"key": f"artist|{aid}|banner", "kind": "image", "what": "Banner", "name": n, "by": "Icon profile", "url": attr_of(b, "data-bg")})
+    sem, cache = asyncio.Semaphore(12), {}
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        async def one(it):
+            async with sem:
+                k = it["kind"] + "|" + it["url"]
+                if k not in cache:
+                    cache[k] = asyncio.ensure_future(probe_link(client, it["url"], it["kind"]))
+                it["status"] = await cache[k]
+        await asyncio.gather(*(one(it) for it in items))
+    prev = set(LINK_LAST["keys"])
+    why = {"missing": "No link", "slow": "Too slow to answer", "bad:type": "Not an audio/image file anymore", "bad:net": "Host not reachable"}
+    probs = [dict(key=i["key"], what=i["what"], name=i["name"], by=i["by"], url=i["url"], fresh=i["key"] not in prev,
+                  why=why.get(i["status"]) or f"Broken ({i['status'][4:]})") for i in items if i["status"] != "ok"]
+    LINK_LAST["keys"] = [p["key"] for p in probs]
+    fresh = sum(1 for p in probs if p["fresh"])
+    head = f"{len(probs)} link{'' if len(probs) == 1 else 's'} on Treesh need{'s' if len(probs) == 1 else ''} a look" + (f" ({fresh} new this week)" if fresh else "") if probs else f"All {len(items)} Treesh links answered fine"
+    emailed = send_alert("link-check", head, head, [(f"{p['what']}{' · NEW' if p['fresh'] else ''}", f"{p['name']}{' — ' + p['by'] if p['by'] else ''}: {p['why']}") for p in probs[:60]])
+    return {"total": len(items), "checked": len(items), "skipped": 0, "problems": probs, "fresh": fresh, "emailed": emailed}
 
 
 @api.post("/github/alert-test")
