@@ -2,7 +2,7 @@
 // Netlify env vars: GITHUB_TOKEN (required), MAD_PASSCODE (required, 12+ chars), MAD_SESSION_SECRET (optional), MAD_REPO (optional, default TreeshWoodz/Treesh)
 // ImageKit uploads (optional): IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY
 // GitHub sign-in (optional): GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, MAD_GITHUB_USERS (comma list, default TreeshWoodz). Callback: https://<site>/api/github/oauth/callback
-// Email alerts (optional): RESEND_API_KEY, MAD_ALERT_EMAIL, MAD_ALERT_FROM (default "Treesh M.A.D. <onboarding@resend.dev>"), MAD_URL (default https://treesh.app/tools/mad)
+// Email alerts (optional): RESEND_API_KEY, MAD_ALERT_EMAIL (MAD_ALERT_KEY also accepted), MAD_ALERT_FROM (default "Treesh M.A.D. <mad@treesh.app>", falls back to onboarding@resend.dev until treesh.app is verified in Resend), MAD_URL (default https://treesh.app/tools/mad)
 // Icon accounts (optional): SUPABASE_URL, SUPABASE_ANON_KEY, MAD_ICON_TABLE (default profiles), MAD_ICON_VERIFIED_COL (default verified), MAD_ICON_ARTIST_COL (default verified_icon)
 // Needs "@netlify/blobs" in the repo's package.json dependencies (sign-in activity + reliable lockout).
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -112,7 +112,7 @@ function sameOrigin(req){
 }
 
 async function session(req, context, method){
-  if (method === 'GET'){ const s0 = readSession(req), s = s0 && s0.role === 'icon' && await iconRevoked(s0) ? null : s0; return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, role: (s && s.role) || (s ? 'admin' : null), artistId: (s && s.artistId) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady(), email: s && s.role !== 'icon' && emailReady() ? maskEmail(alertTo()) : null }); }
+  if (method === 'GET'){ const s0 = readSession(req), s = s0 && s0.role === 'icon' && await iconRevoked(s0) ? null : s0; return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, role: (s && s.role) || (s ? 'admin' : null), artistId: (s && s.artistId) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady(), email: s && s.role !== 'icon' && emailReady() ? maskEmail(alertTo()) : null, version: MAD_VERSION, features: { email: emailReady(), imagekit: !!((process.env.IMAGEKIT_PUBLIC_KEY || '').trim() && (process.env.IMAGEKIT_PRIVATE_KEY || '').trim()), icons: !!((process.env.SUPABASE_URL || '').trim() && (process.env.SUPABASE_ANON_KEY || '').trim()), oauth: oauthReady() } }); }
   if (method === 'DELETE') return json(200, { signedIn: false, repo: REPO }, { 'Set-Cookie': cookie('', 0) });
   if (method !== 'POST') return json(405, { message: 'Method not allowed.' });
   const key = failKey(clientIp(req, context));
@@ -274,21 +274,28 @@ async function iconUpdates(req, token){
 }
 // Email alerts to the admin through Resend (optional): RESEND_API_KEY, MAD_ALERT_EMAIL, MAD_ALERT_FROM, MAD_URL.
 const escH = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-const alertTo = () => (process.env.MAD_ALERT_EMAIL || '').trim();
-const emailReady = () => !!((process.env.RESEND_API_KEY || '').trim() && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(alertTo()));
+const MAD_VERSION = '2026-10-09';
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const alertTo = () => [process.env.MAD_ALERT_EMAIL, process.env.MAD_ALERT_KEY].map(v => (v || '').trim()).find(v => EMAIL_RE.test(v)) || '';
+const BRAND_FROM = 'Treesh M.A.D. <mad@treesh.app>', TEST_FROM = 'Treesh M.A.D. <onboarding@resend.dev>';
+const emailReady = () => !!((process.env.RESEND_API_KEY || '').trim() && alertTo());
 const maskEmail = e => e.replace(/^(.)[^@]*(@.*)$/, '$1•••$2');
 const madUrl = () => { const u = (process.env.MAD_URL || '').trim(); return /^https:\/\/[^\s"'<>]+$/.test(u) ? u : 'https://treesh.app/tools/mad'; };
 function alertHtml(head, lines){
   const rows = lines.filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:6px 0;color:#8a8794;font-size:13px;width:110px;vertical-align:top">${escH(k)}</td><td style="padding:6px 0;color:#f5f5f7;font-size:14px">${escH(v)}</td></tr>`).join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0b;padding:28px 12px;font-family:Arial,Helvetica,sans-serif"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#141219;border:1px solid #2a2433;border-radius:18px"><tr><td style="padding:26px 28px 8px"><div style="font-size:11px;letter-spacing:3px;color:#b779ff;font-weight:bold">TREESH M.A.D.</div><h1 style="margin:10px 0 0;font-size:20px;line-height:1.35;color:#ffffff">${escH(head)}</h1></td></tr><tr><td style="padding:12px 28px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr><tr><td style="padding:10px 28px 28px"><a href="${escH(madUrl())}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#9328ff;color:#ffffff;font-weight:bold;font-size:14px;text-decoration:none">Open Icon review</a></td></tr></table><p style="max-width:520px;margin:14px auto 0;font-size:11px;line-height:1.5;color:#6d6a75">Sent by Treesh M.A.D. to the admin alert address. To stop these, remove MAD_ALERT_EMAIL in Netlify.</p></td></tr></table>`;
 }
+// Sends from mad@treesh.app (or MAD_ALERT_FROM); until the domain is verified in Resend it falls back to Resend's test sender.
 async function sendAlert(kind, subject, head, lines){
-  if (!emailReady()) return { ok: false, message: 'Email alerts aren’t set up. Add RESEND_API_KEY and MAD_ALERT_EMAIL in Netlify, then redeploy.' };
+  if (!emailReady()) return { ok: false, message: `Email alerts aren’t set up. In Netlify add ${(process.env.RESEND_API_KEY || '').trim() ? '' : 'RESEND_API_KEY'}${!(process.env.RESEND_API_KEY || '').trim() && !alertTo() ? ' and ' : ''}${alertTo() ? '' : 'MAD_ALERT_EMAIL (your email address)'}, then redeploy.` };
+  const payload = from => JSON.stringify({ from, to: [alertTo()], subject, html: alertHtml(head, lines), text: [head, '', ...lines.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`), '', `Open Icon review: ${madUrl()}`].join('\n'), tags: [{ name: 'kind', value: kind }] });
+  const post = from => fetch('https://api.resend.com/emails', { method: 'POST', signal: AbortSignal.timeout(6000), headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`, 'Content-Type': 'application/json' }, body: payload(from) });
   try {
-    const r = await fetch('https://api.resend.com/emails', { method: 'POST', signal: AbortSignal.timeout(6000), headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: (process.env.MAD_ALERT_FROM || '').trim() || 'Treesh M.A.D. <onboarding@resend.dev>', to: [alertTo()], subject, html: alertHtml(head, lines), text: [head, '', ...lines.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`), '', `Open Icon review: ${madUrl()}`].join('\n'), tags: [{ name: 'kind', value: kind }] }) });
-    if (r.ok) return { ok: true, to: maskEmail(alertTo()) };
-    const d = await r.json().catch(() => ({}));
+    const first = (process.env.MAD_ALERT_FROM || '').trim() || BRAND_FROM;
+    let from = first, r = await post(from), d = r.ok ? {} : await r.json().catch(() => ({}));
+    if (!r.ok && from !== TEST_FROM && /domain/i.test(d.message || '') && /verif/i.test(d.message || '')){ from = TEST_FROM; r = await post(from); d = r.ok ? {} : await r.json().catch(() => ({})); }
+    const sender = from.replace(/^.*<([^>]+)>.*$/, '$1');
+    if (r.ok) return { ok: true, to: maskEmail(alertTo()), from: sender, fallback: from !== first };
     return { ok: false, message: `Resend: ${d.message || `error ${r.status}`}` };
   } catch { return { ok: false, message: 'Couldn’t reach Resend. Try again.' }; }
 }

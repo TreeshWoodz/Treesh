@@ -153,3 +153,10 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Any audio link is test-played (Audio preload=metadata): "JukeHost link works · m:ss", a JukeHost-specific fix tip on error, or a neutral note after 15 s.
 - Icons get it too. Cloudinary audio upload with no preset now explains that JukeHost is the alternative.
 - ImageKit (already built): ikUpload() in songcoder.html plus /imagekit-auth in github.mjs. Needs IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY in Netlify.
+
+## 2026-10: Branded sender, broken link scanner, live diagnosis (self-tested)
+- LIVE ISSUE: treesh.app/api/github/session returns no `oauth`/`version`, and /icon-updates isn't routed. The live Netlify function is an OLD github.mjs, so the Resend env vars do nothing until the latest deliverables/github.mjs is uploaded and redeployed. The env var name is MAD_ALERT_EMAIL; MAD_ALERT_KEY is now accepted too if it holds an email.
+- Sender: tries "Treesh M.A.D. <mad@treesh.app>" (or MAD_ALERT_FROM) first. If Resend replies "domain … not verified", it retries from onboarding@resend.dev. /alert-test returns {from, fallback}, and Settings shows which sender was used.
+- Session GET now returns version (MAD_VERSION '2026-10-09') and a non-secret `features` object {email, imagekit, icons, oauth}. Settings shows a "Server setup" checklist for the admin, or a "Server needs an update" notice when version is missing.
+- Catalog "Check links": 4-way concurrent probe (Audio preload=metadata, Image), 20 s timeout = "too slow", missing link detection, URL de-dupe. Results panel has progress, Stop, Check again, Close, and rows with Edit (startEdit) and Audio link. Icons scan only their own songs.
+- Note: headless Chromium can't decode AAC/M4A, so two M4A JukeHost tracks (served as audio/mpeg) get flagged in tests; real Chrome and Safari play them.

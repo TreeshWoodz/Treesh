@@ -959,11 +959,34 @@ div.pr-row:hover{transform:none}
 @media (max-width:620px){.rv-row,.rv-row.solo{grid-template-columns:1fr;gap:4px}}
 body:not(.icon-mode) .icon-only{display:none !important}
 .jh-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.scan-panel{margin:0 0 22px;padding:18px;border-radius:22px;border:1px solid var(--stroke-faint);background:rgba(255,255,255,.035);animation:rise .4s var(--ease) both}
+.scan-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.scan-head b{font-size:15px}
+.scan-head .hint{flex:1 1 auto}
+.scan-bar{height:6px;margin-top:14px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+.scan-bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--purple),var(--purple-2));transition:width .3s var(--ease)}
+.scan-list{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.scan-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.25);border:1px solid var(--stroke-faint)}
+.scan-row img,.scan-row .ph{flex:none;width:44px;height:44px;border-radius:10px;object-fit:cover;background:rgba(255,255,255,.06)}
+.scan-row .tx{flex:1 1 auto;min-width:0}
+.scan-row .tx b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.scan-row .tx small{display:block;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scan-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.scan-tag{padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:800;letter-spacing:.03em}
+.scan-tag.bad{background:rgba(255,92,122,.13);color:#ff8ca0}.scan-tag.missing{background:rgba(255,181,71,.13);color:var(--warn)}.scan-tag.slow{background:rgba(255,255,255,.08);color:var(--muted)}
+.scan-ok{display:flex;align-items:center;gap:8px;margin-top:14px;color:var(--ok);font-size:13.5px}
+.scan-tag{white-space:nowrap}
+@media (max-width:620px){.scan-row{flex-wrap:wrap}.scan-row .tx{flex:1 1 calc(100% - 60px)}.scan-row .btn{flex:1 1 0;justify-content:center}.scan-head .hint{flex-basis:100%;order:2}}
 .jh-btn{border-color:rgba(183,121,255,.4);background:rgba(147,40,255,.12)}
 .jh-btn:hover{border-color:var(--purple-2);background:rgba(147,40,255,.2)}
 .jh-status{display:flex;align-items:flex-start;gap:6px;margin-top:8px;font-size:12.5px}
 .jh-status svg{flex:none;width:14px;height:14px;margin-top:2px}
 .jh-status.ok{color:var(--ok)}.jh-status.bad{color:var(--warn)}
+.srv-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;font-size:12.5px}
+.srv-list li{display:flex;align-items:flex-start;gap:7px;color:var(--muted)}
+.srv-list li svg{flex:none;width:15px;height:15px;margin-top:1px}
+.srv-list li.ok svg{color:var(--ok)}.srv-list li.no svg{color:var(--warn)}
+.srv-list li b{color:#fff;font-weight:700}
 /* mobile labels: a small word under every icon-only button on phones */
 .mlbl{display:none}
 @media (max-width:760px){
@@ -1302,9 +1325,11 @@ body:not(.icon-mode) .icon-only{display:none !important}
       <select class="select" id="cat-genre" data-testid="catalog-genre-filter"><option value="">All genres</option></select>
       <select class="select" id="cat-sort" data-testid="catalog-sort"><option value="order">Catalog order</option><option value="az">Title A–Z</option><option value="artist">Artist</option></select>
       <button class="icon-btn" id="cat-refresh" title="Refresh from source" data-testid="catalog-refresh-btn"><i data-lucide="refresh-cw"></i></button>
+      <button class="btn btn-sm" id="cat-scan" data-testid="catalog-scan-btn"><i data-lucide="link-2"></i>Check links</button>
       <button class="btn btn-sm" id="cat-reorder" data-testid="catalog-reorder-btn"><i data-lucide="arrow-down-up"></i>Reorder</button>
     </div>
     <div class="ro-head" id="ro-head" hidden data-testid="reorder-help"><i data-lucide="grip-vertical"></i><span>Drag the handle (or use the arrows) to set the order. The top of this list is the top of Treesh.</span></div>
+    <div class="scan-panel" id="scan-panel" hidden data-testid="link-scan-panel"></div>
     <div class="cat-grid" id="cat-grid" data-testid="catalog-grid"></div>
     <ol class="cat-list" id="cat-list" hidden data-testid="reorder-list"></ol>
     <div class="reorder-bar" id="reorder-bar" hidden data-testid="reorder-bar">
@@ -1521,7 +1546,9 @@ body:not(.icon-mode) .icon-only{display:none !important}
           <div class="act-head"><i data-lucide="mail"></i><b>Email alerts</b></div>
           <p class="hint" id="s-email-status" style="margin:0 0 12px" data-testid="settings-email-status"></p>
           <button type="button" class="btn btn-sm" id="s-email-test" data-testid="settings-email-test-btn"><i data-lucide="send"></i>Send test email</button>
+          <p class="hint" id="s-email-from" style="margin:10px 0 0" data-testid="settings-email-from"></p>
         </div>
+        <div class="act-box" id="s-server" hidden data-testid="settings-server-status"></div>
       </div>
       <div class="set-sec admin-only">
         <h3><i data-lucide="github"></i>Repository</h3>
@@ -1709,7 +1736,7 @@ async function authReq(method, body, path = '/session'){
   return d;
 }
 function setAuth(d){
-  state.auth = { signedIn: !!d.signedIn, expires: d.expires || null, login: d.login || '', oauth: d.oauth ?? state.auth.oauth, role: d.signedIn ? d.role || 'admin' : null, email: d.email || '', artistId: d.signedIn && d.artistId ? String(d.artistId) : '', error:'' };
+  state.auth = { signedIn: !!d.signedIn, expires: d.expires || null, login: d.login || '', oauth: d.oauth ?? state.auth.oauth, role: d.signedIn ? d.role || 'admin' : null, email: d.email || '', version: d.version || '', features: d.features || null, emailFrom: state.auth.emailFrom || '', artistId: d.signedIn && d.artistId ? String(d.artistId) : '', error:'' };
   if (d.repo && d.repo.includes('/')) [cfg.owner, cfg.repo] = d.repo.split('/');
   applyRole();
 }
@@ -4485,6 +4512,65 @@ function labelButtons(root){
 let mlblQ = null;
 new MutationObserver(ms => { if (!mlblQ) mlblQ = requestAnimationFrame(() => { mlblQ = null; labelButtons(document.body); }); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] });
 
+/* ---------- broken link scanner: test-plays every song's audio and loads every cover ---------- */
+state.scan = null;
+const probeAudio = u => new Promise(res => {
+  const a = new Audio(); let t = 0; a.preload = 'metadata';
+  const end = v => { clearTimeout(t); a.removeAttribute('src'); a.load(); res(v); };
+  a.addEventListener('loadedmetadata', () => end('ok'), { once: true });
+  a.addEventListener('error', () => end('bad'), { once: true });
+  t = setTimeout(() => end('slow'), 20000); a.src = u;
+});
+const probeImage = u => new Promise(res => {
+  const i = new Image(); let t = 0;
+  const end = v => { clearTimeout(t); i.onload = i.onerror = null; res(v); };
+  i.onload = () => end(i.naturalWidth ? 'ok' : 'bad'); i.onerror = () => end('bad');
+  t = setTimeout(() => end('slow'), 20000); i.src = u;
+});
+const SCAN_TAG = { audio:{ bad:'Audio won’t play', missing:'No audio link', slow:'Audio too slow to confirm' }, cover:{ bad:'Cover won’t load', missing:'No cover link', slow:'Cover too slow to confirm' } };
+async function runScan(){
+  if (state.scan && state.scan.running) return;
+  const songs = state.catalog.songs.filter(mine), cache = new Map();
+  if (!songs.length) return toast('No songs to check yet.', 'info');
+  const S = state.scan = { running: true, stop: false, total: songs.length, done: 0, issues: [], at: 0 };
+  paintScan();
+  const check = (kind, u) => { if (!isUrl(u)) return Promise.resolve('missing'); const k = kind + '|' + u; if (!cache.has(k)) cache.set(k, (kind === 'audio' ? probeAudio : probeImage)(u)); return cache.get(k); };
+  let next = 0;
+  const worker = async () => {
+    while (!S.stop && next < songs.length){
+      const s = songs[next++], [audio, cover] = await Promise.all([check('audio', s.mp3), check('cover', s.cover)]);
+      if (audio !== 'ok' || cover !== 'ok') S.issues.push({ s, audio, cover });
+      S.done++; paintScan();
+    }
+  };
+  await Promise.all(Array.from({ length: 4 }, worker));
+  S.running = false; S.at = Date.now();
+  S.issues.sort((a, b) => songs.indexOf(a.s) - songs.indexOf(b.s));
+  paintScan();
+  if (!S.stop) toast(S.issues.length ? `${S.issues.length} song${S.issues.length === 1 ? ' needs' : 's need'} a look.` : `All ${S.total} songs play and show their covers.`, S.issues.length ? 'info' : 'ok', 5000);
+}
+function paintScan(){
+  const P = $('#scan-panel'), S = state.scan; if (!P) return;
+  if (!S){ P.hidden = true; return; }
+  P.hidden = false;
+  const pct = Math.round(S.done / S.total * 100), bad = S.issues.filter(x => x.audio === 'bad' || x.cover === 'bad' || x.audio === 'missing' || x.cover === 'missing').length;
+  const tags = x => ['audio', 'cover'].filter(k => x[k] !== 'ok').map(k => `<span class="scan-tag ${x[k]}" data-testid="scan-tag-${k}-${x[k]}">${SCAN_TAG[k][x[k]]}</span>`).join('');
+  const row = (x, i) => `<div class="scan-row" data-i="${i}" data-testid="scan-row-${i}">${isUrl(x.s.cover) && x.cover === 'ok' ? `<img src="${esc(x.s.cover)}" alt="" loading="lazy">` : '<span class="ph"></span>'}<div class="tx"><b data-testid="scan-row-title">${esc(x.s.title)}</b><small>${esc(x.s.h3 || x.s.artist)}</small><div class="scan-tags">${tags(x)}</div></div>${x.audio !== 'missing' && isUrl(x.s.mp3) ? `<a class="btn btn-sm" href="${esc(x.s.mp3)}" target="_blank" rel="noopener" data-testid="scan-open-audio-btn">${icon('external-link')}Audio</a>` : ''}<button type="button" class="btn btn-sm btn-primary" data-scan-edit="${i}" data-testid="scan-edit-btn">${icon('pencil')}Edit</button></div>`;
+  P.innerHTML = S.running
+    ? `<div class="scan-head"><b data-testid="scan-progress-text">Checking ${S.done} of ${S.total} songs…</b><span class="hint">Test-playing audio and loading covers. You can keep working.</span><button type="button" class="btn btn-sm" id="scan-stop" data-testid="scan-stop-btn">${icon('square')}Stop</button></div><div class="scan-bar"><i style="width:${pct}%" data-testid="scan-progress-bar"></i></div>${S.issues.length ? `<div class="scan-list">${S.issues.map(row).join('')}</div>` : ''}`
+    : `<div class="scan-head"><b data-testid="scan-summary">${S.issues.length ? `${S.issues.length} of ${S.done} songs need a look` : `All ${S.done} songs look good`}</b><span class="hint">${S.stop ? 'Stopped early · ' : ''}${bad ? `${bad} broken or missing` : ''}${bad && S.issues.length > bad ? ' · ' : ''}${S.issues.length > bad ? `${S.issues.length - bad} too slow to confirm` : ''}${S.issues.length ? ' · ' : ''}checked ${new Date(S.at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}</span><button type="button" class="btn btn-sm" id="scan-again" data-testid="scan-again-btn">${icon('refresh-cw')}Check again</button><button type="button" class="icon-btn" id="scan-close" title="Close" data-testid="scan-close-btn">${icon('x')}</button></div>${S.issues.length ? `<div class="scan-list" data-testid="scan-list">${S.issues.map(row).join('')}</div>` : `<div class="scan-ok" data-testid="scan-all-good">${icon('check-circle-2')}Every audio link plays and every cover loads.</div>`}`;
+  icons();
+}
+function wireScan(){
+  $('#cat-scan').addEventListener('click', runScan);
+  $('#scan-panel').addEventListener('click', e => {
+    if (e.target.closest('#scan-stop')){ state.scan.stop = true; return; }
+    if (e.target.closest('#scan-again')){ state.scan = null; return runScan(); }
+    if (e.target.closest('#scan-close')){ state.scan = null; return paintScan(); }
+    const b = e.target.closest('[data-scan-edit]'); if (b){ const x = state.scan.issues[+b.dataset.scanEdit]; if (x) startEdit(x.s); }
+  });
+}
+
 /* ---------- sign-in activity ---------- */
 const SEEN_KEY = 'treesh_mad_activity_seen';
 const ACT = { signin:['Signed in','log-in'], wrong:['Wrong passcode','key-round'], locked:['Locked out','lock'], denied:['GitHub account not allowed','user-x'], gh_error:['GitHub sign-in failed','triangle-alert'] };
@@ -4926,6 +5012,11 @@ function openSettings(){
       : a.signedIn ? statusHtml('ok', 'shield-check', `Signed in${a.login ? ` as @${esc(a.login)}` : ''} on this device until ${new Date(a.expires).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' })}`, 'auth-status')
       : statusHtml(a.error ? 'bad' : 'warn', 'shield-alert', a.error || 'Not signed in on this device. Catalog is read-only.', 'auth-status');
     $('#s-signin-box').hidden = a.signedIn; $('#s-github').disabled = !a.oauth; $('#s-github-hint').hidden = !!a.oauth || !!a.error; $('#s-signout').hidden = !a.signedIn; $('#s-activity').hidden = !isAdmin(); $('#s-email').hidden = !isAdmin();
+    $('#s-email-from').innerHTML = a.emailFrom === 'mad@treesh.app' ? `${icon('badge-check')} Sending from <b>mad@treesh.app</b>.` : a.emailFrom ? `${icon('info')} Last test came from Resend’s test address, because treesh.app isn’t verified in Resend yet (Resend → Domains → Add domain). Once it is, alerts come from <b>mad@treesh.app</b> on their own.` : 'Alerts come from <b>mad@treesh.app</b> once treesh.app is verified in Resend. Until then they use Resend’s test address.';
+    const f = a.features, sv = $('#s-server'), row = (ok, label, fix) => `<li class="${ok ? 'ok' : 'no'}" data-testid="server-feature">${icon(ok ? 'check-circle-2' : 'circle-dashed')}<span><b>${label}</b>${ok ? '' : ` · ${fix}`}</span></li>`;
+    sv.hidden = !(a.version === '' || (isAdmin() && f));
+    sv.innerHTML = a.version === '' ? `<div class="act-head"><i data-lucide="server-crash"></i><b>Server needs an update</b></div><p class="hint" style="margin:0" data-testid="server-outdated">Your Netlify function is an older version, so Icon accounts, review emails and GitHub sign-in can’t run yet. Upload the latest <code>github.mjs</code> to <code>netlify/functions/</code> and redeploy.</p>`
+      : isAdmin() && f ? `<div class="act-head"><i data-lucide="server"></i><b>Server setup</b><small class="hint" style="margin-left:auto">v${esc(a.version)}</small></div><ul class="srv-list">${row(f.email, 'Email alerts', 'add RESEND_API_KEY and MAD_ALERT_EMAIL')}${row(f.imagekit, 'ImageKit uploads', 'add IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY')}${row(f.icons, 'Icon accounts', 'add SUPABASE_URL and SUPABASE_ANON_KEY')}${row(f.oauth, 'GitHub sign-in', 'add GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET')}</ul><p class="hint" style="margin:8px 0 0">Change these in Netlify → Site configuration → Environment variables, then redeploy.</p>` : '';
     $('#s-email-status').innerHTML = a.email ? `Alerts go to <b data-testid="settings-email-to">${esc(a.email)}</b> when an Icon sends a change or asks for access.` : 'Not set up yet. In Netlify, add <code>RESEND_API_KEY</code> and <code>MAD_ALERT_EMAIL</code>, then redeploy.'; $('#s-repo-name').textContent = `${cfg.owner}/${cfg.repo}`; icons();
     if (isAdmin()) loadActivity();
   };
@@ -4960,7 +5051,11 @@ function openSettings(){
   $('#s-tour').addEventListener('click', () => { close(); startTour(true); });
   $('#s-email-test').addEventListener('click', async e => {
     const b = e.currentTarget; b.disabled = true;
-    try { const d = await authReq('POST', {}, '/alert-test'); toast(`Test email sent to ${d.to}. Check your inbox (and spam).`, 'ok', 6000); }
+    try {
+      const d = await authReq('POST', {}, '/alert-test'); state.auth.emailFrom = d.from || '';
+      toast(d.fallback ? `Test email sent to ${d.to} from Resend’s test address. Verify treesh.app in Resend to send from mad@treesh.app.` : `Test email sent to ${d.to} from ${d.from || 'mad@treesh.app'}. Check your inbox (and spam).`, 'ok', 8000);
+      paintAuth();
+    }
     catch (err){ toast(err.message, 'bad', 7000); }
     b.disabled = false;
   });
@@ -5070,6 +5165,7 @@ function wire(){
   $('#open-prs').addEventListener('click', openPrPanel);
   $('#open-review').addEventListener('click', openReview);
   wireJukeHost();
+  wireScan();
   $('#rv-alert-open').addEventListener('click', openReview);
   $('#rv-alert-close').addEventListener('click', () => { $('#rv-alert').hidden = true; });
   $('#open-search').addEventListener('click', openSearch);

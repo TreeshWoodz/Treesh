@@ -39,7 +39,11 @@ EMAILS = []  # mock Resend outbox: production sends via api.resend.com from gith
 
 
 def alert_to():
-    return (os.environ.get("MAD_ALERT_EMAIL") or "").strip()
+    for k in ("MAD_ALERT_EMAIL", "MAD_ALERT_KEY"):
+        v = (os.environ.get(k) or "").strip()
+        if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v):
+            return v
+    return ""
 
 
 def mask_email(e):
@@ -49,8 +53,11 @@ def mask_email(e):
 def send_alert(kind, subject, head, lines):
     if not alert_to():
         return {"ok": False, "message": "Email alerts aren’t set up. Add RESEND_API_KEY and MAD_ALERT_EMAIL in Netlify, then redeploy."}
-    EMAILS.append({"kind": kind, "to": alert_to(), "subject": subject, "head": head, "lines": [[k, v] for k, v in lines if v], "t": int(time.time() * 1000)})
-    return {"ok": True, "to": mask_email(alert_to())}
+    # Mock of the brand-sender fallback: mad@treesh.app until the domain is "verified" (MOCK_DOMAIN_VERIFIED=1), else Resend's test sender
+    verified = os.environ.get("MOCK_DOMAIN_VERIFIED") == "1"
+    sender = "mad@treesh.app" if verified else "onboarding@resend.dev"
+    EMAILS.append({"kind": kind, "to": alert_to(), "from": sender, "subject": subject, "head": head, "lines": [[k, v] for k, v in lines if v], "t": int(time.time() * 1000)})
+    return {"ok": True, "to": mask_email(alert_to()), "from": sender, "fallback": not verified}
 ICON_FILES = ["content/songs.html", "content/icons.html", "content/lyrics.html"]
 SEED = {
     "content/songs.html": (ROOT_DIR / "mock_data/songs.html").read_text(encoding="utf-8"),
@@ -307,6 +314,7 @@ async def session_get(request: Request):
     return {"signedIn": bool(s), "expires": s["exp"] if s else None, "login": (s or {}).get("login"), "repo": REPO,
             "role": (s.get("role") or "admin") if s else None, "artistId": (s or {}).get("artistId"),
             "email": mask_email(alert_to()) if s and s.get("role") != "icon" and alert_to() else None,
+            "version": "2026-10-09", "features": {"email": bool(alert_to()), "imagekit": True, "icons": True, "oauth": OAUTH["on"]},
             "activity": True, "oauth": OAUTH["on"]}
 
 
