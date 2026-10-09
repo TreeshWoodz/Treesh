@@ -1,5 +1,6 @@
 """Local mock of netlify/functions/github.mjs + GitHub REST API, used only to test songcoder.html in preview."""
 import base64
+import calendar
 import hashlib
 import hmac
 import json
@@ -325,6 +326,29 @@ async def icon_request(request: Request):
     ICONS["requests"][u["uid"]] = {"uid": u["uid"], "name": u["name"], "email": u["email"], "artistId": re.sub(r"[^\w-]", "", str(body.get("artistId") or "")),
                                    "note": str(body.get("note") or "")[:300], "t": int(time.time() * 1000)}
     return {"ok": True}
+
+
+@api.post("/github/icon-updates")
+async def icon_updates(request: Request):
+    body = await body_json(request)
+    u = SUPA.get(body.get("access_token") or "")
+    if not u:
+        raise GhError(401, "Sign in to Treesh first.", "icon_signin")
+    aid = (ICONS["approved"].get(u["uid"]) or {}).get("artistId") or (u["artistId"] if u["verified"] else "")
+    if not aid:
+        return {"updates": []}
+    since = float(body.get("since") or 0)
+    out = []
+    for p in reversed(STATE["pulls"]):
+        if p["state"] != "closed" or not p["head"]["ref"].startswith(f"icon/{aid}/"):
+            continue
+        at = calendar.timegm(time.strptime(p["closed_at"], "%Y-%m-%dT%H:%M:%SZ")) * 1000
+        if at <= since:
+            continue
+        m = re.search(r"\*\*Not approved:\*\* ([\s\S]*?)\n<!-- mad-reject -->", p.get("body") or "")
+        out.append({"number": p["number"], "title": re.sub(r"^[^:]+:\s*", "", p["title"]), "result": "approved" if p.get("merged_at") else "rejected",
+                    "note": "" if p.get("merged_at") else (m.group(1) if m else ""), "at": at})
+    return {"updates": out, "name": u["name"]}
 
 
 @api.get("/github/icon-admin")

@@ -957,6 +957,30 @@ body.icon-mode .mode-seg,body.icon-mode .tab[data-view=projects],body.icon-mode 
 .pr-note svg{flex:none;width:13px;height:13px;margin-top:2px}
 div.pr-row:hover{transform:none}
 @media (max-width:620px){.rv-row,.rv-row.solo{grid-template-columns:1fr;gap:4px}}
+body:not(.icon-mode) .icon-only{display:none !important}
+#open-review.pulse{border-color:rgba(255,181,71,.6);color:var(--warn);animation:rvPulse 1.6s var(--ease) infinite}
+@keyframes rvPulse{0%{box-shadow:0 0 0 0 rgba(255,181,71,.55)}70%{box-shadow:0 0 0 12px rgba(255,181,71,0)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0)}}
+.rv-alert{position:fixed;top:84px;left:50%;z-index:58;display:flex;align-items:center;gap:12px;max-width:min(620px,calc(100% - 24px));padding:10px 10px 10px 16px;border-radius:999px;background:rgba(26,20,8,.92);border:1px solid rgba(255,181,71,.45);box-shadow:0 18px 50px rgba(0,0,0,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);font-size:13.5px;transform:translateX(-50%);animation:rvDrop .5s var(--ease) both}
+@keyframes rvDrop{from{opacity:0;transform:translate(-50%,-14px)}}
+.rv-alert>svg{flex:none;color:var(--warn)}
+.rv-alert span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-alert .btn{flex:none}
+.rv-notify{display:flex;align-items:center;gap:10px;margin:0 0 16px;padding:10px 14px;border-radius:14px;border:1px dashed var(--stroke);font-size:12.5px;color:var(--muted)}
+.rv-notify .btn{margin-left:auto}
+.pr-new{flex:none;align-self:flex-start;margin-left:6px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:var(--ok);color:#04150d}
+.drafts-btn .d-count.fresh{background:var(--ok);color:#04150d}
+.tour-hole{position:fixed;z-index:300;border-radius:16px;pointer-events:none;box-shadow:0 0 0 9999px rgba(5,4,10,.74),0 0 0 2px var(--purple-2),0 0 40px rgba(147,40,255,.55);transition:top .45s var(--ease),left .45s var(--ease),width .45s var(--ease),height .45s var(--ease)}
+.tour-shield{position:fixed;inset:0;z-index:299}
+.tour-card{position:fixed;z-index:301;width:min(340px,calc(100% - 24px));padding:20px;border-radius:22px;background:rgba(20,18,26,.97);border:1px solid var(--stroke);box-shadow:0 30px 80px rgba(0,0,0,.6);transition:top .45s var(--ease),left .45s var(--ease);animation:rise .4s var(--ease) both}
+.tour-card .tc-step{font-family:var(--doto);font-weight:900;font-size:13px;color:var(--purple-2);letter-spacing:.1em}
+.tour-card h3{margin:6px 0 8px;font-family:var(--display);font-size:18px;letter-spacing:.02em}
+.tour-card p{margin:0;font-size:13.5px;line-height:1.55;color:var(--muted)}
+.tour-card .tc-foot{display:flex;align-items:center;gap:8px;margin-top:18px}
+.tour-card .tc-dots{display:flex;gap:5px;margin-right:auto}
+.tour-card .tc-dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.18);transition:background-color .3s,width .3s}
+.tour-card .tc-dots i.on{width:18px;border-radius:999px;background:var(--purple)}
+.tour-card .tc-skip{font-size:12px;font-weight:700;color:var(--dim)}
+.tour-card .tc-skip:hover{color:#fff}
 </style>
 </head>
 <body>
@@ -986,6 +1010,8 @@ div.pr-row:hover{transform:none}
     <button class="icon-btn" id="open-settings" title="Settings" data-testid="open-settings-btn"><i data-lucide="settings-2"></i></button>
   </div>
 </header>
+
+<div class="rv-alert" id="rv-alert" hidden role="status" data-testid="review-alert"><i data-lucide="bell-ring"></i><span id="rv-alert-text" data-testid="review-alert-text"></span><button class="btn btn-sm btn-primary" id="rv-alert-open" data-testid="review-alert-open-btn">Review</button><button class="icon-btn" id="rv-alert-close" title="Dismiss" data-testid="review-alert-close-btn"><i data-lucide="x"></i></button></div>
 
 <main>
   <!-- COMPOSE -->
@@ -1394,6 +1420,7 @@ div.pr-row:hover{transform:none}
     <div class="drawer-head"><i data-lucide="inbox"></i><h2>Icon review</h2><button class="icon-btn" id="rv-refresh" title="Refresh" style="margin-left:auto" data-testid="review-refresh-btn"><i data-lucide="refresh-cw"></i></button><button class="icon-btn" data-close style="margin-left:0" data-testid="close-review-btn"><i data-lucide="x"></i></button></div>
     <div class="drawer-body soft-scroll">
       <p class="dr-note"><i data-lucide="shield-check"></i>Icons can only change their own profile, songs and lyrics. Nothing goes live until you approve it.</p>
+      <div class="rv-notify" id="rv-notify" data-testid="review-browser-alerts"></div>
       <div class="view-seg rv-seg" id="rv-seg" data-testid="review-tabs"><button type="button" data-v="changes" class="on" data-testid="review-tab-changes">Changes<b id="rv-n-changes">0</b></button><button type="button" data-v="access" data-testid="review-tab-access">Access<b id="rv-n-access">0</b></button></div>
       <div id="rv-body" data-testid="review-body"></div>
     </div>
@@ -1437,6 +1464,7 @@ div.pr-row:hover{transform:none}
           </div>
           <button type="button" class="btn btn-primary btn-sm" id="s-signin" data-testid="settings-signin-btn"><i data-lucide="log-in"></i>Sign in</button>
         </div>
+        <button type="button" class="btn btn-sm auth-box icon-only" id="s-tour" data-testid="settings-replay-tour-btn"><i data-lucide="map"></i>Replay the welcome tour</button>
         <button type="button" class="btn btn-sm auth-box" id="s-signout" hidden data-testid="settings-signout-btn"><i data-lucide="log-out"></i>Sign out on this device</button>
         <div class="act-box" id="s-activity" hidden data-testid="signin-activity">
           <div class="act-head"><i data-lucide="shield-ellipsis"></i><b>Sign-in activity</b><button type="button" class="lbl-action" id="s-act-refresh" data-testid="signin-activity-refresh-btn">Refresh</button></div>
@@ -1648,7 +1676,7 @@ function applyRole(){
   document.body.classList.toggle('icon-mode', ic);
   cfg.branch = ic ? 'main' : saved.branch || DEFAULTS.branch;
   setMode(ic ? 'pr' : saved.mode === 'live' ? 'live' : 'pr');
-  $('#open-review').hidden = !isAdmin(); if (!isAdmin()){ state.iconPrs = []; state.iconAdmin = { requests:[], approved:[] }; }
+  $('#open-review').hidden = !isAdmin(); if (!isAdmin()){ state.iconPrs = []; state.iconAdmin = { requests:[], approved:[] }; $('#rv-alert').hidden = true; }
   paintReviewCount();
   $('#open-prs').title = ic ? 'My changes' : 'Pull requests';
   if (ic && ['projects', 'models', 'blog', 'whatsnew'].includes(state.view)) switchView('compose');
@@ -1668,6 +1696,7 @@ async function iconSignIn(done){
     setAuth(await authReq('POST', { access_token: t.token }, '/icon-session'));
     toast(`Welcome, ${myName()}. You can edit your profile, songs and lyrics. Every change goes to admin review.`, 'ok', 6000);
     reloadAll(); if (done) done();
+    setTimeout(() => startTour(), 1200);
   } catch (e){
     if (e.code === 'icon_unverified') return openAccessRequest(t.token, e.data || {});
     toast(e.message, 'bad', 6000);
@@ -2157,7 +2186,7 @@ async function loadPRs(){
   state.prsLoading = true; if (state.prPaint) state.prPaint();
   try { const all = await gh.listPRs(); state.allPrs = all.filter(p => p.head && (isIcon() ? /^icon\// : /^songcoder\//).test(p.head.ref)).slice(0, 50); state.iconPrs = isAdmin() ? all.filter(p => p.head && /^icon\//.test(p.head.ref)) : []; } catch { state.allPrs = []; state.iconPrs = []; }
   state.prsLoading = false; state.prs = state.allPrs.filter(p => prState(p) === 'open');
-  renderPRs(); paintPrCount(); paintReviewCount(); if (state.prPaint) state.prPaint(); if (state.reviewPaint) state.reviewPaint();
+  renderPRs(); paintPrCount(); paintReviewCount(); iconResultToasts(); if (state.prPaint) state.prPaint(); if (state.reviewPaint) state.reviewPaint(); rvCheckNew();
 }
 function updateConn(){
   const c = $('#conn'), t = $('#conn-text'), src = state.catalog.source;
@@ -4017,15 +4046,15 @@ const PR_ST = { open:['Open','git-pull-request'], merged:['Merged','git-merge'],
 const prState = p => p.merged_at ? 'merged' : p.state === 'closed' ? 'closed' : 'open';
 const prDate = iso => iso ? new Date(iso).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }) : '';
 function paintPrCount(){
-  const n = state.allPrs.filter(p => prState(p) === 'open').length, c = $('#prs-count');
-  c.hidden = !n; c.textContent = n;
+  const fresh = isIcon() ? iconFresh().length : 0, n = state.allPrs.filter(p => prState(p) === 'open').length + fresh, c = $('#prs-count');
+  c.hidden = !n; c.textContent = n; c.classList.toggle('fresh', fresh > 0);
 }
 const PR_ICON = { open:'In review', merged:'Approved', closed:'Not approved' };
 const rejectNote = p => ((p.body || '').match(/\*\*Not approved:\*\* ([\s\S]*?)\n<!-- mad-reject -->/) || [])[1] || '';
 const prRow = p => {
   if (isIcon()){
     const st = prState(p), note = st === 'closed' && rejectNote(p), when = st === 'merged' ? `Approved ${prDate(p.merged_at)}` : st === 'closed' ? `Reviewed ${prDate(p.closed_at)}` : `Sent ${prDate(p.created_at)}`;
-    return `<div class="pr-row" data-testid="pr-row-${p.number}"><span class="pr-st ${st}" data-testid="pr-row-status">${icon(PR_ST[st][1])}${PR_ICON[st]}</span><span class="pr-tx"><b data-testid="pr-row-title">${esc(p.title.replace(/^[^:]+:\s*/, ''))}</b><small><span class="n">#${p.number}</span> · ${when}</small>${note ? `<span class="pr-note" data-testid="pr-row-reject-note">${icon('message-square-warning')}${esc(note)}</span>` : ''}</span></div>`;
+    return `<div class="pr-row" data-testid="pr-row-${p.number}"><span class="pr-st ${st}" data-testid="pr-row-status">${icon(PR_ST[st][1])}${PR_ICON[st]}</span><span class="pr-tx"><b data-testid="pr-row-title">${esc(p.title.replace(/^[^:]+:\s*/, ''))}</b><small><span class="n">#${p.number}</span> · ${when}</small>${note ? `<span class="pr-note" data-testid="pr-row-reject-note">${icon('message-square-warning')}${esc(note)}</span>` : ''}</span>${state.prFresh && state.prFresh.has(p.number) ? '<span class="pr-new" data-testid="pr-row-new">New</span>' : ''}</div>`;
   }
   const st = prState(p), [lbl, ic] = PR_ST[st], when = st === 'merged' ? `Merged ${prDate(p.merged_at)}` : st === 'closed' ? `Closed ${prDate(p.closed_at)}` : `Opened ${prDate(p.created_at)}`;
   return `<a class="pr-row" href="${esc(p.html_url)}" target="_blank" rel="noopener" data-testid="pr-row-${p.number}">
@@ -4036,15 +4065,17 @@ function openPrPanel(){
   const root = $('#drawer-root');
   root.innerHTML = ''; root.appendChild($('#tpl-prs').content.cloneNode(true));
   let filter = 'all';
-  const close = () => { state.prPaint = null; root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
+  const close = () => { state.prPaint = null; state.prFresh = null; root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape' && !$('.modal-wrap')) close(); };
   document.addEventListener('keydown', onKey);
   $$('[data-close]', root).forEach(b => b.addEventListener('click', close));
+  state.prFresh = new Set();
   if (isIcon()){ $('.drawer-head h2', root).textContent = 'My changes'; $('.dr-note', root).innerHTML = `${icon('info')}Everything you sent to Treesh admin, and what they decided.`; }
   const paint = () => {
     if (!$('#pr-rows')) return;
+    if (isIcon() && state.prFresh){ iconFresh().forEach(p => state.prFresh.add(p.number)); iconMarkSeen(); paintPrCount(); }
     const all = state.allPrs, n = k => k === 'all' ? all.length : all.filter(p => prState(p) === k).length;
-    $('#pr-filters').innerHTML = ['all', 'open', 'merged', 'closed'].map(k => `<button class="sug ${filter === k ? 'on' : ''}" data-f="${k}" data-testid="prs-filter-${k}">${k === 'all' ? 'All' : PR_ST[k][0]}<b>${n(k)}</b></button>`).join('');
+    $('#pr-filters').innerHTML = ['all', 'open', 'merged', 'closed'].map(k => `<button class="sug ${filter === k ? 'on' : ''}" data-f="${k}" data-testid="prs-filter-${k}">${k === 'all' ? 'All' : isIcon() ? PR_ICON[k] : PR_ST[k][0]}<b>${n(k)}</b></button>`).join('');
     const pq = normKey($('#pr-search').value), list = (filter === 'all' ? all : all.filter(p => prState(p) === filter)).filter(p => !pq || normKey(`${p.title} ${p.number} ${p.head && p.head.ref}`).includes(pq));
     $('#pr-rows').innerHTML = !signedIn()
       ? `<div class="empty" data-testid="prs-signed-out">${icon('shield-check')}<b>Sign in to see pull requests</b><span>PR status comes from GitHub through the secure M.A.D. server.</span><button class="btn btn-sm" id="pr-signin" data-testid="prs-signin-btn">Open settings</button></div>`
@@ -4064,7 +4095,7 @@ function openPrPanel(){
 async function loadIconAdmin(){
   if (!isAdmin()) return;
   try { const d = await authReq('GET', null, '/icon-admin'); state.iconAdmin = { requests: d.requests || [], approved: d.approved || [] }; } catch {}
-  paintReviewCount(); if (state.reviewPaint) state.reviewPaint();
+  paintReviewCount(); if (state.reviewPaint) state.reviewPaint(); rvCheckNew();
 }
 function paintReviewCount(){
   const n = state.iconPrs.filter(p => prState(p) === 'open').length + state.iconAdmin.requests.length, c = $('#review-count');
@@ -4202,9 +4233,11 @@ function openReview(){
       : `<div class="rv-list">${requests.length ? requests.map(r => `<article class="rv-card" data-uid="${esc(r.uid)}" data-testid="review-request-${esc(r.uid)}"><div class="rv-top"><span class="rv-av">${esc((r.name || '?')[0])}</span><div class="pr-tx"><b data-testid="review-request-name">${esc(r.name)}</b><small>${esc(r.email || '')} · asked ${prDate(new Date(r.t).toISOString())}</small></div></div>${r.note ? `<p class="rv-note" data-testid="review-request-note">“${esc(r.note)}”</p>` : ''}<div class="rv-acts"><select class="select input sm" data-rv-icon data-testid="review-request-icon-select">${iconOpts(r.artistId)}</select><button class="btn btn-sm" data-rv="decline" data-testid="review-request-decline-btn">Decline</button><button class="btn btn-sm btn-primary" data-rv="grant" data-testid="review-request-approve-btn">${icon('check')}Approve</button></div></article>`).join('') : `<div class="empty" data-testid="review-access-empty">${icon('user-check')}<b>No access requests</b><span>Treesh members who aren’t verified yet can ask for access from Settings.</span></div>`}</div>
         ${approved.length ? `<div class="lbl-row rv-sub">Approved in M.A.D.</div>${approved.map(r => `<div class="rv-done" data-uid="${esc(r.uid)}" data-testid="review-approved-${esc(r.uid)}"><span class="rv-av">${esc((r.name || '?')[0])}</span><span class="pr-tx"><b>${esc(r.name)}</b><small>${esc(iconName(r.artistId))} · ${esc(r.email || '')}</small></span><button class="btn btn-sm btn-ghost-danger" data-rv="revoke" style="margin-left:auto" data-testid="review-revoke-btn">Revoke</button></div>`).join('')}` : ''}
         <p class="hint" style="margin-top:18px">Members marked Verified with an Icon link in Treesh’s mod panel can sign in without a request.</p>`;
-    icons();
+    icons(); rvMarkSeen();
   };
   state.reviewPaint = paint;
+  paintNotify();
+  $('#rv-notify').addEventListener('click', e => { if (e.target.closest('#rv-notify-on')) Notification.requestPermission().then(paintNotify, paintNotify); });
   $('#rv-seg').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b){ tab = b.dataset.v; paint(); } });
   $('#rv-body').addEventListener('click', async e => {
     const b = e.target.closest('[data-rv]'); if (!b) return;
@@ -4227,6 +4260,86 @@ function openReview(){
   });
   $('#rv-refresh').addEventListener('click', async () => { const s = $('#rv-refresh svg'); if (s) s.classList.add('spin'); state.rvDiff = {}; await Promise.all([loadPRs(), loadIconAdmin()]); if ($('#rv-refresh svg')) $('#rv-refresh svg').classList.remove('spin'); toast('Review list refreshed.', 'info'); });
   paint(); loadPRs(); loadIconAdmin();
+}
+
+/* ---------- review alerts (admin) + review results (icons) ---------- */
+const RV_SEEN = 'treesh_mad_review_seen';
+state.rvAlerted = new Set(); state.iconToasted = new Set(); state.prFresh = null;
+const rvItems = () => [...state.iconPrs.filter(p => prState(p) === 'open').map(p => ({ key:'pr' + p.number, text:`${rvWho(p).name} sent “${p.title.replace(/^[^:]+:\s*/, '')}” for review` })), ...state.iconAdmin.requests.map(r => ({ key:`rq${r.uid}:${r.t}`, text:`${r.name} asked for Icon access` }))];
+function rvCheckNew(){
+  if (!isAdmin()) return;
+  const seen = new Set(safeJSON(localStorage.getItem(RV_SEEN)).keys || []), unseen = rvItems().filter(x => !seen.has(x.key)), fresh = unseen.filter(x => !state.rvAlerted.has(x.key));
+  $('#open-review').classList.toggle('pulse', unseen.length > 0);
+  if (!unseen.length){ $('#rv-alert').hidden = true; return; }
+  if (!fresh.length) return;
+  fresh.forEach(x => state.rvAlerted.add(x.key));
+  const msg = n => n.length === 1 ? n[0].text : `${n.length} new items are waiting for your review`;
+  $('#rv-alert-text').textContent = msg(unseen); $('#rv-alert').hidden = false; icons();
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden){
+    try { const n = new Notification('Treesh M.A.D. · Icon review', { body: msg(fresh), icon:'https://ik.imagekit.io/treesh/IMG_7235.png', tag:'mad-review' }); n.onclick = () => { window.focus(); openReview(); n.close(); }; } catch {}
+  }
+}
+function rvMarkSeen(){ localStorage.setItem(RV_SEEN, JSON.stringify({ keys: rvItems().map(x => x.key) })); $('#rv-alert').hidden = true; $('#open-review').classList.remove('pulse'); }
+function paintNotify(){
+  const el = $('#rv-notify'); if (!el) return;
+  const P = 'Notification' in window ? Notification.permission : 'unsupported';
+  el.innerHTML = P === 'granted' ? `${icon('bell-ring')}<span data-testid="review-browser-alerts-status">Browser alerts are on. You’ll get one when an Icon sends something while M.A.D. is in the background.</span>`
+    : P === 'denied' ? `${icon('bell-off')}<span data-testid="review-browser-alerts-status">Browser alerts are blocked for this site. Allow notifications in your browser settings to turn them on.</span>`
+    : P === 'unsupported' ? `${icon('bell-off')}<span data-testid="review-browser-alerts-status">This browser can’t show alerts. M.A.D. still checks every minute while it’s open.</span>`
+    : `${icon('bell')}<span data-testid="review-browser-alerts-status">Get a browser alert when an Icon sends something while M.A.D. is in the background.</span><button type="button" class="btn btn-sm" id="rv-notify-on" data-testid="review-browser-alerts-on-btn">Turn on</button>`;
+  icons();
+}
+const iconSeenKey = () => 'treesh_mad_icon_seen:' + state.auth.artistId;
+const iconReviewed = () => state.allPrs.filter(p => prState(p) !== 'open');
+const iconFresh = () => { const seen = new Set(safeJSON(localStorage.getItem(iconSeenKey())).n || []); return iconReviewed().filter(p => !seen.has(p.number)); };
+function iconMarkSeen(){ localStorage.setItem(iconSeenKey(), JSON.stringify({ n: iconReviewed().map(p => p.number) })); }
+function iconResultToasts(){
+  if (!isIcon()) return;
+  iconFresh().filter(p => !state.iconToasted.has(p.number)).forEach(p => {
+    state.iconToasted.add(p.number);
+    const t = p.title.replace(/^[^:]+:\s*/, ''), ok = prState(p) === 'merged', n = rejectNote(p);
+    toast(ok ? `Approved: “${t}” is live on Treesh.` : `Not approved: “${t}”${n ? ' · ' + n : ''}`, ok ? 'ok' : 'bad', 9000);
+  });
+}
+
+/* ---------- icon welcome tour ---------- */
+const TOUR = [
+  { sel:'[data-testid=tab-artists]', view:'artists', title:'Your profile', text:'Open Artists and tap the pencil on your card to change your photo, banner, bio, city, birthday or Cash App.' },
+  { sel:'[data-testid=tab-catalog]', view:'catalog', title:'Your songs', text:'Catalog shows every song you’re on. Edit the details, swap the cover or audio, or ask to remove one.' },
+  { sel:'#c-lyrics', view:'compose', scroll:true, title:'Lyrics', text:'In Compose, add a new song with you as the artist. Write the lyrics here, then tap along with the track to sync each line.' },
+  { sel:'[data-testid=open-prs-btn]', title:'My changes', text:'Nothing goes live right away. Treesh admin reviews every change, and you’ll see Approved or their note right here.' }
+];
+function startTour(force){
+  if (!isIcon() || $('.tour-card')) return;
+  const key = 'treesh_mad_tour_done:' + state.auth.artistId;
+  if (!force && localStorage.getItem(key)) return;
+  $('#drawer-root').innerHTML = '';
+  let i = 0;
+  const shield = document.createElement('div'), hole = document.createElement('div'), card = document.createElement('div');
+  shield.className = 'tour-shield'; hole.className = 'tour-hole'; card.className = 'tour-card';
+  hole.setAttribute('data-testid', 'tour-spotlight'); card.setAttribute('data-testid', 'tour-card'); card.setAttribute('role', 'dialog');
+  document.body.append(shield, hole, card);
+  const place = () => {
+    const el = $(TOUR[i].sel); if (!el) return;
+    const r = el.getBoundingClientRect(), pad = 8, h = Math.min(r.height, innerHeight * .55);
+    Object.assign(hole.style, { top:`${r.top - pad}px`, left:`${r.left - pad}px`, width:`${r.width + pad * 2}px`, height:`${h + pad * 2}px` });
+    const cw = card.offsetWidth, ch = card.offsetHeight, below = r.top + h + pad + 14;
+    card.style.top = `${below + ch < innerHeight - 12 ? below : Math.max(12, r.top - pad - 14 - ch)}px`;
+    card.style.left = `${Math.max(12, Math.min(innerWidth - cw - 12, r.left + r.width / 2 - cw / 2))}px`;
+  };
+  const end = () => { localStorage.setItem(key, '1'); [shield, hole, card].forEach(e => e.remove()); removeEventListener('resize', place); removeEventListener('scroll', place, true); document.removeEventListener('keydown', onKey); };
+  const go = d => { const n = i + d; if (n < 0) return; if (n >= TOUR.length) return end(); i = n; show(); };
+  const onKey = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1); };
+  const show = () => {
+    const st = TOUR[i];
+    if (st.view && state.view !== st.view) switchView(st.view);
+    card.innerHTML = `<div class="tc-step" data-testid="tour-step">${i + 1} / ${TOUR.length}</div><h3 data-testid="tour-title">${esc(st.title)}</h3><p data-testid="tour-text">${esc(st.text)}</p><div class="tc-foot"><span class="tc-dots">${TOUR.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</span>${i < TOUR.length - 1 ? '<button type="button" class="tc-skip" data-t="skip" data-testid="tour-skip-btn">Skip</button>' : ''}${i ? '<button type="button" class="btn btn-sm" data-t="back" data-testid="tour-back-btn">Back</button>' : ''}<button type="button" class="btn btn-sm btn-primary" data-t="next" data-testid="tour-next-btn">${i === TOUR.length - 1 ? 'Got it' : 'Next'}</button></div>`;
+    const el = $(st.sel); if (el && st.scroll) window.scrollBy(0, el.getBoundingClientRect().top - 110);
+    requestAnimationFrame(place);
+  };
+  card.addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; if (b.dataset.t === 'skip') end(); else go(b.dataset.t === 'back' ? -1 : 1); });
+  addEventListener('resize', place); addEventListener('scroll', place, true); document.addEventListener('keydown', onKey);
+  show();
 }
 
 /* ---------- sign-in activity ---------- */
@@ -4700,6 +4813,7 @@ function openSettings(){
   };
   $('#s-signin').addEventListener('click', signIn);
   $('#s-treesh').addEventListener('click', () => iconSignIn(paintAuth));
+  $('#s-tour').addEventListener('click', () => { close(); startTour(true); });
   $('#s-github').addEventListener('click', () => { location.href = `${API}/oauth/start?return=${encodeURIComponent(location.pathname)}`; });
   $('#s-pass').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); signIn(); } });
   $('#s-signout').addEventListener('click', async () => {
@@ -4805,6 +4919,8 @@ function wire(){
   $('#open-drafts').addEventListener('click', openDrafts);
   $('#open-prs').addEventListener('click', openPrPanel);
   $('#open-review').addEventListener('click', openReview);
+  $('#rv-alert-open').addEventListener('click', openReview);
+  $('#rv-alert-close').addEventListener('click', () => { $('#rv-alert').hidden = true; });
   $('#open-search').addEventListener('click', openSearch);
   document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !e.target.closest('.p-md')){ e.preventDefault(); openSearch(); } });
   $('#art-search').addEventListener('input', renderArtists); $('#proj-search').addEventListener('input', renderProjects);
@@ -4838,7 +4954,8 @@ function boot(){
   if (d0.savedAt) toast(`Picked up your draft from ${when(d0.savedAt)}.`, 'info', 3600);
   if (document.fonts) document.fonts.ready.then(moveInd);
   if (hadOldToken){ saveCfg(); toast('Your old saved GitHub token was removed from this device. Sign in with your passcode instead.', 'info', 6000); }
-  checkSession().then(() => { reloadAll(); checkActivityAlert(); signinNotice(); });
+  checkSession().then(() => { reloadAll(); checkActivityAlert(); signinNotice(); if (isIcon()) setTimeout(() => startTour(), 1500); });
+  setInterval(() => { if (isAdmin()){ loadPRs(); loadIconAdmin(); } else if (isIcon()) loadPRs(); }, 60000);
 }
 boot();
 })();

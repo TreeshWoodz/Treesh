@@ -50,5 +50,11 @@ if '__treeshWN' not in s:
     assert i > 0
     nl = '\r\n' if '\r\n' in s[:2000] else '\n'
     s = s[:i] + loader.replace('\n', nl) + s[i:]
+notify = open('/app/memory/icon_notify.js', encoding='utf-8').read()
+if 'treesh_icon_review_seen' not in s:
+    i = s.rfind('</body>')
+    assert i > 0
+    nl = '\r\n' if '\r\n' in s[:2000] else '\n'
+    s = s[:i] + notify.replace('\n', nl) + s[i:]
 open(dst, 'w', encoding='utf-8', newline='').write(s)
 print('ok', len(s))
