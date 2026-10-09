@@ -2,6 +2,7 @@
 // Netlify env vars: GITHUB_TOKEN (required), MAD_PASSCODE (required, 12+ chars), MAD_SESSION_SECRET (optional), MAD_REPO (optional, default TreeshWoodz/Treesh)
 // ImageKit uploads (optional): IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY
 // GitHub sign-in (optional): GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, MAD_GITHUB_USERS (comma list, default TreeshWoodz). Callback: https://<site>/api/github/oauth/callback
+// Email alerts (optional): RESEND_API_KEY, MAD_ALERT_EMAIL, MAD_ALERT_FROM (default "Treesh M.A.D. <onboarding@resend.dev>"), MAD_URL (default https://treesh.app/tools/mad)
 // Icon accounts (optional): SUPABASE_URL, SUPABASE_ANON_KEY, MAD_ICON_TABLE (default profiles), MAD_ICON_VERIFIED_COL (default verified), MAD_ICON_ARTIST_COL (default verified_icon)
 // Needs "@netlify/blobs" in the repo's package.json dependencies (sign-in activity + reliable lockout).
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -111,7 +112,7 @@ function sameOrigin(req){
 }
 
 async function session(req, context, method){
-  if (method === 'GET'){ const s0 = readSession(req), s = s0 && s0.role === 'icon' && await iconRevoked(s0) ? null : s0; return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, role: (s && s.role) || (s ? 'admin' : null), artistId: (s && s.artistId) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady() }); }
+  if (method === 'GET'){ const s0 = readSession(req), s = s0 && s0.role === 'icon' && await iconRevoked(s0) ? null : s0; return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, role: (s && s.role) || (s ? 'admin' : null), artistId: (s && s.artistId) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady(), email: s && s.role !== 'icon' && emailReady() ? maskEmail(alertTo()) : null }); }
   if (method === 'DELETE') return json(200, { signedIn: false, repo: REPO }, { 'Set-Cookie': cookie('', 0) });
   if (method !== 'POST') return json(405, { message: 'Method not allowed.' });
   const key = failKey(clientIp(req, context));
@@ -238,9 +239,10 @@ async function iconRequest(req){
   let body = {}; try { body = await req.json(); } catch {}
   const u = await supaUser(body.access_token);
   if (!u) return json(401, { message: 'Your Treesh sign-in has expired. Open treesh.app so it refreshes, then try again.', code: 'icon_signin' });
-  const all = await iconList('icon-requests');
+  const all = await iconList('icon-requests'), fresh = !all[u.uid];
   all[u.uid] = { uid: u.uid, name: u.name, email: u.email, artistId: String(body.artistId || u.artistId || '').replace(/[^\w-]/g, ''), note: String(body.note || '').slice(0, 300), t: Date.now() };
   await iconSave('icon-requests', all);
+  if (fresh){ const r = all[u.uid]; await sendAlert('icon-access', `${u.name} asked for Icon access`, `${u.name} asked for Icon access in M.A.D.`, [['Name', u.name], ['Email', u.email], ['Says they are', r.artistId ? `Icon #${r.artistId}` : ''], ['Note', r.note]]); }
   return json(200, { ok: true });
 }
 async function iconAdmin(req, method){
@@ -269,6 +271,26 @@ async function iconUpdates(req, token){
   const updates = (Array.isArray(list) ? list : []).filter(p => p.head && String(p.head.ref).startsWith(`icon/${artistId}/`) && Date.parse(p.closed_at) > since)
     .map(p => ({ number: p.number, title: String(p.title || '').replace(/^[^:]+:\s*/, ''), result: p.merged_at ? 'approved' : 'rejected', note: p.merged_at ? '' : ((String(p.body || '').match(REJECT_RE) || [])[1] || ''), at: Date.parse(p.closed_at) }));
   return json(200, { updates, name: u.name });
+}
+// Email alerts to the admin through Resend (optional): RESEND_API_KEY, MAD_ALERT_EMAIL, MAD_ALERT_FROM, MAD_URL.
+const escH = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const alertTo = () => (process.env.MAD_ALERT_EMAIL || '').trim();
+const emailReady = () => !!((process.env.RESEND_API_KEY || '').trim() && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(alertTo()));
+const maskEmail = e => e.replace(/^(.)[^@]*(@.*)$/, '$1•••$2');
+const madUrl = () => { const u = (process.env.MAD_URL || '').trim(); return /^https:\/\/[^\s"'<>]+$/.test(u) ? u : 'https://treesh.app/tools/mad'; };
+function alertHtml(head, lines){
+  const rows = lines.filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:6px 0;color:#8a8794;font-size:13px;width:110px;vertical-align:top">${escH(k)}</td><td style="padding:6px 0;color:#f5f5f7;font-size:14px">${escH(v)}</td></tr>`).join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0b;padding:28px 12px;font-family:Arial,Helvetica,sans-serif"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#141219;border:1px solid #2a2433;border-radius:18px"><tr><td style="padding:26px 28px 8px"><div style="font-size:11px;letter-spacing:3px;color:#b779ff;font-weight:bold">TREESH M.A.D.</div><h1 style="margin:10px 0 0;font-size:20px;line-height:1.35;color:#ffffff">${escH(head)}</h1></td></tr><tr><td style="padding:12px 28px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr><tr><td style="padding:10px 28px 28px"><a href="${escH(madUrl())}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#9328ff;color:#ffffff;font-weight:bold;font-size:14px;text-decoration:none">Open Icon review</a></td></tr></table><p style="max-width:520px;margin:14px auto 0;font-size:11px;line-height:1.5;color:#6d6a75">Sent by Treesh M.A.D. to the admin alert address. To stop these, remove MAD_ALERT_EMAIL in Netlify.</p></td></tr></table>`;
+}
+async function sendAlert(kind, subject, head, lines){
+  if (!emailReady()) return { ok: false, message: 'Email alerts aren’t set up. Add RESEND_API_KEY and MAD_ALERT_EMAIL in Netlify, then redeploy.' };
+  try {
+    const r = await fetch('https://api.resend.com/emails', { method: 'POST', signal: AbortSignal.timeout(6000), headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: (process.env.MAD_ALERT_FROM || '').trim() || 'Treesh M.A.D. <onboarding@resend.dev>', to: [alertTo()], subject, html: alertHtml(head, lines), text: [head, '', ...lines.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`), '', `Open Icon review: ${madUrl()}`].join('\n'), tags: [{ name: 'kind', value: kind }] }) });
+    if (r.ok) return { ok: true, to: maskEmail(alertTo()) };
+    const d = await r.json().catch(() => ({}));
+    return { ok: false, message: `Resend: ${d.message || `error ${r.status}`}` };
+  } catch { return { ok: false, message: 'Couldn’t reach Resend. Try again.' }; }
 }
 // A revoked icon's older sessions stop working.
 async function iconRevoked(sess){ const at = (await iconList('icon-revoked'))[sess.uid]; return !!at && at > sess.exp - MAX_AGE * 1000; }
@@ -346,6 +368,7 @@ export default async (req, context) => {
   if (sess.role === 'icon' && (sub === '/activity' || sub === '/icon-admin')) return json(403, { message: 'Admins only.', code: 'admin' });
   if (sub === '/activity' && method === 'GET') return activity(sess);
   if (sub === '/icon-admin') return iconAdmin(req, method);
+  if (sub === '/alert-test' && method === 'POST'){ const r = await sendAlert('test', 'M.A.D. email alerts are working', 'Email alerts are working', [['Sent to', alertTo()], ['You’ll get', 'New icon changes and Icon access requests']]); return json(r.ok ? 200 : 502, r.ok ? r : { message: r.message, code: 'email' }); }
   if (sub === '/imagekit-auth' && method === 'GET'){
     const pk = (process.env.IMAGEKIT_PRIVATE_KEY || '').trim(), pub = (process.env.IMAGEKIT_PUBLIC_KEY || '').trim();
     if (!pk || !pub) return json(503, { message: 'ImageKit isn’t set up yet. Add IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY in Netlify, then redeploy.', code: 'imagekit' });
@@ -383,6 +406,7 @@ export default async (req, context) => {
   }
   if (res.status === 401) return json(502, { message: 'GitHub rejected the server token. Update GITHUB_TOKEN in Netlify and redeploy.', code: 'server-token' });
   let out = await res.text();
+  if (sess.role === 'icon' && method === 'POST' && rest === '/pulls' && res.status === 201){ try { const pr = JSON.parse(out); await sendAlert('icon-change', `${sess.login || 'An Icon'} sent a change for review`, `${sess.login || 'An Icon'} sent a change for review`, [['Icon', `${sess.login || ''} (#${sess.artistId})`], ['Change', String(pr.title || '').replace(/^[^:]+:\s*/, '')], ['Request', `#${pr.number}`]]); } catch {} }
   if (sess.role === 'icon' && method === 'GET' && rest === '/pulls' && res.ok){ try { out = JSON.stringify(JSON.parse(out).filter(p => p.head && String(p.head.ref).startsWith(`icon/${sess.artistId}/`))); } catch { out = '[]'; } }
   return new Response(out, {
     status: res.status,

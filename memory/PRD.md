@@ -137,3 +137,12 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - treesh.app notices: memory/icon_notify.js is injected before </body> in deliverables/index.html, which was built from the LIVE treesh.app index (it also carries the pending wn_loader). It reads the Supabase session and POSTs to /api/github/icon-updates (new, no M.A.D. session needed), then shows bottom-right cards. Checks are throttled to once per 10 min per tab; seen time is stored in treesh_icon_review_seen.
 - Welcome tour: 4 spotlight steps (Artists tab, Catalog tab, Lyrics card, My changes). Shows once per icon per device (treesh_mad_tour_done:<id>). Replay from Settings (icons only).
 - patch_main_index.py also injects icon_notify.js.
+
+## 2026-10: Quick reject reasons + email review alerts (iteration_20 pass)
+- Reject modal: 7 built-in quick reasons as chips. Tapping stacks them, joined with " · ", plus extra text. Edit reasons lets the admin add or remove reasons and reset to defaults (localStorage treesh_mad_reject_reasons, per device).
+- Email alerts via Resend REST from github.mjs: sendAlert/alertHtml run after an icon POST /pulls returns 201 and on a NEW icon-request. /alert-test is admin only. Session GET returns a masked `email`. Netlify env: RESEND_API_KEY, MAD_ALERT_EMAIL=savionce@proton.me, optional MAD_ALERT_FROM (default "Treesh M.A.D. <onboarding@resend.dev>") and MAD_URL. The preview is MOCKED: emails go to /api/mockgh/state emails[] (backend/.env MAD_ALERT_EMAIL).
+- Settings → Sign-in section: "Email alerts" box with status and a "Send test email" button (admin only).
+
+## 2026-10: Mobile labels (iteration_21 + fix)
+- At ≤760px every icon-only button gets a small word under its icon (span.mlbl, added by a MutationObserver labeller with the MLBL short-name map). Tabs use data-short via ::after; the connection pill shows GitHub/Site/Offline/Icon. The Review/Go live switch shows words. Desktop is unchanged.
+- The review alert sits at the bottom on mobile (#rv-alert override fixes the top+bottom stretch bug).
