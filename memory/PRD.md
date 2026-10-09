@@ -115,3 +115,18 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Main-site loader: memory/wn_loader.js (sets window.__treeshWN, applies the file over WHATS_NEW/WNU, caches it in treesh_wn_content, supports ?wn-preview=<id>, page:/url: CTA actions, autoPopups master switch).
 - memory/patch_main_index.py applies all main-site patches (storage, banner, model banner, loader) to any fresh index.html (CRLF safe).
 - Files for the user to upload: deliverables/index.html → main /index.html; deliverables/tools/mad.html → main /tools/mad.html; deliverables/songcoder.html → songcoder branch Tools/songcoder.html. github.mjs and package.json are already live on main.
+
+## 2026-10 — Icon accounts + admin Icon Review (BUILT, tested iteration_18 100%)
+- Icons sign in with their Treesh account: M.A.D. reads the Supabase session already in this browser (localStorage `sb-*-auth-token`, same origin on treesh.app) and posts it to /api/github/icon-session. The server checks profiles.verified + profiles.verified_icon (default column fixed from artist_id to verified_icon), or the M.A.D. approved list.
+- Icon mode: only Compose, Catalog and Artists. Only their own songs, profile and lyrics are shown. Go live, bulk, reorder, pin, new artist, Repository settings and activity are hidden. Every save opens a PR on icon/<id>/… titled "<Name>: …".
+- Server scope (github.mjs iconGuard + mock): files limited to songs/icons/lyrics. Blocks are found with balanced nesting. Other people's blocks must stay identical and in order. Lyric blocks without ids are owned through the icon's song titles. Branch, ref and PR must use icon/<id>/ with base main. GET /pulls is filtered to the icon's own PRs. Merge, close, activity and icon-admin are admin only. Revoke kills existing icon sessions (icon-revoked blob).
+- Unverified accounts get an "Ask for Icon access" form (/icon-request).
+- Admin "Icon review" drawer (inbox button + count):
+  - Changes tab: field-level diff (old → new, image thumbs, lyric line diff), Approve (squash merge), Reject with a note (stored in the PR body as "**Not approved:** note" plus a comment). Icons see the note under My changes.
+  - Access tab: approve and link an Icon, decline, or revoke.
+- Netlify env needed: SUPABASE_URL, SUPABASE_ANON_KEY (optional: MAD_ICON_TABLE, MAD_ICON_VERIFIED_COL, MAD_ICON_ARTIST_COL).
+- Files to upload: deliverables/github.mjs → main netlify/functions/github.mjs; deliverables/tools/mad.html → main /tools/mad.html; deliverables/songcoder.html → songcoder branch Tools/songcoder.html.
+
+## Backlog
+- P2: Main-app patch to honor data-release (badge + playback lock)
+- P2: Let icons upload audio without a Cloudinary preset on their device (server-signed audio uploads)

@@ -2,6 +2,7 @@
 // Netlify env vars: GITHUB_TOKEN (required), MAD_PASSCODE (required, 12+ chars), MAD_SESSION_SECRET (optional), MAD_REPO (optional, default TreeshWoodz/Treesh)
 // ImageKit uploads (optional): IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY
 // GitHub sign-in (optional): GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, MAD_GITHUB_USERS (comma list, default TreeshWoodz). Callback: https://<site>/api/github/oauth/callback
+// Icon accounts (optional): SUPABASE_URL, SUPABASE_ANON_KEY, MAD_ICON_TABLE (default profiles), MAD_ICON_VERIFIED_COL (default verified), MAD_ICON_ARTIST_COL (default verified_icon)
 // Needs "@netlify/blobs" in the repo's package.json dependencies (sign-in activity + reliable lockout).
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
@@ -28,6 +29,10 @@ const ALLOW = [
   ['POST', /^\/git\/refs$/],
   ['GET', /^\/pulls$/],
   ['GET', /^\/commits$/],
+  ['GET', /^\/pulls\/\d+\/files$/],
+  ['PUT', /^\/pulls\/\d+\/merge$/],
+  ['PATCH', /^\/pulls\/\d+$/],
+  ['POST', /^\/issues\/\d+\/comments$/],
   ['POST', /^\/pulls$/]
 ];
 
@@ -87,9 +92,9 @@ const clientIp = (req, context) => context.ip || req.headers.get('x-nf-client-co
 const failKey = ip => 'fail:' + createHash('sha256').update(ip).digest('hex').slice(0, 32);
 
 /* ---------- sessions ---------- */
-function newSession(login){
+function newSession(login, extra = {}){
   const exp = Date.now() + MAX_AGE * 1000, sid = randomBytes(9).toString('base64url');
-  const data = Buffer.from(JSON.stringify({ exp, sid, ...(login ? { login } : {}) })).toString('base64url');
+  const data = Buffer.from(JSON.stringify({ exp, sid, ...(login ? { login } : {}), ...extra })).toString('base64url');
   return { value: `${data}.${sign(data)}`, exp, sid };
 }
 function readSession(req){
@@ -106,7 +111,7 @@ function sameOrigin(req){
 }
 
 async function session(req, context, method){
-  if (method === 'GET'){ const s = readSession(req); return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady() }); }
+  if (method === 'GET'){ const s0 = readSession(req), s = s0 && s0.role === 'icon' && await iconRevoked(s0) ? null : s0; return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, role: (s && s.role) || (s ? 'admin' : null), artistId: (s && s.artistId) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady() }); }
   if (method === 'DELETE') return json(200, { signedIn: false, repo: REPO }, { 'Set-Cookie': cookie('', 0) });
   if (method !== 'POST') return json(405, { message: 'Method not allowed.' });
   const key = failKey(clientIp(req, context));
@@ -202,6 +207,100 @@ async function oauthCallback(req, context, url){
   return done('github', [cookie(s.value, MAX_AGE)]);
 }
 
+/* ---------- Icon accounts: verified Treesh (Supabase) users edit only their own content, always through admin review ---------- */
+const ICON_FILES = ['content/songs.html', 'content/icons.html', 'content/lyrics.html'];
+const iconStore = () => blobs();
+async function iconList(key){ const s = iconStore(); if (!s) return {}; try { return (await s.get(key, { type: 'json' })) || {}; } catch { return {}; } }
+async function iconSave(key, v){ const s = iconStore(); if (s) try { await s.setJSON(key, v); } catch {} }
+async function supaUser(token){
+  const base = (process.env.SUPABASE_URL || '').replace(/\/+$/, ''), anon = process.env.SUPABASE_ANON_KEY || '';
+  if (!base || !anon || !token) return null;
+  const h = { apikey: anon, Authorization: `Bearer ${token}` };
+  const u = await fetch(`${base}/auth/v1/user`, { headers: h }).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!u || !u.id) return null;
+  const t = process.env.MAD_ICON_TABLE || 'profiles', vc = process.env.MAD_ICON_VERIFIED_COL || 'verified', ac = process.env.MAD_ICON_ARTIST_COL || 'verified_icon';
+  const rows = await fetch(`${base}/rest/v1/${encodeURIComponent(t)}?id=eq.${encodeURIComponent(u.id)}&select=*`, { headers: h }).then(r => r.ok ? r.json() : []).catch(() => []);
+  const p = (Array.isArray(rows) && rows[0]) || {};
+  return { uid: u.id, email: u.email || '', name: p.display_name || p.username || p.name || (u.email || '').split('@')[0], verified: p[vc] === true, artistId: p[ac] != null ? String(p[ac]) : '' };
+}
+async function iconSession(req, context){
+  let body = {}; try { body = await req.json(); } catch {}
+  const u = await supaUser(body.access_token);
+  if (!u) return json(401, { message: 'Your Treesh sign-in has expired. Open treesh.app so it refreshes, then try again.', code: 'icon_signin' });
+  const approved = (await iconList('icon-approved'))[u.uid];
+  const artistId = (approved && approved.artistId) || (u.verified ? u.artistId : '');
+  if (!artistId) return json(403, { message: 'Your Treesh account isn’t verified for M.A.D. yet.', code: 'icon_unverified', name: u.name, requested: !!(await iconList('icon-requests'))[u.uid] });
+  const s = newSession(u.name, { role: 'icon', artistId, uid: u.uid });
+  await logEvent(req, context, 'signin', s.sid, { via: 'treesh', login: u.name });
+  return json(200, { signedIn: true, role: 'icon', artistId, login: u.name, expires: s.exp, repo: REPO }, { 'Set-Cookie': cookie(s.value, MAX_AGE) });
+}
+async function iconRequest(req){
+  let body = {}; try { body = await req.json(); } catch {}
+  const u = await supaUser(body.access_token);
+  if (!u) return json(401, { message: 'Your Treesh sign-in has expired. Open treesh.app so it refreshes, then try again.', code: 'icon_signin' });
+  const all = await iconList('icon-requests');
+  all[u.uid] = { uid: u.uid, name: u.name, email: u.email, artistId: String(body.artistId || u.artistId || '').replace(/[^\w-]/g, ''), note: String(body.note || '').slice(0, 300), t: Date.now() };
+  await iconSave('icon-requests', all);
+  return json(200, { ok: true });
+}
+async function iconAdmin(req, method){
+  const reqs = await iconList('icon-requests'), ok = await iconList('icon-approved');
+  if (method === 'GET') return json(200, { requests: Object.values(reqs).sort((a, b) => b.t - a.t), approved: Object.values(ok) });
+  let body = {}; try { body = await req.json(); } catch {}
+  const uid = String(body.uid || ''), r = reqs[uid] || ok[uid];
+  if (!r) return json(404, { message: 'Request not found.', code: 'icon_req' });
+  if (body.action === 'approve'){ ok[uid] = { ...r, artistId: String(body.artistId || r.artistId || '').replace(/[^\w-]/g, ''), approvedAt: Date.now() }; if (!ok[uid].artistId) return json(400, { message: 'Pick which icon this account belongs to.', code: 'icon_req' }); }
+  if (body.action === 'revoke'){ delete ok[uid]; const rv = await iconList('icon-revoked'); rv[uid] = Date.now(); await iconSave('icon-revoked', rv); }
+  delete reqs[uid];
+  await iconSave('icon-requests', reqs); await iconSave('icon-approved', ok);
+  return json(200, { ok: true });
+}
+// A revoked icon's older sessions stop working.
+async function iconRevoked(sess){ const at = (await iconList('icon-revoked'))[sess.uid]; return !!at && at > sess.exp - MAX_AGE * 1000; }
+// Top-level content blocks (artists, songs, lyrics, models) with balanced nesting; comments and everything else is "rest".
+function blocksOf(text){
+  const out = [], re = /<!--[\s\S]*?-->|<(article|div|ul)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi; let m, last = 0, rest = '';
+  while ((m = re.exec(text))){
+    if (!m[1]) continue;
+    const cm = m[2].match(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+    if (!cm || !(cm[1] ?? cm[2]).split(/\s+/).some(c => /^(artist|song|lyric|model)$/i.test(c))) continue;
+    const tok = new RegExp(`<${m[1]}\\b|<\\/${m[1]}\\s*>`, 'gi'); tok.lastIndex = re.lastIndex; let depth = 1, t;
+    while (depth && (t = tok.exec(text))) depth += t[0][1] === '/' ? -1 : 1;
+    if (depth) break;
+    rest += text.slice(last, m.index); out.push(text.slice(m.index, tok.lastIndex)); last = re.lastIndex = tok.lastIndex;
+  }
+  return { blocks: out, rest: rest + text.slice(last) };
+}
+const attrOf = (b, n) => { const m = b.slice(0, b.indexOf('>') + 1).match(new RegExp(`\\s${n}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i')); return m ? (m[1] ?? m[2]) : ''; };
+const idsOf = b => attrOf(b, 'data-artist-id').split(/[\s,]+/).filter(Boolean);
+const titleKey = s => String(s).toLowerCase().replace(/&amp;/g, '&').replace(/[^a-z0-9]+/g, '');
+const ownerOf = (id, titles) => b => { const cls = attrOf(b, 'class'); if (/\bmodel\b/i.test(cls)) return false; const ids = idsOf(b); return ids.includes(id) || (/\blyric\b/i.test(cls) && !ids.length && titles.has(titleKey(attrOf(b, 'data-track')))); };
+// Icons may add, change, move or remove only their own blocks; everyone else's blocks must stay identical and in the same order.
+function scopeOk(base, next, own){
+  const a = blocksOf(base), b = blocksOf(next);
+  if (a.rest.replace(/\s+/g, '') !== b.rest.replace(/\s+/g, '')) return false;
+  const others = l => l.filter(x => !own(x)).join('\n');
+  return others(a.blocks) === others(b.blocks);
+}
+async function iconGuard(sess, method, rest, text, token){
+  const deny = m => json(403, { message: m, code: 'icon_scope' }), pre = `icon/${sess.artistId}/`;
+  if (method === 'GET') return null;
+  let body = {}; try { body = JSON.parse(text || '{}'); } catch { return deny('Bad request.'); }
+  if (method === 'POST' && rest === '/git/refs') return String(body.ref || '').startsWith('refs/heads/' + pre) && /^refs\/heads\/[\w./-]+$/.test(body.ref) ? null : deny('Icons can only create review branches.');
+  if (method === 'POST' && rest === '/pulls') return String(body.head || '').startsWith(pre) && body.base === 'main' ? null : deny('Icons can only open review requests.');
+  if (method === 'PUT' && rest.startsWith('/contents/')){
+    const path = decodeURIComponent(rest.slice('/contents/'.length));
+    if (!ICON_FILES.includes(path)) return deny('Icons can’t edit that file.');
+    if (!String(body.branch || '').startsWith(pre)) return deny('Icon changes always go to admin review.');
+    const get = async (p, ref) => { const g = await fetch(`https://api.github.com/repos/${REPO}/contents/${p.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(ref)}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'treesh-mad' } }); return g.ok ? Buffer.from((await g.json()).content || '', 'base64').toString('utf8') : ''; };
+    const titles = new Set();
+    if (path === 'content/lyrics.html') for (const ref of ['main', body.branch]) blocksOf(await get('content/songs.html', ref)).blocks.filter(x => idsOf(x).includes(sess.artistId)).forEach(x => titles.add(titleKey(attrOf(x, 'data-track'))));
+    const next = Buffer.from(body.content || '', 'base64').toString('utf8');
+    return scopeOk(await get(path, 'main'), next, ownerOf(sess.artistId, titles)) ? null : deny('That change touches content that isn’t yours. Only your own profile, songs and lyrics can be edited.');
+  }
+  return deny('That action isn’t available to icon accounts.');
+}
+
 async function activity(sess){
   const log = await readKey('activity', []), list = Array.isArray(log) ? log : [];
   const day = Date.now() - 864e5;
@@ -223,9 +322,14 @@ export default async (req, context) => {
   if (sub === '/session') return session(req, context, method);
   if (sub === '/oauth/start' && method === 'GET') return oauthStart(url);
   if (sub === '/oauth/callback' && method === 'GET') return oauthCallback(req, context, url);
+  if (sub === '/icon-session' && method === 'POST') return iconSession(req, context);
+  if (sub === '/icon-request' && method === 'POST') return iconRequest(req);
   const sess = readSession(req);
+  if (sess && sess.role === 'icon' && await iconRevoked(sess)) return json(401, { message: 'Your M.A.D. access was turned off. Ask Treesh admin if this is a mistake.', code: 'session' });
   if (!sess) return json(401, { message: 'Signed out. Sign in to M.A.D. in Settings.', code: 'session' });
+  if (sess.role === 'icon' && (sub === '/activity' || sub === '/icon-admin')) return json(403, { message: 'Admins only.', code: 'admin' });
   if (sub === '/activity' && method === 'GET') return activity(sess);
+  if (sub === '/icon-admin') return iconAdmin(req, method);
   if (sub === '/imagekit-auth' && method === 'GET'){
     const pk = (process.env.IMAGEKIT_PRIVATE_KEY || '').trim(), pub = (process.env.IMAGEKIT_PUBLIC_KEY || '').trim();
     if (!pk || !pub) return json(503, { message: 'ImageKit isn’t set up yet. Add IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY in Netlify, then redeploy.', code: 'imagekit' });
@@ -243,6 +347,8 @@ export default async (req, context) => {
   const target = new URL(`https://api.github.com/repos/${REPO}${rest}${url.search}`);
   if (target.pathname !== `/repos/${REPO}` && !target.pathname.startsWith(`/repos/${REPO}/`)) return json(403, { message: 'Blocked path.', code: 'blocked' });
 
+  const text = method === 'GET' ? undefined : await req.text();
+  if (sess.role === 'icon'){ const no = await iconGuard(sess, method, rest, text, token); if (no) return no; }
   let res;
   try {
     res = await fetch(target, {
@@ -254,13 +360,15 @@ export default async (req, context) => {
         'User-Agent': 'treesh-mad',
         ...(method === 'GET' ? {} : { 'Content-Type': 'application/json' })
       },
-      body: method === 'GET' ? undefined : await req.text()
+      body: method === 'GET' ? undefined : text
     });
   } catch {
     return json(502, { message: 'The M.A.D. server couldn’t reach GitHub. Try again.', code: 'upstream' });
   }
   if (res.status === 401) return json(502, { message: 'GitHub rejected the server token. Update GITHUB_TOKEN in Netlify and redeploy.', code: 'server-token' });
-  return new Response(await res.text(), {
+  let out = await res.text();
+  if (sess.role === 'icon' && method === 'GET' && rest === '/pulls' && res.ok){ try { out = JSON.stringify(JSON.parse(out).filter(p => p.head && String(p.head.ref).startsWith(`icon/${sess.artistId}/`))); } catch { out = '[]'; } }
+  return new Response(out, {
     status: res.status,
     headers: { 'Content-Type': res.headers.get('content-type') || 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
   });
