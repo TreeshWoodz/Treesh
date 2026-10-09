@@ -44,11 +44,12 @@ function menuItems() {
   ];
 }
 const DUST = Array.from({ length: 26 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 100).toFixed(1)}%;--s:${(Math.random() * 2.4 + 1).toFixed(1)}px;--d:${(Math.random() * 14 + 10).toFixed(1)}s;--dl:-${(Math.random() * 20).toFixed(1)}s"></i>`).join('');
-const titleArt = () => img(S.mode === 'bestie' ? 'bestie_art' : 'key_art');
+const MODE_ART = { classic: 'key_art', hush: 'hush_front', lullaby: 'bed_awake', bestie: 'bestie_art', impress: 'closet_look' }, CARD_ART = Object.assign({}, MODE_ART, { classic: 'hush_back' });
+const titleArt = () => img(MODE_ART[S.mode] || 'key_art');
 function renderTitle() {
   const t = traitById(S.trait), m = modeById(S.mode), items = menuItems(), best = bestNightAll();
   UI.menuIdx = clamp(UI.menuIdx, 0, items.length - 1);
-  $('#scr-title').innerHTML = `<div class="title-bg ${S.mode === 'bestie' ? 'bestie' : ''}" style="background-image:url(${titleArt()})" data-testid="title-bg"></div><div class="mm-fog f1"></div><div class="mm-fog f2"></div><div class="mm-dust">${DUST}</div><div class="mm-lamp"></div>
+  $('#scr-title').innerHTML = `<div class="title-bg t-${S.mode} ${S.mode === 'bestie' ? 'bestie' : ''}" style="background-image:url(${titleArt()})" data-testid="title-bg"></div><div class="mm-fog f1"></div><div class="mm-fog f2"></div><div class="mm-dust">${DUST}</div><div class="mm-lamp"></div>
   <header class="mm-top"><button class="prof" data-act="go" data-to="shop" data-testid="user-profile-chip" aria-label="Your profile and looks">${avatarHtml()}<span><small>${esc(rankOf(best))}${best ? ' \u00b7 Night ' + best : ''}</small><b data-testid="user-profile-name">${esc(Treesh.name())}</b></span></button><button class="stars-btn" data-act="go" data-to="shop" data-testid="title-starlites-btn" aria-label="Spend Starlites in the Pantry">${starChip()}</button></header>
   <div class="mm">
     <div class="mm-left">
@@ -65,7 +66,7 @@ function renderTitle() {
 }
 function menuFocus(i) {
   const items = $$('#scr-title .mm-item'); if (!items.length) return; i = (i + items.length) % items.length;
-  if (i !== UI.menuIdx) { UI.menuIdx = i; Sfx.tick(); }
+  if (i !== UI.menuIdx) { UI.menuIdx = i; Sfx.tick(); Sfx.whisper(0.03); }
   items.forEach((el, j) => el.classList.toggle('on', j === i));
   const d = $('#scr-title .mm-desc'), m = modeById(S.mode);
   if (d) d.innerHTML = i === 0 ? `<b>${m.tag}${S.stats.best[m.id] ? ' \u00b7 Best night ' + S.stats.best[m.id] : ''}</b>${esc(m.desc)}` : '';
@@ -73,7 +74,7 @@ function menuFocus(i) {
 function modeStep(d) {
   const i = MODES.findIndex(x => x.id === S.mode), m = MODES[(i + d + MODES.length) % MODES.length]; S.mode = m.id; save(); Sfx.tone(d > 0 ? 520 : 440, 0.08, 'triangle', 0.08);
   const em = $('#scr-title [data-testid="mode-name"]'); if (em) { em.innerHTML = `<i data-lucide="${m.icon}"></i>${m.name}${m.voice ? '<i data-lucide="mic" class="mic"></i>' : ''}`; em.style.animation = 'none'; void em.offsetWidth; em.style.animation = ''; icons(); }
-  const tb = $('#scr-title .title-bg'); if (tb) { tb.style.backgroundImage = `url(${titleArt()})`; tb.classList.toggle('bestie', S.mode === 'bestie'); }
+  const tb = $('#scr-title .title-bg'); if (tb) { tb.style.backgroundImage = `url(${titleArt()})`; tb.classList.toggle('bestie', S.mode === 'bestie'); tb.className = tb.className.replace(/\bt-\w+/g, '') + ' t-' + S.mode; } Sfx.whisper(0.04);
   menuFocus(0);
 }
 function dismissSplash() {
@@ -164,9 +165,12 @@ function renderTrophies() {
 function renderLoadout() {
   const m = modeById(S.mode), own = ITEMS.filter(i => S.inv[i.id] > 0);
   UI.loadout = UI.loadout.filter(id => S.inv[id] > 0);
+  const sl = ($('#scr-loadout .mode-cards') || {}).scrollLeft;
   $('#scr-loadout').innerHTML = `${subTop('Before you go in')}<div class="loadout">
     ${playerCard()}
-    <section class="lo-mode"><i data-lucide="${m.icon}"></i><div><small>Mode</small><b>${m.name}</b><span>${esc(m.desc)}</span></div></section>
+    <h3 class="sec-h"><i data-lucide="ghost"></i>Pick your nightmare</h3>
+    <section class="mode-pick"><div class="mode-cards" data-testid="mode-cards">${MODES.map((x, i) => `<button class="mode-card ${x.id === m.id ? 'on' : ''}" style="--i:${i}" data-act="mode-pick" data-id="${x.id}" data-testid="mode-card-${x.id}"><span class="mc-art" style="background-image:url(${img(CARD_ART[x.id])})"></span><em class="mc-tag">${esc(x.tag)}</em>${x.voice ? '<i data-lucide="mic" class="mc-mic"></i>' : ''}<b>${esc(x.name)}</b></button>`).join('')}</div>
+    <p class="mc-desc" data-testid="mode-card-desc"><i data-lucide="${m.icon}"></i><span><b>${esc(m.name)}</b>${esc(m.desc)}</span></p></section>
     <h3 class="sec-h"><i data-lucide="sparkle"></i>Trait</h3>
     <div class="chips" data-testid="trait-chips">${TRAITS.filter(t => S.traits.includes(t.id)).map(t => `<button class="chip ${S.trait === t.id ? 'on' : ''}" data-act="trait-pick" data-id="${t.id}" data-testid="loadout-trait-${t.id}"><i data-lucide="${t.icon}"></i>${esc(t.name)}</button>`).join('')}<button class="chip ghost" data-act="go" data-to="shop"><i data-lucide="plus"></i>More in the Pantry</button></div>
     <h3 class="sec-h"><i data-lucide="gauge"></i>Difficulty</h3>
@@ -176,7 +180,7 @@ function renderLoadout() {
     ${own.length ? `<div class="lo-items">${own.map(it => `<button class="lo-item ${UI.loadout.includes(it.id) ? 'on' : ''}" data-act="lo-toggle" data-id="${it.id}" data-testid="loadout-item-${it.id}"><i data-lucide="${it.icon}"></i><span><b>${esc(it.name)} \u00d7${S.inv[it.id]}</b><small>${esc(it.desc)}</small></span><em><i data-lucide="${UI.loadout.includes(it.id) ? 'check' : 'plus'}"></i></em></button>`).join('')}</div>` : `<p class="muted">No tools yet. Buy some in the <a href="#" data-act="go" data-to="shop">Pantry</a> with your Starlites.</p>`}
     <div class="lo-tips"><p><i data-lucide="ear"></i>Listen for footsteps and creaks: that\u2019s him turning.</p><p><i data-lucide="hand"></i>Freeze the moment he turns. One wrong move and it\u2019s over.</p><p><i data-lucide="zap"></i>Clear a room with over half the candle left for a Swift bonus.</p>${m.voice ? '<p><i data-lucide="headphones"></i>Voice mode: use headphones so the game\u2019s sounds don\u2019t reach your mic.</p>' : ''}</div>
     <div class="row center"><button class="btn btn-acc btn-xl" data-act="go-run" data-testid="loadout-start-btn"><i data-lucide="${m.voice ? 'mic' : 'door-open'}"></i>${m.voice ? 'Set up mic' : 'Enter the house'}</button></div></div>`;
-  icons();
+  icons(); const mc = $('#scr-loadout .mode-cards'); if (sl != null) mc.scrollLeft = sl; else { const on = $('.mode-card.on', mc); if (on) mc.scrollLeft = on.offsetLeft - mc.clientWidth / 2 + on.clientWidth / 2; }
 }
 
 /* ---------- Mic setup ---------- */
@@ -265,6 +269,7 @@ document.addEventListener('click', e => {
       S.look = Object.assign(lookOf(), { [c.kind]: id }); save(); if (id !== 'charm_none' && id !== 'light_warm') unlock('dressed'); renderShop(); break; }
     case 'gal-scare': previewScare(id); break;
     case 'gal-line': Sfx.speak(id, t.dataset.k, true); break;
+    case 'mode-pick': if (S.mode !== id) { S.mode = id; save(); Sfx.whisper(); renderLoadout(); } break;
     case 'diff': S.diff = id; save(); Sfx.tone(440, 0.1, 'triangle', 0.1); renderLoadout(); break;
     case 'buy': { const it = itemById(id); if (Treesh.spend(it.cost, 'DGC: ' + it.name)) { S.inv[id] = (S.inv[id] || 0) + 1; S.stats.bought++; save(); unlock('shopper'); Sfx.chime([660, 990]); toast('Bought ' + it.name, 'Owned: ' + S.inv[id]); renderShop(); } else toast('Not enough Starlites', '', 'bad'); break; }
     case 'demo-stars': { const st = Treesh.stars(); st.points = (st.points || 0) + 500; LS.set('treesh_stars', st); Treesh.ping(); renderShop(); break; }
@@ -302,3 +307,9 @@ window.addEventListener('storage', e => {
 
 /* ---------- Boot ---------- */
 Treesh.applyAccent(); renderTitle(); show('scr-title');
+
+let hovEl = null, hovT = 0;
+document.addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return; const t = e.target.closest('button,.mm-item,[data-act]'); if (!t || t === hovEl) return; hovEl = t;
+  const now = performance.now(); if (t.disabled || now - hovT < 90) return; hovT = now; Sfx.uiCreak();
+});

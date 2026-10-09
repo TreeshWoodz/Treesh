@@ -234,6 +234,13 @@ const Sfx = {
   creak() { this.tone(240, 0.5, 'sawtooth', 0.05, 110); this.noise(0.4, 'bandpass', 700, 0.05, 8); },
   shh() { this.noise(0.9, 'bandpass', 4200, 0.18, 2); },
   click() { this.noise(0.03, 'highpass', 3000, 0.15); },
+  uiCreak() { const f = 170 + Math.random() * 110; this.tone(f, 0.24, 'sawtooth', 0.016, f * 0.55); this.noise(0.2, 'bandpass', 480 + Math.random() * 380, 0.028, 11); },
+  whisper(v = 0.05) {
+    const ac = this.ctx(); if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), f2 = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = this.noiseBuf(); f.type = 'bandpass'; f.Q.value = 2.5; f.frequency.setValueAtTime(2200 + Math.random() * 600, t); f.frequency.linearRampToValueAtTime(3800, t + 0.45); f2.type = 'highshelf'; f2.frequency.value = 5000; f2.gain.value = -12;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.07); g.gain.linearRampToValueAtTime(v * 0.6, t + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    s.connect(f); f.connect(f2); f2.connect(g); g.connect(this.master); s.start(t, Math.random()); s.stop(t + 0.65);
+  },
   tick() { this.tone(1800, 0.03, 'square', 0.04); },
   beep(f = 1200) { this.tone(f, 0.09, 'square', 0.08); },
   buzz() { this.tone(110, 0.35, 'sawtooth', 0.22, 90); this.tone(116, 0.35, 'sawtooth', 0.18, 95); },
