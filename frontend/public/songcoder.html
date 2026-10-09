@@ -958,6 +958,12 @@ body.icon-mode .mode-seg,body.icon-mode .tab[data-view=projects],body.icon-mode 
 div.pr-row:hover{transform:none}
 @media (max-width:620px){.rv-row,.rv-row.solo{grid-template-columns:1fr;gap:4px}}
 body:not(.icon-mode) .icon-only{display:none !important}
+.rv-chips{display:flex;flex-wrap:wrap;gap:7px;text-align:left}
+.rv-chips .sug{display:inline-flex;align-items:center;gap:6px}
+.rv-chip-x{display:grid;place-items:center;width:16px;height:16px;margin-right:-4px;border-radius:50%;background:rgba(255,92,122,.2);color:#ffb3c0;font-size:12px;line-height:1}
+.rv-chip-x:hover{background:var(--err);color:#fff}
+.rv-addr{display:flex;gap:8px;margin-top:10px}.rv-addr .input{flex:1}
+.rv-reason-tools{display:flex;justify-content:space-between;gap:14px;margin-top:10px}.rv-reason-tools .lbl-action{margin:0}
 #open-review.pulse{border-color:rgba(255,181,71,.6);color:var(--warn);animation:rvPulse 1.6s var(--ease) infinite}
 @keyframes rvPulse{0%{box-shadow:0 0 0 0 rgba(255,181,71,.55)}70%{box-shadow:0 0 0 12px rgba(255,181,71,0)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0)}}
 .rv-alert{position:fixed;top:84px;left:50%;z-index:58;display:flex;align-items:center;gap:12px;max-width:min(620px,calc(100% - 24px));padding:10px 10px 10px 16px;border-radius:999px;background:rgba(26,20,8,.92);border:1px solid rgba(255,181,71,.45);box-shadow:0 18px 50px rgba(0,0,0,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);font-size:13.5px;transform:translateX(-50%);animation:rvDrop .5s var(--ease) both}
@@ -1472,6 +1478,11 @@ body:not(.icon-mode) .icon-only{display:none !important}
           <ul class="act-list" id="s-act-list" data-testid="signin-activity-list"></ul>
           <button type="button" class="lbl-action" id="s-act-more" hidden style="margin:10px 0 0" data-testid="signin-activity-more-btn">Show all</button>
         </div>
+        <div class="act-box" id="s-email" hidden data-testid="settings-email-alerts">
+          <div class="act-head"><i data-lucide="mail"></i><b>Email alerts</b></div>
+          <p class="hint" id="s-email-status" style="margin:0 0 12px" data-testid="settings-email-status"></p>
+          <button type="button" class="btn btn-sm" id="s-email-test" data-testid="settings-email-test-btn"><i data-lucide="send"></i>Send test email</button>
+        </div>
       </div>
       <div class="set-sec admin-only">
         <h3><i data-lucide="github"></i>Repository</h3>
@@ -1659,7 +1670,7 @@ async function authReq(method, body, path = '/session'){
   return d;
 }
 function setAuth(d){
-  state.auth = { signedIn: !!d.signedIn, expires: d.expires || null, login: d.login || '', oauth: d.oauth ?? state.auth.oauth, role: d.signedIn ? d.role || 'admin' : null, artistId: d.signedIn && d.artistId ? String(d.artistId) : '', error:'' };
+  state.auth = { signedIn: !!d.signedIn, expires: d.expires || null, login: d.login || '', oauth: d.oauth ?? state.auth.oauth, role: d.signedIn ? d.role || 'admin' : null, email: d.email || '', artistId: d.signedIn && d.artistId ? String(d.artistId) : '', error:'' };
   if (d.repo && d.repo.includes('/')) [cfg.owner, cfg.repo] = d.repo.split('/');
   applyRole();
 }
@@ -4191,10 +4202,37 @@ async function rvApprove(p){
     paintReviewCount(); if (state.reviewPaint) state.reviewPaint(); reloadAll();
   } catch (e){ failModal(e.status === 405 || e.status === 409 ? Object.assign(new Error('GitHub can’t merge this one automatically, usually because the same file changed after it was sent. Reject it with a note asking them to send it again.'), { status: e.status }) : e); }
 }
+const REASONS_KEY = 'treesh_mad_reject_reasons';
+const REASONS_DEFAULT = ['Blurry or low-quality photo', 'Missing credits', 'Wrong cover art', 'Audio quality', 'Spelling or typos', 'Not your content', 'Needs more detail'];
+const getReasons = () => { const r = safeJSON(localStorage.getItem(REASONS_KEY)).list; return Array.isArray(r) ? r : REASONS_DEFAULT.slice(); };
+const setReasons = l => localStorage.setItem(REASONS_KEY, JSON.stringify({ list: l }));
+function wireReasons(){
+  const box = $('#rv-reasons'), picked = new Set(); let editing = false;
+  const paint = () => {
+    const list = getReasons();
+    box.innerHTML = `<div class="rv-chips" data-testid="reject-reasons">${list.map((r, i) => `<button type="button" class="sug${picked.has(r) ? ' on' : ''}" data-i="${i}" data-testid="reject-reason-${i}">${esc(r)}${editing ? `<span class="rv-chip-x" data-x="${i}" title="Remove" data-testid="reject-reason-remove-${i}">×</span>` : ''}</button>`).join('') || '<span class="hint">No quick reasons yet.</span>'}</div>
+      ${editing ? `<div class="rv-addr"><input class="input sm" id="rv-new-reason" maxlength="60" placeholder="Add a reason…" data-testid="reject-reason-new-input"><button type="button" class="btn btn-sm" id="rv-add-reason" data-testid="reject-reason-add-btn">${icon('plus')}Add</button></div>` : ''}
+      <div class="rv-reason-tools"><button type="button" class="lbl-action" id="rv-edit-reasons" data-testid="reject-reasons-edit-btn">${editing ? 'Done' : 'Edit reasons'}</button>${editing ? '<button type="button" class="lbl-action" id="rv-reset-reasons" data-testid="reject-reasons-reset-btn">Reset to defaults</button>' : ''}</div>`;
+    icons(); if (editing) $('#rv-new-reason').focus();
+  };
+  const add = () => { const v = $('#rv-new-reason').value.trim().replace(/\s+/g, ' '); if (!v) return; const l = getReasons(); if (!l.some(x => x.toLowerCase() === v.toLowerCase())) setReasons([...l, v]); paint(); };
+  box.addEventListener('click', e => {
+    const x = e.target.closest('[data-x]');
+    if (x){ e.stopPropagation(); const l = getReasons(); picked.delete(l[+x.dataset.x]); l.splice(+x.dataset.x, 1); setReasons(l); return paint(); }
+    const c = e.target.closest('[data-i]'); if (c){ const r = getReasons()[+c.dataset.i]; picked.has(r) ? picked.delete(r) : picked.add(r); return paint(); }
+    if (e.target.closest('#rv-edit-reasons')){ editing = !editing; return paint(); }
+    if (e.target.closest('#rv-reset-reasons')){ setReasons(REASONS_DEFAULT.slice()); return paint(); }
+    if (e.target.closest('#rv-add-reason')) add();
+  });
+  box.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'rv-new-reason'){ e.preventDefault(); add(); } });
+  paint();
+  return () => getReasons().filter(r => picked.has(r));
+}
 function rvReject(p){
-  modal({ title:`Reject #${p.number}?`, ico:'message-square-x', tone:'danger', testid:'review-reject-modal', body:`<p>${esc(p.title)}</p><div class="field"><label for="rv-note">Note for ${esc(rvWho(p).name)}</label><textarea class="textarea" id="rv-note" rows="3" maxlength="400" placeholder="e.g. Please use a sharper photo." data-testid="review-reject-note-input"></textarea></div><p class="hint" style="margin-top:8px">They’ll see this in M.A.D. under My changes.</p>`,
+  let picked = () => [];
+  modal({ title:`Reject #${p.number}?`, ico:'message-square-x', tone:'danger', testid:'review-reject-modal', body:`<p>${esc(p.title)}</p><div class="field"><label>Quick reasons <span class="hint" style="display:inline">· tap to add</span></label><div id="rv-reasons"></div></div><div class="field"><label for="rv-note">Anything else for ${esc(rvWho(p).name)}?</label><textarea class="textarea" id="rv-note" rows="3" maxlength="400" placeholder="e.g. Please use a sharper photo." data-testid="review-reject-note-input"></textarea></div><p class="hint" style="margin-top:8px">They’ll see this in M.A.D. under My changes.</p>`,
     actions:[{ label:'Cancel', testid:'review-reject-cancel-btn' }, { label:'Reject change', kind:'btn-danger', icon:'x', testid:'review-reject-confirm-btn', onClick: async c => {
-      const note = $('#rv-note').value.trim().replace(/\s+/g, ' ') || 'No reason given.', body = `${p.body || ''}\n\n---\n**Not approved:** ${note}\n<!-- mad-reject -->`;
+      const extra = $('#rv-note').value.trim().replace(/\s+/g, ' '), chips = picked(), note = [chips.join(' · '), extra].filter(Boolean).join('. ') || 'No reason given.', body = `${p.body || ''}\n\n---\n**Not approved:** ${note}\n<!-- mad-reject -->`;
       try {
         const np = await gh.req(`/pulls/${p.number}`, { method:'PATCH', body: JSON.stringify({ state:'closed', body }) });
         gh.req(`/issues/${p.number}/comments`, { method:'POST', body: JSON.stringify({ body:`Not approved: ${note}` }) }).catch(() => {});
@@ -4202,6 +4240,7 @@ function rvReject(p){
         c(); toast(`#${p.number} rejected. ${rvWho(p).name} will see your note.`, 'info', 4000); paintReviewCount(); if (state.reviewPaint) state.reviewPaint();
       } catch (e){ toast(e.message, 'bad'); }
     } }] });
+  picked = wireReasons();
 }
 async function rvAccess(uid, action, artistId){
   try { await authReq('POST', { uid, action, artistId }, '/icon-admin'); toast({ approve:'Access approved. They can sign in now.', decline:'Request declined.', revoke:'Access turned off.' }[action], action === 'approve' ? 'ok' : 'info'); await loadIconAdmin(); }
@@ -4782,7 +4821,8 @@ function openSettings(){
     $('#s-auth').innerHTML = isIcon() ? statusHtml('ok', 'badge-check', `Signed in as ${esc(myName())} (Icon #${esc(a.artistId)}) until ${new Date(a.expires).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' })}. You can edit your own profile, songs and lyrics. Every change goes to admin review.`, 'auth-status')
       : a.signedIn ? statusHtml('ok', 'shield-check', `Signed in${a.login ? ` as @${esc(a.login)}` : ''} on this device until ${new Date(a.expires).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' })}`, 'auth-status')
       : statusHtml(a.error ? 'bad' : 'warn', 'shield-alert', a.error || 'Not signed in on this device. Catalog is read-only.', 'auth-status');
-    $('#s-signin-box').hidden = a.signedIn; $('#s-github').disabled = !a.oauth; $('#s-github-hint').hidden = !!a.oauth || !!a.error; $('#s-signout').hidden = !a.signedIn; $('#s-activity').hidden = !isAdmin(); $('#s-repo-name').textContent = `${cfg.owner}/${cfg.repo}`; icons();
+    $('#s-signin-box').hidden = a.signedIn; $('#s-github').disabled = !a.oauth; $('#s-github-hint').hidden = !!a.oauth || !!a.error; $('#s-signout').hidden = !a.signedIn; $('#s-activity').hidden = !isAdmin(); $('#s-email').hidden = !isAdmin();
+    $('#s-email-status').innerHTML = a.email ? `Alerts go to <b data-testid="settings-email-to">${esc(a.email)}</b> when an Icon sends a change or asks for access.` : 'Not set up yet. In Netlify, add <code>RESEND_API_KEY</code> and <code>MAD_ALERT_EMAIL</code>, then redeploy.'; $('#s-repo-name').textContent = `${cfg.owner}/${cfg.repo}`; icons();
     if (isAdmin()) loadActivity();
   };
   let actAll = false, actData = null;
@@ -4814,6 +4854,12 @@ function openSettings(){
   $('#s-signin').addEventListener('click', signIn);
   $('#s-treesh').addEventListener('click', () => iconSignIn(paintAuth));
   $('#s-tour').addEventListener('click', () => { close(); startTour(true); });
+  $('#s-email-test').addEventListener('click', async e => {
+    const b = e.currentTarget; b.disabled = true;
+    try { const d = await authReq('POST', {}, '/alert-test'); toast(`Test email sent to ${d.to}. Check your inbox (and spam).`, 'ok', 6000); }
+    catch (err){ toast(err.message, 'bad', 7000); }
+    b.disabled = false;
+  });
   $('#s-github').addEventListener('click', () => { location.href = `${API}/oauth/start?return=${encodeURIComponent(location.pathname)}`; });
   $('#s-pass').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); signIn(); } });
   $('#s-signout').addEventListener('click', async () => {

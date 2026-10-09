@@ -35,6 +35,22 @@ SUPA = {
     "mock-savionce": {"uid": "u-sav", "name": "SAVIONCE", "email": "sav@example.com", "verified": False, "artistId": ""},
 }
 ICONS = {"requests": {}, "approved": {}, "revoked": {}}
+EMAILS = []  # mock Resend outbox: production sends via api.resend.com from github.mjs
+
+
+def alert_to():
+    return (os.environ.get("MAD_ALERT_EMAIL") or "").strip()
+
+
+def mask_email(e):
+    return re.sub(r"^(.)[^@]*(@.*)$", r"\1•••\2", e)
+
+
+def send_alert(kind, subject, head, lines):
+    if not alert_to():
+        return {"ok": False, "message": "Email alerts aren’t set up. Add RESEND_API_KEY and MAD_ALERT_EMAIL in Netlify, then redeploy."}
+    EMAILS.append({"kind": kind, "to": alert_to(), "subject": subject, "head": head, "lines": [[k, v] for k, v in lines if v], "t": int(time.time() * 1000)})
+    return {"ok": True, "to": mask_email(alert_to())}
 ICON_FILES = ["content/songs.html", "content/icons.html", "content/lyrics.html"]
 SEED = {
     "content/songs.html": (ROOT_DIR / "mock_data/songs.html").read_text(encoding="utf-8"),
@@ -54,6 +70,7 @@ def reset_state():
     STATE.update({"branches": {"main": dict(SEED)}, "pulls": [], "commits": [], "snapshots": {}, "bases": {}, "comments": []})
     for k in ICONS:
         ICONS[k].clear()
+    EMAILS.clear()
 
 
 reset_state()
@@ -276,7 +293,7 @@ async def mock_pull_action(number: int, action: str):
 
 @api.get("/mockgh/state")
 async def mock_state():
-    return {"branches": list(STATE["branches"].keys()), "pulls": STATE["pulls"], "commits": STATE["commits"], "comments": STATE["comments"], "icons": ICONS}
+    return {"branches": list(STATE["branches"].keys()), "pulls": STATE["pulls"], "commits": STATE["commits"], "comments": STATE["comments"], "icons": ICONS, "emails": EMAILS}
 
 
 @api.get("/mockgh/raw/{path:path}")
@@ -289,6 +306,7 @@ async def session_get(request: Request):
     s = read_session(request)
     return {"signedIn": bool(s), "expires": s["exp"] if s else None, "login": (s or {}).get("login"), "repo": REPO,
             "role": (s.get("role") or "admin") if s else None, "artistId": (s or {}).get("artistId"),
+            "email": mask_email(alert_to()) if s and s.get("role") != "icon" and alert_to() else None,
             "activity": True, "oauth": OAUTH["on"]}
 
 
@@ -323,8 +341,13 @@ async def icon_request(request: Request):
     u = SUPA.get(body.get("access_token") or "")
     if not u:
         raise GhError(401, "Your Treesh sign-in has expired. Open treesh.app so it refreshes, then try again.", "icon_signin")
+    fresh = u["uid"] not in ICONS["requests"]
     ICONS["requests"][u["uid"]] = {"uid": u["uid"], "name": u["name"], "email": u["email"], "artistId": re.sub(r"[^\w-]", "", str(body.get("artistId") or "")),
                                    "note": str(body.get("note") or "")[:300], "t": int(time.time() * 1000)}
+    if fresh:
+        r = ICONS["requests"][u["uid"]]
+        send_alert("icon-access", f"{u['name']} asked for Icon access", f"{u['name']} asked for Icon access in M.A.D.",
+                   [("Name", u["name"]), ("Email", u["email"]), ("Says they are", f"Icon #{r['artistId']}" if r["artistId"] else ""), ("Note", r["note"])])
     return {"ok": True}
 
 
@@ -553,7 +576,20 @@ async def create_pull(request: Request):
           "html_url": f"https://github.com/{REPO}/pull/{number}",
           "created_at": now, "updated_at": now, "closed_at": None, "merged_at": None}
     STATE["pulls"].append(pr)
+    if sess.get("role") == "icon":
+        who = sess.get("login") or "An Icon"
+        send_alert("icon-change", f"{who} sent a change for review", f"{who} sent a change for review",
+                   [("Icon", f"{who} (#{sess['artistId']})"), ("Change", re.sub(r"^[^:]+:\s*", "", pr["title"])), ("Request", f"#{number}")])
     return pr
+
+
+@api.post("/github/alert-test")
+async def alert_test(request: Request):
+    require_admin(request)
+    r = send_alert("test", "M.A.D. email alerts are working", "Email alerts are working", [("Sent to", alert_to()), ("You’ll get", "New icon changes and Icon access requests")])
+    if not r["ok"]:
+        raise GhError(502, r["message"], "email")
+    return r
 
 
 @api.get("/github/imagekit-auth")
