@@ -135,7 +135,7 @@ def require_session(request):
 
 
 def set_cookie(response, value, max_age):
-    response.set_cookie(COOKIE, value, max_age=max_age, path="/api/github", httponly=True, secure=True, samesite="strict")
+    response.set_cookie(COOKIE, value, max_age=max_age, path="/api/github", httponly=True, secure=True, samesite="lax")
 
 
 def branch_files(name):
@@ -209,7 +209,8 @@ async def oauth_start(request: Request):
         return RedirectResponse(f"{ret}?signin=setup", 302)
     state = secrets.token_urlsafe(24)
     # Mock GitHub: skip github.com and go straight to the callback. ?as=<login> picks the GitHub account, ?deny=1 simulates Cancel.
-    q = "error=access_denied" if request.query_params.get("deny") else f"code=mock-{request.query_params.get('as', 'TreeshWoodz')}&state={state}"
+    qp = request.query_params
+    q = f"error={qp['fail']}&state={state}" if qp.get("fail") else "error=access_denied" if qp.get("deny") else f"code=mock-{qp.get('as', 'TreeshWoodz')}&state={state}"
     r = RedirectResponse(f"/api/github/oauth/callback?{q}", 302)
     r.set_cookie("mad_oauth", f"{state}.{base64.urlsafe_b64encode(ret.encode()).decode().rstrip('=')}", max_age=600, path="/api/github/oauth", httponly=True, secure=True, samesite="lax")
     return r
@@ -223,22 +224,23 @@ async def oauth_callback(request: Request):
     except Exception:
         ret = "/songcoder.html"
     q = request.query_params
-    cookie_val = None
-    if q.get("error"):
+    cookie_val, why = None, ""
+    if q.get("error") == "access_denied":
         result = "cancelled"
-    elif not saved or not q.get("state") or not hmac.compare_digest(saved, q["state"]) or not q.get("code", "").startswith("mock-"):
-        result = "expired"
+    elif q.get("error") or not saved or not q.get("state") or not hmac.compare_digest(saved, q["state"]) or not q.get("code", "").startswith("mock-"):
+        result, why = "error", q.get("error") or "state_mismatch"
+        log_event(request, client_ip(request), "gh_error", via="github", why=why)
     else:
         login = q["code"][5:]
         ip = client_ip(request)
         if login.lower() not in [u.lower() for u in ALLOWED_USERS]:
             log_event(request, ip, "denied", via="github", login=login)
-            result = "denied"
+            result, why = "denied", login
         else:
             cookie_val, _, sid = new_session(login)
             log_event(request, ip, "signin", sid, via="github", login=login)
             result = "github"
-    r = HTMLResponse(f'<!doctype html><body>Signing you in…<script>location.replace({json.dumps(f"{ret}?signin={result}")})</script>')
+    r = HTMLResponse(f'<!doctype html><body>Signing you in…<script>location.replace({json.dumps(f"{ret}?signin={result}" + (f"&why={why}" if why else ""))})</script>')
     r.delete_cookie("mad_oauth", path="/api/github/oauth")
     if cookie_val:
         set_cookie(r, cookie_val, MAX_AGE)

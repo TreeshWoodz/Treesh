@@ -3745,10 +3745,10 @@ function openPrPanel(){
 
 /* ---------- sign-in activity ---------- */
 const SEEN_KEY = 'treesh_mad_activity_seen';
-const ACT = { signin:['Signed in','log-in'], wrong:['Wrong passcode','key-round'], locked:['Locked out','lock'], denied:['GitHub account not allowed','user-x'] };
+const ACT = { signin:['Signed in','log-in'], wrong:['Wrong passcode','key-round'], locked:['Locked out','lock'], denied:['GitHub account not allowed','user-x'], gh_error:['GitHub sign-in failed','triangle-alert'] };
 const actRow = e => {
   let [lbl, ic] = ACT[e.result] || [e.result, 'info'];
-  if (e.via === 'github'){ lbl = `${e.result === 'signin' ? 'Signed in with GitHub' : lbl} · @${esc(e.login || '?')}`; if (e.result === 'signin') ic = 'github'; }
+  if (e.via === 'github'){ lbl = e.result === 'gh_error' ? `${lbl} · ${esc(e.why || '?')}` : `${e.result === 'signin' ? 'Signed in with GitHub' : lbl} · @${esc(e.login || '?')}`; if (e.result === 'signin') ic = 'github'; }
   const where = [e.city, e.country].filter(Boolean).join(', ') || 'Unknown location';
   return `<li class="act ${esc(e.result)}" data-testid="signin-activity-item"><span class="ai">${icon(ic)}</span><div><b data-testid="signin-activity-result">${lbl}</b>${e.current ? '<span class="me" data-testid="signin-activity-this-device">This device</span>' : ''}<small>${new Date(e.t).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })} · ${esc(where)}<br>${esc(e.device)} · IP ${esc(e.ip)}</small></div></li>`;
 };
@@ -3762,19 +3762,29 @@ async function checkActivityAlert(){
   } catch {}
 }
 
+const GH_WHY = {
+  incorrect_client_credentials: 'GitHub sign-in failed: the Client secret in Netlify doesn’t match your GitHub OAuth app. Generate a new secret, paste it into GITHUB_OAUTH_CLIENT_SECRET, then redeploy.',
+  redirect_uri_mismatch: 'GitHub sign-in failed: set the OAuth app’s callback URL to https://treesh.app/api/github/oauth/callback.',
+  bad_verification_code: 'GitHub sign-in code expired. Tap Continue with GitHub again.',
+  state_expired: 'GitHub sign-in took longer than 10 minutes. Tap Continue with GitHub again.',
+  state_missing: 'GitHub sign-in link was incomplete. Tap Continue with GitHub again.',
+  state_mismatch: 'GitHub sign-in was started in another tab. Tap Continue with GitHub again.',
+  application_suspended: 'GitHub says your OAuth app is suspended. Check it in GitHub → Developer settings.',
+  network: 'Couldn’t reach GitHub. Check your connection and try again.'
+};
 function signinNotice(){
-  const q = new URLSearchParams(location.search), r = q.get('signin');
+  const q = new URLSearchParams(location.search), r = q.get('signin'), why = q.get('why') || '';
   if (!r) return;
-  q.delete('signin'); history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '') + location.hash);
+  q.delete('signin'); q.delete('why'); history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '') + location.hash);
   const msg = {
     github: [state.auth.signedIn ? `Signed in with GitHub${state.auth.login ? ` as @${state.auth.login}` : ''}. This device stays signed in for 30 days.` : 'GitHub said yes, but this browser blocked the sign-in cookie. Try again or use your passcode.', state.auth.signedIn ? 'ok' : 'bad'],
-    denied: ['That GitHub account isn’t allowed in M.A.D. Sign in as TreeshWoodz.', 'bad'],
+    denied: [`${why ? '@' + why : 'That GitHub account'} isn’t allowed in M.A.D. Sign out of GitHub and sign in as TreeshWoodz, or add ${why || 'it'} to MAD_GITHUB_USERS in Netlify.`, 'bad'],
     cancelled: ['GitHub sign-in was cancelled.', 'info'],
     expired: ['GitHub sign-in timed out. Please try again.', 'bad'],
     setup: ['GitHub sign-in isn’t set up on the server yet. Use your passcode for now.', 'bad'],
-    error: ['GitHub couldn’t confirm your account. Try again in a moment.', 'bad']
+    error: [GH_WHY[why] || `GitHub sign-in failed${why ? ` (${why})` : ''}. Try again in a moment.`, 'bad']
   }[r];
-  if (msg) toast(msg[0], msg[1], 6000);
+  if (msg) toast(msg[0], msg[1], msg[1] === 'bad' ? 12000 : 6000);
 }
 function reloadAll(){ updateConn(); loadRoster(); loadCatalog(); loadLyrics(); loadModels(); loadPosts(); }
 function openSettings(){

@@ -37,7 +37,7 @@ const digest = s => createHash('sha256').update(String(s)).digest();
 const same = (a, b) => timingSafeEqual(digest(a), digest(b));
 const secret = () => process.env.MAD_SESSION_SECRET || createHash('sha256').update(`${passcode()}|${process.env.GITHUB_TOKEN}`).digest('hex');
 const sign = data => createHmac('sha256', secret()).update(data).digest('base64url');
-const cookie = (value, maxAge) => `${COOKIE}=${value}; Path=/api/github; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`;
+const cookie = (value, maxAge) => `${COOKIE}=${value}; Path=/api/github; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 const passcode = () => (process.env.MAD_PASSCODE || '').trim();
 
 /* ---------- storage (Netlify Blobs, memory fallback) ---------- */
@@ -147,40 +147,53 @@ const oauthCookie = (value, maxAge) => `${OAUTH_COOKIE}=${value}; Path=/api/gith
 function oauthStart(url){
   const ret = safeReturn(url.searchParams.get('return'));
   if (!oauthReady()) return redirect(`${ret}?signin=setup`);
-  const state = randomBytes(24).toString('base64url');
+  const state = signState(ret);
   const auth = new URL('https://github.com/login/oauth/authorize');
-  auth.search = new URLSearchParams({ client_id: process.env.GITHUB_OAUTH_CLIENT_ID, redirect_uri: `${url.origin}/api/github/oauth/callback`, state, allow_signup: 'false' });
-  return redirect(auth.toString(), [oauthCookie(`${state}.${Buffer.from(ret).toString('base64url')}`, 600)]);
+  auth.search = new URLSearchParams({ client_id: process.env.GITHUB_OAUTH_CLIENT_ID.trim(), redirect_uri: `${url.origin}/api/github/oauth/callback`, state, allow_signup: 'false' });
+  return redirect(auth.toString(), [oauthCookie(state, 600)]);
+}
+// Signed state (nonce + return path + expiry) so sign-in still works if Safari drops the state cookie on the way back from github.com
+function signState(ret){
+  const data = Buffer.from(JSON.stringify({ n: randomBytes(12).toString('base64url'), r: ret, e: Date.now() + 600000 })).toString('base64url');
+  return `${data}.${createHmac('sha256', secret()).update(`oauth.${data}`).digest('base64url')}`;
+}
+function readState(state){
+  const [data, sig] = String(state || '').split('.');
+  if (!data || !sig || !same(sig, createHmac('sha256', secret()).update(`oauth.${data}`).digest('base64url'))) return null;
+  try { const o = JSON.parse(Buffer.from(data, 'base64url').toString()); return o.e > Date.now() ? o : null; } catch { return null; }
 }
 async function oauthCallback(req, context, url){
-  const [saved, retB64] = (readCookie(req, OAUTH_COOKIE) || '').split('.');
-  let ret = APP_PATH; try { ret = safeReturn(Buffer.from(retB64 || '', 'base64url').toString()); } catch {}
-  // Same-site hop (not a 302) so Safari sends the Strict session cookie after coming back from github.com
-  const done = (result, extraCookies = []) => {
-    const to = JSON.stringify(`${ret}?signin=${result}`), h = new Headers({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+  const state = url.searchParams.get('state'), code = url.searchParams.get('code'), st = readState(state), saved = readCookie(req, OAUTH_COOKIE);
+  const ret = safeReturn(st && st.r);
+  // Same-site hop (not a 302) so the session cookie is sent on the very next request
+  const done = (result, extraCookies = [], why = '') => {
+    const to = JSON.stringify(`${ret}?signin=${result}${why ? `&why=${encodeURIComponent(why)}` : ''}`), h = new Headers({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
     [oauthCookie('', 0), ...extraCookies].forEach(c => h.append('Set-Cookie', c));
     return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>M.A.D.</title><body style="background:#0b0a10;color:#aaa;font:15px system-ui;display:grid;place-items:center;height:100vh;margin:0">Signing you in…<script>location.replace(${to})</script>`, { status: 200, headers: h });
   };
-  const state = url.searchParams.get('state'), code = url.searchParams.get('code');
-  if (url.searchParams.get('error')) return done('cancelled');
+  const fail = async why => { await logEvent(req, context, 'gh_error', null, { via: 'github', why }); return done('error', [], why); };
+  const ghErr = url.searchParams.get('error');
+  if (ghErr) return ghErr === 'access_denied' ? done('cancelled') : fail(ghErr);
   if (!oauthReady()) return done('setup');
-  if (!saved || !state || !code || !same(saved, state)) return done('expired');
+  if (!code || !st) return fail(state ? 'state_expired' : 'state_missing');
+  if (saved && !same(saved, state)) return fail('state_mismatch');
   let login = '';
   try {
     const t = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': 'treesh-mad' },
-      body: JSON.stringify({ client_id: process.env.GITHUB_OAUTH_CLIENT_ID, client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET, code, redirect_uri: `${url.origin}/api/github/oauth/callback` })
+      headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'treesh-mad' },
+      body: new URLSearchParams({ client_id: process.env.GITHUB_OAUTH_CLIENT_ID.trim(), client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET.trim(), code, redirect_uri: `${url.origin}/api/github/oauth/callback` })
     });
-    const access = t.ok ? (await t.json()).access_token : null;
-    if (!access) return done('error');
-    const u = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${access}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'treesh-mad' } });
-    login = u.ok ? String((await u.json()).login || '') : '';
-  } catch { return done('error'); }
-  if (!login) return done('error');
+    const tj = await t.json().catch(() => ({}));
+    if (!tj.access_token) return fail(tj.error || `token_http_${t.status}`);
+    const u = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${tj.access_token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'treesh-mad' } });
+    if (!u.ok) return fail(`user_http_${u.status}`);
+    login = String((await u.json()).login || '');
+  } catch { return fail('network'); }
+  if (!login) return fail('no_login');
   if (!allowedUsers().includes(login.toLowerCase())){
     await logEvent(req, context, 'denied', null, { via: 'github', login });
-    return done('denied');
+    return done('denied', [], login);
   }
   const s = newSession(login);
   await logEvent(req, context, 'signin', s.sid, { via: 'github', login });
