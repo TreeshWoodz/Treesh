@@ -958,6 +958,12 @@ body.icon-mode .mode-seg,body.icon-mode .tab[data-view=projects],body.icon-mode 
 div.pr-row:hover{transform:none}
 @media (max-width:620px){.rv-row,.rv-row.solo{grid-template-columns:1fr;gap:4px}}
 body:not(.icon-mode) .icon-only{display:none !important}
+.jh-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.jh-btn{border-color:rgba(183,121,255,.4);background:rgba(147,40,255,.12)}
+.jh-btn:hover{border-color:var(--purple-2);background:rgba(147,40,255,.2)}
+.jh-status{display:flex;align-items:flex-start;gap:6px;margin-top:8px;font-size:12.5px}
+.jh-status svg{flex:none;width:14px;height:14px;margin-top:2px}
+.jh-status.ok{color:var(--ok)}.jh-status.bad{color:var(--warn)}
 /* mobile labels: a small word under every icon-only button on phones */
 .mlbl{display:none}
 @media (max-width:760px){
@@ -1093,6 +1099,11 @@ body:not(.icon-mode) .icon-only{display:none !important}
               <label for="f-mp3">Audio link <span class="req">*</span></label>
               <input class="input" id="f-mp3" placeholder="https://audio.jukehost.co.uk/…" data-testid="input-mp3">
               <p class="err" data-testid="error-mp3"></p>
+              <div class="jh-row" data-testid="jukehost-row">
+                <button type="button" class="btn btn-sm jh-btn" id="jh-open" data-testid="jukehost-open-btn"><i data-lucide="external-link"></i>Host on JukeHost</button>
+                <button type="button" class="btn btn-sm" id="jh-paste" data-testid="jukehost-paste-btn"><i data-lucide="clipboard-paste"></i>Paste link</button>
+              </div>
+              <p class="hint jh-status" id="mp3-check" hidden data-testid="mp3-link-check"></p>
             </div>
             <div class="field" data-f="cover">
               <label for="f-cover">Cover art link <span class="req">*</span></label>
@@ -2075,6 +2086,7 @@ async function ikUpload(file, onProgress){
 }
 function cloudUpload(file, kind, onProgress){
   if (kind !== 'audio') return ikUpload(file, onProgress);
+  if (!cfg.cloudName || !cfg.preset) return Promise.reject(new Error('Audio uploads need a Cloudinary upload preset in Settings. Or tap “Host on JukeHost”, upload there and paste the link.'));
   return new Promise((res, rej) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `https://api.cloudinary.com/v1_1/${encodeURIComponent(cfg.cloudName)}/${kind === 'audio' ? 'video' : 'image'}/upload`);
@@ -2084,6 +2096,44 @@ function cloudUpload(file, kind, onProgress){
     const fd = new FormData(); fd.append('file', file); fd.append('upload_preset', cfg.preset); if (cfg.folder) fd.append('folder', cfg.folder);
     xhr.send(fd);
   });
+}
+/* ---------- JukeHost: no upload API, so M.A.D. opens their uploader and checks the pasted direct link ---------- */
+const JH_UPLOAD = 'https://jukehost.co.uk/library/upload';
+const isJukeHost = u => { try { return /(^|\.)jukehost\.co\.uk$/i.test(new URL(u).hostname); } catch { return false; } };
+let mp3Probe = null, mp3Timer = 0, jhAway = false;
+function checkMp3(){
+  const el = $('#mp3-check'), u = val('f-mp3');
+  clearTimeout(mp3Timer); if (mp3Probe){ mp3Probe.removeAttribute('src'); mp3Probe = null; }
+  if (!isUrl(u)){ el.hidden = true; return; }
+  const jh = isJukeHost(u), what = jh ? 'JukeHost link' : 'Audio link';
+  el.hidden = false; el.className = 'hint jh-status'; el.innerHTML = `${icon('loader-2')}<span>Checking that it plays…</span>`; icons(); const sp = $('svg', el); if (sp) sp.classList.add('spin');
+  mp3Timer = setTimeout(() => {
+    const a = mp3Probe = new Audio(); a.preload = 'metadata';
+    const done = (ok, d) => {
+      if (mp3Probe !== a) return; mp3Probe = null; a.removeAttribute('src');
+      el.className = 'hint jh-status ' + (ok ? 'ok' : ok === false ? 'bad' : '');
+      el.innerHTML = ok ? `${icon('check-circle-2')}<span>${what} works · ${fmtTime(d)}</span>`
+        : ok === false ? `${icon('alert-triangle')}<span>${jh ? 'This JukeHost link didn’t play. In your JukeHost Library, tap Copy next to the track and paste that direct link.' : 'This link didn’t play here. Make sure it’s a direct link to an MP3 or WAV file.'}</span>`
+        : `${icon('clock')}<span>Couldn’t check it in time. It may still work, so try the preview player.</span>`;
+      icons();
+    };
+    a.addEventListener('loadedmetadata', () => done(true, a.duration), { once: true });
+    a.addEventListener('error', () => done(false), { once: true });
+    setTimeout(() => done(null), 15000);
+    a.src = u;
+  }, 450);
+}
+function setMp3(u){ const f = $('#f-mp3'); f.value = u; f.dispatchEvent(new Event('input', { bubbles: true })); }
+function wireJukeHost(){
+  $('#f-mp3').addEventListener('input', checkMp3);
+  $('#jh-open').addEventListener('click', () => { window.open(JH_UPLOAD, '_blank', 'noopener'); jhAway = true; toast('Upload your track on JukeHost, tap Copy next to it in your Library, then come back and tap Paste link.', 'info', 7000); });
+  $('#jh-paste').addEventListener('click', async () => {
+    let t = '';
+    try { t = (await navigator.clipboard.readText()).trim(); } catch { $('#f-mp3').focus(); return toast('Long-press the Audio link box and choose Paste.', 'info', 5000); }
+    if (!isUrl(t)) return toast('Your clipboard doesn’t have a link yet. In JukeHost, tap Copy next to your track first.', 'bad', 5000);
+    setMp3(t); toast(isJukeHost(t) ? 'JukeHost link added.' : 'Audio link added.', 'ok');
+  });
+  addEventListener('focus', () => { if (jhAway && !val('f-mp3') && state.view === 'compose'){ jhAway = false; toast('Copied your JukeHost link? Tap Paste link to drop it in.', 'info', 6000); } });
 }
 const DROP_DEFAULT = {};
 function resetDrop(kind){ const d = $('#drop-' + kind); d.className = 'drop' + (kind === 'cover' ? ' drop-cover' : ''); d.innerHTML = DROP_DEFAULT[kind]; icons(); }
@@ -5019,6 +5069,7 @@ function wire(){
   $('#open-drafts').addEventListener('click', openDrafts);
   $('#open-prs').addEventListener('click', openPrPanel);
   $('#open-review').addEventListener('click', openReview);
+  wireJukeHost();
   $('#rv-alert-open').addEventListener('click', openReview);
   $('#rv-alert-close').addEventListener('click', () => { $('#rv-alert').hidden = true; });
   $('#open-search').addEventListener('click', openSearch);

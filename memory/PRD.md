@@ -146,3 +146,10 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 ## 2026-10: Mobile labels (iteration_21 + fix)
 - At ≤760px every icon-only button gets a small word under its icon (span.mlbl, added by a MutationObserver labeller with the MLBL short-name map). Tabs use data-short via ::after; the connection pill shows GitHub/Site/Offline/Icon. The Review/Go live switch shows words. Desktop is unchanged.
 - The review alert sits at the bottom on mobile (#rv-alert override fixes the top+bottom stretch bug).
+
+## 2026-10: JukeHost audio option (self-tested)
+- JukeHost has NO public API (checked dev.jukehost.co.uk and community docs). Uploads only happen on their website.
+- Compose → Audio link now has "Host on JukeHost" (opens jukehost.co.uk/library/upload in a new tab, with a tip toast and a reminder when you return) and "Paste link" (reads the clipboard).
+- Any audio link is test-played (Audio preload=metadata): "JukeHost link works · m:ss", a JukeHost-specific fix tip on error, or a neutral note after 15 s.
+- Icons get it too. Cloudinary audio upload with no preset now explains that JukeHost is the alternative.
+- ImageKit (already built): ikUpload() in songcoder.html plus /imagekit-auth in github.mjs. Needs IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY in Netlify.
