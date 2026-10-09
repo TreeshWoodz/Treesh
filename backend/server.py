@@ -42,7 +42,7 @@ def sha_of(text):
 
 def reset_state():
     STATE.clear()
-    STATE.update({"branches": {"main": dict(SEED)}, "pulls": [], "commits": []})
+    STATE.update({"branches": {"main": dict(SEED)}, "pulls": [], "commits": [], "snapshots": {}})
 
 
 reset_state()
@@ -303,7 +303,7 @@ async def repo_info(request: Request):
 @api.get("/github/repo/contents/{path:path}")
 async def get_contents(path: str, request: Request, ref: str = "main"):
     require_session(request)
-    files = branch_files(ref)
+    files = STATE["snapshots"].get(ref) or branch_files(ref)
     if path not in files:
         raise GhError(404, "Not Found")
     text = files[path]
@@ -321,8 +321,10 @@ async def put_contents(path: str, request: Request):
         raise GhError(409, f"{path} does not match {body.get('sha')}")
     text = base64.b64decode(body["content"]).decode("utf-8")
     files[path] = text
-    commit = {"sha": sha_of(text + str(time.time())), "message": body.get("message"), "branch": branch}
+    commit = {"sha": sha_of(text + str(time.time())), "message": body.get("message"), "branch": branch, "path": path,
+              "date": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     STATE["commits"].append(commit)
+    STATE["snapshots"][commit["sha"]] = dict(files)
     return {"content": {"path": path, "sha": sha_of(text)}, "commit": commit}
 
 
@@ -356,6 +358,14 @@ async def create_pull(request: Request):
           "created_at": now, "updated_at": now, "closed_at": None, "merged_at": None}
     STATE["pulls"].append(pr)
     return pr
+
+
+@api.get("/github/repo/commits")
+async def list_commits(request: Request, path: str = "", sha: str = "main", per_page: int = 30):
+    require_session(request)
+    hits = [c for c in reversed(STATE["commits"]) if c["branch"] == sha and (not path or c["path"] == path)][:per_page]
+    return [{"sha": c["sha"], "html_url": f"https://github.com/{REPO}/commit/{c['sha']}", "author": {"login": "TreeshWoodz"},
+             "commit": {"message": c["message"], "author": {"name": "TreeshWoodz", "date": c["date"]}}} for c in hits]
 
 
 @api.get("/github/repo/pulls")

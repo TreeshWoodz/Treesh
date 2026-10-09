@@ -26,6 +26,7 @@ const ALLOW = [
   ['GET', /^\/git\/ref\/heads\/[^?#]+$/],
   ['POST', /^\/git\/refs$/],
   ['GET', /^\/pulls$/],
+  ['GET', /^\/commits$/],
   ['POST', /^\/pulls$/]
 ];
 
