@@ -230,7 +230,7 @@ function caught(reason) {
   S.stats.deaths++; unlock('first_blood');
   const kept = Math.floor(Run.pocket / 2); endRun(false, kept, reason);
 }
-function escapeRun() { const n = Run.night, amt = Run.pocket + 10 * n; S.stats.escapes++; unlock('escape'); if (n >= 10) unlock('escape10'); endRun(true, amt, 'escape'); }
+function escapeRun() { if (Run.mode === 'bestie' && !Run.bEnd) { Run.bEnd = true; return bestieEnding(escapeRun); } Run.bEnd = false; const n = Run.night, amt = Run.pocket + 10 * n; S.stats.escapes++; unlock('escape'); if (n >= 10) unlock('escape10'); endRun(true, amt, 'escape'); }
 function endRun(escaped, bank, reason) {
   Run.active = false; Run.paused = false; cancelAnimationFrame(rafId); Sfx.drone(false);
   S.stats.playMs += Date.now() - Run.t0;
