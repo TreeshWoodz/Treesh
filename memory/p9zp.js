@@ -37,13 +37,13 @@ function lytApply(){ const c=document.getElementById('np-lyrics'), reg=document.
   lytTick(true); }
 function lytChatBuild(c,s){ const L=s.lyrics||[], t=wcTheme(), cfg=wcCfg();
   c.classList.add('wc-root'); c.dataset.wcf=t.f; c.dataset.glow=cfg.glow; c.dataset.ts=cfg.ts; c.dataset.live=cfg.live; wcVars(t).split(';').forEach(d=>{ const k=d.indexOf(':'); if(k>0) c.style.setProperty(d.slice(0,k),d.slice(k+1)); });
-  c.querySelectorAll('[data-line-wrap]:not(.lyt-sec):not(.wc-row)').forEach(w=>{ const i=+w.dataset.lineWrap, by=wcLineBy(s,L,i), face=by?wcByFace(by,s):s;
+  c.querySelectorAll('[data-line-wrap]:not(.lyt-sec):not(.wc-row)').forEach(w=>{ const i=+w.dataset.lineWrap; if(L[i]&&WC_TAG.test(L[i].text||'')){ w.classList.add('lyt-sec'); return; } const by=wcLineBy(s,L,i), face=by?wcByFace(by,s):s;
     const col=w.querySelector(':scope > .relative'); if(!col) return; w.classList.add('wc-row','is-a'); w.dataset.who=wcWho(face);
     col.classList.add('wc-col'); col.insertAdjacentHTML('afterbegin',`<span class="wc-name">${esc(face.artist||'Artist')}</span>`);
     const b=col.querySelector('.np-line'); if(b) b.classList.add('wc-b'); const p=w.querySelector(':scope > [data-detail-panel]'); if(p) col.appendChild(p);
     w.insertAdjacentHTML('afterbegin',wnAv(false,face)); });
   if(!c.querySelector('.lyt-start')){ const crew=wcPeople([s]);
-    c.insertAdjacentHTML('afterbegin',`<div class="wc-start lyt-start" data-testid="lyt-chat-start"><span class="wc-gav is-big">${crew.slice(0,4).map(x=>wnAv(false,x)).join('')}</span><p><b>${esc(wcGroupName([s]))}</b></p><p class="lyt-start-sub">${esc(s.title||'')} \u00b7 Text Message</p></div>`); } }
+    c.insertAdjacentHTML('afterbegin',`<div class="wc-start lyt-start" data-testid="lyt-chat-start"><span class="wc-gav is-big">${crew.slice(0,4).map(x=>wnAv(false,x)).join('')}</span><p><b>${esc(wcGroupName([s]))}</b></p><p class="lyt-start-sub">${esc(s.title||'')} \u00b7 Text Message</p>${wcLines(s).length>=4?`<button type="button" data-act="lyt-wn-play" data-testid="lyt-chat-play-wn" class="lyt-wn-cta press"><i data-lucide="gamepad-2"></i><span>Play What\u2019s Next</span></button>`:''}</div>`); icons(); } }
 
 /* chat + terminal: lines arrive as they're sung */
 function lytNext(L,i){ for(let j=i+1;j<L.length;j++){ const l=L[j]; if(l&&!l.secOnly&&l.text&&l.text.trim()) return j; } return -1; }

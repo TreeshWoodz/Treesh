@@ -70,16 +70,16 @@ const _sac9o=sbAccountCardHtml; sbAccountCardHtml=function(tab){ const h=_sac9o.
   return h+`<section class="sba-card mod-card" data-testid="mod-settings-card"><div class="sba-head"><span class="sba-ic"><i data-lucide="gavel"></i></span><div class="min-w-0 flex-1"><h2 class="sba-t">Moderation</h2><p class="sba-s">You\u2019re a Treesh ${stRole()==='admin'?'admin':'moderator'}. See bans, mutes, staff and the action log.</p></div></div><div class="sba-acts"><button type="button" data-act="mod-dash" data-testid="mod-open-dashboard" class="sba-btn is-primary press"><i data-lucide="gavel"></i>Open moderation</button></div></section>`; };
 
 /* moderation sheet for one person */
-function modCan(a){ const d=_sxV&&_sxV.d, vr=d&&d.mod&&d.mod.viewer_role; if(!vr||vr==='user') return false; const adm=vr==='admin';
+function modCan(a){ const d=modT(), vr=d&&d.mod&&d.mod.viewer_role; if(!vr||vr==='user') return false; const adm=vr==='admin';
   if(d.role==='admin'&&!adm) return false; if(a==='ban'||a==='verify') return adm; if(a==='role') return adm; if(a==='delete') return adm&&d.role!=='admin'; return true; }
-function modOpen(){ const d=_sxV&&_sxV.d; if(!d||!d.mod) return; _mod={tab:'status',banDur:'1d',muteDur:'1d',busy:false}; modPaint(true); }
+function modOpen(){ const d=modT(); if(!d||!d.mod) return; _mod={tab:'status',banDur:'1d',muteDur:'1d',busy:false}; modPaint(true); }
 function modPaint(fresh){ const html=`<div class="mod-sheet" data-testid="moderation-sheet">${modHtml()}</div>`; const s=document.querySelector('#modal2 .mod-sheet');
   if(s&&!fresh){ const y=(s.querySelector('.mod-body')||{}).scrollTop||0; s.outerHTML=html; const b=document.querySelector('#modal2 .mod-body'); if(b) b.scrollTop=y; } else $("#modal2").innerHTML=modal2Wrap(html,'moderation-modal','xl'); icons(); syncScrollLock(); }
 function modDurHtml(k){ const cur=_mod[k+'Dur']; const now=new Date(Date.now()+36e5-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
   return `<div class="tsf-chips mod-durs" data-testid="mod-${k}-durations">${MOD_DUR.map(([id,l])=>`<button type="button" data-act="mod-dur" data-k="${k}" data-val="${id}" aria-pressed="${cur===id}" data-testid="mod-${k}-dur-${id}" class="tsf-chip press${cur===id?' on':''}">${l}</button>`).join('')}</div>
    ${cur==='custom'?`<label class="sba-f mt-3"><span>Until</span><input type="datetime-local" id="mod-${k}-until" min="${now}" value="${now}" class="tsf-sel" data-testid="mod-${k}-until"></label>`:''}
    <label class="sba-f mt-3"><span>Reason <i class="tsf-opt">${k==='ban'?'shown to them':'optional'}</i></span><input id="mod-${k}-reason" maxlength="300" placeholder="${k==='ban'?'e.g. Harassing other users':'e.g. Inappropriate bio'}" data-testid="mod-${k}-reason"></label>`; }
-function modHtml(){ const d=_sxV.d, M=d.mod||{}, L=M.live||{}, t=_mod.tab, nm=d.display_name||d.username, adm=M.viewer_role==='admin';
+function modHtml(){ const d=modT(), M=d.mod||{}, L=M.live||{}, t=_mod.tab, nm=d.display_name||d.username, adm=M.viewer_role==='admin';
   const tabs=[['status','Ban & mute','gavel'],['profile','Profile','user-pen'],['badges','Badges & role','badge-check']].concat(modCan('delete')?[['danger','Delete','trash-2']]:[]);
   const lock=txt=>`<p class="mod-lock"><i data-lucide="lock"></i>${txt}</p>`;
   const sec=(ic,title,sub,body,tid)=>`<section class="mod-sec" data-testid="${tid}"><div class="mod-sec-h"><span class="pfa-row-ic"><i data-lucide="${ic}"></i></span><span class="min-w-0"><b>${title}</b><small>${sub}</small></span></div>${body}</section>`;
@@ -110,11 +110,11 @@ function modUntil(k){ const v=_mod[k+'Dur'], D=MOD_DUR.find(x=>x[0]===v); if(!D)
   if(v==='perm') return new Date(Date.now()+100*365.25*864e5).toISOString();
   if(v==='custom'){ const i=document.getElementById('mod-'+k+'-until'), t=i&&i.value?new Date(i.value):null; if(!t||isNaN(t)||t.getTime()<=Date.now()+30000){ toast('Pick a time in the future'); if(i) i.focus(); return null; } return t.toISOString(); }
   return new Date(Date.now()+D[2]).toISOString(); }
-async function modRun(fn,args,ok){ const d=_sxV&&_sxV.d; if(!d||_mod.busy) return null; _mod.busy=true; modPaint();
+async function modRun(fn,args,ok){ const d=modT(); if(!d||_mod.busy) return null; _mod.busy=true; modPaint();
   try{ const r=await sxRpc(fn,args); toast(ok[0],ok[1]||''); return r==null?true:r; }catch(e){ toast('Couldn\u2019t do that',sxErr(e)); return null; } finally{ if(_mod) _mod.busy=false; } }
-async function modReload(u){ await sxOpenProfile(u||(_sxV&&_sxV.u)); if(_mod&&document.querySelector('#modal2 .mod-sheet')&&_sxV&&_sxV.d&&_sxV.d.mod) modPaint(); }
+async function modReload(u){ await sxOpenProfile(u||(_sxV&&_sxV.u)); if(_mod&&document.querySelector('#modal2 .mod-sheet')&&modT()&&modT().mod) modPaint(); }
 async function modClean(uid,bucket,re){ try{ const {data}=await sb.storage.from(bucket).list(uid); const f=(data||[]).filter(x=>!re||re.test(x.name)).map(x=>uid+'/'+x.name); if(f.length) await sb.storage.from(bucket).remove(f); }catch(e){ console.warn('cleanup',e); } }
-async function modAct(a,t){ const d=_sxV&&_sxV.d; if(!d) return; const id=d.id, u='@'+d.username, val=id2=>((document.getElementById(id2)||{}).value||'').trim();
+async function modAct(a,t){ const d=modT(); if(!d) return; const id=d.id, u='@'+d.username, val=id2=>((document.getElementById(id2)||{}).value||'').trim();
   if(a==='mod-ban-go'){ const until=modUntil('ban'); if(!until) return; modAsk('Ban '+u+'?','They\u2019ll be signed out and can\u2019t sign in '+stUntil(until)+'.','Ban',async()=>{ if(await modRun('staff_set_ban',{target:id,until,reason:val('mod-ban-reason')},['Banned '+u,stUntil(until)])) modReload(); }); return; }
   if(a==='mod-unban'){ if(await modRun('staff_set_ban',{target:id,until:null,reason:null},['Ban lifted',u+' can sign in again'])) modReload(); return; }
   if(a==='mod-mute-go'){ const until=modUntil('mute'); if(!until) return; if(await modRun('staff_set_mute',{target:id,until,reason:val('mod-mute-reason')},['Muted '+u,stUntil(until)])) modReload(); return; }

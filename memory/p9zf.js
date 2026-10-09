@@ -76,14 +76,23 @@ document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closes
   else if(a==='mp-ctl'&&Object.prototype.hasOwnProperty.call(MP_DEF,v)) mpSet(v,!mpCfg()[v]);
   else if(a==='mp-reset'){ LS.set('treesh_mini_look',{}); renderMini(); mpSheetPaint(); toast('Mini player reset'); } });
 
-/* ---------- P9zf: performance mode on phones stops drawing the app behind full-screen views ---------- */
+/* ---------- P9zf: phones stop drawing the app behind full-screen views (any solid overlay that fills the screen) ---------- */
 const CV_SEL='#np > *, #ls > *, #instrum-fs > *, #game-frame > *, #modal > [data-game-root], #modal > [data-wl-root], #modal [data-tot-root], [data-testid="sleep-overlay"], .um-panel';
-let _cvOn=false, _cvSince=0, _cvHold=0;
-function cvCovered(){ const W=innerWidth, H=innerHeight; for(const el of document.querySelectorAll(CV_SEL)){ const r=el.getBoundingClientRect(); if(r.left<=1&&r.top<=1&&r.right>=W-1&&r.bottom>=H-1) return true; } return false; }
-function cvSet(on){ if(on===_cvOn) return; _cvOn=on; const de=document.documentElement; de.classList.toggle('cv-hide',on); de.classList.toggle('cv-keepmini',on&&!!(state.gameFrame&&state.gfMusic)); }
+const CV_MORE='#queue > *, #profile > *, #searchlay > *, #modal > *, #modal2 > *, #lock > *, #zh-root, #adm-root, #sx-root';
+let _cvOn=false, _cvSince=0, _cvHold=0, _cvEl=null, _cvMO=null;
+function cvFull(el){ const r=el.getBoundingClientRect(); return r.left<=1&&r.top<=1&&r.right>=innerWidth-1&&r.bottom>=innerHeight-1; }
+function cvSolid(el){ const cs=getComputedStyle(el); if(cs.visibility==='hidden'||+cs.opacity<0.95) return false; const m=(cs.backgroundColor||'').match(/rgba?\(([^)]*)\)/); if(!m) return false; const p=m[1].split(/[\s,\/]+/).filter(Boolean); return (p.length>3?parseFloat(p[3]):1)>=0.9; }
+function cvCover(){ for(const el of document.querySelectorAll(CV_SEL)) if(cvFull(el)) return el;
+  for(const el of document.querySelectorAll(CV_MORE)){ if(!cvFull(el)) continue; if(cvSolid(el)) return el; for(const c of el.children) if(cvFull(c)&&cvSolid(c)) return c; } return null; }
+function cvCovered(){ return !!cvCover(); }
+/* the moment the covering view starts moving (drag to close) or leaving, the page behind is drawn again */
+function cvWatch(el){ if(_cvMO){ _cvMO.disconnect(); _cvMO=null; } _cvEl=el; if(!el||!window.MutationObserver) return;
+  _cvMO=new MutationObserver(()=>{ if(!_cvOn||!_cvEl) return; if(!_cvEl.isConnected||/leav|clos|exit|is-out/.test(_cvEl.className||'')||!cvFull(_cvEl)) cvUnhide(); });
+  _cvMO.observe(el,{attributes:true,attributeFilter:['style','class']}); }
+function cvSet(on,el){ if(on===_cvOn) return; _cvOn=on; const de=document.documentElement; de.classList.toggle('cv-hide',on); de.classList.toggle('cv-keepmini',on&&!!(state.gameFrame&&state.gfMusic)); cvWatch(on?el:null); }
 function cvUnhide(){ cvSet(false); _cvSince=0; _cvHold=performance.now()+900; }
-setInterval(()=>{ if(!((document.documentElement.classList.contains('perf-mode')||document.documentElement.classList.contains('eco'))&&innerWidth<1024)){ cvSet(false); _cvSince=0; return; }
-  if(!cvCovered()){ _cvSince=0; cvSet(false); return; } const now=performance.now(); if(!_cvSince) _cvSince=now; if(now-_cvSince>=450&&now>=_cvHold) cvSet(true); },300);
+setInterval(()=>{ if(innerWidth>=1024||LS.get('treesh_cv',true)===false){ cvSet(false); _cvSince=0; return; }
+  const el=cvCover(); if(!el){ _cvSince=0; cvSet(false); return; } if(_cvOn&&el!==_cvEl) cvWatch(el); const now=performance.now(); if(!_cvSince) _cvSince=now; if(now-_cvSince>=450&&now>=_cvHold) cvSet(true,el); },300);
 /* the page behind comes back as a close tap lands or a drag starts moving, never on touch-down (iOS treats content appearing under a finger as a hover and swallows the tap) */
 document.addEventListener('click',e=>{ if(!_cvOn) return; const t=e.target; if(t.closest&&t.closest('[data-act*="close"],[data-act*="back"],[data-act*="exit"],[data-act*="min"],[data-mclose]')) cvUnhide(); },true);
 let _cvPD=null;

@@ -10,11 +10,15 @@ function wnFine(){ try{ return matchMedia('(pointer:fine)').matches; }catch(e){ 
 function wnLiveOff(){ document.querySelectorAll('#wc-thread .wc-b.is-live').forEach(b=>b.classList.remove('is-live')); }
 function wnStopAudio(){ cancelAnimationFrame(_wnRaf); _wnRaf=0; wnLiveOff(); try{ if(_wnA) _wnA.pause(); }catch(e){} }
 function wnHalt(){ _wnSeq++; wnStopAudio(); clearGameTimer(); if(_wnVV&&window.visualViewport){ visualViewport.removeEventListener('resize',_wnVV); visualViewport.removeEventListener('scroll',_wnVV); } _wnVV=null; }
-function wnIni(n){ const w=String(n||'?').replace(/[^\p{L}\p{N}\s]/gu,'').trim().split(/\s+/).filter(Boolean); return ((w[0]||'?')[0]+((w[1]||'')[0]||'')).toUpperCase(); }
+function wnIni(n){ const w=String(n||'?').replace(/[^\p{L}\p{N}\s]/gu,'').trim(); return ([...w][0]||'?').toUpperCase(); }
 /* the main artist is the one whose name matches the song (artistIds can list a featured artist first) */
-function wcMainId(s){ const ids=(s&&s.artistIds)||[]; if(ids.length<2) return ids[0]||null; const k=normKey(s.artist||''); return ids.find(id=>ARTIST_BY_ID[id]&&normKey(ARTIST_BY_ID[id].name)===k)||null; }
-function wnAvSrc(s){ s=s||state.game.song; const cov=s.coverArt&&s.coverArt!==FALLBACK?s.coverArt:''; if(s._user||s.source==='user') return cov;
-  const a=ARTIST_BY_ID[wcMainId(s)]; return a&&a.image?a.image:cov; }
+/* an id that belongs to a featured artist (only their id is listed) never makes them the main artist */
+function wcFeatK(s){ return String((s&&s.featuring)||'').split(WC_SPLIT).map(x=>normKey(x.trim())).filter(Boolean); }
+function wcMainId(s){ const ids=(s&&s.artistIds)||[], k=normKey((s&&s.artist)||''); const hit=ids.find(id=>ARTIST_BY_ID[id]&&normKey(ARTIST_BY_ID[id].name)===k); if(hit) return hit;
+  const byName=k&&(ARTISTS||[]).find(x=>normKey(x.name)===k); if(byName) return byName.id; if(ids.length!==1) return null;
+  const a=ARTIST_BY_ID[ids[0]]; return a&&wcFeatK(s).includes(normKey(a.name))?null:ids[0]; }
+/* Icons show their photo; anyone else gets the first letter of their name */
+function wnAvSrc(s){ s=s||state.game.song; const a=ARTIST_BY_ID[wcMainId(s)]; return a&&a.image?a.image:''; }
 function wnAv(big,s){ s=s||state.game.song; const src=wnAvSrc(s); return `<span class="wc-av${big?' is-big':''}"${big?' data-testid="game-artist-avatar"':''}><b>${esc(wnIni(s.artist||s.title))}</b>${src?`<img src="${esc(src)}" alt="" onerror="this.remove()">`:''}</span>`; }
 
 /* audio: one private element so the main player queue stays untouched */
@@ -101,7 +105,8 @@ function wnSetPhase(p){ const g=state.game; if(!g) return; g.phase=p; g.answered
   if(p==='input'&&gi&&wnFine()) gi.focus({preventScroll:true});
   if(p==='done'&&nx&&wnFine()) nx.focus({preventScroll:true}); }
 function wnVVOn(){ const v=window.visualViewport; if(!v) return;
-  if(!_wnVV){ _wnVV=()=>{ const r=document.querySelector('#modal [data-game-root]'); if(!r) return; const kb=window.innerHeight-v.height>120; r.style.height=Math.round(v.height)+'px'; r.style.top=Math.max(0,Math.round(v.offsetTop))+'px'; r.classList.toggle('is-kb',kb); wnScroll(false); };
+  if(!_wnVV){ _wnVV=()=>{ const r=document.querySelector('[data-game-root]'); if(!r) return; const kb=window.innerHeight-v.height>120;
+      if(r.classList.contains('is-inline')){ r.classList.toggle('is-kb',kb); r.style.height=kb?Math.round(v.height)+'px':''; r.style.top=kb?Math.max(0,Math.round(v.offsetTop))+'px':''; wnScroll(false); return; } r.style.height=Math.round(v.height)+'px'; r.style.top=Math.max(0,Math.round(v.offsetTop))+'px'; r.classList.toggle('is-kb',kb); wnScroll(false); };
     v.addEventListener('resize',_wnVV); v.addEventListener('scroll',_wnVV); }
   _wnVV(); }
 
@@ -131,8 +136,9 @@ async function wnIntro(){ const g=state.game; if(!g) return; const tok=++_wnSeq;
   const live=ok&&await wnPlay(r0?4000:1200); if(tok!==_wnSeq){ wnStopAudio(); return; }
   wnAdd({k:'a',text:L[ctx[0]].text,by:by0},live);
   if(ctx.length>1){ const t2=wnT(L[ctx[1]].t);
-    if(live&&isFinite(t2)&&t2>s0&&t2<tEnd){ let sent=false; const tt=setTimeout(()=>{ if(tok===_wnSeq&&!sent) wnTyping(true,null,by1); },380);
-      await wnWatch([{t:t2-0.04,fn:()=>{ sent=true; clearTimeout(tt); wnAdd({k:'a',text:L[ctx[1]].text,by:by1},true); }},{t:tEnd-0.12,fn:()=>{ wnLiveOff(); try{ wnAud().pause(); }catch(e){} }}],tok);
+    if(live&&isFinite(t2)&&t2>s0&&t2<tEnd){ let sent=false; const late=t2-s0>3, tt=late?0:setTimeout(()=>{ if(tok===_wnSeq&&!sent) wnTyping(true,null,by1); },380);
+      /* a long gap (a repeated hook) waits to show who types next until just before their line */
+      await wnWatch([...(late?[{t:t2-1.4,fn:()=>{ if(!sent) wnTyping(true,null,by1); }}]:[]),{t:t2-0.04,fn:()=>{ sent=true; clearTimeout(tt); wnAdd({k:'a',text:L[ctx[1]].text,by:by1},true); }},{t:tEnd-0.12,fn:()=>{ wnLiveOff(); try{ wnAud().pause(); }catch(e){} }}],tok);
     } else {
       if(live) await wnWatch([{t:(isFinite(t2)&&t2>s0?t2:s0+6)-0.1,fn:()=>{ wnLiveOff(); try{ wnAud().pause(); }catch(e){} }}],tok);
       if(tok!==_wnSeq) return; await wnWait(300); if(tok!==_wnSeq) return; wnTyping(true,null,by1); await wnWait(1150); if(tok!==_wnSeq) return;
@@ -179,7 +185,7 @@ function wcPickTargets(L,n){ const nk=i=>gnorm(L[i]&&L[i].text||''), cand=[];
   let best=[]; for(const [gap,uniq] of [[5,1],[4,1],[3,1],[5,0],[4,0],[3,0]]){ const p=run(gap,uniq); if(p.length>best.length) best=p; if(best.length>=n||(uniq&&best.length>=Math.min(3,n))) break; }
   return best.sort((a,b)=>a-b); }
 const _wnStart=startGame; startGame=function(id){ const before=state.game; wnHalt(); _wnStart.apply(this,arguments); const g=state.game; if(!g||g===before) return;
-  const tg=wcPickTargets(g.lines,wcRounds()); if(tg.length) g.targets=tg; g.plan=g.targets.map(ti=>({sid:g.song.id,ti})); wnHead();
+  g.lines=wcLines(g.song); const tg=wcPickTargets(g.lines,wcRounds()); if(tg.length) g.targets=tg; g.plan=g.targets.map(ti=>({sid:g.song.id,ti})); wnHead();
   wnUnlock(); ovHistPush('game'); wnGreet(); };
 /* unlock: an audible (silent) play inside the tap so phones allow round 1's audio later, then load the real song */
 let _wnSil=null;
@@ -191,7 +197,9 @@ function wnUnlock(){ const g=state.game, a=wnAud(), p0=g.plan&&g.plan[0], s=(p0&
   try{ a.muted=false; a.dataset.src=''; a.src=wnSilent(); const p=a.play(); g._unlock=((p&&p.then)?p.then(()=>{ try{ a.pause(); }catch(e){} },()=>{}):Promise.resolve()).then(load); }catch(e){ g._unlock=Promise.resolve().then(load); } }
 /* round 1 starts buffering at its first line while everyone says hi */
 function wnWarm(){ const g=state.game, p=g&&g.plan&&g.plan[0], a=wnAud(), s=p&&SONG_BY_ID[p.sid]; if(!s||!s.audioUrl||a.dataset.src!==s.audioUrl) return; const L=wcLines(s), l=L[Math.max(0,p.ti-2)], t=wnT(l&&l.t); if(isFinite(t)) try{ a.currentTime=t; }catch(e){} }
-function wcLines(s){ return (s.lyrics||[]).filter(l=>l.text&&l.text.trim()); }
+/* bracket-only text ("[Hook 2: Artist]") is a section label, never a message */
+const WC_TAG=/^\s*(?:\[[^\]]*\]\s*)+$/;
+function wcLines(s){ return (s.lyrics||[]).filter(l=>l.text&&l.text.trim()&&!WC_TAG.test(l.text)); }
 function wcRounds(){ const r=+((state.gameOpts||{}).rounds)||5; return [3,5,8,10,15].includes(r)?r:5; }
 function wcWho(s){ return wcMainId(s)||('n:'+normKey((s&&s.artist)||'')); }
 /* the artist named in a line's section label sends that line */
@@ -277,7 +285,7 @@ function wcStyleHtml(){ const c=wcCfg();
     <p class="wc-style-l">Glow</p>${wcSeg('glow',[['0','Off'],['1','Soft'],['2','Max']],c.glow)}
     <p class="wc-style-l">Text size</p>${wcSeg('ts',[['s','Small'],['m','Medium'],['l','Large']],c.ts)}
     <p class="wc-style-l">Outline the line that\u2019s playing</p>${wcSeg('live',[['0','Off'],['1','On']],c.live)}</div>`; }
-function wcApply(){ const r=document.querySelector('#modal [data-game-root]'); if(!r) return; const c=wcCfg(), t=wcTheme(), lt=state.theme==='light'&&t.f!=='neon';
+function wcApply(){ const r=document.querySelector('[data-game-root]'); if(!r) return; const c=wcCfg(), t=wcTheme(), lt=state.theme==='light'&&t.f!=='neon';
   r.dataset.wcf=t.f; r.dataset.wct=t.id; r.dataset.glow=c.glow; r.dataset.ts=c.ts; r.dataset.live=c.live; r.classList.toggle('is-light',lt); r.classList.toggle('dark-surface',!lt);
   [['--wc-me',t.me],['--wc-mf',t.mf||'#fff'],['--wc-nm',t.me],['--wc-na',t.a||t.me]].forEach(([k,v])=>r.style.setProperty(k,v));
   r.querySelectorAll('#wc-style [data-act^="wcx-"][data-val]').forEach(b=>{ const k=b.dataset.act.slice(4), on=c[k]===b.dataset.val; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });

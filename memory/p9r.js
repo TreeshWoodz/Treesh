@@ -93,7 +93,6 @@ function spDecorateOwn(){ const panel=document.getElementById('profile-panel'); 
   const sc=document.getElementById('profile-scroll'), hero=sc&&sc.querySelector('[data-testid="settings-profile"]'); if(!hero) return;
   const info=hero.querySelector(':scope > div.relative:not([data-testid="profile-banner"])'); if(info) info.classList.add('sp-info');
   const nm=hero.querySelector('[data-testid="settings-profile-name"]'), mood=spMoodHtml(S); if(nm&&mood) nm.insertAdjacentHTML('afterend',mood);
-  const eb=hero.querySelector('[data-testid="hero-edit-profile"]'); if(eb&&!hero.querySelector('[data-testid="profile-edit-style-button"]')) eb.insertAdjacentHTML('beforebegin',`<button type="button" data-act="sp-open" data-testid="profile-edit-style-button" class="pf-bubble press inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold"><i data-lucide="palette" style="width:15px;height:15px"></i>Style</button>`);
   const main=sc.querySelector(':scope > .pf-main'); if(main){ const [pre,post]=spSecsSplit(S,'me'); if(pre) main.insertAdjacentHTML('afterbegin',`<div class="sp-secs" data-testid="profile-space-sections">${pre}</div>`); if(post) main.insertAdjacentHTML('beforeend',`<div class="sp-secs is-post" data-testid="profile-space-sections-after">${post}</div>`); }
   icons(); }
 const _cpf9r=closeProfile; closeProfile=function(){ spEdClose(true); if(_spSong&&!document.getElementById('sx-root')) spSongStop(); return _cpf9r.apply(this,arguments); };

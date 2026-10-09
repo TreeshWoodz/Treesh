@@ -126,5 +126,5 @@ function pfMkStart(){ if(!state.profileOpen) openProfile(); if(state.settingsEdi
 const _mkdOff9k=mkdOff; mkdOff=function(){ document.documentElement.classList.remove('mkd-prof'); return _mkdOff9k.apply(this,arguments); };
 const _rpf9k=renderProfile; renderProfile=function(){ const r=_rpf9k.apply(this,arguments); try{ pfMkApply(); }catch(e){ console.warn('profile markup',e); } return r; };
 const _sph9k=settingsProfileHtml; settingsProfileHtml=function(editing){ const h=_sph9k.apply(this,arguments); if(editing) return h;
-  return h.replace('<button data-act="settings-edit-profile" data-val="on" data-testid="hero-edit-profile"','<button type="button" data-act="pf-mk" data-testid="hero-customize-profile" aria-label="Customize your profile with Magic Markup" title="Customize with Magic Markup" class="pf-bubble press grid h-10 w-10 place-items-center rounded-full"><i data-lucide="wand-sparkles" style="width:17px;height:17px"></i></button><button data-act="settings-edit-profile" data-val="on" data-testid="hero-edit-profile"'); };
+  return h; };
 document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.target.closest('[data-act="pf-mk"]'); if(!t) return; if(_mkd.on&&_mkd.prof){ mkdOff(); return; } pfMkStart(); });
