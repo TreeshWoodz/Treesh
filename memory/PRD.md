@@ -104,3 +104,14 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - M.A.D.: "Continue with GitHub" button (settings-github-signin-btn), setup hint when OAuth isn't configured, ?signin= toasts, activity rows show "Signed in with GitHub · @login" / "GitHub account not allowed".
 - Mock (server.py): /api/github/oauth/start skips github.com (?as=<login> to test denied, ?deny=1 for cancel); POST /api/mockgh/oauth/on|off toggles whether it's configured.
 - User must create a GitHub OAuth App (callback https://treesh.app/api/github/oauth/callback) and set GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET (and optionally MAD_GITHUB_USERS) in Netlify (Functions scope), then redeploy.
+
+## 2026-10 — Banner regression + What's New manager (BUILT, user uploads the files)
+- Banner regression cause: the user re-uploaded index.html without the earlier fix. M.A.D. now saves % positions (pctString with HERO_BOX), has a "Fix all banners" bulk action (fixBannerPositions), and warns when the live index lacks bnPosFit. Tested: iteration_15 (7/7).
+- What's New manager (iteration_16, 9/9): M.A.D. tab "What's New" writes content/whatsnew.json (cfg.wnPath).
+  - Popups: managed/locked/hidden/code access, items editor, icon picker, bump version, schedule.
+  - Carousel slides: code/managed/locked, full editor, art key or https link.
+  - Lint, staged drafts (treesh_mad_wn_draft), publish bar, Site check.
+  - Built-in snapshot WN_BUILTIN embedded (taken from the live site: 7 popups, 8 slides).
+- Main-site loader: memory/wn_loader.js (sets window.__treeshWN, applies the file over WHATS_NEW/WNU, caches it in treesh_wn_content, supports ?wn-preview=<id>, page:/url: CTA actions, autoPopups master switch).
+- memory/patch_main_index.py applies all main-site patches (storage, banner, model banner, loader) to any fresh index.html (CRLF safe).
+- Files for the user to upload: deliverables/index.html → main /index.html; deliverables/tools/mad.html → main /tools/mad.html; deliverables/songcoder.html → songcoder branch Tools/songcoder.html. github.mjs and package.json are already live on main.
