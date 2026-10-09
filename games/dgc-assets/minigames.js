@@ -252,5 +252,5 @@ const MUTATIONS = {
   tiptoe: ['Rotten Boards', 'Some boards creak unless you pause before stepping.'], safe: ['Extra Tumbler', 'A surprise fourth number appears mid-crack.'], radio: ['Frequency Jumps', 'The signal suddenly jumps far away.']
 };
 const MUTATE_AT = 4;
-const PAD_HINTS = { lockpick: 'Hold A (or RT) to pick', dial: 'D-pad to choose a digit, A to dial', scrub: 'Flick the left stick left and right', stitch: 'Tap A to stitch', keys: 'Hold A to reach', closet: 'Hold A to hold your breath', tiptoe: 'D-pad \u25c0 \u25b6 to step', safe: 'Hold D-pad \u25c0 \u25b6 to spin, tap to nudge', radio: 'D-pad \u25c0 \u25b6 to tune, hold A to transmit' };
+const PAD_HINTS = { lockpick: 'Hold A (or RT) to pick', dial: 'D-pad to choose a digit, A to dial', scrub: 'Flick the left stick left and right', stitch: 'Tap A to stitch', keys: 'Hold A to reach', closet: 'Hold A to hold your breath', tiptoe: 'D-pad \u25c0 \u25b6 to step', safe: 'Hold D-pad \u25c0 \u25b6 to spin, tap to nudge', radio: 'D-pad \u25c0 \u25b6 to tune, hold A to transmit', bestie: 'D-pad to move around your phone, A to tap (hold A on calls), B for home' };
 const CLASSIC_ROOMS = ['lockpick', 'dial', 'scrub', 'stitch', 'keys', 'closet', 'tiptoe', 'safe', 'radio'];

@@ -10,9 +10,9 @@ const Pad = {
 };
 const padKey = (type, key, code) => document.dispatchEvent(new KeyboardEvent(type, { key, code: code || key, bubbles: true }));
 function padFocusables() {
-  const scope = !$('#modal').hidden ? $('#modal') : (Run.active && R && R.mini && R.mini.id === 'dial' && R.started && !R.done) ? $('#act-stage') : $('.scr.on');
+  const scope = !$('#modal').hidden ? $('#modal') : (Run.active && R && R.mini && ['dial', 'bestie'].includes(R.mini.id) && R.started && !R.done) ? $('#act-stage') : $('.scr.on');
   if (!scope) return [];
-  return $$('button, input, a[data-act], .lo-who[data-act]', scope).filter(el => !el.disabled && el.offsetParent !== null && !el.closest('[hidden]') && el.id !== 'act-btn');
+  return $$('button, input, a[data-act], .lo-who[data-act], [data-p]', scope).filter(el => !el.disabled && el.offsetParent !== null && !el.closest('[hidden]') && el.id !== 'act-btn');
 }
 function padMove(d) {
   const f = padFocusables(); if (!f.length) return;
@@ -49,13 +49,14 @@ function padLoop() {
   } else if (inRoom) {
     const id = R.mini.id;
     if (id === 'dial') { if (repeat(12) || repeat(14)) padMove(-1); if (repeat(13) || repeat(15)) padMove(1); if (down(0)) padPress(); }
+    else if (id === 'bestie') { if (repeat(12) || repeat(14)) padMove(-1); if (repeat(13) || repeat(15)) padMove(1); const f = $('.pad-focus'); if (down(0) && f) f.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); if (up(0) && f) f.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); if (down(1)) { const h = $('[data-testid="bestie-home-btn"]'); if (h) h.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); } }
     else {
       [[14, 'ArrowLeft'], [15, 'ArrowRight']].forEach(([i, k]) => { if (down(i)) padKey('keydown', k); if (up(i)) padKey('keyup', k); });
       if (id === 'scrub') { const sx = ax < -0.5 ? -1 : ax > 0.5 ? 1 : 0; if (sx && sx !== Pad.stickX) padKey('keydown', sx < 0 ? 'a' : 'd'); Pad.stickX = sx; }
       if (down(0) || down(7)) padKey('keydown', ' ', 'Space'); if ((up(0) && !cur[7]) || (up(7) && !cur[0])) padKey('keyup', ' ', 'Space');
     }
     if (down(2)) padKey('keydown', '1'); if (down(3)) padKey('keydown', '2'); if (down(5)) padKey('keydown', '3');
-    if (down(9) || down(1)) padKey('keydown', 'Escape');
+    if (down(9) || (down(1) && id !== 'bestie')) padKey('keydown', 'Escape');
   } else {
     if (repeat(12) || repeat(14)) padMove(-1); if (repeat(13) || repeat(15)) padMove(1);
     if (down(0)) padPress();

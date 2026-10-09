@@ -15,6 +15,7 @@ function reasonText(r) {
     offlevel: 'Your hum wavered while he was listening.',
     impress: (m && m.imp && m.imp.fail) || 'He was not impressed.',
     bride: 'She heard you. She always hears you.',
+    bestie: 'You didn\u2019t finish his 12 favors in time. Bestie is SO disappointed in you.',
     quit: 'You gave up. Something was waiting right behind you.'
   })[r] || 'He caught you.';
 }
@@ -69,7 +70,7 @@ function onKiller(k, from, to) {
 function renderKiller() {
   if (!R) return; const k = R.k, m = R.mini, bride = Run.killer === 'bride', view = bride ? 'bride' : m.view || 'default', st = m.noKiller ? 'look' : k.state;
   const labels = bride ? { away: 'Far away', warn: 'Coming closer\u2026', look: 'RIGHT BESIDE YOU' } : Object.assign({ away: 'Back turned', warn: 'Turning\u2026', look: 'WATCHING' }, m.labels || {});
-  const SETS = { bride: ['bride_far', 'bride_far', 'bride_close'], bed: ['room_bedroom', 'room_bedroom', 'bed_awake'], closet: ['closet_empty', 'room_closet', 'closet_look'], judge: ['hush_front', 'hush_front', 'hush_front'], default: ['hush_back', 'hush_turn', 'hush_front'] };
+  const SETS = { bestie: ['bestie_art', 'bestie_art', 'bestie_art'], bride: ['bride_far', 'bride_far', 'bride_close'], bed: ['room_bedroom', 'room_bedroom', 'bed_awake'], closet: ['closet_empty', 'room_closet', 'closet_look'], judge: ['hush_front', 'hush_front', 'hush_front'], default: ['hush_back', 'hush_turn', 'hush_front'] };
   const src = (SETS[view] || SETS.default)[st === 'look' ? 2 : st === 'warn' ? 1 : 0], ims = $$('#kp .kp-im');
   if (ims.length) { const cur = ims.find(i => i.classList.contains('on')) || ims[0]; if (cur.dataset.src !== src) { if (!cur.dataset.src) { cur.src = img(src); cur.dataset.src = src; } else { const nx = ims.find(i => i !== cur); nx.src = img(src); nx.dataset.src = src; nx.classList.add('on'); cur.classList.remove('on'); } } }
   const b = $('#kp-badge'); if (!b) return;
@@ -82,7 +83,7 @@ function shake(lvl) { if (!S.set.shake) return; const g = $('#app'); g.classList
 /* ---------- Run lifecycle ---------- */
 function startRun(modeId, bring, opts = {}) {
   Run.daily = !!opts.daily; if (Run.daily) { modeId = 'classic'; bring = []; }
-  Run.killer = (modeId === 'classic' || modeId === 'hush') && !Run.daily && killerUnlocked(S.killer) ? S.killer : 'hush';
+  Run.killer = modeId === 'bestie' ? 'bestie' : (modeId === 'classic' || modeId === 'hush') && !Run.daily && killerUnlocked(S.killer) ? S.killer : 'hush';
   Run.dailyOfficial = false; Run.diff = Run.daily ? 'normal' : S.diff;
   if (Run.daily) {
     const di = dailyInfo(); Run.dailyKey = di.key; Run.bagRng = mulberry32(hashStr(di.key + ':bag'));
@@ -100,6 +101,7 @@ function startRun(modeId, bring, opts = {}) {
   renderGameShell(); show('scr-game'); Sfx.drone(true); nextRound();
 }
 function nextMini() {
+  if (Run.mode === 'bestie') return bestieMini();
   if (Run.mode === 'lullaby') { Run.lull++; return MINIS[Run.lull % 2 ? 'lullaby_pitch' : 'lullaby_level']; }
   if (Run.mode === 'impress') { if (!Run.bag.length) Run.bag = shuffle(IMPRESSIONS); return impressMini(Run.bag.pop()); }
   if (!Run.bag.length) { Run.bag = Run.daily ? seededShuffle(CLASSIC_ROOMS, Run.bagRng) : shuffle(CLASSIC_ROOMS); if (Run.lastRoom && Run.bag[Run.bag.length - 1] === Run.lastRoom) Run.bag.unshift(Run.bag.pop()); }
@@ -158,7 +160,7 @@ function step(dt) {
     if (R.loudT > 0.25) { R.loudT = 0; if (k.state === 'look' && !ctx_sh()) return caught('heard'); forceTurn(0.3); toast('He heard you!', 'Quiet\u2026', 'bad'); }
   }
   if (Run.killer !== 'bride' && !m.noKiller && !m.noSight && k.state === 'look' && now() - k.lookAt > 0.14 && act && !ctx_sh()) return caught(m.survive ? 'breath' : 'seen');
-  if (R.t >= R.limit) { if (m.survive) return win(); return caught(m.noKiller ? 'impress' : 'time'); }
+  if (R.t >= R.limit) { if (m.survive) return win(); return caught(m.endReason || (m.noKiller ? 'impress' : 'time')); }
   const bpm = m.noKiller ? 110 + R.progress * 0.5 : k.state === 'look' ? 165 : k.state === 'warn' ? 135 : 72 + R.progress * 0.45 + (R.t / R.limit) * 30;
   if (!m.noKiller && R.n >= 3 && S.set.flash && k.state === 'away' && Math.random() < dt * 0.015 * (1 + R.n * 0.06)) { const a = $('#act'); a.classList.remove('sub'); void a.offsetWidth; a.classList.add('sub'); Sfx.noise(0.08, 'highpass', 2500, 0.06); }
   Sfx.heartbeat(dt, bpm); updateHud();
@@ -244,7 +246,7 @@ function endRun(escaped, bank, reason) {
 function flash(c) { if (!S.set.flash) return; const f = $('#flash'); f.style.background = c; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 function jumpScare(res) {
   const js = $('#js'), comedic = res.reason === 'impress';
-  js.innerHTML = `<img src="${img(res.killer === 'bride' ? 'bride_scare' : 'hush_scare')}" alt="" data-testid="jumpscare-image"><div class="js-cap"><b>${comedic ? esc(res.text) : 'CAUGHT'}</b>${res.taunt && S.set.taunts ? `<i data-testid="jumpscare-taunt">\u201c${esc(TAUNT_TEXT[res.taunt])}\u201d</i>` : ''}</div>`;
+  js.innerHTML = `<img src="${img(SCARE_IMG[res.killer] || 'hush_scare')}" alt="" data-testid="jumpscare-image"><div class="js-cap"><b>${comedic ? esc(res.text) : 'CAUGHT'}</b>${res.taunt && S.set.taunts ? `<i data-testid="jumpscare-taunt">\u201c${esc(TAUNT_TEXT[res.taunt])}\u201d</i>` : ''}</div>`;
   if (res.taunt) setTimeout(() => Sfx.speak(res.taunt, res.killer), 850);
   js.hidden = false; js.classList.toggle('noflash', !S.set.flash); js.classList.remove('go'); void js.offsetWidth; js.classList.add('go');
   Sfx.scream(); if (comedic) setTimeout(() => Sfx.honk(), 700); shake(2); haptic([80, 40, 700], 1);

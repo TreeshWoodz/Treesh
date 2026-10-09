@@ -118,6 +118,7 @@ const MODES = [
   { id: 'classic', name: 'Nightfall', tag: 'Classic', icon: 'moon', voice: false, desc: 'Nine rooms. One killer. Only work while his back is turned.' },
   { id: 'hush', name: 'Dead Silent', tag: 'Voice', icon: 'mic-off', voice: true, desc: 'Same rooms, but your mic is live. Make a sound and he hears you.' },
   { id: 'lullaby', name: 'Lullaby', tag: 'Voice', icon: 'audio-waveform', voice: true, desc: 'Hum along to his shifting note, and never stop when he\u2019s listening.' },
+  { id: 'bestie', name: 'Bestie', tag: 'Phone \u00b7 Comedy horror', icon: 'smartphone', voice: false, desc: 'Your best friend needs a few favors. Do what he texts, fast, or he takes your friends one by one.' },
   { id: 'impress', name: 'Impressions', tag: 'Voice \u00b7 Comedy', icon: 'drama', voice: true, desc: 'He\u2019s bored. Sound like a pig. Or a car engine. Or else.' }
 ];
 const modeById = id => MODES.find(m => m.id === id) || MODES[0];
@@ -153,6 +154,8 @@ const ACH = [
   { id: 'swift', name: 'Swift Hands', desc: 'Clear a room with more than half the candle left.', tier: 'bronze', icon: 'zap' },
   { id: 'hard5', name: 'Terror Incarnate', desc: 'Survive 5 nights on Terror difficulty. Unlocks Unseen.', tier: 'gold', icon: 'eye-off' },
   { id: 'unseen3', name: 'Eyes Wide Shut', desc: 'Survive 3 nights on Unseen difficulty.', tier: 'platinum', icon: 'ghost' },
+  { id: 'bestie1', name: 'Bestie Approved', desc: 'Finish all 12 of Bestie\u2019s requests in time.', tier: 'silver', icon: 'smartphone' },
+  { id: 'bestie_all', name: 'Nobody Left the Chat', desc: 'Finish a Bestie night with all 5 friends alive.', tier: 'gold', icon: 'users' },
   { id: 'mutant', name: 'Adapt or Die', desc: 'Clear 10 mutated rooms.', tier: 'silver', icon: 'biohazard' },
   { id: 'collector', name: 'Every Last Word', desc: 'Unlock every voice line in the Killer Gallery.', tier: 'gold', icon: 'audio-lines' },
   { id: 'daily3', name: 'Regular Guest', desc: 'Play the Nightly Challenge 3 nights in a row.', tier: 'silver', icon: 'calendar-check' }
@@ -163,6 +166,8 @@ const KILLERS = [
   { id: 'hush', name: 'Mr. Hush', sense: 'Sight', icon: 'eye', img: 'hush_front', desc: 'Only kills what he sees. Freeze when he turns around.' },
   { id: 'bride', name: 'The Hollow Bride', sense: 'Sound', icon: 'ear', img: 'bride_close', unlockAt: 10, desc: 'Blind, eyes sewn shut. She hunts by sound: keep your noise under her line, and the closer she gets, the lower that line drops.' }
 ];
+KILLERS.push({ id: 'bestie', name: 'BESTIE', sense: 'Your phone', icon: 'smartphone', img: 'bestie_face', modeOnly: true, desc: 'Your best friend. He just needs you to answer. Every time.' });
+const SCARE_IMG = { hush: 'hush_scare', bride: 'bride_scare', bestie: 'bestie_face' };
 const killerById = id => KILLERS.find(k => k.id === id) || KILLERS[0];
 const killerUnlocked = id => !killerById(id).unlockAt || bestNightAll() >= killerById(id).unlockAt;
 
@@ -190,9 +195,10 @@ const dailyPlayedToday = () => S.daily.key === dailyInfo().key && S.daily.played
 /* ---------- Spoken taunts (pre-generated voice lines) ---------- */
 const TAUNTS = {
   hush: { caught: ['hush_c1', 'hush_c2', 'hush_c3', 'hush_c4', 'hush_c5', 'hush_c6'], time: ['hush_t1', 'hush_t2'], impress: ['hush_i1', 'hush_i2'], escape: ['hush_e1', 'hush_e2', 'hush_e3', 'hush_e4'] },
+  bestie: { caught: ['bestie_c1', 'bestie_c2', 'bestie_c3'], escape: ['bestie_e1', 'bestie_e2'] },
   bride: { caught: ['bride_c1', 'bride_c2', 'bride_c3', 'bride_c4'], time: ['bride_t1', 'bride_t2'], escape: ['bride_e1', 'bride_e2'] }
 };
-const TAUNT_TEXT = { hush_c1: 'I see you.', hush_c2: 'There you are\u2026', hush_c3: 'Shhh\u2026 it\u2019s over now.', hush_c4: 'You moved. I told you\u2026 not to move.', hush_c5: 'Found you.', hush_c6: 'Hush now. Hush.', hush_t1: 'The candle\u2019s out. So are you.', hush_i1: 'That\u2026 was pathetic.', hush_i2: 'Do it again. Oh, wait. You can\u2019t.', hush_e1: 'Run, little guest. I\u2019ll be waiting.', hush_e2: 'Leaving so soon? Come back tomorrow night.', hush_e3: 'Go on. The door was never locked.', hush_e4: 'I\u2019ll keep your room\u2026 just as you left it.', bride_c1: 'I heard you.', bride_c2: 'Such a loud\u2026 little heart.', bride_c3: 'Shhh. Stay with me\u2026 forever.', bride_e1: 'I\u2019ll listen for you\u2026 always.', bride_c4: 'Shhh\u2026 I can hear you thinking.', bride_t1: 'The candle died, darling. I never needed the light.', bride_t2: 'Darkness changes nothing for me\u2026 but everything for you.', bride_e2: 'Go, then. I will hear your heart from miles away.', hush_t2: 'No more light. Only me.' };
+const TAUNT_TEXT = { hush_c1: 'I see you.', hush_c2: 'There you are\u2026', hush_c3: 'Shhh\u2026 it\u2019s over now.', hush_c4: 'You moved. I told you\u2026 not to move.', hush_c5: 'Found you.', hush_c6: 'Hush now. Hush.', hush_t1: 'The candle\u2019s out. So are you.', hush_i1: 'That\u2026 was pathetic.', hush_i2: 'Do it again. Oh, wait. You can\u2019t.', hush_e1: 'Run, little guest. I\u2019ll be waiting.', hush_e2: 'Leaving so soon? Come back tomorrow night.', hush_e3: 'Go on. The door was never locked.', hush_e4: 'I\u2019ll keep your room\u2026 just as you left it.', bride_c1: 'I heard you.', bride_c2: 'Such a loud\u2026 little heart.', bride_c3: 'Shhh. Stay with me\u2026 forever.', bride_e1: 'I\u2019ll listen for you\u2026 always.', bride_c4: 'Shhh\u2026 I can hear you thinking.', bride_t1: 'The candle died, darling. I never needed the light.', bride_t2: 'Darkness changes nothing for me\u2026 but everything for you.', bride_e2: 'Go, then. I will hear your heart from miles away.', hush_t2: 'No more light. Only me.', bestie_c1: 'Bestieee\u2026 why did you leave me on read?', bestie_c2: 'You had ONE job, bestie. Now we can be together. Forever.', bestie_c3: 'Aww, don\u2019t cry. The group chat is so much quieter now.', bestie_e1: 'Look at you! Twelve for twelve. I am SO proud of you, bestie.', bestie_e2: 'Same time tomorrow? I already know where you live.' };
 function pickTaunt(killer, kind) { const t = TAUNTS[killer] || TAUNTS.hush, pool = t[kind] || t.caught; return pick(pool); }
 const RANKS = [[0, 'Prey'], [3, 'Hider'], [6, 'Survivor'], [10, 'Phantom'], [15, 'Nightmare'], [20, 'The Unseen']];
 function rankOf(best) { let r = RANKS[0][1]; RANKS.forEach(([n, t]) => { if (best >= n) r = t; }); return r; }
