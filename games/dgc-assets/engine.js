@@ -16,6 +16,7 @@ function reasonText(r) {
     impress: (m && m.imp && m.imp.fail) || 'He was not impressed.',
     bride: 'She heard you. She always hears you.',
     bestie: 'You didn\u2019t finish his 12 favors in time. Bestie is SO disappointed in you.',
+    bestie_you: 'Eeny, meeny, miny\u2026 YOU. Bestie picked you. He always had a favorite.',
     quit: 'You gave up. Something was waiting right behind you.'
   })[r] || 'He caught you.';
 }
@@ -114,7 +115,7 @@ function nextRound() {
   R = { mini: m, n, mods, t: 0, progress: 0, done: false, started: false, k: makeKiller(n, mods, m), shieldUntil: 0, adrenUntil: 0, lastActive: -9, loudT: 0, noise: 0 };
   R.limit = (m.limit ? m.limit(n) : 30 + Math.min(10, n * 0.3)) * (m.survive ? 1 : mods.timeMult) * (m.noKiller ? mods.imp : 1) + (m.noKiller ? 0 : mods.time);
   $('#h-night').textContent = n; $('#h-room').textContent = m.name; $('#act-bg').style.backgroundImage = `url(${img(m.room)})`;
-  $('#act').classList.toggle('v-bestie', m.view === 'bestie'); $('#act').style.setProperty('--light', lightRGB()); $('#act').style.setProperty('--sub', `url(${img(Run.killer === 'bride' ? 'bride_scare' : 'hush_scare')})`); $('#h-time').hidden = mods.hideView; $('#nm-lim').hidden = mods.hideView;
+  $('#act').classList.toggle('v-bestie', m.view === 'bestie'); $('#scr-game').classList.toggle('bestie-full', m.view === 'bestie'); $('#act').style.setProperty('--light', lightRGB()); $('#act').style.setProperty('--sub', `url(${img(Run.killer === 'bride' ? 'bride_scare' : 'hush_scare')})`); $('#h-time').hidden = mods.hideView; $('#nm-lim').hidden = mods.hideView;
   const btn = $('#act-btn'); btn.hidden = !!m.noBtn; btn.innerHTML = `<i data-lucide="${m.icon}"></i><span>${esc(m.verb || '')}</span><kbd class="kb-hint">Space</kbd><b class="gp pad-hint" data-b="A">A</b>`;
   $('#vm').hidden = Run.mode !== 'hush' || Run.killer === 'bride'; $('#nm').hidden = Run.killer !== 'bride'; $('#act-stage').innerHTML = ''; renderItems(); renderKiller(); updateHud();
   const intro = $('#act-intro');
