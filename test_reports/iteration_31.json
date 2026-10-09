@@ -1,0 +1,80 @@
+{
+  "summary": "Phase 9 batch 31 (A/B/C/D) frontend testing on vanilla-JS SPA at http://localhost:3000/. All four requested features PASS on both iPhone 13 and desktop (1400x850). Reused scripts in /app/memory/tests/ (nt.py, morph.py, arhero.py, syncrl.py) + 2 ad-hoc scripts (/tmp/arfill.py, /tmp/toga.py). No pageerror on index.html or _sbtest.html for either viewport.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/memory/tests/nt.py",
+    "/app/memory/tests/morph.py",
+    "/app/memory/tests/arhero.py",
+    "/app/memory/tests/syncrl.py"
+  ],
+  "detailed_results": {
+    "A_nav_profile_toggle_iphone13": {
+      "default": "[data-testid=nav-profile-avatar] width=34px, no [data-testid=nav-profile-name], nav text='T' (initial only, no 'Profile' word)",
+      "settings_toggle": "[data-testid=settings-toggle-nav-profile-name] present in Voice & Controls tab; click flips localStorage treesh_nav_pf_name='true'",
+      "after_on": "avatar shrinks to 28px, [data-testid=nav-profile-name] shows 'Tester'",
+      "persistence": "after full reload: avatar=28px, name='Tester' still shown",
+      "note": "Settings search input selector not located via data-testid or placeholder in this quick probe (minor; search coverage not verified here but main feature works)."
+    },
+    "B_notifications_mobile": {
+      "boot": "bell visible, badge=0 hidden, items=[star app seed], _ntOk=true, live channel 'treesh-nt-ua1' active, sbUser=true",
+      "friend_request_banner": "__mockAs(ub1,send_friend_request) -> banner 'Bobby B sent you a friend request' within <1s, badge=1",
+      "accept": "accept action -> __mock_sb_db.friendships = [{r:ub1,a:ua1,s:accepted}], banner done='accepted', badge back to 0",
+      "removed_plus_staff": "friend_removed + staff_set_verified -> 2 stacked banners ('You're verified', 'Bobby B removed you as a friend'), badge=2, staff name never shown",
+      "center_geometry_iphone13": "panel rect top=84 bottom=579, header 0-78, nav 587-654 — strictly between header and nav ✓",
+      "tabs_search": "Online tab filters to 3 online rows; search 'verified' narrows to the staff item only; clear + mark-all-read drops badge to 0 and sets notifs read:true in mock db",
+      "dnd": "nt-dnd-seg-1h -> ntDnd()=true, bell has class 'is-dnd'; subsequent friend_request shows NO banner (banners=[]) but badge still +1 and item saved to history ✓",
+      "close": "notifications-close-btn removes #nt-root; state.ntOpen=false",
+      "app_history": "toast('Added to Liked'/'Theme changed') saved as app-tab items (read:true by default)"
+    },
+    "B_notifications_desktop": {
+      "drawer_rect": "panel 948-1388 (width 440) × 12-838, right-side floating drawer ✓",
+      "nav_avatar_width": "0 (mobile nav hidden on desktop)",
+      "all_other_flows": "identical to mobile — pass"
+    },
+    "C_icon_header": {
+      "iphone13_artists_tested": "15, 3, 1, 11, 13, 12",
+      "mobile_fit": "bg.dataset.fit='fill' for all; object-position uses dataset.posM: '50% 50%' when posM is 'center center', '56% 0%' for artist 11 (posM='56% 0%') ✓",
+      "mobile_coverage": "artist 13: hero[16,150,358,379] bg[17,151,356,377] img[10,143,371,393] — img rect covers bg rect in all directions (no empty strip) ✓",
+      "desktop_1400x850_artist13": "bg.dataset.fit='whole', pos='50% 50%', img centered within bg (631,151 wh=406x406 vs bg 301,151 w=1066) — no cropping",
+      "desktop_blurred_fill": ".ar-hero-fill present, opacity=1, filter='blur(28px) saturate(1.25) brightness(0.62)' ✓",
+      "resizeObserver": "resize 1400→390 flips fit 'whole'→'fill'; resize back 390→1400 flips to 'whole' ✓"
+    },
+    "D1_lyric_studio_no_redraw": {
+      "identity_preserved": "After clicking card-style-classic, card-theme-2, card-theme-4, card-bg-mode-cover: backdrop===__bd TRUE, canvas===__cv TRUE, scroll container===__sc TRUE across all",
+      "scroll_retained": "mobile scrollTop ∈ {1083,1083,1083,760}; desktop 688 steady — kept across style/theme switches (bg-mode-cover reduces because image recomputes)",
+      "exactly_one_style_card": "[data-testid=lyric-card-style-card].length === 1 across every switch",
+      "chat_style": "card-style-chat -> aria-pressed='true', [data-act=lc-clip] count=2 (both desktop+mobile dupes expected), other bg cards hidden=[true]",
+      "classic_style": "card-style-classic -> lc-clip count=0, bg cards shown, style name='Classic'",
+      "image_identity": "img element preserved for pure theme/style switches, replaced only on bg-mode-cover (expected since source bg changes)",
+      "card-bg-mode-theme": "button not present in classic state (3s click timeout) — not a bug, button only appears in applicable states"
+    },
+    "D2_app_wide_no_redraw": {
+      "home_after_toggleFav_and_renderShell_renderView": "#view firstChild same, 5/5 tracked images still connected, header same, exactly ONE bell button",
+      "views_renderView_idempotent": "artists(269), library(1912), playlists(33), settings(1899), studios(170), game(355), favorites(32) — same count after calling renderView() twice, firstElementChild identity preserved",
+      "settings_tabs_rerender": "appearance / voice / account / system all re-render clean (no duplicates on screenshot)",
+      "artist_hero_rerender": "renderView() on artist page keeps .ar-hero-photo identical element"
+    },
+    "D3_sync_banner": {
+      "sbReload_with_studio_open": "window.__mark=1 after sbReload() (NO page reload), banner 'Synced from your other device' shown, [data-testid=notification-banner-action-refresh] present, studio modal still open ✓",
+      "visibilitychange_hidden": "page reloads quietly (__mark=0 after hidden), 1 'sync' item saved in App history before reload ✓"
+    },
+    "regression_smoke": {
+      "pageerror_counts": "0 on desktop index.html, 0 on desktop _sbtest.html, 0 on iPhone 13 index.html, 0 on iPhone 13 _sbtest.html"
+    }
+  },
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100%"},
+  "test_credentials": "Mock harness only (/_sbtest.html seeded via localStorage per /app/memory/test_credentials.md)",
+  "seed_data_creation": "localStorage treesh_whatsnew_off/treesh_eco_ask/treesh_profile; __mock_sb_db + __mock_sb_session for _sbtest.html — all gated by sessionStorage 'seeded' so init-script runs once per context.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 features (A nav profile toggle, B notifications center+banners+DND, C icon-header fit/pos mobile+desktop blurred side, D no-redraw across studio/views + gentle sync) pass cleanly. Reusable scripts: /app/memory/tests/{nt,morph,arhero,syncrl}.py plus /tmp/toga.py and /tmp/arfill.py (consider moving the latter two under /app/memory/tests/ if persisted). Minor: couldn't locate a settings search input via [data-testid=settings-search-input] or placeholder — if main agent wants to verify 'Show my name under my picture' is searchable in Settings search, confirm the search input's data-testid.",
+  "rca of the issue": "No bugs found."
+}
