@@ -171,6 +171,7 @@ function renderLoadout() {
     <h3 class="sec-h"><i data-lucide="ghost"></i>Pick your nightmare</h3>
     <section class="mode-pick"><div class="mode-cards" data-testid="mode-cards">${MODES.map((x, i) => `<button class="mode-card ${x.id === m.id ? 'on' : ''}" style="--i:${i}" data-act="mode-pick" data-id="${x.id}" data-testid="mode-card-${x.id}"><span class="mc-art" style="background-image:url(${img(CARD_ART[x.id])})"></span><em class="mc-tag">${esc(x.tag)}</em>${x.voice ? '<i data-lucide="mic" class="mc-mic"></i>' : ''}<b>${esc(x.name)}</b></button>`).join('')}</div>
     <p class="mc-desc" data-testid="mode-card-desc"><i data-lucide="${m.icon}"></i><span><b>${esc(m.name)}</b>${esc(m.desc)}</span></p></section>
+    ${m.id === 'bestie' ? `<h3 class="sec-h"><i data-lucide="coffee"></i>Bestie\u2019s pace</h3><div class="chips" data-testid="bestie-pace">${[['normal', 'Normal', 'zap', 'rapid-fire favors'], ['chill', 'Chill', 'coffee', 'slow commands \u00b7 read the chat']].map(([id, n, ic, d]) => `<button class="chip ${(S.bpace || 'normal') === id ? 'on' : ''}" data-act="bpace" data-id="${id}" data-testid="bestie-pace-${id}"><i data-lucide="${ic}"></i>${n}<small>${d}</small></button>`).join('')}</div>` : ''}
     <h3 class="sec-h"><i data-lucide="sparkle"></i>Trait</h3>
     <div class="chips" data-testid="trait-chips">${TRAITS.filter(t => S.traits.includes(t.id)).map(t => `<button class="chip ${S.trait === t.id ? 'on' : ''}" data-act="trait-pick" data-id="${t.id}" data-testid="loadout-trait-${t.id}"><i data-lucide="${t.icon}"></i>${esc(t.name)}</button>`).join('')}<button class="chip ghost" data-act="go" data-to="shop"><i data-lucide="plus"></i>More in the Pantry</button></div>
     <h3 class="sec-h"><i data-lucide="gauge"></i>Difficulty</h3>
@@ -269,6 +270,7 @@ document.addEventListener('click', e => {
       S.look = Object.assign(lookOf(), { [c.kind]: id }); save(); if (id !== 'charm_none' && id !== 'light_warm') unlock('dressed'); renderShop(); break; }
     case 'gal-scare': previewScare(id); break;
     case 'gal-line': Sfx.speak(id, t.dataset.k, true); break;
+    case 'bpace': S.bpace = id; save(); Sfx.whisper(); renderLoadout(); break;
     case 'mode-pick': if (S.mode !== id) { S.mode = id; save(); Sfx.whisper(); renderLoadout(); } break;
     case 'diff': S.diff = id; save(); Sfx.tone(440, 0.1, 'triangle', 0.1); renderLoadout(); break;
     case 'buy': { const it = itemById(id); if (Treesh.spend(it.cost, 'DGC: ' + it.name)) { S.inv[id] = (S.inv[id] || 0) + 1; S.stats.bought++; save(); unlock('shopper'); Sfx.chime([660, 990]); toast('Bought ' + it.name, 'Owned: ' + S.inv[id]); renderShop(); } else toast('Not enough Starlites', '', 'bad'); break; }
