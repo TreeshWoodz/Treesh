@@ -17,14 +17,14 @@ function bestieMini() {
     hint: 'Your best friend needs you to do stuff on your phone. Finish 12 requests before the candle burns out. Every request you miss gets a friend killed and twists your world.',
     limit: n => Math.max(95, 150 - n * 8),
     mount(el, ctx) {
-      const P = { scr: 'home', loc: false, dnd: false, wall: 'sunset', pad: '', chat: [], req: null, done: 0, alive: SQUAD.slice(), twist: null, twLeft: 0, form: null, order: B_APPS.map((_, i) => i), call: null, wait: 1.6, last: '' };
+      const P = { scr: 'home', loc: false, dnd: false, wall: 'sunset', pad: '', chat: [], req: null, done: 0, alive: SQUAD.slice(), twist: null, twLeft: 0, form: null, order: B_APPS.map((_, i) => i), call: null, wait: 1.6, last: '', rage: 0 };
       const NEED = 12, say = (from, t) => { P.chat.push({ from, t }); if (P.chat.length > 30) P.chat.shift(); };
       say('b', 'heyyy bestie!! i need u to do some stuff for me ok?? \u2665');
       el.innerHTML = `<div class="mg mg-bestie"><div class="phone" id="ph" data-testid="bestie-phone"></div></div>`;
       const ph = $('#ph', el);
       const newReq = () => {
         let t; do t = pick(B_TYPES); while (t === P.last); P.last = t;
-        const r = { type: t, t0: ctx.elapsed(), dur: Math.max(8, 15 - ctx.night * 0.7) + (t === 'call' ? 4 : 0) };
+        const r = { type: t, t0: ctx.elapsed(), dur: Math.max(P.rage ? 5 : 8, 15 - ctx.night * 0.7 - P.rage * 1.5) + (t === 'call' ? 4 : 0) };
         if (t === 'reply') { r.ask = pick(B_PHRASES); r.opts = shuffle([r.ask, r.ask.replace(/\w+$/, 'potato'), 'k']); r.text = `reply "${r.ask}" rn`; }
         if (t === 'call') { r.text = 'pick up. im calling u.'; r.ring = 1.2; }
         if (t === 'like') { r.posts = shuffle(['bestie', pick(P.alive.length ? P.alive : SQUAD), 'mom']); r.text = 'like my new post. NOW.'; }
@@ -45,8 +45,8 @@ function bestieMini() {
       const fail = why => {
         P.req = null; P.call = null; P.order = P.order.filter(i => i < 6); say('b', why); shift('*poof* im'); Sfx.tone(160, 0.6, 'sawtooth', 0.2, 60); Sfx.noise(0.4, 'highpass', 1800, 0.25); shake(2); haptic(300, 0.9);
         if (P.alive.length) { const v = P.alive.splice(Math.floor(Math.random() * P.alive.length), 1)[0]; say('sys', `${v} left the chat.`); setTimeout(() => Sfx.scream(), 250); }
-        else { R.t += 10; say('sys', 'No one left. You\u2019re next ;) (-10s)'); }
-        const tw = pick(B_TWISTS.filter(x => !P.twist || x[0] !== P.twist[0])); P.twist = tw; P.twLeft = 3; say('sys', `Bestie changed your world: ${tw[1]}. ${tw[2]}`); setEnv(); P.wait = 2; draw();
+        else { P.rage++; say('sys', P.rage === 1 ? 'No one left. It\u2019s just you and me now ;)' : 'Bestie is getting impatient\u2026'); setTimeout(() => Sfx.scream(), 250); shake(4); haptic(500, 1); }
+        const tw = pick(B_TWISTS.filter(x => !P.twist || x[0] !== P.twist[0])); P.twist = tw; P.twLeft = 3 + P.rage * 2; say('sys', `Bestie changed your world: ${tw[1]}. ${tw[2]}`); setEnv(); P.wait = P.rage ? 0.6 : 2; draw();
       };
       const shift = pre => { P.form = pick(B_FORMS.filter(f => f !== P.form)); say('b', `${pre} ${P.form[0]} now. i can be anything. i can be ANYWHERE.`); const m = R.mini; m.labels = { look: 'Bestie is ' + P.form[0] }; renderKiller(); Sfx.tone(300, 0.5, 'sine', 0.12, 1200); };
       const bAv = () => P.form ? `<span class="bform"><i data-lucide="${P.form[1]}"></i></span>` : `<img src="${img('bestie_face')}" alt="">`;
