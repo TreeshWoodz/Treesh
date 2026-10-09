@@ -44,5 +44,11 @@ for a, b in reps:
     n = s.count(a)
     assert n == 1, (a[:70], n)
     s = s.replace(a, b)
+loader = open('/app/memory/wn_loader.js', encoding='utf-8').read()
+if '__treeshWN' not in s:
+    i = s.rfind('</body>')
+    assert i > 0
+    nl = '\r\n' if '\r\n' in s[:2000] else '\n'
+    s = s[:i] + loader.replace('\n', nl) + s[i:]
 open(dst, 'w', encoding='utf-8', newline='').write(s)
 print('ok', len(s))

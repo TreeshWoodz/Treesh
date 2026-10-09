@@ -1,0 +1,26 @@
+{
+  "summary": "End-to-end frontend testing of the banner-position bug fix in Treesh M.A.D. (songcoder.html + patched treesh-main.html). All 7 requested scenarios pass: (1) Artists view notice '11 banners use old pixel positions…' visible after reset; Fix all banners in PR mode opens PR #1 'Fix banner positions for 11 artists' and the PR branch's content/icons.html has ZERO px values (e.g. Reez data-bg-pos becomes '50% 30.8%', mobile values like Chelly '56% 0%' and OzMozes 'center top' preserved). Diffing non-bgpos attributes shows 0 changes across all 12 <article class=\"artist\"> blocks. (2) Live mode (set via cfg.mode='live'): Fix all banners commits straight to main, notice hides after reload, 12 artist cards still render, main icons.html has 0 px left. (3) Single artist edit on Reez #12: typing 'center -200px' into artist-bgpos-input and clicking profile-preview-desktop-btn shows 'Desktop: center -200px → shows as 50% 30.8%'; after artist-save-btn the PR commit has data-bg-pos exactly '50% 30.8%' and mobile is a percent '50% 50%' (no px). (4) Drag on profile-preview-banner writes a percent (desktop '50% 100%', mobile '50% 70%') into the inputs and the committed block matches those exact percents. (5) treesh-main.html (patched copy) uses mobile value on phone (390x844): Reez #12 object-position='50% 50%' (from 'center center'), Chelly #11 object-position='56% 0%'. (6) On desktop 1400x900 Reez #12 object-position='50% 31.4%' — converted from 'center -200px' to percent, hero fills (heroH=430, imgH=430) with no empty gap. (7) No console errors in songcoder flows (only expected CORS warnings fetching treesh.app).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_15.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "pctPos/pctString/HERO_BOX fallback chain correctly clamps px → percent when imgSize fails (uses sensible default). Verified that for Reez (center -200px) desktop produces 30.8% and matches both the preview label and the committed PR block exactly — single source of truth works.",
+    "fixBannerPositions() filters state.roster by hasPx(a.bgPos) || hasPx(a.bgPosMobile) and iterates in one commit — PR mode result message 'Fix banner positions for 11 artists' and live mode commit on main both verified; apply() only rewrites data-bg-pos / data-bg-pos-mobile attrs, leaving every other char of each <article> intact (verified by diffing).",
+    "artist save handler (lines ~2186) runs pctString on both desktop + mobile before commit — confirmed on single edit and drag flows: no 'px' ever reaches the file.",
+    "treesh-main.html bnPosPct/bnPosFit honours data-bg-pos-mobile on phone (Chelly 56% 0%, Reez center center → 50% 50%) and converts desktop px live via onload+resize so a stale icons.html still renders correctly. No gap on desktop (imgH==heroH==430) confirms the fix for the original bug.",
+    "renderArtists notice toggles off correctly after a live-mode fix (reads from the just-reloaded roster). In PR mode it stays visible because main still has px until the PR merges — correct UX.",
+    "Non-blocking: fetch to https://treesh.app/content/blog from preview origin produces a CORS console error on songcoder boot (same as noted in iteration_14). Not functional, could be gracefully suppressed when origin!=treesh.app."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only run)", "frontend": "100% (7/7 scenarios)"},
+  "test_credentials": "M.A.D. passcode: TreeshMAD-test-2026. Reset mock GH: POST /api/mockgh/reset.",
+  "seed_data_creation": "localStorage treesh_profile='{\"nickname\":\"T\",\"joined\":1}' on treesh-main.html to pass the join-gate.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Banner-position bug is fully fixed end-to-end. songcoder: Fix all banners (data-testid=artists-fix-banners-btn) + single-artist save + drag on profile-preview-banner all run pctString before commit. treesh-main.html bnPosPct/bnPosFit converts px→percent via onload/resize and uses mobile vs desktop raw correctly. Note: Settings drawer has no mode toggle; publish mode lives on the Compose publish bar (data-testid=mode-live-btn / mode-pr-btn) or can be flipped in localStorage key treesh_songcoder_cfg_v2 → mode:'live'. profile-preview phone btn testid is 'profile-preview-mobile-btn' (not phone-btn)."
+}
