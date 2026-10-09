@@ -4073,7 +4073,7 @@ function navItem(v,label,ic,mobile){ const active=navIsActive(v); const badge=wn
 function renderShell(){
   if(state._keepY==null){ state._keepY=window.scrollY||window.pageYOffset||0; setTimeout(()=>{ state._keepY=null; },0); }
   const p=state.profile||{};
-  const _shellHtml=`
+  $("#app").innerHTML=`
   <aside class="nav-glass fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
     <div class="px-6 pb-4 pt-6"><img src="https://64.media.tumblr.com/c3a9171b66dff3f4d1b204629d553f62/f0962fce333cd090-3d/s250x400/9cc28d33e0d7075a9d5122424756269c6a0e617c.png" alt="Treesh" draggable="false" class="h-9 w-auto select-none object-contain" onerror="brandFallback(this)"><p class="brand-fallback font-display text-2xl uppercase tracking-[0.1em] text-white" style="display:none">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Welcome to the Woodz</p></div>
     <nav class="flex flex-col gap-1 px-3">${mkNav(NAV).map(n=>navItem(n[0],n[1],n[2],false)).join("")}
@@ -4098,7 +4098,6 @@ function renderShell(){
   <nav id="mobile-nav" class="nav-glass fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-black/70 backdrop-blur-2xl lg:hidden">
     <div class="flex items-center justify-around px-2 pb-[calc(env(safe-area-inset-bottom)+6px)] pt-2">${navMobileHtml()}</div>
   </nav>`;
-  { const _a=$("#app"); if(morphOK()&&_a.querySelector('#view')) morphHTML(_a,_shellHtml); else _a.innerHTML=_shellHtml; }
   icons();
   syncNavHeight();
   requestAnimationFrame(syncNavHeight);
@@ -5547,7 +5546,7 @@ function renderView(animate=false){
     case "picks": html=viewPicks(); break;
     default: html=viewLibrary();
   }
-  if(!animate&&v.firstElementChild&&morphOK()&&state.view!=='instrum'&&!state.game) morphHTML(v,html); else v.innerHTML=html; icons();
+  v.innerHTML=html; icons();
   restoreScroll(v, _scrollMap);
   if(!animate){ try{ window.scrollTo(0,_prevY); }catch(e){} }
   if(state.view==="instrum" && state.instrum && state.instrum.started) requestAnimationFrame(()=>{ if(state.instrum && state.instrum.playing) iHighlightCol(state.instrum.visStep); iAfterRender(); });
@@ -5580,7 +5579,7 @@ function renderShellHeaderAvatar(){ /* handled on full shell render */ }
 function refreshLists(){ renderSidebarLibrary(); if(state.profileOpen) renderProfileBody(); else renderView(); }
 function openProfile(tab){ if(tab) state.profileTab=tab; if(!["favorites","lyrics","disliked","playlists","stats"].includes(state.profileTab)) state.profileTab="favorites"; state.profileOpen=true; renderProfile(); syncScrollLock(); }
 function closeProfile(instant){ state.profileOpen=false; syncScrollLock(); const c=$("#profile"); const panel=c.querySelector("#profile-panel"); const back=c.querySelector('[data-testid="profile-module-backdrop"]'); if(instant||!panel){ c.innerHTML=""; return; } panel.classList.remove("profile-in"); panel.classList.add("profile-out"); if(back){ back.classList.remove("backdrop-in"); back.classList.add("backdrop-out"); } setTimeout(()=>{ if(!state.profileOpen) c.innerHTML=""; }, 300); }
-function renderProfileBody(){ const b=$("#profile-body"); if(!b) return; if(b.firstElementChild&&morphOK()) morphHTML(b,profileBodyHtml()); else b.innerHTML = profileBodyHtml(); icons(); }
+function renderProfileBody(){ const b=$("#profile-body"); if(!b) return; b.innerHTML = profileBodyHtml(); icons(); }
 function profileBodyHtml(){ const t=state.profileTab; return t==="playlists"?profilePlaylistsHtml():t==="disliked"?profileDislikedHtml():t==="stats"?profileStatsHtml():t==="lyrics"?profileLyricsHtml():profileFavoritesHtml(); }
 function profileTabBtn(id,label,ic){ const tab=state.profileTab; return `<button data-act="profile-tab" data-tab="${id}" data-testid="profile-module-tab-${id}" class="shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold transition ${tab===id?'bg-white/15 text-white glow-purple':'text-white/60 hover:text-white'}"><span class="inline-flex items-center justify-center gap-1.5"><i data-lucide="${ic}" style="width:15px;height:15px"></i>${label}</span></button>`; }
 function profileTabsInner(){ return `${profileTabBtn('favorites','Favorites','heart')}${profileTabBtn('lyrics','Lyrics','quote')}${profileTabBtn('disliked','Disliked','heart-crack')}${profileTabBtn('playlists','Playlists','list-music')}${profileTabBtn('stats','Stats','bar-chart-3')}`; }
@@ -5713,7 +5712,7 @@ function sidebarLibraryInner(){
   const plInner = (pls.length? pls.map(pl=>{ const cover=(pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean)[0]; return `<button data-act="pl-open-lib" data-id="${pl.id}" class="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-white/5"><span class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-md ${cover?'':'bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]'}">${cover?img(cover.coverArt,'h-full w-full object-cover'):'<i data-lucide=\"list-music\" style=\"width:14px;height:14px\"></i>'}</span><span class="min-w-0 flex-1"><span class="clamp-1 block text-[12px] font-semibold">${esc(pl.name)}</span><span class="clamp-1 block text-[10px] text-white/45">${(pl.songIds||[]).length} track${(pl.songIds||[]).length!==1?'s':''}</span></span></button>`; }).join(""):"")+newPl;
   return `<div class="mb-1 mt-2 flex items-center justify-between px-2"><span class="text-[10px] font-bold uppercase tracking-[0.24em] text-white/40">Your Library</span><button data-act="open-profile" aria-label="Open full profile" class="grid h-6 w-6 place-items-center rounded-md text-white/40 hover:bg-white/10 hover:text-white/70"><i data-lucide="maximize-2" style="width:12px;height:12px"></i></button></div>${sec('Liked','heart',favs.length,favInner,true)}${sec('Lyrics','quote',groups.length,lyrInner,false)}${sec('Playlists','list-music',pls.length,plInner,true)}`;
 }
-function renderSidebarLibrary(){ const el=document.getElementById("sidebar-library"); if(el){ if(el.firstElementChild&&morphOK()) morphHTML(el,sidebarLibraryInner()); else el.innerHTML=sidebarLibraryInner(); icons(); } }
+function renderSidebarLibrary(){ const el=document.getElementById("sidebar-library"); if(el){ el.innerHTML=sidebarLibraryInner(); icons(); } }
 
 /* ============================================================
    FAVORITE LYRICS + LYRIC CARD STUDIO
@@ -5859,7 +5858,7 @@ function openLyricStudio(songId){
      </div>
     </div>
   </div>`;
-  { const _sh=modalWrap(inner,"lyric-studio","studio"); if(existed&&morphOK()) morphHTML($("#modal"),_sh.replace(" backdrop-in","").replace(" panel-in","")); else $("#modal").innerHTML=_sh; } icons();
+  $("#modal").innerHTML=modalWrap(inner,"lyric-studio","studio"); icons();
   const lcp=document.getElementById('lc-layer-panel'); if(lcp){ lcp.addEventListener('click',cvLayerPanelClick); lcp.addEventListener('input',cvLayerPanelInput); }
   cvRenderLayerPanel(); requestAnimationFrame(()=>{ if(_lh===st.lay) cvRenderLayers(); }); lcWireLyricBox();
   if(existed){ const p=$("#modal [data-act='modal-stop']"); if(p) p.classList.remove("panel-in"); const _sc=document.getElementById('lyric-studio-scroll'); if(_sc) _sc.scrollTop=_prevStudioScroll; }
@@ -6338,11 +6337,10 @@ function renderMini(){
   syncNavHeight();
   const wasShown = !!c.querySelector("[data-mini-root]");
   const zcls = (state.gameFrame && state.gfMusic) ? "z-[180]" : "z-40";
-  const _mh=`<div data-mini-root data-testid="mini-player" class="fixed bottom-[calc(var(--nav-h,72px)+14px)] left-0 right-0 ${zcls} px-3 lg:bottom-4 lg:pl-[264px] lg:pr-6 ${wasShown?'':'mini-in'}"><div class="gl-mini mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] backdrop-blur-2xl shadow-[var(--treesh-shadow)]"><div class="flex items-center gap-3 p-2.5">
+  c.innerHTML=`<div data-mini-root data-testid="mini-player" class="fixed bottom-[calc(var(--nav-h,72px)+14px)] left-0 right-0 ${zcls} px-3 lg:bottom-4 lg:pl-[264px] lg:pr-6 ${wasShown?'':'mini-in'}"><div class="gl-mini mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] backdrop-blur-2xl shadow-[var(--treesh-shadow)]"><div class="flex items-center gap-3 p-2.5">
     <button data-act="mini-open" data-testid="mini-player-expand-button" class="flex min-w-0 flex-1 items-center gap-3 text-left"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg">${img(s.coverArt,'h-full w-full object-cover')}</div><div class="min-w-0"><p class="clamp-1 text-sm font-semibold">${esc(s.title)}</p><p class="clamp-1 text-xs text-white/55">${esc(s.artist)}</p></div></button>
     <div class="flex items-center gap-1"><button data-act="toggle-play" id="mini-pp" data-testid="mini-player-play-pause-button" class="press grid h-10 w-10 place-items-center rounded-full bg-[color:var(--treesh-purple)] text-white glow-purple"><i data-lucide="${state.isPlaying?'pause':'play'}" style="width:18px;height:18px"></i></button><button data-act="next" data-testid="mini-player-next-button" class="hidden sm:grid h-10 w-10 place-items-center rounded-full text-white/75 hover:bg-white/10"><i data-lucide="skip-forward" style="width:18px;height:18px"></i></button><button data-act="mini-open" class="grid h-10 w-10 place-items-center rounded-full text-white/75 hover:bg-white/10"><span class="relative inline-flex"><i data-lucide="chevron-up" style="width:20px;height:20px"></i>${wnUnseen('player')?wnBadge('player'):''}</span></button></div>
   </div><div data-scrub="mini" data-testid="mini-scrubber" role="slider" aria-label="Seek track" tabindex="0" class="group relative h-3 w-full cursor-pointer touch-none"><div class="absolute inset-x-0 bottom-0 h-1 bg-white/10 transition-[height] duration-150 group-hover:h-1.5"><div id="mini-prog" class="h-full bg-[color:var(--treesh-purple)] transition-[width] duration-200 ease-linear" style="width:${state.duration?(state.currentTime/state.duration*100):0}%"></div></div></div></div></div>`;
-  if(wasShown&&morphOK()) morphHTML(c,_mh); else c.innerHTML=_mh;
   icons();
   syncMiniH();
   const mr=c.querySelector("[data-mini-root]"); if(mr) wireMiniDrag(mr);

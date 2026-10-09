@@ -9,10 +9,10 @@ navProfileHtml=function(){ const p=state.profile||{}, on=!!state.profileOpen, nm
 /* ---- store (this device only) ---- */
 const NT_KEY='treesh_nt', NT_PK='treesh_nt_prefs', NT_MAX=500;
 const NT_ON=['friend_request','friend_accepted','friend_declined','friend_removed','request_cancelled','staff'];
-const NT_KIND={friend_request:['user-plus','is-req','Friend requests','When someone wants to be friends'],friend_accepted:['user-check','is-ok','Accepted requests','When someone accepts your request'],friend_declined:['user-x','is-no','Declined requests','When someone turns down your request'],friend_removed:['user-minus','is-warn','Removed you','When someone removes you as a friend'],request_cancelled:['undo-2','is-mute','Cancelled requests','When someone takes back their request'],staff:['shield-check','is-staff','Staff & account','Moderation and changes to your account'],app:['bell','is-app','App pop-ups','Saved, changed, now playing'],star:['sparkles','is-star','Starlites','Stars and discoveries']};
+const NT_KIND={friend_request:['user-plus','is-req','Friend requests','When someone wants to be friends'],friend_accepted:['user-check','is-ok','Accepted requests','When someone accepts your request'],friend_declined:['user-x','is-no','Declined requests','When someone turns down your request'],friend_removed:['user-minus','is-warn','Removed you','When someone removes you as a friend'],request_cancelled:['undo-2','is-mute','Cancelled requests','When someone takes back their request'],staff:['shield-check','is-staff','Staff & account','Moderation and changes to your account'],app:['bell','is-app','App pop-ups','Saved, changed, now playing'],star:['sparkles','is-star','Starlites','Stars and discoveries'],sync:['refresh-cw','is-ok','Sync','Changes from your other devices']};
 const NT_VIEW={home:'Home',artists:'Icons',library:'Library',studios:'Studios',game:'Arcade',settings:'Settings',playlist:'Playlist',artist:'Artist',album:'Album',search:'Search'};
 let _nt=null, _ntQuiet=false, _ntLast=null, _ntSaveT=0;
-function ntP(){ const d=LS.get(NT_PK,null)||{}; return {dnd:+d.dnd||0,dur:[0,3,5,8].includes(d.dur)?d.dur:5,mute:Object.assign({},d.mute||{}),keep:[0,30,90].includes(d.keep)?d.keep:90,app:d.app!==false,sys:!!d.sys}; }
+function ntP(){ const d=LS.get(NT_PK,null)||{}; return {dnd:+d.dnd||0,dk:d.dk||'',dur:[0,3,5,8].includes(d.dur)?d.dur:5,mute:Object.assign({},d.mute||{}),keep:[0,30,90].includes(d.keep)?d.keep:90,app:d.app!==false,sys:!!d.sys}; }
 function ntSetP(p){ LS.set(NT_PK,p); ntBell(); }
 function ntDnd(){ const d=ntP().dnd; return d===-1||d>Date.now(); }
 function ntAll(){ if(!_nt){ const a=LS.get(NT_KEY,null); _nt=Array.isArray(a)?a.filter(x=>x&&x.id&&x.t):[]; ntPrune(); } return _nt; }
@@ -49,11 +49,12 @@ function ntCopy(it){ const nm=ntName(it), B=`<b>${esc(nm)}</b>`, u=it.actor&&it.
     case 'friend_removed': return w('removed you as a friend','Their friends-only sections are hidden from you now');
     case 'request_cancelled': return w('cancelled their friend request',u);
     case 'staff': return ntStaffCopy(it);
-    default: return {t:esc(it.title),p:it.title,b:it.body||'',app:it.kind==='star'?'Starlites':'Treesh'}; } }
+    default: return {t:esc(it.title),p:it.title,b:it.body||'',app:it.kind==='star'?'Starlites':it.kind==='sync'?'Sync':'Treesh'}; } }
 function ntAvHtml(it,cls){ const K=NT_KIND[it.kind]||NT_KIND.app, a=it.actor;
   const face=a?(a.av?`<img src="${esc(a.av)}" alt="" loading="lazy" draggable="false">`:`<b>${esc(ntName(it).replace(/^@/,'').charAt(0).toUpperCase())}</b>`):`<i data-lucide="${K[0]}"></i>`;
   return `<span class="nt-av ${a?'':'is-sys '}${K[1]} ${cls||''}">${face}${a?`<span class="nt-kind ${K[1]}"><i data-lucide="${K[0]}"></i></span>`:''}</span>`; }
 function ntActsHtml(it,pre){ const T=pre||'notification';
+  if(it.kind==='sync') return !it.done&&_sbRLWait?`<div class="nt-acts"><button type="button" data-act="nt-sync-refresh" data-id="${it.id}" data-testid="${T}-action-refresh${pre?'':'-'+it.id}" class="nt-btn is-primary press"><i data-lucide="refresh-cw"></i>Refresh now</button></div>`:'';
   if(it.kind==='friend_request'&&!it.done) return `<div class="nt-acts"><button type="button" data-act="nt-accept" data-id="${it.id}" data-testid="${T}-action-accept${pre?'':'-'+it.id}" class="nt-btn is-primary press"><i data-lucide="check"></i>Accept</button><button type="button" data-act="nt-decline" data-id="${it.id}" data-testid="${T}-action-decline${pre?'':'-'+it.id}" class="nt-btn press"><i data-lucide="x"></i>Decline</button><button type="button" data-act="nt-view" data-id="${it.id}" data-testid="${T}-action-view${pre?'':'-'+it.id}" class="nt-btn is-ghost press">View</button></div>`;
   if(it.done){ const D={accepted:['user-check','You\u2019re friends now','is-ok'],declined:['x','Request declined',''],gone:['clock','Request no longer available','']}[it.done]||['check','Done',''];
     return `<div class="nt-acts"><span class="nt-done ${D[2]}" data-testid="${T}-done${pre?'':'-'+it.id}"><i data-lucide="${D[0]}"></i>${D[1]}</span>${it.actor&&it.actor.u?`<button type="button" data-act="nt-view" data-id="${it.id}" data-testid="${T}-action-view${pre?'':'-'+it.id}" class="nt-btn is-ghost press">View profile</button>`:''}</div>`; }
