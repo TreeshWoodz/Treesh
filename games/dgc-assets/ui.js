@@ -44,11 +44,12 @@ function menuItems() {
   ];
 }
 const DUST = Array.from({ length: 26 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 100).toFixed(1)}%;--s:${(Math.random() * 2.4 + 1).toFixed(1)}px;--d:${(Math.random() * 14 + 10).toFixed(1)}s;--dl:-${(Math.random() * 20).toFixed(1)}s"></i>`).join('');
+const titleArt = () => img(S.mode === 'bestie' ? 'bestie_art' : 'key_art');
 function renderTitle() {
   const t = traitById(S.trait), m = modeById(S.mode), items = menuItems(), best = bestNightAll();
   UI.menuIdx = clamp(UI.menuIdx, 0, items.length - 1);
-  $('#scr-title').innerHTML = `<div class="title-bg" style="background-image:url(${img('key_art')})"></div><div class="mm-fog f1"></div><div class="mm-fog f2"></div><div class="mm-dust">${DUST}</div><div class="mm-lamp"></div>
-  <header class="mm-top"><div class="prof" data-testid="user-profile-chip">${avatarHtml()}<span><small>${esc(rankOf(best))}${best ? ' \u00b7 Night ' + best : ''}</small><b data-testid="user-profile-name">${esc(Treesh.name())}</b></span></div>${starChip()}</header>
+  $('#scr-title').innerHTML = `<div class="title-bg ${S.mode === 'bestie' ? 'bestie' : ''}" style="background-image:url(${titleArt()})" data-testid="title-bg"></div><div class="mm-fog f1"></div><div class="mm-fog f2"></div><div class="mm-dust">${DUST}</div><div class="mm-lamp"></div>
+  <header class="mm-top"><button class="prof" data-act="go" data-to="shop" data-testid="user-profile-chip" aria-label="Your profile and looks">${avatarHtml()}<span><small>${esc(rankOf(best))}${best ? ' \u00b7 Night ' + best : ''}</small><b data-testid="user-profile-name">${esc(Treesh.name())}</b></span></button><button class="stars-btn" data-act="go" data-to="shop" data-testid="title-starlites-btn" aria-label="Spend Starlites in the Pantry">${starChip()}</button></header>
   <div class="mm">
     <div class="mm-left">
       <h1 class="logo mm-logo" data-testid="game-logo"><small>Don\u2019t Get</small><span>Caught</span></h1>
@@ -72,6 +73,7 @@ function menuFocus(i) {
 function modeStep(d) {
   const i = MODES.findIndex(x => x.id === S.mode), m = MODES[(i + d + MODES.length) % MODES.length]; S.mode = m.id; save(); Sfx.tone(d > 0 ? 520 : 440, 0.08, 'triangle', 0.08);
   const em = $('#scr-title [data-testid="mode-name"]'); if (em) { em.innerHTML = `<i data-lucide="${m.icon}"></i>${m.name}${m.voice ? '<i data-lucide="mic" class="mic"></i>' : ''}`; em.style.animation = 'none'; void em.offsetWidth; em.style.animation = ''; icons(); }
+  const tb = $('#scr-title .title-bg'); if (tb) { tb.style.backgroundImage = `url(${titleArt()})`; tb.classList.toggle('bestie', S.mode === 'bestie'); }
   menuFocus(0);
 }
 function dismissSplash() {

@@ -22,6 +22,18 @@ function bestieMini() {
       say('b', 'heyyy bestie!! i need u to do some stuff for me ok?? \u2665');
       el.innerHTML = `<div class="mg mg-bestie"><div class="phone" id="ph" data-testid="bestie-phone"></div></div>`;
       const ph = $('#ph', el);
+      const kp = $('#kp'), AR = [0.298, 0.282, 0.311, 0.266, 0.316]; $$('.bline,.bk-fx', kp).forEach(e => e.remove()); kp.classList.remove('bk-kill');
+      kp.insertAdjacentHTML('beforeend', `<div class="bline" data-testid="bestie-friends-line">${SQUAD.map((n, i) => `<div class="bfr" data-n="${n}" style="--i:${i}" data-testid="bestie-friend-${n.toLowerCase()}"><div class="bf-im" style="--ar:${AR[i]};background-image:url(${img('bf_' + (i + 1))})"></div><small>${n}</small></div>`).join('')}</div>`);
+      const killAnim = n => {
+        const f = $(`.bfr[data-n="${n}"]`, kp); if (!f) return;
+        const kb = kp.getBoundingClientRect(), fb = $('.bf-im', f).getBoundingClientRect(), fx = document.createElement('div'), bg = $('.bf-im', f).style.backgroundImage;
+        fx.className = 'bk-fx'; fx.dataset.testid = 'bestie-kill-fx'; [['x', fb.left - kb.left + fb.width / 2], ['y', fb.top - kb.top], ['w', fb.width], ['h', fb.height]].forEach(([k, v]) => fx.style.setProperty('--' + k, v + 'px'));
+        fx.innerHTML = `<i class="bk-hand" style="background-image:url(${img('bestie_hand')})"></i><i class="bk-blood" style="background-image:url(${img('bestie_blood')})"></i><i class="bk-half t" style="background-image:${bg}"></i><i class="bk-half b" style="background-image:${bg}"></i>`;
+        f.classList.add('dying'); kp.classList.add('bk-kill'); kp.appendChild(fx); Sfx.tone(90, 0.7, 'sawtooth', 0.15, 40);
+        setTimeout(() => { f.classList.add('torn'); fx.classList.add('torn'); Sfx.scream(); Sfx.noise(0.35, 'lowpass', 600, 0.4); shake(3); haptic(400, 1); }, 650);
+        setTimeout(() => { f.classList.add('gone'); kp.classList.remove('bk-kill'); }, 1500);
+        setTimeout(() => fx.remove(), 6500);
+      };
       const newReq = () => {
         let t; do t = pick(B_TYPES); while (t === P.last); P.last = t;
         const r = { type: t, t0: ctx.elapsed(), dur: Math.max(P.rage ? 5 : 8, 15 - ctx.night * 0.7 - P.rage * 1.5) + (t === 'call' ? 4 : 0) };
@@ -44,7 +56,7 @@ function bestieMini() {
       };
       const fail = why => {
         P.req = null; P.call = null; P.order = P.order.filter(i => i < 6); say('b', why); shift('*poof* im'); Sfx.tone(160, 0.6, 'sawtooth', 0.2, 60); Sfx.noise(0.4, 'highpass', 1800, 0.25); shake(2); haptic(300, 0.9);
-        if (P.alive.length) { const v = P.alive.splice(Math.floor(Math.random() * P.alive.length), 1)[0]; say('sys', `${v} left the chat.`); setTimeout(() => Sfx.scream(), 250); }
+        if (P.alive.length) { const v = P.alive.splice(Math.floor(Math.random() * P.alive.length), 1)[0]; say('sys', `${v} left the chat.`); killAnim(v); }
         else { P.rage++; say('sys', P.rage === 1 ? 'No one left. It\u2019s just you and me now ;)' : 'Bestie is getting impatient\u2026'); setTimeout(() => Sfx.scream(), 250); shake(4); haptic(500, 1); }
         const tw = pick(B_TWISTS.filter(x => !P.twist || x[0] !== P.twist[0])); P.twist = tw; P.twLeft = 3 + P.rage * 2; say('sys', `Bestie changed your world: ${tw[1]}. ${tw[2]}`); setEnv(); P.wait = P.rage ? 0.6 : 2; draw();
       };
@@ -99,7 +111,8 @@ function bestieMini() {
           if (P.twist && P.twist[0] === 'drift') { dr -= dt; if (dr <= 0) { dr = 2.5; P.order = shuffle(P.order); if (P.scr === 'home') draw(); } }
           if (left <= 0) fail(pick(['u left me on READ.', 'too slow bestie.', 'i waited. i WAITED.']));
         },
-        isActive: () => false
+        isActive: () => false,
+        destroy() { kp.classList.remove('bk-kill'); }
       };
     }
   };
