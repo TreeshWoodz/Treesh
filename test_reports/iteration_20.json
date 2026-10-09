@@ -1,0 +1,51 @@
+{
+  "summary": "Full e2e test for iteration 20: Quick Reject Reasons + Email Review Alerts (mocked Resend). Backend: 12/12 pytest cases pass in /app/backend/tests/test_mad_email_reject.py (POST /mockgh/reset clears emails[]; icon POST /github/repo/pulls appends a kind 'icon-change' email with Icon/Change/Request lines; admin songcoder/ PR does NOT append any email; POST /github/icon-request fresh appends kind 'icon-access' with Name/Email/Says-they-are/Note, repeat does NOT add a second email; GET /github/session: admin → email='s•••@proton.me', icon → email=null, signed-out → email=null; POST /github/alert-test: admin → kind 'test' email + {ok:true,to:'s•••@proton.me'}, icon → 403, signed-out → 401/403; reject round-trip: PATCH /pulls/<n> {state:'closed', body:'...**Not approved:** <note>\\n<!-- mad-reject -->'} persists and POST /github/icon-updates returns note='Blurry or low-quality photo · Missing credits. Resend when ready.' with result='rejected'). Frontend (songcoder.html via Playwright): 24/24 acceptance checks pass. REJECT REASONS: review-reject-modal renders reject-reason-0..6 with the exact 7 defaults; tapping chips 0+1 toggles .on; typing 'Resend when ready.' + review-reject-confirm-btn makes PR body end exactly with '**Not approved:** Blurry or low-quality photo · Missing credits. Resend when ready.\\n<!-- mad-reject -->'. The in-page combine function was verified for the three branches: chips+extra → joined with '. '; chips only → joined by ' · '; nothing → 'No reason given.'. MANAGE REASONS: reject-reasons-edit-btn reveals × remove buttons on each chip, reject-reason-new-input + reject-reason-add-btn; new reason appears at index 7; duplicate (case-insensitive) is ignored (no index 8); Enter key adds; removing index 0 (Blurry) removes it and updates localStorage ('treesh_mad_reject_reasons') with the custom entries persisted after a full page reload; reject-reasons-reset-btn restores exactly the 7 defaults. ICON SEES NOTE regression: after rejection, icon sign-in → open-prs-btn drawer → pr-row-reject-note='Blurry or low-quality photo · Missing credits. Resend when ready.'. EMAIL ON ICON CHANGE: when icon opens the PR, /api/mockgh/state emails[] gains one entry kind 'icon-change', to 'savionce@proton.me', subject 'Chelly Banqz sent a change for review', lines Icon='Chelly Banqz (#11)', Change='Update artist: Chelly Banqz', Request='#1'. Admin-created songcoder/ PR adds no email. EMAIL ON ACCESS REQUEST: fan icon-request → emails[] gains one kind 'icon-access' subject 'Jordan Fan asked for Icon access' with Name/Email/'Says they are'='Icon #3'/Note; repeat does not add a second email. SETTINGS EMAIL BOX: for admin, settings-email-alerts is visible and settings-email-status reads 'Alerts go to s•••@proton.me when an Icon sends a change or asks for access.'; settings-email-test-btn → toast 'Test email sent to s•••@proton.me. Check your inbox (and spam).' and emails[] gains kind 'test'. For icon, settings-email-alerts has the hidden attribute, GET /github/session email=null, POST /github/alert-test → 403. REGRESSION: admin review drawer and approve flow (reviewed via existing tests), icon My changes shows the new combined note, icon mode gating of the email box all intact.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "SettingsEmailAlerts (songcoder.html #s-email + setAuth)",
+        "issue": "Immediately after POST /github/session passcode sign-in (before any page reload), settings-email-status shows 'Not set up yet. In Netlify, add RESEND_API_KEY and MAD_ALERT_EMAIL, then redeploy.' instead of 'Alerts go to s•••@proton.me…'. Root cause: POST /github/session response only returns {signedIn, expires, repo} — no 'email' or 'role' — so setAuth(d) sets state.auth.email='' from d.email||''. GET /github/session returns the masked email, so a page reload or any subsequent checkSession() correctly populates it. Fix: either (a) make session_post return email + role (mirror session_get), or (b) call checkSession() after a successful passcode sign-in. The identical bug does not affect icon sign-in because icon-session is only used by icons (where email must be null anyway).",
+        "selector": "[data-testid=settings-email-status]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_mad_email_reject.py",
+    "/app/test_reports/pytest/iter20_email.xml"
+  ],
+  "action_items": [
+    "Update /app/backend/server.py POST /github/session (session_post) to include {role:'admin', login:None, email: mask_email(alert_to()) if alert_to() else None} in the response so the UI's setAuth() populates the admin email on first sign-in without needing a reload. (Mirror the fields returned by session_get.) Alternatively, add `await checkSession()` after `setAuth(await authReq('POST', {passcode: p}))` in songcoder.html at line 4850. The GET /session already returns the correct email, so this is purely a 1-render UX bug."
+  ],
+  "critical_code_review_comments": [
+    "server.py send_alert gracefully no-ops when MAD_ALERT_EMAIL is empty — correctly returns a 'not set up' message that /alert-test then surfaces as 502 'email'.",
+    "mask_email() regex r'^(.)[^@]*(@.*)$' with r'\\1•••\\2' yields exactly 's•••@proton.me' for 'savionce@proton.me' — matches the UI expectation and all tests.",
+    "create_pull() only fires send_alert when sess.role == 'icon' — admin songcoder/ PRs do not spam alerts. Verified both ways.",
+    "icon_request() uses `fresh = u['uid'] not in ICONS['requests']` BEFORE writing — so idempotent duplicate requests do not resend the email. Correct semantics for the preview mock, but note that in production (netlify/functions/github.mjs) you'll want to keep the same guard to avoid Resend double-charges.",
+    "alert_test() correctly require_admin()s — tested as icon → 403 and signed-out → 401/403.",
+    "mockgh/state exposes `emails`, used by both the backend tests and the UI test harness. Preview-only, acceptable.",
+    "songcoder.html wireReasons(): the combine logic `[chips.join(' · '), extra].filter(Boolean).join('. ') || 'No reason given.'` precisely matches the spec. Dedup is case-insensitive via `l.some(x => x.toLowerCase() === v.toLowerCase())` — correct.",
+    "wireReasons() paint() rebuilds the chip list on every edit — safe but calls icons() repeatedly; fine for a modal UI.",
+    "Minor UX: when 'Edit reasons' is toggled on and the user removes the chip currently 'picked', picked.delete() runs then paint() — stays consistent. Good.",
+    "Session POST response omits role/email/login — see frontend bug above."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_mad_email_reject.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12)",
+    "frontend": "100% (24/24 acceptance checks). One cosmetic sign-in-first-render bug reported but no spec check fails after the UI finishes loading."
+  },
+  "test_credentials": "Admin passcode TreeshMAD-test-2026 (MAD_PASSCODE in backend/.env). Icon tokens: mock-chelly (verified, Icon #11), mock-fan (unverified), mock-savionce (unverified). Mocked outbox: GET /api/mockgh/state → emails[]. Alert destination: savionce@proton.me (MAD_ALERT_EMAIL in backend/.env, masks to s•••@proton.me).",
+  "seed_data_creation": "Each scenario calls POST /api/mockgh/reset which also clears EMAILS and ICONS. Created icon PRs #1 and #2 under icon/11/* branches for reject-flow checks; no persistent state left for next iteration.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file: /app/backend/tests/test_mad_email_reject.py — run with `REACT_APP_BACKEND_URL=https://music-catalog-sync.preview.emergentagent.com pytest backend/tests/test_mad_email_reject.py -n 0`. The file uses the mocked Resend outbox at /api/mockgh/state emails[]. Key new testids: settings-email-alerts, settings-email-status, settings-email-test-btn, settings-email-to, reject-reasons (chips container), reject-reason-0..N (chips), reject-reason-remove-N (× while editing), reject-reasons-edit-btn ('Edit reasons' / 'Done'), reject-reason-new-input, reject-reason-add-btn, reject-reasons-reset-btn. localStorage key for reasons: 'treesh_mad_reject_reasons' (shape {list:[...]}). Known 1-render UX bug: POST /github/session omits email in its response — the UI needs a reload or an extra checkSession() to populate the Email alerts status after passcode sign-in; GET /github/session is correct. Tests work around this by signing in via POST then calling page.reload() before asserting on the settings status.",
+  "rca of the issue": "Settings email status wrong immediately after passcode sign-in: POST /github/session (server.py line 495) returns only {signedIn, expires, repo}. The frontend's setAuth(d) at songcoder.html:1673 does `email: d.email || ''`, so state.auth.email becomes '' and the paint at line 4825 renders the 'Not set up yet' branch. GET /github/session (server.py line 304) correctly returns `email: mask_email(alert_to())` for admins, so any reload fixes it. Reproduction: open settings → enter passcode → sign in → status reads 'Not set up yet. In Netlify, add RESEND_API_KEY and MAD_ALERT_EMAIL, then redeploy.' Mitigation: patch session_post to return {role:'admin', login:None, email: mask_email(alert_to()) if alert_to() else None} (mirror session_get), OR call `await checkSession()` after `setAuth(await authReq('POST', {passcode: p}))` in songcoder.html line 4850."
+}
