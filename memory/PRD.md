@@ -130,3 +130,10 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 ## Backlog
 - P2: Main-app patch to honor data-release (badge + playback lock)
 - P2: Let icons upload audio without a Cloudinary preset on their device (server-signed audio uploads)
+
+## 2026-10: Review alerts, approval notices and Icon welcome tour (BUILT, iteration_19 pass; polling checked live)
+- Admin alerts: M.A.D. checks for new icon PRs and access requests every 60 s. A top-bar alert (#rv-alert) and a pulsing inbox badge show anything unseen (seen list in localStorage treesh_mad_review_seen; opening the review drawer marks everything seen). If the browser allows it, a notification fires while the tab is in the background ("Turn on" sits in the review drawer).
+- Icon results in M.A.D.: toast when a change is approved or rejected (rejections include the note). The My changes badge turns green with a "New" chip on each row until seen (treesh_mad_icon_seen:<id>). Filter chips read In review / Approved / Not approved.
+- treesh.app notices: memory/icon_notify.js is injected before </body> in deliverables/index.html, which was built from the LIVE treesh.app index (it also carries the pending wn_loader). It reads the Supabase session and POSTs to /api/github/icon-updates (new, no M.A.D. session needed), then shows bottom-right cards. Checks are throttled to once per 10 min per tab; seen time is stored in treesh_icon_review_seen.
+- Welcome tour: 4 spotlight steps (Artists tab, Catalog tab, Lyrics card, My changes). Shows once per icon per device (treesh_mad_tour_done:<id>). Replay from Settings (icons only).
+- patch_main_index.py also injects icon_notify.js.

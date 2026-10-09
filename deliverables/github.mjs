@@ -255,6 +255,21 @@ async function iconAdmin(req, method){
   await iconSave('icon-requests', reqs); await iconSave('icon-approved', ok);
   return json(200, { ok: true });
 }
+// Review results for a signed-in Treesh Icon (treesh.app shows these as notifications). No M.A.D. session needed.
+const REJECT_RE = /\*\*Not approved:\*\* ([\s\S]*?)\n<!-- mad-reject -->/;
+async function iconUpdates(req, token){
+  let body = {}; try { body = await req.json(); } catch {}
+  const u = await supaUser(body.access_token);
+  if (!u) return json(401, { message: 'Sign in to Treesh first.', code: 'icon_signin' });
+  const ok = (await iconList('icon-approved'))[u.uid], artistId = (ok && ok.artistId) || (u.verified ? u.artistId : '');
+  if (!artistId) return json(200, { updates: [] });
+  const since = Math.max(0, +body.since || 0);
+  const r = await fetch(`https://api.github.com/repos/${REPO}/pulls?state=closed&sort=updated&direction=desc&per_page=50`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'treesh-mad' } }).catch(() => null);
+  const list = r && r.ok ? await r.json() : [];
+  const updates = (Array.isArray(list) ? list : []).filter(p => p.head && String(p.head.ref).startsWith(`icon/${artistId}/`) && Date.parse(p.closed_at) > since)
+    .map(p => ({ number: p.number, title: String(p.title || '').replace(/^[^:]+:\s*/, ''), result: p.merged_at ? 'approved' : 'rejected', note: p.merged_at ? '' : ((String(p.body || '').match(REJECT_RE) || [])[1] || ''), at: Date.parse(p.closed_at) }));
+  return json(200, { updates, name: u.name });
+}
 // A revoked icon's older sessions stop working.
 async function iconRevoked(sess){ const at = (await iconList('icon-revoked'))[sess.uid]; return !!at && at > sess.exp - MAX_AGE * 1000; }
 // Top-level content blocks (artists, songs, lyrics, models) with balanced nesting; comments and everything else is "rest".
@@ -324,6 +339,7 @@ export default async (req, context) => {
   if (sub === '/oauth/callback' && method === 'GET') return oauthCallback(req, context, url);
   if (sub === '/icon-session' && method === 'POST') return iconSession(req, context);
   if (sub === '/icon-request' && method === 'POST') return iconRequest(req);
+  if (sub === '/icon-updates' && method === 'POST') return iconUpdates(req, token);
   const sess = readSession(req);
   if (sess && sess.role === 'icon' && await iconRevoked(sess)) return json(401, { message: 'Your M.A.D. access was turned off. Ask Treesh admin if this is a mistake.', code: 'session' });
   if (!sess) return json(401, { message: 'Signed out. Sign in to M.A.D. in Settings.', code: 'session' });
