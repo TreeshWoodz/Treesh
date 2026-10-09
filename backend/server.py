@@ -128,7 +128,8 @@ def read_session(request):
 def require_session(request):
     if request.method != "GET":
         origin = request.headers.get("origin")
-        if origin and origin.split("://")[-1] != request.headers.get("host"):
+        hosts = {request.headers.get("host"), *[h.strip() for h in request.headers.get("x-forwarded-host", "").split(",")]}
+        if origin and origin.split("://")[-1] not in hosts and request.headers.get("sec-fetch-site") != "same-origin":
             raise GhError(403, "Blocked: request did not come from this site.", "origin")
     if not read_session(request):
         raise GhError(401, "Signed out. Sign in to M.A.D. in Settings.", "session")

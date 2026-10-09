@@ -1152,6 +1152,7 @@ input[type=datetime-local].input{min-height:50px}
       <button class="btn btn-primary" id="new-artist" data-testid="new-artist-btn"><i data-lucide="user-plus"></i>New artist</button>
     </div>
     <div class="cat-tools view-search"><label class="search"><i data-lucide="search"></i><input class="input" id="art-search" placeholder="Search artists by name, role, ID…" data-testid="artists-search-input"></label></div>
+    <div class="notice" id="art-fix" hidden data-testid="artists-fix-banners-notice"><i data-lucide="crop"></i><span id="art-fix-text" data-testid="artists-fix-banners-text"></span><button class="btn btn-sm" id="art-fix-btn" data-testid="artists-fix-banners-btn">Fix all banners</button></div>
     <div class="art-grid" id="art-grid" data-testid="artists-grid"></div>
   </section>
 
@@ -2102,6 +2103,9 @@ function insertArtist(text, block){
 }
 function renderArtists(){
   $('#art-count').textContent = state.roster.length || '··';
+  const pxN = state.roster.filter(a => hasPx(a.bgPos) || hasPx(a.bgPosMobile)).length;
+  $('#art-fix').hidden = !pxN;
+  $('#art-fix-text').textContent = `${pxN} banner${pxN === 1 ? ' uses' : 's use'} old pixel positions, which can push the photo out of frame on treesh.app. Convert them to percentages that keep each photo filling its banner.`;
   const counts = {};
   state.catalog.songs.forEach(s => s.ids.split(',').map(x => x.trim()).filter(Boolean).forEach(id => { counts[id] = (counts[id] || 0) + 1; }));
   const bgUrl = u => `background-image:url(&quot;${esc(u)}&quot;)`;
@@ -2179,6 +2183,7 @@ function openArtistDrawer(ed){
     state.busy = true; btn.disabled = true;
     let newId = '';
     try {
+      a.bgPos = await pctString(a.bgPos, a.bg || a.photo, 'desktop'); if (a.bgPosMobile) a.bgPosMobile = await pctString(a.bgPosMobile, a.bg || a.photo, 'mobile');
       const raw = ed && state.rosterRaw[ed.id];
       const r = ed ? await commitFile({ path: cfg.iconsPath, message: `Update artist: ${a.name}`, branchKey: `artist-edit-${slug(a.name).slice(0, 40)}`, body: `Updates artist #${ed.id} in \`${cfg.iconsPath}\`.\n\n_Submitted with Treesh M.A.D._`, apply: t => replaceRaw(t, raw, buildArtistBlock({ ...a, id: ed.id }, rawAttrs(raw))) }, s => { lbl.textContent = s; })
       : await commitFile({ path: cfg.iconsPath, message: `Add artist: ${a.name}`, branchKey: `artist-${slug(a.name).slice(0, 40)}`,
@@ -2192,6 +2197,21 @@ function openArtistDrawer(ed){
   setTimeout(() => $('#a-name').focus(), 300);
 }
 
+async function fixBannerPositions(){
+  if (state.busy || !requireGitHub()) return;
+  const btn = $('#art-fix-btn'), todo = state.roster.filter(a => hasPx(a.bgPos) || hasPx(a.bgPosMobile)), map = {};
+  state.busy = true; btn.disabled = true; btn.textContent = 'Measuring photos…';
+  try {
+    for (const a of todo){ const url = a.bg || a.image; map[a.id] = { d: await pctString(a.bgPos, url, 'desktop'), m: a.bgPosMobile && await pctString(a.bgPosMobile, url, 'mobile') }; }
+    const setAttr = (raw, name, v) => raw.replace(new RegExp(`(\\s${name}\\s*=\\s*")[^"]*(")`, 'i'), (_, a, b) => a + esc(v) + b);
+    const r = await commitFile({ path: cfg.iconsPath, message: `Fix banner positions for ${todo.length} artist${todo.length === 1 ? '' : 's'}`, branchKey: 'banner-positions',
+      body: `Converts old pixel banner offsets to percentages so every photo fills its banner on treesh.app.\n\n| Artist | Desktop | Phone |\n|---|---|---|\n${todo.map(a => `| ${a.name} | ${a.bgPos} → ${map[a.id].d} | ${hasPx(a.bgPosMobile) ? `${a.bgPosMobile} → ${map[a.id].m}` : a.bgPosMobile || '—'} |`).join('\n')}\n\n_Submitted with Treesh M.A.D._`,
+      apply: t => { let out = t; findArtistBlocks(t).forEach(b => { const c = map[b.id]; if (!c) return; let nb = setAttr(b.raw, 'data-bg-pos', c.d); if (c.m) nb = setAttr(nb, 'data-bg-pos-mobile', c.m); out = out.replace(b.raw, () => nb); }); return out; } },
+      st => { btn.textContent = st; });
+    done(r, 'artist-edit', `${todo.length} banner position${todo.length === 1 ? '' : 's'}`);
+  } catch (err){ failModal(err); }
+  finally { state.busy = false; btn.disabled = false; btn.textContent = 'Fix all banners'; }
+}
 async function deleteArtist(a){
   if (!requireGitHub()) return;
   const raw = state.rosterRaw[a.id]; if (!raw) return toast('Couldn’t find this artist in the file. Refresh and try again.', 'bad');
@@ -3654,6 +3674,15 @@ function pctPos(v, iw, ih, cw, ch){
   return out.map(n => Math.round(n * 10) / 10);
 }
 const imgDims = {};
+// treesh.app banner sizes used to turn old pixel offsets into percentages (what the preview shows is exactly what gets saved)
+const HERO_BOX = { mobile:[356, 405], desktop:[1100, 450] };
+const hasPx = v => /-?\d+(\.\d+)?px/i.test(v || '');
+const imgSize = url => new Promise(res => { if (!url) return res(null); if (imgDims[url]) return res(imgDims[url]); const im = new Image(); im.onload = () => { imgDims[url] = [im.naturalWidth, im.naturalHeight]; res(imgDims[url]); }; im.onerror = () => res(null); im.src = url; });
+async function pctString(v, url, dev){
+  if (!hasPx(v)) return v;
+  const d = await imgSize(url) || [], [x, y] = pctPos(v, d[0], d[1], ...HERO_BOX[dev]);
+  return `${x}% ${y}%`;
+}
 function natSize(url, cb){
   if (!url) return null; if (imgDims[url]) return imgDims[url];
   if (!(url in imgDims)){ imgDims[url] = null; const im = new Image(); im.onload = () => { imgDims[url] = [im.naturalWidth, im.naturalHeight]; cb(); }; im.src = url; }
@@ -3664,11 +3693,15 @@ function posChips(input, testid){
   input.insertAdjacentHTML('afterend', `<div class="suggest" style="margin-top:8px">${[['top', 'center top'], ['center', 'center center'], ['bottom', 'center bottom'], ['left', 'left center'], ['right', 'right center']].map(([l, v]) => `<button type="button" class="sug" data-pos="${v}" data-testid="${testid}-${l}">${l}</button>`).join('')}</div>`);
   input.nextElementSibling.addEventListener('click', e => { const b = e.target.closest('[data-pos]'); if (!b) return; input.value = b.dataset.pos; input.dispatchEvent(new Event('input', { bubbles:true })); });
 }
+let bannerFixCheck;
+const siteBannerFix = () => bannerFixCheck || (bannerFixCheck = location.hostname.endsWith('treesh.app') ? fetch('/', { cache:'no-store' }).then(r => r.text()).then(t => /bnPosFit/.test(t)).catch(() => true) : Promise.resolve(true));
 function mountProfilePreview(host, get, inputs){
   let dev = 'mobile';
   host.innerHTML = `<div class="pp" data-testid="profile-preview"><div class="pp-bar"><div class="view-seg"><button type="button" data-dev="mobile" class="on" data-testid="profile-preview-mobile-btn">${icon('smartphone')} Phone</button><button type="button" data-dev="desktop" data-testid="profile-preview-desktop-btn">${icon('monitor')} Desktop</button></div><span class="pp-pos" data-testid="profile-preview-position"></span></div>
     <div class="pp-stage mobile" data-testid="profile-preview-stage"><div class="pp-screen"><section class="pp-hero" data-testid="profile-preview-banner" title="Drag to reposition the banner"><span class="pp-shade"></span><div class="pp-inner"><div class="pp-av"><span class="pp-ring"></span><span class="pp-img"></span></div><div style="min-width:0"><p class="pp-kick"></p><h1 class="pp-name" data-testid="profile-preview-name"></h1><p class="pp-loc"></p><div class="pp-stats"></div><div class="pp-acts"><span class="pp-btn primary">Play</span><span class="pp-btn">Shuffle</span></div></div></div></section><div class="pp-below"><h2>About</h2><p class="pp-bio"></p></div></div></div>
-    <p class="hint" style="margin-top:8px">Drag the banner to set the ${'<b id="pp-dev-lbl">phone</b>'} position, or use the quick buttons below.</p></div>`;
+    <p class="hint" style="margin-top:8px">Drag the banner to set the ${'<b id="pp-dev-lbl">phone</b>'} position, or use the quick buttons below.</p>
+    <p class="hint warn pp-warn" hidden style="margin-top:6px" data-testid="profile-preview-site-warning">${icon('triangle-alert')} treesh.app’s index.html is missing the banner fix, so the site uses the Desktop position on phones too. Re-add the fix to index.html to get separate phone positions.</p></div>`;
+  siteBannerFix().then(ok => { const w = $('.pp-warn', host); if (w) w.hidden = ok; });
   const stage = $('.pp-stage', host), scr = $('.pp-screen', host), hero = $('.pp-hero', host), input = () => inputs[dev]();
   const fit = () => { const W = dev === 'mobile' ? 390 : 1200, w = stage.clientWidth || W, k = Math.min(1, w / W); scr.style.width = W + 'px'; scr.style.transform = `scale(${k})`; stage.style.height = scr.offsetHeight * k + 'px'; return k; };
   const update = () => {
@@ -3676,7 +3709,7 @@ function mountProfilePreview(host, get, inputs){
     const d = get(), pos = (dev === 'mobile' ? d.posM || d.posD : d.posD) || 'center center', ok = isUrl(d.bg) || /^blob:/.test(d.bg || '');
     fit();
     const [iw, ih] = (ok && natSize(d.bg, update)) || [];
-    fitted = pctPos(pos, iw, ih, hero.clientWidth, hero.clientHeight);
+    fitted = pctPos(pos, iw, ih, ...HERO_BOX[dev]);
     hero.style.backgroundImage = ok ? `url("${d.bg}")` : ''; hero.style.backgroundPosition = `${fitted[0]}% ${fitted[1]}%`;
     $('.pp-img', host).style.backgroundImage = d.photo ? `url("${d.photo}")` : '';
     $('.pp-kick', host).textContent = d.kick || ''; $('.pp-name', host).textContent = d.name || 'Name';
@@ -3916,6 +3949,7 @@ function wire(){
   $('#ro-save').addEventListener('click', saveReorder);
   $('#cat-list').addEventListener('click', e => { const b = e.target.closest('[data-mv]'); if (b) moveRow(b); });
   $('#new-artist').addEventListener('click', () => openArtistDrawer());
+  $('#art-fix-btn').addEventListener('click', fixBannerPositions);
   $('#open-bulk').addEventListener('click', openBulk);
   $('#art-grid').addEventListener('click', e => {
     if (e.target.closest('[data-open-settings]')) return openSettings();
