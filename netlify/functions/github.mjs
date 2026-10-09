@@ -1,5 +1,6 @@
 // Treesh M.A.D. secure GitHub proxy (Netlify Function). GITHUB_TOKEN never leaves the server.
 // Netlify env vars: GITHUB_TOKEN (required), MAD_PASSCODE (required, 12+ chars), MAD_SESSION_SECRET (optional), MAD_REPO (optional, default TreeshWoodz/Treesh)
+// ImageKit uploads (optional): IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY
 // GitHub sign-in (optional): GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, MAD_GITHUB_USERS (comma list, default TreeshWoodz). Callback: https://<site>/api/github/oauth/callback
 // Needs "@netlify/blobs" in the repo's package.json dependencies (sign-in activity + reliable lockout).
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -225,6 +226,12 @@ export default async (req, context) => {
   const sess = readSession(req);
   if (!sess) return json(401, { message: 'Signed out. Sign in to M.A.D. in Settings.', code: 'session' });
   if (sub === '/activity' && method === 'GET') return activity(sess);
+  if (sub === '/imagekit-auth' && method === 'GET'){
+    const pk = (process.env.IMAGEKIT_PRIVATE_KEY || '').trim(), pub = (process.env.IMAGEKIT_PUBLIC_KEY || '').trim();
+    if (!pk || !pub) return json(503, { message: 'ImageKit isn’t set up yet. Add IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY in Netlify, then redeploy.', code: 'imagekit' });
+    const token = randomBytes(16).toString('hex'), expire = Math.floor(Date.now() / 1000) + 600;
+    return json(200, { token, expire, signature: createHmac('sha1', pk).update(token + String(expire)).digest('hex'), publicKey: pub, folder: '/mad' });
+  }
 
   if (sub !== '/repo' && !sub.startsWith('/repo/')) return json(404, { message: 'Unknown M.A.D. route.', code: 'route' });
   const rest = sub.slice('/repo'.length);

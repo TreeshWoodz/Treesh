@@ -360,6 +360,24 @@ async def create_pull(request: Request):
     return pr
 
 
+@api.get("/github/imagekit-auth")
+async def imagekit_auth(request: Request):
+    require_session(request)
+    token, expire = secrets.token_hex(16), int(time.time()) + 600
+    return {"token": token, "expire": expire, "signature": hmac.new(b"mock-private", f"{token}{expire}".encode(), "sha1").hexdigest(),
+            "publicKey": "public_mock", "folder": "/mad", "uploadUrl": "/api/mockgh/imagekit-upload"}
+
+
+@api.post("/mockgh/imagekit-upload")
+async def mock_imagekit_upload(request: Request):
+    body = await request.body()
+    if b'name="signature"' not in body or b'name="publicKey"' not in body:
+        raise GhError(400, "Missing ImageKit auth fields")
+    m = re.search(rb'name="fileName"\r\n\r\n([^\r]+)', body)
+    name = (m.group(1).decode() if m else "image.png")
+    return {"url": f"https://ik.imagekit.io/treesh/mad/{secrets.token_hex(3)}-{name}", "fileId": secrets.token_hex(8), "name": name}
+
+
 @api.get("/github/repo/commits")
 async def list_commits(request: Request, path: str = "", sha: str = "main", per_page: int = 30):
     require_session(request)

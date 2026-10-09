@@ -911,6 +911,10 @@ input[type=datetime-local].input{min-height:50px}
 .wn-cmp{display:flex;flex-direction:column;gap:6px;margin:12px 0 0 22px;padding-top:12px;border-top:1px solid var(--stroke-faint)}.wn-cmp .hint{margin:0 0 4px}
 .wn-cmp-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.03)}.wn-cmp-row>svg{width:15px;height:15px;color:var(--purple-2);flex:none}.wn-cmp-row span{flex:1;min-width:0;font-size:13px}.wn-cmp-row .icon-btn{width:32px;height:32px}
 @media (max-width:760px){.wn-note{width:100%;order:-1}.wn-bar{flex-wrap:wrap}}
+.lyr-main.in-compose{min-height:0;padding:0;border:0;background:none}
+.lyr-main.in-compose .lyr-text{min-height:220px}
+.lyr-main.in-compose .lr-list{max-height:420px}
+.lyr-compose-note{display:flex;align-items:center;gap:8px;margin:12px 0 0}.lyr-compose-note svg{width:15px;height:15px;color:var(--purple-2)}
 </style>
 </head>
 <body>
@@ -926,7 +930,6 @@ input[type=datetime-local].input{min-height:50px}
     <button class="tab active" data-view="compose" title="Compose" aria-label="Compose" data-testid="tab-compose"><i data-lucide="disc-3"></i><span id="tab-compose-label">Compose</span></button>
     <button class="tab" data-view="catalog" title="Catalog" aria-label="Catalog" data-testid="tab-catalog"><i data-lucide="library-big"></i>Catalog <span class="count" id="cat-count" data-testid="catalog-count">··</span></button>
     <button class="tab" data-view="artists" title="Artists" aria-label="Artists" data-testid="tab-artists"><i data-lucide="users-round"></i>Artists <span class="count" id="art-count" data-testid="artists-count">··</span></button>
-    <button class="tab" data-view="lyrics" title="Lyrics" aria-label="Lyrics" data-testid="tab-lyrics"><i data-lucide="mic-vocal"></i>Lyrics</button>
     <button class="tab" data-view="projects" title="Projects" aria-label="Projects" data-testid="tab-projects"><i data-lucide="disc-album"></i>Projects</button>
     <button class="tab" data-view="models" title="Models" aria-label="Models" data-testid="tab-models"><i data-lucide="camera"></i>Models <span class="count" id="mod-count" data-testid="models-count">··</span></button>
     <button class="tab" data-view="blog" title="Blog" aria-label="Blog" data-testid="tab-blog"><i data-lucide="newspaper"></i>Blog</button>
@@ -1050,6 +1053,10 @@ input[type=datetime-local].input{min-height:50px}
           </div>
         </div>
 
+        <div class="card" id="c-lyrics" data-testid="compose-lyrics-card">
+          <div class="card-head"><span class="num">♪</span><h2>Lyrics</h2><p>Write the words, then tap along with the track to sync each line. They publish with the song.</p></div>
+          <div class="lyr-main in-compose" id="lyr-main" data-testid="lyrics-editor"></div>
+        </div>
         <div class="card">
           <div class="card-head"><span class="num">03</span><h2>Linked profiles</h2><p>Where this song shows on artist pages</p></div>
           <div class="roster soft-scroll" id="roster" data-testid="roster-strip"></div>
@@ -1208,7 +1215,6 @@ input[type=datetime-local].input{min-height:50px}
         <label class="search"><i data-lucide="search"></i><input class="input" id="lyr-search" placeholder="Find a song…" data-testid="lyrics-search-input"></label>
         <div class="lyr-list soft-scroll" id="lyr-list" data-testid="lyrics-song-list"></div>
       </aside>
-      <div class="lyr-main" id="lyr-main" data-testid="lyrics-editor"></div>
     </div>
   </section>
 
@@ -1433,6 +1439,8 @@ input[type=datetime-local].input{min-height:50px}
       <div class="grid2">
         <div class="field"><label for="a-role">Role</label><input class="input" id="a-role" list="role-list" placeholder="Music Artist" data-testid="artist-role-input"><datalist id="role-list"><option value="Music Artist"><option value="Rapper"><option value="Singer"><option value="Producer"><option value="Songwriter"><option value="DJ"></datalist></div>
         <div class="field"><label for="a-location">Location</label><input class="input" id="a-location" placeholder="Atlanta, GA" data-testid="artist-location-input"></div>
+        <div class="field"><label for="a-state">Home state</label><input class="input" id="a-state" list="us-states" placeholder="Pick a state or type another place" data-testid="artist-state-input"></div>
+        <div class="field"><label for="a-birthday">Birthday</label><input class="input" type="date" id="a-birthday" data-testid="artist-birthday-input"></div>
       </div>
       <div class="field" data-af="photo" style="margin-bottom:14px"><label for="a-photo">Photo link <span class="req">*</span></label><input class="input" id="a-photo" placeholder="https://ik.imagekit.io/treesh/…" data-testid="artist-photo-input"><p class="err" data-testid="artist-error-photo"></p></div>
       <div class="field" data-af="bg" style="margin-bottom:14px"><label for="a-bg">Background link <span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--dim)">(defaults to photo)</span></label><input class="input" id="a-bg" placeholder="https://…" data-testid="artist-bg-input"><p class="err" data-testid="artist-error-bg"></p></div>
@@ -1539,7 +1547,19 @@ const escText = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function toIso(text){ if (!/\d{4}/.test(text)) return ''; const d = new Date(text); if (isNaN(d)) return ''; return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function splitNames(s){ return String(s || '').split(/\s*(?:,|&|\+)\s*/).map(x => x.trim()).filter(Boolean); }
 function joinNames(a){ return a.length < 2 ? (a[0] || '') : a.length === 2 ? `${a[0]} & ${a[1]}` : `${a.slice(0, -1).join(', ')} & ${a[a.length - 1]}`; }
-function ytId(v){ v = (v || '').trim(); const m = v.match(/(?:youtu\.be\/|v=|\/shorts\/|\/embed\/|\/live\/)([\w-]{11})/); return m ? m[1] : v; }
+function ytId(v){
+  v = String(v || '').trim(); if (/^[\w-]{11}$/.test(v)) return v;
+  let u; try { u = new URL(/^[a-z][\w+.-]*:\/\//i.test(v) ? v : 'https://' + v.replace(/^\/+/, '')); } catch { return v; }
+  const h = u.hostname.toLowerCase().replace(/^(www|m|music|gaming|studio)\./, ''), ok = id => /^[\w-]{11}$/.test(id || '') ? id : '';
+  let id = '';
+  if (/^(youtu\.be|you\.tube|y2u\.be|youtube\.app\.goo\.gl)$/.test(h)) id = ok(u.pathname.split('/')[1]);
+  else if (/(^|\.)youtube(-nocookie|kids|education)?\.com$|^youtube\.googleapis\.com$/.test(h)){
+    const nested = u.searchParams.get('u') || u.searchParams.get('continue');
+    id = ok(u.searchParams.get('v')) || ok(u.searchParams.get('vi')) || ok((u.pathname.match(/^\/(?:shorts|embed|live|v|e|vi|watch|clip)\/([\w-]{11})/) || [])[1]) || (nested ? ok(ytId(nested.startsWith('/') ? 'https://youtube.com' + nested : nested)) : '');
+  }
+  return id || v;
+}
+document.addEventListener('input', e => { const el = e.target; if (!el.matches || !el.matches('#f-video,[data-mk="video"]') || !/[./]/.test(el.value)) return; const id = ytId(el.value); if (id !== el.value.trim() && /^[\w-]{11}$/.test(id)){ el.value = id; el.dispatchEvent(new Event('change', { bubbles:true })); toast(`YouTube link trimmed to the video ID ${id}`, 'ok', 2200); } }, true);
 function fromB64(b64){ const bin = atob(b64.replace(/\s/g, '')); const bytes = Uint8Array.from(bin, c => c.charCodeAt(0)); return new TextDecoder('utf-8').decode(bytes); }
 function toB64(text){ const bytes = new TextEncoder().encode(text); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin); }
 function saveCfg(){ const { owner, repo, ...keep } = cfg; localStorage.setItem(CFG_KEY, JSON.stringify(keep)); }
@@ -1657,7 +1677,7 @@ function parseRoster(text){
   return [...doc.querySelectorAll('article.artist')].map(el => {
     const img = el.querySelector('img.artist__image') || el.querySelector('img'), roleEl = el.querySelector('.artist__label .capital');
     const g = k => (el.getAttribute(k) || '').trim();
-    return { id: g('data-artist-id'), name: g('data-name'), image: (img && img.getAttribute('src')) || g('data-bg'), bg: g('data-bg'), bgPos: g('data-bg-pos') || 'center center', bgPosMobile: g('data-bg-pos-mobile'), location: g('data-location'), bio: g('data-bio'), cashapp: g('data-cashapp'), role: roleEl ? roleEl.textContent.trim() : 'Music Artist' };
+    return { id: g('data-artist-id'), name: g('data-name'), image: (img && img.getAttribute('src')) || g('data-bg'), bg: g('data-bg'), bgPos: g('data-bg-pos') || 'center center', bgPosMobile: g('data-bg-pos-mobile'), location: g('data-location'), state: g('data-state'), birthday: g('data-birthday'), bio: g('data-bio'), cashapp: g('data-cashapp'), role: roleEl ? roleEl.textContent.trim() : 'Music Artist' };
   }).filter(a => a.id && a.name).sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -1782,7 +1802,7 @@ function clearMedia(){
 }
 function resetForm(){
   fillForm({}); clearMedia(); showErrors({}); stopAudio();
-  localStorage.removeItem(DRAFT_KEY); refreshAll();
+  localStorage.removeItem(DRAFT_KEY); refreshAll(); composeLyrics(null);
 }
 
 function renderFeatured(){
@@ -1856,8 +1876,27 @@ function renderPreview(){
 function refreshAll(){ renderFeatured(); renderRoster(); renderSuggest(); renderPreview(); saveDraft(); }
 
 /* ---------- media ---------- */
-const cloudReady = () => !!(cfg.cloudName && cfg.preset);
+const cloudReady = (kind = 'image') => kind === 'audio' ? !!(cfg.cloudName && cfg.preset) : signedIn();
+// Images go to ImageKit (free plan, 20 MB max). The M.A.D. server signs each upload so the private key never reaches the browser.
+async function ikUpload(file, onProgress){
+  if (!/^image\//.test(file.type || 'image/')) throw new Error('Only images can be uploaded here.');
+  if (file.size > 20 * 1024 * 1024) throw new Error('ImageKit’s free plan takes images up to 20 MB.');
+  const r = await fetch(`${API}/imagekit-auth`, { credentials:'same-origin', cache:'no-store' }).catch(() => null);
+  const a = r ? await r.json().catch(() => ({})) : {};
+  if (!r || !r.ok) throw new Error(a.message || 'Couldn’t reach the M.A.D. server to sign the upload.');
+  return new Promise((res, rej) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', a.uploadUrl || 'https://upload.imagekit.io/api/v1/files/upload');
+    xhr.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => { const d = safeJSON(xhr.responseText); if (xhr.status < 300 && d.url) res(d.url); else rej(new Error(d.message || `ImageKit upload failed (${xhr.status})`)); };
+    xhr.onerror = () => rej(new Error('Network error while uploading to ImageKit.'));
+    const fd = new FormData();
+    fd.append('file', file); fd.append('fileName', (file.name || 'image').replace(/[^\w.\-]+/g, '-')); fd.append('publicKey', a.publicKey); fd.append('token', a.token); fd.append('expire', String(a.expire)); fd.append('signature', a.signature); fd.append('useUniqueFileName', 'true'); fd.append('folder', a.folder || '/mad');
+    xhr.send(fd);
+  });
+}
 function cloudUpload(file, kind, onProgress){
+  if (kind !== 'audio') return ikUpload(file, onProgress);
   return new Promise((res, rej) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `https://api.cloudinary.com/v1_1/${encodeURIComponent(cfg.cloudName)}/${kind === 'audio' ? 'video' : 'image'}/upload`);
@@ -1904,7 +1943,7 @@ async function handleAudio(file){
   }
   refreshAll();
   const found = [tags.title && 'title', tags.artist && 'artist', tags.picture && 'artwork'].filter(Boolean);
-  if (cloudReady()) upload('audio', file);
+  if (cloudReady('audio')) upload('audio', file);
   else dropStatus('audio', statusHtml('warn', 'info', `${found.length ? 'Read ' + found.join(', ') + '. ' : ''}Preview only: paste the hosted link below or set up Cloudinary.`, 'audio-status'));
 }
 function handleCover(file, fromTags){
@@ -1922,7 +1961,7 @@ async function upload(kind, file){
   bar.hidden = false;
   dropStatus(kind, statusHtml('', 'eq', 'Uploading to Cloudinary… 0%', `${kind}-status`));
   try {
-    const url = await cloudUpload(file, kind, p => { $('i', bar).style.width = `${Math.round(p * 100)}%`; const s = $(`#drop-${kind} .status-line span:last-child`); if (s) s.textContent = `Uploading to Cloudinary… ${Math.round(p * 100)}%`; });
+    const url = await cloudUpload(file, kind, p => { $('i', bar).style.width = `${Math.round(p * 100)}%`; const s = $(`#drop-${kind} .status-line span:last-child`); if (s) s.textContent = `Uploading to ${kind === 'audio' ? 'Cloudinary' : 'ImageKit'}… ${Math.round(p * 100)}%`; });
     $(kind === 'audio' ? '#f-mp3' : '#f-cover').value = url;
     bar.hidden = true;
     dropStatus(kind, statusHtml('ok', 'check-circle-2', 'Uploaded & linked', `${kind}-status`));
@@ -2078,12 +2117,13 @@ function startEdit(s){
   state.editBase = JSON.stringify(snapshot());
   const dr = safeJSON(localStorage.getItem(editKey(s)));
   if (dr.savedAt){ fillForm(dr); refreshAll(); toast(`Restored your unsaved edits from ${when(dr.savedAt)}.`, 'info', 4000); }
+  composeLyrics(s);
   paintDraft(); switchView('compose'); window.scrollTo({ top:0, behavior:'smooth' });
 }
 function exitEdit(keep = true){
   if (!state.editing) return;
   if (keep) writeDraft(); else localStorage.removeItem(editKey(state.editing));
-  state.editing = null; state.editBase = null; setEditUI(); const d = safeJSON(localStorage.getItem(DRAFT_KEY)); fillForm(d); clearMedia(); showErrors({}); refreshAll(); paintDraft(); renderCatalog();
+  state.editing = null; state.editBase = null; setEditUI(); const d = safeJSON(localStorage.getItem(DRAFT_KEY)); fillForm(d); clearMedia(); showErrors({}); refreshAll(); paintDraft(); renderCatalog(); composeLyrics(null);
 }
 async function cancelEdit(){
   if (JSON.stringify(snapshot()) !== state.editBase && !(await confirmModal({ title:'Discard your edits?', ico:'undo-2', tone:'danger', testid:'discard-edits-modal', body:'<p>Your unsaved changes to this song will be cleared. The catalog version stays as it is.</p>', ok:'Discard edits', okKind:'btn-danger', okIcon:'trash-2' }))) return;
@@ -2172,10 +2212,11 @@ function rawAttrs(raw){ const t = document.createElement('template'); t.innerHTM
 
 /* ---------- artists ---------- */
 const nextArtistId = roster => String(roster.reduce((m, a) => Math.max(m, parseInt(a.id, 10) || 0), 0) + 1);
-const KNOWN_A = new Set(['class','data-artist-id','data-name','data-artist-sort','data-bg','data-location','data-bio','data-bg-pos','data-bg-pos-mobile','data-cashapp']);
+const KNOWN_A = new Set(['class','data-artist-id','data-name','data-artist-sort','data-bg','data-location','data-state','data-birthday','data-bio','data-bg-pos','data-bg-pos-mobile','data-cashapp']);
 function buildArtistBlock(a, orig){
   const at = ['class="artist"', `data-artist-id="${esc(a.id)}"`, `data-name="${esc(a.name)}"`, 'data-artist-sort="[data-artist-id]"', `data-bg="${esc(a.bg || a.photo)}"`];
   if (a.location) at.push(`data-location="${esc(a.location)}"`);
+  if (a.state) at.push(`data-state="${esc(a.state)}"`); if (a.birthday) at.push(`data-birthday="${esc(a.birthday)}"`);
   at.push(`data-bio="${esc(a.bio)}"`, `data-bg-pos="${esc(a.bgPos || 'center center')}"`); if (a.bgPosMobile) at.push(`data-bg-pos-mobile="${esc(a.bgPosMobile)}"`);
   if (a.cashapp) at.push(`data-cashapp="${esc(a.cashapp)}"`);
   if (orig) Object.entries(orig).forEach(([k, v]) => { if (!KNOWN_A.has(k)) at.push(`${k}="${esc(v)}"`); });
@@ -2237,7 +2278,7 @@ function openArtistDrawer(ed){
   root.innerHTML = ''; root.appendChild($('#tpl-artist').content.cloneNode(true));
   if (ed){
     $('.drawer', root).dataset.edit = '1'; $('.drawer-head h2', root).textContent = 'Edit artist';
-    [['a-name', ed.name], ['a-role', ed.role], ['a-location', ed.location], ['a-photo', ed.image], ['a-bg', ed.bg === ed.image ? '' : ed.bg], ['a-bgpos', ed.bgPos], ['a-bgpos-m', ed.bgPosMobile], ['a-bio', ed.bio], ['a-cashapp', ed.cashapp]].forEach(([id, v]) => { $('#' + id).value = v || ''; });
+    [['a-name', ed.name], ['a-role', ed.role], ['a-location', ed.location], ['a-state', ed.state], ['a-birthday', ed.birthday], ['a-photo', ed.image], ['a-bg', ed.bg === ed.image ? '' : ed.bg], ['a-bgpos', ed.bgPos], ['a-bgpos-m', ed.bgPosMobile], ['a-bio', ed.bio], ['a-cashapp', ed.cashapp]].forEach(([id, v]) => { $('#' + id).value = v || ''; });
   }
   const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
@@ -2245,7 +2286,7 @@ function openArtistDrawer(ed){
   $$('[data-close]', root).forEach(b => b.addEventListener('click', close));
   $('#a-id').textContent = '#' + (ed ? ed.id : nextArtistId(state.roster));
   const local = { photo:'', bg:'' };
-  const read = () => ({ name: val('a-name'), role: val('a-role') || 'Music Artist', location: val('a-location'), photo: val('a-photo'), bg: val('a-bg'), bgPos: val('a-bgpos') || 'center center', bgPosMobile: val('a-bgpos-m'), bio: $('#a-bio').value.replace(/\r\n/g, '\n').trim(), cashapp: val('a-cashapp').replace(/^\$/, '') });
+  const read = () => ({ name: val('a-name'), role: val('a-role') || 'Music Artist', location: val('a-location'), state: val('a-state'), birthday: val('a-birthday'), photo: val('a-photo'), bg: val('a-bg'), bgPos: val('a-bgpos') || 'center center', bgPosMobile: val('a-bgpos-m'), bio: $('#a-bio').value.replace(/\r\n/g, '\n').trim(), cashapp: val('a-cashapp').replace(/^\$/, '') });
   let ppA = null;
   setTimeout(() => { ppA = mountProfilePreview($('#a-pp'), () => { const a = read(), ph = isUrl(a.photo) ? a.photo : local.photo, bg = isUrl(a.bg) ? a.bg : (local.bg || ph); return { bg, photo: ph, name: a.name || 'New artist', kick: a.role, loc: a.location, bio: a.bio, posD: a.bgPos, posM: a.bgPosMobile, stats: [[ed ? state.catalog.songs.filter(x => x.ids.split(',').map(y => y.trim()).includes(ed.id)).length : 0, 'Tracks'], ['0', 'Your plays'], ['0', 'Liked']] }; }, { mobile: () => $('#a-bgpos-m'), desktop: () => $('#a-bgpos') }); posChips($('#a-bgpos-m'), 'artist-bgpos-mobile'); }, 0);
   const preview = () => {
@@ -2361,7 +2402,20 @@ function buildLyricBlock(s, lines, orig){
 }
 function insertLyric(text, block){ const bl = findLyricBlocks(text); const pos = bl.length ? text.lastIndexOf('\n', bl[0].start - 1) + 1 : text.length; return text.slice(0, pos) + block + '\n\n' + text.slice(pos); }
 async function loadLyrics(){ try { const { text, source } = await loadText('lyrics'); setLyrics(text, source); } catch { setLyrics('', ''); } }
-function setLyrics(text, source){ state.lyrics = { text, blocks: findLyricBlocks(text), source: source ?? state.lyrics.source }; if (state.view === 'lyrics') renderLyrics(); }
+function setLyrics(text, source){ state.lyrics = { text, blocks: findLyricBlocks(text), source: source ?? state.lyrics.source }; if (!state.lyr || (state.lyr.compose && !state.lyr.dirty)) composeLyrics(state.editing || null); }
+function composeLyrics(s){
+  const orig = s ? findLyric(s) : null;
+  state.lyr = { compose:true, song: s ? { ...s } : { title:'', artist:'', ids:'', mp3:'', cover:'', h3:'', raw:'__new__' }, orig, lines: orig ? orig.lines.map(l => ({ ...l })) : [], mode: orig && orig.lines.length ? 'sync' : 'write', cur:0, undo:[], open:new Set(), dirty:false };
+  state.lyr.cur = firstUnsynced(); renderLyrEditor();
+}
+function lyrSyncSong(){ const L = state.lyr; if (!L || !L.compose) return; const v = id => ($('#' + id) || {}).value || ''; L.song.title = v('f-title').trim() || L.song.title; L.song.artist = v('f-artist').trim() || L.song.artist; if (isUrl(v('f-mp3'))) L.song.mp3 = v('f-mp3').trim(); if (isUrl(v('f-cover'))) L.song.cover = v('f-cover').trim(); }
+function lyricsAlso(f){
+  const L = state.lyr; if (!L || !L.compose) return [];
+  if (L.mode === 'write') syncFromText();
+  if (!L.dirty || !L.lines.length) return [];
+  const s = { ...L.song, title: f.title, artist: f.artist, ids: Array.isArray(f.ids) ? f.ids.join(',') : (f.ids || L.song.ids || '') };
+  return [{ path: cfg.lyricsPath, message: `${L.orig ? 'Update' : 'Add'} lyrics: ${f.title}`, apply: t => { const ex = L.orig && findLyricBlocks(t).find(b => b.raw === L.orig.raw); if (L.orig && !ex) throw new Error('These lyrics changed on GitHub since you opened them. Refresh and try again.'); const block = buildLyricBlock(s, L.lines, ex); return ex ? replaceRaw(t, ex.raw, block) : insertLyric(t, block); } }];
+}
 function lyrStatus(s){ const b = findLyric(s); if (!b || !b.lines.length) return ['none', 'None']; return b.lines.some(l => l.t != null) ? ['sync', 'Synced'] : ['plain', 'Plain']; }
 function renderLyrics(){
   const q = normKey($('#lyr-search').value), songs = state.catalog.songs.filter(s => !q || normKey(s.title + s.artist + s.h3).includes(q));
@@ -2382,14 +2436,14 @@ async function openLyrics(s){
 function renderLyrEditor(){
   const m = $('#lyr-main'), L = state.lyr;
   if (!L){ m.innerHTML = `<div class="empty" data-testid="lyrics-empty">${icon('mic-vocal')}<b>Pick a song</b><span>Choose a track to write or sync its lyrics.</span></div>`; return icons(); }
-  const s = L.song, mine = state.playing === 'lyr';
+  lyrSyncSong(); const s = L.song, mine = state.playing === 'lyr';
   const seg = (cls, attr, a, b, tid) => `<div class="seg ${cls}" data-mode="${b[3] ? 'live' : 'pr'}" data-testid="${tid}"><span class="ind"></span><button type="button" ${attr}="${a[0]}" class="${a[3] ? 'on' : ''}" data-testid="${a[4]}">${icon(a[1])}<span class="t">${a[2]}</span></button><button type="button" ${attr}="${b[0]}" class="${b[3] ? 'on' : ''}" data-testid="${b[4]}">${icon(b[1])}<span class="t">${b[2]}</span></button></div>`;
-  m.innerHTML = `<div class="lyr-head"><button class="icon-btn lyr-back" data-lact="back" title="Back" data-testid="lyrics-back-btn">${icon('arrow-left')}</button><img ${s.cover ? `src="${esc(s.cover)}"` : ''} alt=""><div class="t"><b data-testid="lyrics-editor-title">${esc(s.title)}</b><small>${esc(s.h3 || s.artist)}${L.orig ? '' : ' · new lyrics'}</small></div><span class="lyr-stat" id="lyr-stat" title="Synced lines" data-testid="lyrics-sync-stat">${lyrCounts()}</span></div>
+  m.innerHTML = `<div class="lyr-head">${L.compose ? '' : `<button class="icon-btn lyr-back" data-lact="back" title="Back" data-testid="lyrics-back-btn">${icon('arrow-left')}</button>`}<img ${s.cover ? `src="${esc(s.cover)}"` : ''} alt=""><div class="t"><b data-testid="lyrics-editor-title">${esc(s.title || 'This song')}</b><small>${esc(s.h3 || s.artist || 'Add a title and artist above')}${L.orig ? ' · lyrics on Treesh' : ' · new lyrics'}${L.dirty ? ' · unsaved' : ''}</small></div><span class="lyr-stat" id="lyr-stat" title="Synced lines" data-testid="lyrics-sync-stat">${lyrCounts()}</span></div>
   <div class="lyr-player"><button class="lp" data-lact="play" title="Play / pause" data-testid="lyrics-play-btn">${icon(mine && !player.paused ? 'pause' : 'play')}</button><span class="tc" id="lyr-time" data-testid="lyrics-current-time">${fmtTc(mine ? player.currentTime : 0)}</span><input type="range" class="seek" id="lyr-seek" min="0" max="1000" value="0" aria-label="Seek" data-testid="lyrics-seek"><span class="tc" id="lyr-dur">${fmtTime(mine ? player.duration : 0)}</span><button class="icon-btn" data-lact="rew" title="Back 3 seconds" data-testid="lyrics-rewind-btn">${icon('rotate-ccw')}</button></div>
   <div class="lyr-tools">${seg('lyr-seg', 'data-lmode', ['write', 'pencil-line', 'Write', L.mode === 'write', 'lyrics-write-tab'], ['sync', 'timer', 'Sync', L.mode === 'sync', 'lyrics-sync-tab'], 'lyrics-mode-toggle')}<p class="hint">${L.mode === 'write' ? 'One line per row. Put sections in brackets, like [Chorus].' : 'Play the track and hit Stamp (or Space) as each line starts. Tap a line to jump to it.'}</p></div>
   <div id="lyr-body"></div>
   <div class="panel lyr-code-panel ${L.codeOpen ? 'open' : ''}" id="lyr-code-panel" data-testid="lyrics-code-panel"><div class="panel-head" data-lact="codetoggle" data-testid="lyrics-code-toggle">${icon('code-xml')}<b>Lyrics code</b><button type="button" class="btn btn-sm" data-lact="copy" style="margin-left:auto" data-testid="lyrics-copy-code-btn">${icon('copy')}Copy code</button><i class="chev" data-lucide="chevron-down"></i></div><pre class="code soft-scroll" id="lyr-code" data-testid="lyrics-generated-code"></pre></div>
-  <div class="lyr-foot">${seg('mode-seg', 'data-mode', ['pr', 'git-pull-request', 'Review', cfg.mode === 'pr', 'lyrics-mode-pr-btn'], ['live', 'zap', 'Go live', cfg.mode === 'live', 'lyrics-mode-live-btn'], 'lyrics-publish-mode-toggle')}<button class="btn btn-primary" data-lact="save" id="lyr-save" data-testid="lyrics-save-btn">${icon('save')}<span id="lyr-save-label">${cfg.mode === 'live' ? 'Publish lyrics' : 'Open PR'}</span></button></div>`;
+  ${L.compose ? `<p class="hint lyr-compose-note" data-testid="lyrics-compose-note">${icon('info')} Lyrics are saved with the song when you press ${state.editing ? 'Save changes' : 'Upload to catalog'}.</p>` : ''}<div class="lyr-foot" ${L.compose ? 'hidden' : ''}>${seg('mode-seg', 'data-mode', ['pr', 'git-pull-request', 'Review', cfg.mode === 'pr', 'lyrics-mode-pr-btn'], ['live', 'zap', 'Go live', cfg.mode === 'live', 'lyrics-mode-live-btn'], 'lyrics-publish-mode-toggle')}<button class="btn btn-primary" data-lact="save" id="lyr-save" data-testid="lyrics-save-btn">${icon('save')}<span id="lyr-save-label">${cfg.mode === 'live' ? 'Publish lyrics' : 'Open PR'}</span></button></div>`;
   renderLyrBody(); icons();
 }
 function renderLyrBody(){
@@ -2427,7 +2481,7 @@ function stamp(){
 async function lyrAction(btn){
   const L = state.lyr, a = btn.dataset.lact, li = btn.closest('.lr'), n = li ? +li.dataset.n : -1;
   if (a === 'back'){ if (L.dirty && !(await confirmModal({ title:'Discard unsaved lyrics?', ico:'alert-triangle', body:'<p>Your changes haven’t been saved.</p>', ok:'Discard', testid:'lyrics-discard-modal' }))) return; stopAudio(); state.lyr = null; return renderLyrics(); }
-  if (a === 'play'){ if (!L.song.mp3) return toast('This song has no audio link.', 'bad'); return playSrc(L.song.mp3, 'lyr'); }
+  if (a === 'play'){ lyrSyncSong(); if (!L.song.mp3) return toast(L.compose ? 'Add the audio link (or upload the track) above first.' : 'This song has no audio link.', 'bad'); return playSrc(L.song.mp3, 'lyr'); }
   if (a === 'rew'){ if (state.playing === 'lyr') player.currentTime = Math.max(0, player.currentTime - 3); return; }
   if (a === 'stamp') return stamp();
   if (a === 'undo'){ const u = L.undo.pop(); if (u){ L.lines[u.i].t = u.prev; L.cur = u.cur; L.dirty = true; } }
@@ -2480,11 +2534,11 @@ function wireLyrics(){
     L.lines[n].t = v ? t : null; L.dirty = true; renderLyrBody(); $('#lyr-stat').textContent = lyrCounts();
   });
   document.addEventListener('keydown', e => {
-    if (e.code !== 'Space' || state.view !== 'lyrics' || !state.lyr || state.lyr.mode !== 'sync' || e.target.closest('input,textarea,select,[contenteditable]') || $('.modal-wrap')) return;
+    if (e.code !== 'Space' || !state.lyr || !['lyrics', 'compose'].includes(state.view) || state.lyr.mode !== 'sync' || e.target.closest('input,textarea,select,[contenteditable]') || $('.modal-wrap')) return;
     e.preventDefault(); stamp();
   });
   player.addEventListener('timeupdate', () => {
-    if (state.playing !== 'lyr' || !state.lyr || state.view !== 'lyrics') return;
+    if (state.playing !== 'lyr' || !state.lyr || !['lyrics', 'compose'].includes(state.view)) return;
     const ct = player.currentTime, tEl = $('#lyr-time'), sk = $('#lyr-seek'), du = $('#lyr-dur');
     if (tEl) tEl.textContent = fmtTc(ct);
     if (sk && player.duration && document.activeElement !== sk) sk.value = Math.round((ct / player.duration) * 1000);
@@ -2521,7 +2575,7 @@ async function processItem(it){
   it.busy = '';
   if (!state.queue.includes(it)) return;
   renderQueue();
-  if (!cloudReady()) return;
+  if (!cloudReady('audio')) return;
   try {
     it.busy = 'Uploading audio…'; updateItem(it);
     it.mp3 = await cloudUpload(it.file, 'audio', p => { it.progress = p; updateItem(it); });
@@ -2585,7 +2639,7 @@ function openBulk(){
   const onKey = e => { if (e.key === 'Escape' && !$('.modal-wrap')) close(); };
   document.addEventListener('keydown', onKey);
   $$('[data-close]', root).forEach(b => b.addEventListener('click', close));
-  $('#q-cloud-hint').hidden = cloudReady();
+  $('#q-cloud-hint').hidden = cloudReady('audio');
   const d = $('#q-drop'), inp = $('#q-file');
   d.addEventListener('click', () => inp.click());
   d.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inp.click(); } });
@@ -2864,6 +2918,7 @@ const opt = a => a.map(x => [x, x]);
 const MODEL_SECTIONS = [
   ['Identity', 'Who scouts are looking at', [
     ['name', 'Model name', 'text', { req: 1, ph: 'Professional name', span: 2 }],
+    ['birthday', 'Birthday', 'text', { type:'date' }], ['state', 'Home state', 'text', { list:'us-states', ph:'Pick a state or type another place' }],
     ['division', 'Division', 'select', { opts: opt(['Women', 'Men', 'Non-binary', 'Teens', 'Kids']) }],
     ['board', 'Board', 'select', { opts: opt(['Main', 'Development / New Faces', 'Commercial', 'Curve', 'Petite', 'Fitness', 'Mature / Classic', 'Parts']) }],
     ['age', 'Age', 'text', { ph: '22', mode: 'numeric' }],
@@ -2994,7 +3049,7 @@ function modelFieldHtml([k, label, type, o = {}]){
   if (type === 'select') return `<div class="field${sp}"><label for="${id}">${label}</label><select class="select" id="${id}" data-mk="${k}" data-testid="model-${k}-input"><option value="">—</option>${o.opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></div>`;
   if (type === 'textarea') return `<div class="field${sp}"><label for="${id}">${label}</label><textarea class="textarea" id="${id}" data-mk="${k}" placeholder="${esc(o.ph || '')}" data-testid="model-${k}-input"></textarea></div>`;
   if (type === 'chips') return `<div class="field${sp}"><span class="lbl">${label}</span><div class="suggest" id="${id}" data-chips="${k}" data-testid="model-${k}-chips">${o.opts.map(c => `<button type="button" class="sug" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`;
-  return `<div class="field${sp}" data-mf="${k}"><label for="${id}">${label}${req}</label><input class="input" id="${id}" data-mk="${k}" placeholder="${esc(o.ph || '')}" ${o.mode ? `inputmode="${o.mode}"` : ''} data-testid="model-${k}-input"><p class="err" data-testid="model-error-${k}"></p></div>`;
+  return `<div class="field${sp}" data-mf="${k}"><label for="${id}">${label}${req}</label><input class="input" id="${id}" data-mk="${k}" ${o.type ? `type="${o.type}"` : ''} ${o.list ? `list="${o.list}"` : ''} placeholder="${esc(o.ph || '')}" ${o.mode ? `inputmode="${o.mode}"` : ''} data-testid="model-${k}-input"><p class="err" data-testid="model-error-${k}"></p></div>`;
 }
 function openModelDrawer(ed){
   if (!requireGitHub()) return;
@@ -3062,7 +3117,7 @@ function openModelDrawer(ed){
       try { p.url = await cloudUpload(f, 'image', pr => { p.busy = `Uploading ${Math.round(pr * 100)}%`; }); } catch (e){ toast(e.message, 'bad'); }
       p.busy = ''; paintPhotos();
     });
-    if (!cloudReady()) toast('Cloudinary isn’t set up. Paste hosted links for these photos, or add a preset in Settings.', 'info', 4500);
+    if (!cloudReady()) toast('Sign in to M.A.D. to upload photos to ImageKit, or paste hosted links.', 'info', 4500);
   };
   const d = $('#m-drop'), inp = $('#m-file');
   d.addEventListener('click', () => inp.click());
@@ -3284,23 +3339,26 @@ function afterLive(path, next){
   if (path === cfg.blogPath){ state.postsMissing = false; setPosts(next); }
 }
 async function commitFile({ path, apply, message, body, branchKey, create }, step = () => {}){
+  const extras = path === cfg.songsPath && state.pendingAlso ? state.pendingAlso : []; state.pendingAlso = null;
   for (let attempt = 0; attempt < 2; attempt++){
     step('Reading the latest file…');
     let text = '', sha;
     try { ({ text, sha } = await gh.getFile(path, cfg.branch)); } catch (e){ if (!(create && e.status === 404)) throw e; }
-    const next = apply(text);
+    const next = apply(text), skipMain = next === text && extras.length;
+    const putExtras = async br => { for (const x of extras){ step('Saving lyrics…'); let t2 = '', s2; try { ({ text: t2, sha: s2 } = await gh.getFile(x.path, br)); } catch (e){ if (e.status !== 404) throw e; } const n2 = x.apply(t2); await gh.putFile(x.path, n2, s2, x.message, br); if (br === cfg.branch) afterLive(x.path, n2); } };
     try {
       if (cfg.mode === 'live'){
         step('Publishing to ' + cfg.branch + '…');
-        await gh.putFile(path, next, sha, message, cfg.branch);
-        afterLive(path, next);
+        if (!skipMain){ await gh.putFile(path, next, sha, message, cfg.branch); afterLive(path, next); }
+        await putExtras(cfg.branch);
         return { mode:'live' };
       }
       step('Creating a review branch…');
       const branch = `songcoder/${branchKey}-${Date.now().toString(36)}`;
       await gh.createBranch(branch, await gh.headSha(cfg.branch));
       step('Committing the change…');
-      await gh.putFile(path, next, sha, message, branch);
+      if (!skipMain) await gh.putFile(path, next, sha, message, branch);
+      await putExtras(branch);
       step('Opening pull request…');
       const pr = await gh.openPR({ title: message, head: branch, base: cfg.branch, body });
       state.prs = [pr, ...state.prs]; state.allPrs = [pr, ...state.allPrs]; renderPRs(); paintPrCount();
@@ -3332,12 +3390,16 @@ async function publish(){
   const btn = $('#publish'), label = $('#publish-label'), orig = label.textContent;
   state.busy = true; btn.disabled = true; btn.querySelector('svg, i').outerHTML = icon('loader-2', 'spin'); icons();
   try {
+    const also = lyricsAlso(f); state.pendingAlso = also;
     const r = await commitChange({ kind, block: buildBlock(f, editing), target: editing, title: f.title, artist: [f.artist, ...f.featured].join(' x ') }, f, s => { label.textContent = s; });
+    if (also.length && state.lyr) state.lyr.dirty = false;
     done(r, kind, f.title);
+    if (also.length) toast(`Lyrics went out in the same ${r.mode === 'pr' ? 'pull request' : 'publish'}.`, 'ok', 4000);
     if (editing){ localStorage.removeItem(editKey(editing)); state.editing = null; state.editBase = null; setEditUI(); fillForm(safeJSON(localStorage.getItem(DRAFT_KEY))); clearMedia(); refreshAll(); if (r.mode === 'live') switchView('catalog'); }
     else resetForm();
+    if (editing) composeLyrics(null);
     if (r.mode === 'live') setTimeout(loadCatalog, 800);
-  } catch (e){ failModal(e); }
+  } catch (e){ state.pendingAlso = null; failModal(e); }
   finally { state.busy = false; btn.disabled = false; label.textContent = state.editing ? 'Save changes' : orig; const sv = btn.querySelector('svg, i'); if (sv) sv.outerHTML = icon('upload-cloud'); icons(); }
 }
 async function copyText(code, msg){
@@ -3679,7 +3741,7 @@ function openPostDrawer(ed, seed){
   const onKey = e => { if (e.key === 'Escape' && !$('.modal-wrap')) close(); };
   document.addEventListener('keydown', onKey); window.addEventListener('beforeunload', writeP);
   $$('[data-close]', root).forEach(b => b.addEventListener('click', () => close()));
-  const ta = f('md'), upload = cb => { if (!cfg.preset) return toast('Add a Cloudinary upload preset in Settings, or use “Image by link”.', 'info'); const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = async () => { const file = i.files[0]; if (!file) return; toast('Uploading image…', 'info'); try { cb(await cloudUpload(file, 'image', () => {})); toast('Image uploaded.', 'ok'); } catch (e){ toast(e.message, 'bad'); } }; i.click(); };
+  const ta = f('md'), upload = cb => { if (!cloudReady()) return toast('Sign in to M.A.D. to upload images to ImageKit, or use “Image by link”.', 'info'); const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = async () => { const file = i.files[0]; if (!file) return; toast('Uploading image…', 'info'); try { cb(await cloudUpload(file, 'image', () => {})); toast('Image uploaded.', 'ok'); } catch (e){ toast(e.message, 'bad'); } }; i.click(); };
   $('#p-bar').innerHTML = toolbar(MD_TOOLS, 'post'); icons();
   $('#p-bar').addEventListener('click', e => { const b = e.target.closest('[data-tool]'); if (b) mdTool(ta, b.dataset.tool, upload); });
   ta.addEventListener('keydown', e => mdKeys(e, ta, k => mdTool(ta, k, upload)));
@@ -3728,7 +3790,7 @@ function searchAll(q){
   add('Songs', 'disc-3', state.catalog.songs.filter(s => hit(s.title, s.artist, s.h3, s.genre, s.album)).map(s => ({ t: s.title, sub: s.artist, img: s.cover, go: () => { switchView('catalog'); $('#cat-search').value = s.title; renderCatalog(); } })));
   add('Artists', 'users-round', state.roster.filter(a => hit(...Object.values(a))).map(a => ({ t: a.name, sub: a.role || '#' + a.id, go: () => { switchView('artists'); openArtistDrawer(a); } })));
   add('Models', 'camera', state.models.filter(m => hit(m.name, m.location, m.board, m.categories, m.agency)).map(m => ({ t: m.name, sub: [m.board, m.location].filter(Boolean).join(' · '), img: m.headshot, go: () => { switchView('models'); openModelDrawer(m); } })));
-  add('Lyrics', 'mic-vocal', state.catalog.songs.filter(s => hit(s.title, s.artist)).map(s => ({ t: s.title, sub: 'Open in lyrics editor', go: () => { switchView('lyrics'); openLyrics(s); } })));
+  add('Lyrics', 'mic-vocal', state.catalog.songs.filter(s => hit(s.title, s.artist)).map(s => ({ t: s.title, sub: 'Open in lyrics editor', go: () => { startEdit(s); setTimeout(() => { const c = $('#c-lyrics'); if (c) c.scrollIntoView({ behavior:'smooth', block:'start' }); }, 400); } })));
   add('Projects', 'disc-album', albums().filter(al => hit(al.name, ...al.songs.map(x => x.title + ' ' + x.artist))).map(al => ({ t: al.name || al.key, sub: 'Project page', go: () => { switchView('projects'); openProject(al.key); } })));
   add('Blog posts', 'newspaper', state.posts.filter(p => hit(p.title, p.subtitle, p.tags.join(' '), p.category, p.md)).map(p => ({ t: p.title, sub: postWhen(p.date), img: p.hero, go: () => { switchView('blog'); openPostDrawer(p); } })));
   add('Drafts', 'notebook-pen', listDrafts().filter(x => hit(x.title, x.sub, DTYPES[x.type][0])).map(x => ({ t: x.title || 'Untitled', sub: DTYPES[x.type][0], go: () => resumeDraft(x, () => {}) })));
@@ -4135,7 +4197,7 @@ function openWNSlide(i){
       <div class="field"><label for="wn-go">Button action</label><select class="select" id="wn-go" data-testid="wn-slide-action-select">${WN_ACTIONS.map(([v, l]) => `<option value="${v}" ${v === kind ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
       <div class="field span2" id="wn-target-f"><label for="wn-target" id="wn-target-l">Target</label><input class="input" id="wn-target" list="wn-target-list" data-testid="wn-slide-target-input"><datalist id="wn-target-list"></datalist></div></div>
     <div class="grid2"><div class="field"><label>Icon</label><button type="button" class="btn" id="wn-ic" data-testid="wn-slide-icon-btn"></button></div><div class="field"><label>Colors</label><div class="wn-colors"><input type="color" id="wn-a" data-testid="wn-slide-color-a-input"><input type="color" id="wn-b" data-testid="wn-slide-color-b-input"><button type="button" class="lbl-action" id="wn-swap" data-testid="wn-slide-swap-colors-btn">Swap</button></div></div></div>
-    <div class="field"><label for="wn-art">Artwork <small class="hint">a built-in Treesh image, or an https link</small></label><input class="input" id="wn-art" list="wn-art-list" placeholder="bronze-blitz_main or https://res.cloudinary.com/…" data-testid="wn-slide-art-input"><datalist id="wn-art-list">${WN_ART.map(a => `<option value="${a}">`).join('')}</datalist>${cloudReady() ? `<button type="button" class="btn btn-sm" id="wn-art-up" style="margin-top:8px;align-self:flex-start" data-testid="wn-slide-art-upload-btn">${icon('upload')}Upload image</button>` : '<p class="hint">Set up Cloudinary in Settings to upload images here.</p>'}<p class="hint">Built-in art keys only show on treesh.app. The preview shows the icon instead.</p></div>
+    <div class="field"><label for="wn-art">Artwork <small class="hint">a built-in Treesh image, or an https link</small></label><input class="input" id="wn-art" list="wn-art-list" placeholder="bronze-blitz_main or https://res.cloudinary.com/…" data-testid="wn-slide-art-input"><datalist id="wn-art-list">${WN_ART.map(a => `<option value="${a}">`).join('')}</datalist>${cloudReady() ? `<button type="button" class="btn btn-sm" id="wn-art-up" style="margin-top:8px;align-self:flex-start" data-testid="wn-slide-art-upload-btn">${icon('upload')}Upload image</button>` : '<p class="hint">Sign in to upload images to ImageKit.</p>'}<p class="hint">Built-in art keys only show on treesh.app. The preview shows the icon instead.</p></div>
     <div class="grid2">${wnDateIn('wn-from', s.from, 'Show from')}${wnDateIn('wn-until', s.until, 'Show until')}</div>
     <button type="button" class="tog${s.enabled !== false ? ' on' : ''}" id="wn-on" data-testid="wn-slide-enabled-toggle"><span class="tico">${icon('eye')}</span><span><b>Show on Home</b><small>Turn off to keep the slide here without showing it.</small></span></button>`;
   wnDrawer(isNew ? 'New slide' : 'Edit slide', 'wn-slide-drawer', form, (root, close) => {
@@ -4484,5 +4546,6 @@ function boot(){
 boot();
 })();
 </script>
+<datalist id="us-states"><option value="Alabama"><option value="Alaska"><option value="Arizona"><option value="Arkansas"><option value="California"><option value="Colorado"><option value="Connecticut"><option value="Delaware"><option value="Florida"><option value="Georgia"><option value="Hawaii"><option value="Idaho"><option value="Illinois"><option value="Indiana"><option value="Iowa"><option value="Kansas"><option value="Kentucky"><option value="Louisiana"><option value="Maine"><option value="Maryland"><option value="Massachusetts"><option value="Michigan"><option value="Minnesota"><option value="Mississippi"><option value="Missouri"><option value="Montana"><option value="Nebraska"><option value="Nevada"><option value="New Hampshire"><option value="New Jersey"><option value="New Mexico"><option value="New York"><option value="North Carolina"><option value="North Dakota"><option value="Ohio"><option value="Oklahoma"><option value="Oregon"><option value="Pennsylvania"><option value="Rhode Island"><option value="South Carolina"><option value="South Dakota"><option value="Tennessee"><option value="Texas"><option value="Utah"><option value="Vermont"><option value="Virginia"><option value="Washington"><option value="West Virginia"><option value="Wisconsin"><option value="Wyoming"><option value="Washington, D.C."><option value="Puerto Rico"><option value="Outside the US"></datalist>
 </body>
 </html>
