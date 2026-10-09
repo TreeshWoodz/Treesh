@@ -7,7 +7,7 @@ const ECO_BLUR=10;
 const ECO_FLOATY=/float|bob|sway|drift|tilt|wobble|breath|levit/i;
 function ecoOn(){ return !!(state.eco&&!state.perfMode); }
 /* decorative loops (beat glow, starfield, visualizer) draw every other frame; the starfield stops while a full screen covers it */
-function ecoSkip(k){ if(!ecoOn()) return false; if(k==='stars'&&(document.hidden||document.documentElement.classList.contains('cv-hide'))) return true; const t=performance.now(), T=window._ecoT; if(t-(T[k]||0)<30) return true; T[k]=t; return false; }
+function ecoSkip(k){ if((k==='stars'||k==='mkr')&&(document.hidden||document.documentElement.classList.contains('cv-hide'))) return true; if(!ecoOn()) return false; const t=performance.now(), T=window._ecoT; if(t-(T[k]||0)<30) return true; T[k]=t; return false; }
 function ecoSel(x){ if(!x||x.indexOf('html.eco')>=0) return ''; if(/^html\b/.test(x)) return x.replace(/^html/,'html.eco'); if(/^:root\b/.test(x)) return x.replace(/^:root/,':root.eco'); return 'html.eco '+x; }
 /* one pass over the app's CSS: cap heavy glass blur, stop endless animations that repaint (glows, shimmers) but keep cheap motion */
 let _ecoBuilt=false;

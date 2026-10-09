@@ -45,16 +45,18 @@ async function sbAvatarUpload(uid,d){ const b=await (await fetch(d)).blob(); con
   const {error}=await sb.storage.from('avatars').upload(path,b,{upsert:true,contentType:b.type||'image/jpeg',cacheControl:'3600'}); if(error) throw error;
   return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl+'?v='+Date.now(); }
 function sbAssetSig(list){ return list.map(r=>r.id+':'+sbSig(typeof r.value==='string'?r.value:JSON.stringify(r.value==null?'':r.value))).join('|'); }
-async function sbPayload(u){ const ls={};
+const sbAssetOne=v=>sbSig(typeof v==='string'?v:JSON.stringify(v==null?'':v));
+const sbAssetSigs=list=>{ const o={}; list.forEach(r=>{ if(r&&r.id) o[r.id]=sbAssetOne(r.value); }); return o; };
+async function sbPayload(u,lsOnly){ const ls={};
   for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(sbSyncKey(k)){ try{ ls[k]=localStorage.getItem(k); }catch(e){} } }
-  const m=sbMeta(); let assetsPath=m.assetsPath||null;
-  if(_sbAssetDone!==_sbAssetRev||!m.assetSig) try{ const rev=_sbAssetRev, all=((await assetAll())||[]).filter(r=>r&&r.id); const sig=sbAssetSig(all);
+  const m=sbMeta(); let assetsPath=m.assetsPath||null, assetSigs=m.assetBase||null;
+  if(!lsOnly&&(_sbAssetDone!==_sbAssetRev||!m.assetSig)) try{ const rev=_sbAssetRev, all=((await assetAll())||[]).filter(r=>r&&r.id); const sig=sbAssetSig(all);
     if(sig!==m.assetSig){ const path=u.id+'/assets.json';
       if(all.length){ const data=await new Blob([JSON.stringify(all.map(r=>({id:r.id,value:r.value})))],{type:'application/json'}).arrayBuffer(); const {error}=await sb.storage.from('treesh-data').upload(path,data,{upsert:true,contentType:'application/json'}); if(error) throw error; assetsPath=path; }
       else assetsPath=null;
-      sbMeta({assetSig:sig,assetsPath}); } _sbAssetDone=rev; }
+      assetSigs=sbAssetSigs(all); sbMeta({assetSig:sig,assetsPath,assetBase:assetSigs}); } _sbAssetDone=rev; }
   catch(e){ console.warn('Treesh sync: fonts & backgrounds skipped',e); }
-  return {app:'treesh',type:'treesh-backup',v:4,exportedAt:new Date().toISOString(),localStorage:ls,assetsPath}; }
+  return {app:'treesh',type:'treesh-backup',v:5,exportedAt:new Date().toISOString(),localStorage:ls,assetsPath,assetSigs}; }
 async function sbPush(){ const u=sbUser(); if(!sb||!u) return;
   if(_sbBusy){ _sbAgain=true; return; }
   if(!state.profile){ _sbDirty=true; sbMeta({pending:true}); return; }
@@ -84,9 +86,11 @@ async function sbRestore(b){ if(!b||b.type!=='treesh-backup'||!b.localStorage||t
   const rm=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(sbSyncKey(k)&&!(k in src)) rm.push(k); }
   rm.forEach(k=>{ try{ localStorage.removeItem(k); changed=true; }catch(e){} });
   Object.keys(src).forEach(k=>{ if(!sbSyncKey(k)) return; const v=src[k]; try{ if(localStorage.getItem(k)===v) return; localStorage.setItem(k,v); changed=true; }catch(e){ if(isQuotaError(e)) notifyStorageFull(); } });
-  if(b.assetsPath){ try{ const {data,error}=await sb.storage.from('treesh-data').download(b.assetsPath); if(error) throw error; const list=JSON.parse(await data.text());
-      if(Array.isArray(list)){ for(const a of list){ if(a&&a.id){ try{ await assetPut(a.id,a.value); changed=true; }catch(e){} } } }
-      const all=((await assetAll())||[]).filter(r=>r&&r.id); sbMeta({assetSig:sbAssetSig(all),assetsPath:b.assetsPath}); }
+  if(b.assetsPath){ try{ const {data,error}=await sb.storage.from('treesh-data').download(b.assetsPath); if(error) throw error; const list=(JSON.parse(await data.text())||[]).filter(a=>a&&a.id);
+      /* a banner, background or font this device changed since the last sync stays; everything else comes from the account */
+      const m=sbMeta(), base=m.uid&&m.uid===(sbUser()||{}).id?m.assetBase:null, loc=base?sbAssetSigs(((await assetAll())||[]).filter(r=>r&&r.id)):null; let kept=false;
+      for(const a of list){ if(loc&&a.id in loc){ if(loc[a.id]===sbAssetOne(a.value)) continue; if(loc[a.id]!==base[a.id]){ kept=true; continue; } } try{ await assetPut(a.id,a.value); changed=true; }catch(e){} }
+      const all=((await assetAll())||[]).filter(r=>r&&r.id), cs=sbAssetSig(list); sbMeta({assetSig:cs,assetsPath:b.assetsPath,assetBase:sbAssetSigs(list)}); if(kept||sbAssetSig(all)!==cs){ _sbAssetRev++; sbDirty(); } }
     catch(e){ console.warn('Treesh sync: fonts & backgrounds not restored',e); } }
   return changed; }
 async function sbPull(o){ o=o||{}; const u=sbUser(); if(!sb||!u) return 'none';

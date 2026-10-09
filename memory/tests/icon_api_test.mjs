@@ -1,0 +1,116 @@
+// Server tests for icon.mjs through the local harness (start `node icon_dev.mjs` first).
+const B = 'http://localhost:8790';
+let pass = 0, failN = 0;
+const ok = (c, m) => { if (c){ pass++; console.log('  ok  ', m); } else { failN++; console.log('  FAIL', m); } };
+const call = async (tok, method, path, body) => { const r = await fetch(B + path, { method, headers: { ...(tok ? { Authorization: 'Bearer ' + tok } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }); let d = null; try { d = await r.json(); } catch {} return { s: r.status, d }; };
+const b64 = t => Buffer.from(t).toString('base64'), unb = t => Buffer.from(t, 'base64').toString('utf8');
+async function file(tok, path){ const r = await call(tok, 'GET', `/api/icon/repo/contents/${path}?ref=main`); return { text: unb(r.d.content), sha: r.d.sha, s: r.s }; }
+async function submit(tok, id, path, edit, key){
+  const f = await file(tok, path), next = edit(f.text), br = `icon/${id}/${key}-${Date.now().toString(36)}`;
+  const head = await call(tok, 'GET', '/api/icon/repo/git/ref/heads/main');
+  const ref = await call(tok, 'POST', '/api/icon/repo/git/refs', { ref: `refs/heads/${br}`, sha: head.d.object.sha });
+  const put = await call(tok, 'PUT', `/api/icon/repo/contents/${path}`, { message: 'Update ' + key, content: b64(next), sha: f.sha, branch: br });
+  if (put.s !== 200) return { put, ref };
+  const pr = await call(tok, 'POST', '/api/icon/repo/pulls', { title: 'Update ' + key, head: br, base: 'main', body: 'body' });
+  return { put, pr, ref, br };
+}
+const setAttr = (block, k, v) => block.replace(new RegExp(`(\\s${k}\\s*=\\s*")[^"]*(")`, 'i'), (_, a, b) => a + v + b);
+const songBlock = (t, title) => { const i = t.indexOf(`data-track="${title}"`); const s = t.lastIndexOf('<ul', i), e = t.indexOf('</ul>', i) + 5; return [s, e, t.slice(s, e)]; };
+const lyricBlock = (t, title) => { const i = t.indexOf(`data-track="${title}"`); const s = t.lastIndexOf('<div', i); let d = 0, re = /<div\b|<\/div\s*>/gi, m; re.lastIndex = s; while ((m = re.exec(t))){ d += m[0][1] === '/' ? -1 : 1; if (!d) break; } return [s, re.lastIndex, t.slice(s, re.lastIndex)]; };
+const repl = (t, [s, e], nb) => t.slice(0, s) + nb + t.slice(e);
+
+await fetch(B + '/__reset');
+console.log('session');
+ok((await call('', 'GET', '/api/icon/session')).s === 401, 'no token -> 401');
+ok((await call('tok_user', 'GET', '/api/icon/session')).d.code === 'not-icon', 'plain user -> not-icon');
+ok((await call('tok_unlinked', 'GET', '/api/icon/session')).d.code === 'not-icon', 'verified without icon -> not-icon');
+ok((await call('tok_banned', 'GET', '/api/icon/session')).d.code === 'banned', 'banned -> banned');
+const s1 = await call('tok_icon_chelly', 'GET', '/api/icon/session');
+ok(s1.s === 200 && s1.d.kind === 'icon' && s1.d.icon.name === 'Chelly Banqz', 'chelly session = icon Chelly Banqz');
+ok((await call('tok_admin', 'GET', '/api/icon/session')).d.kind === 'admin', 'admin session kind=admin');
+
+console.log('read limits');
+ok((await call('tok_icon_chelly', 'GET', '/api/icon/repo/contents/netlify/functions/github.mjs?ref=main')).s === 403, 'other files blocked');
+ok((await call('tok_icon_chelly', 'GET', '/api/icon/repo/contents/content/songs.html?ref=main')).s === 200, 'songs file readable');
+ok((await call('tok_admin', 'GET', '/api/icon/repo/contents/content/songs.html?ref=main')).s === 403, 'admin cannot use icon proxy');
+ok((await call('tok_icon_chelly', 'PUT', '/api/icon/repo/contents/content/songs.html', { message: 'x', content: b64('x'), sha: 'x', branch: 'main' })).s === 403, 'PUT to main blocked');
+ok((await call('tok_icon_chelly', 'POST', '/api/icon/repo/git/refs', { ref: 'refs/heads/icon/3/sneaky', sha: 'x' })).s === 403, 'branch with another icon prefix blocked');
+ok((await call('tok_icon_chelly', 'POST', '/api/icon/repo/git/refs', { ref: 'refs/heads/songcoder/x', sha: 'x' })).s === 403, 'non-icon branch blocked');
+
+console.log('songs');
+let r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const b = songBlock(t, 'PRETTYWISE'); return repl(t, b, setAttr(b[2], 'data-bio', 'New bio from Chelly')); }, 'bio');
+ok(r.put.s === 200 && r.pr && r.pr.s === 201 && /^\[Icon\] Chelly Banqz:/.test(r.pr.d.title), 'own song bio edit -> PR opened with [Icon] title');
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const b = songBlock(t, 'PRETTYWISE'); return repl(t, b, setAttr(b[2], 'data-track', 'PRETTYWISE 2')); }, 'title');
+ok(r.put.s === 403 && r.put.d.code === 'scope', 'title change rejected: ' + (r.put.d && r.put.d.message));
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const b = songBlock(t, 'MONSTER'); return repl(t, b, b[2].replace('data-track="MONSTER"', 'data-track="MONSTER" data-treeshchoice=""')); }, 'tc');
+ok(r.put.s === 403, 'adding Treesh Choice rejected');
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const b = songBlock(t, 'Billion $ Bitch (Remix)'); return repl(t, b, setAttr(b[2], 'data-bio', 'hijack')); }, 'other');
+ok(r.put.s === 403, "someone else's song rejected: " + (r.put.d && r.put.d.message));
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const b = songBlock(t, 'Cherry'); return repl(t, b, setAttr(b[2], 'data-bio', 'feat edit')); }, 'feat');
+ok(r.put.s === 403, 'featured song metadata rejected');
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const b = songBlock(t, 'PRETTYWISE'); return repl(t, b, setAttr(b[2], 'data-coverart', 'javascript:alert(1)')); }, 'xss');
+ok(r.put.s === 403, 'javascript: cover rejected');
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const b = songBlock(t, 'PRETTYWISE'); return repl(t, b, b[2].replace('<span>', '<span><script>alert(1)</script>')); }, 'script');
+ok(r.put.s === 403, 'script tag rejected');
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const b = songBlock(t, 'PRETTYWISE'); return repl(t, b, '') ; }, 'del');
+ok(r.put.s === 403, 'deleting a song rejected');
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => t.replace('</body>', '<p>hi</p></body>').replace(/(<\/ul>)(?![\s\S]*<\/ul>)/, '$1\n<div>outside</div>'), 'outside');
+ok(r.put.s === 403, 'text outside entries rejected');
+const NEW = '<ul class="song" data-track="Brand New" data-artist-id="11" data-artist="Chelly Banqz" data-genre="rap" data-mood="" data-creation-date="June 1, 2026" data-written-by="Chelly Banqz" data-producer="" data-mixer="" data-videographer="" data-coverart="https://x.test/c.jpg" data-mp3="https://x.test/a.mp3" data-video="" data-bio="New"><span>\n<section><img src="https://x.test/c.jpg" alt="Brand New" class="coverart"></section></span></ul>';
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const i = t.indexOf('<ul class="song"'); const pos = t.lastIndexOf('\n', i - 1) + 1; return t.slice(0, pos) + NEW + '\n\n' + t.slice(pos); }, 'add');
+ok(r.put.s === 200 && r.pr.s === 201, 'new song as main artist -> PR');
+r = await submit('tok_icon_chelly', 11, 'content/songs.html', t => { const i = t.indexOf('<ul class="song"'); const pos = t.lastIndexOf('\n', i - 1) + 1; return t.slice(0, pos) + NEW.replace('data-artist="Chelly Banqz"', 'data-artist="SAVIONCE"') + '\n\n' + t.slice(pos); }, 'add2');
+ok(r.put.s === 403, 'new song as someone else rejected');
+
+console.log('lyrics');
+r = await submit('tok_icon_chelly', 11, 'content/lyrics.html', t => { const b = lyricBlock(t, 'Cherry'); return repl(t, b, b[2].replace("I'm feeling you all your physical", "I'm feeling you, all of your physical")); }, 'verse');
+ok(r.put.s === 200 && r.pr.s === 201, 'featured: own verse edit -> PR');
+r = await submit('tok_icon_chelly', 11, 'content/lyrics.html', t => { const b = lyricBlock(t, 'Cherry'); return repl(t, b, b[2].replace('I got a point to prove', 'I got a point')); }, 'notmine');
+ok(r.put.s === 403, "featured: main artist's verse rejected: " + (r.put.d && r.put.d.message));
+r = await submit('tok_icon_chelly', 11, 'content/lyrics.html', t => { const b = lyricBlock(t, 'Cherry'); return repl(t, b, b[2].replace('[Verse 2: Chelly Banqz]', '[Verse 2: Chelly Banqz &amp; Marq C]')); }, 'hdr');
+ok(r.put.s === 403, 'featured: changing section label rejected');
+r = await submit('tok_icon_sav', 3, 'content/lyrics.html', t => { const b = lyricBlock(t, 'Billion $ Bitch (Remix)'); return repl(t, b, b[2].replace('I’m paving these niggas way', 'I’m paving the way')); }, 'savverse');
+ok(r.put.s === 200, 'SAVIONCE edits own Verse 4 on Billion');
+r = await submit('tok_icon_sav', 3, 'content/lyrics.html', t => { const b = lyricBlock(t, 'Billion $ Bitch (Remix)'); return repl(t, b, b[2].replace('<p data-minutes="00:11.65">', '<p data-minutes="00:12.00">')); }, 'savhook');
+ok(r.put.s === 403, 'SAVIONCE retiming PrettyBoyQuen hook rejected');
+r = await submit('tok_icon_pbq', 6, 'content/lyrics.html', t => { const b = lyricBlock(t, 'Billion $ Bitch (Remix)'); return repl(t, b, b[2].replace('A million just for play', 'A million for play')); }, 'pbqall');
+ok(r.put.s === 200, 'PrettyBoyQuen (main) edits any line');
+
+console.log('icon profile');
+const art = (t, id) => { const i = t.indexOf(`data-artist-id="${id}"`); const s = t.lastIndexOf('<article', i), e = t.indexOf('</article>', i) + 10; return [s, e, t.slice(s, e)]; };
+r = await submit('tok_icon_chelly', 11, 'content/icons.html', t => { const b = art(t, 11); return repl(t, b, setAttr(b[2], 'data-cashapp', 'ChellyB2')); }, 'loc');
+ok(r.put.s === 200, 'own profile Cash App edit');
+r = await submit('tok_icon_chelly', 11, 'content/icons.html', t => { const b = art(t, 11); return repl(t, b, setAttr(b[2], 'data-name', 'Chelly B')); }, 'name');
+ok(r.put.s === 403, 'name change rejected');
+r = await submit('tok_icon_chelly', 11, 'content/icons.html', t => { const b = art(t, 3); return repl(t, b, setAttr(b[2], 'data-location', 'x')); }, 'otherp');
+ok(r.put.s === 403, "another Icon's profile rejected");
+
+console.log('pull list + admin');
+const mine = await call('tok_icon_chelly', 'GET', '/api/icon/repo/pulls');
+ok(Array.isArray(mine.d) && mine.d.length >= 4 && mine.d.every(p => p.head.ref.startsWith('icon/11/')), 'icon sees only own PRs (' + (mine.d || []).length + ')');
+ok((await call('tok_mod', 'GET', '/api/icon/edits')).s === 403, 'moderator cannot review');
+ok((await call('tok_icon_chelly', 'GET', '/api/icon/edits')).s === 403, 'icon cannot review');
+const q = await call('tok_admin', 'GET', '/api/icon/edits');
+ok(q.s === 200 && q.d.items.length >= 6 && q.d.items[0].icon && q.d.items[0].files, 'admin queue lists icon PRs with files (' + q.d.items.length + ')');
+const bioPr = q.d.items.find(x => /Update bio/.test(x.title));
+const det = await call('tok_admin', 'GET', '/api/icon/edits/' + bioPr.number);
+const ch = det.d.files[0].changes[0];
+ok(det.d.ok && ch.change === 'edit' && ch.fields.some(f => f.label === 'Bio' && f.new === 'New bio from Chelly'), 'review summary shows Bio old -> new');
+const verse = q.d.items.find(x => /Update verse/.test(x.title));
+const dv = await call('tok_admin', 'GET', '/api/icon/edits/' + verse.number);
+ok(dv.d.ok && dv.d.files[0].changes[0].added.some(l => /all of your physical/.test(l)), 'lyrics review shows added line');
+const mg = await call('tok_admin', 'POST', `/api/icon/edits/${bioPr.number}/merge`, {});
+ok(mg.s === 200 && mg.d.state === 'merged', 'approve merges');
+const mainSongs = await (await fetch(B + '/__main/songs.html')).text();
+ok(mainSongs.includes('New bio from Chelly'), 'merged change is on main');
+ok((await call('tok_admin', 'POST', `/api/icon/edits/${bioPr.number}/merge`, {})).s === 409, 'second approve -> already merged');
+const sav = q.d.items.find(x => /savverse/.test(x.title)), ds = await call('tok_admin', 'GET', '/api/icon/edits/' + sav.number);
+ok(ds.d.ok && ds.d.files.length === 1 && ds.d.files[0].kind === 'lyrics' && ds.d.files[0].changes.length === 1, 'review compares with the merge base (an earlier approval is not shown as a revert)');
+const cl = await call('tok_admin', 'POST', `/api/icon/edits/${verse.number}/close`, { reason: 'Typo in line 2' });
+ok(cl.s === 200 && cl.d.state === 'closed', 'reject closes');
+const st = await (await fetch(B + '/__state')).json();
+ok(st.comments.some(c => c.n === verse.number && /Typo in line 2/.test(c.body)), 'reject leaves the reason as a comment');
+ok(!st.branches.includes(verse.branch) , 'rejected branch deleted');
+const closed = await call('tok_admin', 'GET', '/api/icon/edits?state=closed');
+ok(closed.d.items.some(x => x.state === 'merged') && closed.d.items.some(x => x.state === 'closed'), 'closed tab shows merged + rejected');
+console.log(`\n${pass} passed, ${failN} failed`); process.exit(failN ? 1 : 0);

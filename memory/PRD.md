@@ -47,6 +47,12 @@ Seed: `localStorage.setItem('treesh_whatsnew_off','true'); localStorage.setItem(
 - P1: Voice assistant mic deactivation bug; Zodiac modal flick-to-close (goes right instead of centering); Profile Space settings lost on sign-out/in.
 - P2: Admin controls & moderation redesign; Music Studio modal header merge; Playlist & Library UI redesign; Magic Markup for the mini player; hide #app-shell behind full-screen modals on mobile (perf).
 
+## Oct 9, 2026 session (in order)
+1. DONE favicon/home-screen icons: `memory/build_favicons.py` -> single_html/favicon.ico, apple-touch-icon.png, icons/*.png (v=7255), static manifest.webmanifest; one-time iOS Home Screen note p9zzb.js.
+2. DONE (verified already fixed) text-view Cherry/Billion/letter avatars. Perf: stars+mk loops stop under cv-hide (p9zi), #bg-layer hidden (p9zf.css).
+3. IN PROGRESS Icon edits via PRs. User decisions: Icon edits own songs (cover, audio, video, bio, genre/mood, credits, date, album/label, explicit, full lyrics; NOT title/artist names/ids/treeshchoice/exclusive); new songs allowed (main artist locked); featured = own verses only; profile: photo, banner+pos, bio, location, cashapp, role label (NOT name/id); Treesh Admin role approves (merge)/rejects (close) in dashboard "Icon edits"; server-side scope checks in github.mjs + env SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY. Source refs: /tmp/mad.html (user upload, repo tools/mad.html), /tmp/github.mjs (repo netlify/functions/github.mjs). Moderation: my_status() rpc -> role, verified, verified_icon (= artist id).
+4. LAST: account users' profile customizations disappear/revert to default (investigate after everything else).
+
 ## Request queue (Oct 8, 2026, in order)
 1. New games: Bronze Blitz / Sonoko (/games/sonoku) / Ebonics: bios, ages (All / 6+ / 13+), logos + banners (+ Hoop logo/banner), arcade stats on profile, What's New updates on every page.
 2. P0 bugs: double-tap, scrubber, lyric tap-to-seek, resume last song, profile sheet animates from the bottom nav on mobile.
