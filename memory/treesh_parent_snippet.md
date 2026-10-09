@@ -7,7 +7,26 @@ Ebonics is served at `https://treesh.app/games/ebonics` (same origin as the pare
 - Lifetime Starlites earned in Ebonics: `ebonics_starlites` (integer, for Arcade stats)
 - Full game save/stats: `ebonics_save_v1`
 
-## 0) REQUIRED for wallet sync — keep the parent's in-memory wallet fresh
+## How Ebonics syncs Starlites (automatic, in this order)
+1. **Opened inside Treesh on treesh.app (same origin iframe)** — Ebonics calls the parent's own `awardStars(amount, "Ebonics · …", {silent:true})`, so the main app's in-memory wallet, display and cloud sync update instantly. **No parent change needed.**
+2. **Opened at treesh.app/games/ebonics in its own tab** — writes `treesh_stars` directly; add section 0 so an open Treesh tab adopts it.
+3. **Opened inside Treesh from another origin** (e.g. a preview link) — uses `postMessage`; add section 0b.
+4. **Anywhere else** — player signs in with their Treesh account on the Ebonics Profile page; Ebonics pulls `treesh_stars` from the `user_data` cloud backup and pushes Starlites changes back (delta-merged). Treesh picks it up on its next pull (when the tab regains focus).
+
+## 0b) postMessage bridge (only needed when Ebonics is hosted on a different origin)
+```js
+const EBONICS_ORIGINS=['https://trophy-hustle.preview.emergentagent.com']; // add your Ebonics host(s)
+window.addEventListener('message', e => {
+  if(!EBONICS_ORIGINS.includes(e.origin) || !e.data || e.data.from!=='ebonics') return;
+  const reply=()=>{ try{ e.source.postMessage({type:'treesh:sync', stars:state.stars, profile:state.profile, accent:state.accent}, e.origin); }catch(_){} };
+  if(e.data.type==='treesh:stars:award' && Array.isArray(e.data.entries)){
+    e.data.entries.slice(0,20).forEach(x=>{ const a=Math.trunc(+x.a)||0; if(a && Math.abs(a)<=5000) awardStars(a, String(x.r||'Ebonics').slice(0,80), {silent:true}); });
+  }
+  if(e.data.type==='treesh:hello' || e.data.type==='treesh:stars:award') reply();
+});
+```
+
+## 0) Keep the parent's in-memory wallet fresh (for case 2)
 The parent holds `state.stars` in memory and writes it back on every award. Add this once (e.g. right after `function saveStars(){...}`) so it adopts changes Ebonics makes:
 ```js
 window.addEventListener('storage', e => {

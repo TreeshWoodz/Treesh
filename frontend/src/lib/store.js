@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { ACHIEVEMENTS, THEMES, POWERUPS, MODES_BY_ID } from "@/data/game";
 import { sfx } from "@/lib/sound";
 import { submitScore } from "@/lib/api";
+import { sb, REFRESH, routeAward, queueCloud, setCloudSession, cloudPull, startMessageBridge, requestParentSync, bridgeMode } from "@/lib/treesh";
 
 // Treesh parent-app keys (same origin on treesh.app). Wallet is shared: treesh_stars.points.
 const KEY = "ebonics_save_v1";
@@ -29,10 +30,13 @@ const onColor = (hex) => {
 
 // Fresh read-modify-write on the shared Treesh wallet so the main app's balance is never clobbered
 const applyToWallet = (delta, entries) => {
+  const tagged = entries.map((e) => ({ ...e, r: `Ebonics · ${e.r}` }));
+  if (routeAward(tagged)) return readWallet().points;
   const w = readWallet();
   w.points = Math.max(0, (w.points || 0) + delta);
-  w.log = [...entries.map((e) => ({ ...e, r: `Ebonics · ${e.r}` })), ...(w.log || [])].slice(0, 50);
+  w.log = [...tagged, ...(w.log || [])].slice(0, 50);
   localStorage.setItem(WALLET_KEY, JSON.stringify(w));
+  queueCloud([...tagged].reverse());
   return w.points;
 };
 
@@ -82,6 +86,8 @@ export function GameProvider({ children }) {
   const [state, setState] = useState(load);
   const [profile, setProfile] = useState(() => readJSON(PROFILE_KEY, null));
   const [accent, setAccent] = useState(readAccent);
+  const [session, setSession] = useState(null);
+  const [cloud, setCloud] = useState(null);
   const ref = useRef(state);
 
   useEffect(() => {
@@ -99,6 +105,12 @@ export function GameProvider({ children }) {
 
   // Live-sync with the Treesh parent app (same-origin iframe / other tabs)
   useEffect(() => {
+    const reread = () => {
+      setProfile(readJSON(PROFILE_KEY, null));
+      setAccent(readAccent());
+      const next = { ...ref.current, starlites: readWallet().points };
+      ref.current = next; setState(next);
+    };
     const onStorage = (e) => {
       if (e.key === PROFILE_KEY) setProfile(readJSON(PROFILE_KEY, null));
       if (e.key === ACCENT_KEY) setAccent(readAccent());
@@ -108,8 +120,32 @@ export function GameProvider({ children }) {
       }
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener(REFRESH, reread);
+    const stopBridge = startMessageBridge();
+    return () => { window.removeEventListener("storage", onStorage); window.removeEventListener(REFRESH, reread); stopBridge(); };
   }, []);
+
+  // Treesh account (Supabase) — on treesh.app the session is shared with the main app automatically
+  useEffect(() => {
+    if (!sb) return;
+    let last = 0;
+    const pull = () => { if (Date.now() - last < 15000) return; last = Date.now(); cloudPull().then((r) => setCloud(r)).catch(() => setCloud("error")); };
+    sb.auth.getSession().then(({ data }) => { setSession(data.session); setCloudSession(data.session); if (data.session) pull(); });
+    const { data: sub } = sb.auth.onAuthStateChange((_ev, s) => { setSession(s); setCloudSession(s); });
+    const onVis = () => { if (document.visibilityState === "visible") { pull(); requestParentSync(); } };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { sub.subscription.unsubscribe(); document.removeEventListener("visibilitychange", onVis); };
+  }, []);
+
+  const signIn = async (email, password) => {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    setSession(data.session); setCloudSession(data.session);
+    const r = await cloudPull(); setCloud(r);
+    return r;
+  };
+  const signOut = async () => { await sb.auth.signOut(); setSession(null); setCloudSession(null); setCloud(null); };
+  const syncNow = async () => { const r = await cloudPull(); setCloud(r); requestParentSync(); return r; };
 
   const saveProfile = (patch) => {
     const base = readJSON(PROFILE_KEY, null) || {};
@@ -194,6 +230,6 @@ export function GameProvider({ children }) {
   const set = (patch) => commit((d) => ({ ...d, ...patch }));
   const learn = (term) => commit((d) => { if (!d.learned.includes(term)) d.learned.push(term); return d; });
 
-  const value = { state, profile, accent, saveProfile, finishRound, claimDaily, canClaimDaily, buy, spendPowerup, set, learn };
+  const value = { state, profile, accent, session, cloud, bridge: bridgeMode(), signIn, signOut, syncNow, saveProfile, finishRound, claimDaily, canClaimDaily, buy, spendPowerup, set, learn };
   return createElement(Ctx.Provider, { value }, children);
 }

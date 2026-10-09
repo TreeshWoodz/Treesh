@@ -7,6 +7,7 @@ import { LEXICON } from "@/data/lexicon";
 import { Avatar } from "@/components/game/Avatar";
 import { Starlite } from "@/components/game/Starlite";
 import { ProfileSheet } from "@/components/game/ProfileSheet";
+import { TreeshAccount } from "@/components/game/TreeshAccount";
 
 const ago = (t) => {
   const s = Math.floor((Date.now() - t) / 1000);
@@ -84,6 +85,8 @@ export default function Profile() {
           <div className="text-xs font-mono text-slate-400 mt-2">{state.xp.toLocaleString()} XP{next ? ` · ${next.xp - state.xp} to ${next.name}` : " · max"}</div>
         </div>
       </div>
+
+      <TreeshAccount />
 
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-4" data-testid="profile-stats">
         {stats.map(([l, v]) => <div key={l} className="glass rounded-2xl p-3 text-center"><div className="font-mono text-xl font-extrabold">{v}</div><div className="text-[10px] uppercase tracking-wider text-slate-500 mt-0.5">{l}</div></div>)}
