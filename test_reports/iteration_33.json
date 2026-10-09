@@ -1,0 +1,33 @@
+{
+  "summary": "Verified new Admin Moderation 'Icon edits' queue end-to-end on preview mock harness, plus full re-run of sync regressions and icon_api_test.mjs. All critical flows pass: overview card, nav+badge, waiting/reviewed tabs, detail pane (title, GitHub link, check banner, file sections, songs/profile/lyrics changes with +N/-N counts and diff lines), approve (with confirm/cancel) + reject (with reason textarea) flows, toasts, badge decrement, pane close via back/Escape (single Esc closes pane only, second Esc closes dashboard), refresh button, error state with retry when /api/icon not proxied, moderators correctly hidden from the Icon edits section, and mobile 390x844 layout (no horizontal overflow, footer buttons visible). Backend icon_api_test.mjs: 46/46 passed (includes merge-base check). Sync: twodev.py 11/11 scenarios 0 failed; spso.py / syncrl.py / pfedit_sync.py all errors=[].",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Icon edits error state", "issues": ["Shown message is 'Couldn\u2019t reach Icon edits. Try again.' instead of the exact text from the spec ('Icon edits aren\u2019t switched on for this site yet.'). This appears when the fetch is aborted (network error) vs. a 404 'not configured' response from the backend. Functionally correct (shows error UI, retry button, rest of dashboard still works); only the copy differs from the review request. Please confirm which copy is intended."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/memory/tests/icon_api_test.mjs",
+    "/app/memory/tests/twodev.py",
+    "/app/memory/tests/spso.py",
+    "/app/memory/tests/syncrl.py",
+    "/app/memory/tests/pfedit_sync.py"
+  ],
+  "action_items": [
+    "Optional: align the no-proxy error copy with the spec ('Icon edits aren\u2019t switched on for this site yet.') if that was intended; current UI shows 'Couldn\u2019t reach Icon edits. Try again.' which is still a valid error path."
+  ],
+  "critical_code_review_comments": [
+    "Icon edits queue code (p9zzc.js) wires cleanly into admOpen/admPaint and keeps dashboard functional even when /api/icon fails; good separation of concerns.",
+    "Backend icon.mjs review() now correctly diffs vs merge_base_commit (test case for 'earlier approval not shown as a revert' passes).",
+    "Role gating confirmed: moderator role sees neither admin-icon-edits-card nor admin-nav-icons; admin sees both."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (46/46 icon_api_test + 11/11 twodev + 3/3 other sync scripts)", "frontend": "100% of specified Icon edits flows (one copy nit on error state)"},
+  "test_credentials": "Mock Supabase only: s@test.com / secret123 (seeded as admin via __mock_sb_db). Icon dev server: http://localhost:8790 (token tok_us1 = admin).",
+  "seed_data_creation": "Re-ran `node icon_api_test.mjs` between flows to reset fake GitHub (PRs #104, #108, #110, #112 open; #102 merged; #106 rejected).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "icon_dev server on :8790 is already running (nohup). For Playwright: seed localStorage via add_init_script (guard with __seeded_once) and page.route '**/api/icon**' proxy to http://localhost:8790. Use wait_until='domcontentloaded' (networkidle times out due to tailwind cdn). add_init_script re-runs on reload so plan role changes before goto, not via localStorage override + reload."
+}
