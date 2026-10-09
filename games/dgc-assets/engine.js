@@ -113,10 +113,10 @@ function nextRound() {
   R.limit = (m.limit ? m.limit(n) : 30 + Math.min(10, n * 0.3)) * (m.survive ? 1 : mods.timeMult) * (m.noKiller ? mods.imp : 1) + (m.noKiller ? 0 : mods.time);
   $('#h-night').textContent = n; $('#h-room').textContent = m.name; $('#act-bg').style.backgroundImage = `url(${img(m.room)})`;
   $('#act').style.setProperty('--light', lightRGB()); $('#act').style.setProperty('--sub', `url(${img(Run.killer === 'bride' ? 'bride_scare' : 'hush_scare')})`); $('#h-time').hidden = mods.hideView; $('#nm-lim').hidden = mods.hideView;
-  const btn = $('#act-btn'); btn.hidden = !!m.noBtn; btn.innerHTML = `<i data-lucide="${m.icon}"></i><span>${esc(m.verb || '')}</span>`;
+  const btn = $('#act-btn'); btn.hidden = !!m.noBtn; btn.innerHTML = `<i data-lucide="${m.icon}"></i><span>${esc(m.verb || '')}</span><kbd class="kb-hint">Space</kbd><b class="gp pad-hint" data-b="A">A</b>`;
   $('#vm').hidden = Run.mode !== 'hush' || Run.killer === 'bride'; $('#nm').hidden = Run.killer !== 'bride'; $('#act-stage').innerHTML = ''; renderItems(); renderKiller(); updateHud();
   const intro = $('#act-intro');
-  intro.innerHTML = `<div class="intro-card" data-testid="round-intro"><p class="kicker">Night ${n}${n % 5 === 0 ? ' \u00b7 Checkpoint' : ''}</p><h2>${esc(m.name)}</h2>${Run.killer === 'bride' && !m.noKiller ? `<p class="intro-bride"><i data-lucide="ear"></i> The Bride is blind. Keep the <b>noise meter</b> under her line. It drops as she gets closer.</p>` : ''}${Run.daily ? `<p class="intro-bride"><i data-lucide="${dailyInfo().mod.icon}"></i> Nightly #${dailyInfo().no}: ${esc(dailyInfo().mod.name)}</p>` : ''}${m.imp ? `<p class="intro-imp"><i data-lucide="${m.imp.icon}"></i> Sound like ${esc(m.imp.name)}</p>` : ''}<p>${esc(m.hint)}</p><button class="btn btn-acc" id="round-go" data-testid="round-begin-btn"><i data-lucide="play"></i>Begin</button><small>or press Space</small></div>`;
+  intro.innerHTML = `<div class="intro-card" data-testid="round-intro"><p class="kicker">Night ${n}${n % 5 === 0 ? ' \u00b7 Checkpoint' : ''}</p><h2>${esc(m.name)}</h2>${Run.killer === 'bride' && !m.noKiller ? `<p class="intro-bride"><i data-lucide="ear"></i> The Bride is blind. Keep the <b>noise meter</b> under her line. It drops as she gets closer.</p>` : ''}${Run.daily ? `<p class="intro-bride"><i data-lucide="${dailyInfo().mod.icon}"></i> Nightly #${dailyInfo().no}: ${esc(dailyInfo().mod.name)}</p>` : ''}${m.imp ? `<p class="intro-imp"><i data-lucide="${m.imp.icon}"></i> Sound like ${esc(m.imp.name)}</p>` : ''}<p>${esc(m.hint)}</p>${n >= MUTATE_AT && MUTATIONS[m.id] ? `<p class="intro-mut" data-testid="round-mutation"><i data-lucide="biohazard"></i><span><b>Mutation: ${MUTATIONS[m.id][0]}</b>${MUTATIONS[m.id][1]}</span></p>` : ''}${PAD_HINTS[m.id] ? `<p class="pad-hint intro-pad" data-testid="round-pad-hint"><i data-lucide="gamepad-2"></i>${PAD_HINTS[m.id]} \u00b7 X / Y / RB tools \u00b7 Start pause</p>` : ''}<button class="btn btn-acc" id="round-go" data-testid="round-begin-btn"><i data-lucide="play"></i>Begin<b class="gp pad-hint" data-b="A">A</b></button><small>or press <span class="kb-hint">Space</span><span class="pad-hint">A</span></small></div>`;
   intro.hidden = false; icons(); Sfx.shh();
   $('#round-go').onclick = beginRound;
   cancelAnimationFrame(rafId); lastTs = 0; rafId = requestAnimationFrame(loop);
@@ -124,7 +124,7 @@ function nextRound() {
 function beginRound() {
   if (!R || R.started) return; R.started = true; $('#act-intro').hidden = true;
   const ctx = {
-    night: R.n, mods: R.mods, get limit() { return R.limit; },
+    night: R.n, mods: R.mods, mut: R.n >= MUTATE_AT && !!MUTATIONS[R.mini.id], get limit() { return R.limit; },
     speed: () => (R.mods.speed[R.mini.id] || 1) * (now() < R.adrenUntil ? 2 : 1),
     add: p => { if (R.done) return; R.progress = clamp(R.progress + p * (p > 0 && now() < R.adrenUntil && R.mini.id === 'stitch' ? 1 : 1), 0, 100); if (R.progress >= 100) win(); },
     set: p => { if (R.done) return; R.progress = clamp(p, 0, 100); if (R.progress >= 100 && !R.mini.survive) win(); },
@@ -176,7 +176,7 @@ function updateHud() {
 function renderItems() {
   const w = $('#h-items'); if (!w) return;
   const ids = Object.keys(Run.actives);
-  w.innerHTML = ids.map((id, i) => { const it = itemById(id), left = Run.actives[id]; return `<button class="item-btn" data-item="${id}" ${left ? '' : 'disabled'} data-testid="item-slot-${i + 1}-btn" title="${esc(it.name)}"><i data-lucide="${it.icon}"></i><span>${esc(it.name)}</span></button>`; }).join('')
+  w.innerHTML = ids.map((id, i) => { const it = itemById(id), left = Run.actives[id]; return `<button class="item-btn" data-item="${id}" ${left ? '' : 'disabled'} data-testid="item-slot-${i + 1}-btn" title="${esc(it.name)}"><i data-lucide="${it.icon}"></i><span>${esc(it.name)}</span><kbd class="kb-hint">${i + 1}</kbd><b class="gp pad-hint" data-b="${['X', 'Y', 'RB'][i]}">${['X', 'Y', 'RB'][i]}</b></button>`; }).join('')
     + (Run.rosary ? `<span class="item-pass" title="Saint's Rosary ready" data-testid="hud-rosary"><i data-lucide="cross"></i></span>` : '')
     + Object.keys(Run.passive).map(id => `<span class="item-pass" title="${esc(itemById(id).name)}"><i data-lucide="${itemById(id).icon}"></i></span>`).join('');
   icons();
@@ -194,6 +194,7 @@ function win() {
   if (R.done) return; R.done = true; Input.hold = false;
   const m = R.mini, n = Run.night, left = R.limit - R.t, swift = !m.survive && !m.noKiller && left > R.limit / 2, base = Math.round((4 + n * 2) * R.mods.stars), gain = base + (swift ? Math.round(base / 2) : 0);
   Run.pocket += gain; if (swift) unlock('swift');
+  if (R.ctx && R.ctx.mut) { S.stats.mutated = (S.stats.mutated || 0) + 1; if (S.stats.mutated >= 10) unlock('mutant'); }
   if (!Run.daily && Run.diff === 'hard' && n >= 5 && unlock('hard5')) toast('Unseen difficulty unlocked', 'Audio only. Good luck.', 'ach'); if (!Run.daily && Run.diff === 'unseen' && n >= 3) unlock('unseen3'); S.stats.rounds++;
   const rk = m.imp ? 'impress' : m.id; S.stats.rooms[rk] = (S.stats.rooms[rk] || 0) + 1;
   if (m.imp) { S.stats.imp[m.imp.id] = (S.stats.imp[m.imp.id] || 0) + 1; unlock('imp1'); if (IMPRESSIONS.every(i => S.stats.imp[i.id])) unlock('impall'); }
@@ -209,8 +210,8 @@ function win() {
   checkMetaAch();
   const cp = n % 5 === 0, intro = $('#act-intro');
   intro.innerHTML = `<div class="intro-card win" data-testid="round-cleared"><p class="kicker">Night ${n} survived</p><h2>${m.imp ? 'He applauds.' : 'Done.'}</h2><p class="pocket-line"><i data-lucide="sparkles"></i> +${gain} Starlites${swift ? ' (Swift bonus!)' : ''} in your pocket \u00b7 <b>${fmt(Run.pocket)}</b> total</p>
-    ${cp ? `<p class="cp-txt">A window is open. Escape now and keep everything (+${10 * n} bonus), or push deeper. If he catches you, you lose half your pocket.</p><div class="row"><button class="btn btn-gold" id="esc-btn" data-testid="escape-btn"><i data-lucide="door-open"></i>Escape (+${fmt(Run.pocket + 10 * n)})</button><button class="btn btn-ghost" id="next-btn" data-testid="next-round-btn"><i data-lucide="skull"></i>Push on</button></div>`
-      : `<p class="cp-txt">Pocketed Starlites are banked at checkpoints (every 5 nights). Get caught and you lose half.</p><button class="btn btn-acc" id="next-btn" data-testid="next-round-btn"><i data-lucide="chevron-right"></i>Next room</button>`}</div>`;
+    ${cp ? `<p class="cp-txt">A window is open. Escape now and keep everything (+${10 * n} bonus), or push deeper. If he catches you, you lose half your pocket.</p><div class="row"><button class="btn btn-gold" id="esc-btn" data-testid="escape-btn"><i data-lucide="door-open"></i>Escape (+${fmt(Run.pocket + 10 * n)})</button><button class="btn btn-ghost" id="next-btn" data-testid="next-round-btn"><i data-lucide="skull"></i>Push on<b class="gp pad-hint" data-b="A">A</b></button></div>`
+      : `<p class="cp-txt">Pocketed Starlites are banked at checkpoints (every 5 nights). Get caught and you lose half.</p><button class="btn btn-acc" id="next-btn" data-testid="next-round-btn"><i data-lucide="chevron-right"></i>Next room<b class="gp pad-hint" data-b="A">A</b></button>`}</div>`;
   intro.hidden = false; icons();
   $('#next-btn').onclick = () => { Run.night++; nextRound(); };
   if (cp) $('#esc-btn').onclick = escapeRun;
@@ -235,6 +236,7 @@ function endRun(escaped, bank, reason) {
   const banked = bank > 0 ? Treesh.earn(bank, Run.daily ? 'Don\u2019t Get Caught: Nightly' : 'Don\u2019t Get Caught', Run.key) : 0;
   if (banked > (S.stats.bestBank || 0)) S.stats.bestBank = banked; save(); checkMetaAch();
   const survived = survivedN, tk = reason === 'quit' ? null : pickTaunt(reason === 'impress' ? 'hush' : Run.killer, escaped ? 'escape' : reason === 'time' ? 'time' : reason === 'impress' ? 'impress' : 'caught');
+  if (tk || (!escaped && reason !== 'quit')) { const gk = reason === 'impress' ? 'hush' : Run.killer, gl = S.gallery[gk] = S.gallery[gk] || { lines: {}, caught: 0 }; if (tk) gl.lines[tk] = 1; if (!escaped && reason !== 'quit') gl.caught++; save(); checkMetaAch(); }
   const res = { escaped, banked, reason, survived, mode: Run.mode, daily: Run.daily, official: Run.dailyOfficial, dailyBonus, killer: reason === 'impress' ? 'hush' : Run.killer, taunt: tk, text: escaped ? 'You slipped out the back door before dawn.' : reasonText(reason) };
   if (escaped || reason === 'quit') { Mic.stop(); renderOver(res); show('scr-over'); if (tk) setTimeout(() => Sfx.speak(tk, res.killer), 500); }
   else jumpScare(res);

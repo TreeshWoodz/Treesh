@@ -1,7 +1,7 @@
 'use strict';
 /* Don't Get Caught: screens & UI */
 const UI = { charSel: null, loadout: [], shopTab: 'items' };
-const MENU_SCR = ['scr-title', 'scr-story', 'scr-shop', 'scr-trophies', 'scr-loadout'];
+const MENU_SCR = ['scr-title', 'scr-story', 'scr-shop', 'scr-trophies', 'scr-loadout', 'scr-gallery'];
 function show(id) { if (UI.splashed) Sfx.menuMusic(MENU_SCR.includes(id)); $$('.scr').forEach(s => s.classList.toggle('on', s.id === id)); const s = $('#' + id); if (s) s.scrollTop = 0; document.body.dataset.scr = id; }
 const starChip = () => `<span class="stars" data-testid="starlites-display"><i data-lucide="sparkles"></i><b data-star-count data-testid="starlites-display-amount">${fmt(Treesh.balance())}</b></span>`;
 const subTop = (title, back = 'title') => `<header class="topbar sub"><button class="ic-btn" data-act="go" data-to="${back}" data-testid="back-btn" aria-label="Back"><i data-lucide="arrow-left"></i></button><h2>${title}</h2>${starChip()}</header>`;
@@ -38,6 +38,7 @@ function menuItems() {
     { label: 'Nightly Challenge', act: 'daily', tid: 'nightly-card', icon: 'calendar-days', sub: `#${di.no} \u00b7 ${di.mod.name} \u00b7 ${done ? 'Survived ' + S.daily.best + ' tonight' : 'Ready'}`, badge: done ? '' : 'Tonight' },
     { label: 'The Pantry', act: 'go', to: 'shop', tid: 'shop-open-btn', icon: 'shopping-bag', sub: `Tools, traits & looks \u00b7 ${inv} tool${inv === 1 ? '' : 's'} in your bag` },
     { label: 'Trophies', act: 'go', to: 'trophies', tid: 'achievements-open-btn', icon: 'trophy', sub: `${rankOf(best)} \u00b7 ${got}/${ACH.length} unlocked` },
+    { label: 'Killer Gallery', act: 'go', to: 'gallery', tid: 'gallery-open-btn', icon: 'images', sub: (() => { const all = Object.entries(TAUNTS).flatMap(([k, t]) => Object.values(t).flat().map(id => [k, id])), got = all.filter(([k, id]) => S.gallery[k] && S.gallery[k].lines[id]).length; return `${got}/${all.length} voice lines unlocked`; })() },
     { label: 'Story', act: 'go', to: 'story', tid: 'story-open-btn', icon: 'book-open', sub: 'How you got here' },
     { label: 'Settings', act: 'settings', tid: 'settings-open-btn', icon: 'settings', sub: 'Sound, flashes, taunts' }
   ];
@@ -125,6 +126,24 @@ function renderShop() {
     <h3 class="sec-h"><i data-lucide="shirt"></i>Looks</h3>
     <div class="looks" data-testid="looks-panel"><div class="looks-prev">${playerAvatar('lg')}</div><div><p class="cust-h">Lucky charm (shown on your picture)</p><div class="cos-row">${cosRow('charm')}</div><p class="cust-h">Flashlight (lights every room)</p><div class="cos-row">${cosRow('light')}</div></div></div></div>`;
   icons();
+}
+
+/* ---------- Killer gallery ---------- */
+function renderGallery() {
+  const cards = KILLERS.map(k => {
+    const g = S.gallery[k.id] || { lines: {}, caught: 0 }, ids = Object.values(TAUNTS[k.id]).flat(), got = ids.filter(id => g.lines[id]).length, met = g.caught > 0 || got > 0;
+    return `<article class="gal ${met ? '' : 'locked'}" data-testid="gallery-${k.id}"><div class="gal-img" style="background-image:url(${img(k.id === 'bride' ? 'bride_scare' : 'hush_scare')})">${met ? '' : '<span><i data-lucide="lock"></i>Get caught to unlock</span>'}</div>
+      <div class="gal-b"><p class="kicker">Hunts by ${k.sense}</p><h3>${esc(met ? k.name : '???')}</h3><p class="muted">Caught you <b data-testid="gallery-${k.id}-caught">${g.caught}</b> time${g.caught === 1 ? '' : 's'} \u00b7 ${got}/${ids.length} lines</p>
+      <button class="btn btn-ghost sm" data-act="gal-scare" data-id="${k.id}" ${met ? '' : 'disabled'} data-testid="gallery-${k.id}-scare-btn"><i data-lucide="skull"></i>Replay jump scare</button>
+      <ul class="gal-lines">${ids.map(id => g.lines[id] ? `<li><button data-act="gal-line" data-id="${id}" data-k="${k.id}" data-testid="gallery-line-${id}"><i data-lucide="play"></i>\u201c${esc(TAUNT_TEXT[id])}\u201d</button></li>` : `<li class="lk" data-testid="gallery-line-${id}-locked"><i data-lucide="lock"></i>???</li>`).join('')}</ul></div></article>`;
+  }).join('');
+  $('#scr-gallery').innerHTML = `${subTop('Killer Gallery')}<div class="troph"><p class="shop-intro">Every time they catch you, they leave something behind. Replay their jump scares and every line they\u2019ve whispered to you.</p><div class="gal-grid">${cards}</div></div>`;
+  icons();
+}
+function previewScare(k) {
+  const js = $('#js'); js.innerHTML = `<img src="${img(k === 'bride' ? 'bride_scare' : 'hush_scare')}" alt="" data-testid="jumpscare-image"><div class="js-cap"><b>${esc(killerById(k).name)}</b></div>`;
+  js.hidden = false; js.classList.toggle('noflash', !S.set.flash); js.classList.remove('go'); void js.offsetWidth; js.classList.add('go');
+  Sfx.scream(); shake(2); haptic([80, 40, 700], 1); setTimeout(() => { js.hidden = true; js.classList.remove('go'); }, 1900);
 }
 
 /* ---------- Trophies & stats ---------- */
@@ -221,7 +240,7 @@ function openSettings() {
 }
 
 /* ---------- Events ---------- */
-const GO = { title: renderTitle, shop: renderShop, trophies: renderTrophies, story: () => renderStory(false), loadout: renderLoadout };
+const GO = { title: renderTitle, gallery: renderGallery, shop: renderShop, trophies: renderTrophies, story: () => renderStory(false), loadout: renderLoadout };
 function go(to) { (GO[to] || renderTitle)(); show('scr-' + to); }
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) { if (e.target.id === 'modal') closeModal(); return; }
@@ -242,6 +261,8 @@ document.addEventListener('click', e => {
     case 'trait-buy': { const tr = traitById(id); if (Treesh.spend(tr.cost, 'DGC: trait ' + tr.name)) { S.traits.push(id); S.trait = id; S.stats.bought++; save(); unlock('shopper'); checkMetaAch(); Sfx.chime(); toast(tr.name + ' unlocked', 'Equipped'); renderShop(); } else toast('Not enough Starlites', '', 'bad'); break; }
     case 'cos': { const c = cosById(id); if (!S.owned.includes(id)) { if (!Treesh.spend(c.cost, 'DGC: ' + c.name)) { toast('Not enough Starlites', 'You need ' + c.cost, 'bad'); break; } S.owned.push(id); S.stats.bought++; unlock('shopper'); toast(c.name + ' unlocked'); }
       S.look = Object.assign(lookOf(), { [c.kind]: id }); save(); if (id !== 'charm_none' && id !== 'light_warm') unlock('dressed'); renderShop(); break; }
+    case 'gal-scare': previewScare(id); break;
+    case 'gal-line': Sfx.speak(id, t.dataset.k, true); break;
     case 'diff': S.diff = id; save(); Sfx.tone(440, 0.1, 'triangle', 0.1); renderLoadout(); break;
     case 'buy': { const it = itemById(id); if (Treesh.spend(it.cost, 'DGC: ' + it.name)) { S.inv[id] = (S.inv[id] || 0) + 1; S.stats.bought++; save(); unlock('shopper'); Sfx.chime([660, 990]); toast('Bought ' + it.name, 'Owned: ' + S.inv[id]); renderShop(); } else toast('Not enough Starlites', '', 'bad'); break; }
     case 'demo-stars': { const st = Treesh.stars(); st.points = (st.points || 0) + 500; LS.set('treesh_stars', st); Treesh.ping(); renderShop(); break; }

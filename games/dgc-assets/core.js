@@ -53,7 +53,7 @@ const SAVE_KEY = 'dgc_save_v1';
 function defSave() {
   return { v: 1, inv: {}, trait: 'steady', traits: ['steady', 'soft'], look: { charm: 'charm_none', light: 'light_warm' }, owned: ['charm_none', 'light_warm', 'light_accent'], ach: {}, diff: 'normal',
     stats: { runs: 0, deaths: 0, rounds: 0, escapes: 0, best: { classic: 0, hush: 0, lullaby: 0, impress: 0 }, earned: 0, spent: 0, items: 0, close: 0, rooms: {}, imp: {}, playMs: 0, bought: 0, bestBank: 0 },
-    set: { vol: 0.8, sound: true, flash: true, shake: true, haptic: true, taunts: true, music: true }, mode: 'classic', seenStory: false, killer: 'hush', daily: { key: '', played: false, best: 0, streak: 0, last: '' } };
+    set: { vol: 0.8, sound: true, flash: true, shake: true, haptic: true, taunts: true, music: true }, mode: 'classic', seenStory: false, killer: 'hush', gallery: {}, daily: { key: '', played: false, best: 0, streak: 0, last: '' } };
 }
 function loadSave() {
   const d = defSave(), s = LS.get(SAVE_KEY, null); if (!s || typeof s !== 'object') return d;
@@ -153,6 +153,8 @@ const ACH = [
   { id: 'swift', name: 'Swift Hands', desc: 'Clear a room with more than half the candle left.', tier: 'bronze', icon: 'zap' },
   { id: 'hard5', name: 'Terror Incarnate', desc: 'Survive 5 nights on Terror difficulty. Unlocks Unseen.', tier: 'gold', icon: 'eye-off' },
   { id: 'unseen3', name: 'Eyes Wide Shut', desc: 'Survive 3 nights on Unseen difficulty.', tier: 'platinum', icon: 'ghost' },
+  { id: 'mutant', name: 'Adapt or Die', desc: 'Clear 10 mutated rooms.', tier: 'silver', icon: 'biohazard' },
+  { id: 'collector', name: 'Every Last Word', desc: 'Unlock every voice line in the Killer Gallery.', tier: 'gold', icon: 'audio-lines' },
   { id: 'daily3', name: 'Regular Guest', desc: 'Play the Nightly Challenge 3 nights in a row.', tier: 'silver', icon: 'calendar-check' }
 ];
 
@@ -259,8 +261,8 @@ const Sfx = {
     return this.vbuf[id];
   },
   preloadVoices(killer) { const t = TAUNTS[killer] || TAUNTS.hush; Object.values(t).flat().forEach(id => this.loadVoice(id)); },
-  async speak(id, killer) {
-    if (!S.set.taunts) return; const ac = this.ctx(), buf = await this.loadVoice(id); if (!ac || !buf) return;
+  async speak(id, killer, force) {
+    if (!S.set.taunts && !force) return; const ac = this.ctx(), buf = await this.loadVoice(id); if (!ac || !buf) return;
     if (!this.verb) { const len = ac.sampleRate * 2.4, ir = ac.createBuffer(2, len, ac.sampleRate); for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); } this.verb = ac.createConvolver(); this.verb.buffer = ir; const vg = ac.createGain(); vg.gain.value = 0.55; this.verb.connect(vg); vg.connect(this.master); }
     const src = ac.createBufferSource(), hp = ac.createBiquadFilter(), g = ac.createGain(), t = ac.currentTime, bride = killer === 'bride';
     src.buffer = buf; src.playbackRate.value = bride ? 1.0 : 0.84; hp.type = 'highpass'; hp.frequency.value = bride ? 320 : 90; g.gain.value = bride ? 1.1 : 1.7;
@@ -334,5 +336,6 @@ function checkMetaAch() {
   if (rooms.every(r => (st.rooms[r] || 0) >= 1)) unlock('tour');
   if (rooms.every(r => (st.rooms[r] || 0) >= 10)) unlock('master');
   if (bestNightAll() >= 10) unlock('bride_unlock');
+  if (Object.entries(TAUNTS).every(([k, t]) => Object.values(t).flat().every(id => S.gallery[k] && S.gallery[k].lines[id]))) unlock('collector');
   if (st.close >= 1) unlock('close'); if (st.close >= 10) unlock('close10');
 }
