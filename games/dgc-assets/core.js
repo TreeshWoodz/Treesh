@@ -155,7 +155,7 @@ const ACH = [
   { id: 'hard5', name: 'Terror Incarnate', desc: 'Survive 5 nights on Terror difficulty. Unlocks Unseen.', tier: 'gold', icon: 'eye-off' },
   { id: 'unseen3', name: 'Eyes Wide Shut', desc: 'Survive 3 nights on Unseen difficulty.', tier: 'platinum', icon: 'ghost' },
   { id: 'bestie1', name: 'Bestie Approved', desc: 'Finish all 12 of Bestie\u2019s requests in time.', tier: 'silver', icon: 'smartphone' },
-  { id: 'bestie_all', name: 'Nobody Left the Chat', desc: 'Finish a Bestie night with all 6 friends alive.', tier: 'gold', icon: 'users' },
+  { id: 'bestie_all', name: 'Nobody Left the Chat', desc: 'Finish a Bestie night with all 8 friends alive.', tier: 'gold', icon: 'users' },
   { id: 'mutant', name: 'Adapt or Die', desc: 'Clear 10 mutated rooms.', tier: 'silver', icon: 'biohazard' },
   { id: 'collector', name: 'Every Last Word', desc: 'Unlock every voice line in the Killer Gallery.', tier: 'gold', icon: 'audio-lines' },
   { id: 'daily3', name: 'Regular Guest', desc: 'Play the Nightly Challenge 3 nights in a row.', tier: 'silver', icon: 'calendar-check' }
