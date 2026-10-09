@@ -3,6 +3,8 @@
 // ImageKit uploads (optional): IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY
 // GitHub sign-in (optional): GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, MAD_GITHUB_USERS (comma list, default TreeshWoodz). Callback: https://<site>/api/github/oauth/callback
 // Email alerts (optional): RESEND_API_KEY, MAD_ALERT_EMAIL (MAD_ALERT_KEY also accepted), MAD_ALERT_FROM (default "Treesh M.A.D. <mad@treesh.app>", falls back to onboarding@resend.dev until treesh.app is verified in Resend), MAD_URL (default https://treesh.app/tools/mad)
+// Signed audio uploads (optional, no preset needed): CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, CLOUDINARY_CLOUD_NAME (default treesh)
+// Weekly link check: netlify/functions/link-check.mjs (Mondays 9:00 AM Eastern) emails broken song/artist links through the alert settings above.
 // Icon accounts (optional): SUPABASE_URL, SUPABASE_ANON_KEY, MAD_ICON_TABLE (default profiles), MAD_ICON_VERIFIED_COL (default verified), MAD_ICON_ARTIST_COL (default verified_icon)
 // Needs "@netlify/blobs" in the repo's package.json dependencies (sign-in activity + reliable lockout).
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -112,7 +114,7 @@ function sameOrigin(req){
 }
 
 async function session(req, context, method){
-  if (method === 'GET'){ const s0 = readSession(req), s = s0 && s0.role === 'icon' && await iconRevoked(s0) ? null : s0; return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, role: (s && s.role) || (s ? 'admin' : null), artistId: (s && s.artistId) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady(), email: s && s.role !== 'icon' && emailReady() ? maskEmail(alertTo()) : null, version: MAD_VERSION, features: { email: emailReady(), imagekit: !!((process.env.IMAGEKIT_PUBLIC_KEY || '').trim() && (process.env.IMAGEKIT_PRIVATE_KEY || '').trim()), icons: !!((process.env.SUPABASE_URL || '').trim() && (process.env.SUPABASE_ANON_KEY || '').trim()), oauth: oauthReady() } }); }
+  if (method === 'GET'){ const s0 = readSession(req), s = s0 && s0.role === 'icon' && await iconRevoked(s0) ? null : s0; return json(200, { signedIn: !!s, expires: s ? s.exp : null, login: (s && s.login) || null, role: (s && s.role) || (s ? 'admin' : null), artistId: (s && s.artistId) || null, repo: REPO, activity: !!blobs(), oauth: oauthReady(), email: s && s.role !== 'icon' && emailReady() ? maskEmail(alertTo()) : null, version: MAD_VERSION, features: { email: emailReady(), imagekit: !!((process.env.IMAGEKIT_PUBLIC_KEY || '').trim() && (process.env.IMAGEKIT_PRIVATE_KEY || '').trim()), icons: !!((process.env.SUPABASE_URL || '').trim() && (process.env.SUPABASE_ANON_KEY || '').trim()), oauth: oauthReady(), audio: cloudReady() } }); }
   if (method === 'DELETE') return json(200, { signedIn: false, repo: REPO }, { 'Set-Cookie': cookie('', 0) });
   if (method !== 'POST') return json(405, { message: 'Method not allowed.' });
   const key = failKey(clientIp(req, context));
@@ -274,7 +276,7 @@ async function iconUpdates(req, token){
 }
 // Email alerts to the admin through Resend (optional): RESEND_API_KEY, MAD_ALERT_EMAIL, MAD_ALERT_FROM, MAD_URL.
 const escH = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-const MAD_VERSION = '2026-10-09';
+const MAD_VERSION = '2026-10-10';
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const alertTo = () => [process.env.MAD_ALERT_EMAIL, process.env.MAD_ALERT_KEY].map(v => (v || '').trim()).find(v => EMAIL_RE.test(v)) || '';
 const BRAND_FROM = 'Treesh M.A.D. <mad@treesh.app>', TEST_FROM = 'Treesh M.A.D. <onboarding@resend.dev>';
@@ -298,6 +300,63 @@ async function sendAlert(kind, subject, head, lines){
     if (r.ok) return { ok: true, to: maskEmail(alertTo()), from: sender, fallback: from !== first };
     return { ok: false, message: `Resend: ${d.message || `error ${r.status}`}` };
   } catch { return { ok: false, message: 'Couldn’t reach Resend. Try again.' }; }
+}
+// Signed Cloudinary audio uploads: the secret stays here; icons are pinned to their own folder.
+const cloudKeys = () => ({ cloud: (process.env.CLOUDINARY_CLOUD_NAME || 'treesh').trim(), key: (process.env.CLOUDINARY_API_KEY || '').trim(), secret: (process.env.CLOUDINARY_API_SECRET || '').trim() });
+const cloudReady = () => { const c = cloudKeys(); return !!(c.key && c.secret); };
+function cloudSign(sess){
+  const c = cloudKeys();
+  if (!cloudReady()) return json(503, { message: 'Audio uploads aren’t set up yet. Add CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in Netlify, then redeploy. Or use “Host on JukeHost”.', code: 'cloudinary' });
+  const folder = sess.role === 'icon' ? `treesh/music/icons/${sess.artistId}` : 'treesh/music', timestamp = Math.floor(Date.now() / 1000);
+  const signature = createHash('sha1').update(`folder=${folder}&timestamp=${timestamp}${c.secret}`).digest('hex');
+  return json(200, { cloudName: c.cloud, apiKey: c.key, folder, timestamp, signature, maxBytes: 100 * 1024 * 1024 });
+}
+
+// Link report: confirms every song's audio/cover and every artist's photo/banner still answers with the right kind of file.
+const LINK_OK = { audio: /^(audio\/|video\/|application\/octet-stream|binary\/octet-stream)/i, image: /^image\//i };
+const LINK_WHY = { missing: 'No link', slow: 'Too slow to answer', 'bad:type': 'Not an audio/image file anymore', 'bad:net': 'Host not reachable' };
+async function probeLink(url, kind){
+  if (!/^https?:\/\//i.test(url || '')) return 'missing';
+  try {
+    const r = await fetch(url, { headers: { Range: 'bytes=0-1', 'User-Agent': 'Mozilla/5.0 (compatible; TreeshMAD-LinkCheck/1.0)' }, redirect: 'follow', signal: AbortSignal.timeout(7000) });
+    try { await r.body?.cancel(); } catch {}
+    if (!r.ok) return `bad:${r.status}`;
+    const ct = (r.headers.get('content-type') || '').split(';')[0].trim();
+    return !ct || LINK_OK[kind].test(ct) ? 'ok' : 'bad:type';
+  } catch (e){ return e && e.name === 'TimeoutError' ? 'slow' : 'bad:net'; }
+}
+async function repoText(path, token){
+  const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}?ref=main`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.raw+json', 'User-Agent': 'treesh-mad' } });
+  return r.ok ? r.text() : '';
+}
+export async function linkReport({ always = false } = {}){
+  const token = process.env.GITHUB_TOKEN, deadline = Date.now() + 22000, items = [];
+  const [songs, icons] = await Promise.all([repoText('content/songs.html', token), repoText('content/icons.html', token)]);
+  blocksOf(songs).blocks.filter(b => /\bsong\b/i.test(attrOf(b, 'class'))).forEach(b => {
+    const name = attrOf(b, 'data-track'), by = attrOf(b, 'data-artist'), k = titleKey(name);
+    items.push({ key: `song|${k}|audio`, kind: 'audio', what: 'Audio', name, by, url: attrOf(b, 'data-mp3') }, { key: `song|${k}|cover`, kind: 'image', what: 'Cover', name, by, url: attrOf(b, 'data-coverart') });
+  });
+  blocksOf(icons).blocks.filter(b => /\bartist\b/i.test(attrOf(b, 'class'))).forEach(b => {
+    const id = attrOf(b, 'data-artist-id'), name = attrOf(b, 'data-name') || `Icon #${id}`, photo = (b.match(/<img\b[^>]*class="[^"]*artist__image[^"]*"[^>]*\bsrc="([^"]*)"/i) || b.match(/<img\b[^>]*\bsrc="([^"]*)"/i) || [])[1] || '', bg = attrOf(b, 'data-bg');
+    items.push({ key: `artist|${id}|photo`, kind: 'image', what: 'Photo', name, by: 'Icon profile', url: photo });
+    if (bg) items.push({ key: `artist|${id}|banner`, kind: 'image', what: 'Banner', name, by: 'Icon profile', url: bg });
+  });
+  const seen = new Map(); let next = 0, checked = 0;
+  const work = async () => { while (next < items.length && Date.now() < deadline){ const it = items[next++], k = it.kind + '|' + it.url; if (!seen.has(k)) seen.set(k, probeLink(it.url, it.kind)); it.status = await seen.get(k); checked++; } };
+  await Promise.all(Array.from({ length: 12 }, work));
+  const prev = new Set((await iconList('link-check-last')).keys || []), problems = items.filter(it => it.status && it.status !== 'ok');
+  problems.forEach(p => { p.fresh = !prev.has(p.key); p.why = LINK_WHY[p.status] || (p.status.startsWith('bad:') ? `Broken (${p.status.slice(4)})` : p.status); });
+  await iconSave('link-check-last', { keys: problems.map(p => p.key), at: Date.now() });
+  const fresh = problems.filter(p => p.fresh).length, skipped = items.length - checked;
+  let emailed = null;
+  if (problems.length || always){
+    const head = problems.length ? `${problems.length} link${problems.length === 1 ? '' : 's'} on Treesh need${problems.length === 1 ? 's' : ''} a look${fresh ? ` (${fresh} new this week)` : ''}` : `All ${checked} Treesh links answered fine`;
+    const lines = problems.slice(0, 60).map(p => [`${p.what}${p.fresh ? ' · NEW' : ''}`, `${p.name}${p.by ? ` — ${p.by}` : ''}: ${p.why}`]);
+    if (problems.length > 60) lines.push(['More', `${problems.length - 60} more. Run “Check links” in M.A.D.`]);
+    if (skipped) lines.push(['Not checked', `${skipped} links (ran out of time)`]);
+    emailed = await sendAlert('link-check', head, head, lines);
+  }
+  return { total: items.length, checked, skipped, problems: problems.map(({ key, what, name, by, url, why, fresh }) => ({ key, what, name, by, url, why, fresh })), fresh, emailed };
 }
 // A revoked icon's older sessions stop working.
 async function iconRevoked(sess){ const at = (await iconList('icon-revoked'))[sess.uid]; return !!at && at > sess.exp - MAX_AGE * 1000; }
@@ -375,7 +434,9 @@ export default async (req, context) => {
   if (sess.role === 'icon' && (sub === '/activity' || sub === '/icon-admin')) return json(403, { message: 'Admins only.', code: 'admin' });
   if (sub === '/activity' && method === 'GET') return activity(sess);
   if (sub === '/icon-admin') return iconAdmin(req, method);
-  if (sub === '/alert-test' && method === 'POST'){ const r = await sendAlert('test', 'M.A.D. email alerts are working', 'Email alerts are working', [['Sent to', alertTo()], ['You’ll get', 'New icon changes and Icon access requests']]); return json(r.ok ? 200 : 502, r.ok ? r : { message: r.message, code: 'email' }); }
+  if (sub === '/cloudinary-sign' && method === 'GET') return cloudSign(sess);
+  if (sub === '/link-report' && method === 'POST'){ if (sess.role === 'icon') return json(403, { message: 'That action isn’t available to icon accounts.', code: 'icon_scope' }); return json(200, await linkReport({ always: true })); }
+  if (sub === '/alert-test' && method === 'POST'){ if (sess.role === 'icon') return json(403, { message: 'Admins only.', code: 'admin' }); const r = await sendAlert('test', 'M.A.D. email alerts are working', 'Email alerts are working', [['Sent to', alertTo()], ['You’ll get', 'New icon changes and Icon access requests']]); return json(r.ok ? 200 : 502, r.ok ? r : { message: r.message, code: 'email' }); }
   if (sub === '/imagekit-auth' && method === 'GET'){
     const pk = (process.env.IMAGEKIT_PRIVATE_KEY || '').trim(), pub = (process.env.IMAGEKIT_PUBLIC_KEY || '').trim();
     if (!pk || !pub) return json(503, { message: 'ImageKit isn’t set up yet. Add IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY in Netlify, then redeploy.', code: 'imagekit' });

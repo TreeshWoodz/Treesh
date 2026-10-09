@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 22 — Weekly Link Check, Catalog scan email, Icons merge (tabs=5), Signed audio uploads. Backend: 11/11 pytest pass against public preview (TestCloudinarySign 6/6, TestLinkReport 4/4, TestSession 1/1). Frontend desktop + mobile 390 verified end-to-end against production preview. All acceptance criteria from the review request passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_mad_iter22.py",
+    "/app/test_reports/pytest/iter22.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/server.py: cloudinary_sign and link_report are correct; signature = sha1('folder=<f>&timestamp=<t>mock_secret'). LINK_LAST is a module-global and is intentionally NOT reset by /api/mockgh/reset so 'new this week' persists across reset — this matches the spec note in the prompt but means tests must account for it (handled in test_rerun_fresh_becomes_false by comparing r1->r2 instead of asserting an absolute truth).",
+    "backend/server.py: link_report emits emails via send_alert even when there are zero problems (the 'All N Treesh links answered fine' subject). Consider filtering: today it emits a 'good' email every scheduled run which is noisy — the spec says 'emails only if something is broken' for the weekly cron. The /link-report endpoint always emails (per spec) but the scheduled function in netlify/functions/link-check.mjs should guard send on probs.length>0.",
+    "frontend scanner (songcoder.html:4557) correctly augments artist rows with sub='Icon profile' and SCAN_TAG {photo, banner}; isIcon() path filters roster to self + their songs, so icon-mode scanner stays private.",
+    "SUB_OF/TAB_OF (songcoder.html:3712) collapses projects→catalog and models→artists cleanly; in icon mode SUB_OF rejects both subnavs via `el.hidden = SUB_OF[v]!==g || isIcon()`, which matches the spec that icons see no sub-navs.",
+    "Signed upload: cloudSigned requests GET /cloudinary-sign (same-origin, cache:no-store), then POSTs multipart to uploadUrl=/api/mockgh/cloudinary-upload. In admin and icon modes the folder is correctly pinned (`treesh/music` vs `treesh/music/icons/<id>`) and the mock enforces the sha1 signature match; a bad signature returns 401 'Invalid Signature' as spec.",
+    "Settings server-status (#s-server) lists exactly 5 feature rows with v2026-10-10, including 'Audio uploads (no preset)' — matches spec.",
+    "Mobile 390: 5 top-level tabs fit on one row with rightmost edge at x=372 < 390 viewport. Icons label = 'Icons', Updates label = 'What's New' via data-short. No horizontal scrolling needed.",
+    "Icon mode welcome tour step 1 title='Your profile' with text 'Open Icons and tap the pencil…' — matches updated spec (Icons, not Artists)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_mad_iter22.py"
+  ],
+  "success_rate": {"backend": "100% (11/11 pytest)", "frontend": "100% (all acceptance criteria pass)"},
+  "test_credentials": "Admin passcode TreeshMAD-test-2026 (MAD_PASSCODE). Icon tokens: mock-chelly=11 (verified), mock-fan, mock-savionce. Reset mock state: POST /api/mockgh/reset (does NOT reset LINK_LAST).",
+  "seed_data_creation": "Each test resets mock state via POST /api/mockgh/reset; admin signs in via POST /api/github/session {passcode}; icon via POST /api/github/icon-session {access_token:'mock-chelly'}. Scanner tests use existing seeded 56 songs + 12 artists (= 68 scan items). Signed upload tests use tiny ID3 .mp3 payloads via Playwright set_input_files.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter22 is clean. Verified on desktop 1920x1080 and mobile 390x844: (1) 5-tab navigation (Compose, Catalog, Icons, Blog, What's New) with Icons tab testid=tab-artists; (2) music-subnav Songs|Projects switches projects-view visibility while keeping tab-catalog active; (3) icons-subnav Artists|Models switches models-view while keeping tab-artists active; models-count renders. (4) In-app scanner finds 68 items; the two JukeHost M4A tracks consistently flag 'Audio won't play' in headless Chromium (expected per prompt). (5) scan-email-btn calls /api/github/link-report; email recorded in /api/mockgh/state with kind='link-check' and subject 'N link(s) on Treesh need(s) a look'. 'new this week' suffix is suppressed on reruns when the same problem keys recur (fresh=false). (6) Icon POST /link-report → 403. (7) Signed audio: admin folder=treesh/music, icon folder=treesh/music/icons/11; bad signature → 401 Invalid Signature. (8) Settings server status shows v2026-10-10 and 5 rows including 'Audio uploads (no preset)'. (9) Icon mode: 5 tabs visible but SUB_OF suppresses both sub-navs, projects/models view never visible; tour step 1 text says 'Open Icons…'. Note: LINK_LAST module-global persists across /mockgh/reset — tests must not rely on it being empty across runs.",
+  "rca of the issue": "N/A — no issues found. All iteration 22 acceptance criteria pass end-to-end against the public preview URL."
+}

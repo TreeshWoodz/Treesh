@@ -963,6 +963,8 @@ body.icon-mode .mode-seg,body.icon-mode .tab[data-view=projects],body.icon-mode 
 div.pr-row:hover{transform:none}
 @media (max-width:620px){.rv-row,.rv-row.solo{grid-template-columns:1fr;gap:4px}}
 body:not(.icon-mode) .icon-only{display:none !important}
+body:not(.is-admin) .admin-only{display:none !important}
+body.icon-mode .sub-nav [data-go=projects]{display:none !important}
 .jh-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .scan-panel{margin:0 0 22px;padding:18px;border-radius:22px;border:1px solid var(--stroke-faint);background:rgba(255,255,255,.035);animation:rise .4s var(--ease) both}
 .scan-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -1061,8 +1063,7 @@ body:not(.icon-mode) .icon-only{display:none !important}
   </a>
   <nav class="tabs" id="tabs" data-testid="view-tabs">
     <span class="tab-ind" id="tab-ind"></span>
-    <button class="tab active" data-view="compose" data-short="Compose" title="Compose" aria-label="Compose" data-testid="tab-compose"><i data-lucide="disc-3"></i><span id="tab-compose-label">Compose</span></button>
-    <button class="tab" data-view="catalog" data-short="Catalog" title="Catalog" aria-label="Catalog" data-testid="tab-catalog"><i data-lucide="library-big"></i>Catalog <span class="count" id="cat-count" data-testid="catalog-count">··</span></button>
+    <button class="tab active" data-view="catalog" data-short="Catalog" title="Catalog" aria-label="Catalog" data-testid="tab-catalog"><i data-lucide="library-big"></i>Catalog <span class="count" id="cat-count" data-testid="catalog-count">··</span></button>
     <button class="tab" data-view="artists" data-short="Icons" title="Icons" aria-label="Icons" data-testid="tab-artists"><i data-lucide="users-round"></i>Icons <span class="count" id="art-count" data-testid="artists-count">··</span></button>
     <button class="tab" data-view="blog" data-short="Blog" title="Blog" aria-label="Blog" data-testid="tab-blog"><i data-lucide="newspaper"></i>Blog</button>
     <button class="tab" data-view="whatsnew" data-short="Updates" title="What’s New" aria-label="What’s New" data-testid="tab-whatsnew"><i data-lucide="party-popper"></i>What’s New</button>
@@ -1080,7 +1081,7 @@ body:not(.icon-mode) .icon-only{display:none !important}
 <div class="rv-alert" id="rv-alert" hidden role="status" data-testid="review-alert"><i data-lucide="bell-ring"></i><span id="rv-alert-text" data-testid="review-alert-text"></span><button class="btn btn-sm btn-primary" id="rv-alert-open" data-testid="review-alert-open-btn">Review</button><button class="icon-btn" id="rv-alert-close" title="Dismiss" data-testid="review-alert-close-btn"><i data-lucide="x"></i></button></div>
 
 <main>
-  <div class="sub-nav" id="sub-music" hidden data-testid="music-subnav"><div class="view-seg"><button type="button" data-go="catalog" data-testid="subnav-songs"><i data-lucide="library-big"></i>Songs</button><button type="button" data-go="projects" data-testid="subnav-projects"><i data-lucide="disc-album"></i>Projects</button></div></div>
+  <div class="sub-nav" id="sub-music" data-testid="music-subnav"><div class="view-seg"><button type="button" data-go="compose" class="on" data-testid="tab-compose"><i data-lucide="disc-3"></i><span id="tab-compose-label">Compose</span></button><button type="button" data-go="catalog" data-testid="subnav-songs"><i data-lucide="library-big"></i>Songs</button><button type="button" data-go="projects" data-testid="subnav-projects"><i data-lucide="disc-album"></i>Projects</button></div></div>
   <div class="sub-nav" id="sub-icons" hidden data-testid="icons-subnav"><div class="view-seg"><button type="button" data-go="artists" data-testid="subnav-artists"><i data-lucide="users-round"></i>Artists</button><button type="button" data-go="models" data-testid="subnav-models"><i data-lucide="camera"></i>Models <span class="count" id="mod-count" data-testid="models-count">··</span></button></div></div>
   <!-- COMPOSE -->
   <section class="view" id="view-compose" data-testid="compose-view">
@@ -1555,7 +1556,7 @@ body:not(.icon-mode) .icon-only{display:none !important}
         </div>
         <div class="act-box" id="s-server" hidden data-testid="settings-server-status"></div>
       </div>
-      <div class="set-sec admin-only">
+      <div class="set-sec admin-only" data-testid="settings-repo-section">
         <h3><i data-lucide="github"></i>Repository</h3>
         <p>Locked to <b id="s-repo-name" data-testid="settings-repo-name">TreeshWoodz/Treesh</b> by the server. Branch and file paths can be changed here.</p>
         <div class="grid2">
@@ -1571,7 +1572,7 @@ body:not(.icon-mode) .icon-only{display:none !important}
         <button type="button" class="btn btn-sm" id="s-test" data-testid="settings-test-connection-btn"><i data-lucide="plug-zap"></i>Test connection</button>
         <div class="checks" id="s-checks" data-testid="settings-connection-results"></div>
       </div>
-      <div class="set-sec">
+      <div class="set-sec admin-only" data-testid="settings-cloudinary-section">
         <h3><i data-lucide="cloud-upload"></i>Cloudinary uploads</h3>
         <p>Optional. Add an <b>unsigned upload preset</b> (Cloudinary → Settings → Upload → Upload presets) and dropped files upload automatically. Leave it empty to paste links instead.</p>
         <div class="grid2">
@@ -1755,7 +1756,7 @@ const mine = s => !isIcon() || songIds(s).includes(state.auth.artistId);
 const myName = () => { const a = state.roster.find(x => x.id === state.auth.artistId); return a ? a.name : state.auth.login || 'Icon'; };
 function applyRole(){
   const ic = isIcon(), saved = safeJSON(localStorage.getItem(CFG_KEY));
-  document.body.classList.toggle('icon-mode', ic);
+  document.body.classList.toggle('icon-mode', ic); document.body.classList.toggle('is-admin', isAdmin());
   cfg.branch = ic ? 'main' : saved.branch || DEFAULTS.branch;
   setMode(ic ? 'pr' : saved.mode === 'live' ? 'live' : 'pr');
   $('#open-review').hidden = !isAdmin(); if (!isAdmin()){ state.iconPrs = []; state.iconAdmin = { requests:[], approved:[] }; $('#rv-alert').hidden = true; }
@@ -3709,12 +3710,12 @@ function setMode(m){
   }
 }
 function moveInd(){ const a = $('.tab.active'), ind = $('#tab-ind'); if (!a) return; ind.style.left = a.offsetLeft + 'px'; ind.style.width = a.offsetWidth + 'px'; }
-const SUB_OF = { catalog:'music', projects:'music', artists:'icons', models:'icons' }, TAB_OF = { projects:'catalog', models:'artists' };
+const SUB_OF = { compose:'music', catalog:'music', projects:'music', artists:'icons', models:'icons' }, TAB_OF = { compose:'catalog', projects:'catalog', models:'artists' };
 function switchView(v){
   if (isIcon() && (v === 'projects' || v === 'models')) v = TAB_OF[v];
   state.view = v;
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === (TAB_OF[v] || v)));
-  ['music', 'icons'].forEach(g => { const el = $('#sub-' + g); el.hidden = SUB_OF[v] !== g || isIcon(); $$('[data-go]', el).forEach(b => b.classList.toggle('on', b.dataset.go === v)); });
+  ['music', 'icons'].forEach(g => { const el = $('#sub-' + g); el.hidden = SUB_OF[v] !== g || (isIcon() && g === 'icons'); $$('[data-go]', el).forEach(b => b.classList.toggle('on', b.dataset.go === v)); });
   $('#view-compose').hidden = v !== 'compose'; $('#view-catalog').hidden = v !== 'catalog'; $('#view-artists').hidden = v !== 'artists'; $('#view-lyrics').hidden = v !== 'lyrics'; $('#view-projects').hidden = v !== 'projects'; $('#view-models').hidden = v !== 'models';
   moveInd(); window.scrollTo(0, 0);
   if (v === 'catalog') renderCatalog();
@@ -4477,7 +4478,7 @@ function iconResultToasts(){
 const TOUR = [
   { sel:'[data-testid=tab-artists]', view:'artists', title:'Your profile', text:'Open Icons and tap the pencil on your card to change your photo, banner, bio, city, birthday or Cash App.' },
   { sel:'[data-testid=tab-catalog]', view:'catalog', title:'Your songs', text:'Catalog shows every song you’re on. Edit the details, swap the cover or audio, or ask to remove one.' },
-  { sel:'#c-lyrics', view:'compose', scroll:true, title:'Lyrics', text:'In Compose, add a new song with you as the artist. Write the lyrics here, then tap along with the track to sync each line.' },
+  { sel:'#c-lyrics', view:'compose', scroll:true, title:'Lyrics', text:'In Catalog → Compose, add a new song with you as the artist. Write the lyrics here, then tap along with the track to sync each line.' },
   { sel:'[data-testid=open-prs-btn]', title:'My changes', text:'Nothing goes live right away. Treesh admin reviews every change, and you’ll see Approved or their note right here.' }
 ];
 function startTour(force){

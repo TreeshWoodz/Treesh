@@ -160,3 +160,11 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Session GET now returns version (MAD_VERSION '2026-10-09') and a non-secret `features` object {email, imagekit, icons, oauth}. Settings shows a "Server setup" checklist for the admin, or a "Server needs an update" notice when version is missing.
 - Catalog "Check links": 4-way concurrent probe (Audio preload=metadata, Image), 20 s timeout = "too slow", missing link detection, URL de-dupe. Results panel has progress, Stop, Check again, Close, and rows with Edit (startEdit) and Audio link. Icons scan only their own songs.
 - Note: headless Chromium can't decode AAC/M4A, so two M4A JukeHost tracks (served as audio/mpeg) get flagged in tests; real Chrome and Safari play them.
+
+## 2026-10: Weekly link check, artist image scan, signed audio, page merges (iteration_22 100% + self-test)
+- netlify/functions/link-check.mjs is a Netlify Scheduled Function ('0 13,14 * * 1' UTC; it only does the work when it's 9 AM in America/New_York). It calls the exported linkReport() in github.mjs: server-side Range GET probes of every song's audio/cover and artist photo/banner, 12-way concurrency, 22 s deadline. "New since last week" uses the blob link-check-last. It emails only when there are problems. Admin "Email me this report" (scan panel) → POST /link-report always emails. Note: Emergent crons were not used because production is on Netlify.
+- The in-app scanner also checks Icon photos and banners (Edit opens the artist drawer).
+- Signed Cloudinary audio uploads: GET /cloudinary-sign returns sha1("folder=…&timestamp=…"+secret). Icons are pinned to treesh/music/icons/<id>, max 100 MB. Env: CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET (CLOUDINARY_CLOUD_NAME defaults to treesh). The preset is only a fallback.
+- Navigation: top tabs are Catalog (sub-nav Compose | Songs | Projects; icons don't see Projects), Icons (Artists | Models; hidden for icons), Blog, What's New. TAB_OF/SUB_OF live in switchView; tab-compose testid moved to the sub-nav button.
+- Settings Repository and Cloudinary sections are admin-only (body.is-admin).
+- MAD_VERSION 2026-10-10. Deliverables add deliverables/link-check.mjs → netlify/functions/link-check.mjs.
