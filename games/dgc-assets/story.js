@@ -36,6 +36,11 @@ const STORIES = {
     ['st_t2', 'Every seat is empty but yours.', 'Thane takes a slow bow. He has been waiting a very long time for a volunteer.', 'pull'],
     ['st_t3', 'Every trick has a secret.', 'Follow the cup. Remember the card. Find the real him. <b>See through it, or his Reach takes you.</b>', 'pushf'],
     ['st_t4', 'And when the tricks run out\u2026', 'the magician takes off his face. <b>Survive the Last Trick.</b>', 'shake']] },
+  lash: { name: 'The Function', who: 'Big Eyelash', shots: [
+    ['be_idle', '3:07 AM. The bass is shaking the windows.', 'You followed the music. You did NOT get an invite.', 'push'],
+    ['be_face', 'This is Big Eyelash.', 'Loud. Dramatic. Cursed. Her lashes see EVERYTHING.', 'pushf'],
+    ['be_hex', 'Every round is a test.', 'Twerk on beat. Clap back. Pay her cut. <b>Never insult the lashes.</b>', 'panr'],
+    ['be_m1', 'Get her PRESSED\u2026', '<b>and the wig comes off.</b> Survive the Lashpocalypse.', 'shake']] },
   impress: { name: 'Impressions', who: 'Mr. Hush', shots: [
     ['st_i1', 'Mr. Hush is bored.', 'Dangerously, murderously bored.', 'pushf'],
     ['st_i2', 'Tonight, you\u2019re the entertainment.', 'One spotlight. One microphone. One very tough crowd.', 'push'],
@@ -78,7 +83,7 @@ function playStory(id, done, fromMenu) {
 }
 
 function renderStory() {
-  const order = ['classic', 'hush', 'lullaby', 'bestie', 'detention', 'babysit', 'thane', 'impress'], seen = S.seenStories || {};
+  const order = ['classic', 'hush', 'lullaby', 'bestie', 'detention', 'babysit', 'thane', 'lash', 'impress'], seen = S.seenStories || {};
   $('#scr-story').innerHTML = `${subTop('The Stories')}<div class="story-pick" data-testid="story-picker"><p class="story-sub">Every killer in this house has a story. Pick one.</p><div class="story-grid">${order.map((id, k) => { const st = STORIES[id]; return `<button class="story-card" style="--img:url(${img(st.shots[0][0])});--i:${k}" data-act="story-play" data-id="${id}" data-testid="story-card-${id}"><i class="sc-img"></i><span><small>${esc(st.who)}</small><b>${esc(st.name)}</b>${seen[id] ? '<em>Watched</em>' : '<em class="new">New</em>'}</span><i class="sc-play" data-lucide="play"></i></button>`; }).join('')}</div></div>`;
   icons();
 }

@@ -44,7 +44,8 @@ function menuItems() {
   ];
 }
 const DUST = Array.from({ length: 26 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 100).toFixed(1)}%;--s:${(Math.random() * 2.4 + 1).toFixed(1)}px;--d:${(Math.random() * 14 + 10).toFixed(1)}s;--dl:-${(Math.random() * 20).toFixed(1)}s"></i>`).join('');
-const MODE_ART = { classic: 'key_art', hush: 'hush_front', lullaby: 'bed_awake', bestie: 'bestie_art', detention: 'teacher_f0', babysit: 'baby_parents', thane: 'thane_cover', impress: 'closet_look' }, CARD_ART = Object.assign({}, MODE_ART, { classic: 'hush_back', detention: 'teacher_f2' });
+const IG_BTN = '<a class="btn btn-ig" href="https://instagram.com/BiggEyelash" target="_blank" rel="noopener" data-testid="follow-bigeyelash-btn"><i data-lucide="instagram"></i>Follow @BiggEyelash (if you dare)</a>';
+const MODE_ART = { classic: 'key_art', hush: 'hush_front', lullaby: 'bed_awake', bestie: 'bestie_art', detention: 'teacher_f0', babysit: 'baby_parents', thane: 'thane_cover', lash: 'be_cover', impress: 'closet_look' }, CARD_ART = Object.assign({}, MODE_ART, { classic: 'hush_back', detention: 'teacher_f2' });
 const titleArt = () => img(MODE_ART[S.mode] || 'key_art');
 function renderTitle() {
   const t = traitById(S.trait), m = modeById(S.mode), items = menuItems(), best = bestNightAll();
@@ -218,6 +219,7 @@ function renderOver(res) {
       ${!res.escaped && res.reason !== 'quit' && Run.pocket ? `<p class="muted">He took half your pocket. Escape at a checkpoint to keep it all.</p>` : ''}
       ${res.daily ? `<p class="daily-line" data-testid="over-daily">${res.official ? `<i data-lucide="calendar-check"></i>Nightly #${dailyInfo().no} official run \u00b7 +${fmt(res.dailyBonus)} bonus Starlites included` : `<i data-lucide="calendar-days"></i>Nightly #${dailyInfo().no} practice run (no bonus)`}</p>` : ''}
       ${newA.length ? `<div class="over-ach"><p class="cust-h">New achievements</p>${newA.map(a => `<span style="--c:${TIERS[a.tier]}"><i data-lucide="${a.icon}"></i>${esc(a.name)}</span>`).join('')}</div>` : ''}
+      ${res.killer === 'lash' ? IG_BTN : ''}
       <div class="row"><button class="btn btn-acc btn-xl" data-act="${res.daily ? 'daily' : 'retry'}" data-testid="retry-run-btn"><i data-lucide="rotate-ccw"></i>Try again</button>${res.daily ? `<button class="btn btn-ghost" data-act="share" data-n="${res.survived}" data-testid="over-share-btn"><i data-lucide="share-2"></i>Share</button>` : ''}<button class="btn btn-ghost" data-act="go" data-to="title" data-testid="over-menu-btn"><i data-lucide="house"></i>Menu</button></div></div></div>`;
   icons();
 }

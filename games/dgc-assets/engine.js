@@ -17,6 +17,7 @@ function reasonText(r) {
     bride: 'She heard you. She always hears you.',
     bestie: 'You didn\u2019t finish his 12 favors in time. Bestie is SO disappointed in you.',
     teacher: 'Miss Florence turned around. She saw everything. You\u2019re staying after class. Forever.',
+    lash: 'Big Eyelash got PRESSED. The function is over, and so are you. #$%@.',
     thane: 'Thane\u2019s dark energy closed around you. For his final trick, you disappeared. Nobody clapped.',
     baby: 'You lost the baby. The parents came home early. They are not angry. They are hungry.',
     teacher_time: 'The bell rang and your work wasn\u2019t done. Miss Florence keeps you after class. Forever.',
@@ -88,7 +89,7 @@ function shake(lvl) { if (!S.set.shake) return; const g = $('#app'); g.classList
 /* ---------- Run lifecycle ---------- */
 function startRun(modeId, bring, opts = {}) {
   Run.daily = !!opts.daily; if (Run.daily) { modeId = 'classic'; bring = []; }
-  Run.killer = modeId === 'bestie' ? 'bestie' : modeId === 'detention' ? 'teacher' : modeId === 'babysit' ? 'baby' : modeId === 'thane' ? 'thane' : (modeId === 'classic' || modeId === 'hush') && !Run.daily && killerUnlocked(S.killer) ? S.killer : 'hush';
+  Run.killer = modeId === 'bestie' ? 'bestie' : modeId === 'detention' ? 'teacher' : modeId === 'babysit' ? 'baby' : modeId === 'thane' ? 'thane' : modeId === 'lash' ? 'lash' : (modeId === 'classic' || modeId === 'hush') && !Run.daily && killerUnlocked(S.killer) ? S.killer : 'hush';
   Run.dailyOfficial = false; Run.diff = Run.daily ? 'normal' : S.diff;
   if (Run.daily) {
     const di = dailyInfo(); Run.dailyKey = di.key; Run.bagRng = mulberry32(hashStr(di.key + ':bag'));
@@ -110,6 +111,7 @@ function nextMini() {
   if (Run.mode === 'detention') return teacherMini();
   if (Run.mode === 'babysit') return babyMini();
   if (Run.mode === 'thane') return thaneMini();
+  if (Run.mode === 'lash') return lashMini();
   if (Run.mode === 'lullaby') { Run.lull++; return MINIS[Run.lull % 2 ? 'lullaby_pitch' : 'lullaby_level']; }
   if (Run.mode === 'impress') { if (!Run.bag.length) Run.bag = shuffle(IMPRESSIONS); return impressMini(Run.bag.pop()); }
   if (!Run.bag.length) { Run.bag = Run.daily ? seededShuffle(CLASSIC_ROOMS, Run.bagRng) : shuffle(CLASSIC_ROOMS); if (Run.lastRoom && Run.bag[Run.bag.length - 1] === Run.lastRoom) Run.bag.unshift(Run.bag.pop()); }
@@ -122,7 +124,7 @@ function nextRound() {
   R = { mini: m, n, mods, t: 0, progress: 0, done: false, started: false, k: makeKiller(n, mods, m), shieldUntil: 0, adrenUntil: 0, lastActive: -9, loudT: 0, noise: 0 };
   R.limit = (m.limit ? m.limit(n) : 30 + Math.min(10, n * 0.3)) * (m.survive ? 1 : mods.timeMult) * (m.noKiller ? mods.imp : 1) + (m.noKiller ? 0 : mods.time);
   $('#h-night').textContent = n; $('#h-room').textContent = m.name; $('#act-bg').style.backgroundImage = `url(${img(m.room)})`;
-  $('#act').classList.toggle('v-bestie', m.view === 'bestie'); $('#scr-game').classList.toggle('bestie-full', m.view === 'bestie' || m.view === 'teacher' || m.view === 'baby' || m.view === 'thane'); $('#act').style.setProperty('--light', lightRGB()); $('#act').style.setProperty('--sub', `url(${img(Run.killer === 'bride' ? 'bride_scare' : 'hush_scare')})`); $('#h-time').hidden = mods.hideView; $('#nm-lim').hidden = mods.hideView;
+  $('#act').classList.toggle('v-bestie', m.view === 'bestie'); $('#scr-game').classList.toggle('bestie-full', m.view === 'bestie' || m.view === 'teacher' || m.view === 'baby' || m.view === 'thane' || m.view === 'lash'); $('#act').style.setProperty('--light', lightRGB()); $('#act').style.setProperty('--sub', `url(${img(Run.killer === 'bride' ? 'bride_scare' : 'hush_scare')})`); $('#h-time').hidden = mods.hideView; $('#nm-lim').hidden = mods.hideView;
   const btn = $('#act-btn'); btn.hidden = !!m.noBtn; btn.innerHTML = `<i data-lucide="${m.icon}"></i><span>${esc(m.verb || '')}</span><kbd class="kb-hint">Space</kbd><b class="gp pad-hint" data-b="A">A</b>`;
   $('#vm').hidden = Run.mode !== 'hush' || Run.killer === 'bride'; $('#nm').hidden = Run.killer !== 'bride'; $('#act-stage').innerHTML = ''; renderItems(); renderKiller(); updateHud();
   const intro = $('#act-intro');
@@ -220,6 +222,7 @@ function win() {
   checkMetaAch();
   const cp = n % 5 === 0, intro = $('#act-intro');
   intro.innerHTML = `<div class="intro-card win" data-testid="round-cleared"><p class="kicker">Night ${n} survived</p><h2>${m.imp ? 'He applauds.' : 'Done.'}</h2><p class="pocket-line"><i data-lucide="sparkles"></i> +${gain} Starlites${swift ? ' (Swift bonus!)' : ''} in your pocket \u00b7 <b>${fmt(Run.pocket)}</b> total</p>
+    ${m.id === 'lash' ? IG_BTN : ''}
     ${cp ? `<p class="cp-txt">A window is open. Escape now and keep everything (+${10 * n} bonus), or push deeper. If he catches you, you lose half your pocket.</p><div class="row"><button class="btn btn-gold" id="esc-btn" data-testid="escape-btn"><i data-lucide="door-open"></i>Escape (+${fmt(Run.pocket + 10 * n)})</button><button class="btn btn-ghost" id="next-btn" data-testid="next-round-btn"><i data-lucide="skull"></i>Push on<b class="gp pad-hint" data-b="A">A</b></button></div>`
       : `<p class="cp-txt">Pocketed Starlites are banked at checkpoints (every 5 nights). Get caught and you lose half.</p><button class="btn btn-acc" id="next-btn" data-testid="next-round-btn"><i data-lucide="chevron-right"></i>Next room<b class="gp pad-hint" data-b="A">A</b></button>`}</div>`;
   intro.hidden = false; icons();
@@ -253,13 +256,23 @@ function endRun(escaped, bank, reason) {
 }
 function flash(c) { if (!S.set.flash) return; const f = $('#flash'); f.style.background = c; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 function jumpScare(res) {
-  const js = $('#js'), comedic = res.reason === 'impress';
-  js.innerHTML = `<img src="${img(SCARE_IMG[res.killer] || 'hush_scare')}" alt="" data-testid="jumpscare-image"><div class="js-cap"><b>${comedic ? esc(res.text) : 'CAUGHT'}</b>${res.taunt && S.set.taunts ? `<i data-testid="jumpscare-taunt">\u201c${esc(TAUNT_TEXT[res.taunt])}\u201d</i>` : ''}</div>`;
+  const js = $('#js'), comedic = res.reason === 'impress', uniq = JX[res.killer];
+  js.className = uniq ? 'jx-' + res.killer : '';
+  js.innerHTML = uniq ? uniq() + jxCap(res) : `<img src="${img(SCARE_IMG[res.killer] || 'hush_scare')}" alt="" data-testid="jumpscare-image"><div class="js-cap"><b>${comedic ? esc(res.text) : 'CAUGHT'}</b>${res.taunt && S.set.taunts ? `<i data-testid="jumpscare-taunt">\u201c${esc(TAUNT_TEXT[res.taunt])}\u201d</i>` : ''}</div>`;
   if (res.taunt) setTimeout(() => Sfx.speak(res.taunt, res.killer), 850);
   js.hidden = false; js.classList.toggle('noflash', !S.set.flash); js.classList.remove('go'); void js.offsetWidth; js.classList.add('go');
-  Sfx.scream(); if (comedic) setTimeout(() => Sfx.honk(), 700); shake(2); haptic([80, 40, 700], 1);
-  setTimeout(() => { js.hidden = true; js.classList.remove('go'); Mic.stop(); renderOver(res); show('scr-over'); }, 2600);
+  if (uniq) JX_SFX[res.killer](); else { Sfx.scream(); if (comedic) setTimeout(() => Sfx.honk(), 700); shake(2); } haptic([80, 40, 700], 1);
+  setTimeout(() => { js.hidden = true; js.classList.remove('go'); Mic.stop(); renderOver(res); show('scr-over'); }, uniq ? 3700 : 2600);
 }
+const jxCap = res => `<div class="js-cap"><b>${res.killer === 'lash' ? '#$%@!' : 'CAUGHT'}</b>${res.taunt && S.set.taunts ? `<i data-testid="jumpscare-taunt">\u201c${esc(TAUNT_TEXT[res.taunt])}\u201d</i>` : ''}</div>`;
+const JX = {
+  thane: () => `<div class="jx" data-testid="jumpscare-thane"><div class="jx-card"><i class="half l" style="background-image:url(${img('thane_face')})"></i><i class="half r" style="background-image:url(${img('thane_face')})"></i></div><img class="jx-mon" src="${img('thane_scare')}" alt="" data-testid="jumpscare-image"><i class="jx-bolt"></i><i class="jx-bolt b2"></i></div>`,
+  lash: () => `<div class="jx" data-testid="jumpscare-lash"><img class="jx-face" src="${img('be_scare')}" alt="" data-testid="jumpscare-image">${[...Array(8).keys()].map(i => `<i class="leg" style="--i:${i}"></i>`).join('')}${[...Array(14).keys()].map(i => `<i class="cash" style="--a:${i * 26}deg;--d:${(0.9 + Math.random() * 0.3).toFixed(2)}s"></i>`).join('')}<i class="lid top"></i><i class="lid bot"></i></div>`
+};
+const JX_SFX = {
+  thane: () => { Sfx.tone(180, 1, 'sawtooth', 0.12, 1800); Sfx.noise(1, 'highpass', 1500, 0.12); setTimeout(() => { Sfx.scream(); Sfx.tone(55, 1.2, 'sawtooth', 0.25, 30); shake(3); }, 1000); },
+  lash: () => { Sfx.noise(0.35, 'bandpass', 900, 0.35, 8); Sfx.tone(900, 0.3, 'sawtooth', 0.12, 120); setTimeout(() => Sfx.thump(0.9), 300); setTimeout(() => { Sfx.scream(); Sfx.tone(1000, 0.35, 'sine', 0.12); shake(3); }, 900); }
+};
 function pauseRun() {
   if (!Run.active) return; Run.paused = true; Input.hold = false;
   openModal(`<h3>Paused</h3><p>He\u2019s still in the house. If you quit now, you keep half your pocket (${fmt(Math.floor(Run.pocket / 2))} Starlites).</p><div class="row"><button class="btn btn-acc" data-act="resume" data-testid="pause-resume-btn"><i data-lucide="play"></i>Resume</button><button class="btn btn-ghost" data-act="quit-run" data-testid="pause-quit-btn"><i data-lucide="log-out"></i>Quit run</button></div>`, () => { Run.paused = false; lastTs = 0; });
