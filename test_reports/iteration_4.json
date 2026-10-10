@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 4 frontend-only verification of the new MainMenu/PlayDock/StartBar system and Treesh-username gating. 57/57 Playwright checks pass. (1) MainMenu loads full-screen with no overflow at 375x667, 390x844, 1920x800 (scrollHeight==innerHeight). All required testids present: home-profile-chip, home-level-chip, home-starlites, sound-toggle-button, home-title, treesh-brand, mode-rail, play-dock, home-play-now-button, play-dock-mode, home-trophies-link, home-leaderboard-link, home-locker-link, nav-profile-link, home-how-to-play-button, and mode-select-{sonoko|daily|versus|sudoku|uno|tutorial}-button. (2) Mode rail two-tap selection works: tapping Uno while Sonoko was selected updates play-dock-mode label to '· Uno', persists treesh_sonoku_v1.lastMode='uno' across reload; second tap on the same card navigates to /play/uno. (3) Fixed PlayDock has position:fixed on /, /trophies, /leaderboard, /locker, /profile, /how-to-play; home-play-now-button on main menu launches the selected mode route (verified sudoku->/play/sudoku). (4) Setup screens: tapping sonoko-difficulty-easy, sudoku-difficulty-easy, uno-opponents-3, versus-difficulty-hard no longer starts the game; setup-play-button becomes 'Play · <choice>' and starts the game on click. Daily route exposes both daily-start-button and setup-play-button and both start the game. (5) Treesh username gating: with treesh_profile={nickname:'Treesh Tester',username:'tester'}, /profile hides profile-name-input and shows nickname; without treesh_profile, profile-name-input reappears. Code path in ResultDialog confirmed: when treesh is present, the result dialog renders result-submit-as with name = treeshDisplayName(t) = '@tester' instead of result-name-input, and submitScore is called with that name (verified via code review of /app/frontend/src/components/game/ResultDialog.jsx and /app/frontend/src/lib/treesh.js). Score-0 branch verified in dialog (neither input shown when score===0). (6) Regression: Sonoko gameplay still fits viewport without scroll on 375x667 (overflow=0). No console errors observed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MainMenu.jsx: mode rail scrollIntoView useEffect runs once with [] deps — selected card is centered on load; good.",
+    "PlayDock.jsx: uses modeById fallback to MODES[0] so an unknown lastMode cannot crash; good defensive handling.",
+    "ResultDialog.jsx: when treesh is set, name state initialises to treeshDisplayName(t).slice(0,20); result-submit-as text uses that as <b>{name}</b>. Submit path passes name.trim() to submitScore. Matches spec.",
+    "ResultDialog.jsx: submission UI is gated by `allowSubmit && score > 0`, which is consistent with the request's note that score submission UI only appears when score > 0.",
+    "StartBar is `position:fixed` + bg-[#0B0F19] with a top gradient fade — content pb on setup wrappers already accounts for ~9rem of dock space in SonokoGame/SudokuGame/UnoGame/VersusGame setup views; no clipping observed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (57/57 Playwright assertions)"},
+  "test_credentials": "N/A",
+  "seed_data_creation": "Transient localStorage only: treesh_sonoku_v1.lastMode toggled to uno/sudoku, treesh_profile set/cleared. No TEST_ leaderboard rows were submitted (score was 0 in the triggered result dialog, so submit path did not fire).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 5 feature groups in this review PASS. If you need to assert result-submit-as end-to-end with a non-zero score, win a Sonoko easy run (fastest: start /play/sonoko easy and play legal moves) — localStorage key for Treesh identity is 'treesh_profile' with shape {nickname, username}. StartBar is reused across sonoko/sudoku/uno/versus setup screens with testid=setup-play-button; label format is 'Play · <choice>'.",
+  "rca of the issue": "N/A - no bugs found this iteration."
+}
