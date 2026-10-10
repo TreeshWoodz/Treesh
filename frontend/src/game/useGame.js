@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as E from "./engine";
 import { sfx } from "./sound";
 
+const MAKE_STAT = { x: "xs", cross: "crosses", bomb: "bombs", striped: "striped", nova: "novas" };
 const WORDS = ["", "", "Smooth!", "Fire!", "Dope!", "Black Excellence!"];
 
 export function useGame(cfg, opts) {
@@ -9,14 +10,14 @@ export function useGame(cfg, opts) {
   optsRef.current = opts;
   const rng = useRef(cfg.seed != null ? E.mulberry32(cfg.seed) : Math.random).current;
 
-  const [board, _setBoard] = useState(() => E.createBoard(cfg.types, rng));
+  const [board, _setBoard] = useState(() => E.decorate(E.createBoard(cfg.types, rng), cfg, rng));
   const boardRef = useRef(board);
   const setBoard = (b) => { boardRef.current = b; _setBoard(b); };
 
-  const [kente, _setKente] = useState(() => (cfg.kente ? E.makeKente(cfg.kente) : null));
+  const [kente, _setKente] = useState(() => (cfg.kente ? E.makeKente(cfg.kente, cfg.kenteHp || 1) : null));
   const kenteRef = useRef(kente);
 
-  const [hud, _setHud] = useState({ score: 0, moves: cfg.moves ?? null, time: cfg.time ?? null, collected: {} });
+  const [hud, _setHud] = useState({ score: 0, moves: cfg.moves ?? null, time: cfg.time ?? null, collected: {}, records: 0 });
   const hudRef = useRef(hud);
   const patchHud = (fn) => { hudRef.current = { ...hudRef.current, ...fn(hudRef.current) }; _setHud(hudRef.current); };
 
@@ -38,6 +39,8 @@ export function useGame(cfg, opts) {
   const [selected, setSelected] = useState(null);
   const [hint, setHint] = useState(null);
   const [armed, setArmed] = useState(null);
+  const staticHit = useRef(false);
+  const loseReason = useRef(null);
   const sess = useRef({ tiles: 0, maxCombo: 0, discos: 0, bombs: 0, striped: 0, xs: 0, crosses: 0, novas: 0, diagonals: 0, powerups: 0 });
 
   const wait = (ms) => (skipRef.current ? Promise.resolve() : E.sleep(ms));
@@ -62,6 +65,12 @@ export function useGame(cfg, opts) {
     const h = hudRef.current;
     if (h.score < (cfg.target || 0)) return false;
     if ((cfg.collect || []).some((g) => (h.collected[g.type] || 0) < g.count)) return false;
+    const b = boardRef.current;
+    if (cfg.crates && E.countWhere(b, (t) => t.type === E.CRATE)) return false;
+    if (cfg.static && E.countWhere(b, (t) => t.type === E.STATIC)) return false;
+    if (cfg.locks && E.countWhere(b, (t) => t.lock)) return false;
+    if (cfg.records && h.records < cfg.records) return false;
+    if (cfg.make && Object.entries(cfg.make).some(([k, v]) => (sess.current[MAKE_STAT[k]] || 0) < v)) return false;
     return E.countKente(kenteRef.current) === 0;
   };
 
@@ -76,7 +85,7 @@ export function useGame(cfg, opts) {
     while (hudRef.current.moves > 0) {
       const nb = boardRef.current.map((row) => row.slice());
       const spots = [];
-      nb.forEach((row, r) => row.forEach((t, c) => t && !t.special && spots.push([r, c])));
+      nb.forEach((row, r) => row.forEach((t, c) => t && t.type >= 0 && t.type !== E.DISCO && !t.special && spots.push([r, c])));
       if (!spots.length) {
         patchHud((h) => ({ score: h.score + h.moves * 300, moves: 0 }));
         break;
@@ -106,6 +115,7 @@ export function useGame(cfg, opts) {
     if (endedRef.current || finaleRef.current) return;
     const movesLeft = hudRef.current.moves;
     const bonus = win && cfg.mode === "classic" && movesLeft > 0 ? await runFinale() : 0;
+    if (!win && loseReason.current) addPopup(loseReason.current, 3.5, 3.5, true);
     setEnded({ win, bonus, score: hudRef.current.score, movesLeft });
     win ? sfx.win() : sfx.lose();
   };
@@ -115,7 +125,7 @@ export function useGame(cfg, opts) {
     const h = hudRef.current;
     if (cfg.mode === "classic") {
       if (goalsMet()) return finish(true);
-      if (h.moves <= 0) return finish(false);
+      if (cfg.time != null ? h.time <= 0 : h.moves <= 0) return finish(false);
     } else if (cfg.moves != null && h.moves <= 0) finish(cfg.mode === "daily" ? goalsMet() : true);
     else if (cfg.time != null && h.time <= 0) finish(true);
   };
@@ -127,26 +137,97 @@ export function useGame(cfg, opts) {
     const nb = b.map((row) => row.slice());
     const collected = { ...hudRef.current.collected };
     const kNext = kenteRef.current ? kenteRef.current.map((row) => row.slice()) : null;
-    let sr = 0, sc = 0, bonus = 0;
+    const hit = new Set();
+    let sr = 0, sc = 0, bonus = 0, n = 0;
+    const damage = (r, c) => {
+      const t = nb[r]?.[c];
+      if (!E.isBlocker(t) || hit.has(E.key(r, c))) return;
+      hit.add(E.key(r, c));
+      if (t.type === E.STATIC) staticHit.current = true;
+      nb[r][c] = t.hp > 1 ? { ...t, hp: t.hp - 1 } : null;
+      bonus += 60;
+    };
     cells.forEach((k) => {
       const [r, c] = E.parseKey(k);
       const t = nb[r][c];
-      if (t && t.type !== E.DISCO) collected[t.type] = (collected[t.type] || 0) + 1;
+      if (kNext) kNext[r][c] = Math.max(0, kNext[r][c] - 1);
+      if (!t || t.type === E.RECORD) return;
+      if (E.isBlocker(t)) return damage(r, c);
+      if (t.lock) { nb[r][c] = { ...t, lock: 0 }; bonus += 60; return; }
+      if (t.type !== E.DISCO) collected[t.type] = (collected[t.type] || 0) + 1;
       nb[r][c] = null;
-      if (kNext) kNext[r][c] = false;
-      sr += r; sc += c;
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => damage(r + dr, c + dc));
+      sr += r; sc += c; n += 1;
     });
     step.create.forEach((s) => {
       nb[s.r][s.c] = E.newTile(s.type, s.special);
       if (!finaleRef.current) sess.current[SPECIAL_STAT[s.special]] += 1;
       bonus += SPECIAL_BONUS[s.special];
     });
-    const gained = finaleRef.current ? cells.size * 30 : cells.size * 30 * combo + bonus;
-    sess.current.tiles += cells.size;
+    const gained = finaleRef.current ? cells.size * 30 : n * 30 * combo + bonus;
+    sess.current.tiles += n;
     patchHud((h) => ({ score: h.score + gained, collected }));
     if (kNext) { kenteRef.current = kNext; _setKente(kNext); }
-    addPopup(`+${gained}`, sr / cells.size, sc / cells.size);
+    if (n) addPopup(`+${gained}`, sr / n, sc / n);
     return nb;
+  };
+
+  const makeSpawn = (b) => {
+    let recs = E.countWhere(b, (t) => t.type === E.RECORD);
+    let cds = E.countWhere(b, (t) => t.countdown != null);
+    return () => {
+      if (cfg.records && hudRef.current.records + recs < cfg.records && rng() < 0.12) { recs += 1; return E.newTile(E.RECORD); }
+      const t = E.newTile(Math.floor(rng() * cfg.types));
+      if (cfg.countdown && cds < cfg.countdown.n && rng() < 0.08) { cds += 1; t.countdown = cfg.countdown.start; }
+      return t;
+    };
+  };
+
+  const dropRecords = async (b) => {
+    if (!cfg.records) return b;
+    for (let loop = 0; loop < 4; loop++) {
+      const nb = b.map((row) => row.slice());
+      let got = 0;
+      E.bottomCells(cfg.gravity).forEach(([r, c]) => { if (nb[r][c]?.type === E.RECORD) { nb[r][c] = null; got += 1; } });
+      if (!got) return b;
+      patchHud((h) => ({ records: h.records + got, score: h.score + got * 500 }));
+      addPopup(`Gold Record! +${got * 500}`, 3.5, 3.5, true);
+      sfx.coin();
+      setBoard(nb);
+      await wait(200);
+      b = E.gravity(nb, rng, cfg.types, cfg.gravity, makeSpawn(nb));
+      setBoard(b);
+      await wait(300);
+    }
+    return b;
+  };
+
+  const afterMove = () => {
+    const nb = boardRef.current.map((row) => row.slice());
+    let changed = false, boom = false;
+    if (cfg.countdown) nb.forEach((row, r) => row.forEach((t, c) => {
+      if (t?.countdown == null) return;
+      nb[r][c] = { ...t, countdown: t.countdown - 1 };
+      changed = true;
+      if (t.countdown - 1 <= 0) boom = true;
+    }));
+    if (cfg.static && !staticHit.current && E.countWhere(nb, (t) => t.type === E.STATIC)) {
+      const spots = [];
+      nb.forEach((row, r) => row.forEach((t, c) => {
+        if (t?.type !== E.STATIC) return;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => { const x = nb[r + dr]?.[c + dc]; if (x && x.type >= 0 && x.type !== E.DISCO) spots.push([r + dr, c + dc]); });
+      }));
+      if (spots.length) {
+        const [r, c] = spots[Math.floor(Math.random() * spots.length)];
+        nb[r][c] = { ...E.newTile(E.STATIC), hp: 1 };
+        changed = true;
+        addPopup("Static spreads!", r, c);
+      }
+    }
+    staticHit.current = false;
+    if (changed) setBoard(nb);
+    if (boom) loseReason.current = "Countdown hit zero!";
+    return boom;
   };
 
   const cascade = async (b, step) => {
@@ -161,16 +242,17 @@ export function useGame(cfg, opts) {
       const nb = applyStep(b, step, combo, cells);
       if (combo >= 2) addPopup(WORDS[Math.min(combo, 5)], 3.5, 3.5, true);
       setPopping(new Set());
-      b = E.gravity(nb, rng, cfg.types);
+      b = E.gravity(nb, rng, cfg.types, cfg.gravity, makeSpawn(nb));
       setBoard(b);
       await wait(300);
+      b = await dropRecords(b);
       const m = E.findMatches(b);
       step = m.runs.length || m.squares.length ? E.resolveMatches(m, []) : null;
     }
     sess.current.maxCombo = Math.max(sess.current.maxCombo, combo);
-    if (!E.hasMoves(b)) {
+    if (!E.hasMoves(b, cfg.diagonalOnly)) {
       addPopup("Remix!", 3.5, 3.5, true);
-      setBoard(E.shuffleBoard(b, rng));
+      setBoard(E.shuffleBoard(b, rng, cfg.diagonalOnly));
       await wait(350);
     }
   };
@@ -182,12 +264,17 @@ export function useGame(cfg, opts) {
     const B = boardRef.current;
     const ta = B[a[0]][a[1]], td = B[d[0]][d[1]];
     if (!ta || !td) return;
+    if (!E.movable(ta) || !E.movable(td) || (cfg.diagonalOnly && !E.isDiagonal(a, d))) {
+      sfx.bad(); setSelected(null);
+      addPopup(cfg.diagonalOnly && E.movable(ta) && E.movable(td) ? "Diagonal only!" : "Can't move that!", a[0], a[1]);
+      return;
+    }
     setBusy(true); setSelected(null); setHint(null);
     let nb = E.swapped(B, a, d);
     setBoard(nb); sfx.swap();
     await E.sleep(190);
     let step = null;
-    if (ta.type === E.DISCO || td.type === E.DISCO || (ta.special && td.special)) {
+    if (((ta.type === E.DISCO && td.type >= 0) || (td.type === E.DISCO && ta.type >= 0)) || (ta.special && td.special)) {
       const res = E.comboStep(nb, a, d);
       if (res.board.some((row, r) => row.some((t, c) => t !== nb[r][c]))) {
         nb = res.board;
@@ -209,7 +296,9 @@ export function useGame(cfg, opts) {
     if (E.isDiagonal(a, d)) sess.current.diagonals += 1;
     if (hudRef.current.moves != null) patchHud((h) => ({ moves: h.moves - 1 }));
     await cascade(nb, step);
+    const boom = cfg.mode === "classic" && goalsMet() ? false : afterMove();
     setBusy(false);
+    if (boom) return finish(false);
     checkEnd();
   };
 
@@ -235,7 +324,7 @@ export function useGame(cfg, opts) {
   const powers = {
     shuffle: async () => {
       setBusy(true);
-      setBoard(E.shuffleBoard(boardRef.current, Math.random)); sfx.swap();
+      setBoard(E.shuffleBoard(boardRef.current, Math.random, cfg.diagonalOnly)); sfx.swap();
       await E.sleep(400);
       setBusy(false);
     },
@@ -243,7 +332,7 @@ export function useGame(cfg, opts) {
     color_blast: () => {
       const nb = boardRef.current.map((row) => row.slice());
       const spots = [];
-      nb.forEach((row, r) => row.forEach((t, c) => t && !t.special && spots.push([r, c])));
+      nb.forEach((row, r) => row.forEach((t, c) => t && t.type >= 0 && t.type !== E.DISCO && !t.special && spots.push([r, c])));
       spots.sort(() => Math.random() - 0.5).slice(0, 3).forEach(([r, c]) => { nb[r][c] = { ...nb[r][c], special: "bomb" }; });
       setBoard(nb); sfx.coin();
     },
@@ -272,9 +361,9 @@ export function useGame(cfg, opts) {
 
   useEffect(() => {
     if (busy || ended) return undefined;
-    const id = setTimeout(() => setHint(E.findHint(boardRef.current)), 6000);
+    const id = setTimeout(() => setHint(E.findHint(boardRef.current, cfg.diagonalOnly)), 6000);
     return () => clearTimeout(id);
-  }, [board, busy, ended]);
+  }, [board, busy, ended, cfg.diagonalOnly]);
 
   return {
     board, kente, hud, busy, ended, popping, popups, effects, shake, finale, selected, hint, armed, sess: sess.current,
@@ -282,5 +371,7 @@ export function useGame(cfg, opts) {
     tapCell, trySwap, activatePower, continueGame, cashOut: () => !busyRef.current && finish(true),
     giveUp: () => setEnded({ ...endedRef.current, gaveUp: true }),
     kenteLeft: E.countKente(kente),
+    layerStyle: cfg.layerStyle || "kente",
+    counts: { crates: E.countWhere(board, (t) => t.type === E.CRATE), statics: E.countWhere(board, (t) => t.type === E.STATIC), locks: E.countWhere(board, (t) => t.lock) },
   };
 }

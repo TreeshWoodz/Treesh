@@ -62,11 +62,12 @@ export const Board = ({ g, cell, theme }) => {
         onPointerCancel={() => (drag.current = null)}>
         {Array.from({ length: ROWS * COLS }, (_, i) => {
           const r = Math.floor(i / COLS), c = i % COLS;
+          const layer = g.layerStyle === "kente" ? kente?.[r][c] : 0;
           return (
-            <div key={i} data-testid={kente?.[r][c] ? `kente-cell-${r}-${c}` : undefined}
-              className={`absolute rounded-md ${kente?.[r][c] ? "kente-cell" : ""}`}
+            <div key={i} data-testid={layer ? `kente-cell-${r}-${c}` : undefined}
+              className={`absolute rounded-md ${layer ? "kente-cell" : ""} ${layer > 1 ? "kente-2" : ""}`}
               style={{ left: c * cell + 1, top: r * cell + 1, width: cell - 2, height: cell - 2,
-                background: kente?.[r][c] ? undefined : (r + c) % 2 ? theme.board.cellA : theme.board.cellB }} />
+                background: layer ? undefined : (r + c) % 2 ? theme.board.cellA : theme.board.cellB }} />
           );
         })}
         <AnimatePresence>
@@ -78,7 +79,7 @@ export const Board = ({ g, cell, theme }) => {
             return (
               <motion.div key={t.id} data-testid={`tile-${r}-${c}`} className="absolute left-0 top-0 p-[3px]"
                 style={{ width: cell, height: cell, zIndex: sel ? 5 : 1 }}
-                initial={{ x: c * cell, y: (fresh ? r : t.fromRow) * cell, scale: fresh ? 0.2 : 1, opacity: fresh ? 0 : 1 }}
+                initial={{ x: (fresh ? c : t.fromCol ?? c) * cell, y: (fresh ? r : t.fromRow) * cell, scale: fresh ? 0.2 : 1, opacity: fresh ? 0 : 1 }}
                 animate={{ x: c * cell, y: r * cell, scale: pop ? 1.25 : sel ? 1.12 : 1, opacity: pop ? 0.5 : 1 }}
                 exit={{ scale: 0, opacity: 0, transition: { duration: 0.16 } }}
                 transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.8 }}>
@@ -87,6 +88,9 @@ export const Board = ({ g, cell, theme }) => {
             );
           }))}
         </AnimatePresence>
+        {g.layerStyle === "fog" && kente?.flatMap((row, r) => row.map((v, c) => v > 0 && (
+          <div key={`f${r}-${c}`} data-testid={`fog-cell-${r}-${c}`} className="fog-cell" style={{ left: c * cell, top: r * cell, width: cell, height: cell }} />
+        )))}
         <Popups popups={popups} cell={cell} />
         <Effects effects={g.effects} cell={cell} />
       </div>

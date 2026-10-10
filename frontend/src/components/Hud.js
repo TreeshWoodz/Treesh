@@ -1,4 +1,4 @@
-import { ArrowLeft, Star, Grid3x3 } from "lucide-react";
+import { ArrowLeft, Star, Grid3x3, Package, Disc3, Zap, Link2, MoveDiagonal, ArrowUp, ArrowLeftRight } from "lucide-react";
 import { MiniTile } from "./TileFace";
 import { POWERUPS } from "../game/config";
 import { StarliteAmount } from "./Starlite";
@@ -16,6 +16,14 @@ const Progress = ({ score, target }) => {
   );
 };
 
+const MAKE_LABEL = { x: "X-Blaster", cross: "Cross", bomb: "Bomb", striped: "Striped", nova: "Supernova" };
+const MAKE_KEY = { x: "xs", cross: "crosses", bomb: "bombs", striped: "striped", nova: "novas" };
+const Chip = ({ id, Icon, label, left }) => (
+  <div data-testid={`goal-${id}`} className={`goal-chip !pl-2 ${left === 0 ? "goal-done" : ""}`}>
+    {Icon ? <Icon size={16} /> : <span className="text-[10px] uppercase">{label}</span>} <span className="tabular-nums">{left}</span>
+  </div>
+);
+
 const Goals = ({ cfg, g }) => (
   <div className="flex flex-wrap gap-2" data-testid="hud-goals">
     {(cfg.collect || []).map((goal) => {
@@ -28,9 +36,16 @@ const Goals = ({ cfg, g }) => (
     })}
     {cfg.kente && (
       <div data-testid="goal-kente" className={`goal-chip ${g.kenteLeft === 0 ? "goal-done" : ""}`}>
-        <span className="kente-swatch" /> <span className="tabular-nums">{g.kenteLeft}</span>
+        <span className={g.layerStyle === "fog" ? "fog-swatch" : "kente-swatch"} /> <span className="tabular-nums">{g.kenteLeft}</span>
       </div>
     )}
+    {cfg.crates && <Chip id="crates" Icon={Package} left={g.counts.crates} />}
+    {cfg.static && <Chip id="static" Icon={Zap} left={g.counts.statics} />}
+    {cfg.locks && <Chip id="locks" Icon={Link2} left={g.counts.locks} />}
+    {cfg.records && <Chip id="records" Icon={Disc3} left={Math.max(0, cfg.records - g.hud.records)} />}
+    {cfg.make && Object.entries(cfg.make).map(([k, v]) => <Chip key={k} id={`make-${k}`} label={MAKE_LABEL[k]} left={Math.max(0, v - (g.sess[MAKE_KEY[k]] || 0))} />)}
+    {cfg.diagonalOnly && <span className="mech-tag"><MoveDiagonal size={12} /> Diagonal only</span>}
+    {cfg.gravity && cfg.gravity !== "down" && <span className="mech-tag">{cfg.gravity === "up" ? <ArrowUp size={12} /> : <ArrowLeftRight size={12} />} Gravity {cfg.gravity}</span>}
   </div>
 );
 
@@ -57,12 +72,12 @@ export const Hud = ({ cfg, g, onExit }) => {
         <div className="mt-3">
           <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
             <span>Target {cfg.target.toLocaleString()}</span>
-            {(cfg.collect || cfg.kente) && <span className="flex items-center gap-1"><Grid3x3 size={12} /> Goals</span>}
+            {(cfg.collect || cfg.kente || cfg.crates || cfg.static || cfg.locks || cfg.records || cfg.make) && <span className="flex items-center gap-1"><Grid3x3 size={12} /> Goals</span>}
           </div>
           <Progress score={hud.score} target={cfg.target} />
         </div>
       )}
-      {(cfg.collect || cfg.kente) && <div className="mt-3"><Goals cfg={cfg} g={g} /></div>}
+      {(cfg.collect || cfg.kente || cfg.crates || cfg.static || cfg.locks || cfg.records || cfg.make || cfg.diagonalOnly || cfg.gravity) && <div className="mt-3"><Goals cfg={cfg} g={g} /></div>}
     </div>
   );
 };

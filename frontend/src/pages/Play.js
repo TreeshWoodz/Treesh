@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { SkipForward } from "lucide-react";
 import { useGame } from "../game/useGame";
 import { useProfile } from "../game/store";
-import { buildConfig, POWERUPS, THEMES, starsFor, rewardFor, todayStr, artFor } from "../game/config";
+import { buildConfig, POWERUPS, THEMES, starsFor, rewardFor, todayStr, artFor, TOTAL_LEVELS } from "../game/config";
 import { api } from "../game/api";
 import { Board } from "../components/Board";
 import { Hud, PowerBar } from "../components/Hud";
@@ -64,6 +64,24 @@ function useFinalize(cfg, g) {
   return result;
 }
 
+const MechIntro = ({ intro, onStart }) => (
+  <motion.div data-testid="mechanic-intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="result-screen result-overlay">
+    <motion.div initial={{ scale: 0.85, y: 30 }} animate={{ scale: 1, y: 0 }} className="modal-card w-full max-w-sm text-center">
+      <div className="eyebrow">New Chapter</div>
+      <div className="ribbon-wrap"><h2 className="ribbon font-display text-lg font-black">{intro.title}</h2></div>
+      <div className="mt-5 space-y-3 text-left">
+        {intro.items.map((m) => (
+          <div key={m.name} className="stat-box">
+            <div className="font-display text-sm font-black text-[var(--ac-hi)]">{m.name}</div>
+            <div className="mt-1 text-sm text-slate-200">{m.desc}</div>
+          </div>
+        ))}
+      </div>
+      <button data-testid="mechanic-intro-start" onClick={onStart} className="btn-bronze mt-6 w-full">Let's Go</button>
+    </motion.div>
+  </motion.div>
+);
+
 function Game({ cfg, onReplay }) {
   const nav = useNavigate();
   const { profile, update, spend } = useProfile();
@@ -85,6 +103,7 @@ function Game({ cfg, onReplay }) {
   };
 
   const g = useGame(cfg, { onPowerUsed: payFor });
+  const [intro, setIntro] = useState(!!cfg.intro);
   const result = useFinalize(cfg, g);
   const showContinue = g.ended && cfg.mode === "classic" && !g.ended.win && !g.ended.gaveUp;
 
@@ -110,13 +129,14 @@ function Game({ cfg, onReplay }) {
         </div>
         <PowerBar cfg={cfg} g={g} inventory={profile.inventory} />
       </div>
+      <AnimatePresence>{intro && <MechIntro intro={cfg.intro} onStart={() => setIntro(false)} />}</AnimatePresence>
       {showContinue && (
         <ContinueModal cost={200} owned={profile.inventory.extra_moves || 0}
           onContinue={() => payFor("extra_moves") && g.continueGame()} onGiveUp={g.giveUp} />
       )}
       {result && (
         <ResultModal cfg={cfg} result={result} onReplay={onReplay} onHome={() => nav("/")} onRanks={() => nav(`/leaderboard?mode=${cfg.mode}`)}
-          onNext={cfg.mode === "classic" && result.win && cfg.level < 30 ? () => nav(`/play/classic/${cfg.level + 1}`) : null} />
+          onNext={cfg.mode === "classic" && result.win && cfg.level < TOTAL_LEVELS ? () => nav(`/play/classic/${cfg.level + 1}`) : null} />
       )}
     </div>
   );

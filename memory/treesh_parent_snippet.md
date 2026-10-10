@@ -17,7 +17,7 @@ Bronze Blitz runs same-origin at https://treesh.app/games/bronze-blitz and share
     starlites:()=>{ const sv=_gdJson("bronze_save_v1",{})||{}; return (sv.stats&&+sv.stats.earned)||0; },
     hasData:()=> _gdRaw("bronze_save_v1")!=null,
     stats:()=>{ const sv=_gdJson("bronze_save_v1",{})||{}; const st=sv.stats||{}; const lv=Object.values(sv.levelStars||{}).filter(s=>s>0).length;
-      return [["Levels cleared",lv+"/30"],["Trophies",(sv.claimed||[]).length+"/26"],["Best combo","x"+(st.maxCombo||0)]]; } },
+      return [["Levels cleared",lv+"/300"],["Trophies",(sv.claimed||[]).length+"/29"],["Best combo","x"+(st.maxCombo||0)]]; } },
 ```
 
 ## 3) Keep the shared wallet in sync (paste once, after `state` is created)

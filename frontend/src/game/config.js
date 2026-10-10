@@ -20,27 +20,69 @@ export const MODES = [
   { id: "zen", name: "Endless Zen", tag: "Relax", desc: "No timer. No limits. Just vibes and smooth cascades.", Icon: InfinityIcon, color: "#10B981" },
 ];
 
-export const CHAPTERS = [
-  { from: 1, to: 10, name: "The Block Party", sub: "Chapter 1" },
-  { from: 11, to: 20, name: "Harlem Renaissance", sub: "Chapter 2" },
-  { from: 21, to: 30, name: "Afrofuture", sub: "Chapter 3" },
+const PATTERNS = ["center", "bottom", "cross", "diamond", "border", "checker"];
+const CRATE_PATS = ["base", "mid", "pillars", "corners", "ring", "dots"];
+const STATIC_PATS = ["corners", "dots", "mid", "pillars"];
+const MAKE_KINDS = ["x", "cross", "bomb", "striped", "nova"];
+const r50 = (v) => Math.round(v / 50) * 50;
+
+export const MECHS = {
+  kente: { name: "Kente Squares", desc: "Clear the tiles sitting on golden Kente cells.", apply: (l, i) => { l.kente = PATTERNS[i % 6]; l.moves += 4; return true; } },
+  collect: { name: "Collectors", desc: "Gather the tiles shown in your goals.", apply: (l, i, ch) => { l.collect = [{ type: l.n % l.types, count: 14 + i + Math.min(ch, 12) }]; if (i >= 5) l.collect.push({ type: (l.n + 2) % l.types, count: 10 + i }); l.moves += 2; return true; } },
+  locks: { name: "Chains", desc: "Chained tiles can't move. Match them to break the chain.", apply: (l, i, ch) => { l.locks = Math.min(20, 6 + i + Math.floor(ch / 3)); l.moves += 3; return true; } },
+  crates: { name: "Vinyl Crates", desc: "Crates block the board. Match next to them or blast them to break them.", apply: (l, i) => { l.crates = { pattern: CRATE_PATS[i % 6], hp: i >= 5 ? 2 : 1 }; l.moves += 5; return true; } },
+  records: { name: "Gold Records", desc: "Drop the gold records all the way to the bottom edge.", apply: (l, i) => { l.records = 2 + Math.floor(i / 3); l.moves += 4; return true; } },
+  flip: { name: "Upside Down", desc: "Gravity is flipped. Tiles fall UP.", apply: (l) => { l.gravity = "up"; } },
+  kente2: { name: "Double Dutch", desc: "Double-woven Kente needs two clears per cell.", apply: (l, i) => { l.kente = PATTERNS[i % 6]; l.kenteHp = 2; l.moves += 7; return true; } },
+  countdown: { name: "Countdown Tiles", desc: "Clear numbered tiles before they tick down to zero!", apply: (l, i) => { l.countdown = { n: 1 + Math.floor(i / 4), start: 14 - Math.floor(i / 3) }; l.moves += 2; } },
+  diagonal: { name: "Diagonal Dojo", desc: "Only diagonal swaps are allowed.", apply: (l) => { l.diagonalOnly = true; l.moves += 3; } },
+  static: { name: "Static", desc: "Static spreads every move you don't break any. Clear it all.", apply: (l, i) => { l.static = { pattern: STATIC_PATS[i % 4] }; l.moves += 5; return true; } },
+  side: { name: "Side Step", desc: "Gravity pulls sideways.", apply: (l, i) => { l.gravity = i % 2 ? "left" : "right"; } },
+  time: { name: "Time Attack", desc: "No move limit. Beat the goals before the clock runs out.", apply: (l, i) => { l.time = 80 - i * 2; } },
+  surge: { name: "Power Surge", desc: "The board starts loaded with power-ups, but targets are higher.", apply: (l, i) => { l.surge = 3 + Math.floor(i / 3); l.target = r50(l.target * 1.25); } },
+  fog: { name: "Midnight Fog", desc: "Clear tiles under the fog to lift it off the board.", apply: (l, i) => { l.kente = PATTERNS[(i + 2) % 6]; l.layerStyle = "fog"; l.moves += 4; return true; } },
+  make: { name: "Make It Rain", desc: "Create the power-ups shown in your goals.", apply: (l, i) => { const k = MAKE_KINDS[i % 5]; l.make = { [k]: k === "nova" ? 1 + Math.floor(i / 5) : 2 + Math.floor(i / 4) }; l.moves += 3; return true; } },
+};
+
+const CHAPTER_DEFS = [
+  ["The Block Party", []], ["Harlem Renaissance", ["kente"]], ["Afrofuture", ["collect"]], ["Motown Lockdown", ["locks"]],
+  ["Vinyl Crates", ["crates"]], ["Gold Record Drop", ["records"]], ["Upside Down Uptown", ["flip"]], ["Double Dutch", ["kente2"]],
+  ["Countdown Cypher", ["countdown"]], ["Diagonal Dojo", ["diagonal"]], ["Static on the Line", ["static"]], ["Side Step Soul", ["side"]],
+  ["Time Attack Tuesday", ["time"]], ["Power Surge", ["surge"]], ["Midnight Fog", ["fog"]], ["Make It Rain", ["make"]],
+  ["Locked Crates", ["crates", "locks"]], ["Records Rising", ["records", "flip"]], ["Kente Countdown", ["kente", "countdown"]],
+  ["Static Crates", ["static", "crates"]], ["Diagonal Drop", ["diagonal", "records"]], ["Fog Collectors", ["fog", "collect"]],
+  ["Chain Reaction Clock", ["time", "locks"]], ["Sideways Kente", ["side", "kente2"]], ["Countdown Combos", ["make", "countdown"]],
+  ["Surge vs Static", ["surge", "static"]], ["Foggy Flip", ["fog", "crates", "flip"]], ["Juneteenth Jubilee", ["records", "locks", "kente"]],
+  ["Vibranium Vault", ["static", "countdown", "diagonal"]], ["Legends Only", ["crates", "records", "fog", "surge"]],
 ];
 
-const PATTERNS = ["center", "bottom", "cross", "diamond", "border", "checker"];
+export const TOTAL_LEVELS = CHAPTER_DEFS.length * 10;
 
-export const LEVELS = Array.from({ length: 30 }, (_, i) => {
-  const n = i + 1;
-  const types = n <= 6 ? 5 : n <= 18 ? 6 : 7;
-  const lvl = { n, types, moves: 18 + Math.floor(n / 4), target: 3000 + n * 450 };
-  if (n % 3 === 2) lvl.collect = [{ type: n % types, count: 12 + n }];
-  if (n >= 20 && n % 3 === 1) lvl.collect = [{ type: n % types, count: 20 }, { type: (n + 2) % types, count: 20 }];
-  if (n % 3 === 0) {
-    lvl.kente = PATTERNS[(n / 3 - 1) % PATTERNS.length];
-    lvl.moves += 5;
-    lvl.target = Math.round(lvl.target * 0.6);
+export const CHAPTERS = CHAPTER_DEFS.map(([name, mechs], k) => ({
+  from: k * 10 + 1, to: k * 10 + 10, name, sub: `Chapter ${k + 1}`, mechs, desc: mechs.map((m) => MECHS[m].name).join(" + ") || "Score, collect and Kente basics",
+}));
+
+function buildLevel(n) {
+  const ch = Math.floor((n - 1) / 10), i = (n - 1) % 10;
+  const [name, mechs] = CHAPTER_DEFS[ch];
+  const types = n <= 6 ? 5 : i === 9 && ch >= 5 ? 7 : 6;
+  const l = { n, ch, types, moves: 18 + Math.floor(i / 3), target: 3000 + Math.min(n, 80) * 100 };
+  if (ch === 0) {
+    if (n % 3 === 2) l.collect = [{ type: n % types, count: 12 + n }];
+    if (n % 3 === 0) { l.kente = PATTERNS[(n / 3 - 1) % 6]; l.moves += 5; l.target = r50(l.target * 0.6); }
+    return l;
   }
-  return lvl;
-});
+  let objective = false;
+  mechs.forEach((m) => { objective = MECHS[m].apply(l, i, ch) || objective; });
+  if (i % 3 === 1 && !l.collect && !l.make) l.collect = [{ type: n % types, count: 12 + i + Math.min(ch, 10) }];
+  l.target = r50(l.target * (objective ? 0.5 : 0.75));
+  if (i === 9) l.target = r50(l.target * 1.15);
+  if (l.time) delete l.moves;
+  if (i === 0) l.intro = { title: name, items: mechs.map((m) => MECHS[m]) };
+  return l;
+}
+
+export const LEVELS = Array.from({ length: TOTAL_LEVELS }, (_, k) => buildLevel(k + 1));
 
 export const COLORPOP_LEVELS = [
   { level: 1, name: "Easy", size: 10, colors: 5, moves: 20 },
@@ -136,7 +178,10 @@ export const ACHIEVEMENTS = [
   { id: "big_score", name: "Big Numbers", desc: "Score 10,000 in a single game", reward: 200, goal: 10000, val: bestAny },
   { id: "level5", name: "Block Party Starter", desc: "Complete Level 5", reward: 100, goal: 5, val: maxLevel },
   { id: "level15", name: "Renaissance Soul", desc: "Complete Level 15", reward: 250, goal: 15, val: maxLevel },
-  { id: "level30", name: "Afrofuture Legend", desc: "Complete all 30 levels", reward: 1000, goal: 30, val: maxLevel },
+  { id: "level30", name: "Afrofuture Legend", desc: "Complete Level 30", reward: 500, goal: 30, val: maxLevel },
+  { id: "level100", name: "Centurion", desc: "Complete Level 100", reward: 1000, goal: 100, val: maxLevel },
+  { id: "level200", name: "Bicentennial Boss", desc: "Complete Level 200", reward: 1500, goal: 200, val: maxLevel },
+  { id: "level300", name: "Legend of Bronze", desc: "Complete all 300 levels", reward: 3000, goal: 300, val: maxLevel },
   { id: "triple", name: "Triple Threat", desc: "Earn 3 stars on 10 levels", reward: 300, goal: 10, val: threeStars },
   { id: "daily3", name: "Daily Devotee", desc: "Play 3 Daily Challenges", reward: 200, goal: 3, val: (p) => p.stats.dailyDays.length },
   { id: "speed", name: "Speed Demon", desc: "Score 8,000 in Timed Blitz", reward: 200, goal: 8000, val: (p) => p.best.timed || 0 },

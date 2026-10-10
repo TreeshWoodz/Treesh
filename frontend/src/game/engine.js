@@ -1,6 +1,11 @@
 export const ROWS = 8;
 export const COLS = 8;
 export const DISCO = 99;
+export const CRATE = -2;
+export const RECORD = -3;
+export const STATIC = -4;
+export const isBlocker = (t) => t && (t.type === CRATE || t.type === STATIC);
+export const movable = (t) => t && !t.lock && !isBlocker(t);
 
 let uid = 1;
 export const newTile = (type, special = null, fromRow) => ({ id: uid++, type, special, fromRow });
@@ -46,7 +51,7 @@ export function findRuns(b) {
       const [r, c] = line.cells[i];
       const t = b[r][c]?.type;
       let e = i + 1;
-      if (t != null && t !== DISCO) {
+      if (t != null && t >= 0 && t !== DISCO) {
         while (e < n && b[line.cells[e][0]][line.cells[e][1]]?.type === t) e++;
         if (e - i >= 3) runs.push({ dir: line.dir, type: t, cells: line.cells.slice(i, e) });
       }
@@ -61,7 +66,7 @@ export function findSquares(b) {
   for (let r = 0; r < ROWS - 1; r++)
     for (let c = 0; c < COLS - 1; c++) {
       const t = b[r][c]?.type;
-      if (t == null || t === DISCO) continue;
+      if (t == null || t < 0 || t === DISCO) continue;
       if (b[r][c + 1]?.type === t && b[r + 1][c]?.type === t && b[r + 1][c + 1]?.type === t)
         sq.push({ type: t, cells: [[r, c], [r, c + 1], [r + 1, c], [r + 1, c + 1]] });
     }
@@ -83,15 +88,16 @@ export function swapped(b, a, d) {
   return n;
 }
 
-export function findHint(b) {
+export function findHint(b, diagOnly = false) {
+  const dirs = diagOnly ? [[1, 1], [1, -1]] : [[0, 1], [1, 0], [1, 1], [1, -1]];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+      for (const [dr, dc] of dirs) {
         const r2 = r + dr, c2 = c + dc;
         if (!inside(r2, c2)) continue;
         const x = b[r][c], y = b[r2][c2];
-        if (!x || !y) continue;
-        if (x.type === DISCO || y.type === DISCO || (x.special && y.special)) return [[r, c], [r2, c2]];
+        if (!movable(x) || !movable(y)) continue;
+        if (((x.type === DISCO && y.type >= 0) || (y.type === DISCO && x.type >= 0)) || (x.special && y.special)) return [[r, c], [r2, c2]];
         if (hasMatch(swapped(b, [r, c], [r2, c2]))) return [[r, c], [r2, c2]];
       }
     }
@@ -99,7 +105,7 @@ export function findHint(b) {
   return null;
 }
 
-export const hasMoves = (b) => !!findHint(b);
+export const hasMoves = (b, diagOnly = false) => !!findHint(b, diagOnly);
 
 export function createBoard(n, rng, dropIn = true) {
   let b;
@@ -200,7 +206,7 @@ const allCells = (b, pred) => {
 function mostCommonType(b) {
   const counts = {};
   b.flat().forEach((t) => {
-    if (t && t.type !== DISCO) counts[t.type] = (counts[t.type] || 0) + 1;
+    if (t && t.type >= 0 && t.type !== DISCO) counts[t.type] = (counts[t.type] || 0) + 1;
   });
   return Number(Object.entries(counts).sort((x, y) => y[1] - x[1])[0]?.[0] ?? 0);
 }
@@ -289,38 +295,76 @@ export function expandClear(b, clear, pre = new Set(), baseEffects = []) {
   return { cells: result, effects };
 }
 
-export function gravity(board, rng, n) {
+const ORIENT = {
+  down: (r, c) => [r, c],
+  up: (r, c) => [ROWS - 1 - r, c],
+  left: (r, c) => [c, COLS - 1 - r],
+  right: (r, c) => [c, r],
+};
+
+export const bottomCells = (dir = "down") => Array.from({ length: COLS }, (_, c) => (ORIENT[dir] || ORIENT.down)(ROWS - 1, c));
+
+export function gravity(board, rng, n, dir = "down", spawn) {
+  const map = ORIENT[dir] || ORIENT.down;
   const nb = board.map((row) => row.slice());
   for (let c = 0; c < COLS; c++) {
-    let write = ROWS - 1;
+    const col = [];
     for (let r = ROWS - 1; r >= 0; r--) {
-      if (nb[r][c]) {
-        const t = nb[r][c];
-        nb[r][c] = null;
-        nb[write][c] = t;
-        write--;
+      const [y, x] = map(r, c);
+      if (nb[y][x]) col.push(nb[y][x]);
+    }
+    for (let r = ROWS - 1, i = 0; r >= 0; r--, i++) {
+      const [y, x] = map(r, c);
+      if (i < col.length) nb[y][x] = col[i];
+      else {
+        const [fy, fx] = map(r - (ROWS - col.length), c);
+        const t = spawn ? spawn() : newTile(rand(rng, n));
+        t.fromRow = fy;
+        t.fromCol = fx;
+        nb[y][x] = t;
       }
     }
-    const missing = write + 1;
-    for (let r = write; r >= 0; r--) nb[r][c] = newTile(rand(rng, n), null, r - missing);
   }
   return nb;
 }
 
-export function shuffleBoard(b, rng) {
-  const tiles = b.flat().filter(Boolean);
+export function shuffleBoard(b, rng, diagOnly = false) {
+  const spots = [];
+  b.forEach((row, r) => row.forEach((t, c) => t && t.type >= 0 && !t.lock && spots.push([r, c])));
+  const tiles = spots.map(([r, c]) => b[r][c]);
   let nb = b;
   for (let i = 0; i < 200; i++) {
     for (let j = tiles.length - 1; j > 0; j--) {
       const k = Math.floor(rng() * (j + 1));
       [tiles[j], tiles[k]] = [tiles[k], tiles[j]];
     }
-    nb = [];
-    for (let r = 0; r < ROWS; r++) nb.push(tiles.slice(r * COLS, r * COLS + COLS));
-    if (!hasMatch(nb) && hasMoves(nb)) return nb;
+    nb = b.map((row) => row.slice());
+    spots.forEach(([r, c], k) => { nb[r][c] = tiles[k]; });
+    if (!hasMatch(nb) && hasMoves(nb, diagOnly)) return nb;
   }
   return nb;
 }
+
+export function decorate(b, cfg, rng) {
+  const nb = b.map((row) => row.slice());
+  const pickN = (n) => {
+    const s = [];
+    nb.forEach((row, r) => row.forEach((t, c) => t && t.type >= 0 && t.type !== DISCO && !t.lock && !t.special && t.countdown == null && s.push([r, c])));
+    return s.sort(() => rng() - 0.5).slice(0, n);
+  };
+  const fill = (pattern, type, hp) => nb.forEach((row, r) => row.forEach((t, c) => {
+    if (KENTE_PATTERNS[pattern](r, c)) nb[r][c] = { ...newTile(type), hp, fromRow: t.fromRow };
+  }));
+  if (cfg.crates) fill(cfg.crates.pattern, CRATE, cfg.crates.hp);
+  if (cfg.static) fill(cfg.static.pattern, STATIC, 1);
+  if (cfg.locks) pickN(cfg.locks).forEach(([r, c]) => { nb[r][c] = { ...nb[r][c], lock: 1 }; });
+  if (cfg.records) pickN(Math.min(2, cfg.records)).forEach(([r, c]) => { nb[r][c] = { ...newTile(RECORD), fromRow: nb[r][c].fromRow }; });
+  if (cfg.countdown) pickN(cfg.countdown.n).forEach(([r, c]) => { nb[r][c] = { ...nb[r][c], countdown: cfg.countdown.start }; });
+  if (cfg.surge) pickN(cfg.surge).forEach(([r, c]) => { nb[r][c] = { ...nb[r][c], special: SPECIAL_KINDS[Math.floor(rng() * SPECIAL_KINDS.length)] }; });
+  return hasMoves(nb, cfg.diagonalOnly) ? nb : shuffleBoard(nb, rng, cfg.diagonalOnly);
+}
+
+export const countWhere = (b, pred) => b.flat().filter((t) => t && pred(t)).length;
 
 export const KENTE_PATTERNS = {
   center: (r, c) => r >= 2 && r <= 5 && c >= 2 && c <= 5,
@@ -329,9 +373,15 @@ export const KENTE_PATTERNS = {
   diamond: (r, c) => Math.abs(r - 3.5) + Math.abs(c - 3.5) <= 3,
   border: (r, c) => r === 0 || r === 7 || c === 0 || c === 7,
   checker: (r, c) => (r + c) % 2 === 0 && r > 1 && r < 6,
+  base: (r) => r === 7,
+  mid: (r, c) => r === 4 && c >= 1 && c <= 6,
+  pillars: (r, c) => (c === 1 || c === 6) && r >= 4,
+  corners: (r, c) => r >= 6 && (c <= 1 || c >= 6),
+  ring: (r, c) => Math.abs(r - 3.5) + Math.abs(c - 3.5) === 3,
+  dots: (r, c) => r % 3 === 2 && c % 3 === 1,
 };
 
-export const makeKente = (name) =>
-  Array.from({ length: ROWS }, (_, r) => Array.from({ length: COLS }, (_, c) => KENTE_PATTERNS[name](r, c)));
+export const makeKente = (name, hp = 1) =>
+  Array.from({ length: ROWS }, (_, r) => Array.from({ length: COLS }, (_, c) => (KENTE_PATTERNS[name](r, c) ? hp : 0)));
 
-export const countKente = (k) => (k ? k.flat().filter(Boolean).length : 0);
+export const countKente = (k) => (k ? k.flat().reduce((a, v) => a + v, 0) : 0);

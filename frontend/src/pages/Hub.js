@@ -6,7 +6,7 @@ import { Gift, Trophy, Play, HelpCircle, X } from "lucide-react";
 import { Layout } from "../components/Layout";
 import { FormationGuide } from "../components/FormationGuide";
 import { StarliteAmount } from "../components/Starlite";
-import { MODES, ACHIEVEMENTS, todayStr } from "../game/config";
+import { MODES, ACHIEVEMENTS, todayStr, TOTAL_LEVELS } from "../game/config";
 import { useProfile } from "../game/store";
 import { sfx } from "../game/sound";
 
@@ -37,7 +37,7 @@ export default function Hub() {
   const [howTo, setHowTo] = useState(false);
   const bonusReady = profile.lastBonus !== todayStr();
   const done = Object.keys(profile.levelStars).length;
-  const next = Math.min(30, done + 1);
+  const next = Math.min(TOTAL_LEVELS, done + 1);
 
   const claimBonus = () => {
     earn(100, "Daily drop");
@@ -79,7 +79,7 @@ export default function Hub() {
           <button data-testid="how-to-play-btn" onClick={() => setHowTo(true)} className="chest-btn"><HelpCircle size={20} /> How to Play</button>
           <Link to="/trophies" data-testid="hub-trophies-link" className="chest-btn"><Trophy size={20} /> {profile.claimed.length}/{ACHIEVEMENTS.length}</Link>
         </div>
-        <div data-testid="hub-levels-cleared" className="sr-only">{done}/30</div>
+        <div data-testid="hub-levels-cleared" className="sr-only">{done}/{TOTAL_LEVELS}</div>
       </section>
       <AnimatePresence>{howTo && <HowToModal onClose={() => setHowTo(false)} />}</AnimatePresence>
     </Layout>
