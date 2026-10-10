@@ -136,7 +136,7 @@ function bestieMini() {
       const newReq = () => {
         let t, r; const boss = P.done === NEED - 1;
         if (boss) { r = { type: 'boss', steps: shuffle(['reply', 'wall', 'selfie', 'code', 'loc', 'story']).slice(0, 3), step: 0 }; r.sub = mk(r.steps[0]); r.text = `FINAL FAVOR (1/3): ${r.sub.text}`; }
-        else { do t = pick(B_TYPES); while (t === P.last || (t === 'block' && !P.alive.some(n => !P.blocked.includes(n)))); P.last = t; r = mk(t); }
+        else { const c = B_TYPES.filter(x => x !== P.last && (x !== 'block' || P.alive.some(n => !P.blocked.includes(n)))); t = pick(c.length ? c : B_TYPES); P.last = t; r = mk(t); }
         r.t0 = ctx.elapsed(); r.dur = (boss ? 38 : Math.max(8, 16 - ctx.night * 0.7) + (/call|voice|faceid|story|photos/.test(r.type) ? 4 : 0) - P.jealous) + (P.chill ? 8 : 0); P.bnOff = null; P.jealous = 0;
         P.req = r; say('b', boss ? 'ok ok. one last thing. my FINAL favor. 3 steps. dont. mess. up.' : r.text); if (boss) say('b', r.text);
         if (Math.random() < 0.45) setTimeout(() => P.req === r && fsay(anyAlive(), pick(F_PLEAD)), 900);
