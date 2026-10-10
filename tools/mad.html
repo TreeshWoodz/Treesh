@@ -6,6 +6,7 @@
 <title>Treesh M.A.D. · Manage &amp; Direct</title>
 <meta name="theme-color" content="#0a0a0b" />
 <meta name="robots" content="noindex" />
+<meta name="mad-build" content="2026-10-10 15:00 · v5.4" />
 <link rel="icon" type="image/png" href="https://ik.imagekit.io/treesh/IMG_7235.png" />
 <link rel="apple-touch-icon" href="https://ik.imagekit.io/treesh/IMG_7235.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -350,6 +351,17 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
 .toasts{position:fixed;top:84px;left:50%;z-index:90;display:flex;flex-direction:column;align-items:center;gap:10px;transform:translateX(-50%);pointer-events:none;width:min(440px,calc(100% - 32px))}
 .toast{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:16px;background:rgba(26,26,31,.95);border:1px solid var(--stroke);box-shadow:0 20px 50px rgba(0,0,0,.5);font-size:13.5px;font-weight:600;pointer-events:auto;animation:toastIn .35s var(--ease) both}
 .toast.out{animation:toastOut .28s ease both}
+.build-stamp{display:flex;align-items:center;gap:6px;margin:22px 0 4px;font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.02em}.build-stamp svg{width:14px;height:14px}
+.upd-bar{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;z-index:95;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;max-width:calc(100% - 24px);border-radius:999px;background:rgba(26,26,31,.96);border:1px solid rgba(147,40,255,.45);box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 0 4px rgba(147,40,255,.08);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);font-size:13px;font-weight:600;transform:translateX(-50%);animation:updIn .45s var(--ease) both}
+.upd-bar>svg{width:16px;height:16px;flex:none;color:#b47bff}.upd-bar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.upd-bar em{font-style:normal;color:var(--dim);font-weight:500}.upd-bar .btn{flex:none}
+.upd-x{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;border:0;background:transparent;color:var(--dim);cursor:pointer;transition:background-color .2s,color .2s}.upd-x:hover{background:rgba(255,255,255,.08);color:#fff}.upd-x svg{width:16px;height:16px}
+@media (max-width:520px){.upd-bar em{display:none}}
+.mn-list{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;text-align:left}
+.mn-list li{display:flex;align-items:flex-start;gap:12px;opacity:0;animation:rise .4s var(--ease) both}
+.mn-list li>span:first-child{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:var(--purple-faint);color:var(--purple-2)}.mn-list li svg{width:16px;height:16px}
+.mn-list b{display:block;font-size:13.5px}.mn-list small{display:block;font-size:12.5px;color:var(--dim);line-height:1.45}
+.mn-build{margin:14px 0 0 !important;font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+@keyframes updIn{from{opacity:0;transform:translate(-50%,-16px)}to{opacity:1;transform:translateX(-50%)}}
 .toast.ok svg{color:var(--ok)}.toast.bad svg{color:var(--err)}.toast.info svg{color:var(--purple-2)}
 @keyframes toastIn{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes toastOut{to{opacity:0;transform:translateY(-10px)}}
@@ -1603,6 +1615,7 @@ body.previewing .topbar{top:var(--pvh,44px)}
           <div class="field span2"><label for="s-folder">Folder</label><input class="input" id="s-folder" placeholder="treesh/music" data-testid="settings-folder-input"></div>
         </div>
       </div>
+      <p class="build-stamp" data-testid="settings-build-stamp"><i data-lucide="git-commit-horizontal"></i>Build <span class="build-val"></span><button type="button" class="lbl-action" id="s-whatsnew" data-testid="settings-whats-new-btn">What’s new</button></p>
     </div>
     <div class="drawer-foot">
       <button class="btn" data-close data-testid="settings-cancel-btn">Cancel</button>
@@ -4692,6 +4705,51 @@ document.addEventListener('click', e => {
   e.preventDefault(); e.stopPropagation(); openViewer(src);
 }, true);
 
+/* ---------- build stamp & update banner ---------- */
+const BUILD = document.querySelector('meta[name="mad-build"]').content;
+let updSeen = '', updBusy = false, updLast = 0;
+async function checkUpdate(){
+  if (updBusy || location.protocol === 'file:' || Date.now() - updLast < 30e3) return;
+  updBusy = true; updLast = Date.now();
+  try {
+    const r = await fetch(`${location.pathname}?v=${Date.now()}`, { cache: 'no-store' });
+    const live = r.ok && ((await r.text()).match(/<meta name="mad-build" content="([^"]+)"/) || [])[1];
+    if (live && live !== BUILD && live !== updSeen && sessionStorage.getItem('mad-upd-skip') !== live) showUpdate(live);
+  } catch {} finally { updBusy = false; }
+}
+function showUpdate(live){
+  updSeen = live; $('.upd-bar')?.remove();
+  const bar = document.createElement('div');
+  bar.className = 'upd-bar'; bar.setAttribute('data-testid', 'update-banner'); bar.setAttribute('role', 'status');
+  bar.innerHTML = `${icon('sparkles')}<span data-testid="update-banner-text">New version ready<em> · ${esc(live)}</em></span><button type="button" class="btn btn-primary btn-sm" data-testid="update-banner-refresh-btn">${icon('refresh-cw')}Refresh</button><button type="button" class="upd-x" aria-label="Later" data-nolbl data-testid="update-banner-dismiss-btn">${icon('x')}</button>`;
+  bar.querySelector('.btn').onclick = () => location.reload();
+  bar.querySelector('.upd-x').onclick = () => { sessionStorage.setItem('mad-upd-skip', live); bar.remove(); };
+  document.body.appendChild(bar); icons();
+}
+const NOTES = [
+  { ic:'sparkles', t:'Update banner', d:'M.A.D. tells you when a newer version is live. Tap Refresh to get it.' },
+  { ic:'git-commit-horizontal', t:'Build date', d:'See which version you’re on at the bottom of Settings, and reopen this note there.' },
+  { ic:'zoom-in', t:'Zoom any image', d:'Tap an image, then pinch, double-tap or scroll to zoom. Swipe down to close.' },
+  { ic:'timer', t:'Release countdowns', d:'Upcoming songs show a live “Drops in” timer in the catalog and preview.' },
+  { ic:'eye', t:'Preview as Icon', d:'See M.A.D. exactly as an artist does, read-only. Find it in Settings or Icon review.', admin:true }
+];
+const BUILD_SEEN_KEY = 'treesh_mad_seen_build';
+function whatsNew(){
+  const list = NOTES.filter(n => !n.admin || !isIcon());
+  if (!list.length) return;
+  modal({ title:'What’s new in M.A.D.', ico:'megaphone', testid:'whats-new-modal',
+    body:`<ul class="mn-list">${list.map((n, i) => `<li style="animation-delay:${80 + i * 70}ms" data-testid="whats-new-item"><span>${icon(n.ic)}</span><span><b>${esc(n.t)}</b><small>${esc(n.d)}</small></span></li>`).join('')}</ul><p class="mn-build" data-testid="whats-new-build">Build ${esc(BUILD)}</p>`,
+    actions:[{ label:'Got it', kind:'btn-primary', icon:'check', testid:'whats-new-close-btn' }] });
+}
+function maybeWhatsNew(){
+  const seen = localStorage.getItem(BUILD_SEEN_KEY), tourDue = isIcon() && !localStorage.getItem('treesh_mad_tour_done:' + state.auth.artistId);
+  localStorage.setItem(BUILD_SEEN_KEY, BUILD);
+  if (seen && seen !== BUILD && !tourDue) setTimeout(whatsNew, 900);
+}
+setInterval(checkUpdate, 5 * 60e3);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+window.addEventListener('focus', checkUpdate);
+
 /* ---------- release countdown ---------- */
 function shortLeft(iso){
   const ms = new Date(iso) - Date.now(); if (!(ms > 0)) return '';
@@ -5154,6 +5212,8 @@ function openSettings(){
   root.innerHTML = ''; root.appendChild($('#tpl-settings').content.cloneNode(true));
   const map = { 's-branch':'branch', 's-songs':'songsPath', 's-icons':'iconsPath', 's-lyrics':'lyricsPath', 's-projects':'projectsDir', 's-models':'modelsPath', 's-blog':'blogPath', 's-comp':'compDir', 's-cloud':'cloudName', 's-preset':'preset', 's-folder':'folder' };
   Object.entries(map).forEach(([id, k]) => { $('#' + id).value = cfg[k] || ''; });
+  root.querySelector('.build-val').textContent = BUILD; checkUpdate();
+  $('#s-whatsnew').onclick = whatsNew;
   const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
@@ -5358,7 +5418,7 @@ function boot(){
   if (d0.savedAt) toast(`Picked up your draft from ${when(d0.savedAt)}.`, 'info', 3600);
   if (document.fonts) document.fonts.ready.then(moveInd);
   if (hadOldToken){ saveCfg(); toast('Your old saved GitHub token was removed from this device. Sign in with your passcode instead.', 'info', 6000); }
-  checkSession().then(() => { reloadAll(); checkActivityAlert(); signinNotice(); if (isIcon()) setTimeout(() => startTour(), 1500); });
+  checkSession().then(() => { reloadAll(); checkActivityAlert(); signinNotice(); maybeWhatsNew(); if (isIcon()) setTimeout(() => startTour(), 1500); });
   setInterval(() => { if (isAdmin()){ loadPRs(); loadIconAdmin(); } else if (isIcon()) loadPRs(); }, 60000);
 }
 boot();
