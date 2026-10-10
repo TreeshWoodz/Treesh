@@ -51,7 +51,7 @@ export default function Profile() {
   };
 
   return (
-    <Layout>
+    <Layout art="blockparty">
       <PageTitle eyebrow="Player Profile" title={profile.name} />
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card-surface p-6">

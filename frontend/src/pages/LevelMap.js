@@ -33,7 +33,7 @@ export default function LevelMap() {
   const current = LEVELS.find((l) => unlocked(l.n) && !profile.levelStars[l.n])?.n;
 
   return (
-    <Layout>
+    <Layout art="blockparty">
       <PageTitle eyebrow="Classic Levels" title="The Level Map">
         <div className="starlite-pill" data-testid="map-total-stars"><Star size={16} className="fill-[#FFC800] text-[#FFC800]" /> <span className="font-display font-bold">{total}/90</span></div>
       </PageTitle>

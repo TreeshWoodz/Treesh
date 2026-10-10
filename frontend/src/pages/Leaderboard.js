@@ -21,7 +21,7 @@ export default function Leaderboard() {
   }, [mode]);
 
   return (
-    <Layout>
+    <Layout art="afrofuture">
       <PageTitle eyebrow="Global Rankings" title="Leaderboard" />
       <div className="mb-6 flex flex-wrap gap-2">
         {MODES.map((m) => (

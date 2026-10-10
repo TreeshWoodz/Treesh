@@ -31,7 +31,7 @@ export default function Shop() {
   };
 
   return (
-    <Layout>
+    <Layout art="mural">
       <PageTitle eyebrow="Spend your Starlites" title="The Shop"><StarliteBadge value={starlites} testId="shop-balance" /></PageTitle>
       <Tabs defaultValue="powerups">
         <TabsList className="shop-tabs">

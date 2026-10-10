@@ -13,7 +13,8 @@ const readJson = (k) => {
 export const getStarlites = () => Math.max(0, Math.floor(readJson(STARS_KEY)?.points || 0));
 
 export function changeStarlites(delta, reason) {
-  const st = readJson(STARS_KEY) || {};
+  let st = readJson(STARS_KEY);
+  if (!st || typeof st !== "object") st = {};
   st.points = Math.max(0, (st.points || 0) + delta);
   st.log = [{ t: Date.now(), a: delta, r: `Bronze Blitz: ${reason}` }, ...(st.log || [])].slice(0, 50);
   localStorage.setItem(STARS_KEY, JSON.stringify(st));

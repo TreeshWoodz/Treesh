@@ -20,7 +20,7 @@ db = client[os.environ['DB_NAME']]
 app = FastAPI(title="Bronze Blitz API")
 api_router = APIRouter(prefix="/api")
 
-MODES = {"classic", "timed", "moves", "daily", "zen"}
+MODES = {"classic", "timed", "moves", "daily", "zen", "colorpop"}
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 

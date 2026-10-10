@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 4 frontend-only test of Bronze Blitz new features: diagonal swap, new match formations, special+special combos, Blitz Finale, culture facts, formation guide, new trophies, and regression. 15/15 engine unit tests pass (diag line of 3/4 -> run detected, 2x2 square -> X-Blaster 'x', plus -> 'cross', L -> 'bomb', 2x3 -> 'nova', line 5 -> 'disco', bomb+bomb -> 5x5 clear, nova+any -> 7x7, disco+special yields effects, isDiagonal correct). UI: formation-guide + 6 cards (col, x, cross, bomb, nova, disco) render on hub. All 4 new trophy cards (diagonal, xblaster, crown_cross, supernova) render on /trophies. Classic Level 1 completed via hinted plays: Blitz Finale banner + skip button appeared, skip-btn resolved to result-modal in 0.80s, culture-fact + culture-fact-text visible with non-empty Fact, 'Blitz Finale +6,750 from leftover moves' text displayed. Zen cash-out also shows result-modal with culture-fact. Diagonal hints suggested diagonally adjacent tiles (e.g. [0-3, 1-4]) and tapping both executed a diagonal swap. Viewports 320x568, 375x667, 390x844 all show play screen without scroll overflow (docHeight == windowHeight). Regression PASS: with correctly formatted treesh_stars={points:750} + treesh_accent + treesh_profile, nav shows avatar img, starlites badge '950' (includes 200 welcome gift), --ac=#10B981. No console/page errors during gameplay or UI nav. combo-word popup is centered within 390px viewport.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/tmp/test_engine.mjs"],
+  "action_items": [
+    "Defensive-only (non-blocking): /app/frontend/src/game/wallet.js changeStarlites() does `const st = readJson(STARS_KEY) || {};` then `st.points = ...`. If an external integrator writes treesh_stars as a bare number (e.g. localStorage.setItem('treesh_stars','750')), JSON.parse returns 750 and assigning .points throws 'Cannot create property points on number 750', surfacing the Emergent runtime-error overlay. Reproduced in this run. Suggest: `let st = readJson(STARS_KEY); if (!st || typeof st !== 'object') st = {};`"
+  ],
+  "critical_code_review_comments": [
+    "engine.resolveMatches: 2x2 square without a group-of-6 produces 'x' special (good). However when a square overlaps a 3-run of same type, the run is still processed and may double-create specials at adjacent cells; current `taken` set only guards within one place() call. Edge case worth a visual check during cascades.",
+    "useGame.runFinale: setBoard(nb) is called inside a tight while loop with 150ms wait; if the user clicks finale-skip-btn, skipRef flips but the loop still iterates until moves hits 0 (fast because wait() returns immediately when skip). Confirmed skip resolves in ~0.8s. OK.",
+    "wallet.changeStarlites not defensive against non-object treesh_stars value (see action item).",
+    "ResultModal.CultureFact animates in at delay:0.7s; if an automation screenshots at modal-open it may miss the fact visually though DOM content is present. Not a bug."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100% functional; 1 minor defensive issue in wallet.changeStarlites"},
+  "test_credentials": "None - guest via localStorage (treesh_profile={nickname:'Tester'})",
+  "seed_data_creation": "In-browser localStorage only (treesh_profile, treesh_accent, treesh_stars). Classic Level 1 was played to natural completion to trigger Blitz Finale.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All new features (diagonal swap, square/diag4/plus/L/2x3/line5 formations, special combos, Blitz Finale + skip, culture facts, formation guide, new trophies) verified functional. Engine unit test harness lives at /tmp/test_engine.mjs for quick regression (cp engine.js /tmp/eng.mjs && node /tmp/test_engine.mjs). Only polish item is defensive handling of non-object treesh_stars in wallet.changeStarlites."
+}

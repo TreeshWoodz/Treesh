@@ -20,7 +20,7 @@ export default function Trophies() {
   const unlocked = ACHIEVEMENTS.filter((a) => a.val(profile) >= a.goal).length;
 
   return (
-    <Layout>
+    <Layout art="harlem">
       <PageTitle eyebrow="Achievements" title="Trophy Room">
         <div className="starlite-pill" data-testid="trophies-unlocked-count"><Trophy size={16} className="text-[var(--ac)]" /> <span className="font-display font-bold">{unlocked}/{ACHIEVEMENTS.length}</span></div>
       </PageTitle>

@@ -20,11 +20,12 @@ export const defaultProfile = () => ({
   ownedThemes: ["bronze"],
   theme: "bronze",
   levelStars: {},
+  cpStars: {},
   best: {},
   claimed: [],
   sound: true,
   lastBonus: null,
-  stats: { games: 0, tiles: 0, maxCombo: 0, discos: 0, bombs: 0, striped: 0, xs: 0, crosses: 0, novas: 0, diagonals: 0, earned: 0, powerups: 0, dailyDays: [] },
+  stats: { games: 0, tiles: 0, maxCombo: 0, discos: 0, bombs: 0, striped: 0, xs: 0, crosses: 0, novas: 0, diagonals: 0, cpWins: 0, cpHardWins: 0, earned: 0, powerups: 0, dailyDays: [] },
 });
 
 export const mergeProfile = (data) => {

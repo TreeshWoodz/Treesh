@@ -5,11 +5,13 @@ import { toast } from "sonner";
 import { SkipForward } from "lucide-react";
 import { useGame } from "../game/useGame";
 import { useProfile } from "../game/store";
-import { buildConfig, POWERUPS, THEMES, starsFor, rewardFor, todayStr } from "../game/config";
+import { buildConfig, POWERUPS, THEMES, starsFor, rewardFor, todayStr, artFor } from "../game/config";
 import { api } from "../game/api";
 import { Board } from "../components/Board";
 import { Hud, PowerBar } from "../components/Hud";
 import { ResultModal, ContinueModal } from "../components/ResultModal";
+import { GameBackground } from "../components/GameBackground";
+import { useColorPop, ColorPopBoard, ColorPicker, ColorPopHud } from "./ColorPopGame";
 
 const useCellSize = () => {
   const ref = useRef(null);
@@ -33,7 +35,7 @@ function useFinalize(cfg, g) {
     const e = g.ended;
     if (!e || done.current || (cfg.mode === "classic" && !e.win && !e.gaveUp)) return;
     done.current = true;
-    const stars = starsFor(cfg, e.score, e.win);
+    const stars = starsFor(cfg, e.score, e.win, e.movesLeft);
     const reward = rewardFor(cfg, e, stars);
     const s = g.sess;
     const levelStars = cfg.mode === "classic" && e.win
@@ -41,14 +43,17 @@ function useFinalize(cfg, g) {
     const metric = cfg.mode === "classic" ? Object.values(levelStars).reduce((a, b) => a + b, 0) : e.score;
     const newBest = e.score > (profile.best[cfg.mode] || 0);
     earn(reward, `${cfg.title} complete`);
+    const cpWin = cfg.mode === "colorpop" && e.win;
     update((p) => ({
       levelStars,
+      cpStars: cpWin ? { ...p.cpStars, [cfg.level]: Math.max(p.cpStars?.[cfg.level] || 0, stars) } : p.cpStars,
       best: { ...p.best, [cfg.mode]: Math.max(p.best[cfg.mode] || 0, e.score) },
       stats: {
         ...p.stats, games: p.stats.games + 1, tiles: p.stats.tiles + s.tiles, maxCombo: Math.max(p.stats.maxCombo, s.maxCombo),
         discos: p.stats.discos + s.discos, bombs: p.stats.bombs + s.bombs, striped: p.stats.striped + s.striped,
         xs: p.stats.xs + s.xs, crosses: p.stats.crosses + s.crosses, novas: p.stats.novas + s.novas, diagonals: p.stats.diagonals + s.diagonals,
         powerups: p.stats.powerups + s.powerups, earned: p.stats.earned + reward,
+        cpWins: p.stats.cpWins + (cpWin ? 1 : 0), cpHardWins: p.stats.cpHardWins + (cpWin && cfg.level === 3 ? 1 : 0),
         dailyDays: cfg.mode === "daily" ? [...new Set([...p.stats.dailyDays, todayStr()])] : p.stats.dailyDays,
       },
     }));
@@ -85,6 +90,7 @@ function Game({ cfg, onReplay }) {
 
   return (
     <div className="play-screen bg-app" data-testid="play-screen">
+      <GameBackground art={artFor(cfg)} variant="play" />
       <div className="mx-auto flex h-full w-full max-w-[620px] flex-col px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)]">
         <Hud cfg={cfg} g={g} onExit={() => nav(cfg.mode === "classic" ? "/levels" : "/")} />
         <div ref={areaRef} className="relative flex min-h-0 flex-1 items-center justify-center py-2">
@@ -116,6 +122,28 @@ function Game({ cfg, onReplay }) {
   );
 }
 
+function ColorPopScreen({ cfg, onReplay }) {
+  const nav = useNavigate();
+  const { profile } = useProfile();
+  const theme = THEMES.find((t) => t.id === profile.theme) || THEMES[0];
+  const g = useColorPop(cfg);
+  const result = useFinalize(cfg, g);
+  return (
+    <div className="play-screen bg-app" data-testid="play-screen">
+      <GameBackground art={artFor(cfg)} variant="play" />
+      <div className="mx-auto flex h-full w-full max-w-[620px] flex-col px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)]">
+        <ColorPopHud g={g} cfg={cfg} onExit={() => nav("/colorpop")} />
+        <ColorPopBoard g={g} cfg={cfg} theme={theme} />
+        <ColorPicker g={g} cfg={cfg} />
+      </div>
+      {result && (
+        <ResultModal cfg={cfg} result={result} onReplay={onReplay} onHome={() => nav("/")} onRanks={() => nav("/leaderboard?mode=colorpop")}
+          onNext={result.win && cfg.level < 3 ? () => nav(`/play/colorpop/${cfg.level + 1}`) : null} />
+      )}
+    </div>
+  );
+}
+
 export default function Play() {
   const { mode, level } = useParams();
   const { profile } = useProfile();
@@ -123,5 +151,6 @@ export default function Play() {
   const cfg = useMemo(() => buildConfig(mode, Number(level)), [mode, level]);
   if (!cfg) return <Navigate to="/" replace />;
   if (cfg.mode === "classic" && cfg.level > 1 && !profile.levelStars[cfg.level - 1]) return <Navigate to="/levels" replace />;
-  return <Game key={`${mode}-${level}-${nonce}`} cfg={cfg} onReplay={() => setNonce((n) => n + 1)} />;
+  const Screen = cfg.mode === "colorpop" ? ColorPopScreen : Game;
+  return <Screen key={`${mode}-${level}-${nonce}`} cfg={cfg} onReplay={() => setNonce((n) => n + 1)} />;
 }

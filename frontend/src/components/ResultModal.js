@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { Star, RotateCcw, Home, ArrowRight, BarChart3, PlusCircle, BookOpen } from "lucide-react";
 import { StarliteAmount } from "./Starlite";
 import { randomFact } from "../game/facts";
+import { artFor } from "../game/config";
+import { GameBackground } from "./GameBackground";
 
 const CultureFact = () => {
   const [fact] = useState(randomFact);
@@ -26,8 +28,9 @@ const Stars = ({ count }) => (
   </div>
 );
 
-const Shell = ({ children, testId }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="result-screen bg-app" data-testid={testId}>
+const Shell = ({ children, testId, art }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`result-screen ${art ? "bg-app" : "result-overlay"}`} data-testid={testId}>
+    {art && <GameBackground art={art} variant="result" />}
     <motion.div initial={{ y: 40, scale: 0.9 }} animate={{ y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}
       className="modal-card w-full max-w-sm text-center">
       {children}
@@ -48,12 +51,12 @@ export const ContinueModal = ({ cost, owned, onContinue, onGiveUp }) => (
 );
 
 export const ResultModal = ({ cfg, result, onReplay, onNext, onHome, onRanks }) => (
-  <Shell testId="result-modal">
+  <Shell testId="result-modal" art={artFor(cfg)}>
     <div className="eyebrow">{cfg.title}</div>
     <h2 data-testid="result-title" className="font-display text-3xl font-black text-gold">
-      {result.win ? (cfg.mode === "classic" ? "Level Complete!" : "Blitz Complete!") : cfg.mode === "daily" ? "Nice Try!" : "Level Failed"}
+      {cfg.mode === "colorpop" ? (result.win ? "Board Painted!" : `${result.pct}% Painted`) : result.win ? (cfg.mode === "classic" ? "Level Complete!" : "Blitz Complete!") : cfg.mode === "daily" ? "Nice Try!" : "Level Failed"}
     </h2>
-    {cfg.target ? <div className="mt-5"><Stars count={result.stars} /></div> : null}
+    {cfg.target || cfg.mode === "colorpop" ? <div className="mt-5"><Stars count={result.stars} /></div> : null}
     <div className="mt-6 grid grid-cols-2 gap-3">
       <div className="stat-box"><div className="hud-label">Score</div><div data-testid="result-score" className="font-display text-2xl font-black text-white tabular-nums">{result.score.toLocaleString()}</div></div>
       <div className="stat-box"><div className="hud-label">Earned</div><div data-testid="result-starlites" className="mt-1 text-xl"><StarliteAmount value={result.reward} size={20} /></div></div>
@@ -62,7 +65,7 @@ export const ResultModal = ({ cfg, result, onReplay, onNext, onHome, onRanks }) 
     {result.newBest && <div data-testid="result-new-best" className="mt-3 text-xs font-black uppercase tracking-[0.25em] text-emerald-400">New personal best</div>}
     <CultureFact />
     <div className="mt-6 flex flex-col gap-3">
-      {onNext && <button data-testid="result-next-btn" onClick={onNext} className="btn-bronze w-full">Next Level <ArrowRight size={18} /></button>}
+      {onNext && <button data-testid="result-next-btn" onClick={onNext} className="btn-bronze w-full">{cfg.mode === "colorpop" ? "Next Difficulty" : "Next Level"} <ArrowRight size={18} /></button>}
       <div className="grid grid-cols-3 gap-2">
         <button data-testid="result-replay-btn" onClick={onReplay} className="btn-ghost"><RotateCcw size={16} /> Replay</button>
         <button data-testid="result-ranks-btn" onClick={onRanks} className="btn-ghost"><BarChart3 size={16} /> Ranks</button>

@@ -1,4 +1,4 @@
-import { Disc3, Crown, Radio, Gem, Map, Timer, Target, CalendarDays, Infinity as InfinityIcon, Hammer, Shuffle, PlusCircle, Zap } from "lucide-react";
+import { Disc3, Crown, Radio, Gem, Map, Timer, Target, CalendarDays, Infinity as InfinityIcon, Hammer, Shuffle, PlusCircle, Zap, PaintBucket } from "lucide-react";
 import { AfroPick, Djembe, Sneaker } from "../components/CultureIcons";
 
 export const TILES = [
@@ -16,6 +16,7 @@ export const MODES = [
   { id: "timed", name: "Timed Blitz", tag: "Speed", desc: "60 seconds on the clock. Match fast, chain combos, stack points.", Icon: Timer, color: "#EF4444" },
   { id: "moves", name: "Moves Challenge", tag: "Strategy", desc: "Only 15 moves. Every swap counts. Make it legendary.", Icon: Target, color: "#06B6D4" },
   { id: "daily", name: "Daily Challenge", tag: "2x Starlites", desc: "One fresh board for everybody, every day. Double Starlite payout.", Icon: CalendarDays, color: "#FFC800" },
+  { id: "colorpop", name: "Color Pop", tag: "New", desc: "Grow your color from the corner. Paint the whole board one color before moves run out.", Icon: PaintBucket, color: "#EC4899" },
   { id: "zen", name: "Endless Zen", tag: "Relax", desc: "No timer. No limits. Just vibes and smooth cascades.", Icon: InfinityIcon, color: "#10B981" },
 ];
 
@@ -41,6 +42,24 @@ export const LEVELS = Array.from({ length: 30 }, (_, i) => {
   return lvl;
 });
 
+export const COLORPOP_LEVELS = [
+  { level: 1, name: "Easy", size: 10, colors: 5, moves: 20 },
+  { level: 2, name: "Medium", size: 12, colors: 6, moves: 24 },
+  { level: 3, name: "Hard", size: 14, colors: 6, moves: 25 },
+];
+
+const IMG = "https://static.prod-images.emergentagent.com/jobs/c0cfcd65-3656-40e7-94e0-5ae508a9836d/images/";
+export const ART = {
+  menu: `${IMG}1f9d1fb08a39de097b0cca4b97fcbdbec66f6432d0b272a76bd5b3ea6e2a224d.jpeg`,
+  mural: `${IMG}227cfe14e049a10cb91a6c0c93ecaadf11308e3264ec2525e06b50e4c9b86336.jpeg`,
+  afrofuture: `${IMG}c39e19e63d7dd498f7fbf5b8aa23fe40d2879b731e03bba80f929fbc8b5e4880.jpeg`,
+  harlem: `${IMG}14a2da015fc21b220e0a2f9fb9e9a99246599ff906fd6c116da8bc893e7cbdc4.jpeg`,
+  blockparty: `${IMG}8468398933a9c96e8d2974710f69ff95732ac0e9b1f66b9059125d1bc105c509.jpeg`,
+};
+const MODE_ART = { timed: "blockparty", moves: "harlem", daily: "afrofuture", zen: "harlem", colorpop: "mural" };
+export const artFor = (cfg) =>
+  cfg.mode === "classic" ? (cfg.level <= 10 ? "blockparty" : cfg.level <= 20 ? "harlem" : "afrofuture") : MODE_ART[cfg.mode];
+
 export const todayStr = () => new Date().toISOString().slice(0, 10);
 export const dailySeed = () => Number(todayStr().replace(/-/g, ""));
 
@@ -52,6 +71,10 @@ export function buildConfig(mode, level) {
   if (mode === "timed") return { mode, title: "Timed Blitz", types: 6, time: 60 };
   if (mode === "moves") return { mode, title: "Moves Challenge", types: 6, moves: 15 };
   if (mode === "zen") return { mode, title: "Endless Zen", types: 5 };
+  if (mode === "colorpop") {
+    const d = COLORPOP_LEVELS[level - 1];
+    return d ? { mode, level, title: `Color Pop: ${d.name}`, ...d } : null;
+  }
   if (mode === "daily") {
     const seed = dailySeed();
     const cfg = { mode, title: "Daily Challenge", types: 6, moves: 22, target: 8000, seed };
@@ -62,7 +85,8 @@ export function buildConfig(mode, level) {
   return null;
 }
 
-export const starsFor = (cfg, score, win) => {
+export const starsFor = (cfg, score, win, movesLeft = 0) => {
+  if (cfg.mode === "colorpop") return win ? (movesLeft >= 4 ? 3 : movesLeft >= 2 ? 2 : 1) : 0;
   if (!cfg.target || !win) return 0;
   return score >= cfg.target * 2 ? 3 : score >= cfg.target * 1.5 ? 2 : 1;
 };
@@ -72,6 +96,7 @@ export function rewardFor(cfg, ended, stars) {
   if (cfg.mode === "classic") return ended.win ? 25 + stars * 15 + (ended.movesLeft || 0) * 3 : 5;
   if (cfg.mode === "daily") return 2 * (Math.floor(s / 150) + (ended.win ? 50 : 0));
   if (cfg.mode === "zen") return Math.floor(s / 300);
+  if (cfg.mode === "colorpop") return ended.win ? 20 + cfg.level * 20 + (ended.movesLeft || 0) * 5 : 5;
   return Math.floor(s / 150);
 }
 
@@ -125,7 +150,9 @@ export const ACHIEVEMENTS = [
   { id: "xblaster", name: "X Marks the Spot", desc: "Create 10 X-Blasters (2x2 squares)", reward: 150, goal: 10, val: (p) => p.stats.xs },
   { id: "crown_cross", name: "Cross Culture", desc: "Create 5 Crown Crosses (plus shape)", reward: 200, goal: 5, val: (p) => p.stats.crosses },
   { id: "supernova", name: "Supernova", desc: "Create a Supernova (2x3 block)", reward: 250, goal: 1, val: (p) => p.stats.novas },
+  { id: "color_pop", name: "Paint the Town", desc: "Win a Color Pop round", reward: 150, goal: 1, val: (p) => p.stats.cpWins },
+  { id: "color_master", name: "Master Painter", desc: "Win Color Pop on Hard", reward: 300, goal: 1, val: (p) => p.stats.cpHardWins },
   { id: "mogul", name: "Starlite Mogul", desc: "Earn 5,000 Starlites total", reward: 400, goal: 5000, val: (p) => p.stats.earned },
 ];
 
-export const LEADER_METRIC = { classic: "Total Stars", timed: "Score", moves: "Score", daily: "Today's Score", zen: "Score" };
+export const LEADER_METRIC = { classic: "Total Stars", timed: "Score", moves: "Score", daily: "Today's Score", colorpop: "Score", zen: "Score" };
