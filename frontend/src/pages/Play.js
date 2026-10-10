@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
+import { SkipForward } from "lucide-react";
 import { useGame } from "../game/useGame";
 import { useProfile } from "../game/store";
 import { buildConfig, POWERUPS, THEMES, starsFor, rewardFor, todayStr } from "../game/config";
@@ -46,6 +47,7 @@ function useFinalize(cfg, g) {
       stats: {
         ...p.stats, games: p.stats.games + 1, tiles: p.stats.tiles + s.tiles, maxCombo: Math.max(p.stats.maxCombo, s.maxCombo),
         discos: p.stats.discos + s.discos, bombs: p.stats.bombs + s.bombs, striped: p.stats.striped + s.striped,
+        xs: p.stats.xs + s.xs, crosses: p.stats.crosses + s.crosses, novas: p.stats.novas + s.novas, diagonals: p.stats.diagonals + s.diagonals,
         powerups: p.stats.powerups + s.powerups, earned: p.stats.earned + reward,
         dailyDays: cfg.mode === "daily" ? [...new Set([...p.stats.dailyDays, todayStr()])] : p.stats.dailyDays,
       },
@@ -87,6 +89,12 @@ function Game({ cfg, onReplay }) {
         <Hud cfg={cfg} g={g} onExit={() => nav(cfg.mode === "classic" ? "/levels" : "/")} />
         <div ref={areaRef} className="relative flex min-h-0 flex-1 items-center justify-center py-2">
           {cell > 0 && <Board g={g} cell={cell} theme={theme} />}
+          {g.finale && (
+            <motion.div data-testid="finale-banner" className="finale-banner" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+              <span className="font-display text-sm font-black tracking-tight text-gold">BLITZ FINALE</span>
+              <button data-testid="finale-skip-btn" onClick={g.skipFinale} className="btn-bronze !px-3 !py-1 text-xs">Skip <SkipForward size={14} /></button>
+            </motion.div>
+          )}
           <AnimatePresence>
             {g.armed === "hammer" && (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} data-testid="hammer-armed-hint"

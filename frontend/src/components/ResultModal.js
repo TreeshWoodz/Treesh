@@ -1,6 +1,19 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Star, RotateCcw, Home, ArrowRight, BarChart3, PlusCircle } from "lucide-react";
+import { Star, RotateCcw, Home, ArrowRight, BarChart3, PlusCircle, BookOpen } from "lucide-react";
 import { StarliteAmount } from "./Starlite";
+import { randomFact } from "../game/facts";
+
+const CultureFact = () => {
+  const [fact] = useState(randomFact);
+  return (
+    <motion.div data-testid="culture-fact" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
+      className="culture-fact mt-4 text-left">
+      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.25em] text-[var(--ac-hi)]"><BookOpen size={12} /> Did you know?</div>
+      <p data-testid="culture-fact-text" className="mt-1 text-[12px] leading-snug text-slate-200">{fact}</p>
+    </motion.div>
+  );
+};
 
 const Stars = ({ count }) => (
   <div className="flex justify-center gap-2" data-testid="result-stars">
@@ -45,8 +58,9 @@ export const ResultModal = ({ cfg, result, onReplay, onNext, onHome, onRanks }) 
       <div className="stat-box"><div className="hud-label">Score</div><div data-testid="result-score" className="font-display text-2xl font-black text-white tabular-nums">{result.score.toLocaleString()}</div></div>
       <div className="stat-box"><div className="hud-label">Earned</div><div data-testid="result-starlites" className="mt-1 text-xl"><StarliteAmount value={result.reward} size={20} /></div></div>
     </div>
-    {result.bonus > 0 && <div className="mt-3 text-xs font-bold uppercase tracking-wider text-[var(--ac-hi)]">Blitz Bonus +{result.bonus.toLocaleString()} for leftover moves</div>}
+    {result.bonus > 0 && <div className="mt-3 text-xs font-bold uppercase tracking-wider text-[var(--ac-hi)]">Blitz Finale +{result.bonus.toLocaleString()} from leftover moves</div>}
     {result.newBest && <div data-testid="result-new-best" className="mt-3 text-xs font-black uppercase tracking-[0.25em] text-emerald-400">New personal best</div>}
+    <CultureFact />
     <div className="mt-6 flex flex-col gap-3">
       {onNext && <button data-testid="result-next-btn" onClick={onNext} className="btn-bronze w-full">Next Level <ArrowRight size={18} /></button>}
       <div className="grid grid-cols-3 gap-2">

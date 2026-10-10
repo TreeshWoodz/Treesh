@@ -30,7 +30,7 @@ const PATTERNS = ["center", "bottom", "cross", "diamond", "border", "checker"];
 export const LEVELS = Array.from({ length: 30 }, (_, i) => {
   const n = i + 1;
   const types = n <= 6 ? 5 : n <= 18 ? 6 : 7;
-  const lvl = { n, types, moves: 18 + Math.floor(n / 4), target: 1500 + n * 250 };
+  const lvl = { n, types, moves: 18 + Math.floor(n / 4), target: 3000 + n * 450 };
   if (n % 3 === 2) lvl.collect = [{ type: n % types, count: 12 + n }];
   if (n >= 20 && n % 3 === 1) lvl.collect = [{ type: n % types, count: 20 }, { type: (n + 2) % types, count: 20 }];
   if (n % 3 === 0) {
@@ -54,7 +54,7 @@ export function buildConfig(mode, level) {
   if (mode === "zen") return { mode, title: "Endless Zen", types: 5 };
   if (mode === "daily") {
     const seed = dailySeed();
-    const cfg = { mode, title: "Daily Challenge", types: 6, moves: 22, target: 5000, seed };
+    const cfg = { mode, title: "Daily Challenge", types: 6, moves: 22, target: 8000, seed };
     if (seed % 2) cfg.kente = PATTERNS[seed % PATTERNS.length];
     else cfg.collect = [{ type: seed % 6, count: 22 }];
     return cfg;
@@ -121,6 +121,10 @@ export const ACHIEVEMENTS = [
   { id: "power", name: "Power Player", desc: "Use 10 power-ups", reward: 150, goal: 10, val: (p) => p.stats.powerups },
   { id: "drip", name: "Drip Collector", desc: "Own 3 board themes", reward: 200, goal: 3, val: (p) => p.ownedThemes.length },
   { id: "cloud", name: "Cloud Crew", desc: "Save your progress to the cloud", reward: 100, goal: 1, val: (p) => (p.saveCode ? 1 : 0) },
+  { id: "diagonal", name: "Diagonal Don", desc: "Make 25 diagonal moves", reward: 150, goal: 25, val: (p) => p.stats.diagonals },
+  { id: "xblaster", name: "X Marks the Spot", desc: "Create 10 X-Blasters (2x2 squares)", reward: 150, goal: 10, val: (p) => p.stats.xs },
+  { id: "crown_cross", name: "Cross Culture", desc: "Create 5 Crown Crosses (plus shape)", reward: 200, goal: 5, val: (p) => p.stats.crosses },
+  { id: "supernova", name: "Supernova", desc: "Create a Supernova (2x3 block)", reward: 250, goal: 1, val: (p) => p.stats.novas },
   { id: "mogul", name: "Starlite Mogul", desc: "Earn 5,000 Starlites total", reward: 400, goal: 5000, val: (p) => p.stats.earned },
 ];
 

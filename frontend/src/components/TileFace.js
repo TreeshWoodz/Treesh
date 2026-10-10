@@ -14,9 +14,12 @@ export const TileFace = ({ tile, size, selected, hint }) => {
   return (
     <div className={cls} style={{ background: `radial-gradient(circle at 30% 22%, ${t.from}, ${t.to} 78%)`, "--glow": t.glow }}>
       <t.Icon size={size * 0.52} strokeWidth={2.1} color="#fff" className="tile-icon" />
-      {tile.special === "row" && <span className="stripe stripe-row" />}
-      {tile.special === "col" && <span className="stripe stripe-col" />}
-      {tile.special === "bomb" && <span className="bomb-ring" />}
+      {tile.special === "row" && <span className="stripe stripe-row special-in" />}
+      {tile.special === "col" && <span className="stripe stripe-col special-in" />}
+      {tile.special === "bomb" && <span className="bomb-ring special-in" />}
+      {tile.special === "x" && <span className="stripe stripe-x special-in" />}
+      {tile.special === "cross" && <span className="cross-glow special-in" />}
+      {tile.special === "nova" && <span className="nova-core special-in" />}
     </div>
   );
 };

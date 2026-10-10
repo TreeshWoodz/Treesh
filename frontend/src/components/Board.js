@@ -1,27 +1,32 @@
-import { useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef } from "react";
+import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { TileFace } from "./TileFace";
+import { Effects } from "./Effects";
 import { ROWS, COLS, key } from "../game/engine";
 
 const isAt = (p, r, c) => p && p[0] === r && p[1] === c;
 
 const Popups = ({ popups, cell }) => (
-  <AnimatePresence>
+  <>
     {popups.map((p) => (
-      <motion.div key={p.id} initial={{ opacity: 0, y: 0, scale: 0.6 }} animate={{ opacity: 1, y: -cell * 0.8, scale: 1 }}
-        exit={{ opacity: 0 }} transition={{ duration: p.big ? 0.5 : 0.35 }}
-        className={`pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-display ${p.big ? "combo-word" : "score-pop"}`}
-        style={{ left: (p.c + 0.5) * cell, top: (p.r + 0.5) * cell }}>
-        {p.text}
-      </motion.div>
+      <div key={p.id} className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2" style={{ left: (p.c + 0.5) * cell, top: (p.r + 0.5) * cell }}>
+        <motion.div initial={{ opacity: 0, y: 0, scale: 0.6 }} animate={{ opacity: 1, y: -cell * 0.8, scale: 1 }}
+          transition={{ duration: p.big ? 0.5 : 0.35 }} className={`whitespace-nowrap font-display ${p.big ? "combo-word" : "score-pop"}`}>
+          {p.text}
+        </motion.div>
+      </div>
     ))}
-  </AnimatePresence>
+  </>
 );
 
 export const Board = ({ g, cell, theme }) => {
   const ref = useRef(null);
   const drag = useRef(null);
   const { board, kente, popping, selected, hint, armed, popups } = g;
+  const controls = useAnimationControls();
+  useEffect(() => {
+    if (g.shake) controls.start({ x: [0, -7, 7, -5, 5, -2, 0], y: [0, 3, -3, 2, -2, 0, 0], transition: { duration: 0.45 } });
+  }, [g.shake, controls]);
 
   const cellAt = (e) => {
     const rect = ref.current.getBoundingClientRect();
@@ -37,9 +42,11 @@ export const Board = ({ g, cell, theme }) => {
     const d = drag.current;
     if (!d || d.moved || armed) return;
     const dx = e.clientX - d.x, dy = e.clientY - d.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < cell * 0.4) return;
+    if (Math.hypot(dx, dy) < cell * 0.45) return;
     d.moved = true;
-    const [tr, tc] = Math.abs(dx) > Math.abs(dy) ? [d.r, d.c + Math.sign(dx)] : [d.r + Math.sign(dy), d.c];
+    const ang = (Math.atan2(Math.abs(dy), Math.abs(dx)) * 180) / Math.PI;
+    const [tr, tc] = ang > 25 && ang < 65 ? [d.r + Math.sign(dy), d.c + Math.sign(dx)]
+      : ang <= 25 ? [d.r, d.c + Math.sign(dx)] : [d.r + Math.sign(dy), d.c];
     if (tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS) g.trySwap([d.r, d.c], [tr, tc]);
   };
   const up = () => {
@@ -49,7 +56,7 @@ export const Board = ({ g, cell, theme }) => {
   };
 
   return (
-    <div className="board-frame" style={{ "--frame": theme.board.frame, background: theme.board.bg }}>
+    <motion.div animate={controls} className="board-frame" style={{ "--frame": theme.board.frame, background: theme.board.bg }}>
       <div ref={ref} data-testid="game-board-grid" className={`relative touch-none select-none ${armed ? "cursor-crosshair" : "cursor-pointer"}`}
         style={{ width: cell * COLS, height: cell * ROWS }} onPointerDown={down} onPointerMove={move} onPointerUp={up}
         onPointerCancel={() => (drag.current = null)}>
@@ -81,7 +88,8 @@ export const Board = ({ g, cell, theme }) => {
           }))}
         </AnimatePresence>
         <Popups popups={popups} cell={cell} />
+        <Effects effects={g.effects} cell={cell} />
       </div>
-    </div>
+    </motion.div>
   );
 };

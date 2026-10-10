@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Gift, ArrowRight, Trophy, Flame } from "lucide-react";
 import { Layout } from "../components/Layout";
+import { FormationGuide } from "../components/FormationGuide";
 import { TileFace } from "../components/TileFace";
 import { StarliteAmount } from "../components/Starlite";
 import { MODES, ACHIEVEMENTS, todayStr } from "../game/config";
@@ -113,6 +114,7 @@ export default function Hub() {
           ))}
         </div>
       </section>
+      <FormationGuide />
     </Layout>
   );
 }

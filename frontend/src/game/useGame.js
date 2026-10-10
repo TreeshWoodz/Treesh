@@ -30,15 +30,32 @@ export function useGame(cfg, opts) {
 
   const [popping, setPopping] = useState(() => new Set());
   const [popups, setPopups] = useState([]);
+  const [effects, setEffects] = useState([]);
+  const [shake, setShake] = useState(0);
+  const [finale, setFinale] = useState(false);
+  const finaleRef = useRef(false);
+  const skipRef = useRef(false);
   const [selected, setSelected] = useState(null);
   const [hint, setHint] = useState(null);
   const [armed, setArmed] = useState(null);
-  const sess = useRef({ tiles: 0, maxCombo: 0, discos: 0, bombs: 0, striped: 0, powerups: 0 });
+  const sess = useRef({ tiles: 0, maxCombo: 0, discos: 0, bombs: 0, striped: 0, xs: 0, crosses: 0, novas: 0, diagonals: 0, powerups: 0 });
+
+  const wait = (ms) => (skipRef.current ? Promise.resolve() : E.sleep(ms));
 
   const addPopup = (text, r, c, big = false) => {
+    if (skipRef.current) return;
     const id = Math.random();
     setPopups((p) => [...p, { id, text, r, c, big }]);
     setTimeout(() => setPopups((p) => p.filter((x) => x.id !== id)), big ? 1100 : 800);
+  };
+
+  const pushEffects = (list) => {
+    if (skipRef.current || !list.length) return;
+    const fx = list.slice(0, 24).map((e) => ({ ...e, id: Math.random() }));
+    const ids = new Set(fx.map((e) => e.id));
+    setEffects((x) => [...x, ...fx]);
+    setTimeout(() => setEffects((x) => x.filter((e) => !ids.has(e.id))), 800);
+    if (fx.some((e) => e.big || e.kind === "bolt" || e.kind === "ring" || e.kind === "x")) setShake((s) => s + 1);
   };
 
   const goalsMet = () => {
@@ -48,14 +65,48 @@ export function useGame(cfg, opts) {
     return E.countKente(kenteRef.current) === 0;
   };
 
-  const finish = (win) => {
-    const h = hudRef.current;
-    let bonus = 0;
-    if (win && cfg.mode === "classic" && h.moves > 0) {
-      bonus = h.moves * 250;
-      patchHud((x) => ({ score: x.score + bonus }));
+  const runFinale = async () => {
+    finaleRef.current = true;
+    skipRef.current = false;
+    setFinale(true);
+    setBusy(true);
+    const start = hudRef.current.score;
+    addPopup("Blitz Finale!", 3.5, 3.5, true);
+    await wait(900);
+    while (hudRef.current.moves > 0) {
+      const nb = boardRef.current.map((row) => row.slice());
+      const spots = [];
+      nb.forEach((row, r) => row.forEach((t, c) => t && !t.special && spots.push([r, c])));
+      if (!spots.length) {
+        patchHud((h) => ({ score: h.score + h.moves * 300, moves: 0 }));
+        break;
+      }
+      const [r, c] = spots[Math.floor(Math.random() * spots.length)];
+      nb[r][c] = { ...nb[r][c], special: E.SPECIAL_KINDS[Math.floor(Math.random() * E.SPECIAL_KINDS.length)] };
+      setBoard(nb);
+      patchHud((h) => ({ moves: h.moves - 1 }));
+      if (!skipRef.current) sfx.coin();
+      await wait(150);
     }
-    setEnded({ win, bonus, score: hudRef.current.score, movesLeft: h.moves });
+    await wait(450);
+    for (let round = 0; round < 3; round++) {
+      const b = boardRef.current;
+      const clear = new Set();
+      b.forEach((row, r) => row.forEach((t, c) => t?.special && clear.add(E.key(r, c))));
+      if (!clear.size) break;
+      await cascade(b, { clear, create: [] });
+    }
+    finaleRef.current = false;
+    skipRef.current = false;
+    setFinale(false);
+    return hudRef.current.score - start;
+  };
+
+  const finish = async (win) => {
+    if (endedRef.current || finaleRef.current) return;
+    const movesLeft = hudRef.current.moves;
+    const bonus = win && cfg.mode === "classic" && movesLeft > 0 ? await runFinale() : 0;
+    setEnded({ win, bonus, score: hudRef.current.score, movesLeft });
     win ? sfx.win() : sfx.lose();
   };
 
@@ -69,8 +120,10 @@ export function useGame(cfg, opts) {
     else if (cfg.time != null && h.time <= 0) finish(true);
   };
 
-  const applyStep = (b, step, combo) => {
-    const cells = E.expandClear(b, step.clear, step.pre);
+  const SPECIAL_STAT = { disco: "discos", bomb: "bombs", row: "striped", col: "striped", x: "xs", cross: "crosses", nova: "novas" };
+  const SPECIAL_BONUS = { disco: 500, nova: 600, bomb: 300, cross: 350, x: 250, row: 200, col: 200 };
+
+  const applyStep = (b, step, combo, cells) => {
     const nb = b.map((row) => row.slice());
     const collected = { ...hudRef.current.collected };
     const kNext = kenteRef.current ? kenteRef.current.map((row) => row.slice()) : null;
@@ -85,43 +138,44 @@ export function useGame(cfg, opts) {
     });
     step.create.forEach((s) => {
       nb[s.r][s.c] = E.newTile(s.type, s.special);
-      const kind = s.special === "disco" ? "discos" : s.special === "bomb" ? "bombs" : "striped";
-      sess.current[kind] += 1;
-      bonus += s.special === "disco" ? 500 : s.special === "bomb" ? 300 : 200;
+      if (!finaleRef.current) sess.current[SPECIAL_STAT[s.special]] += 1;
+      bonus += SPECIAL_BONUS[s.special];
     });
-    const gained = cells.size * 30 * combo + bonus;
+    const gained = finaleRef.current ? cells.size * 30 : cells.size * 30 * combo + bonus;
     sess.current.tiles += cells.size;
     patchHud((h) => ({ score: h.score + gained, collected }));
     if (kNext) { kenteRef.current = kNext; _setKente(kNext); }
     addPopup(`+${gained}`, sr / cells.size, sc / cells.size);
-    return { nb, cells };
+    return nb;
   };
 
   const cascade = async (b, step) => {
     let combo = 0;
     while (step) {
       combo += 1;
-      setPopping(E.expandClear(b, step.clear, step.pre));
-      sfx.match(combo);
-      await E.sleep(170);
-      const { nb } = applyStep(b, step, combo);
+      const { cells, effects: fx } = E.expandClear(b, step.clear, step.pre, step.effects);
+      setPopping(cells);
+      pushEffects(fx);
+      if (!skipRef.current) sfx.match(combo);
+      await wait(fx.length ? 280 : 170);
+      const nb = applyStep(b, step, combo, cells);
       if (combo >= 2) addPopup(WORDS[Math.min(combo, 5)], 3.5, 3.5, true);
       setPopping(new Set());
       b = E.gravity(nb, rng, cfg.types);
       setBoard(b);
-      await E.sleep(300);
-      const runs = E.findRuns(b);
-      step = runs.length ? E.resolveRuns(runs, []) : null;
+      await wait(300);
+      const m = E.findMatches(b);
+      step = m.runs.length || m.squares.length ? E.resolveMatches(m, []) : null;
     }
     sess.current.maxCombo = Math.max(sess.current.maxCombo, combo);
     if (!E.hasMoves(b)) {
       addPopup("Remix!", 3.5, 3.5, true);
       setBoard(E.shuffleBoard(b, rng));
-      await E.sleep(350);
+      await wait(350);
     }
   };
 
-  const locked = () => busyRef.current || endedRef.current || (cfg.time != null && hudRef.current.time <= 0);
+  const locked = () => busyRef.current || endedRef.current || finaleRef.current || (cfg.time != null && hudRef.current.time <= 0);
 
   const trySwap = async (a, d) => {
     if (locked()) return;
@@ -129,15 +183,22 @@ export function useGame(cfg, opts) {
     const ta = B[a[0]][a[1]], td = B[d[0]][d[1]];
     if (!ta || !td) return;
     setBusy(true); setSelected(null); setHint(null);
-    const nb = E.swapped(B, a, d);
+    let nb = E.swapped(B, a, d);
     setBoard(nb); sfx.swap();
     await E.sleep(190);
     let step = null;
-    if (ta.type === E.DISCO || td.type === E.DISCO) step = E.discoStep(nb, a, d);
-    else if (ta.special && td.special) step = { clear: new Set([E.key(...a), E.key(...d)]), create: [] };
-    else {
-      const runs = E.findRuns(nb);
-      if (runs.length) step = E.resolveRuns(runs, [a, d]);
+    if (ta.type === E.DISCO || td.type === E.DISCO || (ta.special && td.special)) {
+      const res = E.comboStep(nb, a, d);
+      if (res.board.some((row, r) => row.some((t, c) => t !== nb[r][c]))) {
+        nb = res.board;
+        setBoard(nb);
+        await E.sleep(320);
+      }
+      step = res.step;
+      if (ta.special && td.special) addPopup("Mega Combo!", 3.5, 3.5, true);
+    } else {
+      const m = E.findMatches(nb);
+      if (m.runs.length || m.squares.length) step = E.resolveMatches(m, [a, d]);
     }
     if (!step) {
       setBoard(B); sfx.bad();
@@ -145,6 +206,7 @@ export function useGame(cfg, opts) {
       setBusy(false);
       return;
     }
+    if (E.isDiagonal(a, d)) sess.current.diagonals += 1;
     if (hudRef.current.moves != null) patchHud((h) => ({ moves: h.moves - 1 }));
     await cascade(nb, step);
     setBusy(false);
@@ -166,7 +228,7 @@ export function useGame(cfg, opts) {
     if (!selected) return setSelected([r, c]);
     const [sr, sc] = selected;
     if (sr === r && sc === c) return setSelected(null);
-    if (Math.abs(sr - r) + Math.abs(sc - c) === 1) return trySwap(selected, [r, c]);
+    if (Math.max(Math.abs(sr - r), Math.abs(sc - c)) === 1) return trySwap(selected, [r, c]);
     setSelected([r, c]);
   };
 
@@ -215,7 +277,8 @@ export function useGame(cfg, opts) {
   }, [board, busy, ended]);
 
   return {
-    board, kente, hud, busy, ended, popping, popups, selected, hint, armed, sess: sess.current,
+    board, kente, hud, busy, ended, popping, popups, effects, shake, finale, selected, hint, armed, sess: sess.current,
+    skipFinale: () => { skipRef.current = true; },
     tapCell, trySwap, activatePower, continueGame, cashOut: () => !busyRef.current && finish(true),
     giveUp: () => setEnded({ ...endedRef.current, gaveUp: true }),
     kenteLeft: E.countKente(kente),

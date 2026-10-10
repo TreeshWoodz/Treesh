@@ -21,29 +21,59 @@ export function mulberry32(seed) {
   };
 }
 
-function scanLine(get, len, dir, fixed, runs) {
-  let i = 0;
-  while (i < len) {
-    const t = get(i)?.type;
-    let e = i + 1;
-    if (t != null && t !== DISCO) {
-      while (e < len && get(e)?.type === t) e++;
-      if (e - i >= 3) {
+const LINES = (() => {
+  const L = [];
+  for (let r = 0; r < ROWS; r++) L.push({ dir: "h", cells: Array.from({ length: COLS }, (_, c) => [r, c]) });
+  for (let c = 0; c < COLS; c++) L.push({ dir: "v", cells: Array.from({ length: ROWS }, (_, r) => [r, c]) });
+  [[1, 1, "d1"], [1, -1, "d2"]].forEach(([dr, dc, dir]) => {
+    for (let r0 = 0; r0 < ROWS; r0++)
+      for (let c0 = 0; c0 < COLS; c0++) {
+        if (inside(r0 - dr, c0 - dc)) continue;
         const cells = [];
-        for (let k = i; k < e; k++) cells.push(dir === "h" ? [fixed, k] : [k, fixed]);
-        runs.push({ dir, type: t, cells });
+        for (let r = r0, c = c0; inside(r, c); r += dr, c += dc) cells.push([r, c]);
+        if (cells.length >= 3) L.push({ dir, cells });
       }
-    }
-    i = e;
-  }
-}
+  });
+  return L;
+})();
 
 export function findRuns(b) {
   const runs = [];
-  for (let r = 0; r < ROWS; r++) scanLine((i) => b[r][i], COLS, "h", r, runs);
-  for (let c = 0; c < COLS; c++) scanLine((i) => b[i][c], ROWS, "v", c, runs);
+  for (const line of LINES) {
+    const n = line.cells.length;
+    let i = 0;
+    while (i < n) {
+      const [r, c] = line.cells[i];
+      const t = b[r][c]?.type;
+      let e = i + 1;
+      if (t != null && t !== DISCO) {
+        while (e < n && b[line.cells[e][0]][line.cells[e][1]]?.type === t) e++;
+        if (e - i >= 3) runs.push({ dir: line.dir, type: t, cells: line.cells.slice(i, e) });
+      }
+      i = e;
+    }
+  }
   return runs;
 }
+
+export function findSquares(b) {
+  const sq = [];
+  for (let r = 0; r < ROWS - 1; r++)
+    for (let c = 0; c < COLS - 1; c++) {
+      const t = b[r][c]?.type;
+      if (t == null || t === DISCO) continue;
+      if (b[r][c + 1]?.type === t && b[r + 1][c]?.type === t && b[r + 1][c + 1]?.type === t)
+        sq.push({ type: t, cells: [[r, c], [r, c + 1], [r + 1, c], [r + 1, c + 1]] });
+    }
+  return sq;
+}
+
+export const findMatches = (b) => ({ runs: findRuns(b), squares: findSquares(b) });
+export const hasMatch = (b) => {
+  const m = findMatches(b);
+  return m.runs.length + m.squares.length > 0;
+};
+export const isDiagonal = (a, d) => a[0] !== d[0] && a[1] !== d[1];
 
 export function swapped(b, a, d) {
   const n = b.map((row) => row.slice());
@@ -56,13 +86,13 @@ export function swapped(b, a, d) {
 export function findHint(b) {
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      for (const [dr, dc] of [[0, 1], [1, 0]]) {
+      for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
         const r2 = r + dr, c2 = c + dc;
         if (!inside(r2, c2)) continue;
         const x = b[r][c], y = b[r2][c2];
         if (!x || !y) continue;
         if (x.type === DISCO || y.type === DISCO || (x.special && y.special)) return [[r, c], [r2, c2]];
-        if (findRuns(swapped(b, [r, c], [r2, c2])).length) return [[r, c], [r2, c2]];
+        if (hasMatch(swapped(b, [r, c], [r2, c2]))) return [[r, c], [r2, c2]];
       }
     }
   }
@@ -78,71 +108,94 @@ export function createBoard(n, rng, dropIn = true) {
     for (let r = 0; r < ROWS; r++) {
       const row = [];
       for (let c = 0; c < COLS; c++) {
+        const bad = (t) => {
+          const at = (y, x) => (y === r ? row[x] : b[y]?.[x])?.type === t;
+          return (at(r, c - 1) && at(r, c - 2)) || (at(r - 1, c) && at(r - 2, c)) || (at(r - 1, c - 1) && at(r - 2, c - 2)) ||
+            (at(r - 1, c + 1) && at(r - 2, c + 2)) || (at(r, c - 1) && at(r - 1, c) && at(r - 1, c - 1));
+        };
         let t, guard = 0;
         do {
           t = rand(rng, n);
           guard++;
-        } while (
-          guard < 30 &&
-          ((c >= 2 && row[c - 1].type === t && row[c - 2].type === t) ||
-            (r >= 2 && b[r - 1][c].type === t && b[r - 2][c].type === t))
-        );
+        } while (guard < 30 && bad(t));
         row.push(newTile(t, null, dropIn ? r - ROWS : undefined));
       }
       b.push(row);
     }
-    if (!findRuns(b).length && hasMoves(b)) return b;
+    if (!hasMatch(b) && hasMoves(b)) return b;
   }
   return b;
 }
 
-export function resolveRuns(runs, focus = []) {
+export const SPECIAL_KINDS = ["row", "col", "bomb", "x", "cross"];
+
+export function resolveMatches({ runs, squares }, focus = []) {
   const clear = new Set();
   const create = [];
+  const taken = new Set();
   const used = new Set();
-  const focusKeys = new Set(focus.map((p) => key(p[0], p[1])));
+  const fk = new Set(focus.map((p) => key(p[0], p[1])));
+  const place = (cells, type, special, pref) => {
+    const pick = cells.find((p) => fk.has(key(...p)) && !taken.has(key(...p))) || pref || cells[Math.floor(cells.length / 2)];
+    const spot = taken.has(key(...pick)) ? cells.find((p) => !taken.has(key(...p))) : pick;
+    if (!spot) return;
+    taken.add(key(...spot));
+    create.push({ r: spot[0], c: spot[1], type, special });
+  };
+  runs.forEach((run, i) => {
+    if (run.cells.length >= 5) {
+      used.add(i);
+      place(run.cells, DISCO, "disco");
+    }
+  });
   runs.forEach((h, i) => {
     if (h.dir !== "h") return;
-    const hk = new Set(h.cells.map((p) => key(p[0], p[1])));
     runs.forEach((v, j) => {
       if (v.dir !== "v" || used.has(i) || used.has(j) || v.type !== h.type) return;
-      const inter = v.cells.find((p) => hk.has(key(p[0], p[1])));
-      if (!inter) return;
+      const hi = h.cells.findIndex((p) => v.cells.some((q) => q[0] === p[0] && q[1] === p[1]));
+      if (hi < 0) return;
+      const p = h.cells[hi];
+      const vi = v.cells.findIndex((q) => q[0] === p[0] && q[1] === p[1]);
+      const plus = hi > 0 && hi < h.cells.length - 1 && vi > 0 && vi < v.cells.length - 1;
       used.add(i);
       used.add(j);
-      create.push({ r: inter[0], c: inter[1], type: h.type, special: "bomb" });
+      place([...h.cells, ...v.cells], h.type, plus ? "cross" : "bomb", p);
     });
+  });
+  const groups = [];
+  squares.forEach((sq) => {
+    const g = groups.find((x) => x.type === sq.type && sq.cells.some((p) => x.keys.has(key(...p))));
+    if (g) sq.cells.forEach((p) => g.keys.add(key(...p)));
+    else groups.push({ type: sq.type, keys: new Set(sq.cells.map((p) => key(...p))) });
+  });
+  groups.forEach((g) => {
+    const cells = [...g.keys].map(parseKey);
+    cells.forEach((p) => clear.add(key(...p)));
+    place(cells, g.type, cells.length >= 6 ? "nova" : "x");
   });
   runs.forEach((run, i) => {
     run.cells.forEach((p) => clear.add(key(p[0], p[1])));
-    const len = run.cells.length;
-    if (used.has(i) || len < 4) return;
-    const pos = run.cells.find((p) => focusKeys.has(key(p[0], p[1]))) || run.cells[Math.floor(len / 2)];
-    create.push(
-      len >= 5
-        ? { r: pos[0], c: pos[1], type: DISCO, special: "disco" }
-        : { r: pos[0], c: pos[1], type: run.type, special: run.dir === "h" ? "col" : "row" }
-    );
+    if (used.has(i) || run.cells.length !== 4) return;
+    place(run.cells, run.type, run.dir === "h" ? "col" : run.dir === "v" ? "row" : "x");
   });
   return { clear, create };
 }
 
-export function discoStep(b, pa, pb) {
-  const A = b[pa[0]][pa[1]], B = b[pb[0]][pb[1]];
-  const clear = new Set([key(...pa), key(...pb)]);
-  const pre = new Set();
-  if (A.type === DISCO && B.type === DISCO) {
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) clear.add(key(r, c));
-    pre.add(key(...pa));
-    pre.add(key(...pb));
-  } else {
-    const [d, other] = A.type === DISCO ? [pa, B] : [pb, A];
-    pre.add(key(...d));
-    for (let r = 0; r < ROWS; r++)
-      for (let c = 0; c < COLS; c++) if (b[r][c]?.type === other.type) clear.add(key(r, c));
-  }
-  return { clear, create: [], pre };
-}
+const lineCells = (r, c, dr, dc) => {
+  const out = [];
+  for (let k = -7; k <= 7; k++) if (inside(r + dr * k, c + dc * k)) out.push([r + dr * k, c + dc * k]);
+  return out;
+};
+const areaCells = (r, c, rad) => {
+  const out = [];
+  for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) if (inside(r + dr, c + dc)) out.push([r + dr, c + dc]);
+  return out;
+};
+const allCells = (b, pred) => {
+  const out = [];
+  b.forEach((row, r) => row.forEach((t, c) => t && pred(t) && out.push([r, c])));
+  return out;
+};
 
 function mostCommonType(b) {
   const counts = {};
@@ -152,24 +205,78 @@ function mostCommonType(b) {
   return Number(Object.entries(counts).sort((x, y) => y[1] - x[1])[0]?.[0] ?? 0);
 }
 
-export function expandClear(b, clear, pre = new Set()) {
+export function comboStep(b, a, d) {
+  const A = b[a[0]][a[1]], B = b[d[0]][d[1]];
+  const board = b.map((row) => row.slice());
+  const clear = new Set([key(...a), key(...d)]);
+  const pre = new Set([key(...a), key(...d)]);
+  const effects = [];
+  const add = (cells) => cells.forEach((p) => clear.add(key(...p)));
+  const [r, c] = d;
+  const kinds = [A.special, B.special];
+  const has = (k) => kinds.includes(k);
+  const lines = ["row", "col", "cross"];
+  if (A.type === DISCO && B.type === DISCO) {
+    add(allCells(b, () => true));
+    effects.push({ kind: "ring", r, c, size: 18, big: true });
+  } else if (A.type === DISCO || B.type === DISCO) {
+    const [dp, other] = A.type === DISCO ? [a, B] : [d, A];
+    const targets = allCells(b, (t) => t.type === other.type);
+    if (other.special) {
+      targets.forEach(([y, x]) => { board[y][x] = { ...board[y][x], special: other.special }; });
+      pre.clear();
+      pre.add(key(...dp));
+    }
+    add(targets);
+    effects.push({ kind: "bolt", r: dp[0], c: dp[1], targets });
+  } else if (has("nova")) {
+    add(areaCells(r, c, 3));
+    effects.push({ kind: "ring", r, c, size: 7, big: true });
+  } else if (A.special === "bomb" && B.special === "bomb") {
+    add(areaCells(r, c, 2));
+    effects.push({ kind: "ring", r, c, size: 5, big: true });
+  } else if (has("x")) {
+    [[1, 1], [1, -1], [0, 1], [1, 0]].forEach(([dr, dc]) => add(lineCells(r, c, dr, dc)));
+    if (has("bomb")) add(areaCells(r, c, 1));
+    if (A.special === "x" && B.special === "x") [[1, 1], [1, -1]].forEach(([dr, dc]) => add(lineCells(a[0], a[1], dr, dc)));
+    effects.push({ kind: "x", r, c }, { kind: "row", r }, { kind: "col", c });
+  } else if (has("bomb") && lines.some(has)) {
+    for (let k = -1; k <= 1; k++) {
+      if (inside(r + k, 0)) { add(lineCells(r + k, c, 0, 1)); effects.push({ kind: "row", r: r + k }); }
+      if (inside(0, c + k)) { add(lineCells(r, c + k, 1, 0)); effects.push({ kind: "col", c: c + k }); }
+    }
+  } else {
+    add(lineCells(r, c, 0, 1));
+    add(lineCells(r, c, 1, 0));
+    add(lineCells(a[0], a[1], 0, 1));
+    add(lineCells(a[0], a[1], 1, 0));
+    effects.push({ kind: "row", r }, { kind: "col", c }, { kind: "row", r: a[0] }, { kind: "col", c: a[1] });
+  }
+  return { board, step: { clear, create: [], pre, effects } };
+}
+
+export function expandClear(b, clear, pre = new Set(), baseEffects = []) {
   const result = new Set(clear);
   const queue = [...clear];
   const triggered = new Set(pre);
+  const effects = [...baseEffects];
   while (queue.length) {
     const k = queue.pop();
     const [r, c] = parseKey(k);
     const t = b[r][c];
     if (!t || !t.special || triggered.has(k)) continue;
     triggered.add(k);
-    const cells = [];
-    if (t.special === "row") for (let x = 0; x < COLS; x++) cells.push([r, x]);
-    if (t.special === "col") for (let y = 0; y < ROWS; y++) cells.push([y, c]);
-    if (t.special === "bomb")
-      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (inside(r + dr, c + dc)) cells.push([r + dr, c + dc]);
-    if (t.special === "disco") {
+    const s = t.special;
+    let cells = [];
+    if (s === "row" || s === "cross") { cells.push(...lineCells(r, c, 0, 1)); effects.push({ kind: "row", r }); }
+    if (s === "col" || s === "cross") { cells.push(...lineCells(r, c, 1, 0)); effects.push({ kind: "col", c }); }
+    if (s === "x") { cells.push(...lineCells(r, c, 1, 1), ...lineCells(r, c, 1, -1)); effects.push({ kind: "x", r, c }); }
+    if (s === "bomb") { cells = areaCells(r, c, 1); effects.push({ kind: "ring", r, c, size: 3 }); }
+    if (s === "nova") { cells = areaCells(r, c, 2); effects.push({ kind: "ring", r, c, size: 5, big: true }); }
+    if (s === "disco") {
       const type = mostCommonType(b);
-      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (b[y][x]?.type === type) cells.push([y, x]);
+      cells = allCells(b, (x) => x.type === type);
+      effects.push({ kind: "bolt", r, c, targets: cells });
     }
     cells.forEach(([y, x]) => {
       const kk = key(y, x);
@@ -179,7 +286,7 @@ export function expandClear(b, clear, pre = new Set()) {
       }
     });
   }
-  return result;
+  return { cells: result, effects };
 }
 
 export function gravity(board, rng, n) {
@@ -210,7 +317,7 @@ export function shuffleBoard(b, rng) {
     }
     nb = [];
     for (let r = 0; r < ROWS; r++) nb.push(tiles.slice(r * COLS, r * COLS + COLS));
-    if (!findRuns(nb).length && hasMoves(nb)) return nb;
+    if (!hasMatch(nb) && hasMoves(nb)) return nb;
   }
   return nb;
 }
