@@ -17,6 +17,7 @@ function reasonText(r) {
     bride: 'She heard you. She always hears you.',
     bestie: 'You didn\u2019t finish his 12 favors in time. Bestie is SO disappointed in you.',
     teacher: 'Miss Florence turned around. She saw everything. You\u2019re staying after class. Forever.',
+    baby: 'You lost the baby. The parents came home early. They are not angry. They are hungry.',
     teacher_time: 'The bell rang and your work wasn\u2019t done. Miss Florence keeps you after class. Forever.',
     bestie_you: 'Eeny, meeny, miny\u2026 YOU. Bestie picked you. He always had a favorite.',
     quit: 'You gave up. Something was waiting right behind you.'
@@ -86,7 +87,7 @@ function shake(lvl) { if (!S.set.shake) return; const g = $('#app'); g.classList
 /* ---------- Run lifecycle ---------- */
 function startRun(modeId, bring, opts = {}) {
   Run.daily = !!opts.daily; if (Run.daily) { modeId = 'classic'; bring = []; }
-  Run.killer = modeId === 'bestie' ? 'bestie' : modeId === 'detention' ? 'teacher' : (modeId === 'classic' || modeId === 'hush') && !Run.daily && killerUnlocked(S.killer) ? S.killer : 'hush';
+  Run.killer = modeId === 'bestie' ? 'bestie' : modeId === 'detention' ? 'teacher' : modeId === 'babysit' ? 'baby' : (modeId === 'classic' || modeId === 'hush') && !Run.daily && killerUnlocked(S.killer) ? S.killer : 'hush';
   Run.dailyOfficial = false; Run.diff = Run.daily ? 'normal' : S.diff;
   if (Run.daily) {
     const di = dailyInfo(); Run.dailyKey = di.key; Run.bagRng = mulberry32(hashStr(di.key + ':bag'));
@@ -106,6 +107,7 @@ function startRun(modeId, bring, opts = {}) {
 function nextMini() {
   if (Run.mode === 'bestie') return bestieMini();
   if (Run.mode === 'detention') return teacherMini();
+  if (Run.mode === 'babysit') return babyMini();
   if (Run.mode === 'lullaby') { Run.lull++; return MINIS[Run.lull % 2 ? 'lullaby_pitch' : 'lullaby_level']; }
   if (Run.mode === 'impress') { if (!Run.bag.length) Run.bag = shuffle(IMPRESSIONS); return impressMini(Run.bag.pop()); }
   if (!Run.bag.length) { Run.bag = Run.daily ? seededShuffle(CLASSIC_ROOMS, Run.bagRng) : shuffle(CLASSIC_ROOMS); if (Run.lastRoom && Run.bag[Run.bag.length - 1] === Run.lastRoom) Run.bag.unshift(Run.bag.pop()); }
@@ -118,7 +120,7 @@ function nextRound() {
   R = { mini: m, n, mods, t: 0, progress: 0, done: false, started: false, k: makeKiller(n, mods, m), shieldUntil: 0, adrenUntil: 0, lastActive: -9, loudT: 0, noise: 0 };
   R.limit = (m.limit ? m.limit(n) : 30 + Math.min(10, n * 0.3)) * (m.survive ? 1 : mods.timeMult) * (m.noKiller ? mods.imp : 1) + (m.noKiller ? 0 : mods.time);
   $('#h-night').textContent = n; $('#h-room').textContent = m.name; $('#act-bg').style.backgroundImage = `url(${img(m.room)})`;
-  $('#act').classList.toggle('v-bestie', m.view === 'bestie'); $('#scr-game').classList.toggle('bestie-full', m.view === 'bestie' || m.view === 'teacher'); $('#act').style.setProperty('--light', lightRGB()); $('#act').style.setProperty('--sub', `url(${img(Run.killer === 'bride' ? 'bride_scare' : 'hush_scare')})`); $('#h-time').hidden = mods.hideView; $('#nm-lim').hidden = mods.hideView;
+  $('#act').classList.toggle('v-bestie', m.view === 'bestie'); $('#scr-game').classList.toggle('bestie-full', m.view === 'bestie' || m.view === 'teacher' || m.view === 'baby'); $('#act').style.setProperty('--light', lightRGB()); $('#act').style.setProperty('--sub', `url(${img(Run.killer === 'bride' ? 'bride_scare' : 'hush_scare')})`); $('#h-time').hidden = mods.hideView; $('#nm-lim').hidden = mods.hideView;
   const btn = $('#act-btn'); btn.hidden = !!m.noBtn; btn.innerHTML = `<i data-lucide="${m.icon}"></i><span>${esc(m.verb || '')}</span><kbd class="kb-hint">Space</kbd><b class="gp pad-hint" data-b="A">A</b>`;
   $('#vm').hidden = Run.mode !== 'hush' || Run.killer === 'bride'; $('#nm').hidden = Run.killer !== 'bride'; $('#act-stage').innerHTML = ''; renderItems(); renderKiller(); updateHud();
   const intro = $('#act-intro');
