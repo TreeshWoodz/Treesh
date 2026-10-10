@@ -97,19 +97,6 @@ document.addEventListener('keydown', e => {
   else if (k === 'Enter' || k === ' ') { e.preventDefault(); const it = $$('#scr-title .mm-item')[UI.menuIdx]; if (it) it.click(); }
 });
 
-/* ---------- Story ---------- */
-function renderStory(thenPlay) {
-  const n = esc(Treesh.name());
-  const panels = [
-    ['key_art', `${n}. Wake up. Quietly.`, `You don\u2019t remember the drive. You remember headlights, then nothing. Now you\u2019re in an old house that smells like wet wood and pennies.`],
-    ['hush_front', 'This is Mr. Hush.', `He rarely speaks. When he does, it\u2019s already too late. He watches. He has one rule, and he lets his guests learn it the hard way: <b>he only kills what he sees.</b>`],
-    ['room_door', 'So work while he isn\u2019t looking.', `Pick the locks. Call for help. Clean up what you\u2019ve done. Every night is a new room. Listen for his footsteps. When he turns, <b>freeze</b>.`],
-    ['hush_back', 'Survive until dawn.', `Every five nights a window opens. Escape and keep your Starlites, or go deeper for more. And if you last ten nights\u2026 something else in this house wakes up. It can\u2019t see you. It doesn\u2019t need to.`]
-  ];
-  $('#scr-story').innerHTML = `${subTop('The Story')}<div class="story">${panels.map((p, i) => `<article class="panel" style="--d:${i * 0.15}s"><div class="panel-img" style="background-image:url(${img(p[0])})"></div><div><h3>${p[1]}</h3><p>${p[2]}</p></div></article>`).join('')}
-  <div class="row center"><button class="btn btn-acc btn-xl" data-act="${thenPlay ? 'story-done' : 'go'}" data-to="title" data-testid="story-continue-btn"><i data-lucide="${thenPlay ? 'skull' : 'arrow-left'}"></i>${thenPlay ? 'I understand' : 'Back'}</button></div></div>`;
-  icons();
-}
 
 /* ---------- Shop ---------- */
 function renderShop() {
@@ -247,7 +234,7 @@ function openSettings() {
 }
 
 /* ---------- Events ---------- */
-const GO = { title: renderTitle, gallery: renderGallery, shop: renderShop, trophies: renderTrophies, story: () => renderStory(false), loadout: renderLoadout };
+const GO = { title: renderTitle, gallery: renderGallery, shop: renderShop, trophies: renderTrophies, story: renderStory, loadout: renderLoadout };
 function go(to) { (GO[to] || renderTitle)(); show('scr-' + to); }
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) { if (e.target.id === 'modal') closeModal(); return; }
@@ -259,8 +246,8 @@ document.addEventListener('click', e => {
     case 'splash': dismissSplash(); break;
     case 'mode-step': modeStep(+t.dataset.d); break;
     case 'mode-classic': Mic.stop(); S.mode = 'classic'; save(); go('loadout'); break;
-    case 'play': if (!S.seenStory) { renderStory(true); show('scr-story'); } else go('loadout'); break;
-    case 'story-done': S.seenStory = true; save(); go('loadout'); break;
+    case 'play': go('loadout'); break;
+    case 'story-play': playStory(id, () => { S.seenStories = S.seenStories || {}; S.seenStories[id] = true; save(); renderStory(); Sfx.menuMusic(true); }, true); break;
     case 'story-replay': closeModal(); go('story'); break;
     case 'settings': openSettings(); break;
     case 'close-modal': closeModal(); break;
@@ -276,7 +263,7 @@ document.addEventListener('click', e => {
     case 'buy': { const it = itemById(id); if (Treesh.spend(it.cost, 'DGC: ' + it.name)) { S.inv[id] = (S.inv[id] || 0) + 1; S.stats.bought++; save(); unlock('shopper'); Sfx.chime([660, 990]); toast('Bought ' + it.name, 'Owned: ' + S.inv[id]); renderShop(); } else toast('Not enough Starlites', '', 'bad'); break; }
     case 'demo-stars': { const st = Treesh.stars(); st.points = (st.points || 0) + 500; LS.set('treesh_stars', st); Treesh.ping(); renderShop(); break; }
     case 'lo-toggle': { const i = UI.loadout.indexOf(id); if (i >= 0) UI.loadout.splice(i, 1); else if (UI.loadout.length < 3) UI.loadout.push(id); else toast('Your pockets are full', 'Bring up to 3 items'); renderLoadout(); break; }
-    case 'go-run': if (modeById(S.mode).voice) micSetup(); else startRun(S.mode, UI.loadout); break;
+    case 'go-run': storyGate(S.mode, () => { if (modeById(S.mode).voice) micSetup(); else startRun(S.mode, UI.loadout); }); break;
     case 'start-run': startRun(S.mode, UI.loadout); break;
     case 'retry': go('loadout'); break;
     case 'daily': closeModal(); renderDaily(); show('scr-loadout'); break;
