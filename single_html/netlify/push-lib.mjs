@@ -1,11 +1,14 @@
 // Treesh Web Push, shared by netlify/functions/push.mjs and netlify/functions/deploy-succeeded.mjs.
 // Netlify env vars: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY (one key pair, never change it), SUPABASE_SECRET_KEY (server only),
-// PUSH_HOOK_SECRET (same value as in supabase_push.sql), plus the existing SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY. Optional: VAPID_SUBJECT.
+// PUSH_HOOK_SECRET (the value supabase_push.sql shows when it finishes), plus the existing SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY. Optional: VAPID_SUBJECT.
+// Also accepted: SUPABASE_ANON_KEY for the publishable key (what M.A.D. uses) and SUPABASE_SERVICE_ROLE_KEY for the secret key.
 import webpush from 'web-push';
 import { timingSafeEqual } from 'node:crypto';
 
 export const env = k => String(process.env[k] || '').trim();
-export const ready = () => !!(env('VAPID_PUBLIC_KEY') && env('VAPID_PRIVATE_KEY') && env('SUPABASE_URL') && env('SUPABASE_SECRET_KEY'));
+const secretKey = () => env('SUPABASE_SECRET_KEY') || env('SUPABASE_SERVICE_ROLE_KEY');
+const pubKey = () => env('SUPABASE_PUBLISHABLE_KEY') || env('SUPABASE_ANON_KEY');
+export const ready = () => !!(env('VAPID_PUBLIC_KEY') && env('VAPID_PRIVATE_KEY') && env('SUPABASE_URL') && secretKey());
 const SB = () => env('SUPABASE_URL').replace(/\/+$/, '');
 export const enc = encodeURIComponent;
 export const json = (status, body, cache) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': cache ? `public, max-age=${cache}` : 'no-store', 'X-Content-Type-Options': 'nosniff' } });
@@ -15,7 +18,7 @@ export function sameSecret(a, b){ const x = Buffer.from(String(a || '')), y = Bu
 
 /* Supabase REST with the secret key (the push tables have no public access). New sb_secret_ keys go in apikey only. */
 export async function db(path, { method = 'GET', body, prefer } = {}){
-  const key = env('SUPABASE_SECRET_KEY'), h = { apikey: key, 'Content-Type': 'application/json' };
+  const key = secretKey(), h = { apikey: key, 'Content-Type': 'application/json' };
   if (/^eyJ/.test(key)) h.Authorization = `Bearer ${key}`;
   if (prefer) h.Prefer = prefer;
   const r = await fetch(`${SB()}/rest/v1/${path}`, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -30,9 +33,9 @@ export async function allSubs(){ const out = [];
 /* who is calling (Supabase session token) */
 export const bearer = req => ((req.headers.get('authorization') || '').match(/^Bearer\s+(\S{6,4096})$/i) || [])[1] || '';
 export async function userId(tok){
-  try { const r = await fetch(`${SB()}/auth/v1/user`, { headers: { apikey: env('SUPABASE_PUBLISHABLE_KEY'), Authorization: `Bearer ${tok}` } }); if (!r.ok) return null; const u = await r.json(); return (u && u.id) || null; } catch { return null; } }
+  try { const r = await fetch(`${SB()}/auth/v1/user`, { headers: { apikey: pubKey(), Authorization: `Bearer ${tok}` } }); if (!r.ok) return null; const u = await r.json(); return (u && u.id) || null; } catch { return null; } }
 export async function myStatus(tok){
-  try { const r = await fetch(`${SB()}/rest/v1/rpc/my_status`, { method: 'POST', headers: { apikey: env('SUPABASE_PUBLISHABLE_KEY'), Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: '{}' }); if (!r.ok) return null; return await r.json(); } catch { return null; } }
+  try { const r = await fetch(`${SB()}/rest/v1/rpc/my_status`, { method: 'POST', headers: { apikey: pubKey(), Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: '{}' }); if (!r.ok) return null; return await r.json(); } catch { return null; } }
 
 /* only real push services (plus PUSH_EXTRA_HOSTS for local tests) */
 const HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];

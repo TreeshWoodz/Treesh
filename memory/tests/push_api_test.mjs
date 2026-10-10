@@ -1,6 +1,6 @@
 // API tests for netlify/functions/push.mjs + deploy-succeeded.mjs. Start the harness first: node /app/memory/tests/push_dev.mjs
 const B = process.env.PUSH_DEV || 'http://localhost:8791';
-const V = JSON.parse((await import('node:fs')).readFileSync('/app/memory/vapid_keys.json', 'utf8'));
+const V = JSON.parse((await import('node:fs')).readFileSync('/app/memory/tests/vapid_test_keys.json', 'utf8'));
 let pass = 0, fail = 0; const bad = [];
 const ok = (c, m) => { if (c){ pass++; } else { fail++; bad.push(m); console.log('FAIL', m); } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));

@@ -1,7 +1,7 @@
 // Treesh Icon edits (Netlify Function). Verified Treesh Icons send edits to their own content as pull requests;
 // Treesh admins approve (merge) or reject (close) them from the Moderation dashboard. GITHUB_TOKEN never leaves the server.
 // Netlify env vars: GITHUB_TOKEN (required, same as M.A.D.), SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY (required, the public values treesh.app uses),
-// MAD_REPO (optional, default TreeshWoodz/Treesh), MAD_BRANCH (optional, default main),
+// (SUPABASE_ANON_KEY is accepted instead of SUPABASE_PUBLISHABLE_KEY), MAD_REPO (optional, default TreeshWoodz/Treesh), MAD_BRANCH (optional, default main),
 // ICON_CLOUD_NAME + ICON_CLOUD_PRESET (+ ICON_CLOUD_FOLDER) (optional: unsigned Cloudinary preset so Icons can upload audio/art).
 import { createHash } from 'node:crypto';
 
@@ -12,6 +12,7 @@ const BASE = process.env.MAD_BRANCH || 'main';
 const FILES = { songs: 'content/songs.html', lyrics: 'content/lyrics.html', icons: 'content/icons.html' };
 const KIND_OF = Object.fromEntries(Object.entries(FILES).map(([k, v]) => [v, k]));
 const PREFIX = 'icon/';
+const SB_PUB = () => process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const fail = (status, message, code) => json(status, { message, code });
@@ -41,7 +42,7 @@ async function who(req){
   if (hit && hit.exp > Date.now()) return hit.v;
   let v = null;
   try {
-    const r = await fetch(`${process.env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/my_status`, { method: 'POST', headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: '{}' });
+    const r = await fetch(`${process.env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/my_status`, { method: 'POST', headers: { apikey: SB_PUB(), Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: '{}' });
     if (r.ok){ const d = await r.json(); if (d && typeof d === 'object') v = { ...d, uid: jwtSub(tok) }; }
   } catch {}
   if (whoCache.size > 500) whoCache.clear();
@@ -333,7 +334,7 @@ async function edits(req, me, rest, method, url){
 
 /* ---------- entry ---------- */
 export default async (req) => {
-  if (!process.env.GITHUB_TOKEN || !process.env.SUPABASE_URL || !process.env.SUPABASE_PUBLISHABLE_KEY) return fail(500, 'Icon edits aren’t set up: add GITHUB_TOKEN, SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in Netlify, then redeploy.', 'setup');
+  if (!process.env.GITHUB_TOKEN || !process.env.SUPABASE_URL || !SB_PUB()) return fail(500, 'Icon edits aren’t set up: add GITHUB_TOKEN, SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in Netlify, then redeploy.', 'setup');
   const url = new URL(req.url), method = req.method.toUpperCase();
   const sub = url.pathname.replace(/^\/api\/icon/, '').replace(/\/+$/, '');
   try {

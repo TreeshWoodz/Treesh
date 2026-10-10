@@ -10,10 +10,13 @@
 (function(){ try{
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations().then(function(rs){
-      var had = rs && rs.length>0;
-      (rs||[]).forEach(function(r){ try{ r.unregister(); }catch(e){} });
+      /* keep sw-push.js (push notifications, no caching); clear anything older */
+      var isPush = function(w){ return !!w && /\/sw-push\.js(\?|$)/.test(w.scriptURL||''); };
+      var old = (rs||[]).filter(function(r){ return !isPush(r.active||r.waiting||r.installing); });
+      var had = old.length>0, ctl = navigator.serviceWorker.controller;
+      old.forEach(function(r){ try{ r.unregister(); }catch(e){} });
       if(window.caches && caches.keys){ caches.keys().then(function(ks){ (ks||[]).forEach(function(k){ try{ caches.delete(k); }catch(e){} }); }).catch(function(){}); }
-      if(had && navigator.serviceWorker.controller && !sessionStorage.getItem('treesh_sw_cleared')){
+      if(had && ctl && !isPush(ctl) && !sessionStorage.getItem('treesh_sw_cleared')){
         try{ sessionStorage.setItem('treesh_sw_cleared','1'); }catch(e){}
         setTimeout(function(){ location.reload(); }, 400);
       }
@@ -8980,7 +8983,7 @@ function renderShell(){
   const _shellHtml=`
   <aside class="nav-glass fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
     <div class="px-6 pb-4 pt-6"><img src="${TREESH_LOGO}" alt="Treesh" draggable="false" class="h-9 w-auto select-none object-contain" onerror="brandFallback(this)"><p class="brand-fallback font-display text-2xl uppercase tracking-[0.1em] text-white" style="display:none">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Welcome to the Woodz</p></div>
-    <nav class="flex flex-col gap-1 px-3">${mkNav(NAV).map(n=>navItem(n[0],n[1],n[2],false)).join("")}
+    <nav class="flex flex-col gap-1 px-3">${mkNavDesk().map(n=>navItem(n[0],n[1],n[2],false)).join("")}
     </nav>
     <div class="mx-3 my-2 h-px bg-white/8"></div>
     ${sidebarLibraryHtml()}
@@ -22983,7 +22986,7 @@ document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.tar
     case 'pu-ask-no': puAskDone(); break; } });
 
 /* ---------- P9zzg: "new version" banner (version.json, written by the build), Treesh news in the notification center, Moderation → Announcements ---------- */
-const TREESH_VER='6192465b75';
+const TREESH_VER='1da25c5373';
 const _ver={next:null,at:0,busy:false};
 async function verCheck(force){ if(/^__/.test(TREESH_VER)||_ver.busy||navigator.onLine===false) return; if(!force&&Date.now()-_ver.at<6e4) return; _ver.busy=true; _ver.at=Date.now();
   try{ const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); if(!j||!j.v||j.v===TREESH_VER) return; _ver.next=j; verShow(); }catch(e){} finally{ _ver.busy=false; } }
@@ -23081,6 +23084,15 @@ document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.tar
     case 'an-send': anSend(); break; } });
 (function(){ const W=WHATS_NEW.settings; if(!W) return; W.v=(W.v||0)+1; W.date='October 10, 2026'; W.sub='Treesh can reach you now, even when it\u2019s closed.';
   W.items=[{icon:'bell-ring',title:'Push notifications',desc:'Turn them on in Settings, Notifications to get friend requests, account updates and Treesh news on your lock screen. On iPhone and iPad, add Treesh to your Home Screen first.'},{icon:'sparkles',title:'Know when there\u2019s a new version',desc:'A banner lets you know the moment a fresh Treesh is live. Tap Refresh to get it.'}].concat((W.items||[]).slice(0,3)); })();
+
+/* ---------- P9zzh: desktop sidebar reads Home, Icons, Studios, Game (phones keep Game, Studios, Home, Icons, Profile). A custom order from Magic Markup still wins ---------- */
+const NAV_DESK=['library','artists','studios','game','profile'];
+function mkNavDesk(){ const list=mkNav(NAV), o=mkS().navOrder; if(Array.isArray(o)&&o.length) return list;
+  return list.slice().sort((a,b)=>NAV_DESK.indexOf(a[0])-NAV_DESK.indexOf(b[0])); }
+/* Magic Markup's reorder list shows the order you actually see: desktop order on computers */
+const _noo9zzh=navOrderOf; navOrderOf=function(list){ const r=_noo9zzh.apply(this,arguments), o=mkS().navOrder;
+  if(list!==NAV||(Array.isArray(o)&&o.length)||!matchMedia('(min-width:1024px)').matches) return r;
+  return r.slice().sort((a,b)=>NAV_DESK.indexOf(a[0])-NAV_DESK.indexOf(b[0])); };
 
 /* ---------- boot hook (called from init) ---------- */
 function mkInit(){ glApply(); mkS();

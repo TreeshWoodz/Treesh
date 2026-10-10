@@ -1,5 +1,5 @@
 -- Treesh push notifications (Web Push). Run in Supabase Dashboard -> SQL Editor AFTER supabase_notifications.sql. Safe to run again.
--- Netlify needs the same secret in its PUSH_HOOK_SECRET environment variable (see the setup notes in netlify/push-lib.mjs).
+-- When it finishes, the result panel shows ONE value: copy it into Netlify as the PUSH_HOOK_SECRET environment variable.
 
 -- 0) outgoing HTTP from the database (Supabase's pg_net)
 create extension if not exists pg_net with schema extensions;
@@ -48,10 +48,14 @@ alter table public.treesh_push_config enable row level security;
 revoke all on public.push_subscriptions, public.treesh_push_state, public.announcements, public.treesh_push_config from anon, authenticated;
 
 -- where new bell alerts get sent (change the URL if Treesh moves)
-insert into public.treesh_push_config (k, v) values
-  ('hook_url', 'https://treesh.app/api/push/notify'),
-  ('hook_secret', 'WbUS7Obk1qYzrg_41QoeVhigRCxgLiaG')
+insert into public.treesh_push_config (k, v) values ('hook_url', 'https://treesh.app/api/push/notify')
 on conflict (k) do update set v = excluded.v;
+-- the shared secret is made here, inside your database, so it never sits in a file. The last query below shows it.
+insert into public.treesh_push_config (k, v) values ('hook_secret', replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''))
+on conflict (k) do nothing;
+-- an earlier draft of this file had a fixed secret that is now public: replace it if it was ever used
+update public.treesh_push_config set v = replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')
+where k = 'hook_secret' and v = 'WbUS7Obk1qYzrg_41QoeVhigRCxgLiaG';
 
 -- 2) every new bell alert -> /api/push/notify (only when that person has a device with notifications on)
 create or replace function public.treesh_push_hook()
@@ -92,3 +96,5 @@ $$;
 revoke all on function public.treesh_news(bigint) from public;
 grant execute on function public.treesh_news(bigint) to anon, authenticated;
 
+-- 4) copy this value into Netlify -> Site configuration -> Environment variables -> PUSH_HOOK_SECRET
+select v as "PUSH_HOOK_SECRET (copy into Netlify)" from public.treesh_push_config where k = 'hook_secret';

@@ -10,10 +10,13 @@
 (function(){ try{
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations().then(function(rs){
-      var had = rs && rs.length>0;
-      (rs||[]).forEach(function(r){ try{ r.unregister(); }catch(e){} });
+      /* keep sw-push.js (push notifications, no caching); clear anything older */
+      var isPush = function(w){ return !!w && /\/sw-push\.js(\?|$)/.test(w.scriptURL||''); };
+      var old = (rs||[]).filter(function(r){ return !isPush(r.active||r.waiting||r.installing); });
+      var had = old.length>0, ctl = navigator.serviceWorker.controller;
+      old.forEach(function(r){ try{ r.unregister(); }catch(e){} });
       if(window.caches && caches.keys){ caches.keys().then(function(ks){ (ks||[]).forEach(function(k){ try{ caches.delete(k); }catch(e){} }); }).catch(function(){}); }
-      if(had && navigator.serviceWorker.controller && !sessionStorage.getItem('treesh_sw_cleared')){
+      if(had && ctl && !isPush(ctl) && !sessionStorage.getItem('treesh_sw_cleared')){
         try{ sessionStorage.setItem('treesh_sw_cleared','1'); }catch(e){}
         setTimeout(function(){ location.reload(); }, 400);
       }
@@ -4079,7 +4082,7 @@ function renderShell(){
   const _shellHtml=`
   <aside class="nav-glass fixed left-0 top-0 z-30 hidden h-[100dvh] w-[240px] flex-col border-r border-white/10 bg-black/40 backdrop-blur-2xl lg:flex">
     <div class="px-6 pb-4 pt-6"><img src="https://64.media.tumblr.com/c3a9171b66dff3f4d1b204629d553f62/f0962fce333cd090-3d/s250x400/9cc28d33e0d7075a9d5122424756269c6a0e617c.png" alt="Treesh" draggable="false" class="h-9 w-auto select-none object-contain" onerror="brandFallback(this)"><p class="brand-fallback font-display text-2xl uppercase tracking-[0.1em] text-white" style="display:none">Treesh</p><p class="mt-1 text-[10px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">Welcome to the Woodz</p></div>
-    <nav class="flex flex-col gap-1 px-3">${mkNav(NAV).map(n=>navItem(n[0],n[1],n[2],false)).join("")}
+    <nav class="flex flex-col gap-1 px-3">${mkNavDesk().map(n=>navItem(n[0],n[1],n[2],false)).join("")}
     </nav>
     <div class="mx-3 my-2 h-px bg-white/8"></div>
     ${sidebarLibraryHtml()}
