@@ -75,6 +75,19 @@ def test_leaderboard_daily_filtered_today(s):
     assert any(x["player_id"] == pid and x["score"] == 777 for x in rows)
 
 
+# ---------- colorpop mode ----------
+def test_submit_score_colorpop_and_leaderboard(s):
+    pid = f"TEST_{uuid.uuid4().hex[:8]}"
+    r = s.post(f"{API}/scores", json={"player_id": pid, "name": "TEST_CP", "mode": "colorpop", "score": 4242})
+    assert r.status_code == 200, r.text
+    assert r.json().get("ok") is True
+    r2 = s.get(f"{API}/leaderboard/colorpop?limit=100")
+    assert r2.status_code == 200
+    rows = r2.json()
+    assert any(x["player_id"] == pid and x["score"] == 4242 for x in rows)
+
+
+
 # ---------- /api/cloud/save and /api/cloud/load ----------
 def test_cloud_save_new_and_update(s):
     pid = f"TEST_{uuid.uuid4().hex[:8]}"
