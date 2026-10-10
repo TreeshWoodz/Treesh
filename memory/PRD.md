@@ -182,3 +182,4 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 
 ## 2026-06 Sync fix
 - Copied latest build to root `Tools/songcoder.html` (was stale Oct 2 version) and created `Tools/mad.html`. All copies now identical (md5 de5d9a2f…).
+- Added build stamp (`<meta name="mad-build">`, shown at bottom of Settings) and update banner (re-fetches live file every 5 min + on tab focus/return, compares stamp; Refresh / Later (session skip)). BUMP the mad-build meta on every release. Always sync all 5 copies: frontend/public/songcoder.html, deliverables/songcoder.html, deliverables/tools/mad.html, Tools/songcoder.html, Tools/mad.html.

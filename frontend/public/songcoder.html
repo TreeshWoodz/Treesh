@@ -6,6 +6,7 @@
 <title>Treesh M.A.D. · Manage &amp; Direct</title>
 <meta name="theme-color" content="#0a0a0b" />
 <meta name="robots" content="noindex" />
+<meta name="mad-build" content="2026-10-10 14:50 · v5.3" />
 <link rel="icon" type="image/png" href="https://ik.imagekit.io/treesh/IMG_7235.png" />
 <link rel="apple-touch-icon" href="https://ik.imagekit.io/treesh/IMG_7235.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -350,6 +351,12 @@ main{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:clamp(20
 .toasts{position:fixed;top:84px;left:50%;z-index:90;display:flex;flex-direction:column;align-items:center;gap:10px;transform:translateX(-50%);pointer-events:none;width:min(440px,calc(100% - 32px))}
 .toast{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:16px;background:rgba(26,26,31,.95);border:1px solid var(--stroke);box-shadow:0 20px 50px rgba(0,0,0,.5);font-size:13.5px;font-weight:600;pointer-events:auto;animation:toastIn .35s var(--ease) both}
 .toast.out{animation:toastOut .28s ease both}
+.build-stamp{display:flex;align-items:center;gap:6px;margin:22px 0 4px;font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.02em}.build-stamp svg{width:14px;height:14px}
+.upd-bar{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;z-index:95;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;max-width:calc(100% - 24px);border-radius:999px;background:rgba(26,26,31,.96);border:1px solid rgba(147,40,255,.45);box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 0 4px rgba(147,40,255,.08);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);font-size:13px;font-weight:600;transform:translateX(-50%);animation:updIn .45s var(--ease) both}
+.upd-bar>svg{width:16px;height:16px;flex:none;color:#b47bff}.upd-bar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.upd-bar em{font-style:normal;color:var(--dim);font-weight:500}.upd-bar .btn{flex:none}
+.upd-x{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;border:0;background:transparent;color:var(--dim);cursor:pointer;transition:background-color .2s,color .2s}.upd-x:hover{background:rgba(255,255,255,.08);color:#fff}.upd-x svg{width:16px;height:16px}
+@media (max-width:520px){.upd-bar em{display:none}}
+@keyframes updIn{from{opacity:0;transform:translate(-50%,-16px)}to{opacity:1;transform:translateX(-50%)}}
 .toast.ok svg{color:var(--ok)}.toast.bad svg{color:var(--err)}.toast.info svg{color:var(--purple-2)}
 @keyframes toastIn{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes toastOut{to{opacity:0;transform:translateY(-10px)}}
@@ -1603,6 +1610,7 @@ body.previewing .topbar{top:var(--pvh,44px)}
           <div class="field span2"><label for="s-folder">Folder</label><input class="input" id="s-folder" placeholder="treesh/music" data-testid="settings-folder-input"></div>
         </div>
       </div>
+      <p class="build-stamp" data-testid="settings-build-stamp"><i data-lucide="git-commit-horizontal"></i>Build <span class="build-val"></span></p>
     </div>
     <div class="drawer-foot">
       <button class="btn" data-close data-testid="settings-cancel-btn">Cancel</button>
@@ -4692,6 +4700,31 @@ document.addEventListener('click', e => {
   e.preventDefault(); e.stopPropagation(); openViewer(src);
 }, true);
 
+/* ---------- build stamp & update banner ---------- */
+const BUILD = document.querySelector('meta[name="mad-build"]').content;
+let updSeen = '', updBusy = false, updLast = 0;
+async function checkUpdate(){
+  if (updBusy || location.protocol === 'file:' || Date.now() - updLast < 30e3) return;
+  updBusy = true; updLast = Date.now();
+  try {
+    const r = await fetch(`${location.pathname}?v=${Date.now()}`, { cache: 'no-store' });
+    const live = r.ok && ((await r.text()).match(/<meta name="mad-build" content="([^"]+)"/) || [])[1];
+    if (live && live !== BUILD && live !== updSeen && sessionStorage.getItem('mad-upd-skip') !== live) showUpdate(live);
+  } catch {} finally { updBusy = false; }
+}
+function showUpdate(live){
+  updSeen = live; $('.upd-bar')?.remove();
+  const bar = document.createElement('div');
+  bar.className = 'upd-bar'; bar.setAttribute('data-testid', 'update-banner'); bar.setAttribute('role', 'status');
+  bar.innerHTML = `${icon('sparkles')}<span data-testid="update-banner-text">New version ready<em> · ${esc(live)}</em></span><button type="button" class="btn btn-primary btn-sm" data-testid="update-banner-refresh-btn">${icon('refresh-cw')}Refresh</button><button type="button" class="upd-x" aria-label="Later" data-nolbl data-testid="update-banner-dismiss-btn">${icon('x')}</button>`;
+  bar.querySelector('.btn').onclick = () => location.reload();
+  bar.querySelector('.upd-x').onclick = () => { sessionStorage.setItem('mad-upd-skip', live); bar.remove(); };
+  document.body.appendChild(bar); icons();
+}
+setInterval(checkUpdate, 5 * 60e3);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+window.addEventListener('focus', checkUpdate);
+
 /* ---------- release countdown ---------- */
 function shortLeft(iso){
   const ms = new Date(iso) - Date.now(); if (!(ms > 0)) return '';
@@ -5154,6 +5187,7 @@ function openSettings(){
   root.innerHTML = ''; root.appendChild($('#tpl-settings').content.cloneNode(true));
   const map = { 's-branch':'branch', 's-songs':'songsPath', 's-icons':'iconsPath', 's-lyrics':'lyricsPath', 's-projects':'projectsDir', 's-models':'modelsPath', 's-blog':'blogPath', 's-comp':'compDir', 's-cloud':'cloudName', 's-preset':'preset', 's-folder':'folder' };
   Object.entries(map).forEach(([id, k]) => { $('#' + id).value = cfg[k] || ''; });
+  root.querySelector('.build-val').textContent = BUILD; checkUpdate();
   const close = () => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
