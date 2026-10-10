@@ -11,7 +11,7 @@ import { Board } from "../components/Board";
 import { Hud, PowerBar } from "../components/Hud";
 import { ResultModal, ContinueModal } from "../components/ResultModal";
 import { GameBackground } from "../components/GameBackground";
-import { useColorPop, ColorPopBoard, ColorPicker, ColorPopHud } from "./ColorPopGame";
+import { useColorPop, ColorPopBoard, ColorPicker, ColorPopHud, useTimedHint, HINT_COST, HINT_SECONDS } from "./ColorPopGame";
 
 const useCellSize = () => {
   const ref = useRef(null);
@@ -144,17 +144,23 @@ function Game({ cfg, onReplay }) {
 
 function ColorPopScreen({ cfg, onReplay }) {
   const nav = useNavigate();
-  const { profile } = useProfile();
+  const { profile, spend } = useProfile();
   const theme = THEMES.find((t) => t.id === profile.theme) || THEMES[0];
   const g = useColorPop(cfg);
+  const hint = useTimedHint(spend);
+  const onHint = () => {
+    if (hint.active) return;
+    if (hint.buy()) toast.success(`Color Sense on for ${HINT_SECONDS} seconds`);
+    else toast.error(`Need ${HINT_COST} Starlites for Color Sense`);
+  };
   const result = useFinalize(cfg, g);
   return (
     <div className="play-screen bg-app" data-testid="play-screen">
       <GameBackground art={artFor(cfg)} variant="play" />
       <div className="mx-auto flex h-full w-full max-w-[620px] flex-col px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)]">
-        <ColorPopHud g={g} cfg={cfg} onExit={() => nav("/colorpop")} />
+        <ColorPopHud g={g} cfg={cfg} onExit={() => nav("/colorpop")} hint={hint} onHint={onHint} />
         <ColorPopBoard g={g} cfg={cfg} theme={theme} />
-        <ColorPicker g={g} cfg={cfg} />
+        <ColorPicker g={g} cfg={cfg} showGains={hint.active} />
       </div>
       {result && (
         <ResultModal cfg={cfg} result={result} onReplay={onReplay} onHome={() => nav("/")} onRanks={() => nav("/leaderboard?mode=colorpop")}

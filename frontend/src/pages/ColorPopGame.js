@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
+import { StarliteAmount } from "../components/Starlite";
 import { TILES } from "../game/config";
 import { makeGrid, applyColor, region, gainFor, cellKey } from "../game/colorpop";
 import { sfx } from "../game/sound";
@@ -81,7 +82,7 @@ export function ColorPopBoard({ g, cfg, theme }) {
   );
 }
 
-export function ColorPicker({ g, cfg }) {
+export function ColorPicker({ g, cfg, showGains }) {
   const current = g.grid[0][0];
   const gains = useMemo(() => TILES.slice(0, cfg.colors).map((_, i) => gainFor(g.grid, i)), [g.grid, cfg.colors]);
   return (
@@ -91,14 +92,34 @@ export function ColorPicker({ g, cfg }) {
           onClick={() => g.pick(i)} className={`cp-pick ${i === current ? "cp-pick-active" : ""}`}
           style={{ background: `radial-gradient(circle at 30% 22%, ${t.from}, ${t.to} 78%)`, "--glow": t.glow }} title={t.name}>
           <t.Icon size={22} color="#fff" strokeWidth={2.2} />
-          {i !== current && gains[i] > 0 && <span className="cp-gain">+{gains[i]}</span>}
+          {showGains && i !== current && gains[i] > 0 && <span data-testid={`colorpop-gain-${i}`} className="cp-gain">+{gains[i]}</span>}
         </motion.button>
       ))}
     </div>
   );
 }
 
-export function ColorPopHud({ g, cfg, onExit }) {
+export const HINT_COST = 150;
+export const HINT_SECONDS = 20;
+
+export function useTimedHint(spend) {
+  const [left, setLeft] = useState(0);
+  useEffect(() => {
+    if (left <= 0) return undefined;
+    const id = setTimeout(() => setLeft((x) => x - 1), 1000);
+    return () => clearTimeout(id);
+  }, [left]);
+  const buy = () => {
+    if (left > 0) return true;
+    if (!spend(HINT_COST, "Color Sense hint")) return false;
+    setLeft(HINT_SECONDS);
+    sfx.coin();
+    return true;
+  };
+  return { left, active: left > 0, buy };
+}
+
+export function ColorPopHud({ g, cfg, onExit, hint, onHint }) {
   const pct = Math.round((g.owned.size / g.total) * 100);
   return (
     <div className="hud-card shrink-0">
@@ -116,7 +137,13 @@ export function ColorPopHud({ g, cfg, onExit }) {
       <div className="mt-3 h-3 w-full rounded-full bg-white/5">
         <div className="h-full rounded-full bg-gradient-to-r from-[var(--ac)] via-[var(--ac-hi)] to-white transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </div>
-      <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Grow from the top-left corner. Fill the board with one color.</div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Grow from the top-left corner. Fill the board with one color.</div>
+        <button data-testid="colorpop-hint-btn" onClick={onHint} disabled={!!g.ended} className={`chest-btn shrink-0 !px-3 !py-1.5 !text-[11px] ${hint.active ? "chest-ready" : ""}`}>
+          <Eye size={14} />
+          {hint.active ? <span data-testid="colorpop-hint-timer" className="tabular-nums">{hint.left}s</span> : <>Color Sense <StarliteAmount value={HINT_COST} size={11} /></>}
+        </button>
+      </div>
     </div>
   );
 }
