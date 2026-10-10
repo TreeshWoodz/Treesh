@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 24 — Retest of two remaining icon-mode issues from iteration_23 (artist dropzone previews + 1440/1540 viewport-centered tabs) plus regression quick pass. Both fixes verified PASS end-to-end on the preview URL. Admin flow and regression (mobile 390 dock, My changes drawer, settings in icon mode) also pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_24.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "songcoder.html:2562 wireMiniDrop() now has sync() that reads the url input, sets d.style.backgroundImage from it and toggles .has-file. Called on init so Edit for existing artist renders the current photo/banner as the dropzone preview. Also wired as input listener so typing/pasting a new URL updates live and clearing empties. local[kind] (file drop) short-circuits sync so a dropped file preview is not overwritten by the url field. Clean fix.",
+    "songcoder.html:85-86 'body.icon-mode .tabs{max-width:520px;margin:0 auto}' + 'body.icon-mode .topbar::after{content:\\'\\';order:2;flex-basis:100%;height:0;margin-bottom:-12px}' pushes .tabs to its own row via a flex-basis:100% pseudo-element, letting margin:auto center the tabs row on the viewport. Verified mathematically centered (tabsMid == viewportMid) at 800/1024/1440/1540. At >=1541 the ::after rule falls out of the (max-width:1540) media block so tabs sit back in the top bar as expected. Admin 4-tab layout at 761-1540 is unchanged (full-width row, topbar::after content: 'none')."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only task)", "frontend": "100% — both retest items pass, regression pass"},
+  "test_credentials": "Icon: localStorage sb-mock-auth-token {access_token:'mock-chelly'} + POST /api/github/icon-session. Admin: POST /api/github/session {passcode:'TreeshMAD-test-2026'}.",
+  "seed_data_creation": "None. Mock backend state reset via /api/mockgh/reset before each run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "RETEST (a) PASS — As mock-chelly in icon mode, opening Icons → artist-card-11 → artist-edit-btn: artist-photo-dropzone.style.backgroundImage = url('https://ik.imagekit.io/treesh/IMG_6939.jpeg') with .has-file class and 'Drop photo' <b> at opacity:0; artist-bg-dropzone shows IMG_6937.jpeg similarly. Typing a new URL in #a-photo updates the preview to the new URL; clearing the input empties backgroundImage and removes .has-file. Same behavior verified for admin on Chelly's card. For admin 'New artist' (empty state) both dropzones start empty with 'Drop photo'/'Drop banner' at opacity:1, and typing a URL populates them live. RETEST (b) PASS — icon mode tabs are perfectly viewport-centered: at W=800 tabsMid=400=vwMid; W=1024 512=512; W=1440 720=720; W=1540 770=770. tabsW capped at 520px, no large extra vertical gap (topbar::after height:0, margin-bottom:-12px). At W=1541 and W=1920 ::after no longer applies so tabs stay in the top bar (W=282 natural). Admin tabs row (4 tabs full-width) unchanged at 761/800/1024/1440/1540 with topbar::after=none. Regression: mobile 390 dock-inner grid-template-columns='1fr', publish button label 'Send for review'. My changes drawer opens with title 'My changes'. Icon-mode has 2 visible tabs (Catalog, Icons) only. No console errors beyond the previously-noted harmless 404s on treesh.app content JSON fetches.",
+  "rca of the issue": "Previous dropzone preview regression (iteration_23) resolved by the new sync() function inside wireMiniDrop() at songcoder.html:2562, invoked both on 'input' event and once at wire time, which reads the already-prefilled Photo/Background Link inputs and paints d.style.backgroundImage + toggles .has-file; local[kind] guard ensures a dropped file preview wins over url field. Previous centering issue resolved via the 'body.icon-mode .topbar::after' flex-basis:100% row-break pseudo-element that lets .tabs sit on its own row and center via margin:auto within the viewport."
+}

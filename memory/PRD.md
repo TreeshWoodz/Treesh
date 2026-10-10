@@ -168,3 +168,9 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Navigation: top tabs are Catalog (sub-nav Compose | Songs | Projects; icons don't see Projects), Icons (Artists | Models; hidden for icons), Blog, What's New. TAB_OF/SUB_OF live in switchView; tab-compose testid moved to the sub-nav button.
 - Settings Repository and Cloudinary sections are admin-only (body.is-admin).
 - MAD_VERSION 2026-10-10. Deliverables add deliverables/link-check.mjs → netlify/functions/link-check.mjs.
+
+## 2026-10: Icon-mode button fixes after user report (iteration_23 + 24, 100%)
+- LESSON: always re-test icon mode after nav/layout changes (the user caught jank I hadn't tested).
+- Fixed: the hidden mode switch left an empty dock column, pushing the publish button off-screen on mobile (body.icon-mode .dock-inner single column). Publish label for icons is "Send for review" / "Send changes for review". The tab highlight now has the right width after sign-in (applyRole → switchView + rAF moveInd). The compose subtitle mentions admin review for icons.
+- Icon desktop 761–1540px: the 2 tabs are centered on their own row (max 520px, topbar::after line-break).
+- Artist drawer photo/banner dropzones now preview the current or pasted link (wireMiniDrop sync), for admin too.
