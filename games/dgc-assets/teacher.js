@@ -1,105 +1,114 @@
 'use strict';
-/* MISS FLORENCE: do your schoolwork only while she writes on the board. Every mess-up makes her (and the room) worse. */
+/* MISS FLORENCE: she watches you do assignments. Get them right. Every mistake makes her more wicked. 5 mistakes and class is over. */
 const T_LINES = [
-  { look: ['Eyes up here, sweetie!', 'Everyone paying attention? Good!', 'I love how quiet we are!'], mess: ['Oopsie! That\u2019s okay, try again!', 'Almost! You\u2019ll get it!'], praise: ['Wonderful job!', 'Gold star for you!', 'So proud of you!'], write: ['Let\u2019s keep going, class!'] },
-  { look: ['Hmm. Eyes on me.', 'Is someone talking?', 'I hear whispering.'], mess: ['That\u2019s\u2026 not right. Again.', 'We talked about this.'], praise: ['Fine. Good.', 'Better.'], write: ['Copy this down.'] },
-  { look: ['I SEE all of you.', 'Don\u2019t. Move.', 'Who was that?'], mess: ['Wrong. WRONG.', 'You disappoint me.'], praise: ['\u2026acceptable.', 'Again. Faster.'], write: ['Nobody leaves until it\u2019s perfect.'] },
-  { look: ['WHO IS OUT OF THEIR SEAT', 'I can hear your heart', 'look at me. LOOK AT ME.'], mess: ['You will stay after class. Forever.', 'Another mistake. Another.'], praise: ['keep working. keep. working.'], write: ['the lesson never ends'] },
-  { look: ['SIT. DOWN.', 'EYES. FRONT.', 'i  s e e  y o u'], mess: ['DETENTION NEVER ENDS'], praise: ['m o r e'], write: ['w r i t e'] }
+  { idle: ['I\u2019m watching, sweetie! Take your time!', 'You\u2019re doing great!', 'I love watching you learn!'], mess: ['Oopsie! That\u2019s okay!', 'Almost! I believe in you!'], praise: ['Wonderful job!', 'Gold star for you!', 'So proud of you!'] },
+  { idle: ['Hmm. Focus.', 'I\u2019m still watching.', 'Don\u2019t look at me. Look at your work.'], mess: ['That\u2019s\u2026 not right.', 'We talked about this.'], praise: ['Fine. Good.', 'Better.'] },
+  { idle: ['I SEE every mistake.', 'Your hands are shaking.', 'Faster, sweetie.'], mess: ['Wrong. WRONG.', 'You disappoint me.'], praise: ['\u2026acceptable.', 'Again.'] },
+  { idle: ['i can hear your heart', 'look at your paper. LOOK AT IT.', 'one more mistake\u2026'], mess: ['You will stay after class. Forever.'], praise: ['keep working. keep. working.'] },
+  { idle: ['i  s e e  y o u', 'LAST. CHANCE.', 'detention never ends'], mess: ['DETENTION NEVER ENDS'], praise: ['m o r e'] }
 ];
-const T_WORDS = [['CAT', 'SUN', 'BOOK', 'STAR'], ['APPLE', 'CHALK', 'RULER', 'CRAYON'], ['DETENTION', 'SITSTILL', 'NOTALKING'], ['EYESFRONT', 'NEVERLEAVE', 'STAYSEATED'], ['SHESEESYOU', 'DONTTURN', 'FOREVERCLASS']];
-const T_TYPES = ['quiz', 'copy', 'note', 'sharpen', 'cheat'];
-const T_NAMES = { quiz: 'Pop Quiz', copy: 'Copy the Board', note: 'Pass the Note', sharpen: 'Sharpen Your Pencil', cheat: 'Peek at Lena\u2019s Paper' };
-const T_RULES = { quiz: 'Answer while her back is turned.', copy: 'Tap the letters in order.', note: 'Hold to whisper & pass. Talking is forbidden.', sharpen: 'Get up, sharpen, SIT DOWN before she turns.', cheat: 'Hold to peek, then answer. Cheaters get caught.' };
-
-function tQuiz(c) {
-  const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
-  if (c >= 4 && Math.random() < 0.5) return pick([['What is my name?', 'Miss Florence', ['Mr. Hush', 'Mom', 'Nobody']], ['Who is your favorite teacher?', 'Miss Florence', ['The Bride', 'Bestie', 'No one']], ['How long is detention?', 'Forever', ['1 hour', 'Until 3pm', 'It isn\u2019t']]]);
-  let q, a;
-  if (c <= 1) { const x = r(2, 9), y = r(2, 9); q = `${x} + ${y} = ?`; a = x + y; }
-  else if (c === 2) { const x = r(3, 9), y = r(3, 9); q = `${x} \u00d7 ${y} = ?`; a = x * y; }
-  else { const x = r(10, 30), y = r(2, 5), z = r(2, 4); q = `${x} \u2212 ${y} \u00d7 ${z} = ?`; a = x - y * z; }
-  const opts = new Set([a]); while (opts.size < (c >= 2 ? 4 : 3)) opts.add(a + pick([-3, -2, -1, 1, 2, 3, 10, -10]));
-  return [q, String(a), [...opts].filter(o => o !== a).map(String)];
-}
+const T_COLORS = [['RED', '#e03131'], ['BLUE', '#1c7ed6'], ['GREEN', '#2f9e44'], ['YELLOW', '#f2b705'], ['PURPLE', '#9c36b5']];
+const tR = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const tOpts = (ans, wrong, n) => shuffle([ans, ...shuffle(wrong.filter(w => w !== ans)).slice(0, n - 1)]);
+const T_TASKS = [
+  ['Math Quiz', c => { let q, a; if (c <= 1) { const x = tR(2, 9), y = tR(2, 9); q = `${x} + ${y} = ?`; a = x + y; } else if (c === 2) { const x = tR(3, 9), y = tR(3, 9); q = `${x} \u00d7 ${y} = ?`; a = x * y; } else { const x = tR(12, 30), y = tR(2, 5), z = tR(2, 4); q = `${x} \u2212 ${y} \u00d7 ${z} = ?`; a = x - y * z; } return { kind: 'choice', q, ans: String(a), opts: tOpts(String(a), [-3, -2, -1, 1, 2, 3, 10].map(d => String(a + d)), c >= 2 ? 4 : 3) }; }],
+  ['Spelling Bee', c => { const w = pick([['necessary', 'neccesary', 'necesary'], ['because', 'becuase', 'becaus'], ['friend', 'freind', 'frend'], ['separate', 'seperate', 'separete'], ['library', 'libary', 'liberry'], ['tomorrow', 'tommorow', 'tomorow'], ['scissors', 'sissors', 'scisors']]); return { kind: 'choice', q: 'Tap the word spelled correctly', ans: w[0], opts: shuffle(w.slice()) }; }],
+  ['Copy the Board', c => { const w = pick([['CAT', 'SUN', 'BOOK'], ['APPLE', 'CHALK', 'RULER'], ['RECESS', 'LESSON', 'PENCIL'], ['SITSTILL', 'EYESUP'], ['FOREVER', 'STAYHERE']][c]), dec = shuffle([...'BDFGHJKMPQVWXYZ'].filter(x => !w.includes(x))).slice(0, 2 + c); return { kind: 'order', q: 'Copy the word on the board', board: w, items: shuffle([...w].map((ch, i) => ({ id: i, l: ch })).concat(dec.map((ch, i) => ({ id: 'd' + i, l: ch })))), seq: [...w].map((_, i) => i), byLabel: true }; }],
+  ['Count the Apples', c => { const n = tR(3, 6 + c * 2), ic = c >= 3 ? 'eye' : 'apple'; return { kind: 'choice', q: c >= 3 ? 'How many eyes are watching you?' : 'How many apples?', vis: `<div class="tk-ic">${Array.from({ length: n }, () => `<i data-lucide="${ic}"></i>`).join('')}</div>`, ans: String(n), opts: tOpts(String(n), [n - 2, n - 1, n + 1, n + 2].map(String), c >= 2 ? 4 : 3) }; }],
+  ['Color Test', c => { const [w] = pick(T_COLORS), ink = pick(T_COLORS.filter(x => x[0] !== w)); return { kind: 'choice', q: 'Tap the COLOR of the ink, not the word', vis: `<b class="tk-stroop" style="color:${ink[1]}">${w}</b>`, ans: ink[0], opts: tOpts(ink[0], T_COLORS.map(x => x[0]), c >= 2 ? 4 : 3) }; }],
+  ['Alphabet Order', c => { const ls = shuffle([...'ABCDEFGHIJKLMNOPRSTUVW']).slice(0, 4 + Math.min(2, c)); return { kind: 'order', q: 'Tap the letters in ABC order', items: shuffle(ls.map(l => ({ id: l, l }))), seq: ls.slice().sort() }; }],
+  ['Number Line', c => { const ns = shuffle(Array.from({ length: 30 }, (_, i) => i + 1)).slice(0, 4 + Math.min(2, c)), desc = c >= 2; return { kind: 'order', q: desc ? 'Tap from BIGGEST to smallest' : 'Tap from smallest to biggest', items: shuffle(ns.map(n => ({ id: n, l: n }))), seq: ns.slice().sort((a, b) => desc ? b - a : a - b) }; }],
+  ['Geography', c => { const g = pick([['France', 'Paris', ['London', 'Rome', 'Madrid']], ['Japan', 'Tokyo', ['Seoul', 'Beijing', 'Osaka']], ['Italy', 'Rome', ['Venice', 'Milan', 'Paris']], ['Egypt', 'Cairo', ['Nairobi', 'Lagos', 'Athens']], ['Canada', 'Ottawa', ['Toronto', 'Vancouver', 'Montreal']], ['Kenya', 'Nairobi', ['Cairo', 'Accra', 'Lagos']]]); return { kind: 'choice', q: `Capital of ${g[0]}?`, ans: g[1], opts: tOpts(g[1], g[2], c >= 2 ? 4 : 3) }; }],
+  ['Shapes', c => { const s = pick([['triangle', 'triangle'], ['square', 'square'], ['circle', 'circle'], ['star', 'star'], ['hexagon', 'hexagon'], ['heart', 'heart']]), all = ['triangle', 'square', 'circle', 'star', 'hexagon', 'heart']; return { kind: 'choice', q: `Tap the ${s[0].toUpperCase()}`, icons: true, ans: s[1], opts: tOpts(s[1], all, c >= 2 ? 6 : 4) }; }],
+  ['Telling Time', c => { const h = tR(1, 9), d = tR(2, 3); return { kind: 'choice', q: `It is ${h}:00. What time is it ${d} hours later?`, ans: `${h + d}:00`, opts: tOpts(`${h + d}:00`, [h + d - 1, h + d + 1, h + d + 2, h - d].filter(x => x > 0).map(x => x + ':00'), c >= 2 ? 4 : 3) }; }],
+  ['Odd One Out', c => { const s = pick([[['apple', 'banana', 'grape'], 'carrot'], [['dog', 'cat', 'horse'], 'chair'], [['red', 'blue', 'green'], 'happy'], [['piano', 'guitar', 'drum'], 'spoon'], [['monday', 'friday', 'sunday'], 'april'], [['laugh', 'smile', 'giggle'], 'scream']]); return { kind: 'choice', q: 'Which one doesn\u2019t belong?', ans: s[1], opts: shuffle(s[0].concat(s[1])) }; }],
+  ['Memory', c => { const n = 3 + Math.min(3, c), seq = Array.from({ length: n }, () => pick(T_COLORS.slice(0, 4))[0]); return { kind: 'order', memo: seq, q: 'Repeat the colors in order', items: T_COLORS.slice(0, 4).map(([l, h]) => ({ id: l, l, col: h })), seq, repeat: true }; }],
+  ['Rhyme Time', c => { const r = pick([['cat', 'hat', ['dog', 'cup', 'sun']], ['moon', 'spoon', ['star', 'night', 'lamp']], ['bed', 'red', ['bad', 'bud', 'sleep']], ['fear', 'near', ['far', 'fire', 'feet']], ['grave', 'wave', ['grove', 'tomb', 'gray']]]); return { kind: 'choice', q: `Which word rhymes with \u201c${r[0]}\u201d?`, ans: r[1], opts: tOpts(r[1], r[2], c >= 2 ? 4 : 3) }; }],
+  ['Opposites', c => { const o = pick([['hot', 'cold', ['warm', 'fire', 'sun']], ['up', 'down', ['over', 'high', 'top']], ['happy', 'sad', ['glad', 'funny', 'calm']], ['open', 'closed', ['door', 'wide', 'near']], ['alive', 'dead', ['awake', 'breathing', 'here']], ['day', 'night', ['noon', 'light', 'sun']]]); return { kind: 'choice', q: `Opposite of \u201c${o[0]}\u201d?`, ans: o[1], opts: tOpts(o[1], o[2], c >= 2 ? 4 : 3) }; }],
+  ['Fractions', c => { const f = pick([['1/2', ['1/3', '1/4', '1/8']], ['3/4', ['1/2', '1/4', '2/3']], ['2/3', ['1/2', '1/3', '1/4']], ['5/6', ['3/4', '2/3', '1/2']]]); return { kind: 'choice', q: 'Which fraction is the BIGGEST?', ans: f[0], opts: tOpts(f[0], f[1], c >= 2 ? 4 : 3) }; }],
+  ['Raise Your Hand', c => ({ kind: 'hold', q: 'Raise your hand and KEEP it up until the bar fills', need: 1.8 + c * 0.5 })],
+  ['Sharpen Your Pencil', c => ({ kind: 'taps', q: 'Sharpen! Tap fast before time runs out', n: 10 + c * 3 })],
+  ['Clean the Board', c => ({ kind: 'smudge', q: 'Wipe every smudge off the board', n: 6 + c * 2 })],
+  ['Science', c => { const s = pick([['What do plants need to grow?', 'sunlight', ['candy', 'darkness', 'noise']], ['What planet do we live on?', 'Earth', ['Mars', 'Venus', 'Pluto']], ['Water freezes into\u2026', 'ice', ['steam', 'sand', 'glass']], ['What do lungs do?', 'breathe', ['digest', 'see', 'think']], ['What pumps your blood?', 'heart', ['liver', 'brain', 'lungs']]]); return { kind: 'choice', q: s[0], ans: s[1], opts: tOpts(s[1], s[2], c >= 2 ? 4 : 3) }; }],
+  ['Animal Sounds', c => { const a = pick([['cow', 'moo', ['oink', 'woof', 'quack']], ['dog', 'woof', ['meow', 'moo', 'baa']], ['duck', 'quack', ['hiss', 'moo', 'neigh']], ['snake', 'hiss', ['roar', 'tweet', 'oink']], ['owl', 'hoot', ['bark', 'moo', 'baa']]]); return { kind: 'choice', q: `What does a ${a[0]} say?`, ans: a[1], opts: tOpts(a[1], a[2], c >= 2 ? 4 : 3) }; }],
+  ['Grammar', c => { const g = pick([['She ___ to school.', 'goes', ['go', 'going', 'gone']], ['They ___ happy.', 'are', ['is', 'am', 'be']], ['I ___ a cat.', 'have', ['has', 'having', 'haves']], ['We ___ never leave.', 'will', ['wills', 'was', 'be']]]); return { kind: 'choice', q: `Fill the blank: ${g[0]}`, ans: g[1], opts: tOpts(g[1], g[2], c >= 2 ? 4 : 3) }; }],
+  ['Patterns', c => { const p = c >= 2 ? pick([['1, 1, 2, 3, 5, ?', '8'], ['2, 4, 8, 16, ?', '32'], ['1, 4, 9, 16, ?', '25']]) : pick([['2, 4, 6, ?', '8'], ['5, 10, 15, ?', '20'], ['1, 3, 5, ?', '7']]); return { kind: 'choice', q: `What comes next? ${p[0]}`, ans: p[1], opts: tOpts(p[1], [+p[1] - 2, +p[1] + 1, +p[1] + 2, +p[1] - 1].map(String), c >= 2 ? 4 : 3) }; }],
+  ['Sit Still', c => ({ kind: 'still', q: 'Hands off. Don\u2019t touch ANYTHING. She\u2019s watching.', dur: 2.5 + c * 0.6 })],
+  ['Manners', c => { const m = pick([['How do you ask to leave?', 'May I please be excused?', ['Bye.', 'I\u2019m leaving.', 'Let me out!']], ['Miss Florence hands you a paper. You say\u2026', 'Thank you, Miss Florence.', ['Ew.', 'Whatever.', 'Why?']], ['You\u2019re late. You say\u2026', 'I\u2019m sorry, Miss Florence.', ['So?', 'Not my fault.', 'Don\u2019t look at me.']]]); return { kind: 'choice', q: m[0], ans: m[1], opts: shuffle([m[1], ...m[2]]) }; }]
+];
 
 function teacherMini() {
   return {
-    id: 'teacher', name: 'Detention', room: 'teacher_f0', icon: 'graduation-cap', noBtn: true, noKiller: true, view: 'teacher', endReason: 'teacher',
+    id: 'teacher', name: 'Detention', room: 'teacher_f0', icon: 'graduation-cap', noBtn: true, noKiller: true, view: 'teacher', endReason: 'teacher_time',
     labels: { look: 'Miss Florence is watching' },
-    hint: 'Miss Florence is SO happy to have you in class! Do your work only while she writes on the board. When the chalk SCREECHES, freeze: she\u2019s turning around. Every mistake makes her\u2026 less patient.',
-    limit: n => Math.max(110, 160 - n * 6),
+    hint: 'Miss Florence is SO happy to have you in class! She\u2019ll watch you do every assignment. Get them right. Each mistake makes her a little more\u2026 wicked. Five mistakes and class is over.',
+    limit: () => 600,
     mount(el, ctx) {
-      const T = { ph: 'look', left: 2.2, mess: 0, c: 0, done: 0, need: Math.min(9, 4 + ctx.night), task: null, standing: false, hold: null, line: '' };
+      const T = { fails: 0, c: 0, done: 0, need: Math.min(12, 6 + ctx.night), task: null, left: 0, used: [], hold: 0, holding: false, idleT: 5 };
       if (ctx.night === 1) Sfx.speak('teacher_l0', 'teacher');
       el.innerHTML = `<div class="mg mg-teach"><div class="tc" id="tc" data-c="0" data-testid="teacher-room">
-        <div class="os-bar tc-bar"><span id="t-clock" data-testid="teacher-clock"></span><span class="tc-pill" id="t-ph" data-testid="teacher-phase">Watching</span><span class="tc-mood" data-testid="teacher-mood">Mood: <b id="t-mood">Bubbly</b></span><span id="t-done" data-testid="teacher-done">0/${T.need}</span><button class="os-pause" data-act="pause" data-testid="teacher-pause-btn" aria-label="Pause"><i data-lucide="pause"></i></button></div>
-        <section class="tc-scene" id="tsc" data-testid="teacher-scene">${[0, 1, 2, 3, 4].map(i => `<img class="ts f" data-k="f${i}" src="${img('teacher_f' + i)}" alt="">`).join('')}${[0, 2, 4].map(i => `<img class="ts b" data-k="b${i}" src="${img('teacher_b' + i)}" alt="">`).join('')}<em class="tc-say" id="t-say" data-testid="teacher-say"></em><b class="tc-scr">SCREEEEECH</b></section>
+        <div class="os-bar tc-bar"><span class="tc-pill look" data-testid="teacher-phase"><i data-lucide="eye"></i>Watching</span><span class="tc-mood" data-testid="teacher-mood">Mood: <b id="t-mood">Bubbly</b></span><span class="tc-strikes" id="t-strikes" data-testid="teacher-strikes"></span><span id="t-done" data-testid="teacher-done">0/${T.need}</span><button class="os-pause" data-act="pause" data-testid="teacher-pause-btn" aria-label="Pause"><i data-lucide="pause"></i></button></div>
+        <section class="tc-scene" id="tsc" data-testid="teacher-scene">${[0, 1, 2, 3, 4].map(i => `<img class="ts ${i ? '' : 'on'}" data-k="${i}" src="${img('teacher_f' + i)}" alt="">`).join('')}<em class="tc-say" id="t-say" data-testid="teacher-say"></em></section>
         <section class="tc-desk" id="desk" data-testid="teacher-desk"></section></div></div>`;
-      const tc = $('#tc', el), sc = $('#tsc', el), desk = $('#desk', el), MOODS = ['Bubbly', 'Stern', 'Unsettling', 'Demonic', '\u2026'];
-      const say = (k, force) => { const l = pick(T_LINES[T.c][k]); if (!force && Math.random() < 0.4) return; const b = $('#t-say', el); b.textContent = l; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); };
-      const show = () => { const k = T.ph === 'look' ? 'f' + T.c : 'b' + (T.c >= 4 ? 4 : T.c >= 2 ? 2 : 0); $$('.ts', sc).forEach(i => i.classList.toggle('on', i.dataset.k === k)); sc.dataset.ph = T.ph; const p = $('#t-ph', el); p.textContent = T.ph === 'look' ? 'WATCHING' : T.ph === 'warn' ? 'TURNING!' : 'Writing\u2026'; p.className = 'tc-pill ' + T.ph; };
-      const messUp = why => {
-        T.mess++; Sfx.tone(220, 0.35, 'triangle', 0.15, 140); haptic(120, 0.5); shake(1.5); const nc = Math.min(4, Math.floor(T.mess / 2));
-        if (nc !== T.c) { T.c = nc; tc.dataset.c = nc; $('#t-mood', el).textContent = MOODS[nc]; Sfx.tone(70, 0.9, 'sawtooth', 0.2, 35); Sfx.noise(0.6, 'lowpass', 400, 0.35); shake(3); tc.classList.remove('morph'); void tc.offsetWidth; tc.classList.add('morph'); if (nc === 4) Sfx.speak('teacher_l4', 'teacher'); show(); }
-        say('mess', true); if (why) toast('Mess-up', why, 'bad');
+      const tc = $('#tc', el), sc = $('#tsc', el), desk = $('#desk', el), MOODS = ['Bubbly', 'Stern', 'Unsettling', 'Wicked', 'Demonic'];
+      const say = k => { const b = $('#t-say', el); b.textContent = pick(T_LINES[T.c][k]); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); };
+      const strikes = () => { $('#t-strikes', el).innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="${i < T.fails ? 'x' : ''}"></i>`).join(''); };
+      const next = () => {
+        const pool = T_TASKS.map((_, i) => i).filter(i => !T.used.includes(i)); if (!pool.length) T.used = [];
+        const i = pick(pool.length ? pool : T_TASKS.map((_, j) => j)); T.used.push(i);
+        const k = T_TASKS[i][1](T.c); k.name = T_TASKS[i][0]; k.idx = i; k.pos = 0; k.taps = 0; k.memoLeft = k.memo ? 1.4 + k.memo.length * 0.45 : 0; k.gone = [];
+        T.task = k; T.hold = 0; T.holding = false; T.total = T.left = (k.kind === 'still' ? k.dur : Math.max(6, 14 - T.c * 1.8)) + k.memoLeft; draw();
       };
-      const newTask = () => {
-        const t = pick(T_TYPES.filter(x => !T.task || x !== T.task.type)), c = T.c, k = { type: t, step: 0 };
-        if (t === 'quiz') { k.n = c >= 2 ? 3 : 2; k.q = tQuiz(c); }
-        if (t === 'copy') { k.word = pick(T_WORDS[c]); k.pos = 0; const pool = 'ABCDEFGHIJKLMNOPRSTUVWY'; k.tiles = shuffle([...new Set(k.word.split(''))].concat([...pool].filter(x => !k.word.includes(x)).sort(() => Math.random() - 0.5).slice(0, 3 + c))); }
-        if (t === 'note') { k.n = c >= 4 ? 3 : c >= 2 ? 2 : 1; k.need = 1.1 + c * 0.25; k.held = 0; }
-        if (t === 'sharpen') { k.taps = 0; k.need = 6 + c * 2; }
-        if (t === 'cheat') { k.code = pick('ABCD') + (1 + Math.floor(Math.random() * 9)); k.opts = shuffle([k.code, ...shuffle(['A', 'B', 'C', 'D'].flatMap(l => [1, 3, 5, 7, 9].map(n => l + n)).filter(x => x !== k.code)).slice(0, 3)]); k.peek = 0; k.seen = false; }
-        T.task = k; T.standing = false; T.hold = null; draw();
+      const fail = why => {
+        if (!T.task) return; T.task = null; T.fails++; strikes(); Sfx.tone(200, 0.4, 'triangle', 0.18, 120); haptic(200, 0.7); shake(2);
+        if (T.fails >= 5) { T.c = 4; tc.dataset.c = 4; $$('.ts', sc).forEach(im => im.classList.toggle('on', im.dataset.k === '4')); Sfx.speak('teacher_l4', 'teacher', true); toast('Class dismissed', why, 'bad'); return setTimeout(() => { if (!R || R.done) return; caught('teacher'); if (R && !R.done) { T.fails = 4; strikes(); next(); } }, 900); }
+        T.c = T.fails; tc.dataset.c = T.c; $('#t-mood', el).textContent = MOODS[T.c]; $$('.ts', sc).forEach(im => im.classList.toggle('on', +im.dataset.k === T.c));
+        tc.classList.remove('morph'); void tc.offsetWidth; tc.classList.add('morph'); Sfx.tone(70, 0.9, 'sawtooth', 0.2, 35); Sfx.noise(0.6, 'lowpass', 400, 0.35); shake(3);
+        say('mess'); toast('Wrong!', why, 'bad'); desk.innerHTML = `<div class="tk-fail" data-testid="teacher-fail">${esc(why)}</div>`; setTimeout(() => R && !R.done && next(), 1400);
       };
-      const finish = () => {
-        T.done++; $('#t-done', el).textContent = `${T.done}/${T.need}`; Sfx.chime([880, 1175]); say('praise', true); ctx.set(T.done / T.need * 100);
-        if (T.done >= T.need) { if (T.mess === 0) unlock('teacher1'); if (T.c >= 4) unlock('teacher_demon'); return; }
-        setTimeout(() => { if (R && !R.done) newTask(); }, 500);
+      const ok = () => {
+        T.task = null; T.done++; $('#t-done', el).textContent = `${T.done}/${T.need}`; Sfx.chime([880, 1175]); say('praise'); ctx.set(T.done / T.need * 100);
+        desk.innerHTML = `<div class="tk-ok" data-testid="teacher-correct"><i data-lucide="star"></i>Correct!</div>`; icons();
+        if (T.done >= T.need) { if (!T.fails) unlock('teacher1'); if (T.fails >= 4) unlock('teacher_demon'); return; }
+        setTimeout(() => R && !R.done && next(), 900);
       };
-      const deskHtml = () => {
-        const k = T.task; if (!k) return '';
-        const head = `<div class="tk-h"><b data-testid="teacher-task-name">${T_NAMES[k.type]}</b><small>${T_RULES[k.type]}</small></div>`;
-        if (k.type === 'quiz') return head + `<div class="tk-q" data-testid="teacher-question">${esc(k.q[0])}<small>Question ${k.step + 1}/${k.n}</small></div><div class="tk-opts">${shuffle([k.q[1], ...k.q[2]]).map((o, i) => `<button data-t="ans" data-v="${esc(o)}" data-testid="teacher-ans-${i}">${esc(o)}</button>`).join('')}</div>`;
-        if (k.type === 'copy') return head + `<div class="tk-board" data-testid="teacher-board-word">${k.word.split('').map((ch, i) => `<i class="${i < k.pos ? 'ok' : ''}">${ch}</i>`).join('')}</div><div class="tk-tiles">${(T.c >= 3 ? shuffle(k.tiles.slice()) : k.tiles).map(ch => `<button data-t="letter" data-v="${ch}" data-testid="teacher-letter-${ch}">${ch}</button>`).join('')}</div>`;
-        if (k.type === 'note') return head + `<div class="tk-note"><span>Pass ${k.step + 1}/${k.n}: to ${pick(['Jamal', 'Priya', 'Mei', 'Mateo', 'Amara', 'Noor'])}</span><div class="meter"><i id="t-m"></i></div><button class="tk-hold" data-t="note" data-testid="teacher-note-hold"><i data-lucide="mail"></i>Hold to whisper & pass</button></div>`;
-        if (k.type === 'sharpen') return head + `<div class="tk-sharp ${T.standing ? 'up' : ''}">${T.standing ? `<div class="meter"><i style="width:${k.taps / k.need * 100}%"></i></div><button class="tk-big" data-t="sharp" data-testid="teacher-sharpen-btn"><i data-lucide="pencil"></i>Sharpen (${k.taps}/${k.need})</button><button class="tk-sit" data-t="sit" data-testid="teacher-sit-btn"><i data-lucide="armchair"></i>Sit down</button>` : `<button class="tk-big" data-t="stand" data-testid="teacher-stand-btn"><i data-lucide="footprints"></i>${k.taps >= k.need ? 'Done!' : 'Get up'}</button>`}</div>`;
-        if (k.type === 'cheat') return head + `<div class="tk-cheat"><div class="tk-paper ${k.seen ? 'seen' : ''}" data-testid="teacher-cheat-paper">${k.seen ? `Lena wrote: <b>${k.code}</b>` : 'Lena\u2019s answer is hidden\u2026'}<div class="meter"><i id="t-m"></i></div></div><button class="tk-hold" data-t="peek" data-testid="teacher-peek-hold"><i data-lucide="eye"></i>Hold to peek</button><div class="tk-opts">${k.opts.map((o, i) => `<button data-t="code" data-v="${o}" data-testid="teacher-code-${i}">${o}</button>`).join('')}</div></div>`;
+      const deskHtml = k => {
+        const head = `<div class="tk-h"><b data-testid="teacher-task-name">${k.name}</b><div class="meter"><i id="t-tm"></i></div></div><div class="tk-q" data-testid="teacher-question">${esc(k.q)}</div>`;
+        if (k.kind === 'choice') return head + (k.vis || '') + `<div class="tk-opts ${k.icons ? 'icons' : ''}">${k.opts.map((o, i) => `<button data-t="ans" data-v="${esc(o)}" data-testid="teacher-ans-${i}" aria-label="${esc(o)}">${k.icons ? `<i data-lucide="${o}"></i>` : esc(o)}</button>`).join('')}</div>`;
+        if (k.kind === 'order') {
+          if (k.memoLeft > 0) return head + `<div class="tk-memo" data-testid="teacher-memo">${k.memo.map(l => `<i style="background:${T_COLORS.find(x => x[0] === l)[1]}">${l}</i>`).join('')}</div><small class="tk-sm">Memorize\u2026</small>`;
+          return head + (k.board ? `<div class="tk-board" data-testid="teacher-board-word">${[...k.board].map((ch, i) => `<i class="${i < k.pos ? 'ok' : ''}">${ch}</i>`).join('')}</div>` : `<small class="tk-sm">${k.pos}/${k.seq.length}</small>`) + `<div class="tk-tiles">${k.items.map(it => k.gone.includes(it.id) && !k.repeat ? '' : `<button data-t="ord" data-v="${it.id}" data-testid="teacher-tile-${it.id}" ${it.col ? `style="background:${it.col};color:#fff"` : ''}>${it.l}</button>`).join('')}</div>`;
+        }
+        if (k.kind === 'hold') return head + `<div class="meter big"><i id="t-hm"></i></div><button class="tk-hold" data-t="hold" data-testid="teacher-hold-btn"><i data-lucide="hand"></i>Hold to raise your hand</button>`;
+        if (k.kind === 'taps') return head + `<div class="meter big"><i style="width:${k.taps / k.n * 100}%"></i></div><button class="tk-big" data-t="tap" data-testid="teacher-tap-btn"><i data-lucide="pencil"></i>Sharpen (${k.taps}/${k.n})</button>`;
+        if (k.kind === 'smudge') { if (!k.spots) k.spots = Array.from({ length: k.n }, (_, i) => ({ i, x: tR(6, 88), y: tR(8, 80) })); return head + `<div class="tk-chalk" data-testid="teacher-chalkboard">${k.spots.filter(s => !k.gone.includes(s.i)).map(s => `<button class="smudge" style="left:${s.x}%;top:${s.y}%" data-t="wipe" data-v="${s.i}" data-testid="teacher-smudge-${s.i}" aria-label="Smudge"></button>`).join('')}</div>`; }
+        if (k.kind === 'still') return head + `<div class="tk-still" data-testid="teacher-still"><i data-lucide="hand"></i>Don\u2019t touch the screen\u2026</div>`;
         return head;
       };
-      const draw = () => { desk.innerHTML = deskHtml() + `<div class="tk-seat" data-testid="teacher-seat-state">${T.standing ? '<i data-lucide="alert-triangle"></i>You are OUT OF YOUR SEAT' : '<i data-lucide="armchair"></i>Seated'}</div>`; desk.classList.toggle('standing', T.standing); icons(); };
-      const busted = why => { if (!R || R.done) return; T.hold = null; toast('Caught!', why, 'bad'); caught('teacher'); if (R && !R.done) { T.standing = false; draw(); } };
+      const draw = () => { if (!T.task) return; desk.innerHTML = deskHtml(T.task); icons(); };
       desk.addEventListener('pointerdown', e => {
-        const t = e.target.closest('[data-t]'); if (!t || !T.task) return; e.preventDefault(); const a = t.dataset.t, v = t.dataset.v, k = T.task;
-        if (T.ph === 'look' && a !== 'sit') return busted(a === 'note' ? 'She caught you talking.' : a === 'peek' || a === 'code' ? 'She caught you cheating.' : 'She saw you move.');
-        if (T.ph === 'warn' && a !== 'sit') messUp('She heard something\u2026');
-        Sfx.click();
-        if (a === 'ans') { if (v !== k.q[1]) messUp('Wrong answer'); if (++k.step >= k.n) return finish(); k.q = tQuiz(T.c); return draw(); }
-        if (a === 'letter') { if (v === k.word[k.pos]) { k.pos++; Sfx.tone(600 + k.pos * 60, 0.06, 'square', 0.06); if (k.pos >= k.word.length) return finish(); } else messUp('Sloppy handwriting'); return draw(); }
-        if (a === 'note' || a === 'peek') { T.hold = a; t.classList.add('down'); return; }
-        if (a === 'code') { if (!k.seen) { messUp('You guessed. She can tell.'); return draw(); } if (v !== k.code) messUp('Wrong answer'); return finish(); }
-        if (a === 'stand') { if (k.taps >= k.need) return; T.standing = true; Sfx.noise(0.2, 'lowpass', 300, 0.3); return draw(); }
-        if (a === 'sharp') { k.taps++; Sfx.noise(0.06, 'bandpass', 2200 + Math.random() * 800, 0.15); return draw(); }
-        if (a === 'sit') { T.standing = false; Sfx.noise(0.15, 'lowpass', 250, 0.3); if (k.taps >= k.need) return finish(); if (k.taps) messUp('You sat down before finishing'); return draw(); }
+        const k = T.task; if (!k) return; const t = e.target.closest('[data-t]');
+        if (k.kind === 'still') { e.preventDefault(); return fail('I said DON\u2019T. TOUCH.'); }
+        if (!t) return; e.preventDefault(); const a = t.dataset.t, v = t.dataset.v; Sfx.click();
+        if (a === 'ans') return v === k.ans ? ok() : fail(`\u201c${v}\u201d? No, sweetie.`);
+        if (a === 'ord') { const want = k.seq[k.pos], it = k.items.find(x => String(x.id) === v), good = k.byLabel ? it && it.l === k.board[k.pos] : String(want) === v; if (!good) return fail('Wrong order.'); k.pos++; if (!k.repeat) k.gone.push(it.id); Sfx.tone(600 + k.pos * 60, 0.06, 'square', 0.06); if (k.pos >= k.seq.length) return ok(); return draw(); }
+        if (a === 'hold') { T.holding = true; t.classList.add('down'); return; }
+        if (a === 'tap') { k.taps++; Sfx.noise(0.05, 'bandpass', 2200 + Math.random() * 800, 0.14); if (k.taps >= k.n) return ok(); return draw(); }
+        if (a === 'wipe') { k.gone.push(+v); Sfx.noise(0.08, 'highpass', 3000, 0.12); if (k.gone.length >= k.n) return ok(); return draw(); }
       });
-      const rel = () => { if (T.hold) { T.hold = null; $$('.tk-hold.down', desk).forEach(b => b.classList.remove('down')); } };
-      desk.addEventListener('pointerup', rel); desk.addEventListener('pointercancel', rel); desk.addEventListener('pointerleave', rel);
-      show(); say('look', true); newTask();
+      const rel = () => { if (T.holding && T.task && T.task.kind === 'hold') { T.holding = false; if (T.hold < T.task.need) fail('You put your hand down. Rude.'); } };
+      desk.addEventListener('pointerup', rel); desk.addEventListener('pointercancel', rel);
+      strikes(); say('idle'); next();
       return {
         update(dt) {
-          const ck = $('#t-clock', el); if (ck) ck.textContent = Math.ceil(Math.max(0, R.limit - R.t)) + 's';
-          T.left -= dt;
-          if (T.left <= 0) {
-            if (T.ph === 'write') { T.ph = 'warn'; T.left = Math.max(0.45, 0.95 - T.c * 0.12); Sfx.tone(3300, T.left, 'sawtooth', 0.07, 2500); Sfx.noise(T.left, 'highpass', 5000, 0.18); haptic(80, 0.4); }
-            else if (T.ph === 'warn') { T.ph = 'look'; T.left = 1.4 + Math.random() * 1.1 + T.c * 0.35; Sfx.tone(90, 0.3, 'sine', 0.3, 50); say('look'); if (T.standing) { show(); return busted('You were out of your seat.'); } if (T.hold) { show(); return busted(T.hold === 'note' ? 'She caught you passing notes.' : 'She caught you cheating.'); } }
-            else { T.ph = 'write'; T.left = (3.2 + Math.random() * 2.8) * (1 - T.c * 0.12); say('write'); Sfx.noise(0.25, 'bandpass', 1800, 0.08); }
-            show();
-          }
-          if (T.hold && T.task && T.ph !== 'look') { const k = T.task; if (T.hold === 'note') { k.held += dt; const m = $('#t-m', desk); if (m) m.style.width = Math.min(100, k.held / k.need * 100) + '%'; if (k.held >= k.need) { k.held = 0; T.hold = null; Sfx.tone(1200, 0.08, 'sine', 0.08); if (++k.step >= k.n) return finish(); draw(); } }
-            else if (T.hold === 'peek' && !k.seen) { k.peek += dt; const m = $('#t-m', desk); if (m) m.style.width = Math.min(100, k.peek / 1.1 * 100) + '%'; if (k.peek >= 1.1) { k.seen = true; T.hold = null; draw(); } } }
+          const k = T.task; T.idleT -= dt; if (T.idleT <= 0) { T.idleT = 6 + Math.random() * 5 - T.c; say('idle'); if (T.c >= 3) { sc.classList.remove('lean'); void sc.offsetWidth; sc.classList.add('lean'); Sfx.whisper(0.06); } }
+          if (!k) return;
+          if (k.memoLeft > 0) { k.memoLeft -= dt; if (k.memoLeft <= 0) draw(); }
+          if (k.kind === 'hold' && T.holding) { T.hold += dt; const m = $('#t-hm', desk); if (m) m.style.width = Math.min(100, T.hold / k.need * 100) + '%'; if (T.hold >= k.need) { T.holding = false; return ok(); } }
+          T.left -= dt; const bar = $('#t-tm', desk); if (bar) bar.style.width = clamp(T.left / T.total, 0, 1) * 100 + '%';
+          if (T.left <= 0) { if (k.kind === 'still') return ok(); fail('Too slow, sweetie.'); }
         },
-        isActive: () => T.ph !== 'look' ? false : !!(T.hold || T.standing)
+        isActive: () => false
       };
     }
   };

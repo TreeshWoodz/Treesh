@@ -17,6 +17,7 @@ function reasonText(r) {
     bride: 'She heard you. She always hears you.',
     bestie: 'You didn\u2019t finish his 12 favors in time. Bestie is SO disappointed in you.',
     teacher: 'Miss Florence turned around. She saw everything. You\u2019re staying after class. Forever.',
+    teacher_time: 'The bell rang and your work wasn\u2019t done. Miss Florence keeps you after class. Forever.',
     bestie_you: 'Eeny, meeny, miny\u2026 YOU. Bestie picked you. He always had a favorite.',
     quit: 'You gave up. Something was waiting right behind you.'
   })[r] || 'He caught you.';
