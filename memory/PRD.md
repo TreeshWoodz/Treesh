@@ -32,6 +32,13 @@
 - Treesh avatar (treesh_profile.avatar / avatarUrl) shown in top bar + profile; falls back to initial
 - Treesh accent color (treesh_accent) drives the whole game UI via --ac CSS vars; live updates via storage events; default theme renamed 'Signature'
 
+## Iteration 4-5 (Oct 10 2026)
+- Culture facts on result screen; diagonal swaps + diagonal-line matches; new formations (2x2 X-Blaster, plus Crown Cross, 2x3 Supernova); special+special mega combos; beam/ring/bolt FX + board shake; Blitz Finale (leftover moves -> random power-ups, skippable)
+- Color Pop flood mode (Easy/Medium/Hard), random start tile w/ 5s YOU indicator, Color Sense hint (150 Starlites, 20s)
+- Game-style UI: AI-generated Black-culture art backgrounds (menu key art, block party, Harlem, Afrofuture, mural), title screen, HUD top bar, dock nav, ribbons
+- 300 levels / 30 chapters with mechanics: Kente, collect, chains, vinyl crates, gold records, gravity up/sideways, double kente, countdown, diagonal-only, static spread, time attack, power surge, fog, make-specials, combos
+- Fixed result screen not showing (CSS position override)
+
 ## Backlog
 - P1: Deploy and connect treesh.app custom domain (path /games/bronze-blitz)
 - P1: More obstacle types (locked tiles, chained crates), special+special combo effects
