@@ -37,38 +37,59 @@ const T_TASKS = [
   ['Manners', c => { const m = pick([['How do you ask to leave?', 'May I please be excused?', ['Bye.', 'I\u2019m leaving.', 'Let me out!']], ['Miss Florence hands you a paper. You say\u2026', 'Thank you, Miss Florence.', ['Ew.', 'Whatever.', 'Why?']], ['You\u2019re late. You say\u2026', 'I\u2019m sorry, Miss Florence.', ['So?', 'Not my fault.', 'Don\u2019t look at me.']]]); return { kind: 'choice', q: m[0], ans: m[1], opts: shuffle([m[1], ...m[2]]) }; }]
 ];
 
+const T_CHALK = [['Eyes on your paper', 'Sit up straight', 'Neatness counts', 'No talking'], ['Do NOT look away', 'I see everything', 'Mistakes are noted'], ['Stay after class', 'You will learn', 'Hands where I can see'], ['I CAN HEAR YOUR HEART', 'NO ONE LEAVES', 'LOOK AT ME'], ['FOREVER', 'DETENTION NEVER ENDS', 'MINE']];
+const T_FRAMES = ['teacher_f0', 'teacher_f1', 'teacher_f2', 'teacher_f3', 'teacher_f4', 'teacher_b0', 'teacher_bw0', 'teacher_p0', 'teacher_b2', 'teacher_bw2', 'teacher_p2', 'teacher_b4', 'teacher_bw4', 'teacher_p4'];
+const tBk = c => c <= 1 ? 0 : c <= 3 ? 2 : 4;
+const T_MARK = { ok: '<svg viewBox="0 0 60 60" class="tk-mark ok"><path d="M10 32 L25 46 L52 12"/></svg>', no: '<svg viewBox="0 0 60 60" class="tk-mark no"><path d="M12 12 L48 48 M48 12 L12 48"/></svg>', ring: '<svg viewBox="0 0 100 50" class="tk-ring" preserveAspectRatio="none"><path d="M8 25 C 8 6, 92 4, 93 24 C 94 44, 10 47, 9 27"/></svg>' };
+
 function teacherMini() {
   return {
     id: 'teacher', name: 'Detention', room: 'teacher_f0', icon: 'graduation-cap', noBtn: true, noKiller: true, view: 'teacher', endReason: 'teacher_time',
     labels: { look: 'Miss Florence is watching' },
-    hint: 'Miss Florence is SO happy to have you in class! She\u2019ll watch you do every assignment. Get them right. Each mistake makes her a little more\u2026 wicked. Five mistakes and class is over.',
+    hint: 'Miss Florence is SO happy to have you in class! Do every assignment. While she writes on the board, she can\u2019t see your mistakes. When she turns around, every mistake counts, and she watches the clock. Five strikes and class is over.',
     limit: () => 600,
     mount(el, ctx) {
-      const T = { fails: 0, c: 0, done: 0, need: Math.min(12, 6 + ctx.night), task: null, left: 0, used: [], hold: 0, holding: false, idleT: 5 };
+      const T = { fails: 0, c: 0, done: 0, need: Math.min(12, 6 + ctx.night), task: null, left: 0, used: [], hold: 0, holding: false, idleT: 5, ph: 'write', phT: 4, wT: 0.4, wf: 0, fakeAt: -1, line: '', lineN: 0, fresh: false, busy: false };
       if (ctx.night === 1) Sfx.speak('teacher_l0', 'teacher');
       el.innerHTML = `<div class="mg mg-teach"><div class="tc" id="tc" data-c="0" data-testid="teacher-room">
-        <div class="os-bar tc-bar"><span class="tc-pill look" data-testid="teacher-phase"><i data-lucide="eye"></i>Watching</span><span class="tc-mood" data-testid="teacher-mood">Mood: <b id="t-mood">Bubbly</b></span><span class="tc-strikes" id="t-strikes" data-testid="teacher-strikes"></span><span id="t-done" data-testid="teacher-done">0/${T.need}</span><button class="os-pause" data-act="pause" data-testid="teacher-pause-btn" aria-label="Pause"><i data-lucide="pause"></i></button></div>
-        <section class="tc-scene" id="tsc" data-testid="teacher-scene">${[0, 1, 2, 3, 4].map(i => `<img class="ts ${i ? '' : 'on'}" data-k="${i}" src="${img('teacher_f' + i)}" alt="">`).join('')}<em class="tc-say" id="t-say" data-testid="teacher-say"></em></section>
+        <div class="os-bar tc-bar"><span class="tc-pill" id="t-ph" data-testid="teacher-phase"><i data-lucide="pencil"></i>Writing</span><span class="tc-mood" data-testid="teacher-mood">Mood: <b id="t-mood">Bubbly</b></span><span class="tc-strikes" id="t-strikes" data-testid="teacher-strikes"></span><span id="t-done" data-testid="teacher-done">0/${T.need}</span><button class="os-pause" data-act="pause" data-testid="teacher-pause-btn" aria-label="Pause"><i data-lucide="pause"></i></button></div>
+        <section class="tc-scene" id="tsc" data-ph="write" data-testid="teacher-scene"><i class="ts-fill" id="ts-fill"></i>
+          <div class="ts-box" id="ts-box">${T_FRAMES.map(n => `<img class="ts" data-n="${n}" src="${img(n)}" alt="">`).join('')}<div class="ts-chalk" id="ts-chalk" data-testid="teacher-chalk"></div><i class="ts-dust"></i><i class="ts-rain"></i></div>
+          <i class="ts-light"></i><div class="ts-clock" data-testid="teacher-clock"><i class="h"></i><i class="m"></i><i class="s"></i></div>
+          <b class="tc-scr" id="t-scr">She\u2019s turning</b><em class="tc-say" id="t-say" data-testid="teacher-say"></em></section>
         <section class="tc-desk" id="desk" data-testid="teacher-desk"></section></div></div>`;
-      const tc = $('#tc', el), sc = $('#tsc', el), desk = $('#desk', el), MOODS = ['Bubbly', 'Stern', 'Unsettling', 'Wicked', 'Demonic'];
+      const tc = $('#tc', el), sc = $('#tsc', el), desk = $('#desk', el), chalk = $('#ts-chalk', el), MOODS = ['Bubbly', 'Stern', 'Unsettling', 'Wicked', 'Demonic'];
+      const frame = n => { $$('.ts', sc).forEach(im => im.classList.toggle('on', im.dataset.n === n)); $('#ts-fill', el).style.backgroundImage = `url(${img(n)})`; sc.dataset.f = n; };
+      const curFrame = () => { const b = tBk(T.c); return T.ph === 'look' ? 'teacher_f' + T.c : T.ph === 'write' ? `teacher_${T.wf ? 'bw' : 'b'}${b}` : 'teacher_p' + b; };
+      const pill = () => { const p = $('#t-ph', el), m = { write: ['pencil', 'Writing', ''], peek: ['eye', 'Peeking!', 'warn'], warn: ['alert-triangle', 'Turning!', 'warn'], look: ['eye', 'Watching', 'look'] }[T.ph]; p.className = 'tc-pill ' + m[2]; p.innerHTML = `<i data-lucide="${m[0]}"></i>${m[1]}`; icons(); };
+      const setPh = (ph, dur) => { T.ph = ph; T.phT = dur; sc.dataset.ph = ph; pill(); frame(curFrame()); };
+      const startWrite = () => { T.line = pick(T_CHALK[T.c]); T.lineN = 0; chalk.innerHTML = ''; chalk.classList.remove('wipe'); void chalk.offsetWidth; chalk.classList.add('wipe'); const d = Math.max(2.6, 5.6 - T.c * 0.5) + Math.random() * 2; T.fakeAt = Math.random() < 0.35 + T.c * 0.1 ? d * (0.3 + Math.random() * 0.4) : -1; setPh('write', d); };
       const say = k => { const b = $('#t-say', el); b.textContent = pick(T_LINES[T.c][k]); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); };
       const strikes = () => { $('#t-strikes', el).innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="${i < T.fails ? 'x' : ''}"></i>`).join(''); };
+      const xform = (to, then) => {
+        const from = curFrame(); T.busy = true; tc.classList.remove('xform'); void tc.offsetWidth; tc.classList.add('xform');
+        [[0, 'teacher_f' + to], [140, from], [260, 'teacher_f' + to], [400, from], [520, 'teacher_f' + to]].forEach(([ms, n]) => setTimeout(() => frame(n), ms));
+        Sfx.tone(70, 1.1, 'sawtooth', 0.2, 35); Sfx.noise(0.7, 'lowpass', 400, 0.35); if (to >= 3) Sfx.noise(0.5, 'bandpass', 1800, 0.2, 2, 0.3); shake(3); haptic([80, 40, 160], 0.8);
+        setTimeout(() => { tc.classList.remove('xform'); T.busy = false; then && then(); }, 1300);
+      };
       const next = () => {
         const pool = T_TASKS.map((_, i) => i).filter(i => !T.used.includes(i)); if (!pool.length) T.used = [];
         const i = pick(pool.length ? pool : T_TASKS.map((_, j) => j)); T.used.push(i);
         const k = T_TASKS[i][1](T.c); k.name = T_TASKS[i][0]; k.idx = i; k.pos = 0; k.taps = 0; k.memoLeft = k.memo ? 1.4 + k.memo.length * 0.45 : 0; k.gone = [];
-        T.task = k; T.hold = 0; T.holding = false; T.total = T.left = (k.kind === 'still' ? k.dur : Math.max(6, 14 - T.c * 1.8)) + k.memoLeft; draw();
+        T.task = k; T.hold = 0; T.holding = false; T.total = T.left = (k.kind === 'still' ? k.dur : Math.max(6, 14 - T.c * 1.8)) + k.memoLeft; T.fresh = true; draw(); Sfx.noise(0.18, 'bandpass', 1200, 0.08);
       };
-      const fail = why => {
-        if (!T.task) return; T.task = null; T.fails++; strikes(); Sfx.tone(200, 0.4, 'triangle', 0.18, 120); haptic(200, 0.7); shake(2);
-        if (T.fails >= 5) { T.c = 4; tc.dataset.c = 4; $$('.ts', sc).forEach(im => im.classList.toggle('on', im.dataset.k === '4')); Sfx.speak('teacher_l4', 'teacher', true); toast('Class dismissed', why, 'bad'); return setTimeout(() => { if (!R || R.done) return; caught('teacher'); if (R && !R.done) { T.fails = 4; strikes(); next(); } }, 900); }
-        T.c = T.fails; tc.dataset.c = T.c; $('#t-mood', el).textContent = MOODS[T.c]; $$('.ts', sc).forEach(im => im.classList.toggle('on', +im.dataset.k === T.c));
-        tc.classList.remove('morph'); void tc.offsetWidth; tc.classList.add('morph'); Sfx.tone(70, 0.9, 'sawtooth', 0.2, 35); Sfx.noise(0.6, 'lowpass', 400, 0.35); shake(3);
-        say('mess'); toast('Wrong!', why, 'bad'); desk.innerHTML = `<div class="tk-fail" data-testid="teacher-fail">${esc(why)}</div>`; setTimeout(() => R && !R.done && next(), 1400);
+      const fail = (why, force) => {
+        if (!T.task) return;
+        if (!force && T.ph === 'write') { T.task = null; Sfx.noise(0.25, 'highpass', 2600, 0.1); Sfx.tone(520, 0.12, 'sine', 0.05, 660); desk.innerHTML = `<div class="tk-phew" data-testid="teacher-unseen"><i data-lucide="eraser"></i><b>Phew. She didn\u2019t see that.</b><small>Erase it. Try another.</small></div>`; icons(); return setTimeout(() => R && !R.done && next(), 1000); }
+        T.task = null; T.fails++; strikes(); Sfx.tone(200, 0.4, 'triangle', 0.18, 120); haptic(200, 0.7); shake(2);
+        desk.innerHTML = `<div class="tk-fail" data-testid="teacher-fail">${T_MARK.no}<span>${esc(why)}</span></div>`;
+        if (T.fails >= 5) { T.c = 4; tc.dataset.c = 4; T.ph = 'look'; sc.dataset.ph = 'look'; pill(); Sfx.speak('teacher_l4', 'teacher', true); toast('Class dismissed', why, 'bad'); return xform(4, () => { if (!R || R.done) return; caught('teacher'); if (R && !R.done) { T.fails = 4; strikes(); next(); } }); }
+        const to = T.fails; T.ph = 'look'; sc.dataset.ph = 'look'; pill(); toast('Wrong!', why, 'bad');
+        xform(to, () => { T.c = to; tc.dataset.c = T.c; $('#t-mood', el).textContent = MOODS[T.c]; say('mess'); setPh('look', 2.4 + T.c * 0.3); if (R && !R.done) next(); });
       };
       const ok = () => {
-        T.task = null; T.done++; $('#t-done', el).textContent = `${T.done}/${T.need}`; Sfx.chime([880, 1175]); say('praise'); ctx.set(T.done / T.need * 100);
-        desk.innerHTML = `<div class="tk-ok" data-testid="teacher-correct"><i data-lucide="star"></i>Correct!</div>`; icons();
+        T.task = null; T.done++; $('#t-done', el).textContent = `${T.done}/${T.need}`; Sfx.chime([880, 1175]); Sfx.noise(0.2, 'bandpass', 3000, 0.08); if (T.ph === 'look') say('praise'); ctx.set(T.done / T.need * 100);
+        desk.innerHTML = `<div class="tk-ok" data-testid="teacher-correct">${T_MARK.ok}<span>Correct!</span><i class="tk-star" data-lucide="star"></i></div>`; icons();
         if (T.done >= T.need) { if (!T.fails) unlock('teacher1'); if (T.fails >= 4) unlock('teacher_demon'); return; }
         setTimeout(() => R && !R.done && next(), 900);
       };
@@ -85,12 +106,13 @@ function teacherMini() {
         if (k.kind === 'still') return head + `<div class="tk-still" data-testid="teacher-still"><i data-lucide="hand"></i>Don\u2019t touch the screen\u2026</div>`;
         return head;
       };
-      const draw = () => { if (!T.task) return; desk.innerHTML = deskHtml(T.task); icons(); };
+      const draw = () => { if (!T.task) return; desk.innerHTML = `<div class="tk-sheet ${T.fresh ? 'in' : ''}" data-testid="teacher-sheet">${deskHtml(T.task)}</div>`; T.fresh = false; icons(); };
+      const scribble = t => { t.insertAdjacentHTML('beforeend', T_MARK.ring); Sfx.noise(0.14, 'bandpass', 2400, 0.1, 3); };
       desk.addEventListener('pointerdown', e => {
-        const k = T.task; if (!k) return; const t = e.target.closest('[data-t]');
-        if (k.kind === 'still') { e.preventDefault(); return fail('I said DON\u2019T. TOUCH.'); }
+        const k = T.task; if (!k || T.busy) return; const t = e.target.closest('[data-t]');
+        if (k.kind === 'still') { e.preventDefault(); return fail('I said DON\u2019T. TOUCH.', true); }
         if (!t) return; e.preventDefault(); const a = t.dataset.t, v = t.dataset.v; Sfx.click();
-        if (a === 'ans') return v === k.ans ? ok() : fail(`\u201c${v}\u201d? No, sweetie.`);
+        if (a === 'ans') { scribble(t); desk.style.pointerEvents = 'none'; return setTimeout(() => { desk.style.pointerEvents = ''; if (T.task !== k) return; v === k.ans ? ok() : fail(`\u201c${v}\u201d? No, sweetie.`); }, 280); }
         if (a === 'ord') { const want = k.seq[k.pos], it = k.items.find(x => String(x.id) === v), good = k.byLabel ? it && it.l === k.board[k.pos] : String(want) === v; if (!good) return fail('Wrong order.'); k.pos++; if (!k.repeat) k.gone.push(it.id); Sfx.tone(600 + k.pos * 60, 0.06, 'square', 0.06); if (k.pos >= k.seq.length) return ok(); return draw(); }
         if (a === 'hold') { T.holding = true; t.classList.add('down'); return; }
         if (a === 'tap') { k.taps++; Sfx.noise(0.05, 'bandpass', 2200 + Math.random() * 800, 0.14); if (k.taps >= k.n) return ok(); return draw(); }
@@ -98,15 +120,25 @@ function teacherMini() {
       });
       const rel = () => { if (T.holding && T.task && T.task.kind === 'hold') { T.holding = false; if (T.hold < T.task.need) fail('You put your hand down. Rude.'); } };
       desk.addEventListener('pointerup', rel); desk.addEventListener('pointercancel', rel);
-      strikes(); say('idle'); next();
+      strikes(); startWrite(); next();
       return {
         update(dt) {
-          const k = T.task; T.idleT -= dt; if (T.idleT <= 0) { T.idleT = 6 + Math.random() * 5 - T.c; say('idle'); if (T.c >= 3) { sc.classList.remove('lean'); void sc.offsetWidth; sc.classList.add('lean'); Sfx.whisper(0.06); } }
+          const k = T.task;
+          if (!T.busy) {
+            T.phT -= dt;
+            if (T.ph === 'write') {
+              T.wT -= dt; if (T.wT <= 0) { T.wT = 0.3 + Math.random() * 0.25; T.wf ^= 1; frame(curFrame()); if (T.lineN < T.line.length) { T.lineN = Math.min(T.line.length, T.lineN + 2); chalk.innerHTML = esc(T.line.slice(0, T.lineN)) + '<i class="ts-tip"></i>'; Sfx.noise(0.07, 'bandpass', 3200 + Math.random() * 1400, 0.05, 6); } }
+              if (T.fakeAt > 0 && T.phT <= T.fakeAt) { T.fakeAt = -1; T.back = T.phT; setPh('peek', 0.5 + Math.random() * 0.25); Sfx.tone(1200, 0.12, 'sine', 0.06); Sfx.whisper(0.05); if (T.c >= 2) shake(1); }
+              else if (T.phT <= 0) { setPh('warn', Math.max(0.45, 0.85 - T.c * 0.08)); Sfx.tone(300, 0.25, 'triangle', 0.08, 180); Sfx.noise(0.2, 'lowpass', 500, 0.15); }
+            } else if (T.ph === 'peek' && T.phT <= 0) { T.ph = 'write'; sc.dataset.ph = 'write'; T.phT = T.back; pill(); frame(curFrame()); }
+            else if (T.ph === 'warn' && T.phT <= 0) { setPh('look', 2.4 + T.c * 0.3 + Math.random()); say('idle'); Sfx.thump(0.4); if (T.c >= 3) { sc.classList.remove('lean'); void sc.offsetWidth; sc.classList.add('lean'); Sfx.whisper(0.06); } }
+            else if (T.ph === 'look' && T.phT <= 0) startWrite();
+          }
           if (!k) return;
           if (k.memoLeft > 0) { k.memoLeft -= dt; if (k.memoLeft <= 0) draw(); }
           if (k.kind === 'hold' && T.holding) { T.hold += dt; const m = $('#t-hm', desk); if (m) m.style.width = Math.min(100, T.hold / k.need * 100) + '%'; if (T.hold >= k.need) { T.holding = false; return ok(); } }
-          T.left -= dt; const bar = $('#t-tm', desk); if (bar) bar.style.width = clamp(T.left / T.total, 0, 1) * 100 + '%';
-          if (T.left <= 0) { if (k.kind === 'still') return ok(); fail('Too slow, sweetie.'); }
+          T.left -= dt * (T.ph === 'look' ? 1.5 : 1); const bar = $('#t-tm', desk); if (bar) bar.style.width = clamp(T.left / T.total, 0, 1) * 100 + '%';
+          if (T.left <= 0) { if (k.kind === 'still') return ok(); fail('Too slow, sweetie.', true); }
         },
         isActive: () => false
       };

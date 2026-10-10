@@ -44,7 +44,7 @@ function menuItems() {
   ];
 }
 const DUST = Array.from({ length: 26 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 100).toFixed(1)}%;--s:${(Math.random() * 2.4 + 1).toFixed(1)}px;--d:${(Math.random() * 14 + 10).toFixed(1)}s;--dl:-${(Math.random() * 20).toFixed(1)}s"></i>`).join('');
-const MODE_ART = { classic: 'key_art', hush: 'hush_front', lullaby: 'bed_awake', bestie: 'bestie_art', detention: 'teacher_f0', babysit: 'baby_parents', impress: 'closet_look' }, CARD_ART = Object.assign({}, MODE_ART, { classic: 'hush_back', detention: 'teacher_f2' });
+const MODE_ART = { classic: 'key_art', hush: 'hush_front', lullaby: 'bed_awake', bestie: 'bestie_art', detention: 'teacher_f0', babysit: 'baby_parents', thane: 'thane_cover', impress: 'closet_look' }, CARD_ART = Object.assign({}, MODE_ART, { classic: 'hush_back', detention: 'teacher_f2' });
 const titleArt = () => img(MODE_ART[S.mode] || 'key_art');
 function renderTitle() {
   const t = traitById(S.trait), m = modeById(S.mode), items = menuItems(), best = bestNightAll();

@@ -31,6 +31,11 @@ const STORIES = {
     ['st_y2', 'Baby is awake.', 'Baby is always awake. Baby has been waiting for you.', 'pushf'],
     ['st_y3', 'It crawls.', 'Down the hall. Up the walls. Across the ceiling. <b>Never lose sight of it for long.</b>', 'panr'],
     ['st_y4', 'Six hours until they\u2019re home.', 'Stop whatever it\u2019s doing. Keep it safe until 6 AM. <b>Don\u2019t lose the baby.</b>', 'push']] },
+  thane: { name: 'The Grand Illusion', who: 'Thane', shots: [
+    ['st_t1', 'An invitation. No return address.', 'One ticket. Front row. Tonight only. The envelope is warm, and it\u2019s humming.', 'push'],
+    ['st_t2', 'Every seat is empty but yours.', 'Thane takes a slow bow. He has been waiting a very long time for a volunteer.', 'pull'],
+    ['st_t3', 'Every trick has a secret.', 'Follow the cup. Remember the card. Find the real him. <b>See through it, or his Reach takes you.</b>', 'pushf'],
+    ['st_t4', 'And when the tricks run out\u2026', 'the magician takes off his face. <b>Survive the Last Trick.</b>', 'shake']] },
   impress: { name: 'Impressions', who: 'Mr. Hush', shots: [
     ['st_i1', 'Mr. Hush is bored.', 'Dangerously, murderously bored.', 'pushf'],
     ['st_i2', 'Tonight, you\u2019re the entertainment.', 'One spotlight. One microphone. One very tough crowd.', 'push'],
@@ -73,7 +78,7 @@ function playStory(id, done, fromMenu) {
 }
 
 function renderStory() {
-  const order = ['classic', 'hush', 'lullaby', 'bestie', 'detention', 'babysit', 'impress'], seen = S.seenStories || {};
+  const order = ['classic', 'hush', 'lullaby', 'bestie', 'detention', 'babysit', 'thane', 'impress'], seen = S.seenStories || {};
   $('#scr-story').innerHTML = `${subTop('The Stories')}<div class="story-pick" data-testid="story-picker"><p class="story-sub">Every killer in this house has a story. Pick one.</p><div class="story-grid">${order.map((id, k) => { const st = STORIES[id]; return `<button class="story-card" style="--img:url(${img(st.shots[0][0])});--i:${k}" data-act="story-play" data-id="${id}" data-testid="story-card-${id}"><i class="sc-img"></i><span><small>${esc(st.who)}</small><b>${esc(st.name)}</b>${seen[id] ? '<em>Watched</em>' : '<em class="new">New</em>'}</span><i class="sc-play" data-lucide="play"></i></button>`; }).join('')}</div></div>`;
   icons();
 }
