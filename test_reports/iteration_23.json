@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 23 — Icon-mode buttons/UI audit after user complaint 'janky buttons'. Verified all four listed FIXED items pass end-to-end on preview URL, plus ran the full icon audit on desktop 1440/1920/1024/1540/761 + mobile 390/360. One real UX regression found: in the Artist editor drawer the Profile photo and Background dropzones do not render Chelly's current photo/banner — they show the empty 'Drop photo'/'Drop banner' placeholder even though the Photo Link / Background Link text inputs are correctly prefilled with her ik.imagekit.io URLs. Everything else requested in the review passes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Artist editor drawer (icon mode, Chelly card → Edit)",
+        "issue": "Profile photo + Background dropzones show empty 'Drop photo'/'Drop banner' placeholder on open. The Photo Link + Background Link inputs ARE correctly prefilled (https://ik.imagekit.io/treesh/IMG_6939.jpeg etc.), so the data is loaded; the dropzone just doesn't render the existing image as a preview. Spec says 'photo/banner dropzones show Chelly's current photo/banner previews'.",
+        "selector": "[data-testid=\"artist-photo-dropzone\"], [data-testid=\"artist-bg-dropzone\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Desktop 1440 and 1540 top bar (icon mode)",
+        "issues": [
+          "Tabs are correctly capped at max-width:520px (w=520 at both 1440 and 1540), but they sit inside the topbar at left=802 (1440) / left=868 (1540), i.e. offset to the right of the brand+settings cluster rather than mathematically centered on the viewport. At 1024 they ARE centered (left=252, viewport-mid 512 = tabs-mid 512). At 1920 they sit cleanly inside the topbar (w=282, l=753). Visually acceptable because the topbar is a flex row with brand (left) + icon buttons + tabs + user pill (right), but if 'centered on viewport' is the strict requirement, 1440/1540 don't meet it."
+        ]
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_23.json"],
+  "action_items": [
+    "Fix Artist editor dropzones to show the current artist photo (background-image or <img>) when opening Edit for an existing artist, not only after a new file is dropped. Expected: when drawer opens with photoVal/bgVal already set, [data-testid=artist-photo-dropzone] renders a preview thumbnail of the current photo URL, same for [data-testid=artist-bg-dropzone] rendering the current banner URL.",
+    "(Optional, only if strict viewport-centering is desired) At 1440/1540 .tabs is correctly capped at 520px but sits in the topbar flex row offset to the right. If the design wants it visually centered on the viewport in icon mode, move .tabs out of the topbar flex into its own absolutely-positioned centered container, or add 'position:absolute; left:50%; transform:translateX(-50%)' at 761-1540."
+  ],
+  "critical_code_review_comments": [
+    "songcoder.html:1769-1770 applyRole() correctly calls setEditUI() + requestAnimationFrame(moveInd) and swaps #compose-sub text based on isIcon(). Mobile 390 result: dock-inner computed grid-template-columns = '344px' (1 col full width), publish button rect = {l:23, r:367, w:344, vw:390} → fully on-screen. Mobile 360: {l:23, r:337, w:314, vw:360}. BUG1 confirmed fixed.",
+    "songcoder.html:3717 moveInd() reads a.offsetLeft/offsetWidth of .tab.active. On every reload/sign-in/tab switch indicator width equals active tab width (±1px). Verified 390, 360, 1024, 1440, 1540, 1920. BUG2 confirmed fixed.",
+    "songcoder.html:85 'body.icon-mode .tabs{max-width:520px;margin:0 auto}' is applied — tabs render 520px at 1024/1440/1540, which is correct. But because .tabs sits inside the .topbar flex row with other items, margin:auto only works horizontally within the remaining space of the flex row, not within the viewport. If 'centered' means viewport-centered, this won't achieve it at 1440/1540.",
+    "songcoder.html:925 CSS correctly hides for icons: .mode-seg, [data-view=projects], [data-view=models], [data-view=blog], [data-view=whatsnew], #open-bulk, #new-artist, #art-fix, #cat-reorder, [data-act=pin], .admin-only. Verified 0 visible pin buttons in catalog, Blog/What's New tabs display:none, Projects subnav display:none.",
+    "songcoder.html:1770 compose-sub text + :2425 publish-label 'Send for review' / 'Send changes for review' + :3712 a-save-label 'Send for review' all correctly branch on isIcon(). Confirmed strings on live.",
+    "songcoder.html:3664 publish success modal has testid='publish-success-modal' with text 'Treesh admin will look it over…' — matches spec.",
+    "Welcome tour step 1: card renders with 'Your profile' title, text starts 'Open Icons and tap the pencil on your card…', Skip + Next buttons, 4 step dots, spotlight correctly overlays the Icons tab. Verified visually on desktop 1440.",
+    "Settings panel in icon mode correctly hides #s-cloud (offsetWidth 0), #s-activity (display none), #s-email (display none), #s-server (display none). #s-auth + settings-replay-tour-btn + settings-signout-btn visible. Repo box (#s-repo) not even rendered.",
+    "My changes drawer (data-testid=open-prs-btn → openPrPanel) opens with title 'My changes' and filters [All, In review, Approved, Not approved] with icon labels — matches spec.",
+    "Icons tab in icon mode: only Chelly's card is visible (1 card, 1 edit button), no 'New artist', artists view count = 12 but filtered to self via .filter(a => !isIcon() || a.id===state.auth.artistId). sub-icons group hidden on artists tab via SUB_OF+isIcon check.",
+    "Catalog view in icon mode: catalog-new-song-btn, catalog-refresh-btn and the check-links button are visible; 9 edit + 9 delete buttons present (Chelly's songs); 0 pin buttons visible; cat-reorder display:none. Matches spec exactly.",
+    "The two console CORS errors from https://treesh.app/content/{blog,whatsnew.json} are harmless in icon mode because the Blog + What's New tabs are hidden; the fetches still fire from the switchView preload. Could guard with isIcon() to avoid noise but low priority."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only task)", "frontend": "~96% — 4/4 listed FIXED bugs verified pass + full icon audit mostly pass, 1 medium UX regression (dropzone previews missing) + 1 minor centering nitpick at 1440/1540"},
+  "test_credentials": "Icon: localStorage sb-mock-auth-token {access_token:'mock-chelly', expires_at: now+3600} + POST /api/github/icon-session {access_token:'mock-chelly'} (sets mad_session cookie). Skip tour: localStorage treesh_mad_tour_done:11 = '1'.",
+  "seed_data_creation": "None added. State: mock backend was reset via POST /api/mockgh/reset at start; existing 56 songs / 12 artists / Chelly=#11 with 9 songs seed used.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All four explicitly listed FIXED items pass on preview: (1) mobile 390 + 360 dock-inner is grid-template-columns:1fr and [data-testid=upload-to-catalog-btn] is full-width (344px @390, 314px @360) and fully on-screen; (2) #tab-ind width equals .tab.active offsetWidth within ±1px after reload/sign-in and after switching Catalog↔Icons on both mobile and desktop; (3) .tabs max-width 520px at 1024/1440/1540, in-topbar at 1920; (4) #compose-sub = 'Fill in the track and preview it live. When you send it, Treesh admin reviews it…' and #publish-label = 'Send for review'. Open issue to retest after fix: Artist editor dropzones (artist-photo-dropzone / artist-bg-dropzone) must show the current photo/banner as a preview thumbnail when editing an existing artist (today they show the empty 'Drop photo'/'Drop banner' placeholder; the Photo Link input is populated). Two console CORS errors to treesh.app/content/{blog,whatsnew.json} fire even in icon mode where those tabs are hidden — harmless but noisy; consider gating preload with !isIcon(). Catalog in icon mode: 0 pin buttons visible, cat-reorder hidden, 9 edit + 9 delete for Chelly's songs; My changes drawer filters [All, In review, Approved, Not approved]; Settings hides cloud/activity/email/server rows and keeps replay-tour + signout. Welcome tour step 1 title 'Your profile' with spotlight on Icons tab verified visually.",
+  "rca of the issue": "Dropzone preview regression: the artist-photo-dropzone / artist-bg-dropzone elements only paint a preview after a file is dropped/selected (likely wired to the dropzone's own change handler), but when the Edit drawer is opened for an existing artist with photoLink + bgLink already set the dropzone body is not initialized from those values. The <input type=url> fields ARE prefilled, so the fix is to, on drawer open, also set a background-image (or append an <img>) inside the dropzone to the current photoVal/bgVal."
+}
