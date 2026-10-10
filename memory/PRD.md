@@ -179,3 +179,6 @@ Make the Treesh song coder tool (live at https://treesh.app/tools/songcoder) way
 - Image viewer: capture-phase click on main/drawer/modal <img>, the catalog .cv area, or [data-zoom-bg] (artist card banner + photo) opens a fullscreen .lb. Pinch (pointer events), double-tap 1↔2.5×, wheel, +/− buttons, pan when zoomed, swipe-down / backdrop tap (outside the image, 280 ms timer) / Esc / × to close. Body scroll is locked while it's open. Skips buttons, links and dropzones.
 - Preview as Icon (admin): review drawer + Settings button → pick an Icon. state.auth becomes a fake icon (preview:true) and state.realAuth is kept. Read-only guards in gh.req (non-GET), cloudUpload and ikUpload. #pv-banner (sticky above the topbar, --pvh) has "Their tour" (doesn't mark the tour done) and Exit. loadPRs filters icon PRs by icon/<artistId>/.
 - Countdown: shortLeft() (2d 4h / 3h 12m / 12m 05s) and dropBadge() with data-countdown, ticked every second, switching to "Out now" (.out). Shown on catalog cards, project cards (earliest upcoming track), the compose preview, and PR rows (PR body <!-- mad-release: ISO --> added by the prBody wrapper).
+
+## 2026-06 Sync fix
+- Copied latest build to root `Tools/songcoder.html` (was stale Oct 2 version) and created `Tools/mad.html`. All copies now identical (md5 de5d9a2f…).
