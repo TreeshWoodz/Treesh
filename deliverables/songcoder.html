@@ -970,6 +970,22 @@ body.icon-mode .sub-nav [data-go=projects]{display:none !important}
 body.icon-mode .dock-inner{grid-template-columns:1fr !important}
 body.icon-mode .mode-note{text-align:center}
 .jh-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.lb{position:fixed;inset:0;z-index:400;display:grid;place-items:center;background:rgba(5,4,10,.94);touch-action:none;overscroll-behavior:contain;animation:lbIn .22s var(--ease) both;-webkit-user-select:none;user-select:none}
+.lb.out{opacity:0;transition:opacity .2s}
+@keyframes lbIn{from{opacity:0}}
+.lb-img{max-width:min(94vw,1400px);max-height:84vh;object-fit:contain;border-radius:14px;box-shadow:0 30px 90px rgba(0,0,0,.6);transform-origin:center;will-change:transform;pointer-events:none}
+.lb-bar{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;display:flex;align-items:center;gap:6px;padding:6px;border-radius:999px;background:rgba(20,18,26,.85);border:1px solid var(--stroke);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.lb-pct{min-width:48px;text-align:center;font-family:var(--doto);font-weight:900;font-size:13px;color:var(--muted)}
+.lb-hint{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:0;right:0;margin:0;text-align:center;font-size:12px;color:var(--dim);pointer-events:none}
+main img,.drawer img,[data-zoom-bg]{cursor:zoom-in}
+main button img,main a img,.drop img{cursor:inherit}
+.badge.soon.out{background:rgba(61,220,151,.14);color:var(--ok);border-color:rgba(61,220,151,.3)}
+.pv-banner{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:8px 14px;background:linear-gradient(90deg,rgba(147,40,255,.9),rgba(255,61,154,.85));color:#fff;font-size:13px;font-weight:600}
+.pv-banner>svg{width:16px;height:16px}
+.pv-banner .btn{background:rgba(0,0,0,.25);border-color:rgba(255,255,255,.35);color:#fff}
+.pv-banner .btn-primary{background:#fff;color:#1a0b2e;border-color:#fff}
+body.previewing .topbar{top:var(--pvh,44px)}
+@media (max-width:620px){.pv-banner{gap:8px;padding:7px 10px;font-size:12px}.pv-banner>span{flex:1 1 100%;text-align:center}}
 .scan-panel{margin:0 0 22px;padding:18px;border-radius:22px;border:1px solid var(--stroke-faint);background:rgba(255,255,255,.035);animation:rise .4s var(--ease) both}
 .scan-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .scan-head b{font-size:15px}
@@ -1060,6 +1076,7 @@ body.icon-mode .mode-note{text-align:center}
 <body>
 <div id="ambient"></div><div class="glowfield"></div><div class="grain"></div>
 
+<div class="pv-banner" id="pv-banner" hidden data-testid="preview-banner"><i data-lucide="eye"></i><span>Previewing as <b id="pv-banner-name" data-testid="preview-banner-name"></b> · read-only</span><button type="button" class="btn btn-sm" id="pv-tour" data-testid="preview-tour-btn"><i data-lucide="map"></i>Their tour</button><button type="button" class="btn btn-sm btn-primary" id="pv-exit" data-testid="preview-exit-btn"><i data-lucide="log-out"></i>Exit</button></div>
 <header class="topbar">
   <a class="brand" href="https://treesh.app" data-testid="brand-link">
     <img src="https://ik.imagekit.io/treesh/IMG_5825.png" alt="Treesh">
@@ -1497,7 +1514,7 @@ body.icon-mode .mode-note{text-align:center}
 <template id="tpl-review">
   <div class="scrim" data-close></div>
   <aside class="drawer wide" data-testid="review-drawer">
-    <div class="drawer-head"><i data-lucide="inbox"></i><h2>Icon review</h2><button class="icon-btn" id="rv-refresh" title="Refresh" style="margin-left:auto" data-testid="review-refresh-btn"><i data-lucide="refresh-cw"></i></button><button class="icon-btn" data-close style="margin-left:0" data-testid="close-review-btn"><i data-lucide="x"></i></button></div>
+    <div class="drawer-head"><i data-lucide="inbox"></i><h2>Icon review</h2><button class="btn btn-sm" id="rv-preview" style="margin-left:auto" data-testid="review-preview-btn"><i data-lucide="eye"></i>Preview as Icon</button><button class="icon-btn" id="rv-refresh" title="Refresh" style="margin-left:0" data-testid="review-refresh-btn"><i data-lucide="refresh-cw"></i></button><button class="icon-btn" data-close style="margin-left:0" data-testid="close-review-btn"><i data-lucide="x"></i></button></div>
     <div class="drawer-body soft-scroll">
       <p class="dr-note"><i data-lucide="shield-check"></i>Icons can only change their own profile, songs and lyrics. Nothing goes live until you approve it.</p>
       <div class="rv-notify" id="rv-notify" data-testid="review-browser-alerts"></div>
@@ -1556,6 +1573,7 @@ body.icon-mode .mode-note{text-align:center}
           <div class="act-head"><i data-lucide="mail"></i><b>Email alerts</b></div>
           <p class="hint" id="s-email-status" style="margin:0 0 12px" data-testid="settings-email-status"></p>
           <button type="button" class="btn btn-sm" id="s-email-test" data-testid="settings-email-test-btn"><i data-lucide="send"></i>Send test email</button>
+          <button type="button" class="btn btn-sm" id="s-preview" data-testid="settings-preview-icon-btn"><i data-lucide="eye"></i>Preview as Icon</button>
           <p class="hint" id="s-email-from" style="margin:10px 0 0" data-testid="settings-email-from"></p>
         </div>
         <div class="act-box" id="s-server" hidden data-testid="settings-server-status"></div>
@@ -1853,6 +1871,7 @@ function ghError(status, msg){
 }
 const gh = {
   async req(path, opts = {}){
+    if (state.auth.preview && (opts.method || 'GET') !== 'GET') throw Object.assign(new Error('Preview mode is read-only. Exit the preview to make changes.'), { status: 0, code: 'preview' });
     let r;
     try {
       r = await fetch(`${API}/repo${path}`, { ...opts, credentials:'same-origin', cache:'no-store', headers:{ Accept:'application/vnd.github+json', ...(opts.body ? { 'Content-Type':'application/json' } : {}) } });
@@ -2081,7 +2100,7 @@ function renderPreview(){
   $('#pv-dur').textContent = fmtTime(state.duration);
   const b = [];
   const soon = isUpcoming(f.release);
-  if (soon) b.push(`<span class="badge soon" data-testid="badge-dropping-soon">${icon('timer')}Dropping soon</span>`);
+  if (soon) b.push(dropBadge(f.release, 'badge-dropping-soon'));
   $('#pv-count').hidden = !soon;
   if (soon){ $('#pv-when').textContent = `Drops ${fmtWhen(f.release)}`; $('#pv-left').textContent = countdown(f.release); }
   $('#release-hint').textContent = !f.release ? 'Set a drop time and the song gets a “Dropping soon” badge, with playback locked until then.' : soon ? `Locked until ${fmtWhen(f.release)} (your local time). Saved as ${f.release}.` : 'That time has passed, so no badge will show.';
@@ -2107,6 +2126,7 @@ function refreshAll(){ renderFeatured(); renderRoster(); renderSuggest(); render
 const cloudReady = (kind = 'image') => kind === 'audio' ? signedIn() || !!(cfg.cloudName && cfg.preset) : signedIn();
 // Images go to ImageKit (free plan, 20 MB max). The M.A.D. server signs each upload so the private key never reaches the browser.
 async function ikUpload(file, onProgress){
+  if (state.auth.preview) throw new Error('Preview mode is read-only. Exit the preview to upload.');
   if (!/^image\//.test(file.type || 'image/')) throw new Error('Only images can be uploaded here.');
   if (file.size > 20 * 1024 * 1024) throw new Error('ImageKit’s free plan takes images up to 20 MB.');
   const r = await fetch(`${API}/imagekit-auth`, { credentials:'same-origin', cache:'no-store' }).catch(() => null);
@@ -2124,6 +2144,7 @@ async function ikUpload(file, onProgress){
   });
 }
 function cloudUpload(file, kind, onProgress){
+  if (state.auth.preview) return Promise.reject(new Error('Preview mode is read-only. Exit the preview to upload.'));
   if (kind !== 'audio') return ikUpload(file, onProgress);
   return (signedIn() ? cloudSigned(file, onProgress).catch(e => { if (e.code === 'cloudinary' && cfg.preset) return cloudUnsigned(file, onProgress); throw e; }) : cfg.preset ? cloudUnsigned(file, onProgress) : Promise.reject(new Error('Sign in to M.A.D. to upload audio, or tap “Host on JukeHost” and paste the link.')));
 }
@@ -2331,7 +2352,7 @@ async function loadCatalog(){
 }
 async function loadPRs(){
   state.prsLoading = true; if (state.prPaint) state.prPaint();
-  try { const all = await gh.listPRs(); state.allPrs = all.filter(p => p.head && (isIcon() ? /^icon\// : /^songcoder\//).test(p.head.ref)).slice(0, 50); state.iconPrs = isAdmin() ? all.filter(p => p.head && /^icon\//.test(p.head.ref)) : []; } catch { state.allPrs = []; state.iconPrs = []; }
+  try { const all = await gh.listPRs(); state.allPrs = all.filter(p => p.head && (isIcon() ? String(p.head.ref).startsWith(`icon/${state.auth.artistId}/`) : /^songcoder\//.test(p.head.ref))).slice(0, 50); state.iconPrs = isAdmin() ? all.filter(p => p.head && /^icon\//.test(p.head.ref)) : []; } catch { state.allPrs = []; state.iconPrs = []; }
   state.prsLoading = false; state.prs = state.allPrs.filter(p => prState(p) === 'open');
   renderPRs(); paintPrCount(); paintReviewCount(); iconResultToasts(); if (state.prPaint) state.prPaint(); if (state.reviewPaint) state.reviewPaint(); rvCheckNew();
 }
@@ -2381,7 +2402,7 @@ function renderCatalog(){
           <button class="icon-btn danger" data-act="delete" title="Delete" data-testid="catalog-delete-btn">${icon('trash-2')}</button></div></div></div>
       <div class="pbar"><i></i></div>
       <div class="inf"><h3 title="${esc(s.title)}" data-testid="catalog-song-title">${esc(s.title)}</h3><p>${esc(s.h3 || s.artist)}</p>
-        <div class="row">${s.genre ? `<span class="g">${esc(s.genre)}</span>` : ''}${isUpcoming(s.release) ? `<span class="badge soon" data-testid="catalog-soon-badge">${icon('timer')}Soon</span>` : ''}${s.explicit ? '<span class="badge e">E</span>' : ''}${s.exclusive ? '<span class="badge x">EXCL</span>' : ''}${s.treeshchoice ? `<span class="badge">${icon('sparkles')}</span>` : ''}${hasDraft(editKey(s)) ? `<span class="badge draft" title="Unsaved edits kept in this browser" data-testid="catalog-draft-badge">${icon('pencil-line')}Draft</span>` : ''}</div>${isUpcoming(s.release) ? `<span class="cd" data-countdown="${esc(s.release)}" data-testid="catalog-countdown">Drops in ${countdown(s.release)}</span>` : ''}</div>
+        <div class="row">${s.genre ? `<span class="g">${esc(s.genre)}</span>` : ''}${isUpcoming(s.release) ? dropBadge(s.release, 'catalog-soon-badge') : ''}${s.explicit ? '<span class="badge e">E</span>' : ''}${s.exclusive ? '<span class="badge x">EXCL</span>' : ''}${s.treeshchoice ? `<span class="badge">${icon('sparkles')}</span>` : ''}${hasDraft(editKey(s)) ? `<span class="badge draft" title="Unsaved edits kept in this browser" data-testid="catalog-draft-badge">${icon('pencil-line')}Draft</span>` : ''}</div>${isUpcoming(s.release) ? `<span class="cd" data-countdown="${esc(s.release)}" data-testid="catalog-countdown">Drops in ${countdown(s.release)}</span>` : ''}</div>
     </article>`;
   }).join('');
   setPlayIcons();
@@ -2536,7 +2557,7 @@ function renderArtists(){
   state.catalog.songs.forEach(s => s.ids.split(',').map(x => x.trim()).filter(Boolean).forEach(id => { counts[id] = (counts[id] || 0) + 1; }));
   const bgUrl = u => `background-image:url(&quot;${esc(u)}&quot;)`;
   const aq = normKey($('#art-search').value), alist = state.roster.filter(a => (!isIcon() || a.id === state.auth.artistId) && (!aq || normKey(Object.values(a).join(' ')).includes(aq)));
-  $('#art-grid').innerHTML = state.roster.length ? (alist.length ? '' : `<div class="empty" data-testid="artists-no-results">${icon('search-x')}<b>No matches</b><span>Try another name.</span></div>`) + alist.map((a, i) => `<article class="artist-card" style="animation-delay:${Math.min(i, 12) * 30}ms" data-testid="artist-card-${esc(a.id)}"><div class="bg" style="${bgUrl(a.bg || a.image)};background-position:${pctPos(a.bgPos).join('% ')}%"></div><div class="a-acts"><button class="icon-btn" data-aact="edit" data-id="${esc(a.id)}" title="Edit" data-testid="artist-edit-btn">${icon('pencil')}</button><button class="icon-btn danger" data-aact="delete" data-id="${esc(a.id)}" title="Remove" data-testid="artist-delete-btn">${icon('trash-2')}</button></div><div class="ph" style="${bgUrl(a.image)}"></div><h3 data-testid="artist-card-name">${esc(a.name)}</h3><p class="role">${esc(a.role)}</p><div class="meta"><span class="id">#${esc(a.id)}</span>${a.location ? `<span>${icon('map-pin')}${esc(a.location)}</span>` : ''}${a.cashapp ? `<span>${icon('dollar-sign')}${esc(a.cashapp)}</span>` : ''}</div><p class="songs">${counts[a.id] || 0} song${counts[a.id] === 1 ? '' : 's'}</p></article>`).join('')
+  $('#art-grid').innerHTML = state.roster.length ? (alist.length ? '' : `<div class="empty" data-testid="artists-no-results">${icon('search-x')}<b>No matches</b><span>Try another name.</span></div>`) + alist.map((a, i) => `<article class="artist-card" style="animation-delay:${Math.min(i, 12) * 30}ms" data-testid="artist-card-${esc(a.id)}"><div class="bg" data-zoom-bg data-testid="artist-card-banner" style="${bgUrl(a.bg || a.image)};background-position:${pctPos(a.bgPos).join('% ')}%"></div><div class="a-acts"><button class="icon-btn" data-aact="edit" data-id="${esc(a.id)}" title="Edit" data-testid="artist-edit-btn">${icon('pencil')}</button><button class="icon-btn danger" data-aact="delete" data-id="${esc(a.id)}" title="Remove" data-testid="artist-delete-btn">${icon('trash-2')}</button></div><div class="ph" data-zoom-bg data-testid="artist-card-photo" style="${bgUrl(a.image)}"></div><h3 data-testid="artist-card-name">${esc(a.name)}</h3><p class="role">${esc(a.role)}</p><div class="meta"><span class="id">#${esc(a.id)}</span>${a.location ? `<span>${icon('map-pin')}${esc(a.location)}</span>` : ''}${a.cashapp ? `<span>${icon('dollar-sign')}${esc(a.cashapp)}</span>` : ''}</div><p class="songs">${counts[a.id] || 0} song${counts[a.id] === 1 ? '' : 's'}</p></article>`).join('')
     : `<div class="empty" data-testid="artists-empty">${icon('users-round')}<b>Roster not loaded</b><span>Sign in from Settings, or open this tool on treesh.app.</span><button class="btn btn-sm" data-open-settings data-testid="artists-empty-settings-btn">Open settings</button></div>`;
   icons();
 }
@@ -3004,7 +3025,7 @@ function renderProjects(){
   if (state.project) return renderProjEditor();
   const pq = normKey($('#proj-search').value); $('#proj-tools').hidden = !!state.project;
   const list = albums().filter(al => !pq || normKey(al.name + ' ' + al.songs.map(x => x.title + ' ' + x.artist).join(' ')).includes(pq));
-  grid.innerHTML = list.length ? list.map((al, i) => { const d = projDefaults(al); return `<button class="song proj-card" data-key="${esc(al.key)}" style="animation-delay:${Math.min(i, 12) * 30}ms;text-align:left" data-testid="project-card"><div class="cv">${d.cover ? `<img src="${esc(d.cover)}" alt="" loading="lazy">` : ''}</div><div class="inf"><h3 data-testid="project-card-title">${esc(al.name)}</h3><p>${esc(d.artist)}</p><div class="row"><span class="g" data-testid="project-card-count">${al.songs.length} track${al.songs.length > 1 ? 's' : ''}</span>${d.date ? `<span class="g">${esc(d.date)}</span>` : ''}</div></div></button>`; }).join('')
+  grid.innerHTML = list.length ? list.map((al, i) => { const d = projDefaults(al); return `<button class="song proj-card" data-key="${esc(al.key)}" style="animation-delay:${Math.min(i, 12) * 30}ms;text-align:left" data-testid="project-card"><div class="cv">${d.cover ? `<img src="${esc(d.cover)}" alt="" loading="lazy">` : ''}</div><div class="inf"><h3 data-testid="project-card-title">${esc(al.name)}</h3><p>${esc(d.artist)}</p><div class="row"><span class="g" data-testid="project-card-count">${al.songs.length} track${al.songs.length > 1 ? 's' : ''}</span>${d.date ? `<span class="g">${esc(d.date)}</span>` : ''}${(() => { const up = al.songs.map(x => x.release).filter(isUpcoming).sort()[0]; return up ? dropBadge(up, 'project-soon-badge') : ''; })()}</div></div></button>`; }).join('')
     : `<div class="empty" data-testid="projects-empty">${icon('disc-album')}<b>No projects yet</b><span>Give songs the same “Album / project” in Compose and they’ll group here.</span></div>`;
   icons();
 }
@@ -3614,6 +3635,10 @@ function openComp(m){
 
 /* ---------- publish ---------- */
 function prBody(op, f){
+  if (f && isUpcoming(f.release) && op.kind !== 'delete') return prBodyCore(op, f) + `\n<!-- mad-release: ${f.release} -->`;
+  return prBodyCore(op, f);
+}
+function prBodyCore(op, f){
   if (op.kind === 'reorder') return `Reorders songs in \`${cfg.songsPath}\` (${op.moved} moved).\n\nNew top of the catalog:\n${op.titles.slice(0, 15).map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\n_Submitted with Treesh M.A.D._`;
   const rows = f ? [['Track', f.title], ['Artist', [f.artist, ...f.featured].join(' x ')], ['Genre', f.genre], ['Mood', f.mood], ['Released', f.date], ['Written by', f.writtenBy], ['Produced by', f.producer], ['Mixed by', f.mixer], ['Audio', f.mp3], ['Cover', f.cover], ['Video', f.video && `https://youtu.be/${f.video}`], ['Badges', ['explicit','exclusive','treeshchoice'].filter(k => f[k]).join(', ')]].filter(r => r[1]) : [['Track', op.title], ['Artist', op.artist]];
   const verb = { add:'Adds a new song to', edit:'Updates a song in', delete:'Removes a song from' }[op.kind];
@@ -4206,7 +4231,7 @@ const rejectNote = p => ((p.body || '').match(/\*\*Not approved:\*\* ([\s\S]*?)\
 const prRow = p => {
   if (isIcon()){
     const st = prState(p), note = st === 'closed' && rejectNote(p), when = st === 'merged' ? `Approved ${prDate(p.merged_at)}` : st === 'closed' ? `Reviewed ${prDate(p.closed_at)}` : `Sent ${prDate(p.created_at)}`;
-    return `<div class="pr-row" data-testid="pr-row-${p.number}"><span class="pr-st ${st}" data-testid="pr-row-status">${icon(PR_ST[st][1])}${PR_ICON[st]}</span><span class="pr-tx"><b data-testid="pr-row-title">${esc(p.title.replace(/^[^:]+:\s*/, ''))}</b><small><span class="n">#${p.number}</span> · ${when}</small>${note ? `<span class="pr-note" data-testid="pr-row-reject-note">${icon('message-square-warning')}${esc(note)}</span>` : ''}</span>${state.prFresh && state.prFresh.has(p.number) ? '<span class="pr-new" data-testid="pr-row-new">New</span>' : ''}</div>`;
+    return `<div class="pr-row" data-testid="pr-row-${p.number}"><span class="pr-st ${st}" data-testid="pr-row-status">${icon(PR_ST[st][1])}${PR_ICON[st]}</span><span class="pr-tx"><b data-testid="pr-row-title">${esc(p.title.replace(/^[^:]+:\s*/, ''))}</b><small><span class="n">#${p.number}</span> · ${when}</small>${prRelease(p) ? dropBadge(prRelease(p), 'pr-row-release') : ''}${note ? `<span class="pr-note" data-testid="pr-row-reject-note">${icon('message-square-warning')}${esc(note)}</span>` : ''}</span>${state.prFresh && state.prFresh.has(p.number) ? '<span class="pr-new" data-testid="pr-row-new">New</span>' : ''}</div>`;
   }
   const st = prState(p), [lbl, ic] = PR_ST[st], when = st === 'merged' ? `Merged ${prDate(p.merged_at)}` : st === 'closed' ? `Closed ${prDate(p.closed_at)}` : `Opened ${prDate(p.created_at)}`;
   return `<a class="pr-row" href="${esc(p.html_url)}" target="_blank" rel="noopener" data-testid="pr-row-${p.number}">
@@ -4438,6 +4463,7 @@ function openReview(){
       paint();
     }
   });
+  $('#rv-preview').addEventListener('click', pickPreviewIcon);
   $('#rv-refresh').addEventListener('click', async () => { const s = $('#rv-refresh svg'); if (s) s.classList.add('spin'); state.rvDiff = {}; await Promise.all([loadPRs(), loadIconAdmin()]); if ($('#rv-refresh svg')) $('#rv-refresh svg').classList.remove('spin'); toast('Review list refreshed.', 'info'); });
   paint(); loadPRs(); loadIconAdmin();
 }
@@ -4507,7 +4533,7 @@ function startTour(force){
     card.style.top = `${below + ch < innerHeight - 12 ? below : Math.max(12, r.top - pad - 14 - ch)}px`;
     card.style.left = `${Math.max(12, Math.min(innerWidth - cw - 12, r.left + r.width / 2 - cw / 2))}px`;
   };
-  const end = () => { localStorage.setItem(key, '1'); [shield, hole, card].forEach(e => e.remove()); removeEventListener('resize', place); removeEventListener('scroll', place, true); document.removeEventListener('keydown', onKey); };
+  const end = () => { if (!state.auth.preview) localStorage.setItem(key, '1'); [shield, hole, card].forEach(e => e.remove()); removeEventListener('resize', place); removeEventListener('scroll', place, true); document.removeEventListener('keydown', onKey); };
   const go = d => { const n = i + d; if (n < 0) return; if (n >= TOUR.length) return end(); i = n; show(); };
   const onKey = e => { if (e.key === 'Escape') end(); if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1); };
   const show = () => {
@@ -4612,6 +4638,91 @@ function wireScan(){
     const b = e.target.closest('[data-scan-edit]'); if (b){ const x = state.scan.issues[+b.dataset.scanEdit]; if (x) x.type === 'song' ? startEdit(x.ref) : openArtistDrawer(x.ref); }
   });
 }
+
+/* ---------- image viewer: tap an image, pinch / double-tap / wheel to zoom, drag to pan, swipe down to close ---------- */
+const ZOOM_SKIP = 'button, a, label, .drop, .tour-card, .lb, .sug, .chip, .rv-av, .tc-dots';
+function openViewer(src){
+  if (!src || $('.lb')) return;
+  const lb = document.createElement('div'); lb.className = 'lb'; lb.setAttribute('data-testid', 'image-viewer'); lb.setAttribute('role', 'dialog');
+  lb.innerHTML = `<img class="lb-img" src="${esc(src)}" alt="" draggable="false" data-testid="image-viewer-img"><div class="lb-bar"><button type="button" class="icon-btn" data-z="-1" title="Zoom out" data-testid="image-viewer-zoom-out">${icon('zoom-out')}</button><span class="lb-pct" data-testid="image-viewer-zoom">100%</span><button type="button" class="icon-btn" data-z="1" title="Zoom in" data-testid="image-viewer-zoom-in">${icon('zoom-in')}</button><button type="button" class="icon-btn" data-z="0" title="Close" data-testid="image-viewer-close">${icon('x')}</button></div><p class="lb-hint">Pinch or double-tap to zoom · swipe down to close</p>`;
+  document.body.appendChild(lb); icons();
+  const img = $('.lb-img', lb), pts = new Map(); let s = 1, x = 0, y = 0, start = null, lastTap = 0, dragY = 0, tapT = 0;
+  const prevOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden';
+  const clamp = () => { s = Math.min(6, Math.max(1, s)); if (s === 1){ x = 0; y = 0; } else { const r = img.getBoundingClientRect(), w = r.width / s, h = r.height / s, mx = Math.max(0, (w * s - innerWidth) / 2 + 40), my = Math.max(0, (h * s - innerHeight) / 2 + 40); x = Math.min(mx, Math.max(-mx, x)); y = Math.min(my, Math.max(-my, y)); } };
+  const paint = (anim) => { img.style.transition = anim ? 'transform .25s var(--ease)' : 'none'; img.style.transform = `translate(${x}px, ${y + dragY}px) scale(${s})`; lb.style.backgroundColor = `rgba(5,4,10,${dragY ? Math.max(.35, .94 - Math.abs(dragY) / 500) : .94})`; $('.lb-pct', lb).textContent = Math.round(s * 100) + '%'; };
+  const zoomAt = (ns, cx, cy) => { const ox = cx - innerWidth / 2, oy = cy - innerHeight / 2, k = ns / s; x = ox - (ox - x) * k; y = oy - (oy - y) * k; s = ns; clamp(); };
+  const close = () => { document.body.style.overflow = prevOverflow; lb.classList.add('out'); setTimeout(() => lb.remove(), 200); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); if (e.key === '+' || e.key === '=') { zoomAt(s * 1.5, innerWidth / 2, innerHeight / 2); paint(true); } if (e.key === '-') { zoomAt(s / 1.5, innerWidth / 2, innerHeight / 2); paint(true); } };
+  document.addEventListener('keydown', onKey);
+  $('.lb-bar', lb).addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (!b) return; const z = +b.dataset.z; if (!z) return close(); zoomAt(z > 0 ? s * 1.5 : s / 1.5, innerWidth / 2, innerHeight / 2); paint(true); });
+  lb.addEventListener('wheel', e => { e.preventDefault(); zoomAt(s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); paint(false); }, { passive: false });
+  lb.addEventListener('pointerdown', e => {
+    if (e.target.closest('.lb-bar')) return;
+    lb.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const now = Date.now();
+    if (pts.size === 1 && now - lastTap < 300){ clearTimeout(tapT); zoomAt(s > 1.05 ? 1 : 2.5, e.clientX, e.clientY); paint(true); lastTap = 0; start = null; return; }
+    lastTap = now;
+    const p = [...pts.values()];
+    start = p.length === 2 ? { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), s, mx: (p[0].x + p[1].x) / 2, my: (p[0].y + p[1].y) / 2, x, y } : { px: e.clientX, py: e.clientY, x, y, moved: false };
+  });
+  lb.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId) || !start) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = [...pts.values()];
+    if (p.length === 2 && start.d){ const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), mx = (p[0].x + p[1].x) / 2, my = (p[0].y + p[1].y) / 2; s = start.s; x = start.x + (mx - start.mx); y = start.y + (my - start.my); zoomAt(start.s * d / start.d, mx, my); paint(false); return; }
+    if (p.length === 1 && start.px != null){ const dx = e.clientX - start.px, dy = e.clientY - start.py; if (Math.abs(dx) + Math.abs(dy) > 6) start.moved = true; if (s > 1){ x = start.x + dx; y = start.y + dy; clamp(); } else dragY = dy; paint(false); }
+  });
+  const up = e => {
+    if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
+    if (s === 1 && Math.abs(dragY) > 110) return close();
+    if (start && start.px != null && !start.moved && s === 1 && pts.size === 0){ const r = img.getBoundingClientRect(), inImg = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; if (!inImg){ clearTimeout(tapT); tapT = setTimeout(close, 280); } }
+    dragY = 0; start = pts.size ? { px: [...pts.values()][0].x, py: [...pts.values()][0].y, x, y } : null; clamp(); paint(true);
+  };
+  lb.addEventListener('pointerup', up); lb.addEventListener('pointercancel', up);
+  paint(false);
+}
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (!t.closest || t.closest(ZOOM_SKIP)) return;
+  const cv = !t.matches('img') && t.closest('main .song .cv'), img = t.matches('img') && t.closest('main, .drawer, .modal') ? t : cv ? cv.querySelector('img') : null, bg = !img && t.closest('[data-zoom-bg]');
+  if (!img && !bg) return;
+  if (img && (img.naturalWidth || 0) < 40) return;
+  const src = img ? img.currentSrc || img.src : (getComputedStyle(bg).backgroundImage.match(/url\(["']?(.*?)["']?\)/) || [])[1];
+  if (!src) return;
+  e.preventDefault(); e.stopPropagation(); openViewer(src);
+}, true);
+
+/* ---------- release countdown ---------- */
+function shortLeft(iso){
+  const ms = new Date(iso) - Date.now(); if (!(ms > 0)) return '';
+  const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60, sec = Math.floor(ms / 1e3) % 60;
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m ${String(sec).padStart(2, '0')}s`;
+}
+const dropBadge = (iso, tid) => iso ? `<span class="badge soon${isUpcoming(iso) ? '' : ' out'}" data-countdown="${esc(iso)}" data-testid="${tid}">${icon('timer')}<span class="cd-t">${isUpcoming(iso) ? 'Drops in ' + shortLeft(iso) : 'Out now'}</span></span>` : '';
+const prRelease = p => ((p.body || '').match(/<!-- mad-release: ([^ ]+) -->/) || [])[1] || '';
+
+/* ---------- preview as Icon (admin, read-only) ---------- */
+function pickPreviewIcon(){
+  if (!isAdmin()) return;
+  const opts = state.roster.slice().sort((a, b) => a.name.localeCompare(b.name)).map(a => `<option value="${esc(a.id)}">${esc(a.name)} (#${esc(a.id)})</option>`).join('');
+  modal({ title:'Preview as an Icon', ico:'eye', testid:'preview-icon-modal', body:`<p>See M.A.D. exactly the way an Icon does: their tabs, songs, profile and My changes. Nothing can be saved while you preview.</p><div class="field" style="margin-top:14px"><label for="pv-icon">Icon</label><select class="select" id="pv-icon" data-testid="preview-icon-select">${opts}</select></div>`,
+    actions:[{ label:'Cancel', testid:'preview-icon-cancel-btn' }, { label:'Start preview', kind:'btn-primary', icon:'eye', testid:'preview-icon-start-btn', onClick: c => { const id = $('#pv-icon').value; c(); startPreview(id); } }] });
+}
+function startPreview(id){
+  const a = state.roster.find(x => x.id === id); if (!a || !isAdmin()) return;
+  state.realAuth = state.auth; $('#drawer-root').innerHTML = ''; state.reviewPaint = null;
+  state.auth = { ...state.realAuth, role:'icon', artistId: a.id, login: a.name, preview: true };
+  document.body.classList.add('previewing'); $('#pv-banner-name').textContent = a.name; $('#pv-banner').hidden = false;
+  requestAnimationFrame(() => document.body.style.setProperty('--pvh', $('#pv-banner').offsetHeight + 'px'));
+  applyRole(); reloadAll(); switchView('compose'); toast(`Previewing as ${a.name}. Saving is turned off.`, 'info', 4000);
+}
+function exitPreview(){
+  if (!state.auth.preview) return;
+  state.auth = state.realAuth; state.realAuth = null; $('.tour-card') && document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  document.body.classList.remove('previewing'); $('#pv-banner').hidden = true;
+  $('#drawer-root').innerHTML = ''; applyRole(); reloadAll(); switchView('compose'); toast('Back to your admin view.', 'ok');
+}
+const previewBlock = () => { if (!state.auth.preview) return false; toast('Preview mode is read-only. Exit the preview to make changes.', 'bad', 4500); return true; };
 
 /* ---------- sign-in activity ---------- */
 const SEEN_KEY = 'treesh_mad_activity_seen';
@@ -5053,7 +5164,7 @@ function openSettings(){
     $('#s-auth').innerHTML = isIcon() ? statusHtml('ok', 'badge-check', `Signed in as ${esc(myName())} (Icon #${esc(a.artistId)}) until ${new Date(a.expires).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' })}. You can edit your own profile, songs and lyrics. Every change goes to admin review.`, 'auth-status')
       : a.signedIn ? statusHtml('ok', 'shield-check', `Signed in${a.login ? ` as @${esc(a.login)}` : ''} on this device until ${new Date(a.expires).toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' })}`, 'auth-status')
       : statusHtml(a.error ? 'bad' : 'warn', 'shield-alert', a.error || 'Not signed in on this device. Catalog is read-only.', 'auth-status');
-    $('#s-signin-box').hidden = a.signedIn; $('#s-github').disabled = !a.oauth; $('#s-github-hint').hidden = !!a.oauth || !!a.error; $('#s-signout').hidden = !a.signedIn; $('#s-activity').hidden = !isAdmin(); $('#s-email').hidden = !isAdmin();
+    $('#s-signin-box').hidden = a.signedIn; $('#s-github').disabled = !a.oauth; $('#s-github-hint').hidden = !!a.oauth || !!a.error; $('#s-signout').hidden = !a.signedIn || !!a.preview; $('#s-activity').hidden = !isAdmin(); $('#s-email').hidden = !isAdmin();
     $('#s-email-from').innerHTML = a.emailFrom === 'mad@treesh.app' ? `${icon('badge-check')} Sending from <b>mad@treesh.app</b>.` : a.emailFrom ? `${icon('info')} Last test came from Resend’s test address, because treesh.app isn’t verified in Resend yet (Resend → Domains → Add domain). Once it is, alerts come from <b>mad@treesh.app</b> on their own.` : 'Alerts come from <b>mad@treesh.app</b> once treesh.app is verified in Resend. Until then they use Resend’s test address.';
     const f = a.features, sv = $('#s-server'), row = (ok, label, fix) => `<li class="${ok ? 'ok' : 'no'}" data-testid="server-feature">${icon(ok ? 'check-circle-2' : 'circle-dashed')}<span><b>${label}</b>${ok ? '' : ` · ${fix}`}</span></li>`;
     sv.hidden = !(a.version === '' || (isAdmin() && f));
@@ -5091,6 +5202,7 @@ function openSettings(){
   $('#s-signin').addEventListener('click', signIn);
   $('#s-treesh').addEventListener('click', () => iconSignIn(paintAuth));
   $('#s-tour').addEventListener('click', () => { close(); startTour(true); });
+  $('#s-preview').addEventListener('click', () => { close(); pickPreviewIcon(); });
   $('#s-email-test').addEventListener('click', async e => {
     const b = e.currentTarget; b.disabled = true;
     try {
@@ -5198,7 +5310,7 @@ function wire(){
   setInterval(() => {
     const rel = localToIso(val('f-release')), left = rel && countdown(rel);
     if (!left !== $('#pv-count').hidden) renderPreview(); else if (left) $('#pv-left').textContent = left;
-    $$('[data-countdown]').forEach(el => { const l = countdown(el.dataset.countdown); el.textContent = l ? `Drops in ${l}` : 'Out now'; });
+    $$('[data-countdown]').forEach(el => { const l = shortLeft(el.dataset.countdown), t = el.querySelector('.cd-t') || el; t.textContent = l ? `Drops in ${l}` : 'Out now'; el.classList.toggle('out', !l); });
   }, 1000);
   $('#cancel-edit').addEventListener('click', cancelEdit);
   $$('.tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
@@ -5208,6 +5320,8 @@ function wire(){
   $('#open-review').addEventListener('click', openReview);
   wireJukeHost();
   wireScan();
+  $('#pv-exit').addEventListener('click', exitPreview);
+  $('#pv-tour').addEventListener('click', () => startTour(true));
   $$('.sub-nav [data-go]').forEach(b => b.addEventListener('click', () => switchView(b.dataset.go)));
   $('#rv-alert-open').addEventListener('click', openReview);
   $('#rv-alert-close').addEventListener('click', () => { $('#rv-alert').hidden = true; });

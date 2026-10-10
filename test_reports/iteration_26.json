@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 26 — RETEST of two viewer bugs from iteration 25 on /songcoder.html. Both fixes verified in code and at runtime. (a) Backdrop single-tap close now works: pointerup handler at songcoder.html:4678 was reworked — it now checks whether the pointer-up occurred OUTSIDE the <img> rect (`inImg` boolean) and schedules close() via setTimeout(280ms) stored in tapT; a subsequent double-tap pointerdown clears tapT (line 4663) so dbl-tap-to-zoom still wins. (b) Artist card photo now opens viewer: `.ph` div at line 2560 now carries `data-zoom-bg data-testid=\"artist-card-photo\"`, matching the capture handler's `[data-zoom-bg]` branch. Full regression (catalog cover, edit/delete buttons, project cards, preview mode banner + Exit) all PASS on 1440×900 desktop and 390×844 mobile.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_26.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "songcoder.html:4678 — fix is clean. New condition `!start.moved && s === 1 && pts.size === 0 && !inImg` combined with the 280ms setTimeout(close) stored in tapT is a solid double-tap-vs-single-tap arbitration — the next pointerdown's double-tap branch (line 4663) does clearTimeout(tapT) before zooming so a quick dbl-tap on the backdrop (unlikely but possible) won't close by mistake.",
+    "songcoder.html:2560 — .ph now has data-zoom-bg data-testid=\"artist-card-photo\"; background-image via style=\"${bgUrl(a.image)}\" is picked up by the capture handler via getComputedStyle(bg).backgroundImage match on line 4690. Good fix.",
+    "Minor: there is a short ~280ms visual delay between tap and viewer close on backdrop tap; acceptable per spec (~0.3s)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% — viewer open from artist-card-photo PASS, backdrop single-tap close PASS, tap-on-image kept-open PASS, dblclick zoom 100↔250 PASS, drag-while-zoomed no-close PASS, swipe-down close PASS, × close PASS, Esc close PASS, artist edit button opens drawer (not viewer) PASS, catalog cover opens viewer PASS, preview-banner show + Exit hides PASS, mobile 390 PASS."},
+  "test_credentials": "Admin passcode: TreeshMAD-test-2026 (POST /api/github/session via settings-passcode-input + settings-signin-btn).",
+  "seed_data_creation": "None (mock catalog + roster used as-is).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Playwright gotcha: after passcode sign-in, a success toast overlays the top-tab area for ~1.8s. Using Playwright's click (even with force=True) on [data-testid='tab-artists'] during that window is intercepted — the tab's active class is not applied. Workaround used here: dispatch the click via page.evaluate(\"document.querySelector(...).click()\") OR await page.wait_for_timeout(2500) after close-settings before clicking tabs. Also: preview-banner uses display:none after exit (element remains in DOM with hidden=true), so bool(await page.query_selector('[data-testid=preview-banner]')) is misleading — check element.hidden or getComputedStyle(el).display === 'none' instead. All iteration-25 bugs are now fixed; no retest needed.",
+  "rca of the issue": "N/A — fixes verified."
+}
