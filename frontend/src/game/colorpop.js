@@ -4,10 +4,10 @@ export function makeGrid(size, colors, rng = Math.random) {
   return Array.from({ length: size }, () => Array.from({ length: size }, () => Math.floor(rng() * colors)));
 }
 
-export function region(grid) {
-  const n = grid.length, color = grid[0][0];
-  const dist = new Map([[k(0, 0), 0]]);
-  const q = [[0, 0]];
+export function region(grid, origin = [0, 0]) {
+  const n = grid.length, color = grid[origin[0]][origin[1]];
+  const dist = new Map([[k(origin[0], origin[1]), 0]]);
+  const q = [origin];
   while (q.length) {
     const [r, c] = q.shift();
     for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -20,15 +20,15 @@ export function region(grid) {
   return dist;
 }
 
-export function applyColor(grid, color) {
-  const old = region(grid);
+export function applyColor(grid, color, origin = [0, 0]) {
+  const old = region(grid, origin);
   const next = grid.map((row) => row.slice());
   old.forEach((_, key) => { next[Math.floor(key / 100)][key % 100] = color; });
-  const now = region(next);
+  const now = region(next, origin);
   const delays = new Map();
   now.forEach((d, key) => delays.set(key, d));
   return { grid: next, gained: now.size - old.size, owned: now, delays };
 }
 
-export const gainFor = (grid, color) => (grid[0][0] === color ? 0 : applyColor(grid, color).gained);
+export const gainFor = (grid, color, origin = [0, 0]) => (grid[origin[0]][origin[1]] === color ? 0 : applyColor(grid, color, origin).gained);
 export const cellKey = k;

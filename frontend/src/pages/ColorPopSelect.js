@@ -14,7 +14,7 @@ export default function ColorPopSelect() {
   return (
     <Layout art="mural">
       <PageTitle eyebrow="New Mode" title="Color Pop">
-        <p className="max-w-md text-sm text-slate-200">Start in the top-left corner. Pick a color to grow your patch into every touching tile of that color. Paint the whole board one color before your moves run out.</p>
+        <p className="max-w-md text-sm text-slate-200">Start from a random glowing tile. Pick a color to grow your patch into every touching tile of that color. Paint the whole board one color before your moves run out.</p>
       </PageTitle>
       <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-3">
         {COLORPOP_LEVELS.map((d, i) => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Eye } from "lucide-react";
 import { StarliteAmount } from "../components/Starlite";
 import { TILES } from "../game/config";
@@ -10,16 +10,22 @@ const ZERO = { tiles: 0, maxCombo: 0, discos: 0, bombs: 0, striped: 0, xs: 0, cr
 
 export function useColorPop(cfg) {
   const [grid, setGrid] = useState(() => makeGrid(cfg.size, cfg.colors));
+  const [origin] = useState(() => [Math.floor(Math.random() * cfg.size), Math.floor(Math.random() * cfg.size)]);
+  const [showStart, setShowStart] = useState(true);
   const [moves, setMoves] = useState(cfg.moves);
-  const [owned, setOwned] = useState(() => region(grid));
+  const [owned, setOwned] = useState(() => region(grid, origin));
+  useEffect(() => {
+    const id = setTimeout(() => setShowStart(false), 5000);
+    return () => clearTimeout(id);
+  }, []);
   const [delays, setDelays] = useState(() => new Map());
   const [ended, setEnded] = useState(null);
   const sess = useRef({ ...ZERO });
   const total = cfg.size * cfg.size;
 
   const pick = (color) => {
-    if (ended || color === grid[0][0]) return;
-    const res = applyColor(grid, color);
+    if (ended || color === grid[origin[0]][origin[1]]) return;
+    const res = applyColor(grid, color, origin);
     const left = moves - 1;
     setGrid(res.grid);
     setOwned(res.owned);
@@ -35,7 +41,7 @@ export function useColorPop(cfg) {
     }
   };
 
-  return { grid, moves, owned, delays, ended, pick, sess: sess.current, total, giveUp: () => {} };
+  return { grid, origin, showStart, moves, owned, delays, ended, pick, sess: sess.current, total, giveUp: () => {} };
 }
 
 const useCell = (size) => {
@@ -52,10 +58,10 @@ const useCell = (size) => {
   return [ref, cell];
 };
 
-const Cell = ({ color, r, c, cell, delay, owned }) => {
+const Cell = ({ color, r, c, cell, delay, owned, highlight }) => {
   const t = TILES[color];
   return (
-    <motion.div key={`${r}-${c}-${color}`} data-testid={`cp-cell-${r}-${c}`} className={`cp-cell ${owned ? "cp-owned" : ""}`}
+    <motion.div key={`${r}-${c}-${color}`} data-testid={`cp-cell-${r}-${c}`} className={`cp-cell ${owned && highlight ? "cp-owned" : ""}`}
       style={{ left: c * cell, top: r * cell, width: cell, height: cell, "--cp": t.from, "--cp2": t.to }}
       initial={delay != null ? { scale: 0.4, opacity: 0.4 } : false} animate={{ scale: 1, opacity: 1 }}
       transition={{ delay: (delay || 0) * 0.035, type: "spring", stiffness: 420, damping: 18 }}>
@@ -73,8 +79,17 @@ export function ColorPopBoard({ g, cfg, theme }) {
           <div data-testid="colorpop-grid" className="relative" style={{ width: cell * cfg.size, height: cell * cfg.size }}>
             {g.grid.map((row, r) => row.map((color, c) => (
               <Cell key={`${r}-${c}-${color}-${g.owned.has(cellKey(r, c)) ? 1 : 0}`} color={color} r={r} c={c} cell={cell}
-                delay={g.delays.get(cellKey(r, c))} owned={g.owned.has(cellKey(r, c))} />
+                delay={g.delays.get(cellKey(r, c))} owned={g.owned.has(cellKey(r, c))} highlight={g.showStart} />
             )))}
+            <AnimatePresence>
+              {g.showStart && (
+                <motion.div data-testid="colorpop-start-indicator" className="cp-start" initial={{ opacity: 0, scale: 2.5 }} animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.5 }} transition={{ type: "spring", stiffness: 260, damping: 16 }}
+                  style={{ left: g.origin[1] * cell - cell * 0.35, top: g.origin[0] * cell - cell * 0.35, width: cell * 1.7, height: cell * 1.7 }}>
+                  <span className="cp-start-label" style={{ top: g.origin[0] < 2 ? "112%" : "-48%" }}>YOU</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       )}
@@ -83,8 +98,8 @@ export function ColorPopBoard({ g, cfg, theme }) {
 }
 
 export function ColorPicker({ g, cfg, showGains }) {
-  const current = g.grid[0][0];
-  const gains = useMemo(() => TILES.slice(0, cfg.colors).map((_, i) => gainFor(g.grid, i)), [g.grid, cfg.colors]);
+  const current = g.grid[g.origin[0]][g.origin[1]];
+  const gains = useMemo(() => TILES.slice(0, cfg.colors).map((_, i) => gainFor(g.grid, i, g.origin)), [g.grid, cfg.colors, g.origin]);
   return (
     <div className="mt-2 flex shrink-0 justify-center gap-2 sm:gap-3" data-testid="colorpop-picker">
       {TILES.slice(0, cfg.colors).map((t, i) => (
@@ -138,7 +153,7 @@ export function ColorPopHud({ g, cfg, onExit, hint, onHint }) {
         <div className="h-full rounded-full bg-gradient-to-r from-[var(--ac)] via-[var(--ac-hi)] to-white transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Grow from the top-left corner. Fill the board with one color.</div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Grow from your glowing start tile. Fill the board with one color.</div>
         <button data-testid="colorpop-hint-btn" onClick={onHint} disabled={!!g.ended} className={`chest-btn shrink-0 !px-3 !py-1.5 !text-[11px] ${hint.active ? "chest-ready" : ""}`}>
           <Eye size={14} />
           {hint.active ? <span data-testid="colorpop-hint-timer" className="tabular-nums">{hint.left}s</span> : <>Color Sense <StarliteAmount value={HINT_COST} size={11} /></>}

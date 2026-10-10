@@ -16,7 +16,7 @@ export const MODES = [
   { id: "timed", name: "Timed Blitz", tag: "Speed", desc: "60 seconds on the clock. Match fast, chain combos, stack points.", Icon: Timer, color: "#EF4444" },
   { id: "moves", name: "Moves Challenge", tag: "Strategy", desc: "Only 15 moves. Every swap counts. Make it legendary.", Icon: Target, color: "#06B6D4" },
   { id: "daily", name: "Daily Challenge", tag: "2x Starlites", desc: "One fresh board for everybody, every day. Double Starlite payout.", Icon: CalendarDays, color: "#FFC800" },
-  { id: "colorpop", name: "Color Pop", tag: "New", desc: "Grow your color from the corner. Paint the whole board one color before moves run out.", Icon: PaintBucket, color: "#EC4899" },
+  { id: "colorpop", name: "Color Pop", tag: "New", desc: "Grow your color from a random start tile. Paint the whole board one color before moves run out.", Icon: PaintBucket, color: "#EC4899" },
   { id: "zen", name: "Endless Zen", tag: "Relax", desc: "No timer. No limits. Just vibes and smooth cascades.", Icon: InfinityIcon, color: "#10B981" },
 ];
 
