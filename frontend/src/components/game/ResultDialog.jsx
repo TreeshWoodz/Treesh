@@ -12,10 +12,13 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
   const [rank, setRank] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [treesh, setTreesh] = useState(null);
 
   useEffect(() => {
     if (open) {
-      setName(loadProfile().name || treeshDisplayName(treeshAccount()).slice(0, 20));
+      const t = treeshAccount();
+      setTreesh(t);
+      setName(t ? treeshDisplayName(t).slice(0, 20) : loadProfile().name || "");
       setRank(null);
       setErr("");
     }
@@ -26,7 +29,7 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
     setBusy(true);
     setErr("");
     try {
-      updateProfile((p) => (p.name = name.trim()));
+      if (!treesh) updateProfile((p) => (p.name = name.trim()));
       const res = await submitScore({ name: name.trim(), mode, score, date: mode === "daily" ? date : undefined });
       setRank(res.rank);
     } catch {
@@ -70,7 +73,12 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
                 You placed #{rank} on the leaderboard!
               </p>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {treesh ? (
+                  <p data-testid="result-submit-as" className="flex-1 min-w-0 text-sm text-slate-300 truncate">
+                    Submit as <b className="text-white">{name}</b>
+                  </p>
+                ) : (
                 <Input
                   data-testid="result-name-input"
                   value={name}
@@ -79,6 +87,7 @@ export const ResultDialog = ({ open, onClose, won, title, subtitle, score, rows 
                   placeholder="Your name"
                   className="bg-[#0B0F19] border-white/15 text-white h-11"
                 />
+                )}
                 <button
                   type="button"
                   data-testid="result-submit-score-button"

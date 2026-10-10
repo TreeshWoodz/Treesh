@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { PlayDock } from "@/components/menu/PlayDock";
 import { Sparkles, Trophy, Link2, Star, Clock } from "lucide-react";
 import { GameHeader } from "@/components/game/GameHeader";
 import { useProfile, updateProfile } from "@/lib/progress";
@@ -24,7 +25,7 @@ export default function Profile() {
   const recent = ACHIEVEMENTS.filter((a) => p.unlocked[a.id]).sort((x, y) => p.unlocked[y.id] - p.unlocked[x.id]).slice(0, 6);
 
   return (
-    <div className="min-h-[100dvh] bg-arcade pb-10" data-testid="profile-page">
+    <div className="min-h-[100dvh] bg-arcade pb-[calc(11rem+env(safe-area-inset-bottom))]" data-testid="profile-page">
       <GameHeader title="Profile" accent="var(--brand)" />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 space-y-4">
         <section className="glass rounded-3xl p-5 sm:p-6 rise">
@@ -119,6 +120,7 @@ export default function Profile() {
           </div>
         </section>
       </main>
+      <PlayDock />
     </div>
   );
 }

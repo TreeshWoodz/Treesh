@@ -1,4 +1,5 @@
 import { BoardFit } from "@/components/game/BoardFit";
+import { StartBar } from "@/components/menu/StartBar";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -21,8 +22,10 @@ const peers = (a, b) => {
   return ra === rb || ca === cb || (Math.floor(ra / 3) === Math.floor(rb / 3) && Math.floor(ca / 3) === Math.floor(cb / 3));
 };
 
-const Setup = ({ onStart }) => (
-  <div className="w-full max-w-xl mx-auto px-4 py-6 rise">
+const Setup = ({ onStart }) => {
+  const [pick, setPick] = useState("medium");
+  return (
+  <div className="w-full max-w-xl mx-auto px-4 pt-6 pb-40 rise">
     <p className="eyebrow">Classic mode</p>
     <h2 className="font-display font-black uppercase italic text-5xl sm:text-6xl tracking-tight mt-1">Pure Sudoku</h2>
     <p className="text-slate-400 mt-3">Fill every row, column and 3×3 box with 1–9. Three mistakes and you're out.</p>
@@ -32,7 +35,8 @@ const Setup = ({ onStart }) => (
           key={id}
           type="button"
           data-testid={`sudoku-difficulty-${id}-button`}
-          onClick={() => onStart(id)}
+          data-selected={pick === id}
+          onClick={() => { setPick(id); sfx.select(); }}
           className="group glass rounded-2xl p-4 flex items-center justify-between text-left transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[#1E2640]"
         >
           <div className="flex items-center gap-4">
@@ -43,13 +47,15 @@ const Setup = ({ onStart }) => (
             </div>
           </div>
           <span className="font-display text-xl font-black uppercase transition-transform duration-200 group-hover:translate-x-1" style={{ color: d.color }}>
-            Play →
+            {pick === id ? "Selected" : "Tap"}
           </span>
         </button>
       ))}
     </div>
+    <StartBar onPlay={() => onStart(pick)} label={DIFFS[pick].label} />
   </div>
-);
+  );
+};
 
 export default function SudokuGame() {
   const [diff, setDiff] = useState(null);

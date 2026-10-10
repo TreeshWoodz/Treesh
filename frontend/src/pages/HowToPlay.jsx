@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { PlayDock } from "@/components/menu/PlayDock";
 import { GameHeader } from "@/components/game/GameHeader";
 import { PlayingCard } from "@/components/game/PlayingCard";
 
@@ -19,7 +20,7 @@ const SPECIALS = [
 
 export default function HowToPlay() {
   return (
-    <div className="min-h-[100dvh] bg-arcade pb-12" data-testid="how-to-play-page">
+    <div className="min-h-[100dvh] bg-arcade pb-[calc(11rem+env(safe-area-inset-bottom))]" data-testid="how-to-play-page">
       <GameHeader title="How to play" accent="#34C759" />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6">
         <p className="eyebrow">The Sonoko rulebook</p>
@@ -70,6 +71,7 @@ export default function HowToPlay() {
           Let's play →
         </Link>
       </main>
+      <PlayDock />
     </div>
   );
 }

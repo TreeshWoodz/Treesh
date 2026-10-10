@@ -1,4 +1,5 @@
 import { BoardFit } from "@/components/game/BoardFit";
+import { StartBar } from "@/components/menu/StartBar";
 import { DeckStack, TopCardSlot, CallButton } from "@/components/game/TableBits";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -162,8 +163,10 @@ function botMove(ns, cfg, hard) {
   return resolve(ns, 1, card, cell, color);
 }
 
-const Setup = ({ onStart }) => (
-  <div className="w-full max-w-xl mx-auto px-4 py-6 rise">
+const Setup = ({ onStart }) => {
+  const [pick, setPick] = useState("normal");
+  return (
+  <div className="w-full max-w-xl mx-auto px-4 pt-6 pb-40 rise">
     <p className="eyebrow">Head-to-head</p>
     <h2 className="font-display font-black uppercase italic text-5xl sm:text-6xl tracking-tight mt-1">Sonoko Versus</h2>
     <p className="text-slate-400 mt-3 text-sm sm:text-base">
@@ -176,7 +179,8 @@ const Setup = ({ onStart }) => (
           key={id}
           type="button"
           data-testid={`versus-difficulty-${id}-button`}
-          onClick={() => onStart(id)}
+          data-selected={pick === id}
+          onClick={() => { setPick(id); sfx.select(); }}
           className="group glass rounded-2xl p-4 flex items-center justify-between text-left transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[#1E2640]"
         >
           <div className="flex items-center gap-4">
@@ -189,13 +193,15 @@ const Setup = ({ onStart }) => (
             </div>
           </div>
           <span className="font-display text-xl font-black uppercase transition-transform duration-200 group-hover:translate-x-1" style={{ color: b.color }}>
-            Fight →
+            {pick === id ? "Selected" : "Tap"}
           </span>
         </button>
       ))}
     </div>
+    <StartBar onPlay={() => onStart(pick)} label={`vs ${BOTS[pick].label}`} />
   </div>
-);
+  );
+};
 
 const Side = ({ name, icon: Icon, score, combo, cards, called, active, color, testid }) => (
   <div

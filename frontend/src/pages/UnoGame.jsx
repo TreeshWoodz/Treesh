@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { StartBar } from "@/components/menu/StartBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { RotateCw, RotateCcw, Bot, Megaphone, SkipForward } from "lucide-react";
@@ -12,8 +13,10 @@ import { newGame, applyPlay, drawInto, canPlay, nextIdx, aiChoose, cardPoints, B
 import { commitProgress } from "@/lib/progress";
 import { sfx } from "@/lib/sound";
 
-const Setup = ({ onStart }) => (
-  <div className="w-full max-w-xl mx-auto px-4 py-6 rise">
+const Setup = ({ onStart }) => {
+  const [pick, setPick] = useState(2);
+  return (
+  <div className="w-full max-w-xl mx-auto px-4 pt-6 pb-40 rise">
     <p className="eyebrow">Classic mode</p>
     <h2 className="font-display font-black uppercase italic text-5xl sm:text-6xl tracking-tight mt-1">Uno vs bots</h2>
     <p className="text-slate-400 mt-3">Match color or number, sling action cards, and don't forget to yell UNO! when you're down to one.</p>
@@ -23,7 +26,8 @@ const Setup = ({ onStart }) => (
           key={n}
           type="button"
           data-testid={`uno-opponents-${n}-button`}
-          onClick={() => onStart(n)}
+          data-selected={pick === n}
+          onClick={() => { setPick(n); sfx.select(); }}
           className="glass rounded-3xl p-5 flex flex-col items-center gap-2 transition-[transform,background-color] duration-200 hover:-translate-y-1 hover:bg-[#1E2640]"
         >
           <div className="flex -space-x-2">
@@ -38,8 +42,10 @@ const Setup = ({ onStart }) => (
         </button>
       ))}
     </div>
+    <StartBar onPlay={() => onStart(pick)} label={`${pick} bot${pick > 1 ? "s" : ""}`} />
   </div>
-);
+  );
+};
 
 const Opponent = ({ s, p }) => {
   const count = s.hands[p].length;

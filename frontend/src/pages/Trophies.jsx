@@ -1,4 +1,5 @@
 import { Trophy, Lock } from "lucide-react";
+import { PlayDock } from "@/components/menu/PlayDock";
 import { GameHeader } from "@/components/game/GameHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useProfile, fmtTime } from "@/lib/progress";
@@ -101,7 +102,7 @@ export default function Trophies() {
   const lv = levelInfo(profile.xp);
   const unlocked = Object.keys(profile.unlocked).length;
   return (
-    <div className="min-h-[100dvh] bg-arcade pb-10" data-testid="trophies-page">
+    <div className="min-h-[100dvh] bg-arcade pb-[calc(11rem+env(safe-area-inset-bottom))]" data-testid="trophies-page">
       <GameHeader title="Trophies" accent="#F59E0B" />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
         <div className="glass rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between rise">
@@ -135,6 +136,7 @@ export default function Trophies() {
           <TabsContent value="stats" className="mt-5"><Stats profile={profile} /></TabsContent>
         </Tabs>
       </main>
+      <PlayDock />
     </div>
   );
 }

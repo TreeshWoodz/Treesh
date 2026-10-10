@@ -8,7 +8,7 @@ export const IconBtn = ({ children, testid, onClick, label }) => (
     aria-label={label}
     data-testid={testid}
     onClick={onClick}
-    className="h-10 w-10 grid place-items-center rounded-xl bg-white/5 border border-white/10 text-slate-200 transition-colors duration-150 hover:bg-white/15 hover:text-white active:scale-95"
+    className="btn-3d h-10 w-10 grid place-items-center rounded-2xl bg-[#2A3458] border-2 border-white/10 text-white transition-colors duration-150 hover:bg-[#34406b]"
   >
     {children}
   </button>
@@ -21,11 +21,11 @@ export const GameHeader = ({ title, accent = "var(--brand)", right }) => {
       <Link
         to="/"
         data-testid="back-home-button"
-        className="h-10 pl-2 pr-3 flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-sm font-semibold transition-colors duration-150 hover:bg-white/15 hover:text-white"
+        className="btn-3d h-10 pl-2 pr-3.5 flex items-center gap-1 rounded-2xl bg-[#2A3458] border-2 border-white/10 text-white font-display text-base font-black uppercase tracking-wide transition-colors duration-150 hover:bg-[#34406b]"
       >
-        <ChevronLeft className="w-4 h-4" /> Menu
+        <ChevronLeft className="w-5 h-5" strokeWidth={3} /> Menu
       </Link>
-      <h1 className="font-display font-black uppercase italic tracking-tight text-2xl sm:text-3xl" style={{ color: accent }}>
+      <h1 className="game-title font-display font-black uppercase italic tracking-tight text-2xl sm:text-4xl truncate" style={{ color: accent }}>
         {title}
       </h1>
       <div className="flex items-center gap-2">

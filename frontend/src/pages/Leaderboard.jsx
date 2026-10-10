@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PlayDock } from "@/components/menu/PlayDock";
 import { Crown, Loader2 } from "lucide-react";
 import { GameHeader } from "@/components/game/GameHeader";
 import { fetchLeaderboard } from "@/lib/api";
@@ -31,7 +32,7 @@ export default function Leaderboard() {
   }, [mode]);
 
   return (
-    <div className="min-h-[100dvh] bg-arcade pb-10" data-testid="leaderboard-page">
+    <div className="min-h-[100dvh] bg-arcade pb-[calc(11rem+env(safe-area-inset-bottom))]" data-testid="leaderboard-page">
       <GameHeader title="Leaderboard" accent="#007AFF" />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-4">
         <div className="grid grid-cols-5 gap-1 p-1 rounded-2xl bg-[#161C2E] border border-white/10">
@@ -84,6 +85,7 @@ export default function Leaderboard() {
           )}
         </div>
       </main>
+      <PlayDock />
     </div>
   );
 }

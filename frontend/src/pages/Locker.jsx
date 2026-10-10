@@ -1,4 +1,5 @@
 import { Lock, Check } from "lucide-react";
+import { PlayDock } from "@/components/menu/PlayDock";
 import { GameHeader } from "@/components/game/GameHeader";
 import { PlayingCard } from "@/components/game/PlayingCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -38,7 +39,7 @@ export default function Locker() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-arcade pb-10" data-testid="locker-page">
+    <div className="min-h-[100dvh] bg-arcade pb-[calc(11rem+env(safe-area-inset-bottom))]" data-testid="locker-page">
       <GameHeader title="Locker" accent="#34C759" />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
         <p className="eyebrow">Level {lv} · new looks unlock as you level up</p>
@@ -101,6 +102,7 @@ export default function Locker() {
           </TabsContent>
         </Tabs>
       </main>
+      <PlayDock />
     </div>
   );
 }

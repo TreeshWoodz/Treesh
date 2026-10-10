@@ -1,4 +1,5 @@
 import { BoardFit } from "@/components/game/BoardFit";
+import { StartBar } from "@/components/menu/StartBar";
 import { DeckStack, TopCardSlot, CallButton } from "@/components/game/TableBits";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -20,8 +21,10 @@ import { sfx } from "@/lib/sound";
 
 const HOLES = { easy: 14, normal: 18, hard: 22 };
 
-const Setup = ({ daily, onStart, profile }) => (
-  <div className="w-full max-w-xl mx-auto px-4 py-6 rise">
+const Setup = ({ daily, onStart, profile }) => {
+  const [pick, setPick] = useState("normal");
+  return (
+  <div className="w-full max-w-xl mx-auto px-4 pt-6 pb-40 rise">
     <p className="eyebrow">{daily ? `Daily challenge · ${todayStr()}` : "Hybrid mode"}</p>
     <h2 className="font-display font-black uppercase italic text-5xl sm:text-6xl tracking-tight mt-1">
       {daily ? "Today's grid" : "Choose your heat"}
@@ -59,7 +62,8 @@ const Setup = ({ daily, onStart, profile }) => (
             key={id}
             type="button"
             data-testid={`sonoko-difficulty-${id}-button`}
-            onClick={() => onStart(id)}
+            data-selected={pick === id}
+          onClick={() => { setPick(id); sfx.select(); }}
             className="group glass rounded-2xl p-4 flex items-center justify-between text-left transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[#1E2640]"
           >
             <div className="flex items-center gap-4">
@@ -70,7 +74,7 @@ const Setup = ({ daily, onStart, profile }) => (
               </div>
             </div>
             <span className="font-display text-xl font-black uppercase transition-transform duration-200 group-hover:translate-x-1" style={{ color: c }}>
-              Play →
+              {pick === id ? "Selected" : "Tap"}
             </span>
           </button>
         ))}
@@ -89,8 +93,10 @@ const Setup = ({ daily, onStart, profile }) => (
         <DailyShare result={profile.lastDailyResult} />
       </div>
     )}
+    <StartBar onPlay={() => onStart(pick)} label={daily ? "Daily" : pick} />
   </div>
-);
+  );
+};
 
 const Stat = ({ icon: Icon, label, value, testid, color = "#fff" }) => (
   <div className="glass rounded-2xl px-2 sm:px-3 py-2 flex items-center gap-2 min-w-0">

@@ -1,7 +1,7 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
-import Home from "@/pages/Home";
+import MainMenu from "@/pages/MainMenu";
 import SonokoGame from "@/pages/SonokoGame";
 import SudokuGame from "@/pages/SudokuGame";
 import UnoGame from "@/pages/UnoGame";
@@ -34,7 +34,7 @@ function App() {
     <div className="App">
       <BrowserRouter basename={BASE}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<MainMenu />} />
           <Route path="/play/sonoko" element={<SonokoGame key="sonoko" />} />
           <Route path="/play/daily" element={<SonokoGame key="daily" daily />} />
           <Route path="/play/sudoku" element={<SudokuGame />} />
