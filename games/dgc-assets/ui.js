@@ -44,7 +44,7 @@ function menuItems() {
   ];
 }
 const DUST = Array.from({ length: 26 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 100).toFixed(1)}%;--s:${(Math.random() * 2.4 + 1).toFixed(1)}px;--d:${(Math.random() * 14 + 10).toFixed(1)}s;--dl:-${(Math.random() * 20).toFixed(1)}s"></i>`).join('');
-const MODE_ART = { classic: 'key_art', hush: 'hush_front', lullaby: 'bed_awake', bestie: 'bestie_art', impress: 'closet_look' }, CARD_ART = Object.assign({}, MODE_ART, { classic: 'hush_back' });
+const MODE_ART = { classic: 'key_art', hush: 'hush_front', lullaby: 'bed_awake', bestie: 'bestie_art', detention: 'teacher_f0', impress: 'closet_look' }, CARD_ART = Object.assign({}, MODE_ART, { classic: 'hush_back', detention: 'teacher_f2' });
 const titleArt = () => img(MODE_ART[S.mode] || 'key_art');
 function renderTitle() {
   const t = traitById(S.trait), m = modeById(S.mode), items = menuItems(), best = bestNightAll();
@@ -180,7 +180,7 @@ function renderLoadout() {
     <h3 class="sec-h"><i data-lucide="backpack"></i>Bring up to 3 tools <small>${UI.loadout.length}/3</small></h3>
     ${own.length ? `<div class="lo-items">${own.map(it => `<button class="lo-item ${UI.loadout.includes(it.id) ? 'on' : ''}" data-act="lo-toggle" data-id="${it.id}" data-testid="loadout-item-${it.id}"><i data-lucide="${it.icon}"></i><span><b>${esc(it.name)} \u00d7${S.inv[it.id]}</b><small>${esc(it.desc)}</small></span><em><i data-lucide="${UI.loadout.includes(it.id) ? 'check' : 'plus'}"></i></em></button>`).join('')}</div>` : `<p class="muted">No tools yet. Buy some in the <a href="#" data-act="go" data-to="shop">Pantry</a> with your Starlites.</p>`}
     <div class="lo-tips"><p><i data-lucide="ear"></i>Listen for footsteps and creaks: that\u2019s him turning.</p><p><i data-lucide="hand"></i>Freeze the moment he turns. One wrong move and it\u2019s over.</p><p><i data-lucide="zap"></i>Clear a room with over half the candle left for a Swift bonus.</p>${m.voice ? '<p><i data-lucide="headphones"></i>Voice mode: use headphones so the game\u2019s sounds don\u2019t reach your mic.</p>' : ''}</div>
-    <div class="row center"><button class="btn btn-acc btn-xl" data-act="go-run" data-testid="loadout-start-btn"><i data-lucide="${m.voice ? 'mic' : 'door-open'}"></i>${m.voice ? 'Set up mic' : 'Enter the house'}</button></div></div>`;
+    <div class="row center lo-play" data-testid="loadout-play-bar"><button class="btn btn-acc btn-xl" data-act="go-run" data-testid="loadout-start-btn"><i data-lucide="${m.voice ? 'mic' : m.id === 'detention' ? 'school' : m.id === 'bestie' ? 'smartphone' : 'door-open'}"></i>${m.voice ? 'Set up mic' : m.id === 'detention' ? 'Enter the classroom' : m.id === 'bestie' ? 'Answer the call' : 'Enter the house'}</button></div></div>`;
   icons(); const mc = $('#scr-loadout .mode-cards'); if (sl != null) mc.scrollLeft = sl; else { const on = $('.mode-card.on', mc); if (on) mc.scrollLeft = on.offsetLeft - mc.clientWidth / 2 + on.clientWidth / 2; }
 }
 
