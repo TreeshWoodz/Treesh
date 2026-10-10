@@ -35,6 +35,12 @@ can = Image.composite(fg, bg, fm)
 for sz in (192, 512):
     save(can, sz, f'icons/icon-maskable-{sz}.png')
 
+# monochrome badge for Android notifications (white mark on transparent)
+bb = m.getbbox(); bw, bh = bb[2] - bb[0], bb[3] - bb[1]; side = int(max(bw, bh) * 1.2)
+sq = Image.new('L', (side, side), 0); sq.paste(m.crop(bb), ((side - bw) // 2, (side - bh) // 2))
+badge = Image.new('RGBA', (side, side), (255, 255, 255, 0)); badge.putalpha(sq)
+badge.resize((96, 96), Image.LANCZOS).save(OUT + 'icons/badge-96.png', optimize=True)
+
 V = '7255'
 mani = {
     "name": "Treesh", "short_name": "Treesh",

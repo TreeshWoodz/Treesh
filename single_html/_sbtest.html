@@ -147,6 +147,7 @@
       R.forEach(x=>{ if(x.status==='open'&&(x.id===a.rid||(a.all_for_target&&x.target===r.target))){ x.status=a.new_status; x.handled_by=me; x.handled_at=new Date().toISOString(); n++; } }); log(d,me,r.target,'report_'+a.new_status,{report:a.rid,count:n}); return {status:a.new_status,count:n}; } };
   const rpc=async (fn,args)=>{ window.__mockLog.push('rpc:'+fn+(args?':'+JSON.stringify(args):'')); if(off()) return {error:NET}; if(fn==='username_available'){ const d0=db(); const n=String((args||{}).name||'').toLowerCase(); return {data:!Object.values(d0.profiles||{}).some(p=>p&&p.username===n),error:null}; }
     if(SOC[fn]){ const s0=sess(), me=s0?s0.user.id:null; if(!me&&fn!=='search_users'&&fn!=='get_user_profile') return {data:null,error:{message:'not signed in'}}; if(window.__mockNoSocial||(window.__mockNoNotif&&/^(my_notifications|notif_mark|notif_delete)$/.test(fn))) return {data:null,error:{code:'PGRST202',message:'Could not find the function public.'+fn}}; const d=db(); try{ const r=SOC[fn](d,me,args||{}); save(d); ntEmit(); return {data:r,error:null}; }catch(e){ return {data:null,error:{message:e.message||String(e)}}; } }
+    if(fn==='treesh_news'){ if(window.__mockNoNews) return {data:null,error:{code:'PGRST202',message:'Could not find the function public.treesh_news'}}; const d0=db(), signed=!!sess(); return {data:(d0.news||[]).filter(x=>x.id>(+(args||{}).after_id||0)&&(x.audience!=='members'||signed)).sort((a,b)=>b.id-a.id).slice(0,20).map(x=>({id:x.id,title:x.title,body:x.body||'',url:x.url||null,kind:x.kind||'news',created_at:x.created_at||new Date().toISOString()})),error:null}; }
     const s=sess(); if(!s) return {error:{message:'not signed in'}}; if(fn!=='delete_user') return {error:{code:'PGRST202',message:'Could not find the function'}}; const d=db(); const em=Object.keys(d.users).find(k=>d.users[k].id===s.user.id); if(em) delete d.users[em]; delete d.profiles[s.user.id]; if(d.user_data) delete d.user_data[s.user.id]; save(d); return {data:null,error:null}; };
   const from=table=>({
     select(cols){ const q={ _k:null,_id:null, eq(k,v){ q._k=k; q._id=v; return q; }, async maybeSingle(){ window.__mockLog.push('select:'+table+':'+(cols||'*')+':'+q._id); if(off()) return {data:null,error:NET}; const s=sess(); if(!s||s.user.id!==q._id) return {data:null,error:null}; const d=db(); const row=table==='user_data'?((d.user_data||{})[q._id]||null):(d.profiles[q._id]||null); if(row&&table==='user_data'&&cols==='updated_at') return {data:{updated_at:row.updated_at},error:null}; return {data:row,error:null}; } }; return q; },
@@ -162,6 +163,7 @@
     async remove(paths){ window.__mockLog.push('remove:'+b+':'+paths.join(',')); const d=db(); paths.forEach(p=>{ delete d.files[p]; }); save(d); return {data:paths,error:null}; } }) };
   window.supabase={ createClient(url,key,opts){ window.__mockLog.push('create:'+url+':'+key+':'+JSON.stringify(opts||{})); return window.__mockNoLive?{auth,from,storage,rpc}:{auth,from,storage,rpc,channel,removeChannel}; } };
   window.__mockAs=(uid,fn,args)=>{ const d=db(); const r=SOC[fn](d,uid,args||{}); save(d); ntEmit(); return r; };
+  window.__mockNews=(item)=>{ const d=db(); d.news=d.news||[]; const id=d.news.reduce((m,x)=>Math.max(m,x.id),0)+1; d.news.push(Object.assign({id,created_at:new Date().toISOString(),kind:'news',audience:'all'},item||{})); save(d); return id; };
 })();
 </script>
 <script>
@@ -7391,6 +7393,107 @@ html.a11y-reduce-motion .wn-inl-in{ animation:none; }
 @keyframes plsFade{ from{ opacity:0; } to{ opacity:1; } }
 @media (max-width:639px){ .pls-sortbtn{ max-width:150px; padding:0 10px 0 12px; } .pls-meta{ min-width:0; font-size:10.5px; } }
 @media (prefers-reduced-motion: reduce){ .pls-row, .pls-note, .pls-pop, .pls-pop-wrap{ animation:none !important; } }
+
+/* ---------- P9zzf: push notifications card + one-time ask ---------- */
+.pu-card{ margin:0; padding:14px; border-radius:18px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.03); transition:border-color .25s ease, background-color .25s ease; }
+.pu-card.is-on{ border-color:color-mix(in srgb,var(--treesh-purple) 45%,transparent); background:linear-gradient(160deg,color-mix(in srgb,var(--treesh-purple) 14%,transparent),rgba(255,255,255,.02) 70%); }
+.nt-pc > .pu-card{ padding:0; border:0; background:none; }
+.pu-row{ display:flex; align-items:center; gap:12px; }
+.pu-ic{ flex:none; width:36px; height:36px; display:grid; place-items:center; border-radius:12px; color:rgba(255,255,255,.7); background:rgba(255,255,255,.08); transition:color .25s ease, background-color .25s ease; }
+.pu-ic svg{ width:17px; height:17px; }
+.pu-card.is-on .pu-ic{ color:#fff; background:var(--treesh-purple); box-shadow:0 8px 22px -10px var(--treesh-purple); }
+.pu-card.is-on .pu-ic svg{ animation:puRing 1.6s cubic-bezier(.36,.07,.19,.97) .2s 1 both; transform-origin:50% 10%; }
+@keyframes puRing{ 0%,100%{ transform:rotate(0); } 15%{ transform:rotate(14deg); } 30%{ transform:rotate(-12deg); } 45%{ transform:rotate(8deg); } 60%{ transform:rotate(-5deg); } 75%{ transform:rotate(2deg); } }
+.pu-tx{ flex:1; min-width:0; }
+.pu-t{ font-size:14px; font-weight:700; }
+.pu-s{ margin-top:1px; display:flex; align-items:center; gap:6px; font-size:12px; color:rgba(255,255,255,.5); }
+.pu-s::before{ content:''; flex:none; width:7px; height:7px; border-radius:999px; background:rgba(255,255,255,.3); }
+.pu-s.is-on{ color:#7ef0c3; } .pu-s.is-on::before{ background:#34d399; box-shadow:0 0 0 3px rgba(52,211,153,.18); }
+.pu-s.is-warn{ color:#fbbf6b; } .pu-s.is-warn::before{ background:#f59e0b; }
+.pu-s.is-busy::before{ background:var(--treesh-purple); animation:puPulse 1s ease-in-out infinite; }
+@keyframes puPulse{ 50%{ opacity:.25; } }
+button.pu-sw{ cursor:pointer; }
+.pu-sw.is-busy{ opacity:.6; } .pu-sw:focus-visible{ outline:2px solid var(--treesh-purple); outline-offset:3px; }
+.pu-help{ margin-top:10px; font-size:12.5px; line-height:1.5; color:rgba(255,255,255,.55); }
+.pu-err{ margin-top:10px; padding:8px 10px; border-radius:12px; font-size:12.5px; line-height:1.4; color:#fda4af; background:rgba(244,63,94,.08); border:1px solid rgba(244,63,94,.25); }
+.pu-steps{ margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+.pu-steps li{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:12px; font-size:12.5px; color:rgba(255,255,255,.75); background:rgba(0,0,0,.2); }
+.pu-steps li span{ flex:none; width:22px; height:22px; display:grid; place-items:center; border-radius:999px; font-size:11px; font-weight:800; color:#fff; background:var(--treesh-purple); }
+.pu-types{ margin-top:12px; display:grid; grid-template-columns:1fr; gap:6px; }
+@media (min-width:768px){ [data-pu-card="settings"] .pu-types{ grid-template-columns:1fr 1fr; } }
+.pu-type{ display:flex; align-items:center; gap:10px; width:100%; padding:9px 10px; border-radius:14px; text-align:left; color:#fff; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); transition:background-color .2s ease, border-color .2s ease, opacity .2s ease; }
+.pu-type:hover{ background:rgba(255,255,255,.06); }
+.pu-type.is-lock{ opacity:.55; cursor:not-allowed; }
+.pu-type-ic{ flex:none; width:30px; height:30px; display:grid; place-items:center; border-radius:10px; color:rgba(255,255,255,.65); background:rgba(255,255,255,.07); }
+.pu-type-ic svg{ width:14px; height:14px; }
+.pu-type.is-on .pu-type-ic{ color:var(--treesh-purple); background:color-mix(in srgb,var(--treesh-purple) 16%,transparent); }
+.pu-type-tx{ flex:1; min-width:0; } .pu-type-tx b{ display:block; font-size:12.5px; font-weight:800; } .pu-type-tx small{ display:block; margin-top:1px; font-size:11px; color:rgba(255,255,255,.48); }
+.pu-type .nt-sw{ width:36px; height:21px; } .pu-type .nt-sw i{ width:15px; height:15px; } .pu-type .nt-sw.is-on i{ transform:translateX(15px); }
+.pu-foot{ margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
+
+/* the ask: bottom card on phones, corner card on computers */
+.pu-ask{ position:fixed; z-index:280; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom) + 14px); transition:transform .45s cubic-bezier(.16,1,.3,1), opacity .3s ease; }
+.pu-ask.is-in{ transform:translateY(calc(100% + 30px)); opacity:0; }
+.pu-ask.is-out{ transform:translateY(24px) scale(.97); opacity:0; pointer-events:none; }
+@media (min-width:640px){ .pu-ask{ left:auto; right:24px; bottom:24px; width:390px; } }
+.pu-ask-card{ position:relative; display:grid; grid-template-columns:auto 1fr; gap:12px 14px; padding:16px; border-radius:24px; color:#fff; background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0) 60%),rgba(14,12,22,.92); border:1px solid rgba(255,255,255,.14); box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 30px 60px -22px rgba(0,0,0,.85),0 18px 50px -26px var(--treesh-purple); -webkit-backdrop-filter:blur(22px) saturate(170%); backdrop-filter:blur(22px) saturate(170%); }
+.pu-ask-ic{ width:46px; height:46px; display:grid; place-items:center; border-radius:15px; color:#fff; background:var(--treesh-purple); box-shadow:0 10px 26px -10px var(--treesh-purple); }
+.pu-ask-ic svg{ width:22px; height:22px; animation:puRing 1.6s cubic-bezier(.36,.07,.19,.97) .5s 2 both; transform-origin:50% 10%; }
+.pu-ask-tx{ min-width:0; padding-right:26px; }
+.pu-ask-k{ font-size:10.5px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:#5ffbe6; }
+.pu-ask-tx h3{ margin-top:2px; font-family:'Space Grotesk',Manrope,sans-serif; font-size:16.5px; font-weight:700; line-height:1.25; }
+.pu-ask-tx p:last-child{ margin-top:5px; font-size:12.5px; line-height:1.5; color:rgba(255,255,255,.62); }
+.pu-ask-x{ position:absolute; top:10px; right:10px; width:32px; height:32px; display:grid; place-items:center; border-radius:999px; color:rgba(255,255,255,.55); transition:background-color .2s ease, color .2s ease; }
+.pu-ask-x:hover{ color:#fff; background:rgba(255,255,255,.1); } .pu-ask-x svg{ width:16px; height:16px; }
+.pu-ask-btns{ grid-column:1 / -1; display:flex; gap:8px; } .pu-ask-btns .nt-btn{ flex:1; height:42px; font-size:13.5px; }
+html.theme-light .pu-card{ background:rgba(29,26,36,.03); border-color:rgba(29,26,36,.1); }
+html.theme-light .pu-s, html.theme-light .pu-help, html.theme-light .pu-type-tx small{ color:rgba(29,26,36,.55); }
+html.theme-light .pu-type, html.theme-light .pu-steps li{ color:#1d1a24; background:rgba(29,26,36,.04); border-color:rgba(29,26,36,.1); }
+html.theme-light .pu-steps li{ color:rgba(29,26,36,.8); }
+@media (prefers-reduced-motion: reduce){ .pu-ask, .pu-card.is-on .pu-ic svg, .pu-ask-ic svg{ animation:none !important; transition:none !important; } }
+
+/* ---------- P9zzg: new version banner + Moderation → Announcements ---------- */
+.vb{ position:fixed; z-index:290; top:calc(env(safe-area-inset-top) + 10px); left:50%; display:flex; align-items:center; gap:10px; width:min(calc(100vw - 20px),560px); padding:8px 8px 8px 10px; border-radius:22px; color:#fff; transform:translateX(-50%); background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,0) 70%),rgba(14,12,22,.92); border:1px solid rgba(255,255,255,.16); box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 24px 50px -20px rgba(0,0,0,.85),0 12px 40px -18px #00f5d4; -webkit-backdrop-filter:blur(22px) saturate(170%); backdrop-filter:blur(22px) saturate(170%); transition:transform .5s cubic-bezier(.16,1,.3,1), opacity .3s ease; }
+.vb.is-in{ transform:translate(-50%,calc(-100% - 30px)); opacity:0; }
+.vb.is-out{ transform:translate(-50%,-14px) scale(.97); opacity:0; pointer-events:none; }
+.vb-ic{ flex:none; width:38px; height:38px; display:grid; place-items:center; border-radius:14px; color:#0b0814; background:linear-gradient(135deg,#5ffbe6,#00f5d4); }
+.vb-ic svg{ width:18px; height:18px; animation:vbSpark 2.4s ease-in-out infinite; }
+@keyframes vbSpark{ 50%{ transform:scale(1.15) rotate(12deg); } }
+.vb-tx{ flex:1; min-width:0; } .vb-tx b{ display:block; font-size:13.5px; font-weight:800; line-height:1.25; }
+.vb-tx small{ display:block; margin-top:1px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:11.5px; color:rgba(255,255,255,.58); }
+.vb-go{ flex:none; display:inline-flex; align-items:center; gap:6px; height:38px; padding:0 16px; border-radius:999px; font-size:13px; font-weight:800; color:#0b0814; background:#5ffbe6; transition:background-color .2s ease, transform .15s ease; }
+.vb-go:hover{ background:#8ffcef; } .vb-go svg{ width:15px; height:15px; stroke-width:2.6; } .vb-go:active{ transform:scale(.96); }
+.vb-x{ flex:none; width:34px; height:34px; display:grid; place-items:center; border-radius:999px; color:rgba(255,255,255,.55); transition:background-color .2s ease, color .2s ease; }
+.vb-x:hover{ color:#fff; background:rgba(255,255,255,.1); } .vb-x svg{ width:16px; height:16px; }
+@media (max-width:420px){ .vb-go{ padding:0 12px; } .vb-tx small{ display:none; } }
+
+.an-rail{ display:contents; }
+.an-grid{ display:grid; gap:16px; grid-template-columns:minmax(0,1fr); }
+@media (min-width:1100px){ .an-grid{ grid-template-columns:minmax(0,1fr) 300px; align-items:start; } }
+.an-form{ display:flex; flex-direction:column; gap:14px; padding:16px; border-radius:22px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); animation:admIn .35s cubic-bezier(.16,1,.3,1) both; }
+.an-form .sba-f{ position:relative; }
+.an-cnt{ align-self:flex-end; margin-top:-2px; font-size:11px; font-variant-numeric:tabular-nums; color:rgba(255,255,255,.4); }
+.an-aud{ margin-top:6px; flex-wrap:wrap; }
+.an-foot{ display:flex; flex-direction:column; gap:10px; }
+.an-foot > .sba-btn{ align-self:flex-start; padding:0 22px; height:46px; }
+.an-foot > .sba-btn:disabled{ opacity:.45; pointer-events:none; }
+.an-prev{ position:sticky; top:0; animation:admIn .4s cubic-bezier(.16,1,.3,1) .05s both; }
+.an-phone{ margin-top:8px; padding:22px 12px 26px; border-radius:30px; background:radial-gradient(120% 80% at 20% 0%,color-mix(in srgb,var(--treesh-purple) 55%,#0b0814),#0b0814 70%); border:1px solid rgba(255,255,255,.1); box-shadow:inset 0 0 0 6px rgba(0,0,0,.35); }
+.an-clock{ text-align:center; font-family:'Space Grotesk',Manrope,sans-serif; font-size:44px; font-weight:600; letter-spacing:-.02em; color:rgba(255,255,255,.92); }
+.an-note{ margin-top:16px; display:flex; gap:10px; padding:11px 12px; border-radius:18px; background:rgba(255,255,255,.16); -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px); animation:anDrop .5s cubic-bezier(.16,1,.3,1) .25s both; }
+@keyframes anDrop{ from{ transform:translateY(-12px); opacity:0; } }
+.an-note img{ flex:none; width:34px; height:34px; border-radius:9px; }
+.an-note-h{ display:flex; justify-content:space-between; font-size:11px; color:rgba(255,255,255,.7); } .an-note-h b{ font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+.an-note-t{ margin-top:1px; font-size:13px; font-weight:700; line-height:1.3; word-break:break-word; }
+.an-note-b{ margin-top:1px; font-size:12.5px; line-height:1.35; color:rgba(255,255,255,.85); word-break:break-word; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+.an-recent{ margin-top:16px; }
+.an-list{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.an-item{ display:flex; align-items:flex-start; gap:12px; padding:10px 12px; border-radius:16px; border:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.025); }
+.an-item b{ display:block; font-size:13.5px; font-weight:700; } .an-item small{ display:block; margin-top:2px; font-size:12px; color:rgba(255,255,255,.55); }
+.an-item time{ flex:none; font-size:11.5px; color:rgba(255,255,255,.42); }
+.an-item-ic{ flex:none; width:32px; height:32px; display:grid; place-items:center; border-radius:10px; color:#60a5fa; background:rgba(96,165,250,.14); } .an-item-ic svg{ width:15px; height:15px; }
+.an-item-ic.is-up{ color:#34d399; background:rgba(52,211,153,.14); }
+@media (prefers-reduced-motion: reduce){ .vb, .vb-ic svg, .an-form, .an-prev, .an-note{ animation:none !important; transition:none !important; } }
 
 </style>
 </head>
@@ -22747,6 +22850,237 @@ let _plsQT=0;
 /* Play means in order: it turns shuffle off before the song starts */
 document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('[data-testid="playlist-play"]')&&state.shuffle){ state.shuffle=false; try{ savePlayerPrefs(); }catch(_){} } },true);
 document.addEventListener('input',e=>{ if(!e.target||e.target.id!=='pls-q') return; const pl=plsCur(); if(!pl) return; plsFil(pl).q=e.target.value; clearTimeout(_plsQT); _plsQT=setTimeout(plsPaint,120); });
+
+/* ---------- P9zzf: push notifications on this device (sw-push.js + /api/push), one-time friendly ask, Settings + notification preferences controls ---------- */
+SB_LOCAL.push('treesh_push','treesh_news_last');
+const PU_API=window.TREESH_PUSH_API||'/api/push';
+const PU_TYPES=[['friends','users','Friend activity','Requests, answers and removals',1],['staff','shield-check','Staff & account','Moderation and changes to your account',1],['updates','sparkles','New versions','When a new Treesh is live',0],['news','megaphone','News from Treesh','Announcements from the team',0]];
+const _pu={busy:false,testing:false,err:''};
+let _puT=0, _puReg=null, _puAskT=0;
+function puS(){ const d=LS.get('treesh_push',null)||{}; return {on:!!d.on,ep:d.ep||'',uid:d.uid||null,prefs:Object.assign({friends:true,staff:true,updates:true,news:true},d.prefs||{}),asked:!!d.asked,visits:+d.visits||0}; }
+function puSave(p){ LS.set('treesh_push',p); }
+const puHome=()=>navigator.standalone===true||!!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+function puSupport(){ const has='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window&&window.isSecureContext;
+  if(icnIOS()&&!puHome()) return 'ios';
+  if(!has) return icnIOS()?'ios-old':'none';
+  return Notification.permission==='denied'?'blocked':'ok'; }
+function puB64(s){ const b=atob((s+'='.repeat((4-s.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(b,c=>c.charCodeAt(0)); }
+function puKeyEq(sub,k){ try{ const a=new Uint8Array(sub.options.applicationServerKey), b=puB64(k); return a.length===b.length&&a.every((x,i)=>x===b[i]); }catch(e){ return true; } }
+function puPlatform(){ const u=navigator.userAgent; return (icnIOS()?'iOS':/Android/.test(u)?'Android':/Windows/.test(u)?'Windows':/Mac/.test(u)?'Mac':/CrOS|Linux/.test(u)?'Linux':'Web')+(puHome()?' app':''); }
+function puErr(e){ const m=String((e&&e.message)||e||''); if(e&&e.name==='NotAllowedError') return 'Notifications are blocked for Treesh in your browser settings.'; if(e&&(e.name==='AbortError'||/push service/i.test(m))) return 'Your browser\u2019s push service didn\u2019t answer. Try again in a moment.'; return m||'Try again.'; }
+
+async function puCall(path,body,auth){ const h={}; if(body) h['Content-Type']='application/json'; if(auth){ const t=await ieTok(); if(t) h.Authorization='Bearer '+t; }
+  let r, d=null;
+  try{ r=await fetch(PU_API+path,{method:body?'POST':'GET',cache:'no-store',headers:h,body:body?JSON.stringify(body):undefined}); }
+  catch(e){ throw new Error(navigator.onLine===false?'You\u2019re offline. Connect and try again.':'Couldn\u2019t reach Treesh. Try again.'); }
+  try{ d=await r.json(); }catch(e){}
+  if(!r.ok||!d||typeof d!=='object') throw Object.assign(new Error((d&&d.message)||(r.status===404?'Push notifications aren\u2019t switched on for this site yet.':'Something went wrong ('+r.status+'). Try again.')),{status:r.status,code:d&&d.code});
+  return d; }
+function puReg(){ if(!_puReg) _puReg=navigator.serviceWorker.register('sw-push.js',{scope:'./'}).catch(e=>{ _puReg=null; throw e; }); return _puReg; }
+async function puReady(){ await puReg(); return Promise.race([navigator.serviceWorker.ready,new Promise((_,no)=>setTimeout(()=>no(new Error('Treesh\u2019s notification helper didn\u2019t start. Reload and try again.')),12000))]); }
+async function puRegGet(){ if(!('serviceWorker' in navigator)) return null; try{ return await navigator.serviceWorker.getRegistration('./'); }catch(e){ return null; } }
+
+/* save this device on the server (signed in = linked to you, so friend + staff alerts can reach it) */
+async function puSend(sub,old){ const P=puS(), u=sbUser(); const r=await puCall('/subscribe',Object.assign({subscription:sub.toJSON(),prefs:P.prefs,platform:puPlatform()},old&&old!==sub.endpoint?{old}:{}),true);
+  const Q=puS(); Q.on=true; Q.ep=sub.endpoint; Q.uid=r.linked&&u?u.id:null; puSave(Q); return r; }
+async function puEnable(){ if(_pu.busy) return; const sup=puSupport();
+  if(sup!=='ok'){ puPaint(); if(sup==='blocked') toast('Notifications are blocked','Allow them for Treesh in your browser settings'); return; }
+  _pu.busy=true; _pu.err=''; puPaint(); let perm='default';
+  try{ perm=await Notification.requestPermission(); }catch(e){ perm=Notification.permission; }
+  if(perm!=='granted'){ _pu.busy=false; puPaint(); toast(perm==='denied'?'Notifications are blocked':'Notifications stay off',perm==='denied'?'Allow them for Treesh in your browser settings':'Turn them on in Settings any time'); return; }
+  try{ const reg=await puReady(), k=await puCall('/key'); let sub=await reg.pushManager.getSubscription();
+    if(sub&&!puKeyEq(sub,k.key)){ try{ await sub.unsubscribe(); }catch(e){} sub=null; }
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:puB64(k.key)});
+    await puSend(sub,puS().ep); toast('Notifications are on',sbUser()?'Friend alerts, account news and new versions':'New versions and Treesh news. Sign in for friend alerts'); }
+  catch(e){ _pu.err=puErr(e); toast('Couldn\u2019t turn on notifications',_pu.err); }
+  _pu.busy=false; puPaint(); }
+async function puDisable(){ if(_pu.busy) return; _pu.busy=true; _pu.err=''; puPaint(); let ep=puS().ep;
+  try{ const reg=await puRegGet(), sub=reg&&await reg.pushManager.getSubscription(); if(sub){ ep=sub.endpoint; await sub.unsubscribe().catch(()=>{}); } }catch(e){}
+  if(ep) puCall('/unsubscribe',{endpoint:ep}).catch(()=>{});
+  const P=puS(); P.on=false; P.ep=''; P.uid=null; puSave(P); _pu.busy=false; puPaint(); toast('Notifications are off','Alerts still land in your notification center'); }
+function puOff(){ const P=puS(); if(P.ep) puCall('/unsubscribe',{endpoint:P.ep}).catch(()=>{}); P.on=false; P.ep=''; P.uid=null; puSave(P); puPaint(); }
+async function puResync(){ const P=puS(); if(!P.on) return;
+  try{ const reg=await puRegGet(), sub=reg&&await reg.pushManager.getSubscription(); if(!sub){ puOff(); return; } await puSend(sub,P.ep); }
+  catch(e){ if(e&&e.status&&e.status!==503) toast('Couldn\u2019t update notifications',e.message); } puPaint(); }
+function puPref(k){ const P=puS(); P.prefs[k]=P.prefs[k]===false; puSave(P); puPaint(); clearTimeout(_puT); _puT=setTimeout(puResync,450); }
+async function puTest(){ const P=puS(); if(!P.on||_pu.testing) return; _pu.testing=true; puPaint();
+  try{ await puCall('/test',{endpoint:P.ep}); toast('Test sent','It should pop up in a few seconds'); }
+  catch(e){ toast('Couldn\u2019t send a test',e.message); if(e.code==='none'||e.code==='gone') puResync(); }
+  _pu.testing=false; puPaint(); }
+function puLink(){ const P=puS(); if(!P.on) return; const uid=sbUser()?sbUser().id:null; if((P.uid||null)!==uid) puResync(); }
+
+/* ---- the card (Settings > Notifications and the notification preferences) ---- */
+function puStatus(){ const P=puS(), s=puSupport();
+  if(_pu.busy) return ['is-busy','Working\u2026'];
+  if(s==='ios') return ['is-off','Add Treesh to your Home Screen to turn these on'];
+  if(s==='ios-old') return ['is-off','Update to iOS 16.4 or later to get these'];
+  if(s==='none') return ['is-off','This browser can\u2019t get push notifications'];
+  if(s==='blocked') return ['is-warn','Blocked in your browser settings'];
+  if(!P.on) return ['is-off','Off on this device'];
+  const n=PU_TYPES.filter(t=>P.prefs[t[0]]!==false&&(!t[4]||sbUser())).length;
+  return [n?'is-on':'is-warn',n?'On for this device':'On, but every type is off']; }
+function puTypesHtml(pfx){ const P=puS(), u=!!sbUser();
+  return `<div class="pu-types" data-testid="${pfx}-push-types">${PU_TYPES.map(([k,ic,t,d,acc])=>{ const lock=acc&&!u, v=!lock&&P.prefs[k]!==false; return `<button type="button" role="switch" aria-checked="${v}" data-act="pu-pref" data-k="${k}" data-testid="${pfx}-push-type-${k}" class="pu-type press${v?' is-on':''}${lock?' is-lock':''}"${lock?' disabled':''}><span class="pu-type-ic"><i data-lucide="${lock?'lock':ic}"></i></span><span class="pu-type-tx"><b>${t}</b><small>${lock?'Sign in to get these':d}</small></span><span class="nt-sw${v?' is-on':''}" aria-hidden="true"><i></i></span></button>`; }).join('')}</div>`; }
+function puCardHtml(pfx){ const P=puS(), s=puSupport(), on=P.on&&s==='ok', st=puStatus(), u=!!sbUser();
+  let h=`<div class="pu-card${on?' is-on':''}" data-pu-card="${pfx}" data-testid="${pfx}-push-card"><div class="pu-row"><span class="pu-ic"><i data-lucide="${on?'bell-ring':'smartphone'}"></i></span><div class="pu-tx"><p class="pu-t">Push notifications</p><p class="pu-s ${st[0]}" data-testid="${pfx}-push-status">${st[1]}</p></div>${s==='ok'?`<button type="button" role="switch" aria-checked="${on}" aria-label="Push notifications on this device" data-act="pu-toggle" data-testid="${pfx}-push-toggle" class="nt-sw pu-sw${on?' is-on':''}${_pu.busy?' is-busy':''}"${_pu.busy?' disabled':''}><i></i></button>`:''}</div>`;
+  if(s==='ios') h+=`<ol class="pu-steps" data-testid="${pfx}-push-ios-steps">${['Tap <b>Share</b> at the bottom of Safari','Choose <b>Add to Home Screen</b>','Open Treesh from your Home Screen and turn this on'].map((t,i)=>`<li><span>${i+1}</span><p>${t}</p></li>`).join('')}</ol>`;
+  else if(s==='blocked') h+=`<p class="pu-help" data-testid="${pfx}-push-blocked-help">Treesh can\u2019t ask again. Allow notifications for Treesh in your ${icnIOS()?'iPhone Settings, under Notifications':'browser\u2019s site settings'}, then come back here.</p>`;
+  else if(on) h+=puTypesHtml(pfx)+`<div class="pu-foot"><button type="button" data-act="pu-test" data-testid="${pfx}-push-test" class="nt-btn press"${_pu.testing?' disabled':''}><i data-lucide="${_pu.testing?'loader-circle':'send'}"${_pu.testing?' class="sba-spin"':''}></i>${_pu.testing?'Sending\u2026':'Send a test'}</button>${u?'':`<button type="button" data-act="pu-signin" data-testid="${pfx}-push-signin" class="nt-btn is-ghost press"><i data-lucide="log-in"></i>Sign in for friend alerts</button>`}</div>`;
+  else if(s==='ok') h+=`<p class="pu-help">${u?'Friend requests, account updates':'New versions and Treesh news'} on your lock screen, even when Treesh is closed.</p>`;
+  if(_pu.err&&!on) h+=`<p class="pu-err" role="alert" data-testid="${pfx}-push-error">${esc(_pu.err)}</p>`;
+  return h+'</div>'; }
+function puPaint(){ document.querySelectorAll('[data-pu-card]').forEach(el=>{ el.outerHTML=puCardHtml(el.dataset.puCard); }); icons(); }
+
+const _vs9zzf=viewSettings; viewSettings=function(){ let h=_vs9zzf.apply(this,arguments); const i=h.indexOf('data-act="nt-dnd-toggle"'), b=i>0?h.lastIndexOf('<button',i):-1;
+  if(b>0) h=h.slice(0,b)+puCardHtml('settings')+'\n    '+h.slice(b);
+  return h.replace('Friend alerts, your full history and quiet hours.','Alerts on this device, your full history and quiet hours.'); };
+const _ntPrefs9zzf=ntcPrefsHtml; ntcPrefsHtml=function(){ return _ntPrefs9zzf.apply(this,arguments).replace(/<section class="nt-pc"><div class="nt-sw-list"><button type="button" role="switch" aria-checked="(?:true|false)" data-act="nt-sys"[\s\S]*?<\/section>/,'')
+  .replace('<section class="nt-pc is-status"',`<section class="nt-pc">${puCardHtml('notifications')}</section>\n   <section class="nt-pc is-status"`); };
+const _ntSys9zzf=ntSystem; ntSystem=function(){ if(puS().on) return; return _ntSys9zzf.apply(this,arguments); };
+SETTINGS_INDEX.push({ id:'push', label:'Push notifications', desc:'Alerts on this device, even when Treesh is closed', kw:'push notifications alerts phone iphone android desktop lock screen background device updates', ic:'bell-ring', type:'toggle', get:()=>puS().on, toggle:()=>{ if(puS().on) puDisable(); else puEnable(); } });
+
+/* ---- one friendly ask: after you sign in, or on your second visit. Never again after you choose ---- */
+function puAskOk(){ const P=puS(); return !P.asked&&!P.on&&puSupport()==='ok'&&Notification.permission==='default'; }
+function puAskSoon(){ if(!puAskOk()||_puAskT) return; let n=0;
+  _puAskT=setInterval(()=>{ n++; if(!puAskOk()||n>60){ clearInterval(_puAskT); _puAskT=0; return; }
+    if(n>=2&&!document.hidden&&state.profile&&!overlaysOpen()&&!state.npOpen&&!state.ntOpen&&!document.getElementById('eco-ask')&&!document.getElementById('adm-root')){ clearInterval(_puAskT); _puAskT=0; puAskShow(); } },2500); }
+function puAskShow(){ if(document.getElementById('pu-ask')) return; const u=!!sbUser(), el=document.createElement('div'); el.id='pu-ask'; el.className='pu-ask is-in'; el.setAttribute('role','dialog'); el.setAttribute('aria-labelledby','pu-ask-t'); el.dataset.testid='push-prompt';
+  el.innerHTML=`<div class="pu-ask-card"><span class="pu-ask-ic"><i data-lucide="bell-ring"></i></span><div class="pu-ask-tx"><p class="pu-ask-k">Notifications</p><h3 id="pu-ask-t" data-testid="push-prompt-title">Want Treesh alerts on this device?</h3><p>${u?'Friend requests, account updates and new versions':'New versions and Treesh news'}, even when Treesh is closed. Change it any time in Settings.</p></div><button type="button" data-act="pu-ask-no" class="pu-ask-x press" aria-label="Not now" data-testid="push-prompt-close"><i data-lucide="x"></i></button>
+    <div class="pu-ask-btns"><button type="button" data-act="pu-ask-no" class="nt-btn press" data-testid="push-prompt-not-now">Not now</button><button type="button" data-act="pu-ask-yes" class="nt-btn is-primary press" data-testid="push-prompt-turn-on"><i data-lucide="bell"></i>Turn on</button></div></div>`;
+  document.body.appendChild(el); icons(); requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('is-in'))); }
+function puAskDone(){ const P=puS(); P.asked=true; puSave(P); const el=document.getElementById('pu-ask'); if(el){ el.classList.add('is-out'); setTimeout(()=>el.remove(),320); } }
+
+/* ---- taps on a notification, pushes that land while Treesh is on screen ---- */
+function puOpen(url){ let u; try{ u=new URL(url,location.href); }catch(e){ return; } const q=u.searchParams, nt=q.get('nt'), pf=q.get('u');
+  if(u.origin!==location.origin) return;
+  if(q.get('v')){ verCheck(true); return; }
+  if(nt&&/^o\d+$/.test(nt)){ const go=()=>ntcOpen(ntFind(nt)?nt:null); if(sbUser()) ntFetch().then(go,go); else go(); return; }
+  if(nt&&/^n\d+$/.test(nt)){ const go=()=>ntcOpen(ntFind(nt)?nt:null); newsFetch(true).then(go,go); return; }
+  if(pf&&/^[a-z0-9_.]{3,20}$/i.test(pf)){ sxOpenProfile(pf); return; }
+  if(!/^\/(index\.html)?$/.test(u.pathname)) location.href=u.href; }
+function puMsg(e){ const d=(e&&e.data)||{};
+  if(d.type==='treesh-push-open') puOpen(d.url);
+  else if(d.type==='treesh-push'){ if(d.kind==='update') verCheck(true); else if(d.kind==='news') newsFetch(true); else if(sbUser()) ntFetch(); } }
+async function puBoot(){ const P=puS();
+  try{ if(!sessionStorage.getItem('treesh_pv')){ sessionStorage.setItem('treesh_pv','1'); P.visits++; puSave(P); } }catch(e){}
+  if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',puMsg);
+  try{ const q=new URLSearchParams(location.search), nt=q.get('nt'); if(nt){ const url=location.href; q.delete('nt'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash); setTimeout(()=>puOpen(url),1600); } }catch(e){}
+  if(P.visits>=2) puAskSoon();
+  if(!P.on) return;
+  if(puSupport()!=='ok'||Notification.permission!=='granted'){ puOff(); return; }
+  try{ const reg=await puReady(), sub=await reg.pushManager.getSubscription(); if(!sub){ puOff(); return; } if(sub.endpoint!==P.ep) await puSend(sub,P.ep); else puLink(); }catch(e){} }
+const _p9Init9zzf=p9Init; p9Init=function(){ const r=_p9Init9zzf.apply(this,arguments); setTimeout(()=>{ puBoot().catch(()=>{}); },900); return r; };
+const _sbSI9zzf=sbSignedIn; sbSignedIn=function(){ const fresh=_sbJustAuthed; setTimeout(()=>{ puLink(); puPaint(); if(fresh) puAskSoon(); },1500); return _sbSI9zzf.apply(this,arguments); };
+const _sbSO9zzf=sbSignedOut; sbSignedOut=function(){ const r=_sbSO9zzf.apply(this,arguments); setTimeout(()=>{ puLink(); puPaint(); },400); return r; };
+
+document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.target.closest('[data-act^="pu-"]'); if(!t) return;
+  switch(t.dataset.act){
+    case 'pu-toggle': if(puS().on&&puSupport()==='ok') puDisable(); else puEnable(); break;
+    case 'pu-pref': puPref(t.dataset.k); break;
+    case 'pu-test': puTest(); break;
+    case 'pu-signin': { const o=state.ntOpen; if(o) ntcClose(); setTimeout(()=>sbAuthOpen('signin'),o?220:0); break; }
+    case 'pu-ask-yes': puAskDone(); puEnable(); break;
+    case 'pu-ask-no': puAskDone(); break; } });
+
+/* ---------- P9zzg: "new version" banner (version.json, written by the build), Treesh news in the notification center, Moderation → Announcements ---------- */
+const TREESH_VER='6192465b75';
+const _ver={next:null,at:0,busy:false};
+async function verCheck(force){ if(/^__/.test(TREESH_VER)||_ver.busy||navigator.onLine===false) return; if(!force&&Date.now()-_ver.at<6e4) return; _ver.busy=true; _ver.at=Date.now();
+  try{ const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); if(!j||!j.v||j.v===TREESH_VER) return; _ver.next=j; verShow(); }catch(e){} finally{ _ver.busy=false; } }
+function verShow(){ const j=_ver.next; if(!j) return; let later=''; try{ later=sessionStorage.getItem('treesh_ver_later')||''; }catch(e){} if(later===j.v) return;
+  let el=document.getElementById('vb-root'); if(el&&el.dataset.v===j.v) return; if(el) el.remove();
+  el=document.createElement('div'); el.id='vb-root'; el.className='vb is-in'; el.dataset.v=j.v; el.dataset.testid='update-banner'; el.setAttribute('role','status');
+  el.innerHTML=`<span class="vb-ic"><i data-lucide="sparkles"></i></span><span class="vb-tx"><b data-testid="update-banner-title">A new version of Treesh is ready</b>${j.notes?`<small data-testid="update-banner-notes">${esc(String(j.notes).slice(0,140))}</small>`:''}</span><button type="button" data-act="vb-refresh" class="vb-go press" data-testid="update-banner-refresh"><i data-lucide="refresh-cw"></i>Refresh</button><button type="button" data-act="vb-later" class="vb-x press" aria-label="Later" title="Later" data-testid="update-banner-dismiss"><i data-lucide="x"></i></button>`;
+  document.body.appendChild(el); icons(); requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('is-in'))); }
+function verLater(){ const el=document.getElementById('vb-root'); try{ sessionStorage.setItem('treesh_ver_later',(_ver.next&&_ver.next.v)||''); }catch(e){} if(el){ el.classList.add('is-out'); setTimeout(()=>el.remove(),320); } }
+function verGo(){ const q=new URLSearchParams(location.search); q.set('v',(_ver.next&&_ver.next.v)||Date.now().toString(36)); try{ resSave(true); }catch(e){} location.replace(location.pathname+'?'+q+location.hash); }
+function verBoot(){ try{ const q=new URLSearchParams(location.search), v=q.get('v'); if(v==null) return; q.delete('v'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
+  if(v===TREESH_VER) setTimeout(()=>toast('Treesh is up to date','You\u2019re on the newest version'),1800); }catch(e){} }
+
+/* ---- Treesh news + update alerts (announcements table, read through treesh_news) ---- */
+NT_KIND.news=['megaphone','is-staff','Treesh news','Announcements from the Treesh team']; NT_KIND.update=['sparkles','is-ok','App updates','When a new version of Treesh is live'];
+NT_ON.push('news');
+const _nw={busy:false,at:0,off:false};
+async function newsFetch(force){ if(typeof sb==='undefined'||!sb||_nw.off||_nw.busy||navigator.onLine===false) return; if(!force&&Date.now()-_nw.at<3e5) return; _nw.busy=true; _nw.at=Date.now();
+  try{ const last=LS.get('treesh_news_last',null), {data,error}=await sb.rpc('treesh_news',{after_id:+last||0});
+    if(error){ if(error.code==='PGRST202'||error.code==='42883'||/Could not find the function/i.test(error.message||'')) _nw.off=true; return; }
+    newsIngest(Array.isArray(data)?data:[],last==null); }catch(e){} finally{ _nw.busy=false; } }
+function newsIngest(rows,first){ const A=ntAll(), have=new Set(A.map(x=>x.id)); let max=+LS.get('treesh_news_last',0)||0; const fresh=[];
+  rows.slice().sort((a,b)=>a.id-b.id).forEach((r,i,all)=>{ if(!r||r.id==null) return; max=Math.max(max,+r.id); const id='n'+r.id; if(have.has(id)||(first&&i<all.length-3)) return;
+    const it={id,src:'online',kind:r.kind==='update'?'update':'news',t:Date.parse(r.created_at)||Date.now(),read:false,title:String(r.title||'Treesh').slice(0,120),body:String(r.body||'').slice(0,300),url:/^(https:\/\/|\/)[^\s"'<>]*$/i.test(r.url||'')?r.url:''};
+    A.unshift(it); have.add(id); fresh.push(it); });
+  LS.set('treesh_news_last',max); if(!fresh.length) return; ntPrune(); ntSave(true);
+  const P=ntP(); if(!fresh.some(x=>!P.mute[x.kind])) return; ntBellRing(); if(ntDnd()||state.ntOpen) return;
+  fresh.filter(x=>x.kind==='news'&&!P.mute.news&&Date.now()-x.t<864e5).slice(-2).forEach(x=>ntBanner(x)); }
+const _nah9zzg=ntActsHtml; ntActsHtml=function(it,pre){ const T=pre||'notification', sfx=pre?'':'-'+it.id;
+  if(it.kind==='news'&&it.url) return `<div class="nt-acts"><button type="button" data-act="nt-news-link" data-id="${it.id}" data-testid="${T}-action-link${sfx}" class="nt-btn is-primary press"><i data-lucide="arrow-up-right"></i>Open</button></div>`;
+  if(it.kind==='update'&&_ver.next) return `<div class="nt-acts"><button type="button" data-act="nt-ver-refresh" data-id="${it.id}" data-testid="${T}-action-update${sfx}" class="nt-btn is-primary press"><i data-lucide="refresh-cw"></i>Refresh to update</button></div>`;
+  return _nah9zzg.apply(this,arguments); };
+function newsOpen(id){ const it=ntFind(id); if(!it||!it.url) return; ntMarkRead([id],true); ntbDismiss(id);
+  if(/^https:\/\//i.test(it.url)&&new URL(it.url).origin!==location.origin){ window.open(it.url,'_blank','noopener'); return; }
+  if(state.ntOpen) ntcClose(); setTimeout(()=>puOpen(it.url),state.ntOpen?220:0); }
+
+const _p9Init9zzg=p9Init; p9Init=function(){ const r=_p9Init9zzg.apply(this,arguments); verBoot(); setTimeout(()=>{ verCheck(true); newsFetch(true); },5000); return r; };
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) return; verCheck(); newsFetch(); });
+setInterval(()=>{ if(document.hidden) return; verCheck(true); newsFetch(); },6e5);
+
+/* ---- Moderation → Announcements (Treesh admins). /api/push/announce checks the role again ---- */
+const anCan=()=>stRole()==='admin';
+const AN_AUD=[['all','Everyone'],['members','Signed-in members']];
+function anNew(){ return {title:'',body:'',url:'',aud:'all',step:'edit',working:false,res:null,err:null,list:null}; }
+async function anLoad(){ const A=_adm; if(!A||!A.an||!sb) return; try{ const {data,error}=await sb.rpc('treesh_news',{after_id:0}); if(_adm!==A) return; A.an.list=error?[]:(data||[]); }catch(e){ if(_adm===A) A.an.list=[]; } if(_adm===A) admPaint(); }
+function anRail(){ const A=_adm, rail=document.getElementById('adm-rail'); if(!A||!A.an||!rail) return; const on=!A.q&&A.sec==='announce';
+  const h=`<p class="adm-rail-h">Treesh</p><button type="button" data-act="adm-sec" data-val="announce" data-testid="admin-nav-announce" aria-current="${on?'page':'false'}" class="adm-nav press${on?' on':''}"><i data-lucide="megaphone"></i><span class="adm-nl">Announcements</span></button>`;
+  let box=rail.querySelector(':scope > .an-rail'); if(!box){ box=document.createElement('div'); box.className='an-rail'; rail.insertBefore(box,rail.querySelector(':scope > .adm-rail-h')); }
+  if(box._h!==h){ box._h=h; box.innerHTML=h; icons(); } }
+function anFootHtml(){ const N=_adm.an, w=N.working, R=N.res;
+  let h=R?`<div class="mq-status is-ok" data-testid="announce-result"><i data-lucide="circle-check"></i><span><b>Sent to ${R.sent} device${R.sent===1?'':'s'}</b><small>${R.devices} with alerts on${R.failed?' \u00b7 '+R.failed+' didn\u2019t go through':''}${R.removed?' \u00b7 '+R.removed+' expired and were removed':''}</small></span></div>`:'';
+  if(N.err) h+=`<div class="mq-status is-err" role="alert" data-testid="announce-error"><i data-lucide="triangle-alert"></i><span><b>Not sent</b><small>${esc(N.err)}</small></span></div>`;
+  if(N.step==='confirm') return h+`<div class="an-foot" data-testid="announce-confirm-box"><p class="ie-q"><b>Send it to ${N.aud==='all'?'every device':'every signed-in member\u2019s device'}?</b><small>Notifications can\u2019t be taken back once they\u2019re out.</small></p><div class="ie-btns"><button type="button" data-act="an-cancel" data-testid="announce-cancel" class="sba-btn lg press"${w?' disabled':''}>Cancel</button><button type="button" data-act="an-send" data-testid="announce-send-confirm" class="sba-btn is-primary lg press${w?' is-busy':''}"${w?' disabled':''}><i data-lucide="loader-circle" class="sba-spin"></i>${w?'Sending\u2026':'<i data-lucide="send"></i>Send now'}</button></div></div>`;
+  return h+`<div class="an-foot"><button type="button" data-act="an-review" data-testid="announce-review" class="sba-btn is-primary lg press"${N.title.trim()?'':' disabled'}><i data-lucide="send"></i>Review &amp; send</button></div>`; }
+function anMainHtml(){ const N=_adm.an, w=N.working?' disabled':'', L=N.list;
+  const head=admHead('Announcements','Send a notification to every device with Treesh alerts on. It also lands in everyone\u2019s notification center.');
+  const form=`<div class="an-form" data-testid="announce-form">
+    <label class="sba-f"><span>Title</span><input id="an-title" type="text" maxlength="80" autocomplete="off" placeholder="New songs just dropped" value="${esc(N.title)}" data-testid="announce-title-input"${w}><small class="an-cnt" data-an-cnt="title" data-testid="announce-title-count">${N.title.length}/80</small></label>
+    <label class="sba-f"><span>Message <i class="tsf-opt">optional</i></span><textarea id="an-body" rows="3" maxlength="300" class="tsf-ta" placeholder="Tell everyone what\u2019s new" data-testid="announce-body-input"${w}>${esc(N.body)}</textarea><small class="an-cnt" data-an-cnt="body" data-testid="announce-body-count">${N.body.length}/300</small></label>
+    <label class="sba-f"><span>Link <i class="tsf-opt">optional</i></span><input id="an-url" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="https://\u2026 or /?u=username" value="${esc(N.url)}" data-testid="announce-url-input"${w}></label>
+    <div><p class="mq-lbl">Who gets it</p><div class="adm-chips an-aud" role="radiogroup" aria-label="Who gets it" data-testid="announce-audience">${AN_AUD.map(([k,l])=>`<button type="button" role="radio" aria-checked="${N.aud===k}" data-act="an-aud" data-val="${k}" data-testid="announce-audience-${k}" class="adm-chip press${N.aud===k?' on':''}"${w}>${l}</button>`).join('')}</div></div>
+    ${anFootHtml()}</div>`;
+  const prev=`<aside class="an-prev" aria-label="Preview" data-testid="announce-preview"><p class="mq-lbl">Preview</p><div class="an-phone"><p class="an-clock">9:41</p><div class="an-note"><img src="icons/icon-192.png" alt=""><div class="min-w-0 flex-1"><p class="an-note-h"><b>Treesh</b><span>now</span></p><p class="an-note-t" data-an-prev="title" data-testid="announce-preview-title">${esc(N.title||'Your title')}</p><p class="an-note-b" data-an-prev="body" data-testid="announce-preview-body">${esc(N.body||'Your message')}</p></div></div></div></aside>`;
+  const list=!L?`<div class="sx-load"><span class="sx-spin"></span></div>`:!L.length?`<p class="adm-none" data-testid="announce-recent-empty">Nothing sent in the last 30 days.</p>`:`<div class="an-list">${L.map((x,i)=>`<div class="an-item" data-testid="announce-recent-${i}"><span class="an-item-ic${x.kind==='update'?' is-up':''}"><i data-lucide="${x.kind==='update'?'sparkles':'megaphone'}"></i></span><span class="min-w-0 flex-1"><b class="clamp-1">${esc(x.title)}</b>${x.body?`<small class="clamp-2">${esc(x.body)}</small>`:''}</span><time>${esc(swAgo(Date.parse(x.created_at)))}</time></div>`).join('')}</div>`;
+  return head+`<div class="an-grid">${form}${prev}</div><section class="adm-card an-recent" data-testid="announce-recent"><div class="adm-card-h"><span><b>Recent</b><small>Announcements and update alerts from the last 30 days</small></span></div>${list}</section>`; }
+async function anSend(){ const A=_adm, N=A&&A.an; if(!N||N.working) return; N.working=true; N.err=null; admPaint();
+  try{ const d=await puCall('/announce',{title:N.title.trim(),body:N.body.trim(),url:N.url.trim(),audience:N.aud},true); if(_adm!==A) return;
+    Object.assign(N,{res:d,step:'edit',title:'',body:'',url:''}); toast('Announcement sent',d.sent+' device'+(d.sent===1?'':'s')); anLoad(); newsFetch(true); }
+  catch(e){ if(_adm!==A) return; N.err=e.message; N.step='edit'; }
+  N.working=false; admPaint(); }
+const _admOpen9zzg=admOpen; admOpen=function(){ const r=_admOpen9zzg.apply(this,arguments); if(_adm&&anCan()){ _adm.an=anNew(); anRail(); } return r; };
+const _admPaint9zzg=admPaint; admPaint=function(){ const ae=document.activeElement, fid=ae&&/^an-(title|body|url)$/.test(ae.id||'')?ae.id:null, ss=fid?[ae.selectionStart,ae.selectionEnd]:null;
+  const r=_admPaint9zzg.apply(this,arguments); anRail();
+  if(fid){ const x=document.getElementById(fid); if(x&&x!==document.activeElement&&!x.disabled) try{ x.focus({preventScroll:true}); x.setSelectionRange(ss[0],ss[1]); }catch(e){} } return r; };
+const _admMain9zzg=admMainHtml; admMainHtml=function(){ const A=_adm; if(A&&A.an&&!A.q&&A.sec==='announce') return anMainHtml(); return _admMain9zzg.apply(this,arguments); };
+document.addEventListener('input',e=>{ const t=e.target; if(!t||!_adm||!_adm.an||!/^an-(title|body|url)$/.test(t.id||'')) return; const N=_adm.an, k=t.id.slice(3); N[k]=t.value;
+  const c=document.querySelector(`[data-an-cnt="${k}"]`); if(c) c.textContent=t.value.length+'/'+(k==='title'?80:300);
+  const p=document.querySelector(`[data-an-prev="${k}"]`); if(p) p.textContent=t.value||(k==='title'?'Your title':'Your message');
+  const b=document.querySelector('[data-act="an-review"]'); if(b) b.disabled=!N.title.trim(); });
+
+document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.target.closest('[data-act]'); if(!t) return; const a=t.dataset.act;
+  switch(a){
+    case 'vb-refresh': case 'nt-ver-refresh': verGo(); return;
+    case 'vb-later': verLater(); return;
+    case 'nt-news-link': newsOpen(t.dataset.id); return; }
+  if(!_adm||!_adm.an) return; const N=_adm.an;
+  switch(a){
+    case 'adm-sec': if(t.dataset.val==='announce'&&!N.list) anLoad(); break;
+    case 'adm-refresh': if(_adm.sec==='announce'){ N.list=null; anLoad(); } break;
+    case 'an-aud': N.aud=t.dataset.val==='members'?'members':'all'; admPaint(); break;
+    case 'an-review': { const u=N.url.trim(); N.res=null;
+      if(!N.title.trim()) N.err='Give it a title.'; else if(u&&!(/^https:\/\/[^\s"'<>]+$/i.test(u)||/^\/[^\s"'<>]*$/.test(u))) N.err='Links must start with https:// or / (a page in Treesh).'; else { N.err=null; N.step='confirm'; }
+      admPaint(); break; }
+    case 'an-cancel': if(!N.working){ N.step='edit'; admPaint(); } break;
+    case 'an-send': anSend(); break; } });
+(function(){ const W=WHATS_NEW.settings; if(!W) return; W.v=(W.v||0)+1; W.date='October 10, 2026'; W.sub='Treesh can reach you now, even when it\u2019s closed.';
+  W.items=[{icon:'bell-ring',title:'Push notifications',desc:'Turn them on in Settings, Notifications to get friend requests, account updates and Treesh news on your lock screen. On iPhone and iPad, add Treesh to your Home Screen first.'},{icon:'sparkles',title:'Know when there\u2019s a new version',desc:'A banner lets you know the moment a fresh Treesh is live. Tap Refresh to get it.'}].concat((W.items||[]).slice(0,3)); })();
 
 /* ---------- boot hook (called from init) ---------- */
 function mkInit(){ glApply(); mkS();
