@@ -28,7 +28,7 @@ function buildConfig(mode,sh){
 function survivalName(w){ const n=['Rookie','Scout','Hunter','Stalker','Phantom','Warden','Reaper','Tyrant','Overlord','Connex']; return n[Math.min(w-1,9)]+(w>10?' +'+(w-10):''); }
 
 function startMatch(cfg){
-  stopGame(); currentScreen='game';
+  stopGame(); setScreen('game');
   G={cfg,rng:cfg.seed!=null?mulberry32(cfg.seed):Math.random,active:true,paused:false,round:0,pRounds:0,oRounds:0,streak:0,matchBest:0,earned:0,
     logKey:Date.now(),startT:Date.now(),puCount:0,shineUses:0,reactions:[],misses:0,wave:1,lives:cfg.lives||0,zenLines:0,zenEarned:0,
     botName:cfg.daily?'Daily Rival':cfg.mirror?'Mirror '+Treesh.name():pick(BOT_NAMES[cfg.diff]||BOT_NAMES.normal),

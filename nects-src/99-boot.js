@@ -7,15 +7,16 @@ const ACT={
   'seed-demo':()=>{ Treesh.seedDemo(); renderTopbar(); renderProfile(); if(currentScreen==='menu') renderMenu(); toast('Demo Treesh profile loaded','Only shown outside treesh.app'); },
   'quick-play':()=>{ const m=MODE_BY_ID[S.lastMode]; const id=m&&!['puzzle','daily','pass','custom','mirror','bingo'].includes(m.id)?m.id:'classic'; startMatch(buildConfig(id)); },
   'help':()=>openHelp(),
+  'modes':()=>renderModes(),
   'mode':el=>openModeSheet(el.dataset.mode),
   'sheet-set':el=>sheetSet(el.dataset.k,el.dataset.v),
   'sheet-toggle':el=>sheetToggle(el.dataset.k),
   'start-mode':()=>startFromSheet(),
-  'unlock-mode':el=>{ if(buyItem('modes',el.dataset.mode)){ renderModeSheet(); if(currentScreen==='menu') renderMenu(); } },
+  'unlock-mode':el=>{ if(buyItem('modes',el.dataset.mode)){ renderModeSheet(); if(currentScreen==='modes') renderModes(); renderTopbar(); } },
   'close-modal':()=>closeModal(),
   'shop':()=>openShop(),
   'shop-tab':el=>{ shopTab=el.dataset.tab; renderShop(true); },
-  'buy':el=>{ if(buyItem(el.dataset.kind,el.dataset.id)){ renderShop(true); if(currentScreen==='menu') renderMenu(); } },
+  'buy':el=>{ if(buyItem(el.dataset.kind,el.dataset.id)){ renderShop(true); if(currentScreen==='modes') renderModes(); } },
   'equip':el=>{ if(el.dataset.kind==='themes') S.equipped.theme=el.dataset.id; else S.equipped.pack=el.dataset.id; saveNects(); applyTheme(); renderShop(true); toast('Equipped'); },
   'settings':()=>openSettings(),
   'setting-toggle':el=>{ const k=el.dataset.k; S.settings[k]=!S.settings[k]; saveNects(); el.classList.toggle('on',S.settings[k]); applyTheme(); },
@@ -57,6 +58,9 @@ window.addEventListener('message',e=>{ if(e.origin!==location.origin) return; co
 (function boot(){
   applyTheme(); renderTopbar();
   const moved=migrateOld();
+  const bg=document.createElement('div'); bg.id='bgfx'; bg.setAttribute('aria-hidden','true');
+  bg.innerHTML=shuffle(ALL_EMOJIS).slice(0,16).map((e,i)=>`<span style="left:${(i*6.3+Math.random()*4)%100}%;font-size:${18+Math.random()*26}px;animation-duration:${22+Math.random()*24}s;animation-delay:-${Math.random()*40}s">${e}</span>`).join('');
+  document.body.prepend(bg);
   renderMenu();
   setTimeout(()=>{ $('#splash').classList.add('hide'); },450);
   if(moved>0) setTimeout(()=>toast('Welcome to the new Nects',`Your old balance became ${moved} Treesh Starlites`,'star'),900);

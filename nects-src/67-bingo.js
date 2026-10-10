@@ -8,7 +8,7 @@ function bingoToGo(daub){ return Math.min(...BINGO_LINES.map(l=>l.filter(i=>!dau
 function bingoCard(pool){ const c=shuffle(pool).slice(0,24); c.splice(12,0,'★'); const d=Array(25).fill(false); d[12]=true; return {card:c,daub:d}; }
 
 function startBingo(cfg){
-  stopGame(); G=null; currentScreen='bingo';
+  stopGame(); G=null; setScreen('bingo');
   const names=shuffle(BOT_NAMES[cfg.diff]||BOT_NAMES.normal);
   BG={cfg,round:0,pW:0,bots:[...Array(BINGO_BOT[cfg.diff].count)].map((_,i)=>({name:names[i%names.length],w:0})),
     earned:0,logKey:Date.now(),startT:Date.now(),paused:false,active:true,streak:0,best:0,falseUntil:0,misses:0};
@@ -89,18 +89,14 @@ function bingoResume(){ const b=BG; if(!b||!b.active||!b.paused) return; b.pause
 
 function renderBingo(){
   const b=BG;
-  $('#screen').innerHTML=`<div class="game" data-testid="bingo-screen">
-    <div class="hud"><button class="btn btn-ghost btn-icon" data-act="pause" data-testid="game-pause-button" aria-label="Pause">${ic('pause',18)}</button>
-      <div class="title"><b data-testid="game-mode-title">Bingo</b><small data-testid="game-round-info">Round ${b.round} · First to ${b.cfg.rounds} · ${DIFFS[b.cfg.diff].name} · any line or 4 corners</small></div>
-      <span class="tag" style="color:#f472b6">${ic('ticket',12)}${b.bots.length} rivals</span></div>
-    <div class="board-wrap"><div class="board" id="board-b" style="--cols:5" data-testid="bingo-card"></div><p class="muted" style="font-size:12px;text-align:center">Tap any emoji that has been called. The ★ is free.</p></div>
-    <div class="side-col">
-      <div class="caller glass" data-testid="caller-panel"><p class="lbl" id="bingo-ball">Ball ${b.called.length}</p>
-        <div><span class="call-emoji" id="call-emoji" data-testid="caller-emoji-display">${b.called[b.called.length-1]||'·'}</span></div>
-        <div id="bingo-recent" data-testid="bingo-recent-calls" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:6px;font-family:var(--emoji);font-size:20px;min-height:26px"></div></div>
-      <div class="opp glass" data-testid="bingo-rivals"><p class="panel-title"><span>Rivals</span><span>${b.pW} - ${b.bots.map(x=>x.w).join(' - ')}</span></p><div id="bingo-bots"></div></div>
-      <div class="tray-box glass" style="border-radius:24px;padding:14px"><button class="btn btn-gold btn-lg" style="width:100%;font-family:var(--display);font-size:20px;letter-spacing:.04em" data-act="bingo-shout" data-testid="bingo-call-button">BINGO!</button></div>
-    </div></div>`;
+  $('#screen').innerHTML=`<div class="gs" data-testid="bingo-screen">${gsHud(pauseBtn(),'Bingo',`Round ${b.round} · First to ${b.cfg.rounds} · ${DIFFS[b.cfg.diff].name} · any line or 4 corners`)}
+    <div class="gs-main"><div class="gs-strip">
+      <div class="pcard you" data-testid="bingo-rivals"><div class="who">${avatarHtml('sm')}<div style="min-width:0"><b>${esc(Treesh.name())}</b><small data-testid="bingo-player-wins">${b.pW} ${b.pW===1?'Bingo':'Bingos'}</small></div></div><div id="bingo-bots" style="display:grid;gap:3px"></div></div>
+      <div class="orb-col"><span class="vs-pill" id="bingo-ball">Ball 0</span><div class="orb" data-testid="caller-panel"><span class="call-emoji" id="call-emoji" data-testid="caller-emoji-display">·</span></div><p class="orb-status">Daub anything called</p></div>
+      <div class="pcard opp-card"><div class="who"><div><b>Called</b><small>most recent first</small></div></div><div class="recent" id="bingo-recent" data-testid="bingo-recent-calls"></div></div>
+    </div>
+    <div class="gs-board"><div class="board" id="board-b" style="--cols:5" data-testid="bingo-card"></div></div>
+    <div class="gs-tray"><button class="btn btn-gold big-action" data-act="bingo-shout" data-testid="bingo-call-button">BINGO!</button></div></div></div>`;
   icons(); renderBingoBoard(); renderBingoCaller(); renderBingoBots();
 }
 function renderBingoBoard(){
@@ -113,10 +109,9 @@ function renderBingoCaller(animate){
   el.textContent=b.called[b.called.length-1]||'·';
   if(animate){ el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
   const bl=$('#bingo-ball'); if(bl) bl.textContent=`Ball ${b.called.length}`;
-  const rc=$('#bingo-recent'); if(rc) rc.innerHTML=b.called.slice(-9,-1).reverse().map((e,i)=>`<span style="opacity:${1-i*.1}">${e}</span>`).join('');
+  const rc=$('#bingo-recent'); if(rc) rc.innerHTML=b.called.slice(-7,-1).reverse().map((e,i)=>`<span style="opacity:${1-i*.1}">${e}</span>`).join('');
 }
 function renderBingoBots(){
   const el=$('#bingo-bots'); if(!el||!BG) return;
-  el.innerHTML=BG.bots.map((bot,i)=>{ const tg=bingoToGo(bot.daub); return `<div class="list-row" style="margin-top:6px;padding:8px 10px" data-testid="bingo-rival-${i}"><span class="avatar sm" style="background:linear-gradient(135deg,#fb7185,#4c0519)">${ic('bot',13)}</span><div class="grow"><b>${esc(bot.name)}</b><small>${tg===0?'Has a line!':tg+' to go'}</small></div><span class="tag">${bot.w}</span></div>`; }).join('');
-  icons();
+  el.innerHTML=BG.bots.map((bot,i)=>{ const tg=bingoToGo(bot.daub); return `<div class="rival" data-testid="bingo-rival-${i}"><b>${esc(bot.name)}</b><span class="tg ${tg<=1?'hot':''}">${tg===0?'LINE!':tg+' to go'}</span><span class="w">${bot.w}</span></div>`; }).join('');
 }

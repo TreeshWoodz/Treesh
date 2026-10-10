@@ -71,15 +71,13 @@ function avatarHtml(cls=''){
 
 /* Top bar */
 function renderTopbar(){
+  const p=Treesh.profile(); const nb=BADGES.filter(b=>S.badges[b.id]).length;
   $('#topbar').innerHTML=`
-    <button class="brand press" data-act="home" data-testid="nects-home-button" aria-label="Nects home">
-      <img src="${NECTS_LOGO}" alt="Nects"><span style="text-align:left"><b>Nects</b><small>Treesh Games</small></span>
-    </button>
+    <button class="prof-chip press" data-act="open-profile" data-testid="treesh-profile-pill" aria-label="Profile">${avatarHtml()}<span style="text-align:left;min-width:0"><b>${esc(Treesh.name())}</b><small>${p&&p.username?'@'+esc(p.username):'Treesh guest'} · ${nb} badges</small></span></button>
     <span class="spacer"></span>
     <button class="star-pill press" data-act="open-profile" data-tab="rewards" data-testid="starlites-balance-pill" aria-label="Starlites">
       ${ic('sparkles',18)}<span><span class="lbl">Starlites</span><span class="num" data-star-count data-testid="starlites-balance-counter">${fmt(Treesh.balance())}</span></span>
-    </button>
-    <button class="press" data-act="open-profile" data-testid="treesh-profile-pill" aria-label="Profile">${avatarHtml()}</button>`;
+    </button>`;
   icons();
 }
 function updateStarUI(bump){

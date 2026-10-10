@@ -6,6 +6,7 @@ OUT=/app/frontend/public/nects.html
   cat $D/00-head.html
   echo "<style>"
   cat $D/10-styles.css
+  cat $D/12-game.css
   echo "</style>"
   cat $D/20-body.html
   echo "<script>"

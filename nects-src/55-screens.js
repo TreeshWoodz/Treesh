@@ -1,40 +1,53 @@
 /* ===== Screens: menu, mode sheet, shop, settings, help ===== */
 let currentScreen='menu';
+function setScreen(name){
+  currentScreen=name;
+  const playing=['game','puzzle','bingo'].includes(name);
+  document.body.classList.toggle('playing',playing);
+  document.body.classList.add('fixed-screen');
+  window.scrollTo(0,0);
+}
+function quickPlayInfo(){
+  const m=MODE_BY_ID[S.lastMode]; const id=m&&!['puzzle','daily','pass','custom','mirror','bingo'].includes(m.id)?m.id:'classic';
+  const st=S.settings, M=MODE_BY_ID[id];
+  const parts=[M.name]; if(M.setup.includes('diff')) parts.push(DIFFS[st.diff].name); if(M.setup.includes('grid')) parts.push(st.grid.replace('x','×'));
+  return {id,label:parts.join(' · ')};
+}
 function renderMenu(){
-  const wasMenu=currentScreen==='menu'; currentScreen='menu'; stopGame(); if(!wasMenu) window.scrollTo(0,0);
-  const name=Treesh.name(); const dd=S.daily[todayKey()];
-  const heroE=shuffle(ALL_EMOJIS).slice(0,9); const on=[0,4,8];
-  const st=S.stats; const nb=BADGES.filter(b=>S.badges[b.id]).length;
+  stopGame(); setScreen('menu'); renderTopbar();
+  const dd=S.daily[todayKey()], qp=quickPlayInfo(), nb=BADGES.filter(b=>S.badges[b.id]).length;
+  const tiles=shuffle(ALL_EMOJIS).slice(0,9);
   $('#screen').innerHTML=`
-  <section class="hero" data-testid="menu-hero">
-    <div class="hero-main glass">
-      <div class="hero-emojis" aria-hidden="true">${heroE.map((e,i)=>`<span class="${on.includes(i)?'on':''}" style="animation-delay:${i*.2}s">${e}</span>`).join('')}</div>
-      <p class="eyebrow">Treesh Games · Nects</p>
-      <h1>Spot it. Tap it. Nect it.</h1>
-      <p class="lead">Welcome back, <b style="color:#fff" data-testid="menu-nickname">${esc(name)}</b>. Thirteen ways to play, and every Starlite you win goes straight to your Treesh wallet.</p>
-      <div class="hero-actions">
-        <button class="btn btn-primary btn-lg" data-act="quick-play" data-testid="quick-play-button">${ic('play',18)}Quick play</button>
-        <button class="btn btn-ghost btn-lg" data-act="help" data-testid="how-to-play-button">${ic('book-open',18)}How to play</button>
+  <section class="home" data-testid="menu-hero">
+    <div class="home-logo">
+      <div class="logo-tiles" aria-hidden="true">${tiles.map((e,i)=>`<span class="${[0,4,8].includes(i)?'on':''}">${e}</span>`).join('')}</div>
+      <h1 class="logo-word" data-testid="nects-logo">NECTS</h1>
+      <p class="logo-sub">Spot it · Tap it · Nect it</p>
+    </div>
+    <div class="home-actions">
+      <p class="home-greet">Welcome back, <b style="color:#fff" data-testid="menu-nickname">${esc(Treesh.name())}</b></p>
+      <button class="btn btn-primary gbtn-play" data-act="quick-play" data-testid="quick-play-button"><span>PLAY</span><small>${esc(qp.label)}</small></button>
+      <div class="home-row">
+        <button class="btn btn-ghost" data-act="modes" data-testid="open-modes-button">${ic('layout-grid',20)}Modes<span class="dot-badge">${MODES.length}</span></button>
+        <button class="btn btn-gold" data-act="mode" data-mode="daily" data-testid="daily-challenge-card">${ic('calendar-days',20)}Daily<span class="dot-badge ${dd&&dd.won?'ok':''}">${dd&&dd.won?'✓':'+25'}</span></button>
       </div>
     </div>
-    <div class="hero-side">
-      <div class="daily-card glass" data-act="mode" data-mode="daily" data-testid="daily-challenge-card">
-        <p class="eyebrow" style="color:var(--gold)">${ic('calendar-days',13)} Daily Challenge · ${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})}</p>
-        <h3>${dd&&dd.won?'Beaten today':'Today\u2019s board is live'}</h3>
-        <p class="text2" style="font-size:13px;max-width:30ch">${dd&&dd.won?`You beat the Daily Rival ${dd.score}. Come back tomorrow for a new board.`:'Same seeded 4x4 board for everyone. Win it for +25 Starlites.'}</p>
-        <div style="margin-top:14px;display:flex;gap:8px">${dd&&dd.won?`<span class="tag gold">${ic('check',12)}Done</span>`:`<span class="tag gold">${ic('sparkles',12)}+25</span>`}${dd&&dd.tries?`<span class="tag">${dd.tries} ${dd.tries===1?'try':'tries'}</span>`:''}</div>
-      </div>
-      <div class="stat-strip">
-        <div class="stat-box glass" data-testid="menu-stat-wins"><span class="num">${fmt(st.wins)}</span><small>Wins</small></div>
-        <div class="stat-box glass" data-testid="menu-stat-streak"><span class="num">${fmt(st.bestStreak)}</span><small>Best streak</small></div>
-        <div class="stat-box glass press" data-act="open-profile" data-tab="badges" data-testid="menu-stat-badges" style="cursor:pointer"><span class="num">${nb}</span><small>Badges</small></div>
-      </div>
-    </div>
-  </section>
-  <div class="section-head"><div><p class="eyebrow">Pick your game</p><h2>Game modes</h2></div>
-    <div class="quick-links"><button class="btn btn-ghost btn-sm" data-act="shop" data-testid="open-shop-button">${ic('shopping-bag',15)}Shop</button><button class="btn btn-ghost btn-sm" data-act="settings" data-testid="open-settings-button">${ic('settings',15)}Settings</button></div></div>
-  <section class="mode-grid" data-testid="mode-grid">${MODES.map((m,i)=>modeCard(m,i)).join('')}</section>
-  <p class="foot-note">${ic('shield-check',15)}Starlites are shared with your Treesh account. Nects stats show up in Treesh under Profile, Stats, Arcade games.</p>`;
+    <nav class="dock" data-testid="home-dock">
+      <button data-act="shop" data-testid="open-shop-button">${ic('shopping-bag',20)}<span>Shop</span></button>
+      <button data-act="open-profile" data-tab="badges" data-testid="menu-stat-badges">${ic('award',20)}<span>Badges</span></button>
+      <button data-act="open-profile" data-tab="stats" data-testid="open-stats-button">${ic('bar-chart-3',20)}<span>Stats</span></button>
+      <button data-act="help" data-testid="how-to-play-button">${ic('circle-help',20)}<span>Help</span></button>
+      <button data-act="settings" data-testid="open-settings-button">${ic('settings',20)}<span>Settings</span></button>
+    </nav>
+  </section>`;
+  icons();
+}
+function renderModes(){
+  stopGame(); setScreen('modes'); renderTopbar();
+  $('#screen').innerHTML=`<section class="modes-screen" data-testid="modes-screen">
+    <div class="screen-head"><button class="btn btn-ghost btn-icon" data-act="menu" data-testid="modes-back-button" aria-label="Back">${ic('arrow-left',20)}</button><h2>Select mode</h2><span class="tag gold">${ic('sparkles',12)}Shared with Treesh</span></div>
+    <div class="mode-scroll soft-scroll"><div class="mode-grid" data-testid="mode-grid">${MODES.map((m,i)=>modeCard(m,i)).join('')}</div></div>
+  </section>`;
   icons();
 }
 function modeMeta(m){

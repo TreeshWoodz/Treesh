@@ -7,55 +7,37 @@ function hudSub(){
   return `Round ${G.round} · First to ${c.rounds} · ${d} · ${c.grid.replace('x','×')}`;
 }
 function dotsHtml(won,total){ if(!total) return ''; return `<span class="dots">${[...Array(total)].map((_,i)=>`<i class="${i<won?'on':''}"></i>`).join('')}</span>`; }
+function gsHud(lead,title,sub,extra){
+  return `<div class="gs-hud" data-testid="game-hud">${lead}<div class="gs-title"><b data-testid="game-mode-title">${title}</b><small data-testid="game-round-info">${sub}</small></div>${extra||''}
+    <span class="star-pill" data-testid="game-starlites-pill">${ic('sparkles',16)}<span class="num" data-star-count data-testid="game-starlites-counter">${fmt(Treesh.balance())}</span></span></div>`;
+}
+const pauseBtn=()=>`<button class="btn btn-ghost btn-icon" data-act="pause" data-testid="game-pause-button" aria-label="Pause">${ic('pause',18)}</button>`;
 function renderGame(){
   const c=G.cfg, m=MODE_BY_ID[c.mode];
-  const hud=`<div class="hud" data-testid="game-hud">
-      <button class="btn btn-ghost btn-icon" data-act="pause" data-testid="game-pause-button" aria-label="Pause">${ic('pause',18)}</button>
-      <div class="title"><b data-testid="game-mode-title">${m.name}</b><small data-testid="game-round-info">${hudSub()}</small></div>
-      ${c.zen?`<button class="btn btn-ghost btn-sm" data-act="zen-finish" data-testid="zen-finish-button">${ic('check',15)}Finish</button>`:''}
-      ${c.chaos||c.blitz||c.fog||c.gravity?`<span class="tag" style="--hue:${m.hue};color:${m.hue}">${ic(m.icon,12)}${m.tag}</span>`:''}
-    </div>`;
-  if(c.pass) return renderPass(hud);
-  const solo=!c.bot;
-  const score=c.zen?`<div class="scorebar glass" data-testid="zen-scorebar"><div class="side-score">${avatarHtml('sm')}<div><b>${esc(Treesh.name())}</b><small>Zen session</small></div></div>
-      <div class="vs"><span data-testid="zen-lines">${G.zenLines}</span><small>LINES</small></div>
-      <div class="side-score right"><div><b>${S.zenDay.date===todayKey()?S.zenDay.earned:0}/15</b><small>Starlites today</small></div></div></div>`
-    :`<div class="scorebar glass" data-testid="game-scorebar">
-      <div class="side-score">${avatarHtml('sm')}<div style="min-width:0"><b>${esc(Treesh.name())}</b><small id="score-p" data-testid="player-score">${fmt(G.pScore)} pts</small>${dotsHtml(G.pRounds,c.rounds)}</div></div>
-      <div class="vs" data-testid="round-score">${G.pRounds}<span class="muted">:</span>${G.oRounds}<small>ROUNDS</small></div>
-      <div class="side-score right"><span class="avatar sm" style="background:linear-gradient(135deg,#fb7185,#4c0519)">${ic('bot',15)}</span><div style="min-width:0"><b data-testid="opponent-name">${esc(G.botName)}</b><small id="score-o">${fmt(G.oScore)} pts</small>${dotsHtml(G.oRounds,c.rounds)}</div></div>
-    </div>`;
-  const opp=c.bot?`<div class="opp glass"><div class="opp-head"><span class="avatar sm" style="background:linear-gradient(135deg,#fb7185,#4c0519)">${ic('bot',14)}</span><div><b>${esc(G.botName)}</b><small id="opp-progress"></small></div></div>
-      <div class="board mini" id="board-o" style="--cols:${c.cols}" data-testid="game-board-opponent"></div></div>`:'';
-  const tray=c.powerups&&S.owned.powerups.length?`<div class="tray-box glass" style="border-radius:24px;padding:14px"><p class="panel-title"><span>Powerups</span><span id="pu-left" data-testid="powerups-left"></span></p><div class="tray no-scrollbar" id="tray" data-testid="powerup-tray"></div></div>`:'';
-  $('#screen').innerHTML=`<div class="game ${solo?'solo':''}" data-testid="game-screen">${hud}${score}
-    <div class="board-wrap"><div class="board" id="board-p" style="--cols:${c.cols}" data-testid="game-board-player"></div><p class="muted" id="board-note" style="font-size:12px;min-height:16px;text-align:center"></p></div>
-    <div class="side-col">
-      <div class="caller glass" data-testid="caller-panel" style="${opp?'':'grid-column:1/-1'}">
-        <p class="lbl">${c.zen?'Find':'Called'}</p>
-        <div><span class="call-emoji" id="call-emoji" data-testid="caller-emoji-display">${G.call||'·'}</span></div>
-        <p class="status" id="call-status" data-testid="caller-status"></p>
-        ${c.blitz?`<div class="timer"><i id="blitz-bar"></i></div>`:''}
-      </div>${opp}${tray}
-    </div></div>`;
+  if(c.pass) return renderPass();
+  const hud=gsHud(pauseBtn(),m.name,hudSub(),c.zen?`<button class="btn btn-ghost btn-sm" data-act="zen-finish" data-testid="zen-finish-button">${ic('check',14)}Finish</button>`:'');
+  const hearts=c.survival?`<small style="color:var(--rose);font-weight:800;letter-spacing:2px" data-testid="survival-lives">${'♥'.repeat(Math.max(0,G.lives))}${'♡'.repeat(Math.max(0,3-G.lives))}</small>`:'';
+  const you=`<div class="pcard you" data-testid="player-card"><div class="who">${avatarHtml('sm')}<div style="min-width:0"><b>${esc(Treesh.name())}</b><small id="score-p" data-testid="player-score">${c.zen?'Zen session':fmt(G.pScore)+' pts'}</small></div></div>${c.zen?`<span class="big" data-testid="zen-lines">${G.zenLines}</span>`:dotsHtml(G.pRounds,c.rounds)}${hearts}</div>`;
+  const right=c.bot?`<div class="pcard opp-card" data-testid="opponent-card"><div class="who"><span class="avatar sm bot">${ic('bot',14)}</span><div style="min-width:0"><b data-testid="opponent-name">${esc(G.botName)}</b><small id="opp-progress"></small></div></div>${dotsHtml(G.oRounds,c.rounds)}<div class="board mini" id="board-o" style="--cols:${c.cols}" data-testid="game-board-opponent"></div></div>`
+    :`<div class="pcard opp-card"><div class="who"><div><b>Starlites</b><small>today, max 15</small></div></div><span class="num" style="font-size:22px">${S.zenDay.date===todayKey()?S.zenDay.earned:0}/15</span></div>`;
+  const orb=`<div class="orb-col">${c.zen?'':`<span class="vs-pill" data-testid="round-score">${G.pRounds} : ${G.oRounds}</span>`}<div class="orb" data-testid="caller-panel"><span class="call-emoji" id="call-emoji" data-testid="caller-emoji-display">${G.call||'·'}</span></div>${c.blitz?`<div class="timer"><i id="blitz-bar"></i></div>`:''}<p class="orb-status" id="call-status" data-testid="caller-status"></p></div>`;
+  const tray=c.powerups&&S.owned.powerups.length?`<div class="tray-meta"><span>Powerups</span><span id="pu-left" data-testid="powerups-left"></span></div><div class="tray no-scrollbar" id="tray" data-testid="powerup-tray"></div>`:'';
+  $('#screen').innerHTML=`<div class="gs" data-testid="game-screen">${hud}<div class="gs-main"><div class="gs-strip ${c.bot?'':'nobot'}">${you}${orb}${right}</div>
+    <div class="gs-board"><div class="board" id="board-p" style="--cols:${c.cols}" data-testid="game-board-player"></div><p class="board-note" id="board-note"></p></div>
+    <div class="gs-tray">${tray}</div></div></div>`;
   icons(); renderBoards(); renderCaller(); renderTray();
-  if(G.round===1&&!G.scrolled){ G.scrolled=true; window.scrollTo(0,0); }
 }
-function renderPass(hud){
+function renderPass(){
   const c=G.cfg, rot=S.settings.rotateP2;
-  $('#screen').innerHTML=`<div class="pass" data-testid="pass-screen">${hud.replace('class="hud"','class="hud" style="width:100%"')}
-    <div class="pname ${rot?'flip':''}" data-testid="p2-label">${ic('user',13)}${esc(G.p2Name)} ${dotsHtml(G.oRounds,c.rounds)}</div>
-    <div class="board p2 ${rot?'flip':''}" id="board-o" style="--cols:${c.cols}" data-testid="game-board-p2"></div>
-    <div class="mid glass" style="border-radius:24px;padding:10px 16px">
-      <div style="flex:1"><p class="eyebrow">Called</p><p class="status text2" id="call-status" style="font-size:12.5px" data-testid="caller-status"></p></div>
-      <span class="call-emoji" id="call-emoji" data-testid="caller-emoji-display">${G.call||'·'}</span>
-      <div style="flex:1;text-align:right" class="vs" data-testid="round-score">${G.pRounds}<span class="muted">:</span>${G.oRounds}<small>ROUNDS</small></div>
-      ${rot?`<span class="call-emoji flip" id="call-emoji-2" style="transform:rotate(180deg)" aria-hidden="true">${G.call||'·'}</span>`:''}
-    </div>
-    <div class="board" id="board-p" style="--cols:${c.cols}" data-testid="game-board-p1"></div>
-    <div class="pname" data-testid="p1-label">${ic('user',13)}${esc(Treesh.name())} ${dotsHtml(G.pRounds,c.rounds)}</div></div>`;
+  $('#screen').innerHTML=`<div class="gs" data-testid="pass-screen">${gsHud(pauseBtn(),'Pass & Play',hudSub())}
+    <div class="pp-half ${rot?'flip':''}"><div class="pp-label" data-testid="p2-label">${ic('user',13)}${esc(G.p2Name)} ${dotsHtml(G.oRounds,c.rounds)}</div>
+      <div class="gs-board"><div class="board p2" id="board-o" style="--cols:${c.cols}" data-testid="game-board-p2"></div></div></div>
+    <div class="pp-mid"><div style="min-width:0"><p class="eyebrow" style="font-size:9px">Called</p><p class="orb-status" id="call-status" style="text-align:left" data-testid="caller-status"></p></div>
+      <div class="orb"><span class="call-emoji" id="call-emoji" data-testid="caller-emoji-display">${G.call||'·'}</span></div>
+      <div style="text-align:right"><span class="vs-pill" data-testid="round-score">${G.pRounds} : ${G.oRounds}</span></div></div>
+    <div class="pp-half"><div class="gs-board"><div class="board" id="board-p" style="--cols:${c.cols}" data-testid="game-board-p1"></div></div>
+      <div class="pp-label" data-testid="p1-label">${ic('user',13)}${esc(Treesh.name())} ${dotsHtml(G.pRounds,c.rounds)}</div></div></div>`;
   icons(); renderBoards(); renderCaller();
-  if(G.round===1&&!G.scrolled){ G.scrolled=true; window.scrollTo(0,0); }
 }
 function tileHtml(side,i,B,opts){
   const e=B.board[i], cl=B.claimed[i], cls=['tile'];
@@ -85,7 +67,7 @@ function renderBoards(){
     if(side==='o') el.classList.toggle('stealable',!!(G.pending&&G.pending.id==='steal'));
   });
   G.fx={};
-  const sp=$('#score-p'), so=$('#score-o'); if(sp) sp.textContent=fmt(G.pScore)+' pts'; if(so) so.textContent=fmt(G.oScore)+' pts';
+  const sp=G.cfg.zen?null:$('#score-p'), so=$('#score-o'); if(sp) sp.textContent=fmt(G.pScore)+' pts'; if(so) so.textContent=fmt(G.oScore)+' pts';
   const op=$('#opp-progress'); if(op&&G.o){ op.textContent=`${G.o.claimed.filter(Boolean).length} claimed${Date.now()<G.botFrozenUntil?' · blinded':''}${Date.now()<G.botWeakUntil?' · weakened':''}`; }
   const note=$('#board-note'); if(note) note.textContent=G.pending?`${POWERUPS[G.pending.id].name}: ${G.pending.id==='steal'?'tap a claimed tile on the bot\u2019s board':G.pending.id==='swap'?(G.pending.first==null?'tap the first tile':'tap the second tile'):'tap one of your tiles'} (tap the powerup again to cancel)`:G.fog&&G.fog.peekUntil>now?'Memorize your board...':'';
 }
@@ -155,19 +137,18 @@ function genPuzzle(L){
   return {L,n,board,claimed,deck,used:[],moves:need,par:6+need*3,lines,start:0,done:false,fx:{}};
 }
 function startPuzzle(L){
-  stopGame(); G=null; currentScreen='puzzle'; PZ=genPuzzle(L); PZ.start=Date.now();
-  renderPuzzle(); window.scrollTo(0,0);
+  stopGame(); G=null; setScreen('puzzle'); PZ=genPuzzle(L); PZ.start=Date.now();
+  renderPuzzle();
   T.pz=setInterval(()=>{ const el=$('#pz-time'); if(el&&PZ&&!PZ.done) el.textContent=Math.floor((Date.now()-PZ.start)/1000)+'s'; },250);
 }
 function renderPuzzle(){
   const z=PZ, win=z.lines.find(l=>l.every(i=>z.claimed[i]));
-  $('#screen').innerHTML=`<div class="pass" style="gap:16px" data-testid="puzzle-screen">
-    <div class="hud" style="width:100%"><button class="btn btn-ghost btn-icon" data-act="menu" data-testid="puzzle-exit" aria-label="Back">${ic('arrow-left',18)}</button>
-      <div class="title"><b data-testid="puzzle-title">Puzzle ${z.L}</b><small>Complete any line using your cards</small></div>
-      <span class="tag" data-testid="puzzle-moves">${ic('footprints',12)}${z.moves} ${z.moves===1?'move':'moves'}</span><span class="tag" id="pz-time" data-testid="puzzle-timer">${Math.floor((Date.now()-z.start)/1000)}s</span></div>
-    <div class="board" style="--cols:${z.n};--size:min(92vw,48dvh,480px)" data-testid="puzzle-board">${z.board.map((e,i)=>`<div class="tile ${z.claimed[i]?'claimed':''} ${z.fx[i]||''} ${win&&win.includes(i)?'win':''}" data-testid="pz-tile-${i}">${e}</div>`).join('')}</div>
-    <p class="eyebrow">Your call cards · tap to play</p>
-    <div class="deck" data-testid="puzzle-deck">${z.deck.map((e,i)=>`<button class="card ${z.used.includes(i)?'used':''}" style="animation-delay:${i*.04}s" data-act="pz-card" data-i="${i}" data-testid="puzzle-card-${i}">${e}</button>`).join('')}</div></div>`;
+  const back=`<button class="btn btn-ghost btn-icon" data-act="menu" data-testid="puzzle-exit" aria-label="Back">${ic('arrow-left',18)}</button>`;
+  const chips=`<span class="tag" data-testid="puzzle-moves">${ic('footprints',12)}${z.moves}</span><span class="tag" id="pz-time" data-testid="puzzle-timer">${Math.floor((Date.now()-z.start)/1000)}s</span>`;
+  $('#screen').innerHTML=`<div class="gs" data-testid="puzzle-screen">${gsHud(back,`<span data-testid="puzzle-title">Puzzle ${z.L}</span>`,`${z.moves} ${z.moves===1?'move':'moves'} left · complete any line`,chips)}
+    <div class="gs-board" style="flex:1"><div class="board" style="--cols:${z.n}" data-testid="puzzle-board">${z.board.map((e,i)=>`<div class="tile ${z.claimed[i]?'claimed':''} ${z.fx[i]||''} ${win&&win.includes(i)?'win':''}" data-testid="pz-tile-${i}">${e}</div>`).join('')}</div></div>
+    <div class="tray-meta" style="margin:0"><span>Your call cards · tap to play</span></div>
+    <div class="gs-deck" data-testid="puzzle-deck">${z.deck.map((e,i)=>`<button class="card ${z.used.includes(i)?'used':''}" style="animation-delay:${i*.04}s" data-act="pz-card" data-i="${i}" data-testid="puzzle-card-${i}">${e}</button>`).join('')}</div></div>`;
   z.fx={}; icons();
 }
 function playCard(i){
