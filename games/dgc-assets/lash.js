@@ -24,12 +24,12 @@ function lashMini() {
   return {
     id: 'lash', name: 'The Function', room: 'be_idle', icon: 'sparkles', noBtn: true, noKiller: true, view: 'lash', endReason: 'lash',
     labels: { look: 'Big Eyelash is watching' }, limit: () => 900,
-    hint: 'You crashed Big Eyelash\u2019s 3 AM function. Survive her rounds without getting her PRESSED. If the meter fills, she snatches your soul. Then survive the Lashpocalypse.',
+    hint: 'You crashed Big Eyelash\u2019s 3 AM function. Survive her rounds without getting her PRESSED. If the meter fills, she snatches your soul. Then survive PRESSED MODE.',
     mount(el, ctx) {
       const N = ctx.night, T = { pr: 6, max: 0, phase: 'party', need: 3 + Math.min(3, N - 1), done: 0, fq: [], fdone: 0, bag: [], last: '', k: null, busy: true, tick: null, key: null, bpm: 132 + N * 4 };
       const clock = () => (Sfx.ac ? Sfx.ac.currentTime : performance.now() / 1000);
       el.innerHTML = `<div class="mg mg-lash"><div class="be" id="be" data-phase="party" data-pose="idle" data-testid="lash-stage">
-        <div class="be-scene">${['idle', 'blink', 'twerk', 'hex', 'money', 'gun', 'm1', 'm2'].map(k => `<i class="be-img be-${k}" style="background-image:url(${img('be_' + k)})"></i>`).join('')}<i class="be-led"></i><i class="be-cash"></i><i class="be-vig"></i></div>
+        <div class="be-scene">${['idle', 'blink', 'twerk', 'hex', 'money', 'gun', 'rage', 'rage2'].map(k => `<i class="be-img be-${k}" style="background-image:url(${img('be_' + k)})"></i>`).join('')}<i class="be-led"></i><i class="be-cash"></i><i class="be-vig"></i></div>
         <div class="os-bar be-bar"><span class="be-act" id="be-act" data-testid="lash-act">The Function</span><span class="be-pr"><small>Pressed</small><span class="meter" id="be-pm"><i id="be-pr" data-testid="lash-pressed-meter"></i></span></span><span class="be-count" id="be-count" data-testid="lash-count">0/${T.need}</span><button class="os-pause" data-act="pause" data-testid="lash-pause-btn" aria-label="Pause"><i data-lucide="pause"></i></button></div>
         <em class="be-say" id="be-say" data-testid="lash-say"></em><section class="be-round" id="be-round" data-testid="lash-round"></section></div></div>`;
       const be = $('#be', el), box = $('#be-round', el), alive = () => R && !R.done && R.mini && R.mini.id === 'lash';
@@ -51,11 +51,11 @@ function lashMini() {
       }, 25);
       const resolve = (ok, why) => {
         if (!T.k) return; T.k = null; T.tick = null; T.key = null; box.classList.remove('live');
-        if (ok) { T.pr = Math.max(0, T.pr - (T.phase === 'party' ? 22 : 15)); Sfx.chime([784, 1175]); say(pick(['Okay\u2026 you ate.', 'Hmph. Lucky.', 'Don\u2019t get comfortable.', 'Period.'])); if (T.phase === 'party') T.done++; else T.fdone++; box.insertAdjacentHTML('beforeend', '<div class="tt-res ok" data-testid="lash-round-ok"><i data-lucide="sparkles"></i>She\u2019s\u2026 impressed</div>'); }
-        else { T.pr = Math.min(100, T.pr + 18); Sfx.tone(120, 0.5, 'sawtooth', 0.16, 60); shake(2); haptic(200, 0.7); if (T.phase === 'demon') { T.fdone++; pose('m2'); } else if (T.pr > 55) say('Now I\u2019m PRESSED!', 'be_p'); else say(pick(['#$%@!', 'Excuse ME?!', 'Oh you think you CUTE?'])); box.insertAdjacentHTML('beforeend', `<div class="tt-res bad" data-testid="lash-round-fail"><i data-lucide="flame"></i>${beBleep(why || 'Pressed')}</div>`); }
+        if (ok) { T.pr = Math.max(0, T.pr - (T.phase === 'party' ? 22 : 15)); Sfx.chime([784, 1175]); say(pick(['Okay\u2026 you ate, #$%@.', 'Hmph. Lucky #$%@.', 'Don\u2019t get comfortable.', 'Period. PERIOD.'])); if (T.phase === 'party') T.done++; else T.fdone++; box.insertAdjacentHTML('beforeend', '<div class="tt-res ok" data-testid="lash-round-ok"><i data-lucide="sparkles"></i>She\u2019s\u2026 impressed</div>'); }
+        else { T.pr = Math.min(100, T.pr + 18); Sfx.tone(120, 0.5, 'sawtooth', 0.16, 60); shake(2); haptic(200, 0.7); if (T.phase === 'demon') { T.fdone++; pose('rage2'); } else if (T.pr > 55) say('Now I\u2019m PRESSED!', 'be_p'); else say(pick(['#$%@!', 'Excuse ME?! #$%@!', 'Oh you think you CUTE, #$%@?', 'Boy BYE. #$%@.'])); box.insertAdjacentHTML('beforeend', `<div class="tt-res bad" data-testid="lash-round-fail"><i data-lucide="flame"></i>${beBleep(why || 'Pressed')}</div>`); }
         icons(); count(); bump(ok ? 'bump' : 'bump-bad');
         if (T.phase === 'demon' && T.fdone >= 6) return;
-        later(1200, () => { if (T.phase === 'demon') pose('m1'); T.phase === 'party' && T.done >= T.need ? finale() : next(); });
+        later(1200, () => { if (T.phase === 'demon') pose('rage'); T.phase === 'party' && T.done >= T.need ? finale() : next(); });
       };
       const B = {
         twerk() {
@@ -106,7 +106,7 @@ function lashMini() {
           const safe = thR(3); let left = Math.max(0.85, 1.4 - N * 0.06), live = false;
           box.innerHTML = `<div class="tt-h be-h"><b data-testid="lash-round-name">LASH WHIP</b><small data-testid="lash-round-tip">Her lashes are coming. Tap the SAFE lane. (\u2190 \u2193 \u2192)</small></div><div class="be-whip">${[0, 1, 2].map(i => `<button class="wl ${i === safe ? 'safe' : 'danger'}" data-w="${i}" data-testid="lash-whip-${i}"></button>`).join('')}</div>`;
           later(450, () => { live = true; box.classList.add('live'); Sfx.noise(0.5, 'bandpass', 600, 0.15, 1); });
-          const hit = i => { if (!live) return; live = false; pose('m2'); be.classList.remove('lunge'); void be.offsetWidth; be.classList.add('lunge'); resolve(i === safe, i < 0 ? 'Too slow. Lash-whipped.' : 'Lash-whipped. Ouch.'); };
+          const hit = i => { if (!live) return; live = false; pose('rage2'); be.classList.remove('lunge'); void be.offsetWidth; be.classList.add('lunge'); resolve(i === safe, i < 0 ? 'Too slow. Lash-whipped.' : 'Lash-whipped. Ouch.'); };
           T.tick = dt => { if (!live) return; left -= dt; if (left <= 0) hit(-1); };
           T.key = e => { const m = { ArrowLeft: 0, ArrowDown: 1, ArrowUp: 1, ArrowRight: 2 }[e.key]; if (m !== undefined) { e.preventDefault(); hit(m); } };
           box.onpointerdown = e => { const b = e.target.closest('.wl'); if (b) hit(+b.dataset.w); };
@@ -116,14 +116,14 @@ function lashMini() {
       const run = k => { T.k = k; T.tick = null; T.key = null; box.onpointerdown = box.onpointerup = box.onpointercancel = null; box.classList.remove('live', 'in'); void box.offsetWidth; box.classList.add('in'); if (BE_ROUNDS[k] && T.phase === 'party') { pose(BE_ROUNDS[k].pose); say(BE_ROUNDS[k].name + '!', BE_ROUNDS[k].v); } B[k](); };
       const next = () => { if (T.phase === 'demon') { if (T.fdone < 6) run(T.fq[T.fdone]); return; } if (!T.bag.length) T.bag = shuffle(Object.keys(BE_ROUNDS)); if (T.bag[T.bag.length - 1] === T.last) T.bag.unshift(T.bag.pop()); T.last = T.bag.pop(); run(T.last); };
       const finale = () => {
-        T.busy = true; T.mute = true; box.innerHTML = ''; Sfx.noise(0.6, 'bandpass', 1200, 0.3, 6); Sfx.tone(800, 0.5, 'sawtooth', 0.1, 80); be.classList.add('xform'); pose('idle'); say('Snatch the wig! LASHPOCALYPSE!', 'be_f');
-        [700, 1300, 1800, 2200, 2500].forEach((ms, i) => later(ms, () => { pose(i % 2 ? 'm1' : 'idle'); shake(i > 2 ? 3 : 1); }));
-        later(2900, () => { be.classList.remove('xform'); be.dataset.phase = 'demon'; T.phase = 'demon'; pose('m1'); $('#be-act', el).textContent = 'LASHPOCALYPSE'; const tr = shuffle(['twerk', 'clap', 'hex', 'money', 'strap']).slice(0, 3); T.fq = tr.flatMap(k => ['whip', k]); T.bpm += 20; T.mute = false; T.busy = false; count(); next(); });
+        T.busy = true; T.mute = true; box.innerHTML = ''; Sfx.noise(0.6, 'bandpass', 1200, 0.3, 6); Sfx.tone(800, 0.5, 'sawtooth', 0.1, 80); be.classList.add('xform'); pose('idle'); say('Girls! Get they #$%@! PRESSED MODE!', 'be_f');
+        [700, 1300, 1800, 2200, 2500].forEach((ms, i) => later(ms, () => { pose(i % 2 ? 'rage' : 'idle'); shake(i > 2 ? 3 : 1); }));
+        later(2900, () => { be.classList.remove('xform'); be.dataset.phase = 'demon'; T.phase = 'demon'; pose('rage'); $('#be-act', el).textContent = 'PRESSED MODE'; const tr = shuffle(['twerk', 'clap', 'hex', 'money', 'strap']).slice(0, 3); T.fq = tr.flatMap(k => ['whip', k]); T.bpm += 20; T.mute = false; T.busy = false; count(); next(); });
       };
       const key = e => { if (T.key && !T.busy) T.key(e); };
       document.addEventListener('keydown', key); document.addEventListener('keyup', key);
-      ['be_blink', 'be_twerk', 'be_hex', 'be_money', 'be_gun', 'be_m1', 'be_m2', 'be_scare'].forEach(n => { new Image().src = img(n); });
-      if (N === 1) later(500, () => say('So you just gon\u2019 walk up in MY function? Uninvited?', 'be_l0'));
+      ['be_blink', 'be_twerk', 'be_hex', 'be_money', 'be_gun', 'be_rage', 'be_rage2', 'be_scare'].forEach(n => { new Image().src = img(n); });
+      if (N === 1) later(500, () => say('Oh HELL nah. #$%@! Who let you up in MY function?!', 'be_l0'));
       later(N === 1 ? 4200 : 1600, () => { T.busy = false; next(); });
       count();
       return {

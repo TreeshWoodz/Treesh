@@ -40,7 +40,7 @@ const STORIES = {
     ['be_idle', '3:07 AM. The bass is shaking the windows.', 'You followed the music. You did NOT get an invite.', 'push'],
     ['be_face', 'This is Big Eyelash.', 'Loud. Dramatic. Cursed. Her lashes see EVERYTHING.', 'pushf'],
     ['be_hex', 'Every round is a test.', 'Twerk on beat. Clap back. Pay her cut. <b>Never insult the lashes.</b>', 'panr'],
-    ['be_m1', 'Get her PRESSED\u2026', '<b>and the wig comes off.</b> Survive the Lashpocalypse.', 'shake']] },
+    ['be_rage', 'Get her PRESSED\u2026', '<b>and her girls pull up.</b> Survive PRESSED MODE.', 'shake']] },
   impress: { name: 'Impressions', who: 'Mr. Hush', shots: [
     ['st_i1', 'Mr. Hush is bored.', 'Dangerously, murderously bored.', 'pushf'],
     ['st_i2', 'Tonight, you\u2019re the entertainment.', 'One spotlight. One microphone. One very tough crowd.', 'push'],

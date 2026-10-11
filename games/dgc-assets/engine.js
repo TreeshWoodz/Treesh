@@ -17,7 +17,7 @@ function reasonText(r) {
     bride: 'She heard you. She always hears you.',
     bestie: 'You didn\u2019t finish his 12 favors in time. Bestie is SO disappointed in you.',
     teacher: 'Miss Florence turned around. She saw everything. You\u2019re staying after class. Forever.',
-    lash: 'Big Eyelash got PRESSED. The function is over, and so are you. #$%@.',
+    lash: 'Big Eyelash got PRESSED. Her girls held you down. The function is over, and so are you. #$%@.',
     thane: 'Thane\u2019s dark energy closed around you. For his final trick, you disappeared. Nobody clapped.',
     baby: 'You lost the baby. The parents came home early. They are not angry. They are hungry.',
     teacher_time: 'The bell rang and your work wasn\u2019t done. Miss Florence keeps you after class. Forever.',
@@ -267,7 +267,7 @@ function jumpScare(res) {
 const jxCap = res => `<div class="js-cap"><b>${res.killer === 'lash' ? '#$%@!' : 'CAUGHT'}</b>${res.taunt && S.set.taunts ? `<i data-testid="jumpscare-taunt">\u201c${esc(TAUNT_TEXT[res.taunt])}\u201d</i>` : ''}</div>`;
 const JX = {
   thane: () => `<div class="jx" data-testid="jumpscare-thane"><div class="jx-card"><i class="half l" style="background-image:url(${img('thane_face')})"></i><i class="half r" style="background-image:url(${img('thane_face')})"></i></div><img class="jx-mon" src="${img('thane_scare')}" alt="" data-testid="jumpscare-image"><i class="jx-bolt"></i><i class="jx-bolt b2"></i></div>`,
-  lash: () => `<div class="jx" data-testid="jumpscare-lash"><img class="jx-face" src="${img('be_scare')}" alt="" data-testid="jumpscare-image">${[...Array(8).keys()].map(i => `<i class="leg" style="--i:${i}"></i>`).join('')}${[...Array(14).keys()].map(i => `<i class="cash" style="--a:${i * 26}deg;--d:${(0.9 + Math.random() * 0.3).toFixed(2)}s"></i>`).join('')}<i class="lid top"></i><i class="lid bot"></i></div>`
+  lash: () => `<div class="jx" data-testid="jumpscare-lash"><img class="jx-face" src="${img('be_scare')}" alt="" data-testid="jumpscare-image">${[...Array(14).keys()].map(i => `<i class="cash" style="--a:${i * 26}deg;--d:${(0.9 + Math.random() * 0.3).toFixed(2)}s"></i>`).join('')}<i class="lid top"></i><i class="lid bot"></i></div>`
 };
 const JX_SFX = {
   thane: () => { Sfx.tone(180, 1, 'sawtooth', 0.12, 1800); Sfx.noise(1, 'highpass', 1500, 0.12); setTimeout(() => { Sfx.scream(); Sfx.tone(55, 1.2, 'sawtooth', 0.25, 30); shake(3); }, 1000); },
