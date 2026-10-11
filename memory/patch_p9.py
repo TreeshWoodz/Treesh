@@ -204,7 +204,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css','p9za.css','p9zb.css','p9zc.css','p9zd.css','p9ze.css','p9zf.css','p9zg.css','p9zh.css','p9zi.css','p9zj.css','p9zk.css','p9zl.css','p9zo.css','p9zp.css','p9zr.css','p9zs.css','p9zt.css','p9zu.css','p9zv.css','p9zx.css','p9zz.css','p9zza.css','p9zzb.css','p9zzc.css','p9zze.css','p9zzf.css','p9zzg.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css','p9za.css','p9zb.css','p9zc.css','p9zd.css','p9ze.css','p9zf.css','p9zg.css','p9zh.css','p9zi.css','p9zj.css','p9zk.css','p9zl.css','p9zo.css','p9zp.css','p9zr.css','p9zs.css','p9zt.css','p9zu.css','p9zv.css','p9zx.css','p9zz.css','p9zza.css','p9zzb.css','p9zzc.css','p9zze.css','p9zzf.css','p9zzg.css','p9zzj.css','p9zzi.css','p9zzk.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)

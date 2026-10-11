@@ -5,3 +5,8 @@ import re
 assert s.count(tag)==1 and len(re.findall(r"const SB_KEY='[^']*';",s))==1
 s=s.replace(tag,'<script>'+m+'</script>'); s=re.sub(r"const SB_KEY='[^']*';","const SB_KEY='sb_publishable_TEST';",s)
 open('/app/single_html/_sbtest.html','w',encoding='utf-8').write(s); print('built')
+
+import re
+t=open('/app/single_html/_sbtest.html',encoding='utf-8').read()
+t=re.sub(r'env\(safe-area-inset-top(?:\s*,\s*0px)?\)','var(--sat,0px)',t)
+open('/app/single_html/_sattest.html','w',encoding='utf-8').write(t); print('built sat')

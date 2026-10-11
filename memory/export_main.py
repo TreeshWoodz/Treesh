@@ -9,7 +9,7 @@ REPO = 'https://github.com/treeshwoodz/treesh.git'
 OWNED = ['index.html', 'version.json', 'sw-push.js', 'manifest.webmanifest', 'favicon.ico', 'apple-touch-icon.png', 'treesh_logo.png',
          'support.html', 'privacy.html', 'terms.html', 'netlify/push-lib.mjs', 'netlify/functions/push.mjs', 'netlify/functions/deploy-succeeded.mjs', 'netlify/functions/icon.mjs']
 OWNED_DIRS = ['icons', 'content/help']
-NOT_SHIPPED = {'_sbtest.html': 'test page for the mock database', 'template.html': 'old template, nothing links to it', 'yarn.lock': 'Netlify installs from package.json',
+NOT_SHIPPED = {'_sbtest.html': 'test page for the mock database', '_sattest.html': 'test page that simulates the iPhone status bar', 'template.html': 'old template, nothing links to it', 'yarn.lock': 'Netlify installs from package.json',
                'confirm-signup/': 'main already has confirm-signup.html (same redirect)', 'content/songs, lyrics, icons, models': 'local test copies; main has the real content/*.html',
                'tools/mad.html': 'main has a newer M.A.D. (v5.4); not touched'}
 CHECK = '--check' in sys.argv
