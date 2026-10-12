@@ -9,4 +9,5 @@ open('/app/single_html/_sbtest.html','w',encoding='utf-8').write(s); print('buil
 import re
 t=open('/app/single_html/_sbtest.html',encoding='utf-8').read()
 t=re.sub(r'env\(safe-area-inset-top(?:\s*,\s*0px)?\)','var(--sat,0px)',t)
+t=re.sub(r'env\(safe-area-inset-bottom(?:\s*,\s*0px)?\)','var(--sab,0px)',t)
 open('/app/single_html/_sattest.html','w',encoding='utf-8').write(t); print('built sat')

@@ -27,3 +27,24 @@ Findings:
 - Profile Magic Markup is stored in localStorage only (mkS().pages.profile.deep, keyed by DOM path in #profile-scroll); other users' profiles render in #sx-scroll (different DOM).
 - sx-root already uses class 'is-preview' for pvOpen (profile preview as others). Use 'is-card' / 'is-full' for the new modes.
 - Done so far this fork: p9zzl.js/css (profile pages, card/full, dim, markup publish), p9zzm.js (notification tap targets), version banner fix (p9zzg), safe-area (p9zzk.css)
+
+## Fork 3 queue (user order: Song Page first, then A -> B -> D, then new items)
+- DONE: Urias Type/Tips blocked by orb glow; mic dead after first command (fresh recognizer per listen + watchdog, p9zzn.js); reply text auto-fits (p9zzn.js/css); shrink -> reveal-from-orb -> grow View Transition (p9zzn). Test: tests/vxmic.py m|d
+- DONE: full-screen profile fills the whole screen, top bar/nav/sidebar float above (html.pfx-full in p9zzl.js/css; cv-hide exemption)
+- NOW: Song Page (#/song/<id>, p9zzo.js/css): cover tap on cards/rows + NP cover + song menu "View song page"; row/title tap still plays; play button plays. Design: memory/design_song_page.json
+- A: Image Studio editor light mode (fully light, soft grey canvas area) + custom colour circle in the SAME row as defaults (circles shrink to fit) everywhere + Instrum Studio buttons glow in dark mode
+- B: profile: guest sign-in gate check, overlay dim check (hscroll already ok)
+- D: Auto theme (Light/Dark/Auto), playback memory after mini-player swipe, nav-bar notification animations, voice online actions, playlist merge, Magic Markup public sync
+- NEW: LyricFlow (Lyric Studio) Verse Panel: horizontal panel of [bracket] sections side by side; group by artist; merge duplicate brackets ([Hook: A] + [Hook: B] -> [Hook: A & B]); multi-edit (add a line to several sections at once); Preview + Save; desktop + mobile; wow
+- NEW: Image Studio feature-rich like Photoshop
+
+## Fork 4 (user order after ask: Song Page finish -> renames -> Photocap light/colour row + Instrum glow -> LyricFlow Verse Panel -> Photocap layers/adjustments/history -> Auto theme + playback memory -> test -> export)
+User choices: "LyricFlow" everywhere (replace "Lyric Studio"); ONLY "Custom Music Studio" -> "My Music" (Music Studio/Music Manager stays); Instrum Studio -> Instrum; Image Studio -> Photocap;
+Photocap first tools = layers (add/reorder/hide/opacity/blend) + adjustments (brightness/contrast/saturation/hue/blur/sharpen) + undo history panel; Verse Panel = "Verses" button in the LyricFlow editor -> full-width side-scrolling panel.
+- DONE (urgent user bug, iOS 26 Home Screen app): bottom gap + sticky tabs under the top bar.
+  * Sticky: top bar grows by the status bar in standalone, tabs were pinned at a fixed 88/94px -> --hdr-h (p9zzp.js measures the header, ResizeObserver) and .settings-tabs-bar top = --hdr-h + 10/16px, gx-land hero + scrollToStickyTabs follow. Instrum transport already had --ixtp (p9zc.js).
+  * Height: WebKit standalone bug (dvh/innerHeight short by safe-area-top on cold start; fixed layer can be short; 100vh/screen.height correct). Head bootstrap in index.before_p9.html: navigator.standalone -> html.ios-pwa, --app-h = measured fixed-layer height, html.vp-lie + --app-full when short by ~sat (body min-height app-full+1 so iOS re-docks). Build rewrites every CSS Ndvh inside <style> to var(--app-h,100dvh) (patch_p9.py _dvh); Tailwind dvh classes overridden in p9zzp.css.
+  * Double safe-area-bottom removed where --nav-h (already includes it) was added to env(): .ixp-tabs (Instrum phone tabs), .mkd-panel, .mkp-ui.
+  * Test: tests/vpprobe.py [sat] [view] [--pwa] [--lie] (fakes navigator.standalone, screen 390x844, viewport 844-sat with --lie). _sattest.html now also maps env(safe-area-inset-bottom) -> var(--sab,0px).
+  * NEEDS user check on a real iPhone (can't emulate WebKit's standalone viewport).
+- DONE Song Page "Similar vibe": was exact genre/mood string + Treesh pick bonus (picks with other genres leaked in). Now same genre family only (rap/hip hop/trap/hip pop...), mood tags split + synonyms, mood-clash only as fill for exact genre, era bonus; tile shows why (e.g. "Rap · Party").

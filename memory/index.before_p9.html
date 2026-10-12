@@ -25,6 +25,18 @@
 }catch(e){} })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<script>
+/* iOS Home Screen app: dvh/innerHeight can come up short of the screen (WebKit standalone viewport bug). --app-h = real fixed-layer height, vp-lie = viewport still short by the status bar (body overflow makes iOS re-dock). */
+(function(){ try{ if(navigator.standalone!==true) return; var de=document.documentElement; de.classList.add('ios-pwa');
+  function px(css){ var d=document.createElement('div'); d.style.cssText='position:fixed;left:0;width:0;visibility:hidden;pointer-events:none;'+css; de.appendChild(d); var v=d.offsetHeight; de.removeChild(d); return v; }
+  function sync(){ var fh=px('top:0;bottom:0'), sat=px('top:0;height:env(safe-area-inset-top,0px)'), sw=screen.width||0, sh=screen.height||0, full=innerHeight>=innerWidth?Math.max(sw,sh):Math.min(sw,sh), gap=full-fh, lie=sat>0&&gap>1&&gap<=sat+4;
+    if(fh>0) de.style.setProperty('--app-h',fh+'px'); if(lie) de.style.setProperty('--app-full',full+'px'); de.classList.toggle('vp-lie',lie); }
+  window.__vpSync=sync; sync(); [50,150,300,600,1200,2500].forEach(function(t){ setTimeout(sync,t); });
+  addEventListener('resize',sync); addEventListener('pageshow',sync); addEventListener('orientationchange',function(){ setTimeout(sync,120); setTimeout(sync,400); });
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden){ setTimeout(sync,60); setTimeout(sync,300); } });
+  if(window.visualViewport) visualViewport.addEventListener('resize',sync);
+}catch(e){} })();
+</script>
 <title>Treesh</title>
 <link rel="icon" href="favicon.ico?v=7255" sizes="48x48" />
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=7255" />
@@ -444,8 +456,8 @@
   #view{ padding-bottom:calc(var(--nav-h,0px) + var(--mini-h,0px) + 26px); }
   [data-mini-pad]{ padding-bottom:calc(var(--mini-h,0px) + 14px); }
   /* sticky settings tabs (transparent bar; pills blur content behind them) */
-  .settings-tabs-bar{ position:sticky; top:88px; z-index:20; }
-  @media (min-width:1024px){ .settings-tabs-bar{ top:94px; } }
+  .settings-tabs-bar{ position:sticky; top:calc(var(--hdr-h,78px) + 10px); z-index:20; }
+  @media (min-width:1024px){ .settings-tabs-bar{ top:calc(var(--hdr-h,78px) + 16px); } }
 
   /* animated gaussian background (game screens only) */
   @keyframes trGauss{ 0%{transform:translate3d(-6%,-4%,0) scale(1)} 50%{transform:translate3d(6%,4%,0) scale(1.08)} 100%{transform:translate3d(-6%,-4%,0) scale(1)} }
@@ -3613,7 +3625,7 @@ function refreshA11yQuick(){ if(document.getElementById("a11y-quick-pop")) openA
 function scrollToStickyTabs(){
   const bar=document.querySelector('.settings-tabs-bar'); const rm=state.a11y&&state.a11y.reduceMotion;
   if(!bar){ try{ window.scrollTo({top:0, behavior: rm?'auto':'smooth'}); }catch(_){ window.scrollTo(0,0); } return; }
-  const stickyTop=window.innerWidth>=1024?94:88;
+  const stickyTop=parseFloat(getComputedStyle(bar).top)||(window.innerWidth>=1024?94:88);
   let y=0, el=bar; while(el){ y+=el.offsetTop||0; el=el.offsetParent; }
   const target=Math.max(0, Math.round(y - stickyTop));
   try{ window.scrollTo({top:target, behavior: rm?'auto':'smooth'}); }catch(_){ window.scrollTo(0,target); }
@@ -5541,6 +5553,7 @@ function renderView(animate=false){
     case "library": html=viewLibrary(); break;
     case "artists": html=viewArtists(); break;
     case "artist": html=viewArtistDetail(); break;
+    case "song": html=viewSongPage(); break;
     case "model": html=viewModelDetail(); break;
     case "favorites": html=viewFavorites(); break;
     case "playlists": html=viewPlaylists(); break;
