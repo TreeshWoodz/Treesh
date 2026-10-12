@@ -12,7 +12,7 @@ const plsAll=pl=>vis(((pl&&pl.songIds)||[]).map(id=>SONG_BY_ID[id]).filter(Boole
 const plsHasLy=s=>(s.lyrics||[]).some(l=>l.text&&l.text.trim());
 const plsArtists=s=>[...new Set([s.artist,...String(featuredNames(s)||'').split(WC_SPLIT)].map(x=>String(x||'').trim()).filter(Boolean))];
 const plsGenres=s=>s.genre?[String(s.genre).trim()]:[];
-const plsMoods=s=>String(s.mood||'').split(',').map(x=>x.trim()).filter(Boolean);
+const plsMoods=s=>moodTags(s);
 const plsLabel=pl=>pl.sort&&pl.sort!=='custom'&&pl.sortRev?PLS_REV[pl.sort]:PLS_LBL[pl.sort||'custom']||'Custom order';
 
 /* when each song joined the playlist (older playlists: their order is the order songs were added) */

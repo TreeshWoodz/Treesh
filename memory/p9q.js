@@ -1,4 +1,4 @@
-/* ---------- P9q: quick fixes (Lyric Studio follows app theme, broken covers, admin MAD tools) ---------- */
+/* ---------- P9q: quick fixes (LyricFlow follows app theme, broken covers, admin MAD tools) ---------- */
 const _apt9q=applyTheme; applyTheme=function(){ const r=_apt9q.apply(this,arguments); try{ const el=document.querySelector('[data-ls-root]'); if(el){ const lt=lsLight(); el.classList.toggle('lsx-light',lt); el.classList.toggle('lsx-dark',!lt); el.classList.toggle('dark-surface',!lt); el.setAttribute('data-ls-theme',lt?'light':'dark'); } }catch(e){} return r; };
 
 /* any cover that fails to load gets the Treesh placeholder (avatars fall back to their initial) */

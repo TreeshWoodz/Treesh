@@ -31,7 +31,7 @@ function vxThemeCmd(c){ c=String(c||'').toLowerCase().replace(/[?.!,]+$/,'').tri
 const _vxExec9=voiceExec;
 voiceExec=function(c){ const r=vxThemeCmd(c); return r!=null?r:_vxExec9.apply(this,arguments); };
 
-/* ---------- P9h: Lyric Studio desktop, player in the left rail, preview matches Now Playing ---------- */
+/* ---------- P9h: LyricFlow desktop, player in the left rail, preview matches Now Playing ---------- */
 function lsDeskMode(){ const ls=state.ls; return !!(ls&&ls.hasAudio&&window.innerWidth>=1024&&(ls.mode==='write'||ls.mode==='sync')); }
 function lsWideBody(){ const ls=state.ls; return !!ls&&(ls.mode==='write'||(ls.mode==='sync'&&window.innerWidth>=1024)); }
 function lsRailPlayerHtml(){ const ls=state.ls, s=SONG_BY_ID[ls.songId], cov=s&&s.coverArt;

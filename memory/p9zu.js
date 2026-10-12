@@ -62,7 +62,7 @@ function clipPickMime(){ if(typeof MediaRecorder==='undefined') return null; con
 function clipCleanup(C){ cancelAnimationFrame(C.raf); clearTimeout(C.wd); try{ C.el.pause(); }catch(e){} try{ C.el.removeAttribute('src'); C.el.load(); }catch(e){} try{ (C.vs&&C.vs.getTracks()||[]).forEach(t=>t.stop()); }catch(e){} try{ C.ac&&C.ac.close(); }catch(e){} }
 function clipRecord(){ const st=state.studio, s=st&&SONG_BY_ID[st.songId]; if(!s) return;
   if(!cardLines().length){ toast('Pick a line first','Your clip starts at the first line you pick'); return; }
-  if(!clipTimed(s)){ toast('This song needs timed lyrics','Sync the lyrics in Lyric Studio to make a chat clip'); return; }
+  if(!clipTimed(s)){ toast('This song needs timed lyrics','Sync the lyrics in LyricFlow to make a chat clip'); return; }
   const mime=clipPickMime(), cvTest=document.createElement('canvas'); if(mime===null||!cvTest.captureStream){ toast('Video export isn\u2019t supported here','Try the latest Safari or Chrome'); return; }
   /* everything audio-related starts inside the tap so phones allow it */
   const AC=window.AudioContext||window.webkitAudioContext, ac=AC?new AC():null; try{ ac&&ac.resume(); }catch(e){}

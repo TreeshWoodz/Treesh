@@ -1,4 +1,4 @@
-/* ---------- P9t: Instrum Studio, one timeline (drum lanes + vocal tracks), mixer, arrangement, full-song WAV ---------- */
+/* ---------- P9t: Instrum, one timeline (drum lanes + vocal tracks), mixer, arrangement, full-song WAV ---------- */
 const IX_MAX=32, IX_ZOOM=[14,20,26,34];
 let _ixMix=null, _ixCol=[], _ixBpmT=0;
 const _ixIRs={};
@@ -221,7 +221,7 @@ function instrumStudioHtml(fs){ const S=state.instrum; ixEnsure(S.project); ixSe
 function instrumLanding(){ return `<div class="flex min-h-[64vh] flex-col items-center justify-center px-4 py-10 text-center" data-testid="instrum-landing">
   <button data-act="nav" data-view="studios" data-testid="instrum-back-studios" class="press absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 sm:left-6 sm:top-6"><i data-lucide="arrow-left" style="width:14px;height:14px"></i>Studios</button>
   <div class="relative mb-6 grid h-24 w-24 place-items-center rounded-[28px] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)] glow-purple"><i data-lucide="sliders-horizontal" style="width:44px;height:44px"></i></div>
-  <p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Instrum Studio</p>
+  <p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Instrum</p>
   <h1 class="mt-2 text-4xl font-extrabold sm:text-5xl">Instrum</h1>
   <p class="mx-auto mt-3 max-w-md text-white/55">Your pocket studio on one timeline. Program drums, record vocals over your beat, mix every track and export the whole song. Everything runs in your browser.</p>
   <div class="mt-5 flex flex-wrap justify-center gap-2 text-xs text-white/50">${["Drums + vocals, one timeline","Mixer with pan & reverb","Arrange bars","Record at the playhead","Export the song to WAV"].map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">${c}</span>`).join("")}</div>

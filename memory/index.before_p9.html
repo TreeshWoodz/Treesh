@@ -1059,7 +1059,7 @@
   html.perf-mode .kfs-aura span, html.a11y-reduce-motion .kfs-aura span, html.perf-mode .kfs.kfs-g-rainbow .kfs-aura, html.perf-mode .kfs.kfs-g-rainbow .kfs-stage, html.perf-mode .kfs.kfs-g-rainbow .kfs-prog-fill{ animation:none; }
   html.perf-mode [data-np-root].kfs .k-line{ filter:none; }
 
-  /* Lyric Studio floating rhyme popover */
+  /* LyricFlow floating rhyme popover */
   .ls-rhyme-pop{ will-change:left,top; }
   .ls-rhyme-card{ animation:lsRhymePop .16s cubic-bezier(.22,1,.36,1) both; }
   @keyframes lsRhymePop{ from{ opacity:0; transform:translateY(4px) scale(.97);} to{ opacity:1; transform:none;} }
@@ -1335,7 +1335,7 @@
   .mk-toggle.on .mk-sw::after{ transform:translateX(16px); }
   .mk-toggle.is-locked{ opacity:.6; }
 
-  /* ================= STUDIO KIT (Lyric Card · Backdrops · Image Studio) ================= */
+  /* ================= STUDIO KIT (Lyric Card · Backdrops · Photocap) ================= */
   .st-modal{ padding:0 !important; overflow:hidden; }
   .st-root{ display:flex; flex-direction:column; max-height:calc(100dvh - 2rem); }
   .st-head{ display:flex; flex-shrink:0; align-items:center; gap:12px; padding:14px 16px 14px 18px; border-bottom:1px solid rgba(var(--fgc),.08); }
@@ -2064,7 +2064,7 @@ html.theme-light #np .np-x:not(.dark-surface) .np-dock{ background:linear-gradie
 #np .np-x #np-pp{ box-shadow:0 14px 40px -8px var(--np-a,#9328ff),0 0 0 6px rgba(255,255,255,.07); transition:transform .2s ease,box-shadow .3s ease; }
 html.perf-mode .np-aura *, html.a11y-reduce-motion .np-aura *, html.perf-mode .np-art-bob, html.a11y-reduce-motion .np-art-bob{ animation:none !important; }
 
-/* ===== Image Studio shapes ===== */
+/* ===== Photocap shapes ===== */
 .cv-round-mask{ border-radius:999px; box-shadow:0 0 0 9999px rgba(5,4,10,.62); outline:2px solid rgba(255,255,255,.55); outline-offset:-2px; }
 
 /* ===== P7c: live widgets ===== */
@@ -2233,7 +2233,7 @@ html.theme-light .te-lyr{ background:rgba(17,17,20,.04); }
 .um-more svg{ width:18px; height:18px; }
 
 
-/* ===== P8a: Image Studio, full photo editor ===== */
+/* ===== P8a: Photocap, full photo editor ===== */
 .ps-root{ position:fixed; inset:0; z-index:240; display:flex; flex-direction:column; height:100dvh; color:#fff; background:#060509; overscroll-behavior:contain; animation:psIn .32s cubic-bezier(.22,1,.36,1); -webkit-user-select:none; user-select:none; }
 .ps-root.backdrop-out{ animation:psOut .2s ease forwards; }
 @keyframes psIn{ from{ opacity:0; transform:scale(1.02); } to{ opacity:1; transform:none; } }
@@ -3110,7 +3110,7 @@ const state = {
   pageUnlocked: [],
   _lockActive: false, _lockMode: null, _lockView: null, _lockParam: null, _lockInput: "", _lockErr: "", _lockShow: false,
   storageSel: {}, _userSizes: {},
-  mmCollapsed: false, mmSort: "recent", mmSelect: false, mmSel: {},
+  mmCollapsed: !!LS.get("treesh_mm_collapsed",false), plCollapsed: !!LS.get("treesh_pl_collapsed",false), mmSort: "recent", mmSelect: false, mmSel: {},
   libSort: "default", libLyricsOnly: false, mmLyricsOnly: false,
   playCounts: LS.get("treesh_plays", {}),
   playLog: LS.get("treesh_playlog", []),
@@ -3898,7 +3898,7 @@ async function sharePlaylist(pl){ const url=location.origin+location.pathname; c
 function featuredNames(s){ const names=[]; if(s.featuring) names.push(s.featuring); (s.artistIds||[]).forEach((id,i)=>{ if(i===0) return; const a=ARTIST_BY_ID[id]; if(a && a.name && a.name!==s.artist) names.push(a.name); }); return [...new Set(names.filter(Boolean))].join(", "); }
 function metaRow(label,value){ if(!value) return ""; return `<div class="flex items-start justify-between gap-4 border-t border-white/10 py-3 first:border-t-0"><span class="shrink-0 text-xs uppercase tracking-widest text-white/45">${esc(label)}</span><span class="text-right text-sm text-white/85" data-testid="metadata-value-${slug(label)}">${esc(value)}</span></div>`; }
 function metaSection(title,rows){ if(!rows.trim()) return ""; return `<div class="mt-4 first:mt-0"><p class="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--treesh-gold)]">${title}</p><div class="rounded-2xl border border-white/10 bg-white/[0.03] px-3">${rows}</div></div>`; }
-function metaFields(s){ const feat=featuredNames(s); const mood=s.mood?s.mood.split(",").map(x=>x.trim()).filter(Boolean).join(", "):""; const dur=(state.duration&&curSong()&&curSong().id===s.id)?fmt(state.duration):""; return {feat,mood,dur}; }
+function metaFields(s){ const feat=featuredNames(s); const mood=moodTags(s).join(", "); const dur=(state.duration&&curSong()&&curSong().id===s.id)?fmt(state.duration):""; return {feat,mood,dur}; }
 function openMetadata(songId){
   const s=SONG_BY_ID[songId]; if(!s) return;
   const {feat,mood,dur}=metaFields(s);
@@ -4419,7 +4419,7 @@ function loadMoreBar(pg){
 function viewMyMusic(){
   const list=vis(SONGS.filter(s=>s._user)); state.contextList=list;
   return `<div class="space-y-6"><button data-act="genre" data-genre="all" data-testid="my-music-back" class="flex items-center gap-2 text-sm text-white/60 hover:text-white"><i data-lucide="arrow-left" style="width:16px;height:16px"></i> Back to Library</button>
-    <div class="flex items-center gap-2"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">On this device</p><button data-act="ls-picker" data-testid="my-music-lyric-studio" aria-label="Open Lyric Studio" title="Lyric Studio" class="press ml-auto grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button></div>
+    <div class="flex items-center gap-2"><p class="font-display text-xs uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">On this device</p><button data-act="ls-picker" data-testid="my-music-lyric-studio" aria-label="Open LyricFlow" title="LyricFlow" class="press ml-auto grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"><i data-lucide="captions" style="width:16px;height:16px"></i></button></div>
     ${myMusicSection()}</div>`;
 }
 function libraryPlaylistsSection(){
@@ -4431,10 +4431,12 @@ function libraryPlaylistsSection(){
        <button data-act="libpl-select-toggle" data-testid="lib-playlists-select" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="list-checks" style="width:15px;height:15px"></i>Select &amp; delete</button>
        <button data-act="libpl-reorder-toggle" data-testid="lib-playlists-reorder" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"><i data-lucide="arrow-up-down" style="width:15px;height:15px"></i>Rearrange</button>
      </div></details>`:'';
-  const head=`<div class="mb-3 flex items-center justify-between gap-3"><div class="flex items-center gap-2"><h2 class="flex items-center gap-2 text-lg font-bold"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:15px;height:15px"></i></span>Playlists</h2>${pls.length?`<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${pls.length}</span>`:''}</div><div class="flex items-center gap-1.5">${(!selMode&&!reMode)?create:''}${menu}</div></div>`;
+  const collapsed=!!state.plCollapsed&&!selMode&&!reMode;
+  const head=`<div class="mb-3 flex items-center justify-between gap-3"><button data-act="libpl-collapse" data-testid="lib-playlists-collapse" aria-expanded="${!collapsed}" class="flex items-center gap-2 text-left"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="list-music" style="width:15px;height:15px"></i></span><h2 class="text-lg font-bold">Playlists</h2>${pls.length?`<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">${pls.length}</span>`:''}<i data-lucide="chevron-${collapsed?'down':'up'}" class="text-white/45" style="width:16px;height:16px"></i></button><div class="flex items-center gap-1.5">${(!selMode&&!reMode)?create:''}${menu}</div></div>`;
   const plCover=(pl)=>(pl.songIds||[]).map(id=>SONG_BY_ID[id]).filter(Boolean)[0];
   let body;
-  if(!pls.length){ body=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No playlists yet. Tap <span class="font-semibold text-white/75">New</span> above, or add songs with the \u2022\u2022\u2022 menu on any track.</div>`; }
+  if(collapsed){ body=''; }
+  else if(!pls.length){ body=`<div class="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-8 text-center text-sm text-white/50">No playlists yet. Tap <span class="font-semibold text-white/75">New</span> above, or add songs with the \u2022\u2022\u2022 menu on any track.</div>`; }
   else if(selMode){
     const sel=state.libPlSel||{}; const selIds=pls.filter(p=>sel[p.id]).map(p=>p.id); const n=selIds.length; const allOn=n===pls.length&&n>0;
     const toolbar=`<div class="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[color:var(--treesh-purple)]/25 bg-[color:var(--treesh-purple)]/[0.08] p-2">
@@ -4776,7 +4778,7 @@ function lyricsSettingsSection(tab){
   return `<section data-testid="settings-lyrics" class="space-y-5">
     <div class="${tab==='audio'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="users" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Artist groups</h2></div>
-      <p class="mb-4 pl-11 text-sm text-white/50">Teach Treesh which artists are one collective. When their members appear together on a track, the group name shows up as a performer tag in the Lyric Studio.</p>
+      <p class="mb-4 pl-11 text-sm text-white/50">Teach Treesh which artists are one collective. When their members appear together on a track, the group name shows up as a performer tag in the LyricFlow.</p>
       <div class="space-y-2" data-testid="groups-list">${customList}</div>
       <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
         <p class="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-white/45">Add a group</p>
@@ -5255,7 +5257,7 @@ const WHATS_NEW = {
   library: { v:3, date:"September 17, 2026", title:"Library", sub:"Your home base got a glow up.", items:[
     { icon:"heart", title:"Favorites is now a playlist", desc:"Your liked tracks appear as a Favorites playlist in your Library and profile, and it disappears on its own when you have none." },
     { icon:"list-checks", title:"Play Favorites, reliably", desc:"Playing from Favorites now always cues up exactly your liked songs, in the right order." },
-    { icon:"image", title:"Image Studio", desc:"Crop, zoom, rotate, flip and filter your cover art, then add movable text and emoji stickers that are baked into the saved image." },
+    { icon:"image", title:"Photocap", desc:"Crop, zoom, rotate, flip and filter your cover art, then add movable text and emoji stickers that are baked into the saved image." },
     { icon:"list-music", title:"Load only what you need", desc:"Choose how many songs appear at once, from a handful up to everything, then tap Load more when you want the rest." },
     { icon:"upload", title:"Add your own music", desc:"Upload your tracks and cover art from this device and play them right alongside the catalog." },
     { icon:"gamepad-2", title:"What's Next on your home", desc:"Guess the track that plays next in the What's Next game without leaving the library." },
@@ -5264,7 +5266,7 @@ const WHATS_NEW = {
     { icon:"sparkles", title:"Fresh Icon profiles", desc:"Every Icon has a new layout that puts their best tracks front and center." },
     { icon:"badge-check", title:"Your uploads stay yours", desc:"Songs you add show a YOURS tag and never mix in with official Icon tracks." },
   ]},
-  instrum: { v:1, title:"Instrum Studio", sub:"Your pocket beat studio leveled up.", items:[
+  instrum: { v:1, title:"Instrum", sub:"Your pocket beat studio leveled up.", items:[
     { icon:"sliders-horizontal", title:"Smoother studio", desc:"The studio opens with a cleaner motion and tidier controls that fit any screen size." },
     { icon:"drum", title:"Presets, swing and metronome", desc:"Start from a preset, add groove with swing, keep time with the metronome, then save your beats on this device." },
     { icon:"maximize-2", title:"Full screen mode", desc:"Give the grid the whole screen when you want more room to build." },
@@ -5291,7 +5293,7 @@ const WHATS_NEW = {
     { icon:"image", title:"Lyric cards", desc:"Turn any line into a shareable card with your own fonts, colors and photo backgrounds." },
     { icon:"moon-star", title:"Sleep and vinyl views", desc:"Wind down with a calm clock view or spin a vinyl while your track plays." },
   ]},
-  lyricstudio: { v:1, title:"Lyric Studio", sub:"Time your lyrics like a pro.", items:[
+  lyricstudio: { v:1, title:"LyricFlow", sub:"Time your lyrics like a pro.", items:[
     { icon:"pencil", title:"Write and sync", desc:"Type or paste your lyrics, then tap the space bar to time each line while the track plays." },
     { icon:"whole-word", title:"Word by word timing", desc:"Open Word timing on any line to set the exact moment each word is sung." },
     { icon:"file-up", title:"Import LRC", desc:"Paste or drop a .LRC file and Treesh fills in your timed lyrics in one step." },
@@ -7142,7 +7144,7 @@ function closeModal(){
   setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); syncScrollLock(); }, 210);
 }
 function modalWrap(inner, testid, size){ const mw=size==="studio"?"max-w-5xl st-modal":size==="lg"?"max-w-lg":size==="xl"?"max-w-xl":size==="4xl"?"max-w-4xl":size==="sm"?"max-w-sm":"max-w-md"; return `<div data-act="modal-backdrop" class="pm-bd fixed inset-0 z-[210] grid place-items-center p-4 backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal-stop" class="gl-modal glass-strong pm-panel panel-in relative w-full min-w-0 ${mw} rounded-2xl border-white/15 p-5 text-white"><span class="pm-grab" aria-hidden="true" data-testid="sheet-grab"></span>${inner}</div></div>`; }
-/* Second-layer modal (stacked above #modal, e.g. Image Studio) so an underlying
+/* Second-layer modal (stacked above #modal, e.g. Photocap) so an underlying
    modal + its chosen file inputs are preserved. */
 function modal2Wrap(inner, testid, size){ const mw=size==="lg"?"max-w-lg":size==="xl"?"max-w-xl":"max-w-md"; return `<div data-act="modal2-backdrop" class="pm-bd fixed inset-0 z-[240] grid place-items-center p-4 backdrop-in"${testid?` data-testid="${testid}"`:""}><div data-act="modal2-stop" class="gl-modal glass-strong pm-panel panel-in relative max-h-[calc(100dvh-2rem)] w-full ${mw} overflow-y-auto overflow-x-hidden overscroll-contain soft-scroll rounded-2xl border-white/15 p-5 text-white"><span class="pm-grab" aria-hidden="true"></span>${inner}</div></div>`; }
 function closeModal2(){
@@ -7481,7 +7483,7 @@ function lsImportFrom(songId){ const s=SONG_BY_ID[songId]; if(!s) return; const 
 /* ---- export ---- */
 function lsBuildLRC(){
   const items=lsExpandLoops(state.ls.items||[]); const t=state.ls.title, a=state.ls.artist, al=state.ls.album;
-  let out=""; if(t) out+="[ti:"+t+"]\n"; if(a) out+="[ar:"+a+"]\n"; if(al) out+="[al:"+al+"]\n"; out+="[by:Treesh Lyric Studio]\n\n";
+  let out=""; if(t) out+="[ti:"+t+"]\n"; if(a) out+="[ar:"+a+"]\n"; if(al) out+="[al:"+al+"]\n"; out+="[by:Treesh LyricFlow]\n\n";
   let pendingSec=null;
   items.forEach((it,idx)=>{
     if(it.type==='section'){ pendingSec=lsStripFmt(it.text); return; }
@@ -7521,7 +7523,7 @@ function openLSPicker(){
   const section=(label,arr)=> arr.length? `<p class="mb-1.5 mt-2 px-0.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">${label}</p><div class="space-y-1.5">${arr.map(rowHtml).join("")}</div>`:"";
   const draftSection=(arr)=> arr.length? `<p class="mb-1.5 mt-2 px-0.5 text-[11px] font-semibold uppercase tracking-widest text-white/40">Your drafts</p><div class="space-y-1.5" data-testid="ls-drafts">${arr.map(draftRow).join("")}</div>`:"";
   const blankBtn=`<button data-act="ls-new-blank" data-testid="ls-new-blank" class="press mb-2 flex w-full items-center gap-3 rounded-2xl border border-dashed border-[color:var(--treesh-purple)]/40 bg-[color:var(--treesh-purple)]/[0.08] p-3 text-left transition hover:bg-[color:var(--treesh-purple)]/[0.15]"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/20 text-[color:var(--treesh-purple)]"><i data-lucide="file-plus-2" style="width:20px;height:20px"></i></span><span class="min-w-0 flex-1"><span class="block text-sm font-bold">Start a blank document</span><span class="block text-xs text-white/55">Write lyrics from scratch \u2014 no song needed</span></span><i data-lucide="arrow-right" class="shrink-0 text-white/40" style="width:18px;height:18px"></i></button>`;
-  const inner=`<h3 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="captions" style="width:18px;height:18px"></i>Lyric Studio</h3>
+  const inner=`<h3 class="mb-1 flex items-center gap-2 text-lg font-bold"><i data-lucide="captions" style="width:18px;height:18px"></i>LyricFlow</h3>
    <p class="mb-3 text-xs text-white/55">Start a blank document, open a draft, or pick a song to add or re-time lyrics.</p>
    ${blankBtn}
    <input id="ls-pick-search" data-testid="ls-pick-search" placeholder="Search your music & the catalog\u2026" class="mb-2 h-11 w-full rounded-xl border border-white/12 bg-white/5 px-3 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">
@@ -7541,7 +7543,7 @@ function renderLS(){
   const header=`<div class="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-3 sm:px-5">
      <button data-act="ls-close" data-testid="ls-close" aria-label="Close" class="press grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85 hover:bg-white/10"><i data-lucide="chevron-down" style="width:20px;height:20px"></i></button>
      <div class="min-w-0 flex-1">
-       <p class="flex items-center gap-2 font-display text-[11px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">${ls.isBlank?'Lyric Draft':'Lyric Studio'} <span id="ls-dirty" class="${ls.dirty?'':'hidden'} inline-block h-1.5 w-1.5 rounded-full bg-[color:var(--treesh-gold)]" title="Unsaved changes"></span></p>
+       <p class="flex items-center gap-2 font-display text-[11px] uppercase tracking-[0.25em] text-[color:var(--treesh-gold)]">${ls.isBlank?'Lyric Draft':'LyricFlow'} <span id="ls-dirty" class="${ls.dirty?'':'hidden'} inline-block h-1.5 w-1.5 rounded-full bg-[color:var(--treesh-gold)]" title="Unsaved changes"></span></p>
        ${ls.isBlank?`<button id="ls-doc-title" data-act="ls-doc-rename" data-testid="ls-doc-title" class="flex max-w-full items-center gap-1.5 text-left text-sm font-bold hover:text-white/80"><span class="clamp-1">${esc(ls.title||'Untitled lyrics')}</span><i data-lucide="pencil" style="width:13px;height:13px" class="shrink-0 text-white/40"></i></button>`:`<p class="clamp-1 text-sm font-bold">${esc(ls.title||'Untitled')} <span class="font-normal text-white/50">\u00b7 ${esc(ls.artist||'')}</span></p>`}
      </div>
      <button data-act="ls-import" data-testid="ls-import" aria-label="Import lyrics" title="Import" class="press inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-2.5 text-sm font-semibold text-white/85 hover:bg-white/10 sm:px-3"><i data-lucide="import" style="width:15px;height:15px"></i><span class="hidden sm:inline">Import</span></button>
@@ -8075,7 +8077,7 @@ function lsLoadPlainText(){ const ta=$("#ls-lrc-input"); if(!ta){ return; } cons
 
 /* ================= Custom Studio (custom music uploader) ================= */
 var _amCoverURL=null;
-var _amCoverBlob=null;   /* edited cover (Blob) pending save, from Image Studio */
+var _amCoverBlob=null;   /* edited cover (Blob) pending save, from Photocap */
 var _amEditId=null;
 function _amVal(id){ const el=document.getElementById(id); return el?(el.value||'').trim():''; }
 function amField(id,label,ph,val,opts){ opts=opts||{}; return `<label class="block"><span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">${label}${opts.req?' <span class="text-[color:var(--treesh-purple)]">*</span>':''}</span><input id="${id}" type="${opts.type||'text'}" ${opts.attrs||''} placeholder="${ph||''}" value="${val?esc(val):''}" class="w-full rounded-xl border border-white/12 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]"></label>`; }
@@ -8114,7 +8116,7 @@ function openAddMusic(tab, editId){
           <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">Cover art</span>
           <label for="am-cover" class="relative grid aspect-square w-full cursor-pointer place-items-center overflow-hidden rounded-2xl border border-dashed border-white/20 bg-white/[0.03] hover:border-[color:var(--treesh-purple)]"><img id="am-cover-preview" alt="" class="absolute inset-0 h-full w-full object-cover" style="display:${hasCover?'block':'none'}"${hasCover?` src="${esc(ed.coverArt)}"`:''}><div id="am-cover-ph" class="flex flex-col items-center gap-1 text-white/40"${hasCover?' style="display:none"':''}><i data-lucide="image-plus" style="width:22px;height:22px"></i><span class="text-[11px]">Add cover</span></div></label>
           <input id="am-cover" type="file" accept="image/*,.png,.jpg,.jpeg,.webp,.heic,.heif" class="sr-only">
-          <button type="button" data-act="am-adjust-cover" id="am-adjust-cover" data-testid="am-adjust-cover" class="press mt-2 ${hasCover?'':'hidden'} inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-xs font-semibold text-white/75 hover:bg-white/10"><i data-lucide="image" style="width:14px;height:14px"></i>Open in Image Studio</button>
+          <button type="button" data-act="am-adjust-cover" id="am-adjust-cover" data-testid="am-adjust-cover" class="press mt-2 ${hasCover?'':'hidden'} inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-xs font-semibold text-white/75 hover:bg-white/10"><i data-lucide="image" style="width:14px;height:14px"></i>Open in Photocap</button>
         </div>
         <div class="min-w-0 space-y-3">
           ${amField('am-title','Title','Track title',V('title'),{req:true})}
@@ -8294,7 +8296,7 @@ async function saveCustomTrack(){
    ============================================================ */
 var _cv=null, _cvImg=null;
 function _dataURLtoBlob(durl){ try{ const arr=durl.split(','); const mime=(arr[0].match(/:(.*?);/)||[])[1]||'image/jpeg'; const bstr=atob(arr[1]); let n=bstr.length; const u8=new Uint8Array(n); while(n--) u8[n]=bstr.charCodeAt(n); return new Blob([u8],{type:mime}); }catch(e){ return null; } }
-/* ---- Shared layer engine (Image Studio + Lyric Card Studio): text + emoji stickers, baked into the export.
+/* ---- Shared layer engine (Photocap + Lyric Card Studio): text + emoji stickers, baked into the export.
    _lh = active host {layers, sel, boxId, panelId, tid, noun}. ---- */
 let _lh=null;
 function lhBox(){ return _lh?document.getElementById(_lh.boxId):null; }
@@ -8442,7 +8444,7 @@ function renderOnboarding(){
   else if(onboard.step===2){ const ideas=["Night Owl","Bass Head","Verse Queen","Loop Kid","Hook Hunter"];
     body=`<div><div class="obx-field"><i data-lucide="user-round" style="width:20px;height:20px" class="shrink-0 text-white/40"></i><input id="ob-nick" data-testid="onboarding-nickname" value="${esc(onboard.nick)}" placeholder="Your nickname" maxlength="24" autocomplete="off" class="min-w-0 flex-1 bg-transparent text-xl font-bold text-white outline-none placeholder:text-white/30"></div><p class="mt-2 pl-1 text-xs text-white/40">This is how you\u2019ll show up across Treesh.</p><div class="mt-5 flex flex-wrap gap-2"><span class="self-center text-[11px] font-bold uppercase tracking-[0.18em] text-white/35">Need ideas?</span>${ideas.map(n=>`<button data-act="mk-ob-nick" data-val="${n}" data-testid="ob-nick-idea-${n.replace(/\s/g,'-').toLowerCase()}" class="obx-chip press">${n}</button>`).join('')}</div></div>`; }
   else if(onboard.step===3){ body=`<div class="space-y-4">${dateFieldHTML({id:'ob-bday',value:onboard.bday,testid:'onboarding-birthday',center:true,placeholder:'Select your birthday',boxClass:'h-14 rounded-2xl border border-white/15 bg-white/[0.06] text-base font-semibold'})}<div id="ob-zodiac-wrap">${obZodiacHtml(z)}</div></div>`; }
-  else{ body=`<div class="flex flex-col items-center gap-6"><div class="obx-av-big"><span class="obx-av-spin"></span><div class="relative h-full w-full overflow-hidden rounded-full border-2 border-white/20 bg-[#0d0b14]">${onboard.avatar?img(onboard.avatar,'h-full w-full object-cover'):`<div class="grid h-full w-full place-items-center text-white/40"><i data-lucide="user" style="width:40px;height:40px"></i></div>`}</div></div><div class="flex flex-wrap items-center justify-center gap-3">${PRESETS.map((a,i)=>`<button data-act="ob-preset" data-src="${a}" data-testid="ob-preset-${i}" class="press h-14 w-14 overflow-hidden rounded-full border-2 transition ${onboard.avatar===a?'scale-110 border-[color:var(--treesh-purple)] shadow-[0_0_18px_var(--treesh-purple)]':'border-white/10 hover:border-white/30'}">${img(a,'h-full w-full object-cover')}</button>`).join("")}<label class="press grid h-14 w-14 cursor-pointer place-items-center rounded-full border border-dashed border-white/30 text-white/60 hover:bg-white/5" data-testid="ob-upload"><i data-lucide="upload" style="width:18px;height:18px"></i><input type="file" accept="image/*" class="hidden" id="ob-file"></label></div>${onboard.avatar?`<button type="button" data-act="ob-avatar-edit" data-testid="ob-avatar-edit" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/85 hover:bg-white/10"><i data-lucide="wand-sparkles" style="width:15px;height:15px"></i>Edit in Image Studio</button>`:""}<p class="text-center text-xs text-white/40">You can change this anytime in your profile.</p></div>`; }
+  else{ body=`<div class="flex flex-col items-center gap-6"><div class="obx-av-big"><span class="obx-av-spin"></span><div class="relative h-full w-full overflow-hidden rounded-full border-2 border-white/20 bg-[#0d0b14]">${onboard.avatar?img(onboard.avatar,'h-full w-full object-cover'):`<div class="grid h-full w-full place-items-center text-white/40"><i data-lucide="user" style="width:40px;height:40px"></i></div>`}</div></div><div class="flex flex-wrap items-center justify-center gap-3">${PRESETS.map((a,i)=>`<button data-act="ob-preset" data-src="${a}" data-testid="ob-preset-${i}" class="press h-14 w-14 overflow-hidden rounded-full border-2 transition ${onboard.avatar===a?'scale-110 border-[color:var(--treesh-purple)] shadow-[0_0_18px_var(--treesh-purple)]':'border-white/10 hover:border-white/30'}">${img(a,'h-full w-full object-cover')}</button>`).join("")}<label class="press grid h-14 w-14 cursor-pointer place-items-center rounded-full border border-dashed border-white/30 text-white/60 hover:bg-white/5" data-testid="ob-upload"><i data-lucide="upload" style="width:18px;height:18px"></i><input type="file" accept="image/*" class="hidden" id="ob-file"></label></div>${onboard.avatar?`<button type="button" data-act="ob-avatar-edit" data-testid="ob-avatar-edit" class="press inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/85 hover:bg-white/10"><i data-lucide="wand-sparkles" style="width:15px;height:15px"></i>Edit in Photocap</button>`:""}<p class="text-center text-xs text-white/40">You can change this anytime in your profile.</p></div>`; }
   const canNext = onboard.step===0 || onboard.step===1 || (onboard.step===2&&onboard.nick.trim()) || (onboard.step===3&&onboard.bday) || onboard.step===4;
   const prog=[1,2,3,4].map(i=>`<span class="obx-seg${i<onboard.step?' done':i===onboard.step?' on':''}"></span>`).join("");
   const existed = !!$("#modal [data-ob-shell]");
@@ -9274,7 +9276,8 @@ document.addEventListener("click", e=>{
     case "game-view": state.gameGrid=(t.dataset.mode?t.dataset.mode==="grid":!state.gameGrid); LS.set("treesh_game_grid",state.gameGrid); renderView(true); break;
     case "clear-search": state.query=""; const si=$("#search"); if(si)si.value=""; renderView(true); const cb=$('[data-act="clear-search"]'); if(cb)cb.classList.add("hidden"); break;
     case "shuffle-all": { const pool=vis(SONGS); if(!pool.length)break; state.shuffle=true; const r=pool[Math.floor(Math.random()*pool.length)]; playSong(r,pool); break; }
-    case "mm-collapse": state.mmCollapsed=!state.mmCollapsed; refreshLists(); break;
+    case "mm-collapse": state.mmCollapsed=!state.mmCollapsed; LS.set("treesh_mm_collapsed",state.mmCollapsed); refreshLists(); break;
+    case "libpl-collapse": state.plCollapsed=!state.plCollapsed; LS.set("treesh_pl_collapsed",state.plCollapsed); refreshLists(); break;
     case "mm-select-toggle": { state.mmSelect=!state.mmSelect; if(!state.mmSelect) mmSelClear(); refreshLists(); break; }
     case "mm-select-all": { const mine=mmSortedList(); const allOn=mine.length>0 && mine.every(s=>state.mmSel&&state.mmSel[s.id]); state.mmSel={}; if(!allOn){ mine.forEach(s=>{ state.mmSel[s.id]=true; }); } refreshLists(); break; }
     case "mm-row-toggle": { if(!state.mmSel) state.mmSel={}; if(state.mmSel[id]) delete state.mmSel[id]; else state.mmSel[id]=true; refreshLists(); break; }
@@ -9341,7 +9344,7 @@ document.addEventListener("click", e=>{
     case "bg-remove-image": { const i=parseInt(t.dataset.idx,10)||0; if(state.bgImages[i]!=null){ state.bgImages.splice(i,1); if(state.bgIndex>=state.bgImages.length) state.bgIndex=Math.max(0,state.bgImages.length-1); bgSaveImages(); renderBackground(); renderView(); toast(state.bgImages.length?"Image removed":"All images removed"); } break; }
     case "remove-bg-image": { state.bgImages=[]; state.bgIndex=0; bgSaveImages(); renderBackground(); renderView(); break; }
     case "set-sleep": { state.sleepMin=parseInt(t.dataset.val,10)||0; LS.set("treesh_sleep",state.sleepMin); resetSleepTimer(); toast(state.sleepMin?("Sleep timer set to "+state.sleepMin+" min"):"Sleep timer off"); renderView(); break; }
-    case "set-settings-tab": { const nv=t.dataset.val; const changed=state.settingsTab!==nv; state.settingsTab=nv; renderView(true); if(changed){ requestAnimationFrame(scrollToStickyTabs); } break; }
+    case "set-settings-tab": { const nv=t.dataset.val; state.settingsTab=nv; renderView(true); window.scrollTo(0,0); requestAnimationFrame(()=>window.scrollTo(0,0)); break; }
     case "set-font": { state.uiFont=t.dataset.val; state.customFont=null; LS.set("treesh_font",state.uiFont); LS.set("treesh_custom_font",null); assetDel("custom_font").catch(()=>{}); applyUiFont(); renderView(); break; }
     case "clear-custom-font": { state.customFont=null; LS.set("treesh_custom_font",null); assetDel("custom_font").catch(()=>{}); _customFontLoaded=false; applyUiFont(); renderView(); toast("Custom font removed"); break; }
     case "apply-google-font": { const inp=$("#google-font-input"); const name=inp?inp.value.trim():""; if(!name){ toast("Enter a font name"); break; } state.customFont={google:name.replace(/\s+/g,'+'), name}; state.uiFont=""; LS.set("treesh_custom_font",state.customFont); assetDel("custom_font").catch(()=>{}); applyUiFont(); renderView(); toast("Custom font applied", name); break; }
@@ -9410,7 +9413,7 @@ document.addEventListener("click", e=>{
     case "voice-template": voiceTemplate(parseInt(t.dataset.i,10)||0); break;
     case "retry-load": retryLoad(); break;
     case "refresh-catalog": { toast("Refreshing catalog\u2026"); loadCatalog().then(()=>{ softRefresh(); toast("Catalog updated", SONGS.length+" tracks"); }).catch(()=>toast("Couldn\u2019t refresh","Check your connection")); break; }
-    /* ---- Lyric Studio ---- */
+    /* ---- LyricFlow ---- */
     case "ls-picker": openLSPicker(); break;
     case "ls-new-blank": { closeModal(); openLyricBlank(null); break; }
     case "ls-open-draft": lsOpenDraft(t.dataset.id); break;
@@ -9873,7 +9876,7 @@ function encodeWAV(buf){ const nCh=buf.numberOfChannels,len=buf.length,sr=buf.sa
 function instrumLanding(){ return `<div class="flex min-h-[64vh] flex-col items-center justify-center px-4 py-10 text-center">
   <button data-act="nav" data-view="studios" data-testid="instrum-back-studios" class="press absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 sm:left-6 sm:top-6"><i data-lucide="arrow-left" style="width:14px;height:14px"></i>Studios</button>
   <div class="relative mb-6 grid h-24 w-24 place-items-center rounded-[28px] bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)] glow-purple"><i data-lucide="sliders-horizontal" style="width:44px;height:44px"></i></div>
-  <p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Instrum Studio</p>
+  <p class="font-display text-[11px] uppercase tracking-[0.3em] text-[color:var(--treesh-gold)]">Instrum</p>
   <h1 class="mt-2 text-4xl font-extrabold sm:text-5xl">Instrum</h1>
   <p class="mx-auto mt-3 max-w-md text-white/55">A pocket-size beat studio. Layer drums, 808s, leads and pads on a step sequencer. Tap to build, play it live, then save or export. No downloads, all synthesized in your browser.</p>
   <div class="mt-5 flex flex-wrap justify-center gap-2 text-xs text-white/50">${["10 instruments","Metronome","Undo / Redo","Full screen","Save & export WAV"].map(c=>`<span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">${c}</span>`).join("")}</div>
@@ -9921,7 +9924,7 @@ function instrumFaqModal(){ const q=(t,a)=>`<div class="rounded-2xl border borde
 function instrumHeaderHtml(fs){ const p=state.instrum.project; const S=state.instrum; return `<div class="flex items-center gap-1.5 px-3 sm:gap-2 sm:px-4 ${fs?'pt-[max(12px,env(safe-area-inset-top))] pb-1':'pb-3'}">
     <div class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="sliders-horizontal" style="width:17px;height:17px"></i></div>
     <div class="min-w-0 flex-1">
-      <p class="font-display text-[9px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Instrum Studio</p>
+      <p class="font-display text-[9px] uppercase tracking-[0.28em] text-[color:var(--treesh-gold)]">Instrum</p>
       <input value="${esc(p.name)}" data-act="i-name" data-testid="instrum-name" maxlength="40" placeholder="Beat name" class="-ml-0.5 w-full max-w-[240px] truncate bg-transparent text-lg font-extrabold leading-tight text-white outline-none placeholder:text-white/35">
     </div>
     <div class="flex shrink-0 items-center gap-1 sm:gap-1.5">
@@ -10018,7 +10021,7 @@ function instrumStudioHtml(fs){ const S=state.instrum; const page=S.page||0;
   return `<div data-instrum-root class="-mx-4 pb-8 sm:-mx-6 lg:-mx-8${(S&&S._opened)?' i-open':''}">${(function(){ if(S) S._opened=false; return ''; })()}${clearAnim}${instrumHeaderHtml(false)}<div class="space-y-3">${instrumPagerHtml()}<div id="i-pages" class="${animCls}">${page===0?beatPage:vocalPage}</div></div></div>`; }
 function instrumFSPlaceholder(){ return `<div class="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center"><div class="grid h-16 w-16 place-items-center rounded-2xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="maximize-2" style="width:28px;height:28px"></i></div><p class="text-lg font-bold">Studio is in full screen</p><button data-act="i-fullscreen" class="press inline-flex items-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] px-5 py-3 text-sm font-bold text-white glow-purple"><i data-lucide="minimize-2" style="width:16px;height:16px"></i>Exit full screen</button></div>`; }
 /* ============================================================
-   STUDIOS HUB  (lists Instrum Studio + Lyric Studio, like Games)
+   STUDIOS HUB  (lists Instrum + LyricFlow, like Games)
    ============================================================ */
 function viewStudios(){
   const beats=(state.beats||[]).length;
@@ -10039,7 +10042,7 @@ function viewStudios(){
         <p class="mt-1 text-sm text-white/55">Your pocket creative suite. Make beats and craft lyrics, right in your browser.</p>
       </div>
     </div>
-    <!--mk:studio-instrum-->${card({act:'nav',view:'instrum',testid:'studios-open-instrum',icon:'sliders-horizontal',glow:'var(--treesh-purple)',kicker:'Beat studio',title:'Instrum Studio',desc:'Layer drums, 808s, leads and pads on a step sequencer. Play it live, then save or export to WAV.',chips:['10 instruments','Presets & swing','Metronome','Export WAV', beats?`${beats} saved beat${beats!==1?'s':''}`:'Start fresh'],cta:'play',ctaLabel:'Open Instrum'})}
+    <!--mk:studio-instrum-->${card({act:'nav',view:'instrum',testid:'studios-open-instrum',icon:'sliders-horizontal',glow:'var(--treesh-purple)',kicker:'Beat studio',title:'Instrum',desc:'Layer drums, 808s, leads and pads on a step sequencer. Play it live, then save or export to WAV.',chips:['10 instruments','Presets & swing','Metronome','Export WAV', beats?`${beats} saved beat${beats!==1?'s':''}`:'Start fresh'],cta:'play',ctaLabel:'Open Instrum'})}
 <!--mk:studio-lyric-->${card({act:'ls-picker',view:'',testid:'studios-open-lyric',icon:'captions',glow:'var(--treesh-gold)',kicker:'Songwriting',title:'LyricFlow',desc:'Write, time and sync lyrics to any track. Get rhyme suggestions, preview in the player and add your own explanations.',chips:['Write & sync','Rhyme helper','Preview mode','Explanations','Import & export LRC'],cta:'pen-line',ctaLabel:'Open LyricFlow'})}
   </div>`, {tid:'studios-view', w:{'studio-instrum':'half','studio-lyric':'half'}});
 }
@@ -10271,7 +10274,7 @@ const MK_PAGES=['library','artists','studios','game'];
 const MK_NAV=[['library','Library','library-big'],['artists','Icons','sparkles'],['studios','Studios','layout-grid'],['game','Game','gamepad-2'],['settings','Settings','settings']];
 const MK_PAGE_LABEL={library:'Library',artists:'Icons',studios:'Studios',game:'Game',settings:'Settings'};
 const MK_WIDGETS={ nowplaying:{label:'Now Playing',ic:'disc-3',from:'the Player'}, recent:{label:'Recently Played',ic:'history',from:'your history'}, icons:{label:'Icons Spotlight',ic:'sparkles',from:'Icons'}, quick:{label:'Quick Settings',ic:'zap',from:'Settings',w:'full'}, gamestats:{label:'Game Stats',ic:'trophy',from:'Game'} };
-const MK_LABELS={hero:'Welcome banner',whatsnew:"What's New",picks:"Treesh's Picks",weekly:'Weekly Top',playlists:'Playlists',mymusic:'My Music',all:'All Music','icons-head':'Page header','icons-grid':'Icons grid','studios-head':'Page header','studio-instrum':'Instrum Studio','studio-lyric':'LyricFlow','game-head':'Page header','game-main':'Games & Things'};
+const MK_LABELS={hero:'Welcome banner',whatsnew:"What's New",picks:"Treesh's Picks",weekly:'Weekly Top',playlists:'Playlists',mymusic:'My Music',all:'All Music','icons-head':'Page header','icons-grid':'Icons grid','studios-head':'Page header','studio-instrum':'Instrum','studio-lyric':'LyricFlow','game-head':'Page header','game-main':'Games & Things'};
 const MK_WIDTHS=[['full','Full'],['twothird','2/3'],['half','1/2'],['third','1/3']];
 const MK_SURF=[['default','Default'],['glass','Glass'],['bubble','Bubble'],['solid','Solid'],['clear','Clear']];
 const MK_CARDS=['hero','studio-instrum','studio-lyric'];
@@ -10598,7 +10601,7 @@ function qsStripHtml(){ const light=state.theme==='light', acc=(state.accent||'#
     <div class="qs-cell qs-full"><p class="qs-lbl">Glass theme</p><div class="no-scrollbar flex gap-2 overflow-x-auto pb-0.5">${GL_THEMES.map(t=>`<button data-act="mk-gl-theme" data-val="${t.id}" data-testid="quick-glass-${t.id}" aria-pressed="${th===t.id}" class="qs-th press${th===t.id?' on':''}" style="--a:${t.sw[0]};--b:${t.sw[1]};--c:${t.sw[2]}"><span></span>${t.name}</button>`).join('')}</div></div>
    </div></section>`; }
 
-/* ---------- studio kit (Lyric Card, Backdrops, Image Studio) ---------- */
+/* ---------- studio kit (Lyric Card, Backdrops, Photocap) ---------- */
 function stCard(ic,title,sub,body,right,tid){ return `<section class="st-card"${tid?` data-testid="${tid}"`:''}><div class="st-card-h"><span class="st-ic"><i data-lucide="${ic}"></i></span><div class="min-w-0"><p class="st-card-t">${title}</p>${sub?`<p class="st-card-s">${sub}</p>`:''}</div>${right?`<div class="st-card-r">${right}</div>`:''}</div>${body}</section>`; }
 function stRange(o){ const fill=(o.max>o.min)?((o.val-o.min)/(o.max-o.min)*100):0; return `<div class="st-slider"><span class="st-slider-l">${o.ic?`<i data-lucide="${o.ic}"></i>`:''}${o.label}</span><input type="range"${o.id?` id="${o.id}"`:''} min="${o.min}" max="${o.max}" step="${o.step||1}" value="${o.val}" ${o.attrs||''}${o.tid?` data-testid="${o.tid}"`:''} aria-label="${o.label}" class="tr" style="--fill:${fill}%"><span${o.vid?` id="${o.vid}"`:''} class="st-val" ${o.vattrs||''}>${o.txt}</span></div>`; }
 function stToggle(act,tid,on,ic,title,sub,attrs){ return `<button data-act="${act}" data-testid="${tid}" role="switch" aria-checked="${!!on}" aria-pressed="${!!on}" ${attrs||''} class="st-toggle press"><span class="st-ic"><i data-lucide="${ic}"></i></span><span class="min-w-0 flex-1"><span class="st-card-t block">${title}</span>${sub?`<span class="st-card-s block">${sub}</span>`:''}</span><span class="st-switch${on?' on':''}"></span></button>`; }
@@ -10922,7 +10925,7 @@ function npPeekUpdate(){ const el=document.getElementById('np-peek-cur'); if(!el
 function npArtSync(){ const a=document.querySelector('#np .np-art'); if(!a) return; const on=!audio.paused; a.classList.toggle('is-playing',on); a.classList.toggle('is-paused',!on); }
 function npSettingsHtml(tab){ return `<section data-testid="settings-player-look" class="${tab==='appearance'?'':'hidden'} rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6"><div class="mb-1 flex items-center gap-2.5"><span class="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--treesh-purple)]/15 text-[color:var(--treesh-purple)]"><i data-lucide="disc-3" style="width:18px;height:18px"></i></span><h2 class="text-lg font-bold">Now Playing look</h2></div><p class="mb-4 pl-11 text-sm text-white/50">How the full-screen player looks while a song plays.</p><div class="space-y-2.5">${toggleCard('np-coverbg','settings-np-coverbg',npCoverBg(),'image','Cover art background','Fill the whole player with the song\u2019s cover art')}${toggleCard('np-aura','settings-np-aura',npAuraOn(),'sparkles','Moving aura','Slow color gradients pulled from the cover art')}</div></section>`; }
 
-/* ---------- P7: Image Studio with custom shape (profile photo / banner) ---------- */
+/* ---------- P7: Photocap with custom shape (profile photo / banner) ---------- */
 function pfSetBanner(f){ if(!/^image\//.test(f.type||'')){ toast('Pick an image file'); return; } if(f.size>20*1024*1024){ toast('Image too large','Use one under 20 MB'); return; }
   openCoverStudio(URL.createObjectURL(f),'Crop your profile banner',true,{aspect:3,out:[1500,500],q:0.85,applyLabel:'Use as banner',onApply:d=>{ assetPut('profile_banner',d).then(()=>{ if(typeof pfStashDraft==='function') pfStashDraft(); state.profileBanner=d; pfRerender(); toast('Banner updated'); }).catch(()=>toast('Couldn\u2019t save banner','Your device storage may be full')); }}); }
 
@@ -11047,7 +11050,7 @@ function amEditorHtml(ed,o){ const tab=state._teTab||'cover'; state._teTab=null;
   const lbl=t=>`<span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-white/45">${t}</span>`;
   const pane=(id,html)=>`<section class="te-pane${tab===id?'':' hidden'}" data-te-pane="${id}" data-testid="te-pane-${id}">${html}</section>`;
   const cover=`<div class="te-cover-wrap"><label for="am-cover" class="te-cover press" data-testid="te-cover-drop"><img id="am-cover-preview" alt="" class="absolute inset-0 h-full w-full object-cover" style="display:${o.hasCover?'block':'none'}"${o.hasCover?` src="${esc(ed.coverArt)}"`:''}><div id="am-cover-ph" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/45"${o.hasCover?' style="display:none"':''}><i data-lucide="image-plus" style="width:34px;height:34px"></i><span class="text-sm font-semibold">Add cover art</span></div><span class="te-cover-cta"><i data-lucide="upload"></i>Change cover</span></label><input id="am-cover" type="file" accept="image/*,.png,.jpg,.jpeg,.webp,.heic,.heif" class="sr-only" data-testid="te-cover-input">
-    <div class="space-y-3"><div class="te-card"><p class="te-k">Cover art</p><p class="te-d">Square images look best. New covers open in Image Studio so you can crop, filter and add text.</p><div class="mt-3 flex flex-wrap gap-2"><label for="am-cover" class="te-btn primary press" data-testid="te-cover-upload"><i data-lucide="image-plus"></i>Upload new cover</label><button type="button" data-act="am-adjust-cover" id="am-adjust-cover" data-testid="am-adjust-cover" class="te-btn press ${o.hasCover?'':'hidden'}"><i data-lucide="wand-2"></i>Open in Image Studio</button></div></div>
+    <div class="space-y-3"><div class="te-card"><p class="te-k">Cover art</p><p class="te-d">Square images look best. New covers open in Photocap so you can crop, filter and add text.</p><div class="mt-3 flex flex-wrap gap-2"><label for="am-cover" class="te-btn primary press" data-testid="te-cover-upload"><i data-lucide="image-plus"></i>Upload new cover</label><button type="button" data-act="am-adjust-cover" id="am-adjust-cover" data-testid="am-adjust-cover" class="te-btn press ${o.hasCover?'':'hidden'}"><i data-lucide="wand-2"></i>Open in Photocap</button></div></div>
     <div class="te-card te-facts"><div><span>Title</span><b class="clamp-1">${esc(ed.title||'Untitled')}</b></div><div><span>Artist</span><b class="clamp-1">${esc(ed.artist||'You')}</b></div><div><span>Length</span><b>${dur?fmt(dur):'--'}</b></div><div><span>Lyrics</span><b>${lines.length?(pct?pct+'% synced':lines.length+' lines'):'None'}</b></div></div></div></div>`;
   const details=`<div class="grid gap-3 sm:grid-cols-2">${amField('am-title','Title','Track title',V('title'),{req:true})}${amField('am-artist','Artist','Artist name',V('artist'))}<label class="block">${lbl('Genre')}<select id="am-genre" class="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-sm text-white outline-none focus:border-[color:var(--treesh-purple)]"><option value="">Select</option>${o.genOpts}</select></label>${amField('am-album','Album','Album / EP',V('album'))}</div>
     <p class="te-k mt-6 mb-2">Credits</p><div class="grid gap-3 sm:grid-cols-2">${amField('am-featuring','Featuring','Guest artists',V('featuring'))}${amField('am-writtenBy','Written by','Songwriters',V('writtenBy'))}${amField('am-producer','Producer','Producer',V('producer'))}${amField('am-mixer','Mixed by','Mix engineer',V('mixer'))}${amField('am-videographer','Videographer','Video credit',V('videographer'))}${amField('am-label','Label','Record label',V('label'))}</div>
@@ -11100,7 +11103,7 @@ function umConfirmDelete(id){ const s=USER_SONGS.find(x=>x.id===id); if(!s) retu
 function sheetBackdrop(p){ if(p.id==='profile-panel') return document.querySelector('#profile [data-act="profile-close"]'); const bd=p.parentElement; return bd&&/backdrop$/.test(bd.dataset.act||'')?bd:null; }
 function sheetClose(p){ if(p.id==='profile-panel'){ closeProfile(true); return; } if(p.classList.contains('mk-sheet')){ state.mkSheet=null; mkRenderSheet(); return; } if(p.classList.contains('um-panel')){ closeMusicManager(true); return; } const bd=p.parentElement; if(!bd) return; bd.style.animation='none'; p.style.animation='none'; if(bd.closest('#modal2')) closeModal2(); else if(bd.closest('#modal')) closeModal(); else bd.click(); }
 
-/* ---------- P8: Image Studio, a full photo editor (pixel pipeline works on iPhone Safari) ---------- */
+/* ---------- P8: Photocap, a full photo editor (pixel pipeline works on iPhone Safari) ---------- */
 const PS_ADJ=[['exposure','Exposure','sun',-100,100],['brightness','Brightness','sun-medium',-100,100],['contrast','Contrast','contrast',-100,100],['highlights','Highlights','sunrise',-100,100],['shadows','Shadows','moon',-100,100],['saturation','Saturation','droplet',-100,100],['vibrance','Vibrance','sparkles',-100,100],['warmth','Warmth','thermometer-sun',-100,100],['tint','Tint','palette',-100,100],['fade','Fade','cloud-fog',0,100],['sharpen','Sharpen','triangle',0,100],['vignette','Vignette','circle-dot',0,100],['grain','Grain','scan-line',0,100]];
 const PS_FILTERS=[
   {id:'none',name:'Original'},
@@ -11134,9 +11137,9 @@ function openCoverStudio(src,label,ownSrc,opts){ opts=opts||null; if(_cv){ try{ 
   try{ if(!/^blob:|^data:/.test(src)) im.crossOrigin='anonymous'; }catch(e){}
   im.src=src; }
 function psShellHtml(){ const o=_cv.opts||{};
-  return `<div data-act="modal2-backdrop" data-testid="cover-studio" class="ps-root dark-surface" role="dialog" aria-label="Image Studio" data-tool="${_cv.tool}">
+  return `<div data-act="modal2-backdrop" data-testid="cover-studio" class="ps-root dark-surface" role="dialog" aria-label="Photocap" data-tool="${_cv.tool}">
   <header class="ps-top"><button type="button" id="cv-cancel" data-testid="cover-studio-cancel" class="ps-tbtn">Cancel</button>
-   <div class="ps-title"><p class="ps-eyebrow"><i data-lucide="wand-sparkles"></i>Image Studio</p><h2 data-testid="image-studio-title" class="clamp-1">${esc(_cv.label||'Edit image')}</h2></div>
+   <div class="ps-title"><p class="ps-eyebrow"><i data-lucide="wand-sparkles"></i>Photocap</p><h2 data-testid="image-studio-title" class="clamp-1">${esc(_cv.label||'Edit image')}</h2></div>
    <div class="ps-acts"><button type="button" data-ps="undo" data-testid="ps-undo" class="ps-ic" aria-label="Undo" disabled><i data-lucide="undo-2"></i></button><button type="button" data-ps="redo" data-testid="ps-redo" class="ps-ic" aria-label="Redo" disabled><i data-lucide="redo-2"></i></button><button type="button" data-ps-compare data-testid="ps-compare" class="ps-ic" aria-label="Hold to compare with the original" title="Hold to see the original"><i data-lucide="eye"></i></button><button type="button" id="cv-apply" data-testid="cover-studio-apply" class="ps-done"><i data-lucide="check"></i><span>${esc(o.applyLabel||'Done')}</span></button></div></header>
   <div class="ps-main"><div class="ps-stage" id="ps-stage"><div class="ps-frame${o.round?' is-round':''}" id="ps-frame" data-testid="ps-frame">
     <canvas id="cv-canvas" data-testid="cover-studio-canvas" class="ps-canvas"></canvas><div id="cv-layer-box" class="ps-layers" data-testid="cover-studio-layer-box"></div><div class="ps-grid" aria-hidden="true"></div>${o.round?'<div class="cv-round-mask pointer-events-none absolute inset-0" data-testid="ps-round-mask"></div>':''}
@@ -11603,7 +11606,7 @@ document.addEventListener('keydown',e=>{ if(e.key!=='Escape'||!state.umOpen) ret
 const _lus8=loadUserSongs;
 loadUserSongs=async function(){ const r=await _lus8.apply(this,arguments); try{ umRefresh(); }catch(e){} return r; };
 
-/* ---------- P8: profile photo + banner always go through Image Studio ---------- */
+/* ---------- P8: profile photo + banner always go through Photocap ---------- */
 function pfBannerApply(d){ assetPut('profile_banner',d).then(()=>{ if(typeof pfStashDraft==='function') pfStashDraft(); state.profileBanner=d; pfRerender(); toast('Banner updated'); }).catch(()=>toast('Couldn\u2019t save banner','Your device storage may be full')); }
 function pfAvatarEdit(){ const p=state.profile||{}; const src=state._tmpAvatar||p.avatar; if(!src){ const i=document.getElementById('set-avatar-input'); if(i) i.click(); return; }
   openCoverStudio(src,'Edit your profile photo',false,{aspect:1,round:true,out:[512,512],q:.86,applyLabel:'Use photo',onApply:d=>{ state._tmpAvatar=d; const av=document.getElementById('set-avatar'); if(av) av.innerHTML=img(d,'h-full w-full object-cover'); toast('Photo updated','Tap Save to keep it'); }}); }

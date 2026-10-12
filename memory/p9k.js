@@ -1,4 +1,4 @@
-/* ---------- P9k: Lyric Studio, bold/italic show as real formatting (no stars in the editor) ---------- */
+/* ---------- P9k: LyricFlow, bold/italic show as real formatting (no stars in the editor) ---------- */
 const LS_MB='\u200B', LS_MI='\uFEFF';
 const LS_BOLD_RE=/(^|[\s(\[{"'\u201C\u2018\/-])\*\*(?=[^\s*])([^*\n]*?[^\s*])\*\*(?=$|[\s)\]}"'\u201D\u2019.,!?;:\/-])/g;
 const LS_ITAL_RE=/(^|[\s(\[{"'\u201C\u2018\/-])\*(?=[^\s*])([^*\n]*?[^\s*])\*(?=$|[\s)\]}"'\u201D\u2019.,!?;:\/-])/g;

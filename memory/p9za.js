@@ -121,7 +121,7 @@ document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.tar
   document.addEventListener('touchend',e=>{ if(!on) return; on=false; const tc=e.changedTouches&&e.changedTouches[0]; if(!tc) return; const dx=tc.clientX-sx, dy=tc.clientY-sy; if(Math.abs(dx)<46||Math.abs(dx)<Math.abs(dy)*1.3) return;
     const S=state.instrum; if(!S||!S.gb) return; const d=dx<0?1:-1, nb=S.gb.bar+d; if(nb<0||nb>=S.project.bars){ const el=document.getElementById('gb-pads'); if(el){ el.classList.remove('is-edge'); void el.offsetWidth; el.classList.add('is-edge'); } return; } gbGo(nb,d); },{passive:true}); })();
 
-/* ---------- P9za: Lyric Studio markup, every tool toggles, works on the word under the cursor and never eats your selection ---------- */
+/* ---------- P9za: LyricFlow markup, every tool toggles, works on the word under the cursor and never eats your selection ---------- */
 function lsTaSet(ta,nv,a,b){ ta.value=nv; ta.focus(); try{ ta.setSelectionRange(a,b); }catch(_){} ta.dispatchEvent(new Event('input',{bubbles:true})); try{ lsPositionRhymePop(); lsScheduleRhymes(); }catch(_){} }
 function lsRange(ta){ const v=ta.value; let s=ta.selectionStart||0, e=ta.selectionEnd||s;
   if(s===e){ const w=c=>!!c&&!/[\s()\u201C\u201D"]/.test(c); let a=s, b=s; while(a>0&&w(v[a-1])) a--; while(b<v.length&&w(v[b])) b++; return [a,b]; }

@@ -75,7 +75,7 @@ document.addEventListener('click',e=>{ const b=e.target&&e.target.closest&&e.tar
   if(document.documentElement.classList.contains('perf-mode')){ toast('Performance mode is on','Turn it off to use motion tilt'); return; }
   state.gyroOn=!state.gyroOn; LS.set('treesh_gyro',state.gyroOn); if(state.gyroOn) gyRequest(); else gyStill(); if(!state.gyroOn||!gyNeedsPerm()) toast(state.gyroOn?'Motion tilt on':'Motion tilt off',state.gyroOn?'Tilt your phone to see it':''); try{ renderView(); }catch(err){} });
 
-/* ---------- P9z: Now Playing lyric editor. Saves like Lyric Studio, undo / redo, revert a line, the selected lines or everything ---------- */
+/* ---------- P9z: Now Playing lyric editor. Saves like LyricFlow, undo / redo, revert a line, the selected lines or everything ---------- */
 let _le=null;
 function leRaw(l){ return l?(lyMd(l)?l.md:(l.text||'')):''; }
 function leSkip(l){ return !!(l&&(l.secOnly||!String(l.text||'').trim())); }
@@ -141,7 +141,7 @@ saveLyricEdits=function(s){ if(!s) return; if(!_le||_le.id!==s.id){ leClose(); r
   applyLyricEdits(); refreshLyricsRegion(); try{ renderView(); renderMini(); }catch(e){} };
 const _lsSave9z=lsSave; lsSave=function(){ const s=state.ls&&SONG_BY_ID[state.ls.songId]; if(s&&!s._ly0&&!(state.lyricEdits||{})[s.id]) s._ly0=s.lyrics; return _lsSave9z.apply(this,arguments); };
 
-/* ---------- P9z: Lyric Studio preview on phones looks like the Now Playing card (same as desktop) ---------- */
+/* ---------- P9z: LyricFlow preview on phones looks like the Now Playing card (same as desktop) ---------- */
 const _lsPv9z=lsPreviewHtml; lsPreviewHtml=function(){ const h=_lsPv9z.apply(this,arguments); if(window.innerWidth>=1024) return h;
   return lsNpPrevHtml(h).replace('class="lsx-prev lsnp dark-surface"','class="lsx-prev lsnp lsnp-pv dark-surface"').replace('id="ls-prev-body" ','')
     .replace('<div class="lsnp-seek"><span id="lsnp-fill"></span></div>','<div class="lsnp-hit" data-lsnp-seek data-testid="ls-pv-seek"><div class="lsnp-seek"><span id="lsnp-fill"></span></div></div>')

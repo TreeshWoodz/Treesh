@@ -1,4 +1,4 @@
-/* ---------- P9n: Image Studio, free crop. Drag any corner or edge, or use the ratio slider ---------- */
+/* ---------- P9n: Photocap, free crop. Drag any corner or edge, or use the ratio slider ---------- */
 const PS_RATIOS=[['orig','Original',0],['free','Free',-1],['1:1','Square',1],['4:5','4:5',.8],['3:4','3:4',.75],['16:9','16:9',16/9],['9:16','9:16',9/16],['3:1','Banner',3]];
 function psLocked(){ const o=(_cv&&_cv.opts)||{}; return !!(o.round||o.lockAspect); }
 function psImgA(){ const i=_cvImg; return i?((i.naturalWidth||1)/(i.naturalHeight||1)):1; }

@@ -32,16 +32,16 @@ document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.tar
 function mkdEnable(quiet){ if(_mkd.on||!state.mkEdit||!mkCurPage()) return; _mkd.on=true; _mkd.key=null; _mkd.el=null; _mkd.page=mkCurPage(); document.documentElement.classList.add('mkd-on'); mkdPanel(); mkdBoxLoop(); mkRenderChrome(); if(!quiet) toast('Tap anything to edit it','Text, buttons, pictures, any box'); }
 const _mkSE9j=mkSetEdit; mkSetEdit=function(on){ const r=_mkSE9j.apply(this,arguments); if(on) setTimeout(()=>{ try{ if(!state.mkSheet) mkdEnable(true); }catch(e){} },60); return r; };
 
-/* ---------- P9j: Lyric Studio, no Preview tab on desktop (the preview is already on the right) ---------- */
+/* ---------- P9j: LyricFlow, no Preview tab on desktop (the preview is already on the right) ---------- */
 const _lsRB9j=lsRenderBody; lsRenderBody=function(){ const ls=state.ls; if(ls&&ls.mode==='preview'&&window.innerWidth>=1024){ ls.mode=ls.hasAudio?'sync':'write'; try{ lsSyncTabs(); }catch(e){} } return _lsRB9j.apply(this,arguments); };
 window.addEventListener('resize',()=>{ const ls=state.ls; if(state.lsOpen&&ls&&ls.mode==='preview'&&window.innerWidth>=1024){ try{ lsRenderBody(); lsSyncTabs(); }catch(e){} } });
 
-/* ---------- P9j: Image Studio from the Studios page ---------- */
+/* ---------- P9j: Photocap from the Studios page ---------- */
 function openImageStudioFree(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
   inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return; if(!/^image\//.test(f.type||'')){ toast('Pick an image','PNG, JPG, WebP or GIF'); return; } if(f.size>25*1024*1024){ toast('Image too large','Use one under 25 MB'); return; }
     const u=URL.createObjectURL(f), base=(f.name||'image').replace(/\.[^.]+$/,'').slice(0,60)||'image'; const im=new Image();
     im.onload=()=>{ const A=(im.naturalWidth/im.naturalHeight)||1, W=Math.min(2400,im.naturalWidth||1200), H=Math.round(W/A);
-      openCoverStudio(u,base,true,{aspect:A,out:[W,H],q:.92,title:'Image Studio',onApply:d=>{ const a=document.createElement('a'); a.href=d; a.download=base+'-treesh.jpg'; document.body.appendChild(a); a.click(); a.remove(); toast('Image saved','Find it in your downloads'); }}); };
+      openCoverStudio(u,base,true,{aspect:A,out:[W,H],q:.92,title:'Photocap',onApply:d=>{ const a=document.createElement('a'); a.href=d; a.download=base+'-treesh.jpg'; document.body.appendChild(a); a.click(); a.remove(); toast('Image saved','Find it in your downloads'); }}); };
     im.onerror=()=>{ try{ URL.revokeObjectURL(u); }catch(e){} toast('Couldn\u2019t open that image','Try a different file'); }; im.src=u; };
   inp.click(); }
 document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.target.closest('[data-act="image-studio-open"]'); if(t&&!state.mkEdit) openImageStudioFree(); });

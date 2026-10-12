@@ -63,7 +63,7 @@ document.addEventListener('input',e=>{ const t=e.target; if(!t||!t.dataset||!t.d
   sbxLive(); });
 document.addEventListener('change',e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.sbx&&t.type==='color') spEdPaint(); });
 
-/* ---------- P9x: Image Studio Text tab uses the same sticker tiles as the Stickers tab ---------- */
+/* ---------- P9x: Photocap Text tab uses the same sticker tiles as the Stickers tab ---------- */
 function psStickerTiles(pre){ return `<p class="ps-sub">Treesh pack</p><div class="ps-pack">${MK_PACK.map(x=>`<button type="button" data-ps-pack="${x.id}" data-testid="${pre}-pack-${x.id}" aria-label="Add ${esc(x.name)}"><img src="${mkPackSrc(x.id)}" alt=""></button>`).join('')}</div><p class="ps-sub">Emoji</p><div class="ps-emoji">${BG_EMOJIS.map((e,i)=>`<button type="button" data-ps-emoji="${e}" data-testid="${pre}-emoji-${i}" aria-label="Add ${e} sticker">${e}</button>`).join('')}</div>`; }
 const _cvRLP9x=cvRenderLayerPanel; cvRenderLayerPanel=function(){ const r=_cvRLP9x.apply(this,arguments);
   try{ const lp=lhPanel(); if(lp&&_cv&&_lh===_cv&&lp.closest('#modal2 .ps-root')){ const em=lp.querySelector('.st-emojis'); if(em){ const lab=em.previousElementSibling; const w=document.createElement('div'); w.className='ps-txt-stk'; w.setAttribute('data-testid','ps-text-stickers'); w.innerHTML=psStickerTiles('ps-text'); em.replaceWith(w); if(lab&&lab.classList.contains('st-sub')) lab.remove(); } } }catch(e){} return r; };

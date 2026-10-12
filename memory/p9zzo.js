@@ -25,6 +25,9 @@ const SGP_GFAM={rap:['hiphop'],hiphop:['hiphop'],trap:['hiphop'],drill:['hiphop'
 const SGP_MSYN={romanic:'romantic',thrilled:'thrill',thrilling:'thrill',club:'party',hype:'party',sexy:'sensual',depressed:'sad',motivation:'inspirational',motivational:'inspirational'};
 const SGP_MFAM={party:'up',fun:'up',happy:'up',dance:'up',playful:'up',thrill:'up',shock:'up',sensual:'soft',romantic:'soft',peaceful:'soft',angelic:'soft',hopeful:'soft',inspirational:'soft',sad:'dark',diss:'dark',savage:'dark',monster:'dark',trap:'dark'};
 const _sgpWhy={};
+/* mood is stored as "party,fun" or "happy party shock": one tag per word, typos fixed, no duplicates */
+const MOOD_FIX={romanic:'romantic'};
+function moodTags(s){ const seen=new Set(); return String((s&&typeof s==='object'?s.mood:s)||'').split(/[\s,;\/|&+]+/).map(w=>w.trim().toLowerCase()).filter(Boolean).map(w=>MOOD_FIX[w]||w).filter(w=>!seen.has(w)&&seen.add(w)); }
 function sgpGenre(s){ const k=normKey(s.genre); return {k,fam:SGP_GFAM[k]||(k?[k]:[])}; }
 function sgpMoods(s){ return [...new Set(String(s.mood||'').toLowerCase().split(/[^a-z]+/).filter(Boolean).map(w=>SGP_MSYN[w]||w))]; }
 /* same genre family first (rap / hip hop / trap / hip pop are one family), ranked by shared mood tags, then era */
@@ -42,7 +45,7 @@ function sgpLink(name,id){ const a=id?ARTIST_BY_ID[id]:(ARTISTS||[]).find(x=>nor
 function sgpFeat(s){ return String(s.featuring||'').split(/\s*[,&\/+\u00d7]\s*|\s+(?:feat\.?|ft\.?|featuring|with|and|x)\s+/i).map(x=>x.trim()).filter(Boolean); }
 
 function sgpHero(s,y,dur){ const cur=curSong(), on=!!(cur&&cur.id===s.id), playing=on&&state.isPlaying, fav=isFav(s.id), feat=sgpFeat(s), yr=sgpYear(s);
-  const meta=[yr,s.genre,s.mood,dur?fmt(dur):''].filter(Boolean).map(v=>`<span>${esc(v)}</span>`).join('');
+  const meta=[yr,s.genre,...moodTags(s),dur?fmt(dur):''].filter(Boolean).map(v=>`<span>${esc(v)}</span>`).join('');
   const badges=`${s.treeshChoice?`<span class="sgp-badge is-pick" data-testid="song-page-exclusive-badge"><i data-lucide="sparkles"></i>${s.exclusive?'Exclusive':'Treesh\u2019s Pick'}</span>`:''}${s.explicit?`<span class="sgp-badge is-e" data-testid="song-page-explicit-badge" title="Explicit">E</span>`:''}${s._user?`<span class="sgp-badge">Your upload</span>`:''}`;
   return `<section class="sgp-hero dark-surface${on?' is-on':''}${playing?' is-playing':''}" data-testid="song-page-hero">
     <div class="sgp-hero-bg" aria-hidden="true">${img(s.coverArt,'sgp-hero-fill','alt=""')}</div><span class="sgp-hero-shade" aria-hidden="true"></span>
@@ -91,7 +94,7 @@ function sgpYouHtml(s,y){ const st=(v,l,tid,ic)=>`<div class="sgp-ys" data-testi
     <div class="sgp-ylist">${y.last?`<p data-testid="user-last-played"><i data-lucide="history"></i>Last played <b>${esc(sgpAgo(y.last))}</b></p>`:''}${y.first?`<p data-testid="user-first-played"><i data-lucide="sparkles"></i>First heard <b>${esc(sgpAgo(y.first))}</b></p>`:''}<p data-testid="user-liked-state"><i data-lucide="heart"></i>${y.liked?'In your <b>Liked</b> songs':'Not liked yet'}</p></div></section>`; }
 
 function sgpCreditsHtml(s){ const row=(l,v,tid,ic)=>v?`<div class="sgp-cr" data-testid="${tid}"><span><i data-lucide="${ic}"></i>${l}</span><b>${esc(v)}</b></div>`:'';
-  const chips=[s.genre,s.mood].filter(Boolean); const about=s.desc||s.bio;
+  const chips=[s.genre,...moodTags(s)].filter(Boolean); const about=s.desc||s.bio;
   const rows=row('Album',s.album,'credits-album-link','disc-3')+row('Released',s.creationDate,'credits-release-date','calendar')+row('Label',s.label,'credits-record-label','building-2')+row('Written by',s.writtenBy,'credits-written-by','pen-line')+row('Produced by',s.producer,'credits-producer','sliders-horizontal')+row('Mixed by',s.mixer,'credits-mixer','audio-waveform')+row('Video by',s.videographer,'credits-video-by','video')+row('Featuring',s.featuring,'credits-featuring','users');
   return `<section class="sgp-card sgp-credits" data-testid="song-credits-container"><div class="sgp-ch"><span class="sgp-ci is-cyan"><i data-lucide="info"></i></span><div><h2>Credits &amp; info</h2><small>Who made it happen</small></div></div>
     ${about?`<p class="sgp-about" data-testid="song-page-about">${esc(about)}</p>`:''}
@@ -101,7 +104,7 @@ function sgpCreditsHtml(s){ const row=(l,v,tid,ic)=>v?`<div class="sgp-cr" data-
 
 function sgpRow(title,sub,list,tid,ctx,why){ if(!list.length) return '';
   return `<section class="sgp-rel" data-testid="${tid}"><div class="sgp-rh"><h2 class="ar-h">${title}</h2>${sub?`<small>${sub}</small>`:''}</div><div class="sgp-scroll no-scrollbar" data-ctx="${ctx}">${list.slice(0,14).map((x,i)=>{ const on=curSong()&&curSong().id===x.id&&state.isPlaying;
-    return `<div class="sgp-tile" style="--i:${i}"><button type="button" data-act="song-open" data-id="${x.id}" data-testid="${tid}-open-${x.id}" class="sgp-tile-art press" aria-label="Open ${esc(x.title)}">${img(x.coverArt,'h-full w-full object-cover',`alt=""`)}</button><button type="button" data-act="play" data-id="${x.id}" data-testid="${tid}-play-${x.id}" class="sgp-tile-pp press" aria-label="Play ${esc(x.title)}"><i data-lucide="${on?'pause':'play'}" class="fill-current"></i></button><button type="button" data-act="song-open" data-id="${x.id}" class="sgp-tile-t"><b class="clamp-1">${esc(x.title)}</b><small class="clamp-1">${esc(x.artist)}</small>${why&&why[x.id]?`<span class="sgp-why" data-testid="${tid}-why-${x.id}">${esc(why[x.id])}</span>`:''}</button></div>`; }).join('')}</div></section>`; }
+    return `<div class="sgp-tile" style="--i:${i}"><div class="sgp-tile-media"><button type="button" data-act="song-open" data-id="${x.id}" data-testid="${tid}-open-${x.id}" class="sgp-tile-art press" aria-label="Open ${esc(x.title)}">${img(x.coverArt,'h-full w-full object-cover',`alt=""`)}</button><button type="button" data-act="play" data-id="${x.id}" data-testid="${tid}-play-${x.id}" class="sgp-tile-pp press" aria-label="Play ${esc(x.title)}"><i data-lucide="${on?'pause':'play'}" class="fill-current"></i></button></div><button type="button" data-act="song-open" data-id="${x.id}" class="sgp-tile-t"><b class="clamp-1">${esc(x.title)}</b><small class="clamp-1">${esc(x.artist)}</small>${why&&why[x.id]?`<span class="sgp-why" data-testid="${tid}-why-${x.id}">${esc(why[x.id])}</span>`:''}</button></div>`; }).join('')}</div></section>`; }
 
 function viewSongPage(){ const s=SONG_BY_ID[state.param];
   if(!s) return `<div class="sgp" data-testid="song-page-root"><button data-act="back" data-testid="song-page-back-button" class="sgp-back press"><i data-lucide="arrow-left"></i>Back</button><div class="sgp-card sgp-missing" data-testid="song-page-missing"><i data-lucide="music-2"></i><h2>Song not found</h2><p>It may have been removed or renamed.</p><button data-act="nav-view" data-view="library" class="ar-btn primary press">Go home</button></div></div>`;
@@ -113,7 +116,7 @@ function viewSongPage(){ const s=SONG_BY_ID[state.param];
     ${sgpHero(s,y,dur)}
     <div class="sgp-grid"><div class="sgp-col">${sgpLyrics(s)}${sgpFactsHtml(s,dur)}</div><div class="sgp-col">${sgpYouHtml(s,y)}${sgpCreditsHtml(s)}</div></div>
     ${sgpRow('More from '+esc(s.artist),more.length+' song'+(more.length!==1?'s':''),more,'more-from-artist-row','artist:'+((s.artistIds||[])[0]||''))}
-    ${sgpRow('Similar vibe',[s.genre,sgpMoods(s).join(', ')].filter(Boolean).map(esc).join(' \u00b7 '),sim,'similar-songs-row','sgp-sim:'+s.id,_sgpWhy[s.id])}
+    ${sgpRow('Similar vibe',[s.genre,...moodTags(s)].filter(Boolean).map(esc).join(' \u00b7 '),sim,'similar-songs-row','sgp-sim:'+s.id,_sgpWhy[s.id])}
   </div>`; }
 function sgpTint(p){ const r=document.querySelector('#view .sgp'); if(!r||!p||!p[0]) return; r.style.setProperty('--sg1',rgb(p[0])); r.style.setProperty('--sg2',rgb(p[1]||p[0])); }
 

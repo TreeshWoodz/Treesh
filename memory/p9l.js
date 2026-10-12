@@ -70,14 +70,14 @@ const _pst9l=profileStatsHtml; profileStatsHtml=function(){ const h=_pst9l.apply
 const TS_TOPICS=[
   {id:'play',ic:'play-circle',l:'Playback & sound',sym:['A song won\u2019t play','No sound','Skips or stutters','Stops in the background','Lyrics out of sync','Equalizer or volume'],tips:['Check your phone isn\u2019t on silent and the Treesh volume is up.','Turn off Low Power Mode, then play again.','Settings \u2192 Audio & Playback \u2192 turn the equalizer off and on.']},
   {id:'music',ic:'disc-3',l:'My music & uploads',sym:['Upload fails','A link won\u2019t add','Cover art missing','Songs disappeared','Storage full','Editing a track'],tips:['Songs must be audio files under 30 MB.','Links need to point straight to the audio file (Dropbox or GitHub links work).','Custom music lives on this device. Clearing browser data removes it.']},
-  {id:'lyrics',ic:'quote',l:'Lyrics & Lyric Studio',sym:['Can\u2019t save lyrics','Timing is off','Formatting looks wrong','Find lyrics online fails','Lyric cards'],tips:['Tap Save before closing Lyric Studio.','In Sync, tap a timestamp to jump there and re-set it.']},
+  {id:'lyrics',ic:'quote',l:'Lyrics & LyricFlow',sym:['Can\u2019t save lyrics','Timing is off','Formatting looks wrong','Find lyrics online fails','Lyric cards'],tips:['Tap Save before closing LyricFlow.','In Sync, tap a timestamp to jump there and re-set it.']},
   {id:'acct',ic:'user-round',l:'Account & sync',sym:['Can\u2019t sign in','No confirmation email','Changes not syncing','Change email or password','Delete my account'],tips:['Check your spam folder for Treesh emails.','Settings \u2192 Account & Data \u2192 Sync now.','Use Forgot password on the sign in screen.']},
   {id:'social',ic:'users-round',l:'Profile & friends',sym:['Can\u2019t find someone','Friend request stuck','Privacy settings','Report a profile','Profile looks wrong'],tips:['Search Users by their @username.','Private profiles show after they accept your friend request.']},
   {id:'games',ic:'gamepad-2',l:'Games & Things',sym:['Game won\u2019t start','Score didn\u2019t save','Hoop or a Thing won\u2019t open','Starlites or badges'],tips:['Starlites update after each game ends.','Allow pop-ups so Things can open in their own window.']},
   {id:'look',ic:'wand-sparkles',l:'Magic Markup & themes',sym:['Edits didn\u2019t save','Page looks broken','Theme or accent','Widgets'],tips:['In Magic Markup, use Reset on an element to undo it.','Settings \u2192 Appearance to switch themes.']},
   {id:'voice',ic:'mic',l:'Voice assistant',sym:['It can\u2019t hear me','Wrong command','Spoken replies'],tips:['Allow microphone access for Treesh in your browser settings.','Tap the keyboard to type a command instead.']},
   {id:'other',ic:'circle-help',l:'Something else',sym:[],tips:[]}];
-const TS_FAV=['Now Playing','Lyrics & karaoke','Lyric Studio','Instrum beats','Games','Magic Markup','Image Studio','Voice assistant','Things','Profiles & friends'];
+const TS_FAV=['Now Playing','Lyrics & karaoke','LyricFlow','Instrum beats','Games','Magic Markup','Photocap','Voice assistant','Things','Profiles & friends'];
 const TS_USE=['Listening','Karaoke','Writing lyrics','Making beats','Games','Customizing','Things'];
 let _ts=null;
 function tsEmail(){ const u=sbUser(); return (u&&u.email)||''; }
