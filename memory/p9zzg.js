@@ -1,21 +1,29 @@
 /* ---------- P9zzg: "new version" banner (version.json, written by the build), Treesh news in the notification center, Moderation → Announcements ---------- */
 const TREESH_VER='__TREESH_VER__';
-const _ver={next:null,at:0,busy:false};
+const _ver={next:null,at:0,busy:false,tag:null};
+// version.json alone isn't trusted: if the page file itself hasn't changed since this tab loaded, a mismatch just means version.json is out of sync
+async function verTag(){ try{ const r=await fetch(location.pathname+'?vt='+Date.now(),{method:'HEAD',cache:'no-store'}); return r.ok?(r.headers.get('etag')||r.headers.get('last-modified')||''):''; }catch(e){ return ''; } }
+function verSkip(){ try{ return localStorage.getItem('treesh_ver_skip')||''; }catch(e){ return ''; } }
 async function verCheck(force){ if(/^__/.test(TREESH_VER)||_ver.busy||navigator.onLine===false) return; if(!force&&Date.now()-_ver.at<6e4) return; _ver.busy=true; _ver.at=Date.now();
-  try{ const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); if(!j||!j.v||j.v===TREESH_VER) return; _ver.next=j; verShow(); }catch(e){} finally{ _ver.busy=false; } }
+  try{ if(_ver.tag==null) _ver.tag=await _ver.tag0;
+    const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); if(!j||!j.v||j.v===TREESH_VER||j.v===verSkip()) return;
+    if(_ver.tag){ const now=await verTag(); if(now&&now===_ver.tag) return; }
+    _ver.next=j; verShow(); }catch(e){} finally{ _ver.busy=false; } }
 function verShow(){ const j=_ver.next; if(!j) return; let later=''; try{ later=sessionStorage.getItem('treesh_ver_later')||''; }catch(e){} if(later===j.v) return;
   let el=document.getElementById('vb-root'); if(el&&el.dataset.v===j.v) return; if(el) el.remove();
   el=document.createElement('div'); el.id='vb-root'; el.className='vb is-in'; el.dataset.v=j.v; el.dataset.testid='update-banner'; el.setAttribute('role','status');
-  el.innerHTML=`<span class="vb-ic"><i data-lucide="sparkles"></i></span><span class="vb-tx"><b data-testid="update-banner-title">A new version of Treesh is ready</b>${j.notes?`<small data-testid="update-banner-notes">${esc(String(j.notes).slice(0,140))}</small>`:''}</span><button type="button" data-act="vb-refresh" class="vb-go press" data-testid="update-banner-refresh"><i data-lucide="refresh-cw"></i>Refresh</button><button type="button" data-act="vb-later" class="vb-x press" aria-label="Later" title="Later" data-testid="update-banner-dismiss"><i data-lucide="x"></i></button>`;
+  el.innerHTML=`<span class="vb-ic"><img src="icons/icon-192.png" alt="" width="38" height="38" decoding="async" data-testid="update-banner-logo"></span><span class="vb-tx"><b data-testid="update-banner-title">A new version of Treesh is ready</b>${j.notes?`<small data-testid="update-banner-notes">${esc(String(j.notes).slice(0,140))}</small>`:''}</span><button type="button" data-act="vb-refresh" class="vb-go press" data-testid="update-banner-refresh"><i data-lucide="refresh-cw"></i>Refresh</button><button type="button" data-act="vb-later" class="vb-x press" aria-label="Later" title="Later" data-testid="update-banner-dismiss"><i data-lucide="x"></i></button>`;
   document.body.appendChild(el); icons(); requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('is-in'))); }
 function verLater(){ const el=document.getElementById('vb-root'); try{ sessionStorage.setItem('treesh_ver_later',(_ver.next&&_ver.next.v)||''); }catch(e){} if(el){ el.classList.add('is-out'); setTimeout(()=>el.remove(),320); } }
 function verGo(){ const q=new URLSearchParams(location.search); q.set('v',(_ver.next&&_ver.next.v)||Date.now().toString(36)); try{ resSave(true); }catch(e){} location.replace(location.pathname+'?'+q+location.hash); }
-function verBoot(){ try{ const q=new URLSearchParams(location.search), v=q.get('v'); if(v==null) return; q.delete('v'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
-  if(v===TREESH_VER) setTimeout(()=>toast('Treesh is up to date','You\u2019re on the newest version'),1800); }catch(e){} }
+function verBoot(){ _ver.tag0=verTag(); try{ const q=new URLSearchParams(location.search), v=q.get('v'); if(v==null) return; q.delete('v'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash);
+  if(v===TREESH_VER) setTimeout(()=>toast('Treesh is up to date','You\u2019re on the newest version'),1800);
+  else if(!/^__/.test(TREESH_VER)) try{ localStorage.setItem('treesh_ver_skip',v); }catch(e){} }catch(e){} }
 
 /* ---- Treesh news + update alerts (announcements table, read through treesh_news) ---- */
 NT_KIND.news=['megaphone','is-staff','Treesh news','Announcements from the Treesh team']; NT_KIND.update=['sparkles','is-ok','App updates','When a new version of Treesh is live'];
 NT_ON.push('news');
+const _nav9zzg=ntAvHtml; ntAvHtml=function(it,cls){ if(it&&!it.actor&&(it.kind==='update'||it.kind==='news')) return `<span class="nt-av is-sys is-logo ${cls||''}"><img src="icons/icon-192.png" alt="Treesh" draggable="false"></span>`; return _nav9zzg.apply(this,arguments); };
 const _nw={busy:false,at:0,off:false};
 async function newsFetch(force){ if(typeof sb==='undefined'||!sb||_nw.off||_nw.busy||navigator.onLine===false) return; if(!force&&Date.now()-_nw.at<3e5) return; _nw.busy=true; _nw.at=Date.now();
   try{ const last=LS.get('treesh_news_last',null), {data,error}=await sb.rpc('treesh_news',{after_id:+last||0});

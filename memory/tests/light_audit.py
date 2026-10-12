@@ -47,7 +47,7 @@ S = [  # (name, js, root selector or None=auto, needs) needs: 'admin' | 'out' (s
 async def main():
     SAT = '--sat' in sys.argv; av = [a for a in sys.argv if a != '--sat']
     vp = av[1] if len(av) > 1 else 'm'; flt = av[2] if len(av) > 2 else ''
-    out = f'/tmp/{"sat" if SAT else "light"}_audit/{vp}'; os.makedirs(out, exist_ok=True); results = {}
+    out = f'/app/.audit/{"sat" if SAT else "light"}_audit/{vp}'; os.makedirs(out, exist_ok=True); results = {}
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path=EXE)
         for need in ['', 'admin', 'out']:

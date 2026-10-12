@@ -14,7 +14,7 @@ base_css = base_css[base_css.index('>') + 1:]
 SOURCES = [('base', base_css)] + [(f, open(M + f, encoding='utf-8').read()) for f in CSS_FILES]
 GROUPS = json.load(open(M + 'light_classes.json'))
 ONLY = ['um', 'sx', 'adm', 'zh', 'nps', 'np', 'modal', 'bd', 'pf']
-SKIP_SEL = re.compile(r'\.a-[a-z]|\.np9-art|\.vx-blob|\.nps-prev|\.st-frame|\.st-stage|\.lsnp|\.np-art|\.pm-bd|\.pm-panel|\.gl-modal|\.glass-strong')
+SKIP_SEL = re.compile(r'\.a-[a-z]|\.np9-art(?![\w-])|\.vx-blob|\.nps-prev|\.st-frame|\.st-stage|\.lsnp|\.np-art(?![\w-])|\.pm-bd|\.pm-panel|\.gl-modal|\.glass-strong')
 ROOT_IDS = {g: GROUPS[g]['root'] for g in ONLY}
 # profiles with a custom photo/colour background stay dark (their panel keeps .dark-surface), so only theme-background profiles go light
 SCOPE = {**ROOT_IDS, 'sx': '#sx-root:not(:has(> .dark-surface))', 'pf': '#profile-panel:not(.dark-surface)'}

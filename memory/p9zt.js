@@ -24,14 +24,3 @@ addEventListener('pagehide',()=>{ if(document.getElementById('voice-ov')) voiceC
 /* zodiac: once it has slid in, a drag that snaps back never replays the entrance */
 const _zhO9zt=zhOpen; zhOpen=function(){ const r=_zhO9zt.apply(this,arguments); const root=document.getElementById('zh-root'), sh=root&&root.querySelector('.zh-sheet');
   if(sh){ const done=()=>{ if(state.zhOpen&&root.firstChild) root.classList.add('is-still'); }; sh.addEventListener('animationend',e=>{ if(e.target===sh) done(); },{once:true}); setTimeout(done,700); } return r; };
-
-/* profile on phones and tablets: between the top bar and the nav bar, both stay usable */
-function pfFitBars(){ const de=document.documentElement; if(innerWidth>=1024){ ['--pf-bt','--pf-bb'].forEach(k=>de.style.removeProperty(k)); return; }
-  const hd=document.querySelector('#app header'), nv=document.getElementById('mobile-nav'), hb=hd&&hd.getBoundingClientRect(), nb=nv&&nv.getBoundingClientRect();
-  const top=hb&&hb.height&&hb.bottom>0?Math.round(hb.bottom):0, bot=nb&&nb.height&&getComputedStyle(nv).display!=='none'?Math.max(0,Math.round(innerHeight-nb.top)):0;
-  de.style.setProperty('--pf-bt',top+'px'); de.style.setProperty('--pf-bb',bot+'px'); }
-const _rPf9zt=renderProfile; renderProfile=function(){ if(state.profileOpen){ pfFitBars(); document.documentElement.classList.add('pf-open'); } return _rPf9zt.apply(this,arguments); };
-const _cPf9zt=closeProfile; closeProfile=function(){ const r=_cPf9zt.apply(this,arguments); setTimeout(()=>{ if(!state.profileOpen) document.documentElement.classList.remove('pf-open'); },320); return r; };
-addEventListener('resize',()=>{ if(state.profileOpen) pfFitBars(); },{passive:true});
-document.addEventListener('click',e=>{ if(!state.profileOpen||innerWidth>=1024) return; const t=e.target&&e.target.closest&&e.target.closest('#mobile-nav [data-act], #app header [data-act]'); if(!t) return;
-  if(t.dataset.act==='open-profile'){ e.preventDefault(); e.stopImmediatePropagation(); closeProfile(); return; } closeProfile(); },true);
