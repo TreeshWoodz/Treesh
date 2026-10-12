@@ -1,0 +1,58 @@
+{
+  "summary": "Comprehensive frontend testing of the Treesh M.A.D. lyrics sync fixes (stamp accuracy + bracket-tag skipping) and iframe brand hiding. All requested behaviors pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "lyrics_sync": {
+      "initial_label": "Stamp 1 · Line A (correct, counts only non-tag lines)",
+      "initial_cur_row": "Line A (non-header)",
+      "stamp_1": "Line A @ 00:02.39 → label becomes 'Stamp 2 · Line B' (skipped [Hook])",
+      "stamp_2": "Line B @ 00:03.60 → label becomes 'Stamp 3 · [Hook] Line C' ([Hook] Line C treated as lyric, NOT skipped)",
+      "stamp_3": "[Hook] Line C @ 00:04.81 → label becomes 'Stamp 4 · Line D' (skipped [Verse 2: Chelly])",
+      "stamp_4": "Line D @ 00:06.04 → label becomes 'All lines stamped · tap a line to redo'",
+      "extra_stamp": "Toast 'Every line is stamped...' shown, Line D time UNCHANGED",
+      "no_play_stamp": "Toast 'Play the track first...' shown, nothing stamped",
+      "space_single": "Pressed exactly once after Play (focused=lyrics-play-btn) → stamped exactly one line, play button got blurred, audio did NOT pause (time progressed 03.30→04.63)",
+      "space_hold": "keydown repeat → only one additional stamp (not a burst)",
+      "undo": "Restores previous time, cur, last correctly",
+      "nudge_minus": "Line C 04.81 → 04.71 (only last stamped line)",
+      "shift_all_plus": "All stamped lines shifted +0.10 (04.81→04.81 due to prior nudge, Line A 02.39→02.49, Line B 03.60→03.70)",
+      "monotonic_times": "Non-header line times non-decreasing",
+      "generated_code": "Tag lines (<p>[Intro]</p>, <p>[Hook]</p>, <p>[Verse 2: Chelly]</p>) are plain <p>; stamped lyric lines have data-minutes; unstamped lyric line Line D has data-seconds=''",
+      "sync_stat": "Correctly tracks N/4 for non-header lines"
+    },
+    "iframe": {
+      "in_frame_class": true,
+      "brand_hidden_desktop_1920": true,
+      "brand_hidden_mobile_390": true,
+      "top_right_right_aligned_mobile": "right=376 of 390 viewport",
+      "top_level_brand_visible": true
+    },
+    "whats_new_modal": {
+      "shown_after_setting_old_build": true,
+      "settings_build_stamp": "Build 2026-10-12 17:40 · v5.5",
+      "settings_whats_new_btn_present": true
+    }
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "isHdr regex /^\\[.+\\]$/ correctly treats '[Hook] Line C' as a lyric and pure-tag lines as headers.",
+    "stamp() uses nextLine() which advances over header lines, guaranteeing tag lines are never stamped.",
+    "Space handler blurs the active button + uses !e.repeat to prevent burst stamping or play/pause toggling.",
+    "pointerdown handler is the sole stamp path for mouse; click handler ignores stamp when e.detail>0 to avoid double-firing, while keyboard-triggered click (detail==0) still works.",
+    "Cross-origin fetch errors for https://treesh.app/content/whatsnew.json and /content/blog fail silently in preview (expected per mocked setup) — no app-level impact."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "N/A (passcode not needed for lyrics flow; verified in prior iterations)",
+  "seed_data_creation": "None (used in-memory compose draft only)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Lyrics stamp/skip behavior, iframe brand hiding, and What's new modal all verified on build v5.5 (2026-10-12 17:40). To replay: fill Compose MP3=https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3, lyrics textarea with [Intro]/Line A/[Hook]/Line B/[Hook] Line C/[Verse 2: Chelly]/Line D, click lyrics-sync-tab, click lyrics-play-btn, then press Space or dispatch pointerdown on lyrics-stamp-btn.",
+  "rca of the issue": "N/A — fix verified."
+}
