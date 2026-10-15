@@ -1,6 +1,6 @@
 # Files to copy into treeshwoodz/treesh, branch main
 
-Made 2026-10-12 17:23 UTC, against main at `350c8f8 2026-10-11 23:36:09 -0400 Update lyrics: Cherry`.
+Made 2026-10-15 18:24 UTC, against main at `f5c5228 2026-10-15 11:14:45 -0400 Update song: Cherry — Marq C x Chelly Banqz`.
 Copy everything inside `to_main/` into the root of main, keeping the folders. Paths below are the same on main.
 
 ## New on main (0)

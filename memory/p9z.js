@@ -77,7 +77,7 @@ document.addEventListener('click',e=>{ const b=e.target&&e.target.closest&&e.tar
 
 /* ---------- P9z: Now Playing lyric editor. Saves like LyricFlow, undo / redo, revert a line, the selected lines or everything ---------- */
 let _le=null;
-function leRaw(l){ return l?(lyMd(l)?l.md:(l.text||'')):''; }
+function leRaw(l){ return l?(l.text||''):''; }
 function leSkip(l){ return !!(l&&(l.secOnly||!String(l.text||'').trim())); }
 function leBase(s){ if(s._ly0) return s._ly0; if(!(state.lyricEdits||{})[s.id]) return s.lyrics||[]; return (s.lyrics||[]).map(l=>l.orig!=null?{t:l.t,text:String(l.orig),sec:l.sec}:l); }
 function leInit(s){ const cur=s.lyrics||[], base=leBase(s), same=base===cur, used=new Set();
@@ -131,10 +131,10 @@ document.addEventListener('keydown',e=>{ if(!_le||!state.lyricsEdit||e.isComposi
     const all=[...document.querySelectorAll('#np-lyrics-edit [data-li]')], nx=all[all.indexOf(t)+1]; if(nx){ nx.focus(); try{ const L=nx.value.length; nx.setSelectionRange(L,L); }catch(_){} } } });
 saveLyricEdits=function(s){ if(!s) return; if(!_le||_le.id!==s.id){ leClose(); return; } const E=_le;
   if(!s._ly0&&!(state.lyricEdits||{})[s.id]) s._ly0=s.lyrics;
-  const out=[]; E.rows.forEach(r=>{ const l=r.l; if(r.skip){ out.push(l); return; } const raw=String(r.raw||'').trim(), text=lsStripFmt(raw); if(!text) return;
-    const line={t:l.t, text, sec:l.sec}; if(l.explain) line.explain=l.explain; if(l.note!=null) line.note=l.note; if(raw!==text) line.md=raw; if(l.words&&l.words.length&&text===String(l.text||'')) line.words=l.words.slice(); out.push(line); });
+  const out=[]; E.rows.forEach(r=>{ const l=r.l; if(r.skip){ out.push(l); return; } const raw=String(r.raw||'').trim(), text=raw; if(!text) return;
+    const line={t:l.t, text, sec:l.sec}; if(l.explain) line.explain=l.explain; if(l.note!=null) line.note=l.note; if(text===String(l.text||'')){ if(l.md2) line.md2=l.md2; else if(l.md) line.md=l.md; } if(l.words&&l.words.length&&text===String(l.text||'')) line.words=l.words.slice(); out.push(line); });
   if(!out.some(l=>String(l.text||'').trim())){ toast('Nothing to save','Add at least one lyric line'); return; }
-  const base=E.base, same=out.length===base.length&&out.every((l,i)=>leRaw(l)===leRaw(base[i])&&l.t===base[i].t);
+  const base=E.base, same=out.length===base.length&&out.every((l,i)=>leRaw(l)===leRaw(base[i])&&l.t===base[i].t&&!l.md2&&!l.md);
   if(same&&s._ly0){ delete state.lyricEdits[s.id]; s.lyrics=s._ly0; } else { s.lyrics=out; state.lyricEdits[s.id]=out; }
   const ok=LS.set('treesh_lyric_edits',state.lyricEdits); state.lyricsEdit=false; _le=null; try{ _karIdx=-1; }catch(e){}
   toast(ok?(same?'Original lyrics restored':'Lyrics saved on this device'):'Saved for now, but storage is full', ok?s.title:'Free up space in Settings so lyrics persist after closing');

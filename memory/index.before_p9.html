@@ -109,25 +109,18 @@
     opacity:1; visibility:visible; transition:opacity .55s ease, visibility .55s ease; }
   #app-splash.splash-hide{ opacity:0; visibility:hidden; pointer-events:none; }
   #app-splash .splash-inner{ display:flex; flex-direction:column; align-items:center; gap:22px; transform:translateY(-3%); padding:24px; }
-  #app-splash .splash-ring{ position:relative; display:grid; place-items:center; width:96px; height:96px; }
-  #app-splash .splash-ring::before{ content:""; position:absolute; inset:0; border-radius:50%; border:2px solid rgba(147,40,255,0.18); }
-  #app-splash .splash-ring::after{ content:""; position:absolute; inset:0; border-radius:50%; border:2px solid transparent; border-top-color:#9328ff; animation:splashSpin 1s linear infinite; box-shadow:0 0 26px rgba(147,40,255,0.32); }
-  #app-splash .splash-eq{ display:flex; align-items:flex-end; gap:5px; height:40px; }
-  #app-splash .splash-eq span{ width:6px; height:14px; border-radius:6px; background:linear-gradient(180deg,#c39bff,#9328ff); box-shadow:0 0 14px rgba(147,40,255,0.55); animation:splashEq 1.05s ease-in-out infinite; }
-  #app-splash .splash-eq span:nth-child(1){ animation-delay:0s; }
-  #app-splash .splash-eq span:nth-child(2){ animation-delay:.15s; }
-  #app-splash .splash-eq span:nth-child(3){ animation-delay:.3s; }
-  #app-splash .splash-eq span:nth-child(4){ animation-delay:.45s; }
-  #app-splash .splash-eq span:nth-child(5){ animation-delay:.6s; }
-  #app-splash .splash-word{ font-family:'Special Gothic Expanded One','Manrope',sans-serif; font-size:32px; line-height:1; letter-spacing:.16em; color:#fff; text-transform:uppercase; }
+  #app-splash{ --sp-ac:#9328ff; }
+  #app-splash .splash-word{ position:relative; display:flex; gap:.04em; font-family:'Special Gothic Expanded One','Manrope',sans-serif; font-size:clamp(44px,12vw,84px); line-height:1; letter-spacing:.04em; text-transform:uppercase; filter:drop-shadow(0 0 calc(6px + var(--sp-g,0) * 22px) color-mix(in srgb,var(--sp-ac) calc(20% + var(--sp-g,0) * 45%),transparent)); }
+  #app-splash .sp-l{ position:relative; display:block; color:transparent; -webkit-text-stroke:1.4px color-mix(in srgb,var(--sp-ac) 42%,rgba(255,255,255,.18)); }
+  #app-splash .sp-f{ position:absolute; inset:0; color:transparent; -webkit-text-stroke:0; -webkit-background-clip:text; background-clip:text; background-repeat:no-repeat,repeat-x,no-repeat; background-color:transparent; }
+  #app-splash.sp-done .splash-word{ animation:spPulse .6s ease-out both; }
+  @keyframes spPulse{ 0%{ transform:scale(1); } 40%{ transform:scale(1.035); } 100%{ transform:scale(1); } }
   #app-splash .splash-sub{ font-family:'Manrope',system-ui,sans-serif; font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:rgba(255,255,255,0.4); }
   @keyframes splashSpin{ to{ transform:rotate(360deg); } }
   @keyframes settingFlash{ 0%,55%{ box-shadow:0 0 0 2px var(--treesh-purple), 0 0 36px var(--treesh-purple-soft); } 100%{ box-shadow:0 0 0 0 transparent; } }
   .setting-flash{ animation:settingFlash 2s ease-out; }
-  @keyframes splashEq{ 0%,100%{ height:12px; } 50%{ height:38px; } }
   @media (prefers-reduced-motion: reduce){
-    #app-splash .splash-ring::after{ animation:none; }
-    #app-splash .splash-eq span{ animation:none; height:26px; }
+    #app-splash.sp-done .splash-word{ animation:none; }
   }
 
   /* range sliders */
@@ -2631,11 +2624,32 @@ html.theme-light .um-panel{ background:rgba(12,10,20,.9); }
 <body class="min-h-[100dvh] overflow-x-hidden">
   <div id="app-splash" role="status" aria-live="polite" aria-label="Loading Treesh" data-testid="app-splash">
     <div class="splash-inner">
-      <div class="splash-ring"><div class="splash-eq"><span></span><span></span><span></span><span></span><span></span></div></div>
-      <div class="splash-word">Treesh</div>
+      <div class="splash-word" data-testid="splash-word" aria-hidden="true"><span class="sp-l">T<span class="sp-f">T</span></span><span class="sp-l">R<span class="sp-f">R</span></span><span class="sp-l">E<span class="sp-f">E</span></span><span class="sp-l">E<span class="sp-f">E</span></span><span class="sp-l">S<span class="sp-f">S</span></span><span class="sp-l">H<span class="sp-f">H</span></span></div>
       <div class="splash-sub">Welcome to the Woodz</div>
     </div>
   </div>
+  <script>
+  /* boot splash: TREESH fills with liquid accent colour as the app loads */
+  (function(){ var sp=document.getElementById('app-splash'); if(!sp) return; var ac='#9328ff', lt=false;
+    try{ var a=JSON.parse(localStorage.getItem('treesh_accent')||'null'); if(/^#[0-9a-f]{6}$/i.test(a||'')) ac=a; var th=JSON.parse(localStorage.getItem('treesh_theme')||'null'); lt=th==='light'||(th==='auto'&&window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches); }catch(e){}
+    if(lt) sp.classList.add('is-light'); sp.style.setProperty('--sp-ac',ac);
+    var mix=function(h,t){ var n=parseInt(h.slice(1),16), r=n>>16, g=n>>8&255, b=n&255, w=lt?0:255; return 'rgb('+Math.round(r+(w-r)*t)+','+Math.round(g+(w-g)*t)+','+Math.round(b+(w-b)*t)+')'; };
+    var hi=mix(ac,.55), wave=function(c,o){ return "url(\"data:image/svg+xml,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 24' preserveAspectRatio='none'><path d='M0 12 C20 2 40 2 60 12 S100 22 120 12 V24 H0Z' fill='"+c+"' fill-opacity='"+o+"'/></svg>")+"\")"; };
+    var W1=wave(ac,1), W2=wave(hi,.55), F=[].slice.call(sp.querySelectorAll('.sp-f')), N=F.length, t0=performance.now(), p=0, done=null, dp=0, dt0=0, raf=0;
+    var rm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+    F.forEach(function(f){ f.style.backgroundImage='linear-gradient(105deg,transparent 40%,rgba(255,255,255,.55) 50%,transparent 60%),'+W2+','+W1+',linear-gradient('+hi+','+ac+')'; f.style.backgroundRepeat='no-repeat,repeat-x,repeat-x,no-repeat'; });
+    function frame(now){ var t=(now-t0)/1000; if(done){ var k=Math.min(1,(now-dt0)/420); p=dp+(1-dp)*(1-Math.pow(1-k,3)); } else p=.9*(1-Math.exp(-t/1.5));
+      var sp2=.07, den=1-(N-1)*sp2;
+      F.forEach(function(f,i){ var v=Math.max(0,Math.min(1,(p-i*sp2)/den)), y=(1-v)*1.08, x=rm?0:(t*46+i*19), x2=rm?0:(-t*31+i*11), sh=rm?-200:((t*0.55+i*.08)%1.6)*160-60;
+        f.style.backgroundSize='60% 100%,1.3em .2em,1.1em .22em,100% '+(v*1.08)+'em';
+        f.style.backgroundPosition=sh+'% 0,'+x2+'px '+(y-.15)+'em,'+x+'px '+(y-.19)+'em,0 '+(y+.02)+'em'; });
+      sp.style.setProperty('--sp-g',p.toFixed(3));
+      if(done&&p>=.999){ sp.classList.add('sp-done'); var cb=done; done=function(){}; setTimeout(cb,260); return; }
+      raf=requestAnimationFrame(frame); }
+    raf=requestAnimationFrame(frame);
+    window.__splashDone=function(cb){ if(done) return; dp=p; dt0=performance.now(); done=cb||function(){}; };
+  })();
+  </script>
   <canvas id="stars" class="fixed inset-0 z-0 h-full w-full" aria-hidden="true"></canvas>
   <div id="app" class="relative z-10"></div>
   <div id="mini"></div>
@@ -2812,7 +2826,7 @@ function parseLyrics(doc){
   return { byKey, byTitle };
 }
 function attachLyrics(songs, lyr){
-  songs.forEach(s => { s.lyrics = lyr.byKey[normKey(s.title)+"|"+normKey(s.artist)] || lyr.byTitle[normKey(s.title)] || []; });
+  songs.forEach(s => { s.lyrics = lyr.byKey[normKey(s.title)+"|"+normKey(s.artist)] || lyr.byTitle[normKey(s.title)] || []; s._ly0 = s.lyrics; });
 }
 function indexCatalog(){
   SONG_BY_ID = Object.fromEntries(SONGS.map(s => [s.id, s]));
@@ -3376,7 +3390,7 @@ function brandFallback(img){ try{ img.style.display='none'; const p=img.parentEl
 
 /* ---------- fonts ---------- */
 const FONTS=[
-  {id:"figtree", name:"Figtree", stack:"'Figtree',sans-serif", g:"Figtree:wght@300..800"},
+  {id:"figtree", name:"Figtree", stack:"'Figtree',sans-serif", g:"Figtree:wght@300..900"},
   {id:"manrope", name:"Manrope", stack:"'Manrope',sans-serif", g:""},
   {id:"inter", name:"Inter", stack:"'Inter',sans-serif", g:"Inter:wght@300..800"},
   {id:"montserrat", name:"Montserrat", stack:"'Montserrat',sans-serif", g:"Montserrat:wght@300..800"},
@@ -6666,7 +6680,7 @@ function npLyricLineHtml(s,l,i){
     </button></div>`;
   }
   return `<div class="group/l" data-line-wrap="${i}"><div class="relative pr-11">
-    <button data-act="${act}" data-t="${l.t}" data-i="${i}" class="np-line select-text block w-full text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70${_da.cls?" l-duo":""}"${_da.style?` style="${_da.style}"`:""}>${esc(l.text)}${inds}</button>
+    <button data-act="${act}" data-t="${l.t}" data-i="${i}" class="np-line select-text block w-full text-left py-1.5 text-2xl font-bold tracking-tight sm:text-3xl leading-snug text-white/40 hover:text-white/70${_da.cls?" l-duo":""}"${_da.style?` style="${_da.style}"`:""}>${lyLineHtml(s,l,i)}${inds}</button>
     <button data-act="lyric-line-menu" data-i="${i}" data-testid="lyric-menu-${i}" aria-label="Line options" class="press absolute right-0 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-white/35 hover:bg-white/10 hover:text-white/80 opacity-100 sm:opacity-0 sm:group-hover/l:opacity-100 transition-opacity duration-200"><i data-lucide="ellipsis-vertical" style="width:18px;height:18px"></i></button>
   </div>${panel}</div>`;
 }
@@ -7421,10 +7435,11 @@ function lsBuildLyrics(){
   const out=[]; let curSec=null; let lastT=0; let pendingSec=null;
   lsExpandLoops(state.ls.items||[]).forEach(it=>{
     if(it.type==='section'){ curSec=lsStripFmt((it.text||'').trim())||null; pendingSec=curSec; return; }
-    const text=lsStripFmt((it.text||'').trim()); if(!text) return;
+    const md=(it.text||'').trim(), text=lsStripFmt(md); if(!text) return;
     let t=(it.t!=null)? it.t : lastT; // untimed lines inherit the previous time so they still display
     lastT=t; pendingSec=null;
     const line={ t:+t, text, sec:curSec };
+    if(typeof rtHasFmt==='function' && rtHasFmt(md)) line.md2=md;
     if(it.explain) line.explain=it.explain;
     if(it.words && it.words.length) line.words=it.words.slice();
     out.push(line);
@@ -7767,7 +7782,7 @@ function lsSyncHtml(){
     const lineStyle = curCol ? ` style="border-left:3px solid ${curCol}66"` : '';
     return `<div class="ls-line flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-2 py-1.5 ${it.t!=null?'done':''}" data-ls-i="${i}"${lineStyle}>
        <button data-act="ls-seek-line" data-i="${i}" class="ls-ts shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[12px] font-bold text-white/70 hover:bg-white/10" title="Tap to jump here">${it.t!=null?lsFmt(it.t):'\u2013\u2013:\u2013\u2013'}</button>
-       <input data-ls-text="${i}" value="${esc(it.text)}" class="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder-white/30" placeholder="(empty line)">
+       ${rtFieldHtml(i,it.text)}
        ${wc}
        <button data-act="ls-word-sync" data-i="${i}" aria-label="Sync words" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/10" title="Word-by-word timing"><i data-lucide="whole-word" style="width:15px;height:15px"></i></button>
        <button data-act="ls-line-set" data-i="${i}" aria-label="Set time" class="press grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"><i data-lucide="crosshair" style="width:15px;height:15px"></i></button>
@@ -7776,7 +7791,7 @@ function lsSyncHtml(){
   }).join("");
   const control=`<div class="shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
      <button data-act="ls-stamp" id="ls-set-btn" data-testid="ls-stamp" class="press flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--treesh-purple)] py-3.5 text-sm font-bold text-white glow-purple"><i data-lucide="crosshair" style="width:18px;height:18px"></i>Set time to current line <span class="ml-1 hidden rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold sm:inline-block">Space</span></button>
-     <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span id="ls-next-label" class="text-white/70"></span></span><span id="ls-progress-pill">${lsStampedCount()} / ${rows.length} timed</span></div>
+     <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-white/45"><span>Next: <span id="ls-next-label" class="text-white/70"></span></span><span id="ls-progress-pill">${lsStampedCount()} / ${rows.length} timed</span></div>${lsRevTsBtn()}
    </div>`;
   return `<div class="flex h-full flex-col py-3">
      <div id="ls-lines" class="ls-fade no-scrollbar min-h-0 flex-1 space-y-1.5 overflow-y-auto pb-3" style="animation-delay:60ms">${linesHtml||'<p class="py-10 text-center text-sm text-white/45">No lines yet. Switch to Write to add lyrics.</p>'}</div>
@@ -7976,7 +7991,7 @@ function lsExplainCurrentLine(){
    ============================================================ */
 function lsEditExplain(i){ const it=state.ls&&state.ls.items[i]; if(!it||it.type!=='line') return; const cur=it.explain||'';
   const inner=`<h3 class="mb-1 flex items-center gap-2 text-base font-bold"><i data-lucide="lightbulb" style="width:16px;height:16px" class="text-[color:var(--treesh-gold)]"></i>Explain this line</h3>
-   <p class="mb-3 clamp-2 text-xs text-white/55">\u201C${esc((it.text||'').slice(0,140))}\u201D</p>
+   <p class="mb-3 clamp-2 text-xs text-white/55">\u201C${esc(lsStripFmt(it.text||'').slice(0,140))}\u201D</p>
    <textarea id="ls-explain-input" data-testid="ls-explain-input" rows="4" placeholder="What does this line mean? Add context, a reference or a story\u2026" class="no-scrollbar w-full resize-none rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2.5 text-sm leading-relaxed text-white placeholder-white/30 outline-none focus:border-[color:var(--treesh-purple)]">${esc(cur)}</textarea>
    <div class="mt-3 flex items-center justify-between gap-2">${cur?`<button data-act="ls-explain-remove" data-i="${i}" class="press inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 hover:bg-white/10"><i data-lucide="trash-2" style="width:14px;height:14px"></i>Remove</button>`:'<span></span>'}<button data-act="ls-explain-save" data-i="${i}" data-testid="ls-explain-save" class="press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--treesh-purple)] px-5 py-2 text-sm font-semibold text-white glow-purple"><i data-lucide="check" style="width:15px;height:15px"></i>Save</button></div>`;
   $("#modal").innerHTML=modalWrap(inner,"ls-explain-modal"); icons(); setTimeout(()=>{ const ta=$("#ls-explain-input"); if(ta) ta.focus(); },40);
@@ -8013,7 +8028,7 @@ function lsKeydown(e){
 function lsOpenWordSync(i){
   const it=state.ls&&state.ls.items[i]; if(!it||it.type!=='line'){ toast("Not a lyric line"); return; }
   lsSyncTextInputs();
-  const words=(it.text||'').trim().split(/\s+/).filter(Boolean);
+  const words=lsStripFmt(it.text||'').trim().split(/\s+/).filter(Boolean);
   if(!words.length){ toast("Add some text to this line first"); return; }
   const existing=(it.words&&it.words.length===words.length)?it.words:null;
   state.lsw={ i, words: words.map((w,k)=>({text:w, t: existing?existing[k]:null})), wi:0 };
@@ -10228,7 +10243,7 @@ function iBpmStep(delta){ const S=state.instrum; if(!S) return; const p=S.projec
 
 /* branded boot splash: hide once the first real render is on screen (min display so it never flashes) */
 let __splashStart = (typeof window!=="undefined" && window.__splashStart) ? window.__splashStart : Date.now();
-function hideSplash(){ const s=document.getElementById("app-splash"); if(!s||s._hiding) return; s._hiding=true; const MIN=750; const wait=Math.max(0, MIN-(Date.now()-__splashStart)); setTimeout(()=>{ s.classList.add("splash-hide"); setTimeout(()=>{ try{ s.remove(); }catch(e){} }, 620); }, wait); }
+function hideSplash(){ const s=document.getElementById("app-splash"); if(!s||s._hiding) return; s._hiding=true; const MIN=500; const wait=Math.max(0, MIN-(Date.now()-__splashStart)); const go=()=>{ s.classList.add("splash-hide"); setTimeout(()=>{ try{ s.remove(); }catch(e){} }, 620); }; setTimeout(()=>{ if(window.__splashDone) window.__splashDone(go); else go(); }, wait); }
 try{ setTimeout(()=>{ try{ hideSplash(); }catch(e){} }, 7000); }catch(e){}
 async function boot(){
   applyAccent(state.accent);

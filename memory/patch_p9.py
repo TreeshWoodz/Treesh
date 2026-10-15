@@ -54,9 +54,7 @@ rep("ta?topCard('Top artist','profile-top-artist',ta.id?`data-act=\"artist-open\
     "ta?topCard('Top artist','profile-top-artist',ta.id?`data-act=\"artist-open\" data-id=\"${ta.id}\"`:`data-act=\"p9-search\" data-val=\"${esc(ta.name||'')}\"`,`<span class=\"grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-white/15 bg-white/5\" data-testid=\"profile-top-artist-img\">${ta.image?img(ta.image,'h-full w-full object-cover'):'<i data-lucide=\"mic-vocal\" style=\"width:18px;height:18px\"></i>'}</span>`",1,'pftacard')
 
 # ---- bold / italic lyric markup survives into the player
-rep("    const line={ t:+t, text, sec:curSec };\n","    const line={ t:+t, text, sec:curSec }; const _raw=(it.text||'').trim(); if(_raw!==text) line.md=_raw;\n",1,'lymd')
 rep("items.push({type:'line', t:(typeof l.t==='number'?l.t:null), text:l.text, explain:","items.push({type:'line', t:(typeof l.t==='number'?l.t:null), text:lyMd(l)?l.md:l.text, explain:",1,'lyback')
-rep('${_da.style?` style="${_da.style}"`:""}>${esc(l.text)}${inds}</button>','${_da.style?` style="${_da.style}"`:""}>${lyFmt(l)}${inds}</button>',1,'lyplayer')
 
 # ---- swipe down: voice + stars sheets too
 rep("const HEAD='.pm-grab,.pf-grab,.pm-head,.pm-song,.st-head,.te-head,.te-tabs,.mk-sheet-head,.mk-sheet-grab,.um-head-top,[data-sheet-drag]';",
@@ -134,9 +132,6 @@ rep("desc:'Layer drums, 808s, leads and pads on a step sequencer. Play it live, 
 
 # ---- P9z: loading screen uses the accent colour (set before first paint)
 rep('background:radial-gradient(130% 120% at 50% 28%, #16101f 0%, #0b0a0e 55%, #08080a 100%);','background:radial-gradient(130% 120% at 50% 28%, var(--sp-bg,#16101f) 0%, #0b0a0e 55%, #08080a 100%);',1,'spbg')
-rep('border-radius:50%; border:2px solid rgba(147,40,255,0.18); }','border-radius:50%; border:2px solid rgba(var(--sp-rgb,147,40,255),0.18); }',1,'spring1')
-rep('border-top-color:#9328ff; animation:splashSpin 1s linear infinite; box-shadow:0 0 26px rgba(147,40,255,0.32); }','border-top-color:var(--sp-a,#9328ff); animation:splashSpin 1s linear infinite; box-shadow:0 0 26px rgba(var(--sp-rgb,147,40,255),0.32); }',1,'spring2')
-rep('background:linear-gradient(180deg,#c39bff,#9328ff); box-shadow:0 0 14px rgba(147,40,255,0.55); animation:splashEq','background:linear-gradient(180deg,var(--sp-a2,#c39bff),var(--sp-a,#9328ff)); box-shadow:0 0 14px rgba(var(--sp-rgb,147,40,255),0.55); animation:splashEq',1,'speq')
 rep('      <div class="splash-sub">Welcome to the Woodz</div>\n    </div>\n  </div>\n','      <div class="splash-sub">Welcome to the Woodz</div>\n    </div>\n  </div>\n  <script>(function(){try{var h=JSON.parse(localStorage.getItem("treesh_accent")||"null");if(typeof h!=="string"||!/^#[0-9a-f]{6}$/i.test(h))return;var n=parseInt(h.slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255,s=document.getElementById("app-splash").style,m=function(c){return Math.round(c+(255-c)*.45)};s.setProperty("--sp-a",h);s.setProperty("--sp-rgb",r+","+g+","+b);s.setProperty("--sp-a2","rgb("+m(r)+","+m(g)+","+m(b)+")");s.setProperty("--sp-bg","rgb("+Math.round(11+r*.07)+","+Math.round(10+g*.07)+","+Math.round(14+b*.07)+")");document.documentElement.style.setProperty("--treesh-purple",h);}catch(e){}})();</script>\n',1,'spjs')
 # ---- P9z: remember the original lyrics before edits replace them (revert in the player)
 rep("if(SONG_BY_ID[id] && Array.isArray(ed[id])) SONG_BY_ID[id].lyrics=ed[id];","if(SONG_BY_ID[id] && Array.isArray(ed[id])){ const _s=SONG_BY_ID[id]; if(!_s._ly0&&_s.lyrics!==ed[id]) _s._ly0=_s.lyrics; _s.lyrics=ed[id]; }",1,'ly0')
@@ -181,13 +176,14 @@ rep("  function draw(){ ctx.clearRect(0,0,w,h); const g=ctx.createRadialGradient
 rep("const dpr=Math.min(window.devicePixelRatio||1,2); let w,h,stars=[],shoot=null","const dpr=ecoOn()?1:Math.min(window.devicePixelRatio||1,2); let w,h,stars=[],shoot=null",1,'eco2')
 rep("function vizTick(){ _vizRAF=requestAnimationFrame(vizTick); if(!_vizCanvases.length){ return; }","function vizTick(){ _vizRAF=requestAnimationFrame(vizTick); if(!_vizCanvases.length||ecoSkip('viz')){ return; }",1,'eco3')
 rep('return "Opening your library.";','return "Opening Home.";',2,'vxhome')
+rep('if(idx>=0&&!paused){ const el=state.lyricLines[idx]; const cont=$("#np-lyrics"); if(el&&cont){','if(idx>=0&&!paused&&!lyOwnScroll()){ const el=state.lyricLines[idx]; const cont=$("#np-lyrics"); if(el&&cont&&el.getClientRects().length){',1,'lyownscroll')
 if errs:
     print('\n'.join(errs)); sys.exit(1)
 
 A=json.load(open(M+'p9_assets.json',encoding='utf-8'))
 avs=[v for k,v in A.items() if not k.startswith('_')]
 rep("body=`<p class=\"mk-lbl\">Show in navigation</p><div class=\"space-y-1.5\">${MK_NAV.map(([id,label,ic])=>mkSwitch('mk-page-toggle',id,'mk-page-toggle-'+id,id==='settings'||!m.hidden.includes(id),ic,label,'',id==='settings')).join('')}</div>","body=`${mkNavEditHtml()}",1,'mknavedit')
-js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js','p9t.js','p9u.js','p9v.js','p9w.js','p9x.js','p9y.js','p9z.js','p9za.js','p9zb.js','p9zc.js','p9zd.js','p9ze.js','p9zf.js','p9zg.js','p9zh.js','p9zi.js','p9zj.js','p9zk.js','p9zl.js','p9zm.js','p9zn.js','p9zo.js','p9zp.js','p9zq.js','p9zr.js','p9zs.js','p9zt.js','p9zu.js','p9zv.js','p9zw.js','p9zx.js','p9zy.js','p9zz.js','p9zza.js','p9zzb.js','p9zzc.js','p9zzd.js','p9zze.js','p9zzf.js','p9zzg.js','p9zzh.js','p9zzl.js','p9zzm.js','p9zzn.js','p9zzo.js','p9zzp.js','p9zzq.js'])
+js='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.js','p9b.js','p9c.js','p9d.js','p9e.js','p9g.js','p9h.js','p9i.js','p9j.js','p9k.js','p9l.js','p9m.js','p9n.js','p9o.js','p9p.js','p9q.js','p9r.js','p9s.js','p9t.js','p9u.js','p9v.js','p9w.js','p9x.js','p9y.js','p9z.js','p9za.js','p9zb.js','p9zc.js','p9zd.js','p9ze.js','p9zf.js','p9zg.js','p9zh.js','p9zi.js','p9zj.js','p9zk.js','p9zl.js','p9zm.js','p9zn.js','p9zo.js','p9zp.js','p9zq.js','p9zr.js','p9zs.js','p9zt.js','p9zu.js','p9zv.js','p9zw.js','p9zx.js','p9zy.js','p9zz.js','p9zza.js','p9zzb.js','p9zzc.js','p9zzd.js','p9zze.js','p9zzf.js','p9zzg.js','p9zzh.js','p9zzl.js','p9zzm.js','p9zzn.js','p9zzo.js','p9zzp.js','p9zzq.js','p9zzr.js','p9zzs.js','p9zzt.js','p9zzu.js','p9zzv.js','p9zzw.js','p9zzx.js'])
 js=js.replace('__P9W_ART__',open(M+'p9w_art.json',encoding='utf-8').read()).replace('__P9ZM_ART__',open(M+'p9zm_art.json',encoding='utf-8').read()).replace('__P9_LOGO__',A['_logo']).replace('__P9_AVATARS__',json.dumps(avs))
 def lsx_light():
     ink='29,26,36'; out=[]
@@ -204,7 +200,7 @@ def lsx_light():
     out.append(f'.lsx-light .bg-black\\/25{{ background-color:rgba({ink},.06) !important; }}')
     out.append('.lsx-light .np-line{ color:rgba(29,26,36,.42); } .lsx-light .np-line.is-active, .lsx-light .np-line.active{ color:#1d1a24; }')
     return '\n'.join(out)
-css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css','p9za.css','p9zb.css','p9zc.css','p9zd.css','p9ze.css','p9zf.css','p9zg.css','p9zh.css','p9zi.css','p9zj.css','p9zk.css','p9zl.css','p9zo.css','p9zp.css','p9zr.css','p9zs.css','p9zt.css','p9zu.css','p9zv.css','p9zx.css','p9zz.css','p9zza.css','p9zzb.css','p9zzc.css','p9zze.css','p9zzf.css','p9zzg.css','p9zzj.css','p9zzi.css','p9zzk.css','p9zzl.css','p9zzn.css','p9zzo.css','p9zzp.css','p9zzq.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
+css='\n'.join(open(M+f,encoding='utf-8').read() for f in ['p9a.css','p9b.css','p9e.css','p9g.css','p9h.css','p9j.css','p9k.css','p9l.css','p9m.css','p9n.css','p9o.css','p9p.css','p9q.css','p9r.css','p9s.css','p9t.css','p9u.css','p9v.css','p9w.css','p9x.css','p9y.css','p9z.css','p9za.css','p9zb.css','p9zc.css','p9zd.css','p9ze.css','p9zf.css','p9zg.css','p9zh.css','p9zi.css','p9zj.css','p9zk.css','p9zl.css','p9zo.css','p9zp.css','p9zr.css','p9zs.css','p9zt.css','p9zu.css','p9zv.css','p9zx.css','p9zz.css','p9zza.css','p9zzb.css','p9zzc.css','p9zze.css','p9zzf.css','p9zzg.css','p9zzj.css','p9zzi.css','p9zzk.css','p9zzl.css','p9zzn.css','p9zzo.css','p9zzp.css','p9zzq.css','p9zzr.css','p9zzs.css','p9zzt.css','p9zzu.css','p9zzv.css','p9zzw.css','p9zzx.css']).replace('__LSX_LIGHT_OVERRIDES__',lsx_light())
 hook='/* ---------- boot hook (called from init) ---------- */'
 if s.count(hook)!=1: print('hook count',s.count(hook)); sys.exit(1)
 s=s.replace(hook,js+'\n'+hook)

@@ -39,6 +39,7 @@ async def main():
         await pg.locator('[data-testid=ls-sections-toggle]').click(); await pg.wait_for_timeout(500)
         chk('sections collapses', await pg.evaluate("()=>document.querySelector('[data-testid=ls-sections-row]').getBoundingClientRect().height<=1"))
         await pg.locator('[data-testid=ls-markup-toggle]').click(); await pg.wait_for_timeout(400)
+        await pg.locator('[data-testid=ls-markup-toggle]').click(); await pg.wait_for_timeout(400)
         chk('markup collapses again', await pg.evaluate("()=>document.querySelector('[data-testid=ls-markup-row]').getBoundingClientRect().height<=1"))
         r0 = await pg.evaluate("()=>state.lsRhymesOn")
         await pg.locator('[data-testid=ls-rhyme-toggle]').click(); await pg.wait_for_timeout(400)

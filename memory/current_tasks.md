@@ -48,3 +48,12 @@ Photocap first tools = layers (add/reorder/hide/opacity/blend) + adjustments (br
   * Test: tests/vpprobe.py [sat] [view] [--pwa] [--lie] (fakes navigator.standalone, screen 390x844, viewport 844-sat with --lie). _sattest.html now also maps env(safe-area-inset-bottom) -> var(--sab,0px).
   * NEEDS user check on a real iPhone (can't emulate WebKit's standalone viewport).
 - DONE Song Page "Similar vibe": was exact genre/mood string + Treesh pick bonus (picks with other genres leaked in). Now same genre family only (rap/hip hop/trap/hip pop...), mood tags split + synonyms, mood-clash only as fill for exact genre, era bonus; tile shows why (e.g. "Rap · Party").
+
+## Fork 5 (June 2026) queue, user-approved order
+1. [DONE, tests/lsrevert.py 8/8] LyricFlow "Revert lyrics" (Write tab, confirm, text back to default, MY timings kept) + "Revert timestamps" (Sync tab, confirm, default times, MY text kept). Originals: s._ly0 set in attachLyrics (base). Module p9zzv.js/.css.
+2. [DONE code, tests/lsrich.py] Markup fix: real rich editor (contenteditable #ls-write with value/selectionStart shim), B/I/U/S (execCommand), no ** symbols. Storage line.md2 (escaped md: ** * __ ~~, backslash escapes), line.text plain; legacy line.md still rendered. Player npLyricLineHtml uses lyFmt. Sync line fields + Verse panel textareas rich too. NP editor (p9z) shows plain text, keeps md2 when unchanged.
+3. [doing] Duo parentheses (p9zzw): section tag with 2+ artists -> non-paren text = 1st artist, (paren) = 2nd artist (skip (x2)/(×2)). Pill highlights who sings (split time estimated by char position, or word timings). Classic + themes tint paren part in 2nd artist colour (Comic = own bubble); Text Messages = separate bubble from 2nd artist. Fuzzy name match (Marc Q ~ Marq C) to song main/featured artists.
+4. Announcements: tap custom notification -> sheet (full title, message, sent time, Open link). Admin Recent list: End (removed from everyone's bell/banners, "Ended" tag) + Edit (title/message/link, "Edited" tag; push already sent can't change). Needs SQL (announcements ended_at/edited_at + rpc) + push.mjs?
+4b. NEW: Admins can edit any user's Starlites balance (incl. their own) from Moderation (user sheet). Ask set/add details when starting.
+5. Photocap Pro (p9zzu.js already has ~27KB: layers, blends, hue/blur, history, fill, remove bg, wheel + gestures) -> review/finish/test.
+6. Icon MAD check; small fixes (Instrum glow, Auto theme, mini-player swipe memory); test; export_main.py.

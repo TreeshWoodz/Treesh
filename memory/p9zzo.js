@@ -53,7 +53,7 @@ function sgpHero(s,y,dur){ const cur=curSong(), on=!!(cur&&cur.id===s.id), playi
       <div class="sgp-cover-wrap"><span class="sgp-disc" aria-hidden="true"><span style="background-image:url('${esc(s.coverArt||'')}')"></span></span><button type="button" data-act="play" data-id="${s.id}" data-ctx="sgp:${s.id}" class="sgp-cover press" aria-label="${playing?'Pause':'Play'} ${esc(s.title)}" data-testid="song-page-cover-art">${img(s.coverArt,'h-full w-full object-cover',`alt="${esc(s.title)}"`)}<span class="sgp-cover-pp"><i data-lucide="${playing?'pause':'play'}" class="fill-current"></i></span>${on?'<span class="sgp-cover-eq eq"><span></span><span></span><span></span><span></span></span>':''}</button></div>
       <div class="sgp-hd">
         <p class="sgp-kicker"><i data-lucide="audio-lines"></i>Song${badges}</p>
-        <h1 class="sgp-title" data-testid="song-page-title">${esc(s.title)}</h1>
+        <h1 class="sgp-title" data-testid="song-page-title" style="--tl:${Math.max(6,...String(s.title||'').split(/\s+/).map(w=>w.length))}">${esc(s.title)}</h1>
         <p class="sgp-by" data-testid="song-page-artist-link">${sgpLink(s.artist,(s.artistIds||[])[0])}${feat.length?`<span class="sgp-feat" data-testid="song-page-featured-artists"><em>feat.</em>${feat.map(n=>sgpLink(n)).join('<i>,</i>')}</span>`:''}</p>
         ${meta?`<p class="sgp-meta">${meta}</p>`:''}
         <div class="sgp-stats"><span data-testid="song-page-hero-plays"><b>${fmtNum(y.plays)}</b>Your plays</span>${y.rank?`<span><b>#${y.rank}</b>Your rank</span>`:''}<span><b>${y.lines}</b>Saved lines</span></div>
@@ -73,7 +73,7 @@ function sgpLyrics(s){ const L=sgpLines(s), open=state._sgpLy===s.id, cur=curSon
   if(!L.length) return `<section class="sgp-card sgp-lyrics is-empty" data-testid="song-page-lyrics-preview"><div class="sgp-ch"><span class="sgp-ci"><i data-lucide="mic-vocal"></i></span><div><h2>Lyrics</h2><small>No lyrics for this song yet</small></div></div><p class="sgp-empty">Be the first to write them down and sync them to the beat.</p><div class="sgp-cta"><button type="button" data-act="ls-open" data-id="${s.id}" data-testid="song-page-add-lyrics" class="sgp-pill press"><i data-lucide="pen-line"></i>Add lyrics</button></div></section>`;
   const show=open?L:L.slice(0,8); let last='\u0000';
   const rows=show.map(l=>{ let h=''; if((l.sec||'')!==last){ last=l.sec||''; if(l.sec){ const info=parseSection(l.sec,s), who=(info&&info.artists||[]).map(a=>a.name).join(' & '); h=`<p class="sgp-sec"><b>${esc(info?info.role:l.sec)}</b>${who?`<span>${esc(who)}</span>`:''}</p>`; } }
-    const i=(s.lyrics||[]).indexOf(l), saved=isFavLyric(s.id,i); return h+`<p class="sgp-line${saved?' is-saved':''}">${esc(l.text)}${saved?'<i data-lucide="heart" class="fill-current"></i>':''}</p>`; }).join('');
+    const i=(s.lyrics||[]).indexOf(l), saved=isFavLyric(s.id,i); return h+`<p class="sgp-line${saved?' is-saved':''}">${lyFmt(l)}${saved?'<i data-lucide="heart" class="fill-current"></i>':''}</p>`; }).join('');
   return `<section class="sgp-card sgp-lyrics${open?' is-open':''}" data-testid="song-page-lyrics-preview"><div class="sgp-ch"><span class="sgp-ci"><i data-lucide="mic-vocal"></i></span><div><h2>Lyrics</h2><small>${L.length} line${L.length!==1?'s':''}${sgpFacts(s).synced?' \u00b7 synced to the beat':''}</small></div></div>
     <div class="sgp-ly-body">${rows}${!open&&L.length>8?'<span class="sgp-ly-fade" aria-hidden="true"></span>':''}</div>
     <div class="sgp-cta">${L.length>8?`<button type="button" data-act="sgp-ly-more" data-id="${s.id}" data-testid="song-page-lyrics-toggle" class="sgp-pill press"><i data-lucide="${open?'chevron-up':'chevron-down'}"></i>${open?'Show less':'Show all lyrics'}</button>`:''}<button type="button" data-act="sgp-sing" data-id="${s.id}" data-testid="song-page-open-lyrics" class="sgp-pill is-pri press"><i data-lucide="mic-vocal"></i>${on?'Open live lyrics':'Play with live lyrics'}</button></div></section>`; }
@@ -143,3 +143,12 @@ const _songRow9zzo=songRow; songRow=function(s){ const h=_songRow9zzo.apply(this
   return h.slice(0,i)+seg+h.slice(j).replace(/(<span class="absolute inset-0 grid place-items-center bg-black\/40 opacity-0 group-hover:opacity-100"><i data-lucide=")[^"]*(")/,'$1arrow-up-right$2'); };
 const _npArt9zzo=npArtHtml; npArtHtml=function(s){ const h=_npArt9zzo.apply(this,arguments); return s?h.replace('data-act="np-style-open"',`data-act="song-open" data-id="${s.id}"`).replace('aria-label="Change cover style"','aria-label="Open the song page"'):h; };
 const _osm9zzo=openSongMenu; openSongMenu=function(id){ const r=_osm9zzo.apply(this,arguments); const l=document.querySelector('#modal .pm-list'); if(l&&SONG_BY_ID[id]&&!l.querySelector('[data-act="song-open"]')){ l.insertAdjacentHTML('afterbegin',pmItem({act:'song-open',ic:'disc-3',label:'View song page',desc:'Credits, lyrics, facts and your stats',attrs:`data-id="${id}"`,tid:'song-menu-song-page',chev:true,hot:true})); icons(); } return r; };
+
+/* catalog fix: a song whose main artist id points at its featured artist (M.A.D. mix-up) shows "X feat. X". Keep the id only when it belongs to the main artist */
+function sgpFixIds(){ const byName={}; (ARTISTS||[]).forEach(a=>{ byName[normKey(a.name)]=a; });
+  const parts=s=>String(s||'').split(/\s*(?:,|&|\+|\/|\bx\b|\band\b|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b)\s*/i).map(normKey).filter(Boolean);
+  SONGS.forEach(s=>{ const ids=s.artistIds||[]; if(!ids.length) return; const a=(ARTISTS||[]).find(x=>String(x.id)===String(ids[0])); if(!a) return;
+    const main=parts(s.artist), k=normKey(a.name); if(main.includes(k)||normKey(s.artist)===k||normKey(s.artist).indexOf(k)>=0) return;
+    const own=main.map(n=>byName[n]).find(Boolean), feat=parts(s.featuring).includes(k);
+    if(!own&&!feat) return; const out=[own?own.id:''].concat(ids.slice(1).filter(x=>String(x)!==String(own&&own.id))); if(feat&&!out.slice(1).some(x=>String(x)===String(a.id))) out.push(a.id); s.artistIds=(out.length===1&&!out[0])?[]:out; }); }
+const _ic9zzo=indexCatalog; indexCatalog=function(){ try{ sgpFixIds(); }catch(e){ console.warn('ids',e); } return _ic9zzo.apply(this,arguments); };

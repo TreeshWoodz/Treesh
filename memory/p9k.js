@@ -16,12 +16,12 @@ function lsMarkToggle(M){ const ta=$("#ls-write"); if(!ta) return; const v=ta.va
   const lead=sel.match(/^\s*/)[0].length, trail=sel.match(/\s*$/)[0].length; const core=sel.slice(lead,sel.length-trail).split(M).join(''); if(!core){ return; }
   const nv=v.slice(0,s+lead)+M+core+M+v.slice(e-trail); set(nv,s+lead+1,s+lead+1+core.length); }
 const _lsMk9k=lsMarkup; lsMarkup=function(type){ if(type==='bold') return lsMarkToggle(LS_MB); if(type==='italic') return lsMarkToggle(LS_MI); return _lsMk9k.apply(this,arguments); };
-document.addEventListener('input',e=>{ const ta=e.target; if(!ta||ta.id!=='ls-write'||e.isComposing) return; const v=ta.value; if(v.indexOf('*')<0) return;
+document.addEventListener('input',e=>{ const ta=e.target; if(!ta||ta.id!=='ls-write'||ta.isContentEditable||e.isComposing) return; const v=ta.value; if(v.indexOf('*')<0) return;
   const c=ta.selectionStart||0, L=lsMdToTaKeep(v.slice(0,c)), R=lsMdToTaKeep(v.slice(c)); if(L+R===v) return; ta.value=L+R; try{ ta.setSelectionRange(L.length,L.length); }catch(_){} },true);
 function lsMdToTaKeep(s){ return lsMdConv(s,[LS_MB,LS_MB],[LS_MI,LS_MI]); }
-document.addEventListener('paste',e=>{ const ta=e.target; if(!ta||ta.id!=='ls-write'||!e.clipboardData) return; const t=e.clipboardData.getData('text/plain'); if(!t) return; e.preventDefault();
+document.addEventListener('paste',e=>{ const ta=e.target; if(!ta||ta.id!=='ls-write'||ta.isContentEditable||!e.clipboardData) return; const t=e.clipboardData.getData('text/plain'); if(!t) return; e.preventDefault();
   const clean=lsMdToTa(t.replace(/\r\n?/g,'\n')); const s=ta.selectionStart||0, en=ta.selectionEnd||s; ta.value=ta.value.slice(0,s)+clean+ta.value.slice(en); const c=s+clean.length; try{ ta.setSelectionRange(c,c); }catch(_){} ta.dispatchEvent(new Event('input',{bubbles:true})); },true);
-['copy','cut'].forEach(ev=>document.addEventListener(ev,e=>{ const ta=e.target; if(!ta||ta.id!=='ls-write'||!e.clipboardData) return; const s=ta.selectionStart||0, en=ta.selectionEnd||s; if(s===en) return; e.preventDefault(); e.clipboardData.setData('text/plain',lsTaToMd(ta.value.slice(s,en)));
+['copy','cut'].forEach(ev=>document.addEventListener(ev,e=>{ const ta=e.target; if(!ta||ta.id!=='ls-write'||ta.isContentEditable||!e.clipboardData) return; const s=ta.selectionStart||0, en=ta.selectionEnd||s; if(s===en) return; e.preventDefault(); e.clipboardData.setData('text/plain',lsTaToMd(ta.value.slice(s,en)));
   if(ev==='cut'){ ta.value=ta.value.slice(0,s)+ta.value.slice(en); try{ ta.setSelectionRange(s,s); }catch(_){} ta.dispatchEvent(new Event('input',{bubbles:true})); } },true));
 function lsSyncFmtViews(){ document.querySelectorAll('#ls-lines .ls-line input[data-ls-text]').forEach(inp=>{ let v=inp.parentElement.querySelector(':scope > .ls-fmt-view'); const has=/\*/.test(inp.value)&&lsStripFmt(inp.value)!==inp.value;
     if(!has){ if(v) v.remove(); inp.classList.remove('ls-fmt-in'); return; }
@@ -31,7 +31,7 @@ function lsSyncFmtViews(){ document.querySelectorAll('#ls-lines .ls-line input[d
 window.addEventListener('resize',()=>{ if(state.lsOpen&&state.ls&&state.ls.mode==='sync') try{ lsSyncFmtViews(); }catch(e){} });
 const _lsRB9k=lsRenderBody; lsRenderBody=function(){ const r=_lsRB9k.apply(this,arguments); try{ lsSyncFmtViews(); }catch(e){} return r; };
 document.addEventListener('focusout',e=>{ if(e.target&&e.target.matches&&e.target.matches('#ls-lines input[data-ls-text]')) setTimeout(lsSyncFmtViews,0); });
-const _lsSA9k=lsSetActive; lsSetActive=function(){ const r=_lsSA9k.apply(this,arguments); const st=document.getElementById('ls-next-label'); if(st&&/\*/.test(st.textContent)) st.textContent=lsStripFmt(st.textContent); return r; };
+const _lsSA9k=lsSetActive; lsSetActive=function(){ const r=_lsSA9k.apply(this,arguments); const st=document.getElementById('ls-next-label'); if(st) st.textContent=lsStripFmt(st.textContent); return r; };
 
 /* ---------- P9k: voice, the app stays visible; after a command the orb shrinks to a pill so you see the change ---------- */
 function vxSnap(){ let cs=null; try{ cs=curSong(); }catch(e){} const m=document.getElementById('modal'), m2=document.getElementById('modal2');
