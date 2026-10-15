@@ -1,4 +1,5 @@
-import { ArrowLeft, Star, Grid3x3, Package, Disc3, Zap, Link2, MoveDiagonal, ArrowUp, ArrowLeftRight } from "lucide-react";
+import { ArrowLeft, Star, Grid3x3, Package, Disc3, Zap, Link2, MoveDiagonal, ArrowUp, ArrowLeftRight, Snowflake, FlipHorizontal } from "lucide-react";
+import { FALL_DIRS } from "../game/sandbox";
 import { MiniTile } from "./TileFace";
 import { POWERUPS } from "../game/config";
 import { StarliteAmount } from "./Starlite";
@@ -49,6 +50,19 @@ const Goals = ({ cfg, g }) => (
   </div>
 );
 
+const CustomTags = ({ cfg, g }) => {
+  const d = FALL_DIRS.find((x) => x.id === g.dir) || FALL_DIRS[0];
+  return (
+    <div className="mt-3 flex flex-wrap gap-2" data-testid="custom-zen-tags">
+      <span data-testid="custom-fall-dir" className="mech-tag"><d.Icon size={12} /> {cfg.gravity === "random" ? `Random: ${d.short}` : d.short}</span>
+      {g.hud.multLeft > 0 && <span data-testid="custom-mult-chip" className="mech-tag mech-hot">Score x{g.hud.mult} - {g.hud.multLeft}s</span>}
+      {g.hud.freeze > 0 && <span data-testid="custom-freeze-chip" className="mech-tag mech-ice"><Snowflake size={12} /> Frozen {g.hud.freeze}s</span>}
+      {cfg.mirror && <span className="mech-tag"><FlipHorizontal size={12} /> Mirror</span>}
+      {cfg.noDiagonal && <span className="mech-tag">No diagonals</span>}
+    </div>
+  );
+};
+
 export const Hud = ({ cfg, g, onExit }) => {
   const { hud } = g;
   const low = hud.time != null ? hud.time <= 10 : hud.moves != null && hud.moves <= 3;
@@ -66,7 +80,7 @@ export const Hud = ({ cfg, g, onExit }) => {
         {hud.time != null && (
           <div className={`counter ${low ? "counter-low" : ""}`}><div className="hud-label">Time</div><div data-testid="hud-timer-display" className="font-display text-2xl font-black tabular-nums">{hud.time}s</div></div>
         )}
-        {cfg.mode === "zen" && <button data-testid="zen-cashout-btn" onClick={g.cashOut} className="btn-bronze !px-4 !py-2 text-sm">Cash Out</button>}
+        {(cfg.mode === "zen" || cfg.mode === "custom") && <button data-testid="zen-cashout-btn" onClick={g.cashOut} className="btn-bronze !px-4 !py-2 text-sm">Cash Out</button>}
       </div>
       {cfg.target && (
         <div className="mt-3">
@@ -77,7 +91,8 @@ export const Hud = ({ cfg, g, onExit }) => {
           <Progress score={hud.score} target={cfg.target} />
         </div>
       )}
-      {(cfg.collect || cfg.kente || cfg.crates || cfg.static || cfg.locks || cfg.records || cfg.make || cfg.diagonalOnly || cfg.gravity) && <div className="mt-3"><Goals cfg={cfg} g={g} /></div>}
+      {cfg.custom && <CustomTags cfg={cfg} g={g} />}
+      {!cfg.custom && (cfg.collect || cfg.kente || cfg.crates || cfg.static || cfg.locks || cfg.records || cfg.make || cfg.diagonalOnly || cfg.gravity) && <div className="mt-3"><Goals cfg={cfg} g={g} /></div>}
     </div>
   );
 };
@@ -85,7 +100,7 @@ export const Hud = ({ cfg, g, onExit }) => {
 export const PowerBar = ({ cfg, g, inventory }) => (
   <div className="mt-2 grid shrink-0 grid-cols-4 gap-2 sm:gap-3">
     {POWERUPS.map(({ id, name, cost, Icon }) => {
-      const disabled = id === "extra_moves" && cfg.mode === "zen";
+      const disabled = id === "extra_moves" && (cfg.mode === "zen" || cfg.mode === "custom");
       const owned = inventory[id] || 0;
       return (
         <button key={id} data-testid={`powerup-btn-${id}`} disabled={disabled} onClick={() => g.activatePower(id)} title={name}

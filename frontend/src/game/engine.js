@@ -1,6 +1,7 @@
-export const ROWS = 8;
-export const COLS = 8;
+export let ROWS = 8;
+export let COLS = 8;
 export const DISCO = 99;
+export const WILD = 98;
 export const CRATE = -2;
 export const RECORD = -3;
 export const STATIC = -4;
@@ -26,7 +27,7 @@ export function mulberry32(seed) {
   };
 }
 
-const LINES = (() => {
+const buildLines = () => {
   const L = [];
   for (let r = 0; r < ROWS; r++) L.push({ dir: "h", cells: Array.from({ length: COLS }, (_, c) => [r, c]) });
   for (let c = 0; c < COLS; c++) L.push({ dir: "v", cells: Array.from({ length: ROWS }, (_, r) => [r, c]) });
@@ -40,22 +41,36 @@ const LINES = (() => {
       }
   });
   return L;
-})();
+};
+let LINES = buildLines();
+const laneCache = {};
+
+export function setSize(n) {
+  ROWS = n;
+  COLS = n;
+  LINES = buildLines();
+  Object.keys(laneCache).forEach((k) => delete laneCache[k]);
+}
 
 export function findRuns(b) {
   const runs = [];
   for (const line of LINES) {
     const n = line.cells.length;
+    const at = (k) => b[line.cells[k][0]][line.cells[k][1]]?.type;
     let i = 0;
     while (i < n) {
-      const [r, c] = line.cells[i];
-      const t = b[r][c]?.type;
-      let e = i + 1;
-      if (t != null && t >= 0 && t !== DISCO) {
-        while (e < n && b[line.cells[e][0]][line.cells[e][1]]?.type === t) e++;
-        if (e - i >= 3) runs.push({ dir: line.dir, type: t, cells: line.cells.slice(i, e) });
+      let t = null, e = i;
+      while (e < n) {
+        const x = at(e);
+        if (x === WILD) { e++; continue; }
+        if (x == null || x < 0 || x === DISCO || (t != null && x !== t)) break;
+        t = x;
+        e++;
       }
-      i = e;
+      if (t != null && e - i >= 3) runs.push({ dir: line.dir, type: t, cells: line.cells.slice(i, e) });
+      let nx = e;
+      while (nx > i + 1 && at(nx - 1) === WILD) nx--;
+      i = nx > i ? nx : i + 1;
     }
   }
   return runs;
@@ -66,7 +81,7 @@ export function findSquares(b) {
   for (let r = 0; r < ROWS - 1; r++)
     for (let c = 0; c < COLS - 1; c++) {
       const t = b[r][c]?.type;
-      if (t == null || t < 0 || t === DISCO) continue;
+      if (t == null || t < 0 || t === DISCO || t === WILD) continue;
       if (b[r][c + 1]?.type === t && b[r + 1][c]?.type === t && b[r + 1][c + 1]?.type === t)
         sq.push({ type: t, cells: [[r, c], [r, c + 1], [r + 1, c], [r + 1, c + 1]] });
     }
@@ -88,8 +103,11 @@ export function swapped(b, a, d) {
   return n;
 }
 
+const STD_SPECIALS = ["row", "col", "bomb", "x", "cross", "nova", "disco"];
+export const isCombo = (x, y) => (x.type === DISCO && y.type >= 0) || (y.type === DISCO && x.type >= 0) || (STD_SPECIALS.includes(x.special) && STD_SPECIALS.includes(y.special));
+
 export function findHint(b, diagOnly = false) {
-  const dirs = diagOnly ? [[1, 1], [1, -1]] : [[0, 1], [1, 0], [1, 1], [1, -1]];
+  const dirs = diagOnly === true ? [[1, 1], [1, -1]] : diagOnly === "ortho" ? [[0, 1], [1, 0]] : [[0, 1], [1, 0], [1, 1], [1, -1]];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       for (const [dr, dc] of dirs) {
@@ -97,7 +115,7 @@ export function findHint(b, diagOnly = false) {
         if (!inside(r2, c2)) continue;
         const x = b[r][c], y = b[r2][c2];
         if (!movable(x) || !movable(y)) continue;
-        if (((x.type === DISCO && y.type >= 0) || (y.type === DISCO && x.type >= 0)) || (x.special && y.special)) return [[r, c], [r2, c2]];
+        if (isCombo(x, y)) return [[r, c], [r2, c2]];
         if (hasMatch(swapped(b, [r, c], [r2, c2]))) return [[r, c], [r2, c2]];
       }
     }
@@ -189,7 +207,7 @@ export function resolveMatches({ runs, squares }, focus = []) {
 
 const lineCells = (r, c, dr, dc) => {
   const out = [];
-  for (let k = -7; k <= 7; k++) if (inside(r + dr * k, c + dc * k)) out.push([r + dr * k, c + dc * k]);
+  for (let k = -ROWS; k <= ROWS; k++) if (inside(r + dr * k, c + dc * k)) out.push([r + dr * k, c + dc * k]);
   return out;
 };
 const areaCells = (r, c, rad) => {
@@ -206,7 +224,7 @@ const allCells = (b, pred) => {
 function mostCommonType(b) {
   const counts = {};
   b.flat().forEach((t) => {
-    if (t && t.type >= 0 && t.type !== DISCO) counts[t.type] = (counts[t.type] || 0) + 1;
+    if (t && t.type >= 0 && t.type !== DISCO && t.type !== WILD) counts[t.type] = (counts[t.type] || 0) + 1;
   });
   return Number(Object.entries(counts).sort((x, y) => y[1] - x[1])[0]?.[0] ?? 0);
 }
@@ -266,6 +284,7 @@ export function expandClear(b, clear, pre = new Set(), baseEffects = []) {
   const queue = [...clear];
   const triggered = new Set(pre);
   const effects = [...baseEffects];
+  const extras = { paint: [], mult: 0, gold: 0, freeze: 0 };
   while (queue.length) {
     const k = queue.pop();
     const [r, c] = parseKey(k);
@@ -284,6 +303,14 @@ export function expandClear(b, clear, pre = new Set(), baseEffects = []) {
       cells = allCells(b, (x) => x.type === type);
       effects.push({ kind: "bolt", r, c, targets: cells });
     }
+    if (s === "lightning") {
+      const types = [...new Set(allCells(b, isColor).map(([y, x]) => b[y][x].type))].sort(() => Math.random() - 0.5).slice(0, 2);
+      cells = allCells(b, (x) => types.includes(x.type));
+      effects.push({ kind: "bolt", r, c, targets: cells });
+    }
+    if (s === "hole") { cells = areaCells(r, c, 2); effects.push({ kind: "hole", r, c, size: 5 }); }
+    if (s === "paint") { extras.paint.push({ type: t.type, cells: areaCells(r, c, 1) }); effects.push({ kind: "ring", r, c, size: 3 }); }
+    if (s === "mult" || s === "gold" || s === "freeze") { extras[s] += 1; effects.push({ kind: "ring", r, c, size: 2 }); }
     cells.forEach(([y, x]) => {
       const kk = key(y, x);
       if (!result.has(kk)) {
@@ -292,39 +319,47 @@ export function expandClear(b, clear, pre = new Set(), baseEffects = []) {
       }
     });
   }
-  return { cells: result, effects };
+  return { cells: result, effects, extras };
 }
 
-const ORIENT = {
-  down: (r, c) => [r, c],
-  up: (r, c) => [ROWS - 1 - r, c],
-  left: (r, c) => [c, COLS - 1 - r],
-  right: (r, c) => [c, r],
-};
+const STEP = { down: [1, 0], up: [-1, 0], right: [0, 1], left: [0, -1], dr: [1, 1], dl: [1, -1], ur: [-1, 1], ul: [-1, -1] };
 
-export const bottomCells = (dir = "down") => Array.from({ length: COLS }, (_, c) => (ORIENT[dir] || ORIENT.down)(ROWS - 1, c));
+function lanes(dir) {
+  if (laneCache[dir]) return laneCache[dir];
+  const [dr, dc] = STEP[dir] || STEP.down;
+  const out = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      if (inside(r - dr, c - dc)) continue;
+      const lane = [];
+      for (let y = r, x = c; inside(y, x); y += dr, x += dc) lane.push([y, x]);
+      out.push(lane);
+    }
+  laneCache[dir] = out;
+  return out;
+}
+
+export const bottomCells = (dir = "down") => lanes(dir).map((l) => l[l.length - 1]);
 
 export function gravity(board, rng, n, dir = "down", spawn) {
-  const map = ORIENT[dir] || ORIENT.down;
   const nb = board.map((row) => row.slice());
-  for (let c = 0; c < COLS; c++) {
-    const col = [];
-    for (let r = ROWS - 1; r >= 0; r--) {
-      const [y, x] = map(r, c);
-      if (nb[y][x]) col.push(nb[y][x]);
-    }
-    for (let r = ROWS - 1, i = 0; r >= 0; r--, i++) {
-      const [y, x] = map(r, c);
-      if (i < col.length) nb[y][x] = col[i];
-      else {
-        const [fy, fx] = map(r - (ROWS - col.length), c);
-        const t = spawn ? spawn() : newTile(rand(rng, n));
-        t.fromRow = fy;
-        t.fromCol = fx;
-        nb[y][x] = t;
-      }
-    }
+  const make = () => (spawn ? spawn() : newTile(rand(rng, n)));
+  if (dir === "none") {
+    nb.forEach((row, r) => row.forEach((t, c) => { if (!t) { const x = make(); x.fromRow = undefined; nb[r][c] = x; } }));
+    return nb;
   }
+  const [dr, dc] = STEP[dir] || STEP.down;
+  lanes(dir).forEach((lane) => {
+    const tiles = lane.map(([y, x]) => nb[y][x]).filter(Boolean);
+    const m = lane.length - tiles.length;
+    lane.forEach(([y, x], i) => {
+      if (i >= m) { nb[y][x] = tiles[i - m]; return; }
+      const t = make();
+      t.fromRow = lane[0][0] - (m - i) * dr;
+      t.fromCol = lane[0][1] - (m - i) * dc;
+      nb[y][x] = t;
+    });
+  });
   return nb;
 }
 
@@ -385,3 +420,37 @@ export const makeKente = (name, hp = 1) =>
   Array.from({ length: ROWS }, (_, r) => Array.from({ length: COLS }, (_, c) => (KENTE_PATTERNS[name](r, c) ? hp : 0)));
 
 export const countKente = (k) => (k ? k.flat().reduce((a, v) => a + v, 0) : 0);
+
+export const isColor = (t) => t && t.type >= 0 && t.type !== DISCO && t.type !== WILD;
+const pickCells = (b, pred, n, rng) => allCells(b, pred).sort(() => rng() - 0.5).slice(0, n);
+
+export const ENV = {
+  swap: (b, rng) => {
+    let nb = b;
+    for (let k = 0; k < 3; k++) {
+      const [p, q] = pickCells(nb, movable, 2, rng);
+      if (q) nb = swapped(nb, p, q);
+    }
+    return nb;
+  },
+  quake: (b, rng) => shuffleBoard(b, rng),
+  rotate: (b) => b.map((row, r) => row.map((_, c) => b[ROWS - 1 - c][r])),
+  wind: (b, rng) => {
+    const nb = b.map((row) => row.slice());
+    const dir = rng() < 0.5 ? 1 : -1;
+    [...Array(ROWS).keys()].sort(() => rng() - 0.5).slice(0, 2).forEach((r) => {
+      nb[r] = nb[r].map((_, c) => b[r][(c - dir + COLS) % COLS]);
+    });
+    return nb;
+  },
+  mutate: (b, rng, n) => {
+    const nb = b.map((row) => row.slice());
+    pickCells(nb, (t) => isColor(t) && !t.special, 4, rng).forEach(([r, c]) => { nb[r][c] = { ...nb[r][c], type: (nb[r][c].type + 1 + rand(rng, n - 1)) % n }; });
+    return nb;
+  },
+  crates: (b, rng) => {
+    const nb = b.map((row) => row.slice());
+    pickCells(nb, (t) => isColor(t) && !t.special, 2, rng).forEach(([r, c]) => { nb[r][c] = { ...newTile(CRATE), hp: 1, fromRow: undefined }; });
+    return nb;
+  },
+};

@@ -68,7 +68,7 @@ export default function Hub() {
 
         <div className="grid w-full max-w-xl grid-cols-3 gap-2 sm:gap-3 lg:max-w-lg">
           {MODES.map((m, i) => (
-            <ModeTile key={m.id} m={m} i={i} onClick={() => nav(m.id === "classic" ? "/levels" : m.id === "colorpop" ? "/colorpop" : `/play/${m.id}`)} />
+            <ModeTile key={m.id} m={m} i={i} onClick={() => nav(m.id === "classic" ? "/levels" : m.id === "colorpop" ? "/colorpop" : m.id === "zen" ? "/zen" : `/play/${m.id}`)} />
           ))}
         </div>
 

@@ -17,7 +17,7 @@ export const MODES = [
   { id: "moves", name: "Moves Challenge", tag: "Strategy", desc: "Only 15 moves. Every swap counts. Make it legendary.", Icon: Target, color: "#06B6D4" },
   { id: "daily", name: "Daily Challenge", tag: "2x Starlites", desc: "One fresh board for everybody, every day. Double Starlite payout.", Icon: CalendarDays, color: "#FFC800" },
   { id: "colorpop", name: "Color Pop", tag: "New", desc: "Grow your color from a random start tile. Paint the whole board one color before moves run out.", Icon: PaintBucket, color: "#EC4899" },
-  { id: "zen", name: "Endless Zen", tag: "Relax", desc: "No timer. No limits. Just vibes and smooth cascades.", Icon: InfinityIcon, color: "#10B981" },
+  { id: "zen", name: "Endless Zen", tag: "Relax", desc: "No timer. No limits. Classic Zen or build your own Custom Zen sandbox.", Icon: InfinityIcon, color: "#10B981" },
 ];
 
 const PATTERNS = ["center", "bottom", "cross", "diamond", "border", "checker"];
@@ -98,7 +98,7 @@ export const ART = {
   harlem: `${IMG}14a2da015fc21b220e0a2f9fb9e9a99246599ff906fd6c116da8bc893e7cbdc4.jpeg`,
   blockparty: `${IMG}8468398933a9c96e8d2974710f69ff95732ac0e9b1f66b9059125d1bc105c509.jpeg`,
 };
-const MODE_ART = { timed: "blockparty", moves: "harlem", daily: "afrofuture", zen: "harlem", colorpop: "mural" };
+const MODE_ART = { timed: "blockparty", moves: "harlem", daily: "afrofuture", zen: "harlem", colorpop: "mural", custom: "afrofuture" };
 export const artFor = (cfg) =>
   cfg.mode === "classic" ? (cfg.level <= 10 ? "blockparty" : cfg.level <= 20 ? "harlem" : "afrofuture") : MODE_ART[cfg.mode];
 
@@ -138,6 +138,7 @@ export function rewardFor(cfg, ended, stars) {
   if (cfg.mode === "classic") return ended.win ? 25 + stars * 15 + (ended.movesLeft || 0) * 3 : 5;
   if (cfg.mode === "daily") return 2 * (Math.floor(s / 150) + (ended.win ? 50 : 0));
   if (cfg.mode === "zen") return Math.floor(s / 300);
+  if (cfg.mode === "custom") return Math.floor(s / 600);
   if (cfg.mode === "colorpop") return ended.win ? 20 + cfg.level * 20 + (ended.movesLeft || 0) * 5 : 5;
   return Math.floor(s / 150);
 }

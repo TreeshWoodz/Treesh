@@ -45,7 +45,8 @@ export const Board = ({ g, cell, theme }) => {
     if (Math.hypot(dx, dy) < cell * 0.45) return;
     d.moved = true;
     const ang = (Math.atan2(Math.abs(dy), Math.abs(dx)) * 180) / Math.PI;
-    const [tr, tc] = ang > 25 && ang < 65 ? [d.r + Math.sign(dy), d.c + Math.sign(dx)]
+    const [tr, tc] = g.noDiagonal ? (ang <= 45 ? [d.r, d.c + Math.sign(dx)] : [d.r + Math.sign(dy), d.c])
+      : ang > 25 && ang < 65 ? [d.r + Math.sign(dy), d.c + Math.sign(dx)]
       : ang <= 25 ? [d.r, d.c + Math.sign(dx)] : [d.r + Math.sign(dy), d.c];
     if (tr >= 0 && tr < ROWS && tc >= 0 && tc < COLS) g.trySwap([d.r, d.c], [tr, tc]);
   };
@@ -82,7 +83,7 @@ export const Board = ({ g, cell, theme }) => {
                 initial={{ x: (fresh ? c : t.fromCol ?? c) * cell, y: (fresh ? r : t.fromRow) * cell, scale: fresh ? 0.2 : 1, opacity: fresh ? 0 : 1 }}
                 animate={{ x: c * cell, y: r * cell, scale: pop ? 1.25 : sel ? 1.12 : 1, opacity: pop ? 0.5 : 1 }}
                 exit={{ scale: 0, opacity: 0, transition: { duration: 0.16 } }}
-                transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.8 }}>
+                transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.8, ...g.spring }}>
                 <TileFace tile={t} size={cell} selected={sel} hint={hint && (isAt(hint[0], r, c) || isAt(hint[1], r, c))} />
               </motion.div>
             );

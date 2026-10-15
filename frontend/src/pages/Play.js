@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { SkipForward } from "lucide-react";
 import { useGame } from "../game/useGame";
 import { useProfile } from "../game/store";
+import { buildCustomConfig } from "../game/sandbox";
 import { buildConfig, POWERUPS, THEMES, starsFor, rewardFor, todayStr, artFor, TOTAL_LEVELS } from "../game/config";
 import { api } from "../game/api";
 import { Board } from "../components/Board";
@@ -13,17 +14,17 @@ import { ResultModal, ContinueModal } from "../components/ResultModal";
 import { GameBackground } from "../components/GameBackground";
 import { useColorPop, ColorPopBoard, ColorPicker, ColorPopHud, useTimedHint, HINT_COST, HINT_SECONDS } from "./ColorPopGame";
 
-const useCellSize = () => {
+const useCellSize = (n = 8) => {
   const ref = useRef(null);
   const [cell, setCell] = useState(0);
   useEffect(() => {
     const el = ref.current;
-    const measure = () => setCell(Math.max(26, Math.floor((Math.min(el.clientWidth, el.clientHeight, 600) - 30) / 8)));
+    const measure = () => setCell(Math.max(26, Math.floor((Math.min(el.clientWidth, el.clientHeight, 600) - 30) / n)));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [n]);
   return [ref, cell];
 };
 
@@ -57,7 +58,7 @@ function useFinalize(cfg, g) {
         dailyDays: cfg.mode === "daily" ? [...new Set([...p.stats.dailyDays, todayStr()])] : p.stats.dailyDays,
       },
     }));
-    if (metric > 0) api.submitScore({ player_id: profile.playerId, name: profile.name, mode: cfg.mode, score: metric }).catch(() => {});
+    if (metric > 0 && cfg.mode !== "custom") api.submitScore({ player_id: profile.playerId, name: profile.name, mode: cfg.mode, score: metric }).catch(() => {});
     setResult({ ...e, stars, reward, newBest });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [g.ended]);
@@ -85,7 +86,7 @@ const MechIntro = ({ intro, onStart }) => (
 function Game({ cfg, onReplay }) {
   const nav = useNavigate();
   const { profile, update, spend } = useProfile();
-  const [areaRef, cell] = useCellSize();
+  const [areaRef, cell] = useCellSize(cfg.size || 8);
   const theme = THEMES.find((t) => t.id === profile.theme) || THEMES[0];
 
   const payFor = (id) => {
@@ -111,7 +112,7 @@ function Game({ cfg, onReplay }) {
     <div className="play-screen bg-app" data-testid="play-screen">
       <GameBackground art={artFor(cfg)} variant="play" />
       <div className="mx-auto flex h-full w-full max-w-[620px] flex-col px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)]">
-        <Hud cfg={cfg} g={g} onExit={() => nav(cfg.mode === "classic" ? "/levels" : "/")} />
+        <Hud cfg={cfg} g={g} onExit={() => nav(cfg.mode === "classic" ? "/levels" : cfg.mode === "custom" ? "/zen/custom" : cfg.mode === "zen" ? "/zen" : "/")} />
         <div ref={areaRef} className="relative flex min-h-0 flex-1 items-center justify-center py-2">
           {cell > 0 && <Board g={g} cell={cell} theme={theme} />}
           {g.finale && (
@@ -135,8 +136,8 @@ function Game({ cfg, onReplay }) {
           onContinue={() => payFor("extra_moves") && g.continueGame()} onGiveUp={g.giveUp} />
       )}
       {result && (
-        <ResultModal cfg={cfg} result={result} onReplay={onReplay} onHome={() => nav("/")} onRanks={() => nav(`/leaderboard?mode=${cfg.mode}`)}
-          onNext={cfg.mode === "classic" && result.win && cfg.level < TOTAL_LEVELS ? () => nav(`/play/classic/${cfg.level + 1}`) : null} />
+        <ResultModal cfg={cfg} result={result} onReplay={onReplay} onHome={() => nav("/")} onRanks={cfg.mode === "custom" ? null : () => nav(`/leaderboard?mode=${cfg.mode}`)}
+          onNext={cfg.mode === "custom" ? () => nav("/zen/custom") : cfg.mode === "classic" && result.win && cfg.level < TOTAL_LEVELS ? () => nav(`/play/classic/${cfg.level + 1}`) : null} />
       )}
     </div>
   );
@@ -174,7 +175,8 @@ export default function Play() {
   const { mode, level } = useParams();
   const { profile } = useProfile();
   const [nonce, setNonce] = useState(0);
-  const cfg = useMemo(() => buildConfig(mode, Number(level)), [mode, level]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cfg = useMemo(() => (mode === "custom" ? buildCustomConfig(profile.customZen) : buildConfig(mode, Number(level))), [mode, level]);
   if (!cfg) return <Navigate to="/" replace />;
   if (cfg.mode === "classic" && cfg.level > 1 && !profile.levelStars[cfg.level - 1]) return <Navigate to="/levels" replace />;
   const Screen = cfg.mode === "colorpop" ? ColorPopScreen : Game;

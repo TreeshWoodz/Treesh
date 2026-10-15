@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { COLS } from "../game/engine";
 
 const DOTS = Array.from({ length: 10 }, (_, i) => (i / 10) * Math.PI * 2);
 
@@ -26,8 +27,16 @@ const Ring = ({ e, cell }) => {
   );
 };
 
+const Hole = ({ e, cell }) => {
+  const cx = (e.c + 0.5) * cell, cy = (e.r + 0.5) * cell, d = e.size * cell;
+  return (
+    <motion.div className="fx-hole" style={{ left: cx - d / 2, top: cy - d / 2, width: d, height: d }}
+      initial={{ scale: 1.2, opacity: 0, rotate: 0 }} animate={{ scale: [1.2, 1, 0.05], opacity: [0, 1, 0.9], rotate: 540 }} transition={{ duration: 0.75, ease: "easeIn" }} />
+  );
+};
+
 const Bolt = ({ e, cell }) => {
-  const W = cell * 8;
+  const W = cell * COLS;
   const cx = (e.c + 0.5) * cell, cy = (e.r + 0.5) * cell;
   return (
     <svg className="absolute inset-0 overflow-visible" width={W} height={W}>
@@ -46,7 +55,7 @@ const Bolt = ({ e, cell }) => {
 };
 
 const Effect = ({ e, cell }) => {
-  const W = cell * 8;
+  const W = cell * COLS;
   const t = cell * 0.7;
   if (e.kind === "row") return <Beam axis="scaleX" style={{ left: 0, top: e.r * cell + (cell - t) / 2, width: W, height: t }} />;
   if (e.kind === "col") return <Beam axis="scaleY" style={{ top: 0, left: e.c * cell + (cell - t) / 2, width: t, height: W }} />;
@@ -57,6 +66,7 @@ const Effect = ({ e, cell }) => {
   }
   if (e.kind === "ring") return <Ring e={e} cell={cell} />;
   if (e.kind === "bolt") return <Bolt e={e} cell={cell} />;
+  if (e.kind === "hole") return <Hole e={e} cell={cell} />;
   return null;
 };
 

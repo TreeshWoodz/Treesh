@@ -12,6 +12,8 @@ import Shop from "./pages/Shop";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import ColorPopSelect from "./pages/ColorPopSelect";
+import ZenSelect from "./pages/ZenSelect";
+import CustomZen from "./pages/CustomZen";
 
 const BASE = "/games/bronze-blitz";
 applyTreeshAccent();
@@ -27,6 +29,8 @@ function App() {
           <Route path="/" element={<Hub />} />
           <Route path="/levels" element={<LevelMap />} />
           <Route path="/colorpop" element={<ColorPopSelect />} />
+          <Route path="/zen" element={<ZenSelect />} />
+          <Route path="/zen/custom" element={<CustomZen />} />
           <Route path="/play/:mode" element={<Play />} />
           <Route path="/play/:mode/:level" element={<Play />} />
           <Route path="/trophies" element={<Trophies />} />

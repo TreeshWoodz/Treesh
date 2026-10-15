@@ -65,10 +65,10 @@ export const ResultModal = ({ cfg, result, onReplay, onNext, onHome, onRanks }) 
     {result.newBest && <div data-testid="result-new-best" className="mt-3 text-xs font-black uppercase tracking-[0.25em] text-emerald-400">New personal best</div>}
     <CultureFact />
     <div className="mt-6 flex flex-col gap-3">
-      {onNext && <button data-testid="result-next-btn" onClick={onNext} className="btn-bronze w-full">{cfg.mode === "colorpop" ? "Next Difficulty" : "Next Level"} <ArrowRight size={18} /></button>}
-      <div className="grid grid-cols-3 gap-2">
+      {onNext && <button data-testid="result-next-btn" onClick={onNext} className="btn-bronze w-full">{cfg.mode === "colorpop" ? "Next Difficulty" : cfg.mode === "custom" ? "Tweak Sandbox" : "Next Level"} <ArrowRight size={18} /></button>}
+      <div className={`grid gap-2 ${onRanks ? "grid-cols-3" : "grid-cols-2"}`}>
         <button data-testid="result-replay-btn" onClick={onReplay} className="btn-ghost"><RotateCcw size={16} /> Replay</button>
-        <button data-testid="result-ranks-btn" onClick={onRanks} className="btn-ghost"><BarChart3 size={16} /> Ranks</button>
+        {onRanks && <button data-testid="result-ranks-btn" onClick={onRanks} className="btn-ghost"><BarChart3 size={16} /> Ranks</button>}
         <button data-testid="result-home-btn" onClick={onHome} className="btn-ghost"><Home size={16} /> Home</button>
       </div>
     </div>
