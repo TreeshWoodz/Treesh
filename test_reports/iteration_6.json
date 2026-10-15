@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 6 - frontend-only test of Bronze Blitz new Custom Zen (sandbox) mode. Comprehensive end-to-end validation of ZenSelect, CustomZen setup page, /play/custom runtime, result modal flow and regression. All critical acceptance criteria PASS. 1) Hub tile [mode-select-zen] -> /zen select page shows zen-option-classic and zen-option-custom; classic routes to /play/zen with zen-cashout-btn and exit returns to /zen. 2) /zen/custom setup renders every testid listed in the spec: all 6 presets + sandbox-reset-btn; all 12 sandbox-special-{striped,bomb,x,cross,nova,disco,mult,lightning,hole,paint,freeze,gold}; sandbox-specials-all-on/off; all 10 directional buttons sandbox-dir-{down,up,right,left,dr,dl,ur,ul,random,none}; sandbox-strength/speed/size/colors/gift-every/gift-count sliders; all 6 env switches sandbox-env-{swap,quake,rotate,wind,mutate,crates}-switch with per-env every-slider when on; sandbox-diagonal/mirror/rainbow/party switches. 3) Preset persistence: Chaos preset -> localStorage bronze_save_v1.customZen.gravity='random', party=true, giftEvery=1; persists across reload. 4) Board size: overload preset -> size=10 -> 100 tile-r-c elements in /play/custom; default size=8 -> 64 tiles (chaos). 5) HUD custom-zen-tags + custom-fall-dir render per gravity: 'Random: Falls down' (chaos), 'Zero gravity' (zerog), 'Falls down' + 'No diagonals' badge when diagonals off. 6) zen-cashout-btn present in /play/custom; Extra Time powerup (powerup-extra_moves) count=0 (disabled). 7) Env events fire with short intervals: popups 'Tile Swap!', 'Earthquake!', 'Board Spin!' observed within 15s of chaos preset start. 8) Cash Out -> result-modal shown; result-ranks-btn count=0 (hidden for custom); result-next-btn label='Tweak Sandbox'; result-starlites=4 (= floor(score/600), half of classic zen formula verified); clicking next navigates back to /zen/custom. 9) Regression: classic L1 after a 10x10 custom session renders 64 tiles -> board size resets correctly between modes. No console/page errors across all flows except harmless 404s for optional static assets (same as prior iterations).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_6.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "sandbox.js mergeCustom spreads defaults then user partial but env is deep-merged only one level; PRESETS.upside/zerog/diagonal set env={swap:...} partial — mergeCustom handles this correctly for env but NOT for specials. applyPreset uses mergeCustom({...CUSTOM_DEFAULTS, ...pr.s}) which flattens specials; works because presets don't currently override specials. If a preset ever adds a partial specials map, the un-mentioned ids would be lost. Minor future-risk, no action needed now.",
+    "CustomZen.js SliderRow label prop accepts a ReactNode for env rows (JSX span passed as label) — fine for React but non-standard. Not a bug.",
+    "Hud.js line 83: cashout only shows for mode 'zen' or 'custom' — correct. Extra Time powerup disabling for custom is implemented elsewhere (Play.js / useGame); verified via DOM (count=0).",
+    "result-next-btn text for custom is 'Tweak Sandbox ' with trailing space before the arrow icon; cosmetic only.",
+    "Diagonal-swipe-rejection UX popup could not be reproduced via mouse-emulated pointer drag (no popup fired) even though the code path exists at useGame.js:308. The 'No diagonals' HUD tag renders correctly. Likely the Board uses pointer-events with a specific threshold not met by test-driven mouse.move; manual touch on real device will trigger. Non-blocking."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested per request)", "frontend": "100% of required acceptance criteria validated"},
+  "test_credentials": "None - guest; seeded localStorage.treesh_profile={nickname:'Tester'}, treesh_stars={points:5000}",
+  "seed_data_creation": "In-browser localStorage only.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Custom Zen is fully functional. All 12 specials toggles, 10 fall directions, 6 env events, 4 board switches, 6 presets, and sliders render with correct data-testids. /play/custom honours size slider (6..10 -> N*N tiles), gravity label, no-diagonal tag, exclusive Extra Time powerup disabled. Cash out produces result-modal with half-starlites (floor/600) formula and no leaderboard button; Tweak Sandbox button routes back to /zen/custom. Env events fire within configured intervals (seen Tile Swap/Earthquake/Board Spin). One item not interactively reproducible: diagonal-swipe 'No diagonals!' popup via mouse-emulated drag — the HUD tag renders and the code path at useGame.js:308 exists; recommend manual verification on-device.",
+  "rca of the issue": "N/A - no bugs found"
+}

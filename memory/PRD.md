@@ -39,6 +39,13 @@
 - 300 levels / 30 chapters with mechanics: Kente, collect, chains, vinyl crates, gold records, gravity up/sideways, double kente, countdown, diagonal-only, static spread, time attack, power surge, fog, make-specials, combos
 - Fixed result screen not showing (CSS position override)
 
+## Iteration 6-7 (Jun 2026)
+- Endless Zen now opens a select page (/zen): Classic Zen or Custom Zen sandbox (/zen/custom)
+- Custom Zen: toggle 6 standard specials + 6 exclusives (Score Multiplier, Chain Lightning, Black Hole, Color Painter, Time Freeze, Golden Rain); 10 fall directions (down/up/left/right/4 diagonals/random/zero-G); gravity strength + cascade speed; timed chaos events (tile swap, earthquake, board spin, wind, mutation, crate drops); board size 6-10, colors 3-7, diagonal on/off, mirror mode, rainbow wild tiles, disco party, gift-per-swipe; 6 presets; settings saved in profile.customZen
+- Starlites = floor(score/600) (half of Zen), no leaderboard
+- In-game "Tweak" side panel: all settings change live, chaos pauses while open, board size change rebuilds board keeping score
+- Files: game/sandbox.js, pages/CustomZen.js, pages/ZenSelect.js, components/TweakPanel.js; engine.js now supports setSize, WILD tiles, generic gravity lanes, ENV events
+
 ## Backlog
 - P1: Deploy and connect treesh.app custom domain (path /games/bronze-blitz)
 - P1: More obstacle types (locked tiles, chained crates), special+special combo effects

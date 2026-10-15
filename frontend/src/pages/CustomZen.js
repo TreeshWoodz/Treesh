@@ -112,30 +112,43 @@ const GiftSection = ({ s, set }) => (
   </Section>
 );
 
-export default function CustomZen() {
-  const nav = useNavigate();
+export function useSandbox() {
   const { profile, update } = useProfile();
   const s = mergeCustom(profile.customZen || {});
   const set = (v) => update((p) => ({ customZen: { ...mergeCustom(p.customZen || {}), ...v } }));
   const applyPreset = (pr) => update(() => ({ customZen: mergeCustom({ ...CUSTOM_DEFAULTS, ...pr.s }) }));
+  return { s, set, applyPreset };
+}
+
+export const Presets = ({ applyPreset }) => (
+  <div className="flex flex-wrap items-center justify-center gap-2">
+    <Wand2 size={16} className="text-[var(--ac-hi)]" />
+    {PRESETS.map((pr) => (
+      <button key={pr.id} data-testid={`sandbox-preset-${pr.id}`} onClick={() => applyPreset(pr)} className="chest-btn !py-1.5 text-xs">{pr.name}</button>
+    ))}
+    <button data-testid="sandbox-reset-btn" onClick={() => applyPreset({ s: {} })} className="chest-btn !py-1.5 text-xs"><RotateCcw size={14} /> Reset</button>
+  </div>
+);
+
+export const SandboxPanels = ({ s, set, stacked }) => (
+  <div className={`grid gap-4 ${stacked ? "" : "lg:grid-cols-2"}`}>
+    <SpecialsSection s={s} set={set} />
+    <PhysicsSection s={s} set={set} />
+    <EnvSection s={s} set={set} />
+    <div className="flex flex-col gap-4"><BoardSection s={s} set={set} /><GiftSection s={s} set={set} /></div>
+  </div>
+);
+
+export default function CustomZen() {
+  const nav = useNavigate();
+  const { s, set, applyPreset } = useSandbox();
   return (
     <Layout art="afrofuture" wide>
       <PageTitle eyebrow="Endless Zen - Sandbox" title="Custom Zen">
         <p className="max-w-lg text-sm text-slate-200">Build your own board. Flip gravity, unleash chaos, stack exclusive specials. Sandbox rounds pay half the Starlites of Classic Zen and skip the leaderboard.</p>
       </PageTitle>
-      <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
-        <Wand2 size={16} className="text-[var(--ac-hi)]" />
-        {PRESETS.map((pr) => (
-          <button key={pr.id} data-testid={`sandbox-preset-${pr.id}`} onClick={() => applyPreset(pr)} className="chest-btn !py-1.5 text-xs">{pr.name}</button>
-        ))}
-        <button data-testid="sandbox-reset-btn" onClick={() => applyPreset({ s: {} })} className="chest-btn !py-1.5 text-xs"><RotateCcw size={14} /> Reset</button>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SpecialsSection s={s} set={set} />
-        <PhysicsSection s={s} set={set} />
-        <EnvSection s={s} set={set} />
-        <div className="flex flex-col gap-4"><BoardSection s={s} set={set} /><GiftSection s={s} set={set} /></div>
-      </div>
+      <div className="mb-6"><Presets applyPreset={applyPreset} /></div>
+      <SandboxPanels s={s} set={set} />
       <div className="sandbox-start">
         <button data-testid="sandbox-start-btn" onClick={() => nav("/play/custom")} className="btn-bronze !px-8 text-base"><Play size={18} fill="currentColor" /> Start Custom Zen</button>
       </div>

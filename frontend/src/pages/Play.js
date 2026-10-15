@@ -12,6 +12,7 @@ import { Board } from "../components/Board";
 import { Hud, PowerBar } from "../components/Hud";
 import { ResultModal, ContinueModal } from "../components/ResultModal";
 import { GameBackground } from "../components/GameBackground";
+import { TweakPanel } from "../components/TweakPanel";
 import { useColorPop, ColorPopBoard, ColorPicker, ColorPopHud, useTimedHint, HINT_COST, HINT_SECONDS } from "./ColorPopGame";
 
 const useCellSize = (n = 8) => {
@@ -86,7 +87,6 @@ const MechIntro = ({ intro, onStart }) => (
 function Game({ cfg, onReplay }) {
   const nav = useNavigate();
   const { profile, update, spend } = useProfile();
-  const [areaRef, cell] = useCellSize(cfg.size || 8);
   const theme = THEMES.find((t) => t.id === profile.theme) || THEMES[0];
 
   const payFor = (id) => {
@@ -103,7 +103,11 @@ function Game({ cfg, onReplay }) {
     return false;
   };
 
+  useMemo(() => cfg.custom && Object.assign(cfg, buildCustomConfig(profile.customZen)), [cfg, profile.customZen]);
+  const [tweak, setTweak] = useState(false);
+  cfg.paused = tweak;
   const g = useGame(cfg, { onPowerUsed: payFor });
+  const [areaRef, cell] = useCellSize(g.board.length);
   const [intro, setIntro] = useState(!!cfg.intro);
   const result = useFinalize(cfg, g);
   const showContinue = g.ended && cfg.mode === "classic" && !g.ended.win && !g.ended.gaveUp;
@@ -112,7 +116,7 @@ function Game({ cfg, onReplay }) {
     <div className="play-screen bg-app" data-testid="play-screen">
       <GameBackground art={artFor(cfg)} variant="play" />
       <div className="mx-auto flex h-full w-full max-w-[620px] flex-col px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)]">
-        <Hud cfg={cfg} g={g} onExit={() => nav(cfg.mode === "classic" ? "/levels" : cfg.mode === "custom" ? "/zen/custom" : cfg.mode === "zen" ? "/zen" : "/")} />
+        <Hud cfg={cfg} g={g} onTweak={() => setTweak(true)} onExit={() => nav(cfg.mode === "classic" ? "/levels" : cfg.mode === "custom" ? "/zen/custom" : cfg.mode === "zen" ? "/zen" : "/")} />
         <div ref={areaRef} className="relative flex min-h-0 flex-1 items-center justify-center py-2">
           {cell > 0 && <Board g={g} cell={cell} theme={theme} />}
           {g.finale && (
@@ -130,6 +134,7 @@ function Game({ cfg, onReplay }) {
         </div>
         <PowerBar cfg={cfg} g={g} inventory={profile.inventory} />
       </div>
+      <AnimatePresence>{tweak && <TweakPanel onClose={() => setTweak(false)} />}</AnimatePresence>
       <AnimatePresence>{intro && <MechIntro intro={cfg.intro} onStart={() => setIntro(false)} />}</AnimatePresence>
       {showContinue && (
         <ContinueModal cost={200} owned={profile.inventory.extra_moves || 0}
